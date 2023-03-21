@@ -27,17 +27,20 @@ contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, Token
         return 1000e6;
     }
 
-    function getCurveV2PoolData() internal pure override(ZeroExPairTest, CurveV2PairTest) returns (ICurveV2Pool.CurveV2PoolData memory poolData) {
-        poolData =
-            ICurveV2Pool.CurveV2PoolData({pool: 0xD51a44d3FaE010294C616388b506AcdA1bfAAE46, fromTokenIndex: 0, toTokenIndex: 2});
-    }
-
-    function uniswapV3Path()
+    function getCurveV2PoolData()
         internal
         pure
-        override(ZeroExPairTest, SettlerPairTest)
-        returns (bytes memory)
+        override(SettlerPairTest, ZeroExPairTest, CurveV2PairTest)
+        returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {
+        poolData = ICurveV2Pool.CurveV2PoolData({
+            pool: 0xD51a44d3FaE010294C616388b506AcdA1bfAAE46,
+            fromTokenIndex: 0,
+            toTokenIndex: 2
+        });
+    }
+
+    function uniswapV3Path() internal pure override(ZeroExPairTest, SettlerPairTest) returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 }

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+
+import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ICurveV2Pool, ICurveV2SwapRouter} from "./vendor/ICurveV2Pool.sol";
@@ -14,18 +15,17 @@ abstract contract CurveV2PairTest is BasePairTest {
 
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
-    function testCurveV2() skipIf(getCurveV2PoolData().pool == address(0)) public {
+    function testCurveV2() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
-        vm.startPrank(FROM);
-        deal(address(fromToken()), FROM, amount());
-        fromToken().safeApprove(address(poolData.pool), type(uint256).max);
+        dealAndApprove(fromToken(), amount(), address(poolData.pool));
         snapStartName("curveV2Pool");
+        vm.startPrank(FROM);
         ICurveV2Pool(poolData.pool).exchange(poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1);
         snapEnd();
     }
 
-    function testCurveV2_swapRouter() skipIf(getCurveV2PoolData().pool == address(0)) public {
+    function testCurveV2_swapRouter() public skipIf(getCurveV2PoolData().pool == address(0)) {
         // https://github.com/curvefi/curve-pool-registry/blob/master/contracts/Swaps.vy#L506
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
@@ -42,9 +42,8 @@ abstract contract CurveV2PairTest is BasePairTest {
          */
         swapParams[0] = [poolData.fromTokenIndex, poolData.toTokenIndex, 3];
 
+        dealAndApprove(fromToken(), amount(), address(CURVEV2_SWAP_ROUTER));
         vm.startPrank(FROM);
-        deal(address(fromToken()), FROM, amount());
-        fromToken().safeApprove(address(CURVEV2_SWAP_ROUTER), type(uint256).max);
         snapStartName("curveV2Pool_swapRouter");
         CURVEV2_SWAP_ROUTER.exchange_multiple(route, swapParams, amount(), 1);
         snapEnd();

@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {UniswapV3} from "./core/UniswapV3.sol";
-import {Permit2Payment} from "./core/Permit2Payment.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-contract Settler is UniswapV3, Permit2Payment {
+import {UniswapV3} from "./core/UniswapV3.sol";
+import {CurveV2} from "./core/CurveV2.sol";
+import {Permit2Payment} from "./core/Permit2Payment.sol";
+import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
+
+contract Settler is UniswapV3, Permit2Payment, CurveV2 {
+    using SafeTransferLib for ERC20;
+
     error ActionInvalid(bytes4 action, bytes data);
     error ActionFailed(bytes4 action, bytes data, bytes output);
     error LengthMismatch();
@@ -16,10 +22,13 @@ contract Settler is UniswapV3, Permit2Payment {
     ///      Differs from ACTION_UNISWAPV3_SWAP_EXACT_IN  where the funding is expected to be address(this).
     bytes4 internal constant ACTION_UNISWAPV3_PERMIT2_SWAP_EXACT_IN =
         bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN"));
+    bytes4 internal constant ACTION_CURVE_UINT256_EXCHANGE = bytes4(keccak256("CURVE_UINT256_EXCHANGE"));
+    bytes4 internal constant ACTION_TRANSFER_OUT = bytes4(keccak256("TRANSFER_OUT"));
 
     constructor(address permit2, address uniFactory, bytes32 poolInitCodeHash)
         Permit2Payment(permit2)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
+        CurveV2()
     {}
 
     function execute(bytes calldata actions, bytes[] calldata datas) public payable {
@@ -66,6 +75,20 @@ contract Settler is UniswapV3, Permit2Payment {
                 abi.decode(data, (address, uint256, uint256, bytes, bytes));
 
             sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, permit2Data);
+        } else if (action == ACTION_CURVE_UINT256_EXCHANGE) {
+            (
+                address pool,
+                address sellToken,
+                uint256 fromTokenIndex,
+                uint256 toTokenIndex,
+                uint256 sellAmount,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, address, uint256, uint256, uint256, uint256));
+
+            sellTokenForTokenToCurve(pool, ERC20(sellToken), fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
+        } else if (action == ACTION_TRANSFER_OUT) {
+            (address token) = abi.decode(data, (address));
+            ERC20(token).safeTransfer(msg.sender, ERC20(token).balanceOf(address(this)));
         } else {
             revert ActionInvalid({action: action, data: data});
         }

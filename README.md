@@ -25,6 +25,11 @@ There is an initial cost for Permit2 when the token has not been previously used
 | ZeroEx UniswapV3 VIP         | DAI/WETH  | 124601 |
 | ZeroEx Multiplex UniswapV3   | DAI/WETH  | 137876 |
 | UniswapRouterV3              | DAI/WETH  | 120625 |
+|                              |           |        |
+| Settler Curve VIP (warm)     | USDT/WETH | 437324 |
+| ZeroEx Curve VIP             | USDT/WETH | 489162 |
+| Curve pool                   | USDT/WETH | 370578 |
+| Curve Swap Router            | USDT/WETH | 445792 |
 
 We also compare cold and warm with `transferFrom`, where the recipient has a balance or not of the token.
 
@@ -37,10 +42,19 @@ We also compare cold and warm with `transferFrom`, where the recipient has a bal
 | permit2 permitTransferFrom (cold, cold recipient) | 81586 |
 | permit2 permitTransferFrom (cold, warm recipient) | 61665 |
 
-### Settler vs 0xV4
+### Settler vs X
+
+#### Settler vs 0xV4
 
 The Settler contracts must perform additional work over 0xV4, namely, invalidate the state of the `Permit2` signed message, this is essentially an additional `SSTORE` that must always be performed.
 On the otherside, currently Settler does not need to perform the same Feature implementation lookup that 0xV4 requires as a proxy. Settler also does not need to maintain re-entrancy guards as there is no state or TVL to protect.
+
+With the Curve VIP, 0xV4 has to use a LiquidityProviderSandbox as calling untrusted/arbitrary code is a risk in the protocol.
+
+#### Settler vs Curve
+
+The Curve pool does not allow for a `recipient` to be specified, nor does it allow for tokens to be `transfer` into the pool. Due to these limitations there is overhead from the `transfer` out of the Settler contract to the user.
+This same limitation applies to the Curve Swap Router and it can be seen that this contract also has overhead.
 
 ## Actions
 

@@ -2,8 +2,9 @@
 pragma solidity ^0.8.17;
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+
+import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
@@ -20,10 +21,7 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        deal(address(fromToken()), FROM, amount());
-        vm.prank(FROM);
-        fromToken().safeApprove(address(PERMIT2), type(uint256).max);
-
+        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("permit2_permitTransferFrom_coldNonce");
         PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
         snapEnd();
@@ -39,10 +37,7 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        deal(address(fromToken()), FROM, amount());
-        vm.prank(FROM);
-        fromToken().safeApprove(address(PERMIT2), type(uint256).max);
-
+        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("permit2_permitTransferFrom_warmNonce");
         PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
         snapEnd();

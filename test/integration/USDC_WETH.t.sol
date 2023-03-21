@@ -37,5 +37,10 @@ contract USDCWETHTest is SettlerPairTest, ZeroExPairTest, UniswapV3PairTest, Tok
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 
-    function getCurveV2PoolData() internal pure override(ZeroExPairTest) returns (ICurveV2Pool.CurveV2PoolData memory poolData) { }
+    function getCurveV2PoolData()
+        internal
+        pure
+        override(SettlerPairTest, ZeroExPairTest)
+        returns (ICurveV2Pool.CurveV2PoolData memory poolData)
+    {}
 }

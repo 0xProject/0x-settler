@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+
+import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
@@ -19,10 +20,9 @@ abstract contract ZeroExPairTest is BasePairTest {
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     function testZeroEx_uniswapV3VIP() public {
-        vm.startPrank(FROM);
-        deal(address(fromToken()), FROM, amount());
-        fromToken().safeApprove(address(ZERO_EX), type(uint256).max);
+        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
         snapStartName("zeroEx_uniswapV3VIP");
+        vm.startPrank(FROM);
         ZERO_EX.sellTokenForTokenToUniswapV3(uniswapV3Path(), amount(), 1, FROM);
         snapEnd();
     }
@@ -35,11 +35,10 @@ abstract contract ZeroExPairTest is BasePairTest {
             data: uniswapV3Path()
         });
 
-        vm.startPrank(FROM);
-        deal(address(fromToken()), FROM, amount());
-        fromToken().safeApprove(address(ZERO_EX), type(uint256).max);
+        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
 
         snapStartName("zeroEx_uniswapV3VIP_multiplex1");
+        vm.startPrank(FROM);
         ZERO_EX.multiplexBatchSellTokenForToken(fromToken(), toToken(), calls, amount(), 1);
         snapEnd();
     }
@@ -57,28 +56,33 @@ abstract contract ZeroExPairTest is BasePairTest {
             data: uniswapV3Path()
         });
 
-        vm.startPrank(FROM);
-        deal(address(fromToken()), FROM, amount());
-        fromToken().safeApprove(address(ZERO_EX), type(uint256).max);
+        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
 
         snapStartName("zeroEx_uniswapV3VIP_multiplex2");
+        vm.startPrank(FROM);
         ZERO_EX.multiplexBatchSellTokenForToken(fromToken(), toToken(), calls, amount(), 1);
         snapEnd();
     }
 
-    function testZeroEx_curveV2VIP() skipIf(getCurveV2PoolData().pool == address(0)) public {
+    function testZeroEx_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
-        vm.startPrank(FROM);
-        deal(address(fromToken()), FROM, amount());
-        fromToken().safeApprove(address(ZERO_EX), type(uint256).max);
+        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
 
         // ZeroEx can access Curve via CurveLiquidityProvider sandbox
         // Note: this bytes4 selector is exchange(uint256,uint256,uint256,uint256)
         // which mostly found on CurveV2 (not older Curve V1) pools
-        bytes memory data = abi.encode(address(poolData.pool), bytes4(0x5b41b908), int128(int256(poolData.fromTokenIndex)), int128(int256(poolData.toTokenIndex)));
+        bytes memory data = abi.encode(
+            address(poolData.pool),
+            bytes4(0x5b41b908),
+            int128(int256(poolData.fromTokenIndex)),
+            int128(int256(poolData.toTokenIndex))
+        );
         snapStartName("zeroEx_curveV2VIP");
-        ZERO_EX.sellToLiquidityProvider(fromToken(), toToken(), ZERO_EX_CURVE_LIQUIDITY_PROVIDER, FROM, amount(), 1, data);
+        vm.startPrank(FROM);
+        ZERO_EX.sellToLiquidityProvider(
+            fromToken(), toToken(), ZERO_EX_CURVE_LIQUIDITY_PROVIDER, FROM, amount(), 1, data
+        );
         snapEnd();
     }
 }

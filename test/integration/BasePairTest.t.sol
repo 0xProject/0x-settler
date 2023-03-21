@@ -3,23 +3,24 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
-import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
-
-import {Permit2} from "permit2/src/Permit2.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {Permit2Signature} from "../utils/Permit2Signature.sol";
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {Permit2} from "permit2/src/Permit2.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+
+import {Permit2Signature} from "../utils/Permit2Signature.sol";
+
+import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     using SafeTransferLib for ERC20;
 
-    uint256 FROM_PRIVATE_KEY = 0x1337;
+    uint256 constant FROM_PRIVATE_KEY = 0x1337;
     address FROM = vm.addr(FROM_PRIVATE_KEY);
 
-    address BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
+    address constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 
-    Permit2 PERMIT2 = Permit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    Permit2 constant PERMIT2 = Permit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
     function testName() internal virtual returns (string memory);
     function fromToken() internal virtual returns (ERC20);
@@ -29,6 +30,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
         vm.label(address(this), "FoundryTest");
+        vm.label(FROM, "FROM");
     }
 
     function snapStartName(string memory name) internal {
@@ -36,9 +38,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     }
 
     modifier warmPermit2Nonce() {
-        deal(address(fromToken()), FROM, amount());
-        vm.prank(FROM);
-        fromToken().safeApprove(address(PERMIT2), type(uint256).max);
+        dealAndApprove(fromToken(), amount(), address(PERMIT2));
 
         // Warm up by consuming the 0 nonce
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -55,6 +55,20 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     modifier skipIf(bool condition) {
         if (!condition) {
             _;
+        }
+    }
+
+    function dealAndApprove(ERC20 token, uint256 amount, address spender) internal {
+        deal(address(token), FROM, amount);
+        safeApproveIfBelow(token, FROM, spender, amount);
+    }
+
+    function safeApproveIfBelow(ERC20 token, address from, address spender, uint256 amount) internal {
+        // Can't use SafeTransferLib directly due to Foundry.prank not changing address(this)
+        if (token.allowance(from, spender) < amount) {
+            vm.startPrank(FROM);
+            SafeTransferLib.safeApprove(token, spender, type(uint256).max);
+            vm.stopPrank();
         }
     }
 }
