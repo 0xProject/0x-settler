@@ -51,7 +51,7 @@ abstract contract SettlerPairTest is BasePairTest {
         deal(address(fromToken()), FROM, amount());
         vm.startPrank(FROM);
 
-        snapStartName("settler_uniswapV3VIP_warm");
+        snapStartName("settler_uniswapV3VIP_warmNonce");
         settler.execute(actions, datas);
         snapEnd();
     }
@@ -78,7 +78,7 @@ abstract contract SettlerPairTest is BasePairTest {
         deal(address(fromToken()), FROM, amount());
         fromToken().approve(address(PERMIT2), type(uint256).max);
 
-        snapStartName("settler_uniswapV3_multiplex2_warm");
+        snapStartName("settler_uniswapV3_multiplex2_warmNonce");
         settler.execute(actions, datas);
         snapEnd();
     }

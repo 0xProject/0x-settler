@@ -4,8 +4,6 @@ pragma solidity ^0.8.17;
 import {BasePairTest} from "./BasePairTest.t.sol";
 
 abstract contract TokenTransferTest is BasePairTest {
-    address BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
-
     function testToken_transfer_entire() public {
         vm.startPrank(FROM);
         deal(address(fromToken()), FROM, amount());
@@ -78,12 +76,12 @@ abstract contract TokenTransferTest is BasePairTest {
 
         vm.startPrank(FROM);
         deal(address(fromToken()), FROM, amount());
-        snapStartName("tokenFrom_transfer_partial_warm");
+        snapStartName("tokenFrom_transfer_partial_warmRecipient");
         fromToken().transfer(BURN_ADDRESS, amount() / 2);
         snapEnd();
 
         deal(address(toToken()), FROM, amount());
-        snapStartName("tokenTo_transfer_partial_warm");
+        snapStartName("tokenTo_transfer_partial_warmRecipient");
         toToken().transfer(BURN_ADDRESS, amount() / 2);
         snapEnd();
     }
@@ -97,7 +95,7 @@ abstract contract TokenTransferTest is BasePairTest {
         deal(address(fromToken()), FROM, amount());
         fromToken().approve(spender, type(uint256).max);
         vm.stopPrank();
-        snapStartName("tokenFrom_transferFrom_partial_warm");
+        snapStartName("tokenFrom_transferFrom_partial_warmRecipient");
         fromToken().transferFrom(FROM, BURN_ADDRESS, amount() / 2);
         snapEnd();
 
@@ -105,7 +103,7 @@ abstract contract TokenTransferTest is BasePairTest {
         deal(address(toToken()), FROM, amount());
         toToken().approve(spender, type(uint256).max);
         vm.stopPrank();
-        snapStartName("tokenTo_transferFrom_partial_warm");
+        snapStartName("tokenTo_transferFrom_partial_warmRecipient");
         toToken().transferFrom(FROM, BURN_ADDRESS, amount() / 2);
         snapEnd();
     }

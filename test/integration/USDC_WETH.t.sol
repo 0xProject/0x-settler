@@ -7,8 +7,9 @@ import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
+import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 
-contract USDCWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, TokenTransferTest {
+contract USDCWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, TokenTransferTest, Permit2TransferTest {
     function testName() internal pure override returns (string memory) {
         return "USDC-WETH";
     }

@@ -1,6 +1,0 @@
-PermitTest:testPermitThenTransferFrom() (gas: 122396)
-PermitTest:testPermitThenTransferFrom_split() (gas: 134051)
-PermitTest:testPermitTransferFrom() (gas: 182997)
-PermitTest:testPermitTransferFrom_coldFrom_warmRecipient() (gas: 172210)
-PermitTest:testPermitTransferFrom_warmFrom_coldRecipient() (gas: 207941)
-PermitTest:testTransferFrom_coldRecipient() (gas: 127129)

@@ -14,6 +14,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     uint256 FROM_PRIVATE_KEY = 0x1337;
     address FROM = vm.addr(FROM_PRIVATE_KEY);
 
+    address BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
+
     Permit2 PERMIT2 = Permit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
     function testName() internal virtual returns (string memory);
