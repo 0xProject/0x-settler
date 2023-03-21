@@ -10,26 +10,30 @@ Gas cost snapshots are stored under `./forge-snapshots`. The scope is minimized 
 
 There is an initial cost for Permit2 when the token has not been previously used. This adds some non-negligble cost as the storage is changed from a 0 for the first time. For this reason we compare warm (where the nonce is non-0) and cold.
 
-|                              | pair      | gas    |
-| ---------------------------- | --------- | ------ |
-| Settler UniswapV3 VIP (warm) | USDC/WETH | 124526 |
-| Settler UniswapV3 VIP (cold) | USDC/WETH | 148918 |
-| Settler UniswapV3 (cold)     | USDC/WETH | 161081 |
-| ZeroEx UniswapV3 VIP         | USDC/WETH | 122582 |
-| ZeroEx Multiplex UniswapV3   | USDC/WETH | 135857 |
-| UniswapRouterV3              | USDC/WETH | 118607 |
-|                              |           |        |
-| Settler UniswapV3 VIP (warm) | DAI/WETH  | 126543 |
-| Settler UniswapV3 VIP (cold) | DAI/WETH  | 150935 |
-| Settler UniswapV3 (cold)     | DAI/WETH  | 159756 |
-| ZeroEx UniswapV3 VIP         | DAI/WETH  | 124601 |
-| ZeroEx Multiplex UniswapV3   | DAI/WETH  | 137876 |
-| UniswapRouterV3              | DAI/WETH  | 120625 |
-|                              |           |        |
-| Settler Curve VIP (warm)     | USDT/WETH | 437324 |
-| ZeroEx Curve VIP             | USDT/WETH | 489162 |
-| Curve pool                   | USDT/WETH | 370578 |
-| Curve Swap Router            | USDT/WETH | 445792 |
+|                                 | pair      | gas    |
+| ------------------------------- | --------- | ------ |
+| **UniswapV3**                   |           |        |
+| UniswapRouterV3                 | USDC/WETH | 118607 |
+| Settler UniswapV3 VIP (warm)    | USDC/WETH | 124526 |
+| Settler UniswapV3 VIP (cold)    | USDC/WETH | 148918 |
+| Settler UniswapV3 (cold)        | USDC/WETH | 161081 |
+| ZeroEx UniswapV3 VIP            | USDC/WETH | 122582 |
+| ZeroEx Multiplex UniswapV3      | USDC/WETH | 135857 |
+| ZeroEx UniswapV3 TransformERC20 | USDC/WETH | 243334 |
+|                                 |           |        |
+| UniswapRouterV3                 | DAI/WETH  | 120625 |
+| Settler UniswapV3 VIP (warm)    | DAI/WETH  | 126543 |
+| Settler UniswapV3 VIP (cold)    | DAI/WETH  | 150935 |
+| Settler UniswapV3 (cold)        | DAI/WETH  | 159756 |
+| ZeroEx UniswapV3 VIP            | DAI/WETH  | 124601 |
+| ZeroEx Multiplex UniswapV3      | DAI/WETH  | 137876 |
+| ZeroEx UniswapV3 TransformERC20 | DAI/WETH  | 236929 |
+| **Curve**                       |           |        |
+| Curve pool                      | USDT/WETH | 299164 |
+| Settler Curve VIP (warm)        | USDT/WETH | 365910 |
+| ZeroEx Curve VIP                | USDT/WETH | 417748 |
+| ZeroEx Curve TransformERC20     | USDT/WETH | 420654 |
+| Curve Swap Router               | USDT/WETH | 374378 |
 
 We also compare cold and warm with `transferFrom`, where the recipient has a balance or not of the token.
 
