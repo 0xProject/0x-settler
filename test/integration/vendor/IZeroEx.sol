@@ -102,42 +102,6 @@ interface IZeroEx {
         uint256 minOutputTokenAmount,
         ITransformERC20Feature.Transformation[] calldata transformations
     ) external payable returns (uint256 outputTokenAmount);
-}
-
-interface IFillQuoteTransformer {
-    /// @dev Whether we are performing a market sell or buy.
-    enum Side {
-        Sell,
-        Buy
-    }
-
-    enum OrderType {
-        Bridge,
-        Limit,
-        Rfq,
-        Otc
-    }
-
-    /// @dev Allowed signature types.
-    enum SignatureType {
-        ILLEGAL,
-        INVALID,
-        EIP712,
-        ETHSIGN,
-        PRESIGNED
-    }
-
-    /// @dev Encoded EC signature.
-    struct Signature {
-        // How to validate the signature.
-        SignatureType signatureType;
-        // EC Signature data.
-        uint8 v;
-        // EC Signature data.
-        bytes32 r;
-        // EC Signature data.
-        bytes32 s;
-    }
 
     struct LimitOrder {
         ERC20 makerToken;
@@ -180,23 +144,65 @@ interface IFillQuoteTransformer {
         uint256 expiryAndNonce; // [uint64 expiry, uint64 nonceBucket, uint128 nonce]
     }
 
+    /// @dev Allowed signature types.
+    enum SignatureType {
+        ILLEGAL,
+        INVALID,
+        EIP712,
+        ETHSIGN,
+        PRESIGNED
+    }
+
+    /// @dev Encoded EC signature.
+    struct Signature {
+        // How to validate the signature.
+        SignatureType signatureType;
+        // EC Signature data.
+        uint8 v;
+        // EC Signature data.
+        bytes32 r;
+        // EC Signature data.
+        bytes32 s;
+    }
+
+    function fillOtcOrder(OtcOrder calldata order, Signature calldata makerSignature, uint128 takerTokenFillAmount)
+        external
+        returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount);
+
+    function getOtcOrderHash(IZeroEx.OtcOrder memory order) external view returns (bytes32 orderHash);
+}
+
+interface IFillQuoteTransformer {
+    /// @dev Whether we are performing a market sell or buy.
+    enum Side {
+        Sell,
+        Buy
+    }
+
+    enum OrderType {
+        Bridge,
+        Limit,
+        Rfq,
+        Otc
+    }
+
     struct LimitOrderInfo {
-        LimitOrder order;
-        Signature signature;
+        IZeroEx.LimitOrder order;
+        IZeroEx.Signature signature;
         // Maximum taker token amount of this limit order to fill.
         uint256 maxTakerTokenFillAmount;
     }
 
     struct RfqOrderInfo {
-        RfqOrder order;
-        Signature signature;
+        IZeroEx.RfqOrder order;
+        IZeroEx.Signature signature;
         // Maximum taker token amount of this limit order to fill.
         uint256 maxTakerTokenFillAmount;
     }
 
     struct OtcOrderInfo {
-        OtcOrder order;
-        Signature signature;
+        IZeroEx.OtcOrder order;
+        IZeroEx.Signature signature;
         // Maximum taker token amount of this limit order to fill.
         uint256 maxTakerTokenFillAmount;
     }

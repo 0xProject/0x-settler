@@ -10,6 +10,8 @@ Gas cost snapshots are stored under `./forge-snapshots`. The scope is minimized 
 
 There is an initial cost for Permit2 when the token has not been previously used. This adds some non-negligble cost as the storage is changed from a 0 for the first time. For this reason we compare warm (where the nonce is non-0) and cold.
 
+Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due to the difficulty in calculating pinpoint costs (and rebates) in Foundry tests. Real world usage will be slightly lower, but it serves as a useful comparison.
+
 |                                 | pair      | gas    |
 | ------------------------------- | --------- | ------ |
 | **UniswapV3**                   |           |        |
@@ -34,6 +36,15 @@ There is an initial cost for Permit2 when the token has not been previously used
 | ZeroEx Curve VIP                | USDT/WETH | 417748 |
 | ZeroEx Curve TransformERC20     | USDT/WETH | 420654 |
 | Curve Swap Router               | USDT/WETH | 374378 |
+| **OTCOrder**                    |           |        |
+| ZeroEx OTC VIP                  | USDC/WETH | 115910 |
+| Settler OTC                     | USDC/WETH | 187771 |
+|                                 |           |        |
+| ZeroEx OTC VIP                  | DAI/WETH  | 111734 |
+| Settler OTC                     | DAI/WETH  | 177321 |
+|                                 |           |        |
+| ZeroEx OTC VIP                  | USDT/WETH | 120846 |
+| Settler OTC                     | USDT/WETH | 182763 |
 
 We also compare cold and warm with `transferFrom`, where the recipient has a balance or not of the token.
 
@@ -55,23 +66,28 @@ On the otherside, currently Settler does not need to perform the same Feature im
 
 With the Curve VIP, 0xV4 has to use a LiquidityProviderSandbox as calling untrusted/arbitrary code is a risk in the protocol.
 
+OTC has noticeable overhead as it is optimized to be interacted with directly in 0xV4. It lacks `recipient` parameters (to avoid extra transfers) and it also lacks a payment callback when the caller is a contract.
+
 #### Settler vs Curve
 
 The Curve pool does not allow for a `recipient` to be specified, nor does it allow for tokens to be `transfer` into the pool. Due to these limitations there is overhead from the `transfer` out of the Settler contract to the user.
-This same limitation applies to the Curve Swap Router and it can be seen that this contract also has overhead.
+This same limitation applies to the Curve Swap Router.
 
 ## Actions
 
 |                                   | arguments                                                                                                                                                         | note                                                                                                                |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `PERMIT2_TRANSFER_FROM`           | `permit: ISignatureTransfer.PermitTransferFrom, signature: bytes`                                                                                                 | Uses `Permit2` with a signed payload from `msg.sender` to transfer funds from the user into the 0xSettler contract. |
+| `ZERO_EX_OTC`                     | `order: IZeroEx.OtcOrder, signature: IZeroEx.Signature, sellAmount: uint256`                                                                                      | Trades against ZeroEx OTC order using the contracts balance for funding                                             |
 | `UNISWAPV3_SWAP_EXACT_IN`         | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes`                                                                                       | Trades against UniswapV3 using the contracts balance for funding                                                    |
-| `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes, permit2Data: bytes permit: ISignatureTransfer.PermitTransferFrom, signature: bytes()` | Trades against UniswapV3 using the the Permit2 for funding                                                          |
+| `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes, permit2Data: bytes permit: ISignatureTransfer.PermitTransferFrom, signature: bytes()` | Trades against UniswapV3 using the Permit2 for funding                                                              |
+| `CURVE_UINT256_EXCHANGE`          | `pool: address, sellToken: address, fromTokenIndex: uint256, toTokenIndex: uint256, sellAmount: uint256, minBuyAmount: uint256`                                   | Trades against Curve (uint256 variants) using the contracts balance for funding                                     |
+| `TRANSFER_OUT`                    | `token: address`                                                                                                                                                  | Transfers out the contracts balance of `token` to `msg.sender`                                                      |
 
 ## TODO
 
 - [x] UniV3 VIP with a single `transferFrom(user, pool)` using Permit2 in `uniswapV3SwapCallback`
-- [ ] Curve
+- [x] Curve
 - [ ] WETH wrap/unwrap
 - [ ] consider using argument encoding for action names, ala solidity function encoding
 - [ ] can we support all dexes without hitting the contract size limit and requiring `DELEGATECALL's`

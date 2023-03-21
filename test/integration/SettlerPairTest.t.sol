@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+import {IZeroEx} from "./vendor/IZeroEx.sol";
 
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 import {Settler} from "../../src/Settler.sol";
@@ -16,12 +17,52 @@ abstract contract SettlerPairTest is BasePairTest {
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
+    IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+
     function getSettler() private returns (Settler settler) {
         settler = new Settler(
             address(PERMIT2), 
+            address(ZERO_EX), // ZeroEx
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54 // UniV3 pool init code hash
         );
+    }
+
+    function testSettler_zeroExOtcOrder() public warmPermit2Nonce {
+        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
+        dealAndApprove(MAKER, toToken(), amount(), address(ZERO_EX));
+
+        IZeroEx.OtcOrder memory order;
+        order.makerToken = toToken();
+        order.takerToken = fromToken();
+        order.makerAmount = uint128(amount());
+        order.takerAmount = uint128(amount());
+        order.taker = address(0);
+        order.txOrigin = FROM;
+        order.expiryAndNonce = type(uint256).max;
+        order.maker = MAKER;
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, ZERO_EX.getOtcOrderHash(order));
+
+        Settler settler = getSettler();
+        bytes memory actions = abi.encodePacked(
+            bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
+            bytes4(keccak256("ZERO_EX_OTC")) // 0x OTC
+        );
+
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+        bytes memory sig =
+            getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+
+        bytes[] memory datas = new bytes[](2);
+        datas[0] = abi.encode(permit, sig);
+        datas[1] = abi.encode(order, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), amount());
+
+        dealAndApprove(fromToken(), amount(), address(PERMIT2));
+        snapStartName("settler_zeroExOtc");
+        vm.startPrank(FROM, FROM);
+        settler.execute(actions, datas);
+        snapEnd();
     }
 
     function testSettler_uniswapV3VIP() public {

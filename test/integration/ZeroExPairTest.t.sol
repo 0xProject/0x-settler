@@ -19,7 +19,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 abstract contract ZeroExPairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
-    IZeroEx ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+    IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
     // Note: Eventually this will be outdated
     uint32 FQT_DEPLOYMENT_NONCE = 31;
     address ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
@@ -27,6 +27,27 @@ abstract contract ZeroExPairTest is BasePairTest {
 
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
+
+    function testZeroEx_otcOrder() public {
+        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
+        dealAndApprove(MAKER, toToken(), amount(), address(ZERO_EX));
+
+        IZeroEx.OtcOrder memory order;
+        order.makerToken = toToken();
+        order.takerToken = fromToken();
+        order.makerAmount = uint128(amount());
+        order.takerAmount = uint128(amount());
+        order.taker = address(0);
+        order.txOrigin = FROM;
+        order.expiryAndNonce = type(uint256).max;
+        order.maker = MAKER;
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, ZERO_EX.getOtcOrderHash(order));
+
+        snapStartName("zeroEx_otcOrder");
+        vm.startPrank(FROM, FROM);
+        ZERO_EX.fillOtcOrder(order, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), uint128(amount()));
+        snapEnd();
+    }
 
     function testZeroEx_uniswapV3VIP() public {
         dealAndApprove(fromToken(), amount(), address(ZERO_EX));

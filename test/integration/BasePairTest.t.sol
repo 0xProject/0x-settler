@@ -17,6 +17,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
 
     uint256 constant FROM_PRIVATE_KEY = 0x1337;
     address FROM = vm.addr(FROM_PRIVATE_KEY);
+    uint256 constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
+    address MAKER = vm.addr(MAKER_PRIVATE_KEY);
 
     address constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 
@@ -63,10 +65,15 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         safeApproveIfBelow(token, FROM, spender, amount);
     }
 
+    function dealAndApprove(address who, ERC20 token, uint256 amount, address spender) internal {
+        deal(address(token), who, amount);
+        safeApproveIfBelow(token, who, spender, amount);
+    }
+
     function safeApproveIfBelow(ERC20 token, address from, address spender, uint256 amount) internal {
         // Can't use SafeTransferLib directly due to Foundry.prank not changing address(this)
         if (token.allowance(from, spender) < amount) {
-            vm.startPrank(FROM);
+            vm.startPrank(from);
             SafeTransferLib.safeApprove(token, spender, type(uint256).max);
             vm.stopPrank();
         }
