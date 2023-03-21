@@ -3,9 +3,12 @@ pragma solidity ^0.8.17;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
-import {TokenPairTest} from "./TokenPairTest.t.sol";
+import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
+import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 
-contract USDCWETHTest is TokenPairTest {
+contract USDCWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, TokenTransferTest {
     function testName() internal pure override returns (string memory) {
         return "USDC-WETH";
     }
@@ -22,7 +25,12 @@ contract USDCWETHTest is TokenPairTest {
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override returns (bytes memory) {
+    function uniswapV3Path()
+        internal
+        pure
+        override(ZeroExPairTest, UniswapV3PairTest, SettlerPairTest)
+        returns (bytes memory)
+    {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 }

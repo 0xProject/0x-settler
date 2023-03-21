@@ -27,4 +27,4 @@ jobs:
         run: forge test
         env:
           FOUNDRY_PROFILE: integration
-          FORK_URL: ${{ secrets.MAINNET_RPC_URL }}
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
