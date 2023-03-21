@@ -44,4 +44,14 @@ interface IZeroEx {
         uint256 sellAmount,
         uint256 minBuyAmount
     ) external returns (uint256 boughtAmount);
+
+    function sellToLiquidityProvider(
+        ERC20 inputToken,
+        ERC20 outputToken,
+        address provider,
+        address recipient,
+        uint256 sellAmount,
+        uint256 minBuyAmount,
+        bytes calldata auxiliaryData
+    ) external payable returns (uint256 boughtAmount);
 }

@@ -3,21 +3,20 @@ pragma solidity ^0.8.17;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
-import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
-import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
-import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
-
+import {CurveV2PairTest} from "./CurveV2PairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCWETHTest is SettlerPairTest, ZeroExPairTest, UniswapV3PairTest, TokenTransferTest, Permit2TransferTest {
+contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, TokenTransferTest {
     function testName() internal pure override returns (string memory) {
-        return "USDC-WETH";
+        return "USDT-WETH";
     }
 
     function fromToken() internal pure override returns (ERC20) {
-        return ERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        return ERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     }
 
     function toToken() internal pure override returns (ERC20) {
@@ -28,14 +27,17 @@ contract USDCWETHTest is SettlerPairTest, ZeroExPairTest, UniswapV3PairTest, Tok
         return 1000e6;
     }
 
+    function getCurveV2PoolData() internal pure override(ZeroExPairTest, CurveV2PairTest) returns (ICurveV2Pool.CurveV2PoolData memory poolData) {
+        poolData =
+            ICurveV2Pool.CurveV2PoolData({pool: 0xD51a44d3FaE010294C616388b506AcdA1bfAAE46, fromTokenIndex: 0, toTokenIndex: 2});
+    }
+
     function uniswapV3Path()
         internal
         pure
-        override(ZeroExPairTest, UniswapV3PairTest, SettlerPairTest)
+        override(ZeroExPairTest, SettlerPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
-
-    function getCurveV2PoolData() internal pure override(ZeroExPairTest) returns (ICurveV2Pool.CurveV2PoolData memory poolData) { }
 }

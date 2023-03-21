@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
+
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {IUniswapV3Router} from "./vendor/IUniswapV3Router.sol";
 
 abstract contract UniswapV3PairTest is BasePairTest {
+    using SafeTransferLib for ERC20;
+
     function uniswapV3Path() internal virtual returns (bytes memory);
 
     function testUniswapRouter() public {
@@ -12,7 +17,7 @@ abstract contract UniswapV3PairTest is BasePairTest {
 
         vm.startPrank(FROM);
         deal(address(fromToken()), FROM, amount());
-        fromToken().approve(address(UNISWAP_ROUTER), type(uint256).max);
+        fromToken().safeApprove(address(UNISWAP_ROUTER), type(uint256).max);
 
         snapStartName("uniswapRouter_uniswapV3");
         UNISWAP_ROUTER.exactInput(

@@ -8,6 +8,8 @@ import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 
+import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+
 contract DAIWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, TokenTransferTest {
     function testName() internal pure override returns (string memory) {
         return "DAI-WETH";
@@ -33,4 +35,6 @@ contract DAIWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, Toke
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
+
+    function getCurveV2PoolData() internal pure override(ZeroExPairTest) returns (ICurveV2Pool.CurveV2PoolData memory poolData) { }
 }

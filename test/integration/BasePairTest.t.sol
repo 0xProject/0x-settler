@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
+import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 
 import {Permit2} from "permit2/src/Permit2.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
@@ -11,6 +12,8 @@ import {Permit2Signature} from "../utils/Permit2Signature.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
+    using SafeTransferLib for ERC20;
+
     uint256 FROM_PRIVATE_KEY = 0x1337;
     address FROM = vm.addr(FROM_PRIVATE_KEY);
 
@@ -24,8 +27,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     function amount() internal virtual returns (uint256);
 
     function setUp() public {
-        emit log_string("BasePairTest");
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        vm.label(address(this), "FoundryTest");
     }
 
     function snapStartName(string memory name) internal {
@@ -35,7 +38,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     modifier warmPermit2Nonce() {
         deal(address(fromToken()), FROM, amount());
         vm.prank(FROM);
-        fromToken().approve(address(PERMIT2), type(uint256).max);
+        fromToken().safeApprove(address(PERMIT2), type(uint256).max);
 
         // Warm up by consuming the 0 nonce
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -47,5 +50,11 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
 
         PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
         _;
+    }
+
+    modifier skipIf(bool condition) {
+        if (!condition) {
+            _;
+        }
     }
 }
