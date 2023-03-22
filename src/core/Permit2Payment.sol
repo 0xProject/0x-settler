@@ -21,4 +21,15 @@ abstract contract Permit2Payment {
     ) internal {
         PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
     }
+
+    function permit2WitnessTransferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes memory sig,
+        bytes32 witness,
+        string memory witnessTypeString
+    ) internal {
+        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+    }
 }

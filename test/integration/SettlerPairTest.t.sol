@@ -186,4 +186,47 @@ abstract contract SettlerPairTest is BasePairTest {
         settler.execute(actions, datas);
         snapEnd();
     }
+
+    struct ActionData {
+        bytes actions;
+        bytes data;
+    }
+
+    bytes32 constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)"
+    );
+    string constant WITNESS_TYPE_STRING =
+        "ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)";
+
+    function testSettler_metaTxn() public warmPermit2Nonce {
+        Settler settler = getSettler();
+        bytes memory actions = abi.encodePacked(
+            bytes4(keccak256("PERMIT2_WITNESS_TRANSFER_FROM")), // Permit 2
+            bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")) // Uniswap Swap
+        );
+
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+
+        bytes[] memory datas = new bytes[](2);
+        datas[0] = abi.encode(permit, FROM);
+        datas[1] = abi.encode(FROM, amount(), 1, uniswapV3Path());
+
+        ActionData memory actionData = ActionData(actions, abi.encode(datas));
+        bytes32 witness = keccak256(abi.encode(actionData));
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit,
+            address(settler),
+            FROM_PRIVATE_KEY,
+            FULL_PERMIT2_WITNESS_TYPEHASH,
+            witness,
+            PERMIT2.DOMAIN_SEPARATOR()
+        );
+
+        dealAndApprove(fromToken(), amount(), address(PERMIT2));
+        snapStartName("settler_metaTxn_uniswapV3");
+        // Submitted by third party
+        settler.executeMetaTxn(actions, datas, sig);
+        snapEnd();
+    }
 }

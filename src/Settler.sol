@@ -19,6 +19,7 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     error LengthMismatch();
 
     bytes4 internal constant ACTION_PERMIT2_TRANSFER_FROM = bytes4(keccak256("PERMIT2_TRANSFER_FROM"));
+    bytes4 internal constant ACTION_PERMIT2_WITNESS_TRANSFER_FROM = bytes4(keccak256("PERMIT2_WITNESS_TRANSFER_FROM"));
     bytes4 internal constant ACTION_ZERO_EX_OTC = bytes4(keccak256("ZERO_EX_OTC"));
     bytes4 internal constant ACTION_UNISWAPV3_SWAP_EXACT_IN = bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN"));
     /// @dev Performs a UniswapV3 trade over pools with the initial funding coming from msg.sender Permit2.
@@ -27,6 +28,15 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
         bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN"));
     bytes4 internal constant ACTION_CURVE_UINT256_EXCHANGE = bytes4(keccak256("CURVE_UINT256_EXCHANGE"));
     bytes4 internal constant ACTION_TRANSFER_OUT = bytes4(keccak256("TRANSFER_OUT"));
+
+    // Permit2 Witness
+    string internal constant WITNESS_TYPE_STRING =
+        "ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)";
+
+    struct ActionData {
+        bytes actions;
+        bytes data;
+    }
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
         Permit2Payment(permit2)
@@ -46,9 +56,9 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
 
         for (uint256 i = 0; i < numActions;) {
             bytes4 action = bytes4(actions[i * 4:i * 4 + 4]);
-
             bytes calldata data = datas[i];
-            (success, output) = dispatch(action, data);
+
+            (success, output) = dispatch(action, data, msg.sender);
             if (!success) {
                 revert ActionFailed({action: action, data: data, output: output});
             }
@@ -58,7 +68,54 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
         }
     }
 
-    function dispatch(bytes4 action, bytes calldata data) internal returns (bool success, bytes memory output) {
+    function executeMetaTxn(bytes calldata actions, bytes[] calldata datas, bytes memory sig) public payable {
+        bool success;
+        bytes memory output;
+        uint256 numActions = actions.length / 4;
+
+        address msgSender = msg.sender;
+
+        if (datas.length != numActions) {
+            revert LengthMismatch();
+        }
+
+        for (uint256 i = 0; i < numActions;) {
+            bytes4 action = bytes4(actions[i * 4:i * 4 + 4]);
+            bytes calldata data = datas[i];
+
+            // HACK: check this early to validate all actions and datas
+            // clean this up
+            if (i == 0) {
+                if (action != ACTION_PERMIT2_WITNESS_TRANSFER_FROM) {
+                    revert ActionInvalid({action: action, data: data});
+                }
+
+                (ISignatureTransfer.PermitTransferFrom memory permit, address from) =
+                    abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
+                ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
+                    .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
+                ActionData memory actionData = ActionData(actions, abi.encode(datas));
+                bytes32 witness = keccak256(abi.encode(actionData));
+
+                msgSender = from;
+                permit2WitnessTransferFrom(permit, transferDetails, from, sig, witness, WITNESS_TYPE_STRING);
+            } else {
+                (success, output) = dispatch(action, data, msgSender);
+                if (!success) {
+                    revert ActionFailed({action: action, data: data, output: output});
+                }
+            }
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function dispatch(bytes4 action, bytes calldata data, address msgSender)
+        internal
+        returns (bool success, bytes memory output)
+    {
         success = true;
 
         if (action == ACTION_PERMIT2_TRANSFER_FROM) {
@@ -68,7 +125,7 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
             ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
                 .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
 
-            permit2TransferFrom(permit, transferDetails, msg.sender, sig);
+            permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ACTION_ZERO_EX_OTC) {
             (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
                 abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
@@ -97,7 +154,7 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
             sellTokenForTokenToCurve(pool, ERC20(sellToken), fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
         } else if (action == ACTION_TRANSFER_OUT) {
             (address token) = abi.decode(data, (address));
-            ERC20(token).safeTransfer(msg.sender, ERC20(token).balanceOf(address(this)));
+            ERC20(token).safeTransfer(msgSender, ERC20(token).balanceOf(address(this)));
         } else {
             revert ActionInvalid({action: action, data: data});
         }

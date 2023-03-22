@@ -88,6 +88,7 @@ This same limitation applies to the Curve Swap Router.
 
 - [x] UniV3 VIP with a single `transferFrom(user, pool)` using Permit2 in `uniswapV3SwapCallback`
 - [x] Curve
+- [ ] MetaTxn
 - [ ] WETH wrap/unwrap
 - [ ] consider using argument encoding for action names, ala solidity function encoding
 - [ ] can we support all dexes without hitting the contract size limit and requiring `DELEGATECALL's`
@@ -102,3 +103,11 @@ We've continued on with the terminology of VIPs. Recall from 0xV4 that VIPs are 
 This settlement path is optimized by performing the Permit2 in the `uniswapV3SwapCallback` function performing a `permit2TransferFrom` and avoiding an additional `transfer`. This is further benefitted from tokens being sent to a pool with an already initialized balance, rathan than to 0xSettler as a temporary intermediary.
 
 The action `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` exposes this behaviour and it should not be used with any other `PERMIT2` action (e.g `PERMIT2_TRANSFER_FROM`).
+
+# Risk
+
+Since Settler has no outstanding allowances, and no usage of `transferFrom` or arbitrary calls, overall risk of user funds loss is greatly reduced.
+
+Permit2 allowances (with short dated expiration) still opens up the contracts to some risk of user funds. Namely, `Alice` permit2 being intercepted and a malicious transaction from `Mallory`, which spends `Alice`'s money and transfers it to `Mallory`.
+
+To protect funds we must validate the actions being performed originate from the Permit2 signer. This is simple in the case where `msg.sender/tx.origin` is the signer of the Permit2 message. To support MetaTransactions we will need to employ the Witness functionality of Permit2 to ensure the actions are intentional from `Alice` as `msg.sender/tx.origin` is a different address.
