@@ -65,7 +65,7 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3VIP() public {
+    function testSettler_uniswapV3VIP_cold() public {
         Settler settler = getSettler();
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN")) // Uniswap Swap
@@ -80,13 +80,13 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[0] = abi.encode(FROM, amount(), 1, uniswapV3Path(), abi.encode(permit, sig));
 
         dealAndApprove(fromToken(), amount(), address(PERMIT2));
-        snapStartName("settler_uniswapV3VIP");
+        snapStartName("settler_uniswapV3VIP_cold");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
     }
 
-    function testSettler_uniswapV3VIP_warm() public warmPermit2Nonce {
+    function testSettler_uniswapV3VIP() public warmPermit2Nonce {
         Settler settler = getSettler();
         deal(address(fromToken()), FROM, amount());
         bytes memory actions = abi.encodePacked(
@@ -102,7 +102,7 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[0] = abi.encode(FROM, amount(), 1, uniswapV3Path(), abi.encode(permit, sig));
 
         dealAndApprove(fromToken(), amount(), address(PERMIT2));
-        snapStartName("settler_uniswapV3VIP_warmNonce");
+        snapStartName("settler_uniswapV3VIP");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
@@ -127,13 +127,13 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[2] = abi.encode(FROM, amount() / 2, 1, uniswapV3Path());
 
         dealAndApprove(fromToken(), amount(), address(PERMIT2));
-        snapStartName("settler_uniswapV3_multiplex2_warmNonce");
+        snapStartName("settler_uniswapV3_multiplex2");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
     }
 
-    function testSettler_uniswapV3() warmPermit2Nonce public {
+    function testSettler_uniswapV3() public warmPermit2Nonce {
         Settler settler = getSettler();
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
@@ -181,7 +181,7 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[2] = abi.encode(address(fromToken()));
 
         dealAndApprove(fromToken(), amount(), address(PERMIT2));
-        snapStartName("settler_curveV2VIP_warmNonce");
+        snapStartName("settler_curveV2VIP");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
@@ -192,11 +192,9 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes data;
     }
 
-    bytes32 constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
+    bytes32 private constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)"
     );
-    string constant WITNESS_TYPE_STRING =
-        "ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)";
 
     function testSettler_metaTxn() public warmPermit2Nonce {
         Settler settler = getSettler();
