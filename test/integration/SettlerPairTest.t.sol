@@ -133,7 +133,7 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3() public {
+    function testSettler_uniswapV3() warmPermit2Nonce public {
         Settler settler = getSettler();
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
@@ -141,7 +141,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 0);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 

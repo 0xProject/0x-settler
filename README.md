@@ -89,6 +89,7 @@ This same limitation applies to the Curve Swap Router.
 - [x] UniV3 VIP with a single `transferFrom(user, pool)` using Permit2 in `uniswapV3SwapCallback`
 - [x] Curve
 - [ ] MetaTxn
+- [ ] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
 - [ ] WETH wrap/unwrap
 - [ ] consider using argument encoding for action names, ala solidity function encoding
 - [ ] can we support all dexes without hitting the contract size limit and requiring `DELEGATECALL's`
