@@ -40,17 +40,12 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     }
 
     modifier warmPermit2Nonce() {
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
+        _warmPermit2Nonce(FROM_PRIVATE_KEY, fromToken());
+        _;
+    }
 
-        // Warm up by consuming the 0 nonce
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 0);
-        bytes memory sig =
-            getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
-
-        PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
+    modifier warmUserPermit2Nonce(uint256 privKey, ERC20 token) {
+        _warmPermit2Nonce(privKey, token);
         _;
     }
 
@@ -58,6 +53,19 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         if (!condition) {
             _;
         }
+    }
+
+    function _warmPermit2Nonce(uint256 privKey, ERC20 token) internal {
+        dealAndApprove(vm.addr(privKey), token, amount(), address(PERMIT2));
+
+        // Warm up by consuming the 0 nonce
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(token), uint160(amount()), 0);
+        bytes memory sig = getPermitTransferSignature(permit, address(this), privKey, PERMIT2.DOMAIN_SEPARATOR());
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
+
+        PERMIT2.permitTransferFrom(permit, transferDetails, vm.addr(privKey), sig);
     }
 
     function dealAndApprove(ERC20 token, uint256 amount, address spender) internal {

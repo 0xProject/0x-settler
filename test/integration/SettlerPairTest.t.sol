@@ -227,4 +227,67 @@ abstract contract SettlerPairTest is BasePairTest {
         settler.executeMetaTxn(actions, datas, sig);
         snapEnd();
     }
+
+    bytes32 private constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,OtcOrder order)OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)TokenPermissions(address token,uint256 amount)"
+    );
+
+    struct OtcOrder {
+        ERC20 makerToken;
+        ERC20 takerToken;
+        uint128 makerAmount;
+        uint128 takerAmount;
+        address maker;
+        address taker;
+        address txOrigin;
+    }
+
+    function testSettler_otc()
+        public
+        warmUserPermit2Nonce(FROM_PRIVATE_KEY, fromToken())
+        warmUserPermit2Nonce(MAKER_PRIVATE_KEY, toToken())
+    {
+        Settler settler = getSettler();
+
+        ISignatureTransfer.PermitTransferFrom memory makerPermit =
+            defaultERC20PermitTransfer(address(toToken()), uint160(amount()), 1);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+
+        OtcOrder memory order = OtcOrder({
+            makerToken: toToken(),
+            takerToken: fromToken(),
+            makerAmount: uint128(amount()),
+            takerAmount: uint128(amount()),
+            maker: MAKER,
+            taker: address(0),
+            txOrigin: address(0)
+        });
+        bytes32 witness = keccak256(abi.encode(order));
+        bytes memory makerSig = getPermitWitnessTransferSignature(
+            makerPermit,
+            address(settler),
+            MAKER_PRIVATE_KEY,
+            OTC_PERMIT2_WITNESS_TYPEHASH,
+            witness,
+            PERMIT2.DOMAIN_SEPARATOR()
+        );
+
+        bytes memory takerSig =
+            getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+
+        bytes memory actions = abi.encodePacked(
+            bytes4(keccak256("SETTLER_OTC")) // Settler OTC
+        );
+        bytes[] memory datas = new bytes[](1);
+        datas[0] = abi.encode(order, makerPermit, makerSig, takerPermit, takerSig, uint128(amount()));
+
+        dealAndApprove(fromToken(), amount(), address(PERMIT2));
+        dealAndApprove(MAKER, toToken(), amount(), address(PERMIT2));
+
+        snapStartName("settler_otc");
+        vm.startPrank(FROM);
+        settler.execute(actions, datas);
+        snapEnd();
+    }
 }

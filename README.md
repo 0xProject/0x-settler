@@ -12,39 +12,42 @@ There is an initial cost for Permit2 when the token has not been previously used
 
 Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due to the difficulty in calculating pinpoint costs (and rebates) in Foundry tests. Real world usage will be slightly lower, but it serves as a useful comparison.
 
-|                                 | pair      | gas    |
-| ------------------------------- | --------- | ------ |
-| **UniswapV3**                   |           |        |
-| UniswapRouterV3                 | USDC/WETH | 118607 |
-| Settler UniswapV3 VIP (warm)    | USDC/WETH | 124526 |
-| Settler UniswapV3 VIP (cold)    | USDC/WETH | 148918 |
-| Settler UniswapV3 (cold)        | USDC/WETH | 161081 |
-| ZeroEx UniswapV3 VIP            | USDC/WETH | 122582 |
-| ZeroEx Multiplex UniswapV3      | USDC/WETH | 135857 |
-| ZeroEx UniswapV3 TransformERC20 | USDC/WETH | 243334 |
-|                                 |           |        |
-| UniswapRouterV3                 | DAI/WETH  | 120625 |
-| Settler UniswapV3 VIP (warm)    | DAI/WETH  | 126543 |
-| Settler UniswapV3 VIP (cold)    | DAI/WETH  | 150935 |
-| Settler UniswapV3 (cold)        | DAI/WETH  | 159756 |
-| ZeroEx UniswapV3 VIP            | DAI/WETH  | 124601 |
-| ZeroEx Multiplex UniswapV3      | DAI/WETH  | 137876 |
-| ZeroEx UniswapV3 TransformERC20 | DAI/WETH  | 236929 |
-| **Curve**                       |           |        |
-| Curve pool                      | USDT/WETH | 299164 |
-| Settler Curve VIP (warm)        | USDT/WETH | 365910 |
-| ZeroEx Curve VIP                | USDT/WETH | 417748 |
-| ZeroEx Curve TransformERC20     | USDT/WETH | 420654 |
-| Curve Swap Router               | USDT/WETH | 374378 |
-| **OTCOrder**                    |           |        |
-| ZeroEx OTC VIP                  | USDC/WETH | 115910 |
-| Settler OTC                     | USDC/WETH | 187771 |
-|                                 |           |        |
-| ZeroEx OTC VIP                  | DAI/WETH  | 111734 |
-| Settler OTC                     | DAI/WETH  | 177321 |
-|                                 |           |        |
-| ZeroEx OTC VIP                  | USDT/WETH | 120846 |
-| Settler OTC                     | USDT/WETH | 182763 |
+|                               | pair      | gas    |
+| ----------------------------- | --------- | ------ |
+| **UniswapV3**                 |           |        |
+| UniswapRouterV3               | USDC/WETH | 118607 |
+| Settler UniswapV3 VIP (warm)  | USDC/WETH | 124526 |
+| Settler UniswapV3 VIP (cold)  | USDC/WETH | 148918 |
+| Settler UniswapV3 (cold)      | USDC/WETH | 161081 |
+| 0xV4 UniswapV3 VIP            | USDC/WETH | 122582 |
+| 0xV4 Multiplex UniswapV3      | USDC/WETH | 135857 |
+| 0xV4 UniswapV3 TransformERC20 | USDC/WETH | 243334 |
+|                               |           |        |
+| UniswapRouterV3               | DAI/WETH  | 120625 |
+| Settler UniswapV3 VIP (warm)  | DAI/WETH  | 126543 |
+| Settler UniswapV3 VIP (cold)  | DAI/WETH  | 150935 |
+| Settler UniswapV3 (cold)      | DAI/WETH  | 159756 |
+| 0xV4 UniswapV3 VIP            | DAI/WETH  | 124601 |
+| 0xV4 Multiplex UniswapV3      | DAI/WETH  | 137876 |
+| 0xV4 UniswapV3 TransformERC20 | DAI/WETH  | 236929 |
+| **Curve**                     |           |        |
+| Curve pool                    | USDT/WETH | 299164 |
+| Settler Curve VIP (warm)      | USDT/WETH | 365910 |
+| 0xV4 Curve VIP                | USDT/WETH | 417748 |
+| 0xV4 Curve TransformERC20     | USDT/WETH | 420654 |
+| Curve Swap Router             | USDT/WETH | 374378 |
+| **OTCOrder**                  |           |        |
+| 0xV4 OTC VIP                  | USDC/WETH | 115910 |
+| Settler 0xV4 OTC              | USDC/WETH | 188000 |
+| Settler OTC                   | USDC/WETH | 102042 |
+|                               |           |        |
+| 0xV4 OTC VIP                  | DAI/WETH  | 111734 |
+| Settler 0xV4 OTC              | DAI/WETH  | 177550 |
+| Settler OTC                   | DAI/WETH  | 97868  |
+|                               |           |        |
+| 0xV4 OTC VIP                  | USDT/WETH | 120846 |
+| Settler 0xV4 OTC              | USDT/WETH | 183013 |
+| Settler OTC                   | USDT/WETH | 98995  |
 
 We also compare cold and warm with `transferFrom`, where the recipient has a balance or not of the token.
 
@@ -75,14 +78,15 @@ This same limitation applies to the Curve Swap Router.
 
 ## Actions
 
-|                                   | arguments                                                                                                                                                         | note                                                                                                                |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `PERMIT2_TRANSFER_FROM`           | `permit: ISignatureTransfer.PermitTransferFrom, signature: bytes`                                                                                                 | Uses `Permit2` with a signed payload from `msg.sender` to transfer funds from the user into the 0xSettler contract. |
-| `ZERO_EX_OTC`                     | `order: IZeroEx.OtcOrder, signature: IZeroEx.Signature, sellAmount: uint256`                                                                                      | Trades against ZeroEx OTC order using the contracts balance for funding                                             |
-| `UNISWAPV3_SWAP_EXACT_IN`         | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes`                                                                                       | Trades against UniswapV3 using the contracts balance for funding                                                    |
-| `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes, permit2Data: bytes permit: ISignatureTransfer.PermitTransferFrom, signature: bytes()` | Trades against UniswapV3 using the Permit2 for funding                                                              |
-| `CURVE_UINT256_EXCHANGE`          | `pool: address, sellToken: address, fromTokenIndex: uint256, toTokenIndex: uint256, sellAmount: uint256, minBuyAmount: uint256`                                   | Trades against Curve (uint256 variants) using the contracts balance for funding                                     |
-| `TRANSFER_OUT`                    | `token: address`                                                                                                                                                  | Transfers out the contracts balance of `token` to `msg.sender`                                                      |
+|                                   | arguments                                                                                                                                                                        | note                                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `PERMIT2_TRANSFER_FROM`           | `permit: ISignatureTransfer.PermitTransferFrom, signature: bytes`                                                                                                                | Uses `Permit2` with a signed payload from `msg.sender` to transfer funds from the user into the 0xSettler contract. |
+| `SETTLER_OTC`                     | `order: OtcOrder, makerPermit: ISignatureTransfer.PermitTransferFrom, makerSig: bytes, takerPermit: ISignatureTransfer.PermitTransferFrom, takerSig: bytes, fillAmount: uint128` | Trades against 0xV4 OTC order using the contracts balance for funding                                               |
+| `ZERO_EX_OTC`                     | `order: IZeroEx.OtcOrder, signature: IZeroEx.Signature, sellAmount: uint256`                                                                                                     | Trades against 0xV4 OTC order using the contracts balance for funding                                               |
+| `UNISWAPV3_SWAP_EXACT_IN`         | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes`                                                                                                      | Trades against UniswapV3 using the contracts balance for funding                                                    |
+| `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes, permit2Data: bytes permit: ISignatureTransfer.PermitTransferFrom, signature: bytes()`                | Trades against UniswapV3 using the Permit2 for funding                                                              |
+| `CURVE_UINT256_EXCHANGE`          | `pool: address, sellToken: address, fromTokenIndex: uint256, toTokenIndex: uint256, sellAmount: uint256, minBuyAmount: uint256`                                                  | Trades against Curve (uint256 variants) using the contracts balance for funding                                     |
+| `TRANSFER_OUT`                    | `token: address`                                                                                                                                                                 | Transfers out the contracts balance of `token` to `msg.sender`                                                      |
 
 ## TODO
 
