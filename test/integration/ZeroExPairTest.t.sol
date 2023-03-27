@@ -19,7 +19,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 abstract contract ZeroExPairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
-    IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+    IZeroEx private ZERO_EX = IZeroEx(ZERO_EX_ADDRESS);
     // Note: Eventually this will be outdated
     uint32 FQT_DEPLOYMENT_NONCE = 31;
     address ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
@@ -27,31 +27,36 @@ abstract contract ZeroExPairTest is BasePairTest {
 
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
+    IZeroEx.OtcOrder otcOrder;
+    bytes32 otcOrderHash;
 
-    function testZeroEx_otcOrder() public {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-        dealAndApprove(MAKER, toToken(), amount(), address(ZERO_EX));
 
-        IZeroEx.OtcOrder memory order;
-        order.makerToken = toToken();
-        order.takerToken = fromToken();
-        order.makerAmount = uint128(amount());
-        order.takerAmount = uint128(amount());
-        order.taker = address(0);
-        order.txOrigin = FROM;
-        order.expiryAndNonce = type(uint256).max;
-        order.maker = MAKER;
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, ZERO_EX.getOtcOrderHash(order));
+    function setUp() public virtual override {
+        super.setUp();
+        safeApproveIfBelow(fromToken(), FROM, address(ZERO_EX), amount());
+        safeApproveIfBelow(toToken(), MAKER, address(ZERO_EX), amount());
 
-        snapStartName("zeroEx_otcOrder");
+        // OTC Order
+        otcOrder.makerToken = toToken();
+        otcOrder.takerToken = fromToken();
+        otcOrder.makerAmount = uint128(amount());
+        otcOrder.takerAmount = uint128(amount());
+        otcOrder.taker = address(0);
+        otcOrder.txOrigin = FROM;
+        otcOrder.expiryAndNonce = ((block.timestamp + 60) << 192) | 2;
+        otcOrder.maker = MAKER;
+        otcOrderHash = ZERO_EX.getOtcOrderHash(otcOrder);
+    }
+
+    function testZeroEx_otcOrder() public warmZeroExOtcNonce(FROM) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
         vm.startPrank(FROM, FROM);
-        ZERO_EX.fillOtcOrder(order, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), uint128(amount()));
+        snapStartName("zeroEx_otcOrder");
+        ZERO_EX.fillOtcOrder(otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), uint128(amount()));
         snapEnd();
     }
 
     function testZeroEx_uniswapV3VIP() public {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-
         snapStartName("zeroEx_uniswapV3VIP");
         vm.startPrank(FROM);
         ZERO_EX.sellTokenForTokenToUniswapV3(uniswapV3Path(), amount(), 1, FROM);
@@ -59,8 +64,6 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_uniswapV3VIP_multiplex1() public {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-
         IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](1);
         calls[0] = IZeroEx.BatchSellSubcall({
             id: IZeroEx.MultiplexSubcall.UniswapV3,
@@ -75,8 +78,6 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_uniswapV3VIP_multiplex2() public {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-
         IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](2);
         calls[0] = IZeroEx.BatchSellSubcall({
             id: IZeroEx.MultiplexSubcall.UniswapV3,
@@ -96,8 +97,6 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
         // ZeroEx can access Curve via CurveLiquidityProvider sandbox
         // Note: this bytes4 selector is exchange(uint256,uint256,uint256,uint256)
@@ -118,8 +117,6 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_uniswapV3_transformERC20() public {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-
         ITransformERC20Feature.Transformation[] memory transformations =
             createSimpleFQTTransformation(BridgeProtocols.UNISWAPV3, abi.encode(UNISWAP_V3_ROUTER, uniswapV3Path()));
 
@@ -130,8 +127,6 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_curveV2_transformERC20() public skipIf(getCurveV2PoolData().pool == address(0)) {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
         // Note: this bytes4 selector is exchange(uint256,uint256,uint256,uint256)
         // which mostly found on CurveV2 (not older Curve V1) pools

@@ -170,6 +170,7 @@ interface IZeroEx {
         returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount);
 
     function getOtcOrderHash(IZeroEx.OtcOrder memory order) external view returns (bytes32 orderHash);
+    function lastOtcTxOriginNonce(address txOrigin, uint64 nonceBucket) external view returns (uint128 lastNonce);
 }
 
 interface IFillQuoteTransformer {

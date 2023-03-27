@@ -116,3 +116,13 @@ Since Settler has no outstanding allowances, and no usage of `transferFrom` or a
 Permit2 allowances (with short dated expiration) still opens up the contracts to some risk of user funds. Namely, `Alice` permit2 being intercepted and a malicious transaction from `Mallory`, which spends `Alice`'s money and transfers it to `Mallory`.
 
 To protect funds we must validate the actions being performed originate from the Permit2 signer. This is simple in the case where `msg.sender/tx.origin` is the signer of the Permit2 message. To support MetaTransactions we will need to employ the Witness functionality of Permit2 to ensure the actions are intentional from `Alice` as `msg.sender/tx.origin` is a different address.
+
+## Gas Comparisons
+
+Day by day it gets harder to get a fair real world gas comparison. With rebates and token balances initialized or not, and the difficulty of setting up the world, touching storage, then performing the test.
+
+To make gas comparisons fair we will use the following methodology:
+
+- Market Makers have balances of both tokens. Since Pools have non-zero balances of both tokens this is a fair comparison.
+- Nonces for Permit2 and Otc orders (0x V4) are assumed to be initialized. We attempt to set this manually rather than by performing additional trades to avoid gas metering and warming up storage access as much as possible
+- The taker does not have a balance of the token being bought

@@ -14,10 +14,16 @@ import {Settler} from "../../src/Settler.sol";
 abstract contract SettlerPairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
+    Settler settler;
+    IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+
+    function setUp() public virtual override {
+        super.setUp();
+        settler = getSettler();
+    }
+
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
-
-    IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
     function getSettler() private returns (Settler settler) {
         settler = new Settler(
@@ -26,11 +32,13 @@ abstract contract SettlerPairTest is BasePairTest {
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54 // UniV3 pool init code hash
         );
+
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
+        safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
     }
 
-    function testSettler_zeroExOtcOrder() public warmPermit2Nonce {
-        dealAndApprove(fromToken(), amount(), address(ZERO_EX));
-        dealAndApprove(MAKER, toToken(), amount(), address(ZERO_EX));
+    function testSettler_zeroExOtcOrder() public warmPermit2Nonce(FROM) warmZeroExOtcNonce(FROM) {
+        safeApproveIfBelow(toToken(), MAKER, address(ZERO_EX), amount());
 
         IZeroEx.OtcOrder memory order;
         order.makerToken = toToken();
@@ -43,7 +51,6 @@ abstract contract SettlerPairTest is BasePairTest {
         order.maker = MAKER;
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, ZERO_EX.getOtcOrderHash(order));
 
-        Settler settler = getSettler();
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("ZERO_EX_OTC")) // 0x OTC
@@ -58,7 +65,6 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[0] = abi.encode(permit, sig);
         datas[1] = abi.encode(order, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), amount());
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("settler_zeroExOtc");
         vm.startPrank(FROM, FROM);
         settler.execute(actions, datas);
@@ -66,7 +72,6 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_uniswapV3VIP_cold() public {
-        Settler settler = getSettler();
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN")) // Uniswap Swap
         );
@@ -79,15 +84,13 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory datas = new bytes[](1);
         datas[0] = abi.encode(FROM, amount(), 1, uniswapV3Path(), abi.encode(permit, sig));
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("settler_uniswapV3VIP_cold");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
     }
 
-    function testSettler_uniswapV3VIP() public warmPermit2Nonce {
-        Settler settler = getSettler();
+    function testSettler_uniswapV3VIP() public warmPermit2Nonce(FROM) {
         deal(address(fromToken()), FROM, amount());
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN")) // Uniswap Swap
@@ -101,15 +104,13 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory datas = new bytes[](1);
         datas[0] = abi.encode(FROM, amount(), 1, uniswapV3Path(), abi.encode(permit, sig));
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("settler_uniswapV3VIP");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
     }
 
-    function testSettler_uniswapV3_multiplex2() public warmPermit2Nonce {
-        Settler settler = getSettler();
+    function testSettler_uniswapV3_multiplex2() public warmPermit2Nonce(FROM) {
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")), // Uniswap Swap
@@ -126,15 +127,13 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[1] = abi.encode(FROM, amount() / 2, 1, uniswapV3Path());
         datas[2] = abi.encode(FROM, amount() / 2, 1, uniswapV3Path());
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("settler_uniswapV3_multiplex2");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
     }
 
-    function testSettler_uniswapV3() public warmPermit2Nonce {
-        Settler settler = getSettler();
+    function testSettler_uniswapV3() public warmPermit2Nonce(FROM) {
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")) // Uniswap Swap
@@ -149,15 +148,13 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[0] = abi.encode(permit, sig);
         datas[1] = abi.encode(FROM, amount(), 1, uniswapV3Path());
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("settler_uniswapV3");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
         snapEnd();
     }
 
-    function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) warmPermit2Nonce {
-        Settler settler = getSettler();
+    function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) warmPermit2Nonce(FROM) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
         // For a fair comparison pre-set the approval (set once on first trade) for the Curve pool
@@ -180,7 +177,6 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encode(address(poolData.pool), fromToken(), poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1);
         datas[2] = abi.encode(address(fromToken()));
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("settler_curveV2VIP");
         vm.startPrank(FROM);
         settler.execute(actions, datas);
@@ -196,8 +192,7 @@ abstract contract SettlerPairTest is BasePairTest {
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)"
     );
 
-    function testSettler_metaTxn() public warmPermit2Nonce {
-        Settler settler = getSettler();
+    function testSettler_metaTxn() public warmPermit2Nonce(FROM) {
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_WITNESS_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")) // Uniswap Swap
@@ -221,7 +216,6 @@ abstract contract SettlerPairTest is BasePairTest {
             PERMIT2.DOMAIN_SEPARATOR()
         );
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
         snapStartName("settler_metaTxn_uniswapV3");
         // Submitted by third party
         settler.executeMetaTxn(actions, datas, sig);
@@ -242,13 +236,7 @@ abstract contract SettlerPairTest is BasePairTest {
         address txOrigin;
     }
 
-    function testSettler_otc()
-        public
-        warmUserPermit2Nonce(FROM_PRIVATE_KEY, fromToken())
-        warmUserPermit2Nonce(MAKER_PRIVATE_KEY, toToken())
-    {
-        Settler settler = getSettler();
-
+    function testSettler_otc() public warmPermit2Nonce(FROM) warmPermit2Nonce(MAKER) {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), uint160(amount()), 1);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
@@ -281,9 +269,6 @@ abstract contract SettlerPairTest is BasePairTest {
         );
         bytes[] memory datas = new bytes[](1);
         datas[0] = abi.encode(order, makerPermit, makerSig, takerPermit, takerSig, uint128(amount()));
-
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
-        dealAndApprove(MAKER, toToken(), amount(), address(PERMIT2));
 
         snapStartName("settler_otc");
         vm.startPrank(FROM);
