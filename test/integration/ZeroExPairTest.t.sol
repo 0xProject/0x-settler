@@ -27,9 +27,9 @@ abstract contract ZeroExPairTest is BasePairTest {
 
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
+
     IZeroEx.OtcOrder otcOrder;
     bytes32 otcOrderHash;
-
 
     function setUp() public virtual override {
         super.setUp();
