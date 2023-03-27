@@ -15,39 +15,39 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 |                               | pair      | gas    |
 | ----------------------------- | --------- | ------ |
 | **UniswapV3**                 |           |        |
-| UniswapRouterV3               | USDC/WETH | 118607 |
-| Settler UniswapV3 VIP (warm)  | USDC/WETH | 124526 |
-| Settler UniswapV3 VIP (cold)  | USDC/WETH | 148918 |
-| Settler UniswapV3 (cold)      | USDC/WETH | 161081 |
-| 0xV4 UniswapV3 VIP            | USDC/WETH | 122582 |
-| 0xV4 Multiplex UniswapV3      | USDC/WETH | 135857 |
-| 0xV4 UniswapV3 TransformERC20 | USDC/WETH | 243334 |
+| UniswapRouterV3               | USDC/WETH | 123876 |
+| Settler UniswapV3 VIP (warm)  | USDC/WETH | 141337 |
+| Settler UniswapV3 VIP (cold)  | USDC/WETH | 174243 |
+| Settler UniswapV3             | USDC/WETH |        |
+| 0xV4 UniswapV3 VIP            | USDC/WETH | 154155 |
+| 0xV4 Multiplex UniswapV3      | USDC/WETH | 167508 |
+| 0xV4 UniswapV3 TransformERC20 | USDC/WETH | 273517 |
 |                               |           |        |
-| UniswapRouterV3               | DAI/WETH  | 120625 |
-| Settler UniswapV3 VIP (warm)  | DAI/WETH  | 126543 |
-| Settler UniswapV3 VIP (cold)  | DAI/WETH  | 150935 |
-| Settler UniswapV3 (cold)      | DAI/WETH  | 159756 |
-| 0xV4 UniswapV3 VIP            | DAI/WETH  | 124601 |
-| 0xV4 Multiplex UniswapV3      | DAI/WETH  | 137876 |
-| 0xV4 UniswapV3 TransformERC20 | DAI/WETH  | 236929 |
+| UniswapRouterV3               | DAI/WETH  | 118214 |
+| Settler UniswapV3 VIP (warm)  | DAI/WETH  | 126860 |
+| Settler UniswapV3 VIP (cold)  | DAI/WETH  | 153269 |
+| Settler UniswapV3             | DAI/WETH  |        |
+| 0xV4 UniswapV3 VIP            | DAI/WETH  | 133192 |
+| 0xV4 Multiplex UniswapV3      | DAI/WETH  | 146546 |
+| 0xV4 UniswapV3 TransformERC20 | DAI/WETH  | 242050 |
 | **Curve**                     |           |        |
-| Curve pool                    | USDT/WETH | 299164 |
-| Settler Curve VIP (warm)      | USDT/WETH | 365910 |
-| 0xV4 Curve VIP                | USDT/WETH | 417748 |
-| 0xV4 Curve TransformERC20     | USDT/WETH | 420654 |
-| Curve Swap Router             | USDT/WETH | 374378 |
+| Curve pool                    | USDT/WETH | 374979 |
+| Settler Curve VIP (warm)      | USDT/WETH | 428973 |
+| 0xV4 Curve VIP                | USDT/WETH | 506561 |
+| 0xV4 Curve TransformERC20     | USDT/WETH | 507460 |
+| Curve Swap Router             | USDT/WETH | 450188 |
 | **OTCOrder**                  |           |        |
-| 0xV4 OTC VIP                  | USDC/WETH | 115910 |
-| Settler 0xV4 OTC              | USDC/WETH | 188000 |
-| Settler OTC                   | USDC/WETH | 102042 |
+| 0xV4 OTC VIP (warm)           | USDC/WETH | 146449 |
+| Settler 0xV4 OTC              | USDC/WETH | 222132 |
+| Settler OTC                   | USDC/WETH | 141179 |
 |                               |           |        |
-| 0xV4 OTC VIP                  | DAI/WETH  | 111734 |
-| Settler 0xV4 OTC              | DAI/WETH  | 177550 |
-| Settler OTC                   | DAI/WETH  | 97868  |
+| 0xV4 OTC VIP (warm)           | DAI/WETH  | 126976 |
+| Settler 0xV4 OTC              | DAI/WETH  | 194361 |
+| Settler OTC                   | DAI/WETH  | 121690 |
 |                               |           |        |
-| 0xV4 OTC VIP                  | USDT/WETH | 120846 |
-| Settler 0xV4 OTC              | USDT/WETH | 183013 |
-| Settler OTC                   | USDT/WETH | 98995  |
+| 0xV4 OTC VIP (warm)           | USDT/WETH | 138087 |
+| Settler 0xV4 OTC              | USDT/WETH | 209824 |
+| Settler OTC                   | USDT/WETH | 132817 |
 
 We also compare cold and warm with `transferFrom`, where the recipient has a balance or not of the token.
 
