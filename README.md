@@ -12,42 +12,77 @@ There is an initial cost for Permit2 when the token has not been previously used
 
 Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due to the difficulty in calculating pinpoint costs (and rebates) in Foundry tests. Real world usage will be slightly lower, but it serves as a useful comparison.
 
-|                               | pair      | gas    |
-| ----------------------------- | --------- | ------ |
-| **UniswapV3**                 |           |        |
-| UniswapRouterV3               | USDC/WETH | 123876 |
-| Settler UniswapV3 VIP (warm)  | USDC/WETH | 141337 |
-| Settler UniswapV3 VIP (cold)  | USDC/WETH | 174243 |
-| Settler UniswapV3             | USDC/WETH |        |
-| 0xV4 UniswapV3 VIP            | USDC/WETH | 154155 |
-| 0xV4 Multiplex UniswapV3      | USDC/WETH | 167508 |
-| 0xV4 UniswapV3 TransformERC20 | USDC/WETH | 273517 |
-|                               |           |        |
-| UniswapRouterV3               | DAI/WETH  | 118214 |
-| Settler UniswapV3 VIP (warm)  | DAI/WETH  | 126860 |
-| Settler UniswapV3 VIP (cold)  | DAI/WETH  | 153269 |
-| Settler UniswapV3             | DAI/WETH  |        |
-| 0xV4 UniswapV3 VIP            | DAI/WETH  | 133192 |
-| 0xV4 Multiplex UniswapV3      | DAI/WETH  | 146546 |
-| 0xV4 UniswapV3 TransformERC20 | DAI/WETH  | 242050 |
-| **Curve**                     |           |        |
-| Curve pool                    | USDT/WETH | 374979 |
-| Settler Curve VIP (warm)      | USDT/WETH | 428973 |
-| 0xV4 Curve VIP                | USDT/WETH | 506561 |
-| 0xV4 Curve TransformERC20     | USDT/WETH | 507460 |
-| Curve Swap Router             | USDT/WETH | 450188 |
-| **OTCOrder**                  |           |        |
-| 0xV4 OTC VIP (warm)           | USDC/WETH | 146449 |
-| Settler 0xV4 OTC              | USDC/WETH | 222132 |
-| Settler OTC                   | USDC/WETH | 141179 |
-|                               |           |        |
-| 0xV4 OTC VIP (warm)           | DAI/WETH  | 126976 |
-| Settler 0xV4 OTC              | DAI/WETH  | 194361 |
-| Settler OTC                   | DAI/WETH  | 121690 |
-|                               |           |        |
-| 0xV4 OTC VIP (warm)           | USDT/WETH | 138087 |
-| Settler 0xV4 OTC              | USDT/WETH | 209824 |
-| Settler OTC                   | USDT/WETH | 132817 |
+|                      | DEX        | Pair      | Gas    |
+| -------------------- | ---------- | --------- | ------ |
+| UniswapRouter V3     | Uniswap V3 | USDC/WETH | 128216 |
+| Settler VIP (warm)   | Uniswap V3 | USDC/WETH | 119270 |
+| Settler VIP (cold)   | Uniswap V3 | USDC/WETH | 152176 |
+| Settler              | Uniswap V3 | USDC/WETH | 159601 |
+| 0x V4 VIP            | Uniswap V3 | USDC/WETH | 132192 |
+| 0x V4 Multiplex      | Uniswap V3 | USDC/WETH | 145806 |
+| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 251465 |
+|                      |            |           |        |
+| UniswapRouter V3     | Uniswap V3 | DAI/WETH  | 107060 |
+| Settler VIP (warm)   | Uniswap V3 | DAI/WETH  | 113277 |
+| Settler VIP (cold)   | Uniswap V3 | DAI/WETH  | 139686 |
+| Settler              | Uniswap V3 | DAI/WETH  | 143774 |
+| 0x V4 VIP            | Uniswap V3 | DAI/WETH  | 119683 |
+| 0x V4 Multiplex      | Uniswap V3 | DAI/WETH  | 133289 |
+| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 228521 |
+|                      |            |           |        |
+| UniswapRouter V3     | Uniswap V3 | USDT/WETH | 118393 |
+| Settler VIP (warm)   | Uniswap V3 | USDT/WETH | 113182 |
+| Settler VIP (cold)   | Uniswap V3 | USDT/WETH | 141588 |
+| Settler              | Uniswap V3 | USDT/WETH | 149097 |
+| 0x V4 VIP            | Uniswap V3 | USDT/WETH | 121538 |
+| 0x V4 Multiplex      | Uniswap V3 | USDT/WETH | 135146 |
+| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 234467 |
+|                      |            |           |        |
+
+| MetaTransactions | DEX        | Pair      | Gas    |
+| ---------------- | ---------- | --------- | ------ |
+| Settler          | Uniswap V3 | USDC/WETH | 167115 |
+| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 255516 |
+|                  |            |           |        |
+| Settler          | Uniswap V3 | DAI/WETH  | 151288 |
+| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 243009 |
+|                  |            |           |        |
+| Settler          | Uniswap V3 | USDT/WETH | 156611 |
+| 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 244862 |
+|                  |            |           |        |
+
+| OTC     | DEX     | Pair      | Gas    |
+| ------- | ------- | --------- | ------ |
+| Settler | Settler | USDC/WETH | 119164 |
+| Settler | 0x V4   | USDC/WETH | 200111 |
+| 0x V4   | 0x V4   | USDC/WETH | 124449 |
+|         |         |           |        |
+| Settler | Settler | DAI/WETH  | 99705  |
+| Settler | 0x V4   | DAI/WETH  | 176882 |
+| 0x V4   | 0x V4   | DAI/WETH  | 104976 |
+|         |         |           |        |
+| Settler | Settler | USDT/WETH | 110802 |
+| Settler | 0x V4   | USDT/WETH | 192303 |
+| 0x V4   | 0x V4   | USDT/WETH | 116087 |
+|         |         |           |        |
+
+| Curve             | DEX   | Pair      | Gas    |
+| ----------------- | ----- | --------- | ------ |
+| Curve             | Curve | USDC/WETH | N/A    |
+| Curve Swap Router | Curve | USDC/WETH | N/A    |
+| Settler           | Curve | USDC/WETH | N/A    |
+| 0x V4             | Curve | USDC/WETH | N/A    |
+|                   |       |           |        |
+| Curve             | Curve | DAI/WETH  | N/A    |
+| Curve Swap Router | Curve | DAI/WETH  | N/A    |
+| Settler           | Curve | DAI/WETH  | N/A    |
+| 0x V4             | Curve | DAI/WETH  | N/A    |
+|                   |       |           |        |
+| Curve             | Curve | USDT/WETH | 281158 |
+| Curve Swap Router | Curve | USDT/WETH | 353867 |
+| Settler           | Curve | USDT/WETH | 333125 |
+| 0x V4             | Curve | USDT/WETH | 401740 |
+|                   |       |           |        |
 
 We also compare cold and warm with `transferFrom`, where the recipient has a balance or not of the token.
 

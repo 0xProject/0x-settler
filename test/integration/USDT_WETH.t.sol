@@ -10,8 +10,8 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {CurveV2PairTest} from "./CurveV2PairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, TokenTransferTest {
-    function setUp() public override(SettlerPairTest, ZeroExPairTest, CurveV2PairTest, TokenTransferTest) {
+contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, UniswapV3PairTest, TokenTransferTest {
+    function setUp() public override(SettlerPairTest, ZeroExPairTest, CurveV2PairTest, UniswapV3PairTest, TokenTransferTest) {
         super.setUp();
     }
 
@@ -44,7 +44,7 @@ contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, Token
         });
     }
 
-    function uniswapV3Path() internal pure override(ZeroExPairTest, SettlerPairTest) returns (bytes memory) {
+    function uniswapV3Path() internal pure override(ZeroExPairTest, SettlerPairTest, UniswapV3PairTest) returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 }
