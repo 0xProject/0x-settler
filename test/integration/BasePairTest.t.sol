@@ -80,7 +80,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
 
     function safeApproveIfBelow(ERC20 token, address who, address spender, uint256 amount) internal {
         // Can't use SafeTransferLib directly due to Foundry.prank not changing address(this)
-        if (token.allowance(who, spender) < amount) {
+        if (spender != address(0) && token.allowance(who, spender) < amount) {
             vm.startPrank(who);
             SafeTransferLib.safeApprove(token, spender, type(uint256).max);
             vm.stopPrank();

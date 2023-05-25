@@ -20,6 +20,19 @@ abstract contract SettlerPairTest is BasePairTest {
     function setUp() public virtual override {
         super.setUp();
         settler = getSettler();
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
+        // Otc via ZeroEx
+        safeApproveIfBelow(toToken(), MAKER, address(ZERO_EX), amount());
+        // Otc inside of Settler
+        safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
+
+        // First time inits for Settler
+        // We set up allowances to contracts which are inited on the first trade for a fair comparison
+        // e.g to a Curve Pool
+        ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
+        safeApproveIfBelow(fromToken(), address(settler), address(poolData.pool), amount());
+        // ZeroEx for Settler using ZeroEx OTC
+        safeApproveIfBelow(fromToken(), address(settler), address(ZERO_EX), amount());
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
@@ -33,12 +46,9 @@ abstract contract SettlerPairTest is BasePairTest {
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54 // UniV3 pool init code hash
         );
 
-        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
-        safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
     }
 
     function testSettler_zeroExOtcOrder() public warmPermit2Nonce(FROM) warmZeroExOtcNonce(FROM) {
-        safeApproveIfBelow(toToken(), MAKER, address(ZERO_EX), amount());
 
         IZeroEx.OtcOrder memory order;
         order.makerToken = toToken();
@@ -157,9 +167,6 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) warmPermit2Nonce(FROM) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
-        // For a fair comparison pre-set the approval (set once on first trade) for the Curve pool
-        safeApproveIfBelow(fromToken(), address(settler), address(poolData.pool), amount());
-
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("CURVE_UINT256_EXCHANGE")), // Curve V2
@@ -192,7 +199,7 @@ abstract contract SettlerPairTest is BasePairTest {
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)"
     );
 
-    function testSettler_metaTxn() public warmPermit2Nonce(FROM) {
+    function testSettler_metaTxn_uniswapV3() public warmPermit2Nonce(FROM) {
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_WITNESS_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")) // Uniswap Swap

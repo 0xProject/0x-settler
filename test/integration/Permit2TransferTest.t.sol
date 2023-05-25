@@ -13,6 +13,7 @@ abstract contract Permit2TransferTest is BasePairTest {
 
     function setUp() public virtual override {
         super.setUp();
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
     }
 
     function testPermit2_permitTransferFrom() public {
@@ -25,7 +26,6 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         snapStartName("permit2_permitTransferFrom_coldNonce");
         PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
         snapEnd();
@@ -41,7 +41,6 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         snapStartName("permit2_permitTransferFrom_warmNonce");
         PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
         snapEnd();
@@ -71,7 +70,6 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         snapStartName("permit2_permitWitnessTransferFrom_warmNonce");
         PERMIT2.permitWitnessTransferFrom(permit, transferDetails, FROM, witness, WITNESS_TYPE_STRING, sig);
         snapEnd();

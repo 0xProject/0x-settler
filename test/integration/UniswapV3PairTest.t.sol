@@ -10,17 +10,16 @@ import {IUniswapV3Router} from "./vendor/IUniswapV3Router.sol";
 
 abstract contract UniswapV3PairTest is BasePairTest {
     using SafeTransferLib for ERC20;
+    IUniswapV3Router UNISWAP_ROUTER = IUniswapV3Router(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
     function setUp() public virtual override {
         super.setUp();
+        safeApproveIfBelow(fromToken(), FROM, address(UNISWAP_ROUTER), amount());
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
 
     function testUniswapRouter() public {
-        IUniswapV3Router UNISWAP_ROUTER = IUniswapV3Router(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-
-        safeApproveIfBelow(fromToken(), FROM, address(UNISWAP_ROUTER), amount());
         snapStartName("uniswapRouter_uniswapV3");
         vm.startPrank(FROM);
         UNISWAP_ROUTER.exactInput(
