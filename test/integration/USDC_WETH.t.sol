@@ -12,6 +12,13 @@ import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 contract USDCWETHTest is SettlerPairTest, ZeroExPairTest, UniswapV3PairTest, TokenTransferTest, Permit2TransferTest {
+    function setUp()
+        public
+        override(SettlerPairTest, ZeroExPairTest, UniswapV3PairTest, TokenTransferTest, Permit2TransferTest)
+    {
+        super.setUp();
+    }
+
     function testName() internal pure override returns (string memory) {
         return "USDC-WETH";
     }
