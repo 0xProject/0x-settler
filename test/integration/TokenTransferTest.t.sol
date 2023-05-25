@@ -61,7 +61,6 @@ abstract contract TokenTransferTest is BasePairTest {
 
         deal(address(fromToken()), FROM, amount());
         safeApproveIfBelow(fromToken(), FROM, spender, amount());
-        vm.stopPrank();
         snapStartName("tokenFrom_transferFrom_partial");
         fromToken().safeTransferFrom(FROM, BURN_ADDRESS, amount() / 2);
         snapEnd();
