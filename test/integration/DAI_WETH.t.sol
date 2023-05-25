@@ -11,6 +11,10 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 contract DAIWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, TokenTransferTest {
+    function setUp() public override(SettlerPairTest, ZeroExPairTest, UniswapV3PairTest, TokenTransferTest) {
+        super.setUp();
+    }
+
     function testName() internal pure override returns (string memory) {
         return "DAI-WETH";
     }

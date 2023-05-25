@@ -11,6 +11,10 @@ import {CurveV2PairTest} from "./CurveV2PairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, TokenTransferTest {
+    function setUp() public override(SettlerPairTest, ZeroExPairTest, CurveV2PairTest, TokenTransferTest) {
+        super.setUp();
+    }
+
     function testName() internal pure override returns (string memory) {
         return "USDT-WETH";
     }

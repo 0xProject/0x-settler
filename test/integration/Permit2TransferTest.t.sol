@@ -11,6 +11,10 @@ import {BasePairTest} from "./BasePairTest.t.sol";
 abstract contract Permit2TransferTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
+    function setUp() public virtual override {
+        super.setUp();
+    }
+
     function testPermit2_permitTransferFrom() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 0);
@@ -21,13 +25,13 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         snapStartName("permit2_permitTransferFrom_coldNonce");
         PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
         snapEnd();
     }
 
-    function testPermit2_permitTransferFrom_warmNonce() public warmPermit2Nonce {
+    function testPermit2_permitTransferFrom_warmNonce() public warmPermit2Nonce(FROM) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
         bytes memory sig =
@@ -37,7 +41,7 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         snapStartName("permit2_permitTransferFrom_warmNonce");
         PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
         snapEnd();
@@ -53,7 +57,7 @@ abstract contract Permit2TransferTest is BasePairTest {
     string private constant WITNESS_TYPE_STRING =
         "MockWitness witness)MockWitness(address person)TokenPermissions(address token,uint256 amount)";
 
-    function testPermit2_permitWitnessTransferFrom_warmNonce() public warmPermit2Nonce {
+    function testPermit2_permitWitnessTransferFrom_warmNonce() public warmPermit2Nonce(FROM) {
         MockWitness memory witnessData = MockWitness(address(1));
         bytes32 witness = keccak256(abi.encode(witnessData));
 
@@ -67,7 +71,7 @@ abstract contract Permit2TransferTest is BasePairTest {
             requestedAmount: permit.permitted.amount
         });
 
-        dealAndApprove(fromToken(), amount(), address(PERMIT2));
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         snapStartName("permit2_permitWitnessTransferFrom_warmNonce");
         PERMIT2.permitWitnessTransferFrom(permit, transferDetails, FROM, witness, WITNESS_TYPE_STRING, sig);
         snapEnd();

@@ -5,13 +5,14 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {CurveV2} from "./core/CurveV2.sol";
+import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
-contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
+contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
 
     error ActionInvalid(bytes4 action, bytes data);
@@ -21,6 +22,7 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     bytes4 internal constant ACTION_PERMIT2_TRANSFER_FROM = bytes4(keccak256("PERMIT2_TRANSFER_FROM"));
     bytes4 internal constant ACTION_PERMIT2_WITNESS_TRANSFER_FROM = bytes4(keccak256("PERMIT2_WITNESS_TRANSFER_FROM"));
     bytes4 internal constant ACTION_ZERO_EX_OTC = bytes4(keccak256("ZERO_EX_OTC"));
+    bytes4 internal constant ACTION_SETTLER_OTC = bytes4(keccak256("SETTLER_OTC"));
     bytes4 internal constant ACTION_UNISWAPV3_SWAP_EXACT_IN = bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN"));
     /// @dev Performs a UniswapV3 trade over pools with the initial funding coming from msg.sender Permit2.
     ///      Differs from ACTION_UNISWAPV3_SWAP_EXACT_IN  where the funding is expected to be address(this).
@@ -39,6 +41,7 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     }
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
+        OtcOrderSettlement(permit2)
         Permit2Payment(permit2)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         CurveV2()
@@ -126,6 +129,27 @@ contract Settler is UniswapV3, Permit2Payment, CurveV2, ZeroEx {
                 .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
 
             permit2TransferFrom(permit, transferDetails, msgSender, sig);
+        } else if (action == ACTION_SETTLER_OTC) {
+            (
+                OtcOrder memory order,
+                ISignatureTransfer.PermitTransferFrom memory makerPermit,
+                bytes memory makerSig,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit,
+                bytes memory takerSig,
+                uint128 takerTokenFillAmount
+            ) = abi.decode(
+                data,
+                (
+                    OtcOrder,
+                    ISignatureTransfer.PermitTransferFrom,
+                    bytes,
+                    ISignatureTransfer.PermitTransferFrom,
+                    bytes,
+                    uint128
+                )
+            );
+
+            fillOtcOrder(order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount);
         } else if (action == ACTION_ZERO_EX_OTC) {
             (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
                 abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));

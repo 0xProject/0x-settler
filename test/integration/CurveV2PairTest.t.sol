@@ -13,12 +13,16 @@ abstract contract CurveV2PairTest is BasePairTest {
 
     ICurveV2SwapRouter CURVEV2_SWAP_ROUTER = ICurveV2SwapRouter(0x99a58482BD75cbab83b27EC03CA68fF489b5788f);
 
+    function setUp() public virtual override {
+        super.setUp();
+    }
+
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     function testCurveV2() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
-        dealAndApprove(fromToken(), amount(), address(poolData.pool));
+        safeApproveIfBelow(fromToken(), FROM, address(poolData.pool), amount());
         snapStartName("curveV2Pool");
         vm.startPrank(FROM);
         ICurveV2Pool(poolData.pool).exchange(poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1);
@@ -42,7 +46,7 @@ abstract contract CurveV2PairTest is BasePairTest {
          */
         swapParams[0] = [poolData.fromTokenIndex, poolData.toTokenIndex, 3];
 
-        dealAndApprove(fromToken(), amount(), address(CURVEV2_SWAP_ROUTER));
+        safeApproveIfBelow(fromToken(), FROM, address(CURVEV2_SWAP_ROUTER), amount());
         vm.startPrank(FROM);
         snapStartName("curveV2Pool_swapRouter");
         CURVEV2_SWAP_ROUTER.exchange_multiple(route, swapParams, amount(), 1);

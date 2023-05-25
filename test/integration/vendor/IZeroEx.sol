@@ -43,6 +43,33 @@ interface ITransformERC20Feature {
     }
 }
 
+interface IMetaTransactionsFeatureV2 {
+    /// @dev Describes an exchange proxy meta transaction.
+    struct MetaTransactionFeeData {
+        // ERC20 fee recipient
+        address recipient;
+        // ERC20 fee amount
+        uint256 amount;
+    }
+
+    struct MetaTransactionDataV2 {
+        // Signer of meta-transaction. On whose behalf to execute the MTX.
+        address payable signer;
+        // Required sender, or NULL for anyone.
+        address sender;
+        // MTX is invalid after this time.
+        uint256 expirationTimeSeconds;
+        // Nonce to make this MTX unique.
+        uint256 salt;
+        // Encoded call data to a function on the exchange proxy.
+        bytes callData;
+        // ERC20 fee `signer` pays `sender`.
+        ERC20 feeToken;
+        // ERC20 fees.
+        MetaTransactionFeeData[] fees;
+    }
+}
+
 interface IZeroEx {
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
@@ -170,6 +197,16 @@ interface IZeroEx {
         returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount);
 
     function getOtcOrderHash(IZeroEx.OtcOrder memory order) external view returns (bytes32 orderHash);
+    function lastOtcTxOriginNonce(address txOrigin, uint64 nonceBucket) external view returns (uint128 lastNonce);
+
+    function getMetaTransactionV2Hash(IMetaTransactionsFeatureV2.MetaTransactionDataV2 calldata mtx)
+        external
+        view
+        returns (bytes32 mtxHash);
+    function executeMetaTransactionV2(
+        IMetaTransactionsFeatureV2.MetaTransactionDataV2 calldata mtx,
+        Signature calldata signature
+    ) external returns (bytes memory returnResult);
 }
 
 interface IFillQuoteTransformer {
