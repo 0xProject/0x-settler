@@ -8,10 +8,11 @@ import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {
     IZeroEx,
-    ITransformERC20Feature,
-    IFillQuoteTransformer,
     IBridgeAdapter,
-    BridgeProtocols
+    BridgeProtocols,
+    IFillQuoteTransformer,
+    IMetaTransactionsFeatureV2,
+    ITransformERC20Feature
 } from "./vendor/IZeroEx.sol";
 
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
@@ -28,8 +29,13 @@ abstract contract ZeroExPairTest is BasePairTest {
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
+    // OTCOrder
     IZeroEx.OtcOrder otcOrder;
     bytes32 otcOrderHash;
+
+    // MetaTransactionV2
+    IMetaTransactionsFeatureV2.MetaTransactionDataV2 mtx;
+    bytes32 mtxHash;
 
     function setUp() public virtual override {
         super.setUp();
@@ -46,6 +52,30 @@ abstract contract ZeroExPairTest is BasePairTest {
         otcOrder.expiryAndNonce = ((block.timestamp + 60) << 192) | 2;
         otcOrder.maker = MAKER;
         otcOrderHash = ZERO_EX.getOtcOrderHash(otcOrder);
+
+        // MetaTransactionV2
+        IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](1);
+        calls[0] = IZeroEx.BatchSellSubcall({
+            id: IZeroEx.MultiplexSubcall.UniswapV3,
+            sellAmount: amount(),
+            data: uniswapV3Path()
+        });
+
+        bytes memory mtxCallData = abi.encodeWithSelector(
+            ZERO_EX.multiplexBatchSellTokenForToken.selector, fromToken(), toToken(), calls, amount(), 1
+        );
+        IMetaTransactionsFeatureV2.MetaTransactionFeeData[] memory fees =
+            new IMetaTransactionsFeatureV2.MetaTransactionFeeData[](0);
+        mtx = IMetaTransactionsFeatureV2.MetaTransactionDataV2({
+            signer: payable(FROM),
+            sender: address(0),
+            expirationTimeSeconds: block.timestamp + 60,
+            salt: 123,
+            callData: mtxCallData,
+            feeToken: ERC20(address(0)),
+            fees: fees
+        });
+        mtxHash = ZERO_EX.getMetaTransactionV2Hash(mtx);
     }
 
     function testZeroEx_otcOrder() public warmZeroExOtcNonce(FROM) {
@@ -142,6 +172,20 @@ abstract contract ZeroExPairTest is BasePairTest {
         snapStartName("zeroEx_curveV2_transformERC20");
         vm.startPrank(FROM);
         ZERO_EX.transformERC20(fromToken(), toToken(), amount(), 1, transformations);
+        snapEnd();
+    }
+
+    function testZeroEx_metaTxn_uniswapV3() public {
+        IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](1);
+        calls[0] = IZeroEx.BatchSellSubcall({
+            id: IZeroEx.MultiplexSubcall.UniswapV3,
+            sellAmount: amount(),
+            data: uniswapV3Path()
+        });
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(FROM_PRIVATE_KEY, mtxHash);
+        snapStartName("zeroEx_metaTxn_uniswapV3");
+        ZERO_EX.executeMetaTransactionV2(mtx, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s));
         snapEnd();
     }
 
