@@ -45,11 +45,9 @@ abstract contract SettlerPairTest is BasePairTest {
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54 // UniV3 pool init code hash
         );
-
     }
 
     function testSettler_zeroExOtcOrder() public warmPermit2Nonce(FROM) warmZeroExOtcNonce(FROM) {
-
         IZeroEx.OtcOrder memory order;
         order.makerToken = toToken();
         order.takerToken = fromToken();

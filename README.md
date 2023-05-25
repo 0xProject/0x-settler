@@ -12,6 +12,8 @@ There is an initial cost for Permit2 when the token has not been previously used
 
 Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due to the difficulty in calculating pinpoint costs (and rebates) in Foundry tests. Real world usage will be slightly lower, but it serves as a useful comparison.
 
+[//]: # "BEGIN TABLES"
+
 |                      | DEX        | Pair      | Gas    |
 | -------------------- | ---------- | --------- | ------ |
 | UniswapRouter V3     | Uniswap V3 | USDC/WETH | 128216 |
@@ -83,6 +85,8 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler           | Curve | USDT/WETH | 333125 |
 | 0x V4             | Curve | USDT/WETH | 401740 |
 |                   |       |           |        |
+
+[//]: # "END TABLES"
 
 We also compare cold and warm with `transferFrom`, where the recipient has a balance or not of the token.
 
