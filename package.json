@@ -22,6 +22,8 @@
   },
   "homepage": "https://github.com/0xProject/0x-settler#readme",
   "devDependencies": {
-    "markdown-table": "^3.0.3"
+    "chalk": "^5.2.0",
+    "markdown-table": "^3.0.3",
+    "string-width": "^6.1.0"
   }
 }

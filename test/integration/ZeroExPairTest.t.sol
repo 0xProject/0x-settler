@@ -22,9 +22,9 @@ abstract contract ZeroExPairTest is BasePairTest {
 
     IZeroEx private ZERO_EX = IZeroEx(ZERO_EX_ADDRESS);
     // Note: Eventually this will be outdated
-    uint32 FQT_DEPLOYMENT_NONCE = 31;
-    address ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
-    address UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    uint32 private FQT_DEPLOYMENT_NONCE = 31;
+    address private ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
+    address private UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
