@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { markdownTable } from "markdown-table";
+import stringWidth from "string-width";
 
 /**
 |                               | pair      | gas    |
@@ -19,7 +20,10 @@ import { markdownTable } from "markdown-table";
 const readSnapshot = (name, pair) => [
   pair.split("-").join("/"),
   fs.existsSync(`.forge-snapshots/${name}_${pair}.snap`)
-    ? fs.readFileSync(`.forge-snapshots/${name}_${pair}.snap`)
+    ? fs
+        .readFileSync(`.forge-snapshots/${name}_${pair}.snap`)
+        .toString()
+        .replace(/\n/g, "")
     : "N/A",
 ];
 
@@ -27,93 +31,105 @@ const pairs = ["USDC-WETH", "DAI-WETH", "USDT-WETH"];
 const tables = [];
 tables.push(
   // UniswapV3 comparisons
-  markdownTable([
-    ["", "DEX", "Pair", "Gas"],
-    ...pairs
-      .map((pair) => [
-        [
-          "UniswapRouter V3",
-          "Uniswap V3",
-          ...readSnapshot("uniswapRouter_uniswapV3", pair),
-        ],
-        [
-          "Settler VIP (warm)",
-          "Uniswap V3",
-          ...readSnapshot("settler_uniswapV3VIP", pair),
-        ],
-        [
-          "Settler VIP (cold)",
-          "Uniswap V3",
-          ...readSnapshot("settler_uniswapV3VIP_cold", pair),
-        ],
-        ["Settler", "Uniswap V3", ...readSnapshot("settler_uniswapV3", pair)],
-        [
-          "0x V4 VIP",
-          "Uniswap V3",
-          ...readSnapshot("zeroEx_uniswapV3VIP", pair),
-        ],
-        [
-          "0x V4 Multiplex",
-          "Uniswap V3",
-          ...readSnapshot("zeroEx_uniswapV3VIP_multiplex1", pair),
-        ],
-        [
-          "0x V4 TransformERC20",
-          "Uniswap V3",
-          ...readSnapshot("zeroEx_uniswapV3_transformERC20", pair),
-        ],
-        ["", "", "", ""],
-      ])
-      .flat(),
-  ]),
+  markdownTable(
+    [
+      ["", "DEX", "Pair", "Gas"],
+      ...pairs
+        .map((pair) => [
+          [
+            "UniswapRouter V3",
+            "Uniswap V3",
+            ...readSnapshot("uniswapRouter_uniswapV3", pair),
+          ],
+          [
+            "Settler VIP (warm)",
+            "Uniswap V3",
+            ...readSnapshot("settler_uniswapV3VIP", pair),
+          ],
+          [
+            "Settler VIP (cold)",
+            "Uniswap V3",
+            ...readSnapshot("settler_uniswapV3VIP_cold", pair),
+          ],
+          ["Settler", "Uniswap V3", ...readSnapshot("settler_uniswapV3", pair)],
+          [
+            "0x V4 VIP",
+            "Uniswap V3",
+            ...readSnapshot("zeroEx_uniswapV3VIP", pair),
+          ],
+          [
+            "0x V4 Multiplex",
+            "Uniswap V3",
+            ...readSnapshot("zeroEx_uniswapV3VIP_multiplex1", pair),
+          ],
+          [
+            "0x V4 TransformERC20",
+            "Uniswap V3",
+            ...readSnapshot("zeroEx_uniswapV3_transformERC20", pair),
+          ],
+          ["", "", "", ""],
+        ])
+        .flat(),
+    ],
+    { stringLength: stringWidth }
+  ),
   // MetaTransaction comparisons
-  markdownTable([
-    ["MetaTransactions", "DEX", "Pair", "Gas"],
-    ...pairs
-      .map((pair) => [
-        [
-          "Settler",
-          "Uniswap V3",
-          ...readSnapshot("settler_metaTxn_uniswapV3", pair),
-        ],
-        [
-          "0x V4 Multiplex",
-          "Uniswap V3",
-          ...readSnapshot("zeroEx_metaTxn_uniswapV3", pair),
-        ],
-        ["", "", "", ""],
-      ])
-      .flat(),
-  ]),
+  markdownTable(
+    [
+      ["MetaTransactions", "DEX", "Pair", "Gas"],
+      ...pairs
+        .map((pair) => [
+          [
+            "Settler",
+            "Uniswap V3",
+            ...readSnapshot("settler_metaTxn_uniswapV3", pair),
+          ],
+          [
+            "0x V4 Multiplex",
+            "Uniswap V3",
+            ...readSnapshot("zeroEx_metaTxn_uniswapV3", pair),
+          ],
+          ["", "", "", ""],
+        ])
+        .flat(),
+    ],
+    { stringLength: stringWidth }
+  ),
   // MetaTransaction comparisons
-  markdownTable([
-    ["OTC", "DEX", "Pair", "Gas"],
-    ...pairs
-      .map((pair) => [
-        ["Settler", "Settler", ...readSnapshot("settler_otc", pair)],
-        ["Settler", "0x V4", ...readSnapshot("settler_zeroExOtc", pair)],
-        ["0x V4", "0x V4", ...readSnapshot("zeroEx_otcOrder", pair)],
-        ["", "", "", ""],
-      ])
-      .flat(),
-  ]),
+  markdownTable(
+    [
+      ["OTC", "DEX", "Pair", "Gas"],
+      ...pairs
+        .map((pair) => [
+          ["Settler", "Settler", ...readSnapshot("settler_otc", pair)],
+          ["Settler", "0x V4", ...readSnapshot("settler_zeroExOtc", pair)],
+          ["0x V4", "0x V4", ...readSnapshot("zeroEx_otcOrder", pair)],
+          ["", "", "", ""],
+        ])
+        .flat(),
+    ],
+    { stringLength: stringWidth }
+  ),
   // Curve comparisons
-  markdownTable([
-    ["Curve", "DEX", "Pair", "Gas"],
-    ...pairs
-      .map((pair) => [
-        ["Curve", "Curve", ...readSnapshot("curveV2Pool", pair)],
-        [
-          "Curve Swap Router",
-          "Curve",
-          ...readSnapshot("curveV2Pool_swapRouter", pair),
-        ],
-        ["Settler", "Curve", ...readSnapshot("settler_curveV2VIP", pair)],
-        ["0x V4", "Curve", ...readSnapshot("zeroEx_curveV2VIP", pair)],
-        ["", "", "", ""],
-      ])
-      .flat(),
-  ])
+  markdownTable(
+    [
+      ["Curve", "DEX", "Pair", "Gas"],
+      ...pairs
+        .map((pair) => [
+          ["Curve", "Curve", ...readSnapshot("curveV2Pool", pair)],
+          [
+            "Curve Swap Router",
+            "Curve",
+            ...readSnapshot("curveV2Pool_swapRouter", pair),
+          ],
+          ["Settler", "Curve", ...readSnapshot("settler_curveV2VIP", pair)],
+          ["0x V4", "Curve", ...readSnapshot("zeroEx_curveV2VIP", pair)],
+          ["", "", "", ""],
+        ])
+        .flat(),
+    ],
+    { stringLength: stringWidth }
+  )
 );
 
 tables.forEach((t) => console.log(t + "\n"));
