@@ -35,5 +35,5 @@ jobs:
           node-version: 18.x
       - name: Install node dependencies
         run: npm install
-      - name: Install node dependencies
+      - name: Gas comparison
         run: npm run compare_gas
