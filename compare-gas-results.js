@@ -88,11 +88,10 @@ const processGasComparisons = (results) => {
   }
 };
 
-// Compare gas snapshot results with a previous commit. We assume CI runs on a clean commit, so compare previous-1 with current working directory
+// Compare gas snapshot results with a previous commit.
 // If you wish to compare with an earlier commit, set the COMPARE_GIT_SHA environment variable
 const compareGasResults = async (dir) => {
-  const gitTag = process.env.CI == "true" ? "HEAD^" : "HEAD";
-  let comparisonCommitHash = execSync(`git rev-parse ${gitTag}`, {
+  let comparisonCommitHash = execSync(`git rev-parse HEAD`, {
     cwd: process.cwd(),
   })
     .toString()

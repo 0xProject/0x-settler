@@ -28,3 +28,12 @@ jobs:
         env:
           FOUNDRY_PROFILE: integration
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+
+      - name: Install Node.js 18.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 18.x
+      - name: Install node dependencies
+        run: npm install
+      - name: Install node dependencies
+        run: npm run compare_gas
