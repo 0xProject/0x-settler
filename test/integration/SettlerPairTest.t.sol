@@ -14,8 +14,12 @@ import {Settler} from "../../src/Settler.sol";
 abstract contract SettlerPairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
-    Settler settler;
+    Settler private settler;
     IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+
+    // 0x V4 OTCOrder
+    IZeroEx.OtcOrder private otcOrder;
+    bytes32 private otcOrderHash;
 
     function setUp() public virtual override {
         super.setUp();
@@ -33,6 +37,17 @@ abstract contract SettlerPairTest is BasePairTest {
         safeApproveIfBelow(fromToken(), address(settler), address(poolData.pool), amount());
         // ZeroEx for Settler using ZeroEx OTC
         safeApproveIfBelow(fromToken(), address(settler), address(ZERO_EX), amount());
+
+        // Otc 0x v4 order
+        otcOrder.makerToken = toToken();
+        otcOrder.takerToken = fromToken();
+        otcOrder.makerAmount = uint128(amount());
+        otcOrder.takerAmount = uint128(amount());
+        otcOrder.taker = address(0);
+        otcOrder.txOrigin = FROM;
+        otcOrder.expiryAndNonce = type(uint256).max;
+        otcOrder.maker = MAKER;
+        otcOrderHash = ZERO_EX.getOtcOrderHash(otcOrder);
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
@@ -48,16 +63,7 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_zeroExOtcOrder() public warmPermit2Nonce(FROM) warmZeroExOtcNonce(FROM) {
-        IZeroEx.OtcOrder memory order;
-        order.makerToken = toToken();
-        order.takerToken = fromToken();
-        order.makerAmount = uint128(amount());
-        order.takerAmount = uint128(amount());
-        order.taker = address(0);
-        order.txOrigin = FROM;
-        order.expiryAndNonce = type(uint256).max;
-        order.maker = MAKER;
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, ZERO_EX.getOtcOrderHash(order));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
 
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
@@ -71,7 +77,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
         bytes[] memory datas = new bytes[](2);
         datas[0] = abi.encode(permit, sig);
-        datas[1] = abi.encode(order, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), amount());
+        datas[1] = abi.encode(otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), amount());
 
         snapStartName("settler_zeroExOtc");
         vm.startPrank(FROM, FROM);

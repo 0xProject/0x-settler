@@ -30,12 +30,12 @@ abstract contract ZeroExPairTest is BasePairTest {
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     // OTCOrder
-    IZeroEx.OtcOrder otcOrder;
-    bytes32 otcOrderHash;
+    IZeroEx.OtcOrder private otcOrder;
+    bytes32 private otcOrderHash;
 
     // MetaTransactionV2
-    IMetaTransactionsFeatureV2.MetaTransactionDataV2 mtx;
-    bytes32 mtxHash;
+    IMetaTransactionsFeatureV2.MetaTransactionDataV2 private mtx;
+    bytes32 private mtxHash;
 
     function setUp() public virtual override {
         super.setUp();

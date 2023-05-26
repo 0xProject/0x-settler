@@ -16,23 +16,23 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 |                      | DEX        | Pair      | Gas    |
 | -------------------- | ---------- | --------- | ------ |
-| UniswapRouter V3     | Uniswap V3 | USDC/WETH | 128216 |
-| Settler VIP (warm)   | Uniswap V3 | USDC/WETH | 119270 |
-| Settler VIP (cold)   | Uniswap V3 | USDC/WETH | 152176 |
-| Settler              | Uniswap V3 | USDC/WETH | 159601 |
-| 0x V4 VIP            | Uniswap V3 | USDC/WETH | 132192 |
-| 0x V4 Multiplex      | Uniswap V3 | USDC/WETH | 145806 |
-| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 251465 |
+| UniswapRouter V3     | Uniswap V3 | USDC/WETH | 127232 |
+| Settler VIP (warm)   | Uniswap V3 | USDC/WETH | 118281 |
+| Settler VIP (cold)   | Uniswap V3 | USDC/WETH | 151187 |
+| Settler              | Uniswap V3 | USDC/WETH | 158612 |
+| 0x V4 VIP            | Uniswap V3 | USDC/WETH | 131203 |
+| 0x V4 Multiplex      | Uniswap V3 | USDC/WETH | 144811 |
+| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 250476 |
 |                      |            |           |        |
-| UniswapRouter V3     | Uniswap V3 | DAI/WETH  | 107060 |
-| Settler VIP (warm)   | Uniswap V3 | DAI/WETH  | 113277 |
-| Settler VIP (cold)   | Uniswap V3 | DAI/WETH  | 139686 |
-| Settler              | Uniswap V3 | DAI/WETH  | 143774 |
-| 0x V4 VIP            | Uniswap V3 | DAI/WETH  | 119683 |
-| 0x V4 Multiplex      | Uniswap V3 | DAI/WETH  | 133289 |
-| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 228521 |
+| UniswapRouter V3     | Uniswap V3 | DAI/WETH  | 107011 |
+| Settler VIP (warm)   | Uniswap V3 | DAI/WETH  | 104560 |
+| Settler VIP (cold)   | Uniswap V3 | DAI/WETH  | 130969 |
+| Settler              | Uniswap V3 | DAI/WETH  | 135051 |
+| 0x V4 VIP            | Uniswap V3 | DAI/WETH  | 110981 |
+| 0x V4 Multiplex      | Uniswap V3 | DAI/WETH  | 124590 |
+| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 219819 |
 |                      |            |           |        |
-| UniswapRouter V3     | Uniswap V3 | USDT/WETH | 118393 |
+| UniswapRouter V3     | Uniswap V3 | USDT/WETH | 117439 |
 | Settler VIP (warm)   | Uniswap V3 | USDT/WETH | 113182 |
 | Settler VIP (cold)   | Uniswap V3 | USDT/WETH | 141588 |
 | Settler              | Uniswap V3 | USDT/WETH | 149097 |
@@ -43,11 +43,11 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | MetaTransactions | DEX        | Pair      | Gas    |
 | ---------------- | ---------- | --------- | ------ |
-| Settler          | Uniswap V3 | USDC/WETH | 167115 |
-| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 255516 |
+| Settler          | Uniswap V3 | USDC/WETH | 166126 |
+| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 254527 |
 |                  |            |           |        |
-| Settler          | Uniswap V3 | DAI/WETH  | 151288 |
-| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 243009 |
+| Settler          | Uniswap V3 | DAI/WETH  | 142565 |
+| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 234307 |
 |                  |            |           |        |
 | Settler          | Uniswap V3 | USDT/WETH | 156611 |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 244862 |
@@ -56,15 +56,15 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | OTC     | DEX     | Pair      | Gas    |
 | ------- | ------- | --------- | ------ |
 | Settler | Settler | USDC/WETH | 119164 |
-| Settler | 0x V4   | USDC/WETH | 200111 |
+| Settler | 0x V4   | USDC/WETH | 185933 |
 | 0x V4   | 0x V4   | USDC/WETH | 124449 |
 |         |         |           |        |
-| Settler | Settler | DAI/WETH  | 99705  |
-| Settler | 0x V4   | DAI/WETH  | 176882 |
+| Settler | Settler | DAI/WETH  | 99690  |
+| Settler | 0x V4   | DAI/WETH  | 156748 |
 | 0x V4   | 0x V4   | DAI/WETH  | 104976 |
 |         |         |           |        |
 | Settler | Settler | USDT/WETH | 110802 |
-| Settler | 0x V4   | USDT/WETH | 192303 |
+| Settler | 0x V4   | USDT/WETH | 171660 |
 | 0x V4   | 0x V4   | USDT/WETH | 116087 |
 |         |         |           |        |
 
@@ -80,10 +80,10 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler           | Curve | DAI/WETH  | N/A    |
 | 0x V4             | Curve | DAI/WETH  | N/A    |
 |                   |       |           |        |
-| Curve             | Curve | USDT/WETH | 281158 |
-| Curve Swap Router | Curve | USDT/WETH | 353867 |
-| Settler           | Curve | USDT/WETH | 333125 |
-| 0x V4             | Curve | USDT/WETH | 401740 |
+| Curve             | Curve | USDT/WETH | 281370 |
+| Curve Swap Router | Curve | USDT/WETH | 354079 |
+| Settler           | Curve | USDT/WETH | 333337 |
+| 0x V4             | Curve | USDT/WETH | 401952 |
 |                   |       |           |        |
 
 [//]: # "END TABLES"

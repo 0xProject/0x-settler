@@ -117,3 +117,16 @@ tables.push(
 );
 
 tables.forEach((t) => console.log(t + "\n"));
+
+const inputFile = "README.md";
+const beginToken = `[//]: # "BEGIN TABLES"`;
+const endToken = `[//]: # "END TABLES"`;
+const contents = fs.readFileSync(inputFile, "utf8");
+const tableData = tables.map((t) => t.toString()).join("\n\n");
+
+const modifiedData = contents.replace(
+  new RegExp(`\\${beginToken}[\\s\\S]*?\\${endToken}`, "g"),
+  `${beginToken}\n\n${tableData}\n\n${endToken}`
+);
+
+fs.writeFileSync(inputFile, modifiedData);

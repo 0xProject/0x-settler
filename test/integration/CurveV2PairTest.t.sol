@@ -11,7 +11,7 @@ import {ICurveV2Pool, ICurveV2SwapRouter} from "./vendor/ICurveV2Pool.sol";
 abstract contract CurveV2PairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
-    ICurveV2SwapRouter CURVEV2_SWAP_ROUTER = ICurveV2SwapRouter(0x99a58482BD75cbab83b27EC03CA68fF489b5788f);
+    ICurveV2SwapRouter private CURVEV2_SWAP_ROUTER = ICurveV2SwapRouter(0x99a58482BD75cbab83b27EC03CA68fF489b5788f);
 
     function setUp() public virtual override {
         super.setUp();
