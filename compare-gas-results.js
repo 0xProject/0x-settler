@@ -15,7 +15,6 @@ const flavours = {
   [Number.POSITIVE_INFINITY]: chalk.black.bgRed,
 };
 
-const ignoreThresholdPerc = 3;
 const failOnThresholdPerc = 10;
 
 const selectFlavour = (diffPerc) => {
@@ -40,7 +39,7 @@ const collectGasComparisonsAsync = (latestCommitHash, filepath) => {
       }).toString()
     );
   } catch (e) {
-    // New snapshots may not have an previous version
+    // New snapshots may not have a previous version
     prevContents = contents;
   }
 
@@ -90,19 +89,23 @@ const processGasComparisons = (results) => {
 };
 
 const compareGasResults = async (dir) => {
-  const exec = (cmd) => {
-    return execSync(cmd, { cwd: process.cwd() }).toString();
-  };
-  const latestCommitHash = exec(`git rev-parse HEAD`).replace("\n", "");
-  const results = await Promise.all(
-    fs
-      .readdirSync(dir)
-      .map((file) =>
-        collectGasComparisonsAsync(latestCommitHash, path.join(dir, file))
-      )
-  );
+  // We assume CI runs on a clean commit, so compare previous-1 with current working directory
+  const gitTag = process.env.CI == "true" ? "HEAD^" : "HEAD";
+  const latestCommitHash = execSync(`git rev-parse ${gitTag}`, {
+    cwd: process.cwd(),
+  })
+    .toString()
+    .replace("\n", "");
 
-  processGasComparisons(results);
+  processGasComparisons(
+    await Promise.all(
+      fs
+        .readdirSync(dir)
+        .map((file) =>
+          collectGasComparisonsAsync(latestCommitHash, path.join(dir, file))
+        )
+    )
+  );
 };
 
 await compareGasResults(".forge-snapshots");
