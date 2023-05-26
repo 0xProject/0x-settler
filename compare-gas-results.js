@@ -28,12 +28,12 @@ const selectFlavour = (diffPerc) => {
   return selectedFlavour;
 };
 
-const collectGasComparisonsAsync = (latestCommitHash, filepath) => {
+const collectGasComparisonsAsync = (comparisonCommitHash, filepath) => {
   const contents = Number(fs.readFileSync(filepath));
   let prevContents;
   try {
     prevContents = Number(
-      execSync(`git show "${latestCommitHash}:${filepath}"`, {
+      execSync(`git show "${comparisonCommitHash}:${filepath}"`, {
         cwd: process.cwd(),
         stdio: ["pipe", "pipe", "ignore"], // ignore stderr
       }).toString()
@@ -88,21 +88,23 @@ const processGasComparisons = (results) => {
   }
 };
 
+// Compare gas snapshot results with a previous commit. We assume CI runs on a clean commit, so compare previous-1 with current working directory
+// If you wish to compare with an earlier commit, set the COMPARE_GIT_SHA environment variable
 const compareGasResults = async (dir) => {
-  // We assume CI runs on a clean commit, so compare previous-1 with current working directory
   const gitTag = process.env.CI == "true" ? "HEAD^" : "HEAD";
-  const latestCommitHash = execSync(`git rev-parse ${gitTag}`, {
+  let comparisonCommitHash = execSync(`git rev-parse ${gitTag}`, {
     cwd: process.cwd(),
   })
     .toString()
     .replace("\n", "");
+  comparisonCommitHash = process.env.COMPARE_GIT_SHA || comparisonCommitHash;
 
   processGasComparisons(
     await Promise.all(
       fs
         .readdirSync(dir)
         .map((file) =>
-          collectGasComparisonsAsync(latestCommitHash, path.join(dir, file))
+          collectGasComparisonsAsync(comparisonCommitHash, path.join(dir, file))
         )
     )
   );

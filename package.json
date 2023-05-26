@@ -11,7 +11,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "compare_gas:ci": "CI=true node compare-gas-results.js",
-    "compare_gas": "node compare-gas-results.js"
+    "compare_gas": "node compare-gas-results.js",
+    "generate_table": "node generate-table.js"
   },
   "repository": {
     "type": "git",
