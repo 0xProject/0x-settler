@@ -10,10 +10,10 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {CurveV2PairTest} from "./CurveV2PairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, UniswapV3PairTest, TokenTransferTest {
+contract USDTWETHTest is CurveV2PairTest, SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest {
     function setUp()
         public
-        override(SettlerPairTest, ZeroExPairTest, CurveV2PairTest, UniswapV3PairTest, TokenTransferTest)
+        override(CurveV2PairTest, SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest)
     {
         super.setUp();
     }
@@ -37,7 +37,7 @@ contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, Unisw
     function getCurveV2PoolData()
         internal
         pure
-        override(SettlerPairTest, ZeroExPairTest, CurveV2PairTest)
+        override(CurveV2PairTest, SettlerPairTest, ZeroExPairTest)
         returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {
         poolData = ICurveV2Pool.CurveV2PoolData({
@@ -50,7 +50,7 @@ contract USDTWETHTest is SettlerPairTest, ZeroExPairTest, CurveV2PairTest, Unisw
     function uniswapV3Path()
         internal
         pure
-        override(ZeroExPairTest, SettlerPairTest, UniswapV3PairTest)
+        override(SettlerPairTest, UniswapV3PairTest, ZeroExPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());

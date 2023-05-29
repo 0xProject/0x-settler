@@ -10,8 +10,8 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract DAIWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, TokenTransferTest {
-    function setUp() public override(SettlerPairTest, ZeroExPairTest, UniswapV3PairTest, TokenTransferTest) {
+contract DAIWETHTest is SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest {
+    function setUp() public override(SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest) {
         super.setUp();
     }
 
@@ -34,7 +34,7 @@ contract DAIWETHTest is ZeroExPairTest, UniswapV3PairTest, SettlerPairTest, Toke
     function uniswapV3Path()
         internal
         pure
-        override(ZeroExPairTest, UniswapV3PairTest, SettlerPairTest)
+        override(SettlerPairTest, UniswapV3PairTest, ZeroExPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());

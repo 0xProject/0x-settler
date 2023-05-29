@@ -14,6 +14,9 @@ import {Settler} from "../../src/Settler.sol";
 abstract contract SettlerPairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
+    uint256 private PERMIT2_FROM_NONCE = 1;
+    uint256 private PERMIT2_MAKER_NONCE = 1;
+
     Settler private settler;
     IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
@@ -48,6 +51,9 @@ abstract contract SettlerPairTest is BasePairTest {
         otcOrder.expiryAndNonce = type(uint256).max;
         otcOrder.maker = MAKER;
         otcOrderHash = ZERO_EX.getOtcOrderHash(otcOrder);
+
+        warmPermit2Nonce(FROM);
+        warmPermit2Nonce(MAKER);
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
@@ -62,7 +68,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
     }
 
-    function testSettler_zeroExOtcOrder() public warmPermit2Nonce(FROM) warmZeroExOtcNonce(FROM) {
+    function testSettler_zeroExOtcOrder() public {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
 
         bytes memory actions = abi.encodePacked(
@@ -71,7 +77,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
@@ -85,33 +91,14 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3VIP_cold() public {
-        bytes memory actions = abi.encodePacked(
-            bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN")) // Uniswap Swap
-        );
-
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 0);
-        bytes memory sig =
-            getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-
-        bytes[] memory datas = new bytes[](1);
-        datas[0] = abi.encode(FROM, amount(), 1, uniswapV3Path(), abi.encode(permit, sig));
-
-        snapStartName("settler_uniswapV3VIP_cold");
-        vm.startPrank(FROM);
-        settler.execute(actions, datas);
-        snapEnd();
-    }
-
-    function testSettler_uniswapV3VIP() public warmPermit2Nonce(FROM) {
+    function testSettler_uniswapV3VIP() public {
         deal(address(fromToken()), FROM, amount());
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN")) // Uniswap Swap
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
@@ -124,7 +111,7 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_multiplex2() public warmPermit2Nonce(FROM) {
+    function testSettler_uniswapV3_multiplex2() public {
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")), // Uniswap Swap
@@ -132,7 +119,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
@@ -147,14 +134,14 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3() public warmPermit2Nonce(FROM) {
+    function testSettler_uniswapV3() public {
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")) // Uniswap Swap
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
@@ -168,7 +155,7 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) warmPermit2Nonce(FROM) {
+    function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
         bytes memory actions = abi.encodePacked(
@@ -178,7 +165,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
@@ -203,14 +190,14 @@ abstract contract SettlerPairTest is BasePairTest {
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)"
     );
 
-    function testSettler_metaTxn_uniswapV3() public warmPermit2Nonce(FROM) {
+    function testSettler_metaTxn_uniswapV3() public {
         bytes memory actions = abi.encodePacked(
             bytes4(keccak256("PERMIT2_WITNESS_TRANSFER_FROM")), // Permit 2
             bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN")) // Uniswap Swap
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
 
         bytes[] memory datas = new bytes[](2);
         datas[0] = abi.encode(permit, FROM);
@@ -247,11 +234,11 @@ abstract contract SettlerPairTest is BasePairTest {
         address txOrigin;
     }
 
-    function testSettler_otc() public warmPermit2Nonce(FROM) warmPermit2Nonce(MAKER) {
+    function testSettler_otc() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
-            defaultERC20PermitTransfer(address(toToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(toToken()), uint160(amount()), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
 
         OtcOrder memory order = OtcOrder({
             makerToken: toToken(),

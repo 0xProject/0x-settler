@@ -76,9 +76,11 @@ abstract contract ZeroExPairTest is BasePairTest {
             fees: fees
         });
         mtxHash = ZERO_EX.getMetaTransactionV2Hash(mtx);
+
+        warmZeroExOtcNonce(FROM);
     }
 
-    function testZeroEx_otcOrder() public warmZeroExOtcNonce(FROM) {
+    function testZeroEx_otcOrder() public {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
         vm.startPrank(FROM, FROM);
         snapStartName("zeroEx_otcOrder");

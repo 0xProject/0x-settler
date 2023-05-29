@@ -46,7 +46,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     /// @dev Manually store a non-zero value as a nonce for Permit2
     /// note: we attempt to avoid touching storage by the usual means to side
     /// step gas metering
-    modifier warmPermit2Nonce(address who) {
+    function warmPermit2Nonce(address who) internal {
         // mapping(address => mapping(uint256 => uint256)) public nonceBitmap;
         //         msg.sender         wordPos    bitmap
         // as of writing, nonceBitmap begins at slot 0
@@ -57,19 +57,17 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         if (uint256(beforeValue) == 0) {
             vm.store(address(PERMIT2), slotId, bytes32(uint256(1)));
         }
-        _;
     }
 
     /// @dev Manually store a non-zero value as a nonce for 0xV4 OTC Orders
     /// note: we attempt to avoid touching storage by the usual means to side
     /// step gas metering
-    modifier warmZeroExOtcNonce(address who) {
+    function warmZeroExOtcNonce(address who) internal {
         // mapping(address => mapping(uint64 => uint128)) txOriginNonces;
         //        tx.origin          bucket    min nonce
         // OtcOrders is 8th in LibStorage Enum
         bytes32 slotId = keccak256(abi.encode(uint256(0), keccak256(abi.encode(who, (uint256(8) + 1) << 128))));
         vm.store(address(ZERO_EX_ADDRESS), slotId, bytes32(uint256(1)));
-        _;
     }
 
     modifier skipIf(bool condition) {

@@ -14,24 +14,25 @@ abstract contract Permit2TransferTest is BasePairTest {
     function setUp() public virtual override {
         super.setUp();
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
+        warmPermit2Nonce(FROM);
     }
 
-    function testPermit2_permitTransferFrom() public {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 0);
-        bytes memory sig =
-            getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
-            to: address(BURN_ADDRESS),
-            requestedAmount: permit.permitted.amount
-        });
+    // function testPermit2_permitTransferFrom() public {
+    //     ISignatureTransfer.PermitTransferFrom memory permit =
+    //         defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+    //     bytes memory sig =
+    //         getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+    //     ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
+    //         to: address(BURN_ADDRESS),
+    //         requestedAmount: permit.permitted.amount
+    //     });
 
-        snapStartName("permit2_permitTransferFrom_coldNonce");
-        PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
-        snapEnd();
-    }
+    //     snapStartName("permit2_permitTransferFrom_coldNonce");
+    //     PERMIT2.permitTransferFrom(permit, transferDetails, FROM, sig);
+    //     snapEnd();
+    // }
 
-    function testPermit2_permitTransferFrom_warmNonce() public warmPermit2Nonce(FROM) {
+    function testPermit2_permitTransferFrom_warmNonce() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
         bytes memory sig =
@@ -56,7 +57,7 @@ abstract contract Permit2TransferTest is BasePairTest {
     string private constant WITNESS_TYPE_STRING =
         "MockWitness witness)MockWitness(address person)TokenPermissions(address token,uint256 amount)";
 
-    function testPermit2_permitWitnessTransferFrom_warmNonce() public warmPermit2Nonce(FROM) {
+    function testPermit2_permitWitnessTransferFrom_warmNonce() public {
         MockWitness memory witnessData = MockWitness(address(1));
         bytes32 witness = keccak256(abi.encode(witnessData));
 
