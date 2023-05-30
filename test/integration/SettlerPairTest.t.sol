@@ -220,6 +220,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         Settler _settler = settler;
+        vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
         // Submitted by third party
         _settler.executeMetaTxn(actions, datas, sig);
