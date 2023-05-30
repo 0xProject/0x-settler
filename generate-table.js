@@ -71,10 +71,6 @@ tables.push(
     generateTable(
       "Uniswap V3",
       [
-        ["UniswapRouter V3", "Uniswap V3", "uniswapRouter_uniswapV3"],
-        ["Settler VIP (warm)", "Uniswap V3", "settler_uniswapV3VIP"],
-        ["Settler VIP (cold)", "Uniswap V3", "settler_uniswapV3VIP_cold"],
-        ["Settler", "Uniswap V3", "settler_uniswapV3"],
         ["0x V4 VIP", "Uniswap V3", "zeroEx_uniswapV3VIP"],
         ["0x V4 Multiplex", "Uniswap V3", "zeroEx_uniswapV3VIP_multiplex1"],
         [
@@ -82,6 +78,10 @@ tables.push(
           "Uniswap V3",
           "zeroEx_uniswapV3_transformERC20",
         ],
+        ["Settler VIP (warm)", "Uniswap V3", "settler_uniswapV3VIP"],
+        ["Settler VIP (cold)", "Uniswap V3", "settler_uniswapV3VIP_cold"],
+        ["Settler", "Uniswap V3", "settler_uniswapV3"],
+        ["UniswapRouter V3", "Uniswap V3", "uniswapRouter_uniswapV3"],
       ],
       pairs
     ),
@@ -92,8 +92,8 @@ tables.push(
     generateTable(
       "MetaTransactions",
       [
-        ["Settler", "Uniswap V3", "settler_metaTxn_uniswapV3"],
         ["0x V4 Multiplex", "Uniswap V3", "zeroEx_metaTxn_uniswapV3"],
+        ["Settler", "Uniswap V3", "settler_metaTxn_uniswapV3"],
       ],
       pairs
     ),
@@ -104,9 +104,9 @@ tables.push(
     generateTable(
       "OTC",
       [
+        ["0x V4", "0x V4", "zeroEx_otcOrder"],
         ["Settler", "Settler", "settler_otc"],
         ["Settler", "0x V4", "settler_zeroExOtc"],
-        ["0x V4", "0x V4", "zeroEx_otcOrder"],
       ],
       pairs
     ),
@@ -117,10 +117,10 @@ tables.push(
     generateTable(
       "Curve",
       [
+        ["0x V4", "Curve", "zeroEx_curveV2VIP"],
+        ["Settler", "Curve", "settler_curveV2VIP"],
         ["Curve", "Curve", "curveV2Pool"],
         ["Curve Swap Router", "Curve", "curveV2Pool_swapRouter"],
-        ["Settler", "Curve", "settler_curveV2VIP"],
-        ["0x V4", "Curve", "zeroEx_curveV2VIP"],
       ],
       pairs
     ),
