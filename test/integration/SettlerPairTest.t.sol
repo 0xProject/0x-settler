@@ -85,9 +85,10 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[0] = abi.encode(permit, sig);
         datas[1] = abi.encode(otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), amount());
 
-        snapStartName("settler_zeroExOtc");
+        Settler _settler = settler;
         vm.startPrank(FROM, FROM);
-        settler.execute(actions, datas);
+        snapStartName("settler_zeroExOtc");
+        _settler.execute(actions, datas);
         snapEnd();
     }
 
@@ -105,9 +106,10 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory datas = new bytes[](1);
         datas[0] = abi.encode(FROM, amount(), 1, uniswapV3Path(), abi.encode(permit, sig));
 
-        snapStartName("settler_uniswapV3VIP");
+        Settler _settler = settler;
         vm.startPrank(FROM);
-        settler.execute(actions, datas);
+        snapStartName("settler_uniswapV3VIP");
+        _settler.execute(actions, datas);
         snapEnd();
     }
 
@@ -128,9 +130,10 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[1] = abi.encode(FROM, amount() / 2, 1, uniswapV3Path());
         datas[2] = abi.encode(FROM, amount() / 2, 1, uniswapV3Path());
 
-        snapStartName("settler_uniswapV3_multiplex2");
+        Settler _settler = settler;
         vm.startPrank(FROM);
-        settler.execute(actions, datas);
+        snapStartName("settler_uniswapV3_multiplex2");
+        _settler.execute(actions, datas);
         snapEnd();
     }
 
@@ -149,9 +152,10 @@ abstract contract SettlerPairTest is BasePairTest {
         datas[0] = abi.encode(permit, sig);
         datas[1] = abi.encode(FROM, amount(), 1, uniswapV3Path());
 
-        snapStartName("settler_uniswapV3");
+        Settler _settler = settler;
         vm.startPrank(FROM);
-        settler.execute(actions, datas);
+        snapStartName("settler_uniswapV3");
+        _settler.execute(actions, datas);
         snapEnd();
     }
 
@@ -175,9 +179,10 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encode(address(poolData.pool), fromToken(), poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1);
         datas[2] = abi.encode(address(fromToken()));
 
-        snapStartName("settler_curveV2VIP");
+        Settler _settler = settler;
         vm.startPrank(FROM);
-        settler.execute(actions, datas);
+        snapStartName("settler_curveV2VIP");
+        _settler.execute(actions, datas);
         snapEnd();
     }
 
@@ -214,9 +219,10 @@ abstract contract SettlerPairTest is BasePairTest {
             PERMIT2.DOMAIN_SEPARATOR()
         );
 
+        Settler _settler = settler;
         snapStartName("settler_metaTxn_uniswapV3");
         // Submitted by third party
-        settler.executeMetaTxn(actions, datas, sig);
+        _settler.executeMetaTxn(actions, datas, sig);
         snapEnd();
     }
 
@@ -268,9 +274,10 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory datas = new bytes[](1);
         datas[0] = abi.encode(order, makerPermit, makerSig, takerPermit, takerSig, uint128(amount()));
 
-        snapStartName("settler_otc");
+        Settler _settler = settler;
         vm.startPrank(FROM);
-        settler.execute(actions, datas);
+        snapStartName("settler_otc");
+        _settler.execute(actions, datas);
         snapEnd();
     }
 }
