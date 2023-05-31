@@ -34,6 +34,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
         vm.label(address(this), "FoundryTest");
         vm.label(FROM, "FROM");
+        vm.label(MAKER, "MAKER");
+        vm.label(BURN_ADDRESS, "BURN");
 
         deal(address(fromToken()), FROM, amount());
         deal(address(toToken()), MAKER, amount());

@@ -25,6 +25,7 @@ abstract contract ZeroExPairTest is BasePairTest {
     uint32 private FQT_DEPLOYMENT_NONCE = 31;
     address private ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
     address private UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address private ZERO_EX_TRANSFORMER_DEPLOYER = 0x39dce47a67ad34344eab877eae3ef1fa2a1d50bb;
 
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
@@ -150,9 +151,19 @@ abstract contract ZeroExPairTest is BasePairTest {
 
     function testZeroEx_uniswapV3_transformERC20() public {
         ITransformERC20Feature.Transformation[] memory transformations =
-            createSimpleFQTTransformation(BridgeProtocols.UNISWAPV3, abi.encode(UNISWAP_V3_ROUTER, uniswapV3Path()));
+            createSimpleFQTTransformation(BridgeProtocols.UNISWAPV3, abi.encode(UNISWAP_V3_ROUTER, uniswapV3Path()), 1);
 
         snapStartName("zeroEx_uniswapV3_transformERC20");
+        vm.startPrank(FROM);
+        ZERO_EX.transformERC20(fromToken(), toToken(), amount(), 1, transformations);
+        snapEnd();
+    }
+
+    function testZeroEx_uniswapV3_transformERC20() public {
+        ITransformERC20Feature.Transformation[] memory transformations =
+            createSimpleFQTTransformation(BridgeProtocols.UNISWAPV3, abi.encode(UNISWAP_V3_ROUTER, uniswapV3Path()), 1);
+
+        snapStartName("zeroEx_uniswapV3_transformERC20_fee");
         vm.startPrank(FROM);
         ZERO_EX.transformERC20(fromToken(), toToken(), amount(), 1, transformations);
         snapEnd();
@@ -169,7 +180,7 @@ abstract contract ZeroExPairTest is BasePairTest {
             int128(int256(poolData.toTokenIndex))
         );
         ITransformERC20Feature.Transformation[] memory transformations =
-            createSimpleFQTTransformation(BridgeProtocols.CURVEV2, data);
+            createSimpleFQTTransformation(BridgeProtocols.CURVEV2, data, 1);
 
         snapStartName("zeroEx_curveV2_transformERC20");
         vm.startPrank(FROM);
@@ -191,11 +202,11 @@ abstract contract ZeroExPairTest is BasePairTest {
         snapEnd();
     }
 
-    function createSimpleFQTTransformation(uint128 protocol, bytes memory bridgeData)
+    function createSimpleFQTTransformation(uint128 protocol, bytes memory bridgeData, uint256 numTransformations)
         internal
         returns (ITransformERC20Feature.Transformation[] memory transformations)
     {
-        transformations = new ITransformERC20Feature.Transformation[](1);
+        transformations = new ITransformERC20Feature.Transformation[](numTransformations);
 
         IFillQuoteTransformer.TransformData memory fqtData;
         fqtData.side = IFillQuoteTransformer.Side.Sell;
@@ -215,5 +226,73 @@ abstract contract ZeroExPairTest is BasePairTest {
         fqtData.bridgeOrders[0] = order;
         transformations[0].deploymentNonce = FQT_DEPLOYMENT_NONCE;
         transformations[0].data = abi.encode(fqtData);
+    }
+
+
+    /// @dev RLP-encode a 32-bit or less account nonce.
+    /// @param nonce A positive integer in the range 0 <= nonce < 2^32.
+    /// @return rlpNonce The RLP encoding.
+    function rlpEncodeNonce(uint32 nonce) internal pure returns (bytes memory rlpNonce) {
+        // See https://github.com/ethereum/wiki/wiki/RLP for RLP encoding rules.
+        if (nonce == 0) {
+            rlpNonce = new bytes(1);
+            rlpNonce[0] = 0x80;
+        } else if (nonce < 0x80) {
+            rlpNonce = new bytes(1);
+            rlpNonce[0] = bytes1(uint8(nonce));
+        } else if (nonce <= 0xFF) {
+            rlpNonce = new bytes(2);
+            rlpNonce[0] = 0x81;
+            rlpNonce[1] = bytes1(uint8(nonce));
+        } else if (nonce <= 0xFFFF) {
+            rlpNonce = new bytes(3);
+            rlpNonce[0] = 0x82;
+            rlpNonce[1] = bytes1(uint8((nonce & 0xFF00) >> 8));
+            rlpNonce[2] = bytes1(uint8(nonce));
+        } else if (nonce <= 0xFFFFFF) {
+            rlpNonce = new bytes(4);
+            rlpNonce[0] = 0x83;
+            rlpNonce[1] = bytes1(uint8((nonce & 0xFF0000) >> 16));
+            rlpNonce[2] = bytes1(uint8((nonce & 0xFF00) >> 8));
+            rlpNonce[3] = bytes1(uint8(nonce));
+        } else {
+            rlpNonce = new bytes(5);
+            rlpNonce[0] = 0x84;
+            rlpNonce[1] = bytes1(uint8((nonce & 0xFF000000) >> 24));
+            rlpNonce[2] = bytes1(uint8((nonce & 0xFF0000) >> 16));
+            rlpNonce[3] = bytes1(uint8((nonce & 0xFF00) >> 8));
+            rlpNonce[4] = bytes1(uint8(nonce));
+        }
+    }
+
+    /// @dev Compute the expected deployment address by `deployer` at
+    ///      the nonce given by `deploymentNonce`.
+    /// @param deployer The address of the deployer.
+    /// @param deploymentNonce The nonce that the deployer had when deploying
+    ///        a contract.
+    /// @return deploymentAddress The deployment address.
+    function getDeployedAddress(
+        address deployer,
+        uint32 deploymentNonce
+    ) internal pure returns (address payable deploymentAddress) {
+        // The address of if a deployed contract is the lower 20 bytes of the
+        // hash of the RLP-encoded deployer's account address + account nonce.
+        // See: https://ethereum.stackexchange.com/questions/760/how-is-the-address-of-an-ethereum-contract-computed
+        bytes memory rlpNonce = rlpEncodeNonce(deploymentNonce);
+        return
+            address(
+                uint160(
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                bytes1(uint8(0xC0 + 21 + rlpNonce.length)),
+                                bytes1(uint8(0x80 + 20)),
+                                deployer,
+                                rlpNonce
+                            )
+                        )
+                    )
+                )
+            );
     }
 }
