@@ -16,9 +16,9 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     using SafeTransferLib for ERC20;
 
     uint256 internal constant FROM_PRIVATE_KEY = 0x1337;
-    address FROM = vm.addr(FROM_PRIVATE_KEY);
+    address internal FROM = vm.addr(FROM_PRIVATE_KEY);
     uint256 internal constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
-    address MAKER = vm.addr(MAKER_PRIVATE_KEY);
+    address internal MAKER = vm.addr(MAKER_PRIVATE_KEY);
 
     address internal constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 

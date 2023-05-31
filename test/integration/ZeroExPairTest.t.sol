@@ -22,7 +22,7 @@ abstract contract ZeroExPairTest is BasePairTest {
 
     IZeroEx private constant ZERO_EX = IZeroEx(ZERO_EX_ADDRESS);
     // Note: Eventually this will be outdated
-    uint32 private FQT_DEPLOYMENT_NONCE = 31;
+    uint32 private constant FQT_DEPLOYMENT_NONCE = 31;
     address private constant ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
     address private constant UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
