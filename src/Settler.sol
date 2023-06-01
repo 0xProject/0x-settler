@@ -12,6 +12,8 @@ import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
+import {ISettlerActions} from "./ISettlerActions.sol";
+
 contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
 
@@ -19,17 +21,6 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
     error ActionFailed(bytes4 action, bytes data, bytes output);
     error LengthMismatch();
 
-    bytes4 internal constant ACTION_PERMIT2_TRANSFER_FROM = bytes4(keccak256("PERMIT2_TRANSFER_FROM"));
-    bytes4 internal constant ACTION_PERMIT2_WITNESS_TRANSFER_FROM = bytes4(keccak256("PERMIT2_WITNESS_TRANSFER_FROM"));
-    bytes4 internal constant ACTION_ZERO_EX_OTC = bytes4(keccak256("ZERO_EX_OTC"));
-    bytes4 internal constant ACTION_SETTLER_OTC = bytes4(keccak256("SETTLER_OTC"));
-    bytes4 internal constant ACTION_UNISWAPV3_SWAP_EXACT_IN = bytes4(keccak256("UNISWAPV3_SWAP_EXACT_IN"));
-    /// @dev Performs a UniswapV3 trade over pools with the initial funding coming from msg.sender Permit2.
-    ///      Differs from ACTION_UNISWAPV3_SWAP_EXACT_IN  where the funding is expected to be address(this).
-    bytes4 internal constant ACTION_UNISWAPV3_PERMIT2_SWAP_EXACT_IN =
-        bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN"));
-    bytes4 internal constant ACTION_CURVE_UINT256_EXCHANGE = bytes4(keccak256("CURVE_UINT256_EXCHANGE"));
-    bytes4 internal constant ACTION_TRANSFER_OUT = bytes4(keccak256("TRANSFER_OUT"));
     // Permit2 Witness
     string internal constant WITNESS_TYPE_STRING =
         "ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)";
@@ -93,7 +84,7 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
             // HACK: check this early to validate all actions and datas
             // clean this up
             if (i == 0) {
-                if (action != ACTION_PERMIT2_WITNESS_TRANSFER_FROM) {
+                if (action != ISettlerActions.PERMIT2_WITNESS_TRANSFER_FROM.selector) {
                     revert ActionInvalid({action: action, data: data});
                 }
 
@@ -125,7 +116,7 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
     {
         success = true;
 
-        if (action == ACTION_PERMIT2_TRANSFER_FROM) {
+        if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes));
             // Consume the entire Permit with the recipient of funds as this contract
@@ -133,7 +124,7 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
                 .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
 
             permit2TransferFrom(permit, transferDetails, msgSender, sig);
-        } else if (action == ACTION_SETTLER_OTC) {
+        } else if (action == ISettlerActions.SETTLER_OTC.selector) {
             (
                 OtcOrder memory order,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -154,22 +145,22 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
             );
 
             fillOtcOrder(order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount);
-        } else if (action == ACTION_ZERO_EX_OTC) {
+        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
             (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
                 abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
 
             sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
-        } else if (action == ACTION_UNISWAPV3_SWAP_EXACT_IN) {
+        } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
             sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient);
-        } else if (action == ACTION_UNISWAPV3_PERMIT2_SWAP_EXACT_IN) {
+        } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bytes memory permit2Data) =
                 abi.decode(data, (address, uint256, uint256, bytes, bytes));
 
             sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, permit2Data);
-        } else if (action == ACTION_CURVE_UINT256_EXCHANGE) {
+        } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,
                 address sellToken,
@@ -180,7 +171,7 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
             ) = abi.decode(data, (address, address, uint256, uint256, uint256, uint256));
 
             sellTokenForTokenToCurve(pool, ERC20(sellToken), fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
-        } else if (action == ACTION_TRANSFER_OUT) {
+        } else if (action == ISettlerActions.TRANSFER_OUT.selector) {
             (address token, address recipient, uint256 bips) = abi.decode(data, (address, address, uint256));
             uint256 balance = ERC20(token).balanceOf(address(this));
             uint256 amount = (balance * bips) / 10_000;
