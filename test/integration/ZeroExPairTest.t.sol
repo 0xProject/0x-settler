@@ -218,7 +218,6 @@ abstract contract ZeroExPairTest is BasePairTest {
         transformations[0].data = abi.encode(fqtData);
     }
 
-
     /// @dev RLP-encode a 32-bit or less account nonce.
     /// @param nonce A positive integer in the range 0 <= nonce < 2^32.
     /// @return rlpNonce The RLP encoding.
@@ -261,28 +260,25 @@ abstract contract ZeroExPairTest is BasePairTest {
     /// @param deploymentNonce The nonce that the deployer had when deploying
     ///        a contract.
     /// @return deploymentAddress The deployment address.
-    function getDeployedAddress(
-        address deployer,
-        uint32 deploymentNonce
-    ) internal pure returns (address deploymentAddress) {
+    function getDeployedAddress(address deployer, uint32 deploymentNonce)
+        internal
+        pure
+        returns (address deploymentAddress)
+    {
         // The address of if a deployed contract is the lower 20 bytes of the
         // hash of the RLP-encoded deployer's account address + account nonce.
         // See: https://ethereum.stackexchange.com/questions/760/how-is-the-address-of-an-ethereum-contract-computed
         bytes memory rlpNonce = rlpEncodeNonce(deploymentNonce);
-        return
-            address(
-                uint160(
-                    uint256(
-                        keccak256(
-                            abi.encodePacked(
-                                bytes1(uint8(0xC0 + 21 + rlpNonce.length)),
-                                bytes1(uint8(0x80 + 20)),
-                                deployer,
-                                rlpNonce
-                            )
+        return address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(uint8(0xC0 + 21 + rlpNonce.length)), bytes1(uint8(0x80 + 20)), deployer, rlpNonce
                         )
                     )
                 )
-            );
+            )
+        );
     }
 }
