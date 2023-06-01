@@ -30,10 +30,14 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
         bytes4(keccak256("UNISWAPV3_PERMIT2_SWAP_EXACT_IN"));
     bytes4 internal constant ACTION_CURVE_UINT256_EXCHANGE = bytes4(keccak256("CURVE_UINT256_EXCHANGE"));
     bytes4 internal constant ACTION_TRANSFER_OUT = bytes4(keccak256("TRANSFER_OUT"));
-
     // Permit2 Witness
     string internal constant WITNESS_TYPE_STRING =
         "ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)";
+
+    /// @dev The highest bit of a uint256 value.
+    uint256 private constant HIGH_BIT = 2 ** 255;
+    /// @dev Mask of the lower 255 bits of a uint256 value.
+    uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
 
     struct ActionData {
         bytes actions;
@@ -41,10 +45,10 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
     }
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
+        CurveV2()
         OtcOrderSettlement(permit2)
         Permit2Payment(permit2)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
-        CurveV2()
         ZeroEx(zeroEx)
     {}
 
@@ -177,8 +181,10 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
 
             sellTokenForTokenToCurve(pool, ERC20(sellToken), fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
         } else if (action == ACTION_TRANSFER_OUT) {
-            (address token) = abi.decode(data, (address));
-            ERC20(token).safeTransfer(msgSender, ERC20(token).balanceOf(address(this)));
+            (address token, address recipient, uint256 bips) = abi.decode(data, (address, address, uint256));
+            uint256 balance = ERC20(token).balanceOf(address(this));
+            uint256 amount = (balance * bips) / 10_000;
+            ERC20(token).safeTransfer(recipient, amount);
         } else {
             revert ActionInvalid({action: action, data: data});
         }

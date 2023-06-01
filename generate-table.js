@@ -125,6 +125,18 @@ tables.push(
       pairs
     ),
     { stringLength: stringWidth }
+  ),
+  // Swap with fees comparisons
+  markdownTable(
+    generateTable(
+      "Swap with Fees",
+      [
+        ["Settler", "Uniswap V3", "settler_uniswapV3_fee"],
+        ["Settler", "Curve", "settler_curveV2_fee"],
+      ],
+      pairs
+    ),
+    { stringLength: stringWidth }
   )
 );
 
