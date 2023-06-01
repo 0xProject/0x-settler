@@ -11,7 +11,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "compare_gas": "node compare-gas-results.js",
-    "generate_table": "node generate-table.js"
+    "generate_table": "node generate-table.js",
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -25,6 +26,7 @@
   "homepage": "https://github.com/0xProject/0x-settler#readme",
   "devDependencies": {
     "chalk": "^5.2.0",
+    "husky": "^8.0.3",
     "markdown-table": "^3.0.3",
     "string-width": "^6.1.0"
   }

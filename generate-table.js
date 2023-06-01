@@ -146,8 +146,6 @@ tables.push(
   )
 );
 
-tables.forEach((t) => console.log(t + "\n"));
-
 const inputFile = "README.md";
 const beginToken = `[//]: # "BEGIN TABLES"`;
 const endToken = `[//]: # "END TABLES"`;
