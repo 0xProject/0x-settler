@@ -11,7 +11,7 @@ import {IUniswapV3Router} from "./vendor/IUniswapV3Router.sol";
 abstract contract UniswapV3PairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
-    IUniswapV3Router private UNISWAP_ROUTER = IUniswapV3Router(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    IUniswapV3Router private constant UNISWAP_ROUTER = IUniswapV3Router(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
     function setUp() public virtual override {
         super.setUp();

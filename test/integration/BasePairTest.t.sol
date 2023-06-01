@@ -15,15 +15,15 @@ import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     using SafeTransferLib for ERC20;
 
-    uint256 constant FROM_PRIVATE_KEY = 0x1337;
-    address FROM = vm.addr(FROM_PRIVATE_KEY);
-    uint256 constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
-    address MAKER = vm.addr(MAKER_PRIVATE_KEY);
+    uint256 internal constant FROM_PRIVATE_KEY = 0x1337;
+    address internal FROM = vm.addr(FROM_PRIVATE_KEY);
+    uint256 internal constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
+    address internal MAKER = vm.addr(MAKER_PRIVATE_KEY);
 
-    address constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
+    address internal constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 
-    Permit2 constant PERMIT2 = Permit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address constant ZERO_EX_ADDRESS = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
+    Permit2 internal constant PERMIT2 = Permit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    address internal constant ZERO_EX_ADDRESS = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
     function testName() internal virtual returns (string memory);
     function fromToken() internal virtual returns (ERC20);

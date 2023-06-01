@@ -20,11 +20,11 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 abstract contract ZeroExPairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
-    IZeroEx private ZERO_EX = IZeroEx(ZERO_EX_ADDRESS);
+    IZeroEx private constant ZERO_EX = IZeroEx(ZERO_EX_ADDRESS);
     // Note: Eventually this will be outdated
-    uint32 private FQT_DEPLOYMENT_NONCE = 31;
-    address private ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
-    address private UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    uint32 private constant FQT_DEPLOYMENT_NONCE = 31;
+    address private constant ZERO_EX_CURVE_LIQUIDITY_PROVIDER = 0x561B94454b65614aE3db0897B74303f4aCf7cc75;
+    address private constant UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
@@ -89,8 +89,8 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_uniswapV3VIP() public {
-        snapStartName("zeroEx_uniswapV3VIP");
         vm.startPrank(FROM);
+        snapStartName("zeroEx_uniswapV3VIP");
         ZERO_EX.sellTokenForTokenToUniswapV3(uniswapV3Path(), amount(), 1, FROM);
         snapEnd();
     }
@@ -103,8 +103,8 @@ abstract contract ZeroExPairTest is BasePairTest {
             data: uniswapV3Path()
         });
 
-        snapStartName("zeroEx_uniswapV3VIP_multiplex1");
         vm.startPrank(FROM);
+        snapStartName("zeroEx_uniswapV3VIP_multiplex1");
         ZERO_EX.multiplexBatchSellTokenForToken(fromToken(), toToken(), calls, amount(), 1);
         snapEnd();
     }
@@ -122,8 +122,8 @@ abstract contract ZeroExPairTest is BasePairTest {
             data: uniswapV3Path()
         });
 
-        snapStartName("zeroEx_uniswapV3VIP_multiplex2");
         vm.startPrank(FROM);
+        snapStartName("zeroEx_uniswapV3VIP_multiplex2");
         ZERO_EX.multiplexBatchSellTokenForToken(fromToken(), toToken(), calls, amount(), 1);
         snapEnd();
     }
@@ -140,8 +140,8 @@ abstract contract ZeroExPairTest is BasePairTest {
             int128(int256(poolData.toTokenIndex))
         );
 
-        snapStartName("zeroEx_curveV2VIP");
         vm.startPrank(FROM);
+        snapStartName("zeroEx_curveV2VIP");
         ZERO_EX.sellToLiquidityProvider(
             fromToken(), toToken(), ZERO_EX_CURVE_LIQUIDITY_PROVIDER, FROM, amount(), 1, data
         );
@@ -152,8 +152,8 @@ abstract contract ZeroExPairTest is BasePairTest {
         ITransformERC20Feature.Transformation[] memory transformations =
             createSimpleFQTTransformation(BridgeProtocols.UNISWAPV3, abi.encode(UNISWAP_V3_ROUTER, uniswapV3Path()));
 
-        snapStartName("zeroEx_uniswapV3_transformERC20");
         vm.startPrank(FROM);
+        snapStartName("zeroEx_uniswapV3_transformERC20");
         ZERO_EX.transformERC20(fromToken(), toToken(), amount(), 1, transformations);
         snapEnd();
     }
@@ -171,8 +171,8 @@ abstract contract ZeroExPairTest is BasePairTest {
         ITransformERC20Feature.Transformation[] memory transformations =
             createSimpleFQTTransformation(BridgeProtocols.CURVEV2, data);
 
-        snapStartName("zeroEx_curveV2_transformERC20");
         vm.startPrank(FROM);
+        snapStartName("zeroEx_curveV2_transformERC20");
         ZERO_EX.transformERC20(fromToken(), toToken(), amount(), 1, transformations);
         snapEnd();
     }
