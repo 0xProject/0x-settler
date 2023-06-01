@@ -14,81 +14,81 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | VIP                | DEX        | Pair      | Gas    | %      |
 | ------------------ | ---------- | --------- | ------ | ------ |
-| 0x V4 VIP          | Uniswap V3 | USDC/WETH | 124953 | 0.00%  |
-| 0x V4 Multiplex    | Uniswap V3 | USDC/WETH | 138517 | 10.86% |
-| Settler VIP (warm) | Uniswap V3 | USDC/WETH | 123358 | -1.28% |
-| Settler VIP (cold) | Uniswap V3 | USDC/WETH | 152189 | 21.80% |
-| UniswapRouter V3   | Uniswap V3 | USDC/WETH | 125994 | 0.83%  |
+| 0x V4 VIP          | Uniswap V3 | USDC/WETH | 125217 | 0.00%  |
+| 0x V4 Multiplex    | Uniswap V3 | USDC/WETH | 138718 | 10.78% |
+| Settler VIP (warm) | Uniswap V3 | USDC/WETH | 123552 | -1.33% |
+| Settler VIP (cold) | Uniswap V3 | USDC/WETH | 152189 | 21.54% |
+| UniswapRouter V3   | Uniswap V3 | USDC/WETH | 126416 | 0.96%  |
 |                    |            |           |        |        |
-| 0x V4 VIP          | Uniswap V3 | DAI/WETH  | 112500 | 0.00%  |
-| 0x V4 Multiplex    | Uniswap V3 | DAI/WETH  | 126061 | 12.05% |
-| Settler VIP (warm) | Uniswap V3 | DAI/WETH  | 117390 | 4.35%  |
-| Settler VIP (cold) | Uniswap V3 | DAI/WETH  | 130043 | 15.59% |
-| UniswapRouter V3   | Uniswap V3 | DAI/WETH  | 113541 | 0.93%  |
+| 0x V4 VIP          | Uniswap V3 | DAI/WETH  | 104304 | 0.00%  |
+| 0x V4 Multiplex    | Uniswap V3 | DAI/WETH  | 117805 | 12.94% |
+| Settler VIP (warm) | Uniswap V3 | DAI/WETH  | 109139 | 4.64%  |
+| Settler VIP (cold) | Uniswap V3 | DAI/WETH  | 130043 | 24.68% |
+| UniswapRouter V3   | Uniswap V3 | DAI/WETH  | 105503 | 1.15%  |
 |                    |            |           |        |        |
-| 0x V4 VIP          | Uniswap V3 | USDT/WETH | 115284 | 0.00%  |
-| 0x V4 Multiplex    | Uniswap V3 | USDT/WETH | 128848 | 11.77% |
-| Settler VIP (warm) | Uniswap V3 | USDT/WETH | 118240 | 2.56%  |
-| Settler VIP (cold) | Uniswap V3 | USDT/WETH | 141577 | 22.81% |
-| UniswapRouter V3   | Uniswap V3 | USDT/WETH | 116197 | 0.79%  |
+| 0x V4 VIP          | Uniswap V3 | USDT/WETH | 115447 | 0.00%  |
+| 0x V4 Multiplex    | Uniswap V3 | USDT/WETH | 128948 | 11.69% |
+| Settler VIP (warm) | Uniswap V3 | USDT/WETH | 118348 | 2.51%  |
+| Settler VIP (cold) | Uniswap V3 | USDT/WETH | 141577 | 22.63% |
+| UniswapRouter V3   | Uniswap V3 | USDT/WETH | 116518 | 0.93%  |
 |                    |            |           |        |        |
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
-| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 246211 | 0.00%   |
-| Settler              | Uniswap V3 | USDC/WETH | 163685 | -33.52% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 246426 | 0.00%   |
+| Settler              | Uniswap V3 | USDC/WETH | 163874 | -33.50% |
 |                      |            |           |        |         |
-| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 223322 | 0.00%   |
-| Settler              | Uniswap V3 | DAI/WETH  | 147868 | -33.79% |
+| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 215077 | 0.00%   |
+| Settler              | Uniswap V3 | DAI/WETH  | 139618 | -35.08% |
 |                      |            |           |        |         |
-| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230198 | 0.00%   |
-| Settler              | Uniswap V3 | USDT/WETH | 154145 | -33.04% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230312 | 0.00%   |
+| Settler              | Uniswap V3 | USDT/WETH | 154254 | -33.02% |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
 | ---------------- | ---------- | --------- | ------ | ------- |
-| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 253298 | 0.00%   |
-| Settler          | Uniswap V3 | USDC/WETH | 171724 | -32.20% |
+| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 253528 | 0.00%   |
+| Settler          | Uniswap V3 | USDC/WETH | 171942 | -32.18% |
 |                  |            |           |        |         |
-| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 240845 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 155907 | -35.27% |
+| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 232615 | 0.00%   |
+| Settler          | Uniswap V3 | DAI/WETH  | 147686 | -36.51% |
 |                  |            |           |        |         |
-| 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 243629 | 0.00%   |
-| Settler          | Uniswap V3 | USDT/WETH | 162184 | -33.43% |
+| 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 243758 | 0.00%   |
+| Settler          | Uniswap V3 | USDT/WETH | 162322 | -33.41% |
 |                  |            |           |        |         |
 
 | OTC     | DEX     | Pair      | Gas    | %      |
 | ------- | ------- | --------- | ------ | ------ |
-| 0x V4   | 0x V4   | USDC/WETH | 129645 | 0.00%  |
-| Settler | Settler | USDC/WETH | 128150 | -1.15% |
-| Settler | 0x V4   | USDC/WETH | 192598 | 48.56% |
+| 0x V4   | 0x V4   | USDC/WETH | 129885 | 0.00%  |
+| Settler | Settler | USDC/WETH | 128176 | -1.32% |
+| Settler | 0x V4   | USDC/WETH | 192623 | 48.30% |
 |         |         |           |        |        |
-| 0x V4   | 0x V4   | DAI/WETH  | 110171 | 0.00%  |
-| Settler | Settler | DAI/WETH  | 108661 | -1.37% |
-| Settler | 0x V4   | DAI/WETH  | 163380 | 48.30% |
+| 0x V4   | 0x V4   | DAI/WETH  | 110411 | 0.00%  |
+| Settler | Settler | DAI/WETH  | 108702 | -1.55% |
+| Settler | 0x V4   | DAI/WETH  | 163426 | 48.02% |
 |         |         |           |        |        |
-| 0x V4   | 0x V4   | USDT/WETH | 121283 | 0.00%  |
-| Settler | Settler | USDT/WETH | 119773 | -1.25% |
-| Settler | 0x V4   | USDT/WETH | 178283 | 47.00% |
+| 0x V4   | 0x V4   | USDT/WETH | 121523 | 0.00%  |
+| Settler | Settler | USDT/WETH | 119814 | -1.41% |
+| Settler | 0x V4   | USDT/WETH | 178329 | 46.75% |
 |         |         |           |        |        |
 
 | Curve             | DEX   | Pair      | Gas    | %       |
 | ----------------- | ----- | --------- | ------ | ------- |
 |                   |       |           |        |         |
 |                   |       |           |        |         |
-| 0x V4             | Curve | USDT/WETH | 399010 | 0.00%   |
-| Settler           | Curve | USDT/WETH | 363986 | -8.78%  |
-| Curve             | Curve | USDT/WETH | 287702 | -27.90% |
-| Curve Swap Router | Curve | USDT/WETH | 357982 | -10.28% |
+| 0x V4             | Curve | USDT/WETH | 405585 | 0.00%   |
+| Settler           | Curve | USDT/WETH | 370507 | -8.65%  |
+| Curve             | Curve | USDT/WETH | 294384 | -27.42% |
+| Curve Swap Router | Curve | USDT/WETH | 364536 | -10.12% |
 |                   |       |           |        |         |
 
 | Buy token fee | DEX        | Pair      | Gas    | %     |
 | ------------- | ---------- | --------- | ------ | ----- |
-| Settler       | Uniswap V3 | USDC/WETH | 220519 | 0.00% |
+| Settler       | Uniswap V3 | USDC/WETH | 220770 | 0.00% |
 |               |            |           |        |       |
-| Settler       | Uniswap V3 | DAI/WETH  | 204690 | 0.00% |
+| Settler       | Uniswap V3 | DAI/WETH  | 196514 | 0.00% |
 |               |            |           |        |       |
-| Settler       | Uniswap V3 | USDT/WETH | 210967 | 0.00% |
+| Settler       | Uniswap V3 | USDT/WETH | 211150 | 0.00% |
 |               |            |           |        |       |
 
 [//]: # "END TABLES"
@@ -122,15 +122,7 @@ This same limitation applies to the Curve Swap Router.
 
 ## Actions
 
-|                                   | arguments                                                                                                                                                                        | note                                                                                                                |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `PERMIT2_TRANSFER_FROM`           | `permit: ISignatureTransfer.PermitTransferFrom, signature: bytes`                                                                                                                | Uses `Permit2` with a signed payload from `msg.sender` to transfer funds from the user into the 0xSettler contract. |
-| `SETTLER_OTC`                     | `order: OtcOrder, makerPermit: ISignatureTransfer.PermitTransferFrom, makerSig: bytes, takerPermit: ISignatureTransfer.PermitTransferFrom, takerSig: bytes, fillAmount: uint128` | Trades against 0xV4 OTC order using the contracts balance for funding                                               |
-| `ZERO_EX_OTC`                     | `order: IZeroEx.OtcOrder, signature: IZeroEx.Signature, sellAmount: uint256`                                                                                                     | Trades against 0xV4 OTC order using the contracts balance for funding                                               |
-| `UNISWAPV3_SWAP_EXACT_IN`         | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes`                                                                                                      | Trades against UniswapV3 using the contracts balance for funding                                                    |
-| `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` | `recipient: address, amountIn: uint256, amountOutMin: uint256, path: bytes, permit2Data: bytes permit: ISignatureTransfer.PermitTransferFrom, signature: bytes()`                | Trades against UniswapV3 using the Permit2 for funding                                                              |
-| `CURVE_UINT256_EXCHANGE`          | `pool: address, sellToken: address, fromTokenIndex: uint256, toTokenIndex: uint256, sellAmount: uint256, minBuyAmount: uint256`                                                  | Trades against Curve (uint256 variants) using the contracts balance for funding                                     |
-| `TRANSFER_OUT`                    | `token: address`                                                                                                                                                                 | Transfers out the contracts balance of `token` to `msg.sender`                                                      |
+See [ISettlerActions](https://github.com/0xProject/0x-settler/blob/master/src/ISettlerActions.sol) for a list of actions and their parameters.
 
 ## TODO
 
