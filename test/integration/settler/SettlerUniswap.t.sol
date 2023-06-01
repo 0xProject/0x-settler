@@ -8,12 +8,10 @@ import {BasePairTest} from "./BasePairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
 
-import {SettlerBaseTest} from "./settler/SettlerBase.t.sol";
-
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 import {Settler} from "../../src/Settler.sol";
 
-abstract contract SettlerPairTest is BasePairTest {
+abstract contract SettlerUniswapPairTest is BasePairTest {
     using SafeTransferLib for ERC20;
 
     uint256 private PERMIT2_FROM_NONCE = 1;

@@ -1,8 +1,6 @@
 # 0x Settler
 
-Proof of concept settlement contracts utilizing [Permit2](https://github.com/Uniswap/permit2) to perform trades without any passive allowance.
-
-With no passive allowances, changes to this suite of contracts can be made without and audit.
+Proof of concept settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
 
 ## Gas usage
 
@@ -16,67 +14,77 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | Uniswap V3           | DEX        | Pair      | Gas    | %      |
 | -------------------- | ---------- | --------- | ------ | ------ |
-| 0x V4 VIP            | Uniswap V3 | USDC/WETH | 131239 | 0.00%  |
-| 0x V4 Multiplex      | Uniswap V3 | USDC/WETH | 144847 | 10.37% |
-| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 250513 | 90.88% |
-| Settler VIP (warm)   | Uniswap V3 | USDC/WETH | 123126 | -6.18% |
-| Settler VIP (cold)   | Uniswap V3 | USDC/WETH | 152189 | 15.96% |
-| Settler              | Uniswap V3 | USDC/WETH | 163457 | 24.55% |
-| UniswapRouter V3     | Uniswap V3 | USDC/WETH | 127268 | -3.03% |
+| 0x V4 VIP            | Uniswap V3 | USDC/WETH | 132157 | 0.00%  |
+| 0x V4 Multiplex      | Uniswap V3 | USDC/WETH | 145765 | 10.30% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 251362 | 90.20% |
+| Settler VIP (warm)   | Uniswap V3 | USDC/WETH | 124062 | -6.13% |
+| Settler VIP (cold)   | Uniswap V3 | USDC/WETH | 152189 | 15.16% |
+| Settler              | Uniswap V3 | USDC/WETH | 164393 | 24.39% |
+| UniswapRouter V3     | Uniswap V3 | USDC/WETH | 128186 | -3.00% |
 |                      |            |           |        |        |
-| 0x V4 VIP            | Uniswap V3 | DAI/WETH  | 111267 | 0.00%  |
-| 0x V4 Multiplex      | Uniswap V3 | DAI/WETH  | 124875 | 12.23% |
-| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 220105 | 97.82% |
-| Settler VIP (warm)   | Uniswap V3 | DAI/WETH  | 109654 | -1.45% |
-| Settler VIP (cold)   | Uniswap V3 | DAI/WETH  | 130043 | 16.87% |
-| Settler              | Uniswap V3 | DAI/WETH  | 140142 | 25.95% |
-| UniswapRouter V3     | Uniswap V3 | DAI/WETH  | 107296 | -3.57% |
+| 0x V4 VIP            | Uniswap V3 | DAI/WETH  | 119667 | 0.00%  |
+| 0x V4 Multiplex      | Uniswap V3 | DAI/WETH  | 133275 | 11.37% |
+| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 228505 | 90.95% |
+| Settler VIP (warm)   | Uniswap V3 | DAI/WETH  | 118057 | -1.35% |
+| Settler VIP (cold)   | Uniswap V3 | DAI/WETH  | 130043 | 8.67%  |
+| Settler              | Uniswap V3 | DAI/WETH  | 148539 | 24.13% |
+| UniswapRouter V3     | Uniswap V3 | DAI/WETH  | 115696 | -3.32% |
 |                      |            |           |        |        |
-| 0x V4 VIP            | Uniswap V3 | USDT/WETH | 122476 | 0.00%  |
-| 0x V4 Multiplex      | Uniswap V3 | USDT/WETH | 136084 | 11.11% |
-| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 235406 | 92.21% |
-| Settler VIP (warm)   | Uniswap V3 | USDT/WETH | 118929 | -2.90% |
-| Settler VIP (cold)   | Uniswap V3 | USDT/WETH | 141577 | 15.60% |
-| Settler              | Uniswap V3 | USDT/WETH | 154844 | 26.43% |
-| UniswapRouter V3     | Uniswap V3 | USDT/WETH | 118377 | -3.35% |
+| 0x V4 VIP            | Uniswap V3 | USDT/WETH | 122452 | 0.00%  |
+| 0x V4 Multiplex      | Uniswap V3 | USDT/WETH | 136060 | 11.11% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 235313 | 92.17% |
+| Settler VIP (warm)   | Uniswap V3 | USDT/WETH | 118923 | -2.88% |
+| Settler VIP (cold)   | Uniswap V3 | USDT/WETH | 141577 | 15.62% |
+| Settler              | Uniswap V3 | USDT/WETH | 154838 | 26.45% |
+| UniswapRouter V3     | Uniswap V3 | USDT/WETH | 118353 | -3.35% |
 |                      |            |           |        |        |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
 | ---------------- | ---------- | --------- | ------ | ------- |
-| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 254563 | 0.00%   |
-| Settler          | Uniswap V3 | USDC/WETH | 170965 | -32.84% |
+| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 255481 | 0.00%   |
+| Settler          | Uniswap V3 | USDC/WETH | 171907 | -32.71% |
 |                  |            |           |        |         |
-| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 234557 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 147650 | -37.05% |
+| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 242991 | 0.00%   |
+| Settler          | Uniswap V3 | DAI/WETH  | 156053 | -35.78% |
 |                  |            |           |        |         |
-| 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 245893 | 0.00%   |
+| 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 245869 | 0.00%   |
 | Settler          | Uniswap V3 | USDT/WETH | 162352 | -33.97% |
 |                  |            |           |        |         |
 
 | OTC     | DEX     | Pair      | Gas    | %      |
 | ------- | ------- | --------- | ------ | ------ |
 | 0x V4   | 0x V4   | USDC/WETH | 131749 | 0.00%  |
-| Settler | Settler | USDC/WETH | 130763 | -0.75% |
-| Settler | 0x V4   | USDC/WETH | 195243 | 48.19% |
+| Settler | Settler | USDC/WETH | 130772 | -0.74% |
+| Settler | 0x V4   | USDC/WETH | 195261 | 48.21% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | DAI/WETH  | 112275 | 0.00%  |
-| Settler | Settler | DAI/WETH  | 111289 | -0.88% |
-| Settler | 0x V4   | DAI/WETH  | 166046 | 47.89% |
+| Settler | Settler | DAI/WETH  | 111283 | -0.88% |
+| Settler | 0x V4   | DAI/WETH  | 166043 | 47.89% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | USDT/WETH | 123387 | 0.00%  |
-| Settler | Settler | USDT/WETH | 122401 | -0.80% |
-| Settler | 0x V4   | USDT/WETH | 180949 | 46.65% |
+| Settler | Settler | USDT/WETH | 122410 | -0.79% |
+| Settler | 0x V4   | USDT/WETH | 180973 | 46.67% |
 |         |         |           |        |        |
 
 | Curve             | DEX   | Pair      | Gas    | %       |
 | ----------------- | ----- | --------- | ------ | ------- |
 |                   |       |           |        |         |
 |                   |       |           |        |         |
-| 0x V4             | Curve | USDT/WETH | 474112 | 0.00%   |
-| Settler           | Curve | USDT/WETH | 412306 | -13.04% |
-| Curve             | Curve | USDT/WETH | 353530 | -25.43% |
-| Curve Swap Router | Curve | USDT/WETH | 426239 | -10.10% |
+| 0x V4             | Curve | USDT/WETH | 405620 | 0.00%   |
+| Settler           | Curve | USDT/WETH | 361982 | -10.76% |
+| Curve             | Curve | USDT/WETH | 285038 | -29.73% |
+| Curve Swap Router | Curve | USDT/WETH | 357747 | -11.80% |
 |                   |       |           |        |         |
+
+| Swap with Fees | DEX        | Pair      | Gas    | %      |
+| -------------- | ---------- | --------- | ------ | ------ |
+| Settler        | Uniswap V3 | USDC/WETH | 220594 | 0.00%  |
+|                |            |           |        |        |
+| Settler        | Uniswap V3 | DAI/WETH  | 204728 | 0.00%  |
+|                |            |           |        |        |
+| Settler        | Uniswap V3 | USDT/WETH | 211039 | 0.00%  |
+| Settler        | Curve      | USDT/WETH | 390083 | 84.84% |
+|                |            |           |        |        |
 
 [//]: # "END TABLES"
 
@@ -123,8 +131,8 @@ This same limitation applies to the Curve Swap Router.
 
 - [x] UniV3 VIP with a single `transferFrom(user, pool)` using Permit2 in `uniswapV3SwapCallback`
 - [x] Curve
-- [ ] MetaTxn
-- [ ] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
+- [x] MetaTxn
+- [x] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
 - [ ] WETH wrap/unwrap
 - [ ] consider using argument encoding for action names, ala solidity function encoding
 - [ ] can we support all dexes without hitting the contract size limit and requiring `DELEGATECALL's`
@@ -144,9 +152,9 @@ The action `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` exposes this behaviour and it shoul
 
 Since Settler has no outstanding allowances, and no usage of `transferFrom` or arbitrary calls, overall risk of user funds loss is greatly reduced.
 
-Permit2 allowances (with short dated expiration) still opens up the contracts to some risk of user funds. Namely, `Alice` permit2 being intercepted and a malicious transaction from `Mallory`, which spends `Alice`'s money and transfers it to `Mallory`.
+Permit2 allowances (with short dated expiration) still has some risk. Namely, `Alice` permit2 being intercepted and a malicious transaction from `Mallory`, which spends `Alice`'s funds, transferring it to `Mallory`.
 
-To protect funds we must validate the actions being performed originate from the Permit2 signer. This is simple in the case where `msg.sender/tx.origin` is the signer of the Permit2 message. To support MetaTransactions we will need to employ the Witness functionality of Permit2 to ensure the actions are intentional from `Alice` as `msg.sender/tx.origin` is a different address.
+To protect funds we must validate the actions being performed originate from the Permit2 signer. This is simple in the case where `msg.sender/tx.origin` is the signer of the Permit2 message. To support MetaTransactions we utilise the Witness functionality of Permit2 to ensure the actions are intentional from `Alice` as `msg.sender/tx.origin` is a different address.
 
 ## Gas Comparisons
 
@@ -155,5 +163,5 @@ Day by day it gets harder to get a fair real world gas comparison. With rebates 
 To make gas comparisons fair we will use the following methodology:
 
 - Market Makers have balances of both tokens. Since Pools have non-zero balances of both tokens this is a fair comparison.
-- Nonces for Permit2 and Otc orders (0x V4) are assumed to be initialized. We attempt to set this manually rather than by performing additional trades to avoid gas metering and warming up storage access as much as possible
+- Nonces for Permit2 and Otc orders (0x V4) are assumed to be initialized. We set this manually in `setUp` rather than by performing additional trades to avoid gas metering and warming up storage access as much as possible
 - The taker does not have a balance of the token being bought
