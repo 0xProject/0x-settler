@@ -69,19 +69,28 @@ tables.push(
   // UniswapV3 comparisons
   markdownTable(
     generateTable(
-      "Uniswap V3",
+      "VIP",
       [
         ["0x V4 VIP", "Uniswap V3", "zeroEx_uniswapV3VIP"],
         ["0x V4 Multiplex", "Uniswap V3", "zeroEx_uniswapV3VIP_multiplex1"],
+        ["Settler VIP (warm)", "Uniswap V3", "settler_uniswapV3VIP"],
+        ["Settler VIP (cold)", "Uniswap V3", "settler_uniswapV3VIP_cold"],
+        ["UniswapRouter V3", "Uniswap V3", "uniswapRouter_uniswapV3"],
+      ],
+      pairs
+    ),
+    { stringLength: stringWidth }
+  ),
+  markdownTable(
+    generateTable(
+      "Custody",
+      [
         [
           "0x V4 TransformERC20",
           "Uniswap V3",
           "zeroEx_uniswapV3_transformERC20",
         ],
-        ["Settler VIP (warm)", "Uniswap V3", "settler_uniswapV3VIP"],
-        ["Settler VIP (cold)", "Uniswap V3", "settler_uniswapV3VIP_cold"],
         ["Settler", "Uniswap V3", "settler_uniswapV3"],
-        ["UniswapRouter V3", "Uniswap V3", "uniswapRouter_uniswapV3"],
       ],
       pairs
     ),
@@ -129,11 +138,8 @@ tables.push(
   // Swap with fees comparisons
   markdownTable(
     generateTable(
-      "Swap with Fees",
-      [
-        ["Settler", "Uniswap V3", "settler_uniswapV3_fee"],
-        ["Settler", "Curve", "settler_curveV2_fee"],
-      ],
+      "Buy token fee",
+      [["Settler", "Uniswap V3", "settler_uniswapV3_fee"]],
       pairs
     ),
     { stringLength: stringWidth }
