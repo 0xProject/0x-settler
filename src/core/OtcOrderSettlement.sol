@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {Permit2} from "permit2/src/Permit2.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {Permit2} from "permit2/src/Permit2.sol";
+
+import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
 /// @dev An OtcOrder is a simplified and minimized order type. It can only be filled once and
 /// has additional requirements for txOrigin
 abstract contract OtcOrderSettlement {
+    using SafeTransferLib for ERC20;
+
     struct OtcOrder {
         address makerToken;
         address takerToken;
@@ -36,7 +41,8 @@ abstract contract OtcOrderSettlement {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig,
         address taker,
-        uint128 takerTokenFillAmount
+        uint128 takerTokenFillAmount,
+        address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // TODO validate order.taker and taker
         // TODO validate tx.origin and txOrigin
@@ -44,7 +50,7 @@ abstract contract OtcOrderSettlement {
 
         // Maker pays recipient
         ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: taker, requestedAmount: order.makerAmount});
+            ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
         bytes32 witness = keccak256(abi.encode(order));
         PERMIT2.permitWitnessTransferFrom(
             makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
@@ -54,5 +60,59 @@ abstract contract OtcOrderSettlement {
         ISignatureTransfer.SignatureTransferDetails memory takerToMakerTransferDetails =
             ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
         PERMIT2.permitTransferFrom(takerPermit, takerToMakerTransferDetails, taker, takerSig);
+    }
+
+    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
+    /// the counterparties. Both Maker and Taker have signed the same order, and submission
+    /// is via a third party
+    function fillOtcOrderMetaTxn(
+        OtcOrder memory order,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
+        bytes memory makerSig,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
+        bytes memory takerSig
+    ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
+        // TODO validate order.taker and taker
+        // TODO validate tx.origin and txOrigin
+        // TODO adjust amounts based on takerTokenFillAmount
+
+        bytes32 witness = keccak256(abi.encode(order));
+        // Maker pays Taker
+        ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: order.taker, requestedAmount: order.makerAmount});
+        PERMIT2.permitWitnessTransferFrom(
+            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
+        );
+
+        // Taker pays Maker
+        ISignatureTransfer.SignatureTransferDetails memory takerToMakerTransferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
+        PERMIT2.permitWitnessTransferFrom(
+            takerPermit, takerToMakerTransferDetails, order.taker, witness, OTC_ORDER_WITNESS_TYPE_STRING, takerSig
+        );
+    }
+
+    /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
+    /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
+    // In this variant, Maker pays Settler and Settler pays Maker
+    function fillOtcOrderSelfFunded(
+        OtcOrder memory order,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
+        bytes memory makerSig,
+        uint128 takerTokenFillAmount
+    ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
+        // TODO validate tx.origin and txOrigin
+        // TODO adjust amounts based on takerTokenFillAmount
+
+        // Maker pays Settler
+        ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: order.makerAmount});
+        bytes32 witness = keccak256(abi.encode(order));
+        PERMIT2.permitWitnessTransferFrom(
+            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
+        );
+
+        // Settler pays Maker
+        ERC20(order.takerToken).safeTransfer(order.maker, order.takerAmount);
     }
 }

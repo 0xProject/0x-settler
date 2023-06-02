@@ -139,7 +139,10 @@ tables.push(
   markdownTable(
     generateTable(
       "Buy token fee",
-      [["Settler", "Uniswap V3", "settler_uniswapV3_fee"]],
+      [
+        ["Settler", "Uniswap V3", "settler_uniswapV3_fee"],
+        ["Settler", "OTC", "settler_otc_fee_single_custody"],
+      ],
       pairs
     ),
     { stringLength: stringWidth }

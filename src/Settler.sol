@@ -21,19 +21,13 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
     error ActionFailed(bytes4 action, bytes data, bytes output);
     error LengthMismatch();
 
-    // Permit2 Witness
-    string internal constant WITNESS_TYPE_STRING =
-        "ActionData actionData)ActionData(bytes actions,bytes data)TokenPermissions(address token,uint256 amount)";
+    // Permit2 Witness for meta transactions
+    string internal constant METATXN_TYPE_STRING = "bytes[] actions)TokenPermissions(address token,uint256 amount)";
 
     /// @dev The highest bit of a uint256 value.
     uint256 private constant HIGH_BIT = 2 ** 255;
     /// @dev Mask of the lower 255 bits of a uint256 value.
     uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
-
-    struct ActionData {
-        bytes actions;
-        bytes data;
-    }
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
         CurveV2()
@@ -43,18 +37,13 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
         ZeroEx(zeroEx)
     {}
 
-    function execute(bytes calldata actions, bytes[] calldata datas) public payable {
+    function execute(bytes[] calldata actions) public payable {
         bool success;
         bytes memory output;
-        uint256 numActions = actions.length / 4;
 
-        if (datas.length != numActions) {
-            revert LengthMismatch();
-        }
-
-        for (uint256 i = 0; i < numActions;) {
-            bytes4 action = bytes4(actions[i * 4:i * 4 + 4]);
-            bytes calldata data = datas[i];
+        for (uint256 i = 0; i < actions.length;) {
+            bytes4 action = bytes4(actions[i][0:4]);
+            bytes calldata data = actions[i][4:];
 
             (success, output) = dispatch(action, data, msg.sender);
             if (!success) {
@@ -66,37 +55,61 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
         }
     }
 
-    function executeMetaTxn(bytes calldata actions, bytes[] calldata datas, bytes memory sig) public payable {
+    function executeMetaTxn(bytes[] calldata actions, bytes memory sig) public {
         bool success;
         bytes memory output;
-        uint256 numActions = actions.length / 4;
 
         address msgSender = msg.sender;
 
-        if (datas.length != numActions) {
-            revert LengthMismatch();
-        }
+        for (uint256 i = 0; i < actions.length;) {
+            bytes4 action = bytes4(actions[i][0:4]);
+            bytes calldata data = actions[i][4:];
 
-        for (uint256 i = 0; i < numActions;) {
-            bytes4 action = bytes4(actions[i * 4:i * 4 + 4]);
-            bytes calldata data = datas[i];
-
-            // HACK: check this early to validate all actions and datas
-            // clean this up
             if (i == 0) {
-                if (action != ISettlerActions.PERMIT2_WITNESS_TRANSFER_FROM.selector) {
+                // We force the first action to be a Permit2 witness transfer and validate the actions
+                // against the signature
+                if (
+                    action != ISettlerActions.METATXN_PERMIT2_WITNESS_TRANSFER_FROM.selector
+                        && action != ISettlerActions.METATXN_SETTLER_OTC.selector
+                ) {
                     revert ActionInvalid({action: action, data: data});
                 }
 
+                if (action == ISettlerActions.METATXN_SETTLER_OTC.selector) {
+                    // An optimized path involving a maker/taker in a single trade
+                    // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
+                    // so there is no need to validate `sig` against `actions` here
+                    (
+                        OtcOrder memory order,
+                        ISignatureTransfer.PermitTransferFrom memory makerPermit,
+                        bytes memory makerSig,
+                        ISignatureTransfer.PermitTransferFrom memory takerPermit,
+                        bytes memory takerSig
+                    ) = abi.decode(
+                        data,
+                        (
+                            OtcOrder,
+                            ISignatureTransfer.PermitTransferFrom,
+                            bytes,
+                            ISignatureTransfer.PermitTransferFrom,
+                            bytes
+                        )
+                    );
+                    fillOtcOrderMetaTxn(order, makerPermit, makerSig, takerPermit, takerSig);
+                    return;
+                }
+
+                // METATXN_PERMIT2_WITNESS_TRANSFER_FROM
                 (ISignatureTransfer.PermitTransferFrom memory permit, address from) =
                     abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
                 ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
                     .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
-                ActionData memory actionData = ActionData(actions, abi.encode(datas));
-                bytes32 witness = keccak256(abi.encode(actionData));
+                bytes32 witness = keccak256(abi.encode(actions));
 
+                // Now that the actions have been validated and signed by `from` we can safely assign
+                // msgSender
                 msgSender = from;
-                permit2WitnessTransferFrom(permit, transferDetails, from, sig, witness, WITNESS_TYPE_STRING);
+                permit2WitnessTransferFrom(permit, transferDetails, from, sig, witness, METATXN_TYPE_STRING);
             } else {
                 (success, output) = dispatch(action, data, msgSender);
                 if (!success) {
@@ -116,6 +129,11 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
     {
         success = true;
 
+        // This can only be performed and validated in `executeMetaTxn`
+        if (action == ISettlerActions.METATXN_PERMIT2_WITNESS_TRANSFER_FROM.selector) {
+            revert ActionFailed({action: action, data: data, output: new bytes(0)});
+        }
+
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes));
@@ -131,7 +149,8 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
                 bytes memory makerSig,
                 ISignatureTransfer.PermitTransferFrom memory takerPermit,
                 bytes memory takerSig,
-                uint128 takerTokenFillAmount
+                uint128 takerTokenFillAmount,
+                address recipient
             ) = abi.decode(
                 data,
                 (
@@ -140,11 +159,29 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
                     bytes,
                     ISignatureTransfer.PermitTransferFrom,
                     bytes,
-                    uint128
+                    uint128,
+                    address
                 )
             );
 
-            fillOtcOrder(order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount);
+            /**
+             * UNSAFE: recipient/spender mismatch and can be influenced
+             *             Ensure the tx.origin is a counterparty to this order. This ensures Mallory cannot
+             *             take an OTC order between Alice and Bob and send the funds to herself.
+             */
+            // TODO this can be handled in OtcOrderSettlement
+            require(order.txOrigin == tx.origin || order.taker == msgSender, "Settler: txOrigin mismatch");
+            fillOtcOrder(
+                order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount, recipient
+            );
+        } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
+            (
+                OtcOrder memory order,
+                ISignatureTransfer.PermitTransferFrom memory makerPermit,
+                bytes memory makerSig,
+                uint128 takerTokenFillAmount
+            ) = abi.decode(data, (OtcOrder, ISignatureTransfer.PermitTransferFrom, bytes, uint128));
+            fillOtcOrderSelfFunded(order, makerPermit, makerSig, takerTokenFillAmount);
         } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
             (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
                 abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));

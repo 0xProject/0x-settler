@@ -10,22 +10,22 @@ library ActionDataBuilder {
 
     function build(bytes memory a) internal pure returns (bytes[] memory) {
         bytes[] memory datas = new bytes[](1);
-        datas[0] = a.popSelector();
+        datas[0] = a;
         return datas;
     }
 
     function build(bytes memory a, bytes memory b) internal pure returns (bytes[] memory) {
         bytes[] memory datas = new bytes[](2);
-        datas[0] = a.popSelector();
-        datas[1] = b.popSelector();
+        datas[0] = a;
+        datas[1] = b;
         return datas;
     }
 
     function build(bytes memory a, bytes memory b, bytes memory c) internal pure returns (bytes[] memory) {
         bytes[] memory datas = new bytes[](3);
-        datas[0] = a.popSelector();
-        datas[1] = b.popSelector();
-        datas[2] = c.popSelector();
+        datas[0] = a;
+        datas[1] = b;
+        datas[2] = c;
         return datas;
     }
 
@@ -35,10 +35,10 @@ library ActionDataBuilder {
         returns (bytes[] memory)
     {
         bytes[] memory datas = new bytes[](4);
-        datas[0] = a.popSelector();
-        datas[1] = b.popSelector();
-        datas[2] = c.popSelector();
-        datas[3] = d.popSelector();
+        datas[0] = a;
+        datas[1] = b;
+        datas[2] = c;
+        datas[3] = d;
         return datas;
     }
 
@@ -48,11 +48,11 @@ library ActionDataBuilder {
         returns (bytes[] memory)
     {
         bytes[] memory datas = new bytes[](5);
-        datas[0] = a.popSelector();
-        datas[1] = b.popSelector();
-        datas[2] = c.popSelector();
-        datas[3] = d.popSelector();
-        datas[4] = e.popSelector();
+        datas[0] = a;
+        datas[1] = b;
+        datas[2] = c;
+        datas[3] = d;
+        datas[4] = e;
         return datas;
     }
 
@@ -62,12 +62,12 @@ library ActionDataBuilder {
         returns (bytes[] memory)
     {
         bytes[] memory datas = new bytes[](6);
-        datas[0] = a.popSelector();
-        datas[1] = b.popSelector();
-        datas[2] = c.popSelector();
-        datas[3] = d.popSelector();
-        datas[4] = e.popSelector();
-        datas[5] = f.popSelector();
+        datas[0] = a;
+        datas[1] = b;
+        datas[2] = c;
+        datas[3] = d;
+        datas[4] = e;
+        datas[5] = f;
         return datas;
     }
 
@@ -81,13 +81,13 @@ library ActionDataBuilder {
         bytes memory g
     ) internal pure returns (bytes[] memory) {
         bytes[] memory datas = new bytes[](7);
-        datas[0] = a.popSelector();
-        datas[1] = b.popSelector();
-        datas[2] = c.popSelector();
-        datas[3] = d.popSelector();
-        datas[4] = e.popSelector();
-        datas[5] = f.popSelector();
-        datas[6] = g.popSelector();
+        datas[0] = a;
+        datas[1] = b;
+        datas[2] = c;
+        datas[3] = d;
+        datas[4] = e;
+        datas[5] = f;
+        datas[6] = g;
         return datas;
     }
 }

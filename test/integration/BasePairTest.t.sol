@@ -37,8 +37,13 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         vm.label(MAKER, "MAKER");
         vm.label(BURN_ADDRESS, "BURN");
 
+        // Initialize addresses with non-zero balances
+        // https://github.com/0xProject/0x-settler#gas-comparisons
         deal(address(fromToken()), FROM, amount());
+        deal(address(fromToken()), MAKER, 1);
         deal(address(toToken()), MAKER, amount());
+        deal(address(toToken()), BURN_ADDRESS, 1);
+        deal(address(fromToken()), BURN_ADDRESS, 1);
     }
 
     function snapStartName(string memory name) internal {
