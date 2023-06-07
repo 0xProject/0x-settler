@@ -7,7 +7,12 @@ import {IZeroEx} from "./core/ZeroEx.sol";
 
 interface ISettlerActions {
     /// @dev Transfer funds from msg.sender into the Settler contract using Permit2
-    function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory, bytes memory) external;
+    function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) external;
+
+    /// @dev Transfer funds from msg.sender to multiple destinations using Permit2.
+    /// First element is the amount to transfer into Settler. Second element is the amount to transfer to fee recipient.
+    function PERMIT2_BATCH_TRANSFER_FROM(ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig)
+        external;
 
     /// @dev Transfer funds from `from` into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn`
     /// where the signature is provided as calldata

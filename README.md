@@ -94,6 +94,15 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler       | OTC        | USDT/WETH | 141381 | -26.86% |
 |               |            |           |        |         |
 
+| Sell token fee | DEX        | Pair      | Gas    | %     |
+| -------------- | ---------- | --------- | ------ | ----- |
+| Settler        | Uniswap V3 | USDC/WETH | 183998 | 0.00% |
+|                |            |           |        |       |
+| Settler        | Uniswap V3 | DAI/WETH  | 154541 | 0.00% |
+|                |            |           |        |       |
+| Settler        | Uniswap V3 | USDT/WETH | 170345 | 0.00% |
+|                |            |           |        |       |
+
 [//]: # "END TABLES"
 
 ### Settler vs X
@@ -123,6 +132,7 @@ See [ISettlerActions](https://github.com/0xProject/0x-settler/blob/master/src/IS
 - [x] MetaTxn
 - [x] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
 - [ ] WETH wrap/unwrap
+- [ ] Payable OTC (ETH)
 - [ ] Sell token fees
 - [x] Buy token fees
 - [x] consider using argument encoding for action names, ala solidity function encoding

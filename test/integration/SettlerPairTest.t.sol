@@ -153,6 +153,31 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    function testSettler_uniswapV3_sellToken_fee() public {
+        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
+            permitted: new ISignatureTransfer.TokenPermissions[](2),
+            nonce: PERMIT2_FROM_NONCE,
+            deadline: block.timestamp + 100
+        });
+        permit.permitted[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount() - 1});
+        permit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
+
+        bytes memory sig =
+            getPermitBatchTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.PERMIT2_BATCH_TRANSFER_FROM, (permit, sig)),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() - 1, 1, uniswapV3Path())
+            )
+        );
+
+        snapStartName("settler_uniswapV3_sellToken_fee");
+        vm.startPrank(FROM);
+        settler.execute(actions);
+        snapEnd();
+    }
+
     function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 

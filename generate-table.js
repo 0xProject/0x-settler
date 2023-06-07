@@ -135,7 +135,7 @@ tables.push(
     ),
     { stringLength: stringWidth }
   ),
-  // Swap with fees comparisons
+  // Swap with buy token  fees comparisons
   markdownTable(
     generateTable(
       "Buy token fee",
@@ -143,6 +143,15 @@ tables.push(
         ["Settler", "Uniswap V3", "settler_uniswapV3_fee"],
         ["Settler", "OTC", "settler_otc_fee_single_custody"],
       ],
+      pairs
+    ),
+    { stringLength: stringWidth }
+  ),
+  // Swap with sell token fees comparisons
+  markdownTable(
+    generateTable(
+      "Sell token fee",
+      [["Settler", "Uniswap V3", "settler_uniswapV3_sellToken_fee"]],
       pairs
     ),
     { stringLength: stringWidth }

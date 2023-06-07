@@ -142,6 +142,25 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
                 .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
 
             permit2TransferFrom(permit, transferDetails, msgSender, sig);
+        } else if (action == ISettlerActions.PERMIT2_BATCH_TRANSFER_FROM.selector) {
+            (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
+            require(permit.permitted.length <= 2, "Invalid Batch Permit2");
+            // First item is this contract
+            ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
+                new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
+            transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
+                to: address(this),
+                requestedAmount: permit.permitted[0].amount
+            });
+            if (permit.permitted.length > 1) {
+                // TODO fee recipient
+                transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                    to: 0x2222222222222222222222222222222222222222,
+                    requestedAmount: permit.permitted[1].amount
+                });
+            }
+            permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC.selector) {
             (
                 OtcOrder memory order,
