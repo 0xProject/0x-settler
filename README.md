@@ -123,7 +123,9 @@ See [ISettlerActions](https://github.com/0xProject/0x-settler/blob/master/src/IS
 - [x] MetaTxn
 - [x] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
 - [ ] WETH wrap/unwrap
-- [ ] consider using argument encoding for action names, ala solidity function encoding
+- [ ] Sell token fees
+- [x] Buy token fees
+- [x] consider using argument encoding for action names, ala solidity function encoding
 - [ ] can we support all dexes without hitting the contract size limit and requiring `DELEGATECALL's`
 - [ ] set up some mocks for faster unit testing
 
@@ -151,7 +153,8 @@ Day by day it gets harder to get a fair real world gas comparison. With rebates 
 
 To make gas comparisons fair we will use the following methodology:
 
-- Market Makers have balances of both tokens. Since Pools have non-zero balances of both tokens this is a fair comparison.
-- Nonces for Permit2 and Otc orders (0x V4) are assumed to be initialized. We set this manually in `setUp` rather than by performing additional trades to avoid gas metering and warming up storage access as much as possible
-- The taker does not have a balance of the token being bought
-- Fee Recipient has a non-zero balance of the tokens
+- Market Makers have balances of both tokens. Since AMM Pools have non-zero balances of both tokens this is a fair comparison.
+- The Taker does not have a balance of the token being bought.
+- Fee Recipient has a non-zero balance of the fee tokens.
+- Nonces for Permit2 and Otc orders (0x V4) are initialized.
+- `setUp` is used as much as possible with limited setup performed in the test. Warmup trades are avoided completely as to not warm up storage access.
