@@ -63,6 +63,63 @@ abstract contract OtcOrderSettlement {
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
+    /// the counterparties. Two Permit2 signatures are consumed, with the maker Permit2 containing
+    /// a witness of the OtcOrder.
+    /// This variant also includes a fee where the taker or maker pays the fee recipient
+    function fillOtcOrder(
+        OtcOrder memory order,
+        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        bytes memory makerSig,
+        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        bytes memory takerSig,
+        address taker,
+        uint128 takerTokenFillAmount,
+        address recipient
+    ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
+        // TODO validate order.taker and taker
+        // TODO validate tx.origin and txOrigin
+        // TODO adjust amounts based on takerTokenFillAmount
+
+        require(makerPermit.permitted.length <= 2, "Invalid Batch Permit2");
+        require(takerPermit.permitted.length <= 2, "Invalid Batch Permit2");
+
+        // Maker pays out recipient and optional fee to fee recipient
+        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails =
+            new ISignatureTransfer.SignatureTransferDetails[](makerPermit.permitted.length);
+        makerTransferDetails[0] =
+            ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
+        if (makerPermit.permitted.length > 1) {
+            // TODO fee recipient
+            makerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                to: 0x2222222222222222222222222222222222222222,
+                requestedAmount: makerPermit.permitted[1].amount
+            });
+            // adjust the maker->recipient payout by the fee amount
+            makerTransferDetails[0].requestedAmount -= makerPermit.permitted[1].amount;
+        }
+
+        bytes32 witness = keccak256(abi.encode(order));
+        PERMIT2.permitWitnessTransferFrom(
+            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
+        );
+
+        // Taker pays Maker and optional fee to fee recipient
+        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails =
+            new ISignatureTransfer.SignatureTransferDetails[](takerPermit.permitted.length);
+        takerTransferDetails[0] =
+            ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
+        if (takerPermit.permitted.length > 1) {
+            // TODO fee recipient
+            takerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                to: 0x2222222222222222222222222222222222222222,
+                requestedAmount: takerPermit.permitted[1].amount
+            });
+            // No adjustment in payout of taker->maker, maker always receives full amount
+        }
+        PERMIT2.permitTransferFrom(takerPermit, takerTransferDetails, taker, takerSig);
+    }
+
+    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
     function fillOtcOrderMetaTxn(

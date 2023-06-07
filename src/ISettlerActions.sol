@@ -31,6 +31,18 @@ interface ISettlerActions {
         address recipient
     ) external;
 
+    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
+    // Post-req: Payout if recipient != taker
+    function SETTLER_OTC_BATCH_PERMIT2(
+        OtcOrderSettlement.OtcOrder memory order,
+        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        bytes memory makerSig,
+        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        bytes memory takerSig,
+        uint128 takerTokenFillAmount,
+        address recipient
+    ) external;
+
     /// @dev Settle an OtcOrder between Maker and Settler. Transfering funds from the Settler contract to maker.
     /// Retaining funds in the settler contract.
     // Pre-req: Funded

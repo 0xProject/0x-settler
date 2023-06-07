@@ -140,8 +140,9 @@ tables.push(
     generateTable(
       "Buy token fee",
       [
-        ["Settler", "Uniswap V3", "settler_uniswapV3_fee"],
-        ["Settler", "OTC", "settler_otc_fee_single_custody"],
+        ["Settler - custody", "Uniswap V3", "settler_uniswapV3_fee"],
+        ["Settler - custody", "OTC", "settler_otc_fee_single_custody"],
+        ["Settler", "OTC", "settler_otc_buyToken_fee"],
       ],
       pairs
     ),
@@ -151,7 +152,10 @@ tables.push(
   markdownTable(
     generateTable(
       "Sell token fee",
-      [["Settler", "Uniswap V3", "settler_uniswapV3_sellToken_fee"]],
+      [
+        ["Settler - custody", "Uniswap V3", "settler_uniswapV3_sellToken_fee"],
+        ["Settler", "OTC", "settler_otc_sellToken_fee"],
+      ],
       pairs
     ),
     { stringLength: stringWidth }

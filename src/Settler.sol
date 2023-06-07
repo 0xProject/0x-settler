@@ -193,6 +193,38 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
             fillOtcOrder(
                 order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount, recipient
             );
+        } else if (action == ISettlerActions.SETTLER_OTC_BATCH_PERMIT2.selector) {
+            (
+                OtcOrder memory order,
+                ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                bytes memory makerSig,
+                ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+                bytes memory takerSig,
+                uint128 takerTokenFillAmount,
+                address recipient
+            ) = abi.decode(
+                data,
+                (
+                    OtcOrder,
+                    ISignatureTransfer.PermitBatchTransferFrom,
+                    bytes,
+                    ISignatureTransfer.PermitBatchTransferFrom,
+                    bytes,
+                    uint128,
+                    address
+                )
+            );
+
+            /**
+             * UNSAFE: recipient/spender mismatch and can be influenced
+             *             Ensure the tx.origin is a counterparty to this order. This ensures Mallory cannot
+             *             take an OTC order between Alice and Bob and send the funds to herself.
+             */
+            // TODO this can be handled in OtcOrderSettlement
+            require(order.txOrigin == tx.origin || order.taker == msgSender, "Settler: txOrigin mismatch");
+            fillOtcOrder(
+                order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount, recipient
+            );
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             (
                 OtcOrder memory order,
