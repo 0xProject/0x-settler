@@ -38,9 +38,6 @@ abstract contract UniswapV3 {
     ///      sizeof(address(inputToken) | uint24(fee))
     uint256 private constant PATH_SKIP_HOP_SIZE = 20 + 3;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
-    // token0, token1, fee, payer, permit2 PermitTransferFrom, (v,r,s)
-    // uint256 private constant SWAP_CALLBACK_DATA_SIZE = 128 + 288;
-    // token0, token1, fee, payer
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 128;
     /// @dev Minimum tick price sqrt ratio.
     uint160 internal constant MIN_PRICE_SQRT_RATIO = 4295128739;
