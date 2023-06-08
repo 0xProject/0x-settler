@@ -60,15 +60,15 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | OTC     | DEX     | Pair      | Gas    | %      |
 | ------- | ------- | --------- | ------ | ------ |
 | 0x V4   | 0x V4   | USDC/WETH | 112785 | 0.00%  |
-| Settler | Settler | USDC/WETH | 110729 | -1.82% |
+| Settler | Settler | USDC/WETH | 110786 | -1.77% |
 | Settler | 0x V4   | USDC/WETH | 174912 | 55.08% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | DAI/WETH  | 93311  | 0.00%  |
-| Settler | Settler | DAI/WETH  | 91255  | -2.20% |
+| Settler | Settler | DAI/WETH  | 91312  | -2.14% |
 | Settler | 0x V4   | DAI/WETH  | 145715 | 56.16% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | USDT/WETH | 104423 | 0.00%  |
-| Settler | Settler | USDT/WETH | 102367 | -1.97% |
+| Settler | Settler | USDT/WETH | 102424 | -1.91% |
 | Settler | 0x V4   | USDT/WETH | 160618 | 53.81% |
 |         |         |           |        |        |
 
@@ -82,26 +82,32 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Curve Swap Router | Curve | USDT/WETH | 358007 | -10.29% |
 |                   |       |           |        |         |
 
-| Buy token fee | DEX        | Pair      | Gas    | %       |
-| ------------- | ---------- | --------- | ------ | ------- |
-| Settler       | Uniswap V3 | USDC/WETH | 202930 | 0.00%   |
-| Settler       | OTC        | USDC/WETH | 149743 | -26.21% |
-|               |            |           |        |         |
-| Settler       | Uniswap V3 | DAI/WETH  | 187241 | 0.00%   |
-| Settler       | OTC        | DAI/WETH  | 130269 | -30.43% |
-|               |            |           |        |         |
-| Settler       | Uniswap V3 | USDT/WETH | 193305 | 0.00%   |
-| Settler       | OTC        | USDT/WETH | 141381 | -26.86% |
-|               |            |           |        |         |
+| Buy token fee     | DEX        | Pair      | Gas    | %       |
+| ----------------- | ---------- | --------- | ------ | ------- |
+| Settler - custody | Uniswap V3 | USDC/WETH | 202930 | 0.00%   |
+| Settler - custody | OTC        | USDC/WETH | 149896 | -26.13% |
+| Settler           | OTC        | USDC/WETH | 130771 | -35.56% |
+|                   |            |           |        |         |
+| Settler - custody | Uniswap V3 | DAI/WETH  | 187241 | 0.00%   |
+| Settler - custody | OTC        | DAI/WETH  | 130422 | -30.35% |
+| Settler           | OTC        | DAI/WETH  | 111297 | -40.56% |
+|                   |            |           |        |         |
+| Settler - custody | Uniswap V3 | USDT/WETH | 193305 | 0.00%   |
+| Settler - custody | OTC        | USDT/WETH | 141534 | -26.78% |
+| Settler           | OTC        | USDT/WETH | 122409 | -36.68% |
+|                   |            |           |        |         |
 
-| Sell token fee | DEX        | Pair      | Gas    | %     |
-| -------------- | ---------- | --------- | ------ | ----- |
-| Settler        | Uniswap V3 | USDC/WETH | 183998 | 0.00% |
-|                |            |           |        |       |
-| Settler        | Uniswap V3 | DAI/WETH  | 154541 | 0.00% |
-|                |            |           |        |       |
-| Settler        | Uniswap V3 | USDT/WETH | 170345 | 0.00% |
-|                |            |           |        |       |
+| Sell token fee    | DEX        | Pair      | Gas    | %       |
+| ----------------- | ---------- | --------- | ------ | ------- |
+| Settler - custody | Uniswap V3 | USDC/WETH | 183998 | 0.00%   |
+| Settler           | OTC        | USDC/WETH | 135102 | -26.57% |
+|                   |            |           |        |         |
+| Settler - custody | Uniswap V3 | DAI/WETH  | 154541 | 0.00%   |
+| Settler           | OTC        | DAI/WETH  | 111454 | -27.88% |
+|                   |            |           |        |         |
+| Settler - custody | Uniswap V3 | USDT/WETH | 170345 | 0.00%   |
+| Settler           | OTC        | USDT/WETH | 123678 | -27.40% |
+|                   |            |           |        |         |
 
 [//]: # "END TABLES"
 
