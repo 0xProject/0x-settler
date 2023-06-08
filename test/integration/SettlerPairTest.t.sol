@@ -205,7 +205,7 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (FROM, amount()-1, 1, uniswapV3Path(), abi.encode(permit, sig))
+                (FROM, amount() - 1, 1, uniswapV3Path(), abi.encode(permit, sig))
             )
         );
 
@@ -215,7 +215,6 @@ abstract contract SettlerPairTest is BasePairTest {
         _settler.execute(actions);
         snapEnd();
     }
-
 
     function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();

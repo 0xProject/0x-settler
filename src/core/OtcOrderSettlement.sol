@@ -79,13 +79,7 @@ abstract contract OtcOrderSettlement {
 
         // TODO actually calculate the orderHash
         emit OtcOrderFilled(
-            witness,
-            order.maker,
-            taker,
-            order.makerToken,
-            order.takerToken,
-            order.makerAmount,
-            order.takerAmount
+            witness, order.maker, taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
         );
     }
 
@@ -147,13 +141,7 @@ abstract contract OtcOrderSettlement {
 
         // TODO actually calculate the orderHash
         emit OtcOrderFilled(
-            witness,
-            order.maker,
-            taker,
-            order.makerToken,
-            order.takerToken,
-            order.makerAmount,
-            order.takerAmount
+            witness, order.maker, taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
         );
     }
 
@@ -188,13 +176,7 @@ abstract contract OtcOrderSettlement {
 
         // TODO actually calculate the orderHash
         emit OtcOrderFilled(
-            witness,
-            order.maker,
-            order.taker,
-            order.makerToken,
-            order.takerToken,
-            order.makerAmount,
-            order.takerAmount
+            witness, order.maker, order.taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
         );
     }
 
