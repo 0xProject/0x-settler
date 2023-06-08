@@ -37,11 +37,11 @@ abstract contract UniswapV3 {
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
     ///      sizeof(address(inputToken) | uint24(fee))
     uint256 private constant PATH_SKIP_HOP_SIZE = 20 + 3;
-    /// @dev The size of the swap callback data.
-    // token0, token1, fee, payer
-    // uint256 private constant SWAP_CALLBACK_DATA_SIZE = 128;
+    /// @dev The size of the swap callback prefix data before the Permit2 data.
     // token0, token1, fee, payer, permit2 PermitTransferFrom, (v,r,s)
-    uint256 private constant SWAP_CALLBACK_DATA_SIZE = 128 + 288;
+    // uint256 private constant SWAP_CALLBACK_DATA_SIZE = 128 + 288;
+    // token0, token1, fee, payer
+    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 128;
     /// @dev Minimum tick price sqrt ratio.
     uint160 internal constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -119,8 +119,9 @@ abstract contract UniswapV3 {
         if (sellAmount != 0) {
             require(sellAmount <= uint256(type(int256).max), "UniswapV3Feature/SELL_AMOUNT_OVERFLOW");
 
+            // TODO don't allocate permit2 data is empty (e.g a multhop where we are paying)
             // Perform a swap for each hop in the path.
-            bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_DATA_SIZE);
+            bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
             while (true) {
                 bool isPathMultiHop = _isPathMultiHop(encodedPath);
                 bool zeroForOne;
@@ -203,13 +204,14 @@ abstract contract UniswapV3 {
         address payer,
         bytes memory permit2Data
     ) private {
+        uint256 permit2DataLength = permit2Data.length;
         assembly {
             let p := add(swapCallbackData, 32)
             mstore(p, inputToken)
             mstore(add(p, 32), outputToken)
             mstore(add(p, 64), and(UINT24_MASK, fee))
             mstore(add(p, 96), and(ADDRESS_MASK, payer))
-            for { let i := 0 } lt(i, 9) { i := add(1, i) } {
+            for { let i := 0 } lt(i, div(permit2DataLength, 32)) { i := add(1, i) } {
                 mstore(add(add(p, 128), mul(32, i)), mload(add(permit2Data, mul(32, add(1, i)))))
             }
         }
@@ -253,12 +255,11 @@ abstract contract UniswapV3 {
         ERC20 token0;
         ERC20 token1;
         address payer;
-        // TODO don't allocate if it's not required
-        bytes memory permit2Data = new bytes(288);
+        uint256 permit2DataLength = data.length - SWAP_CALLBACK_PREFIX_DATA_SIZE;
+        bytes memory permit2Data = new bytes(permit2DataLength);
         {
             uint24 fee;
             // Decode the data.
-            require(data.length == SWAP_CALLBACK_DATA_SIZE, "UniswapFeature/INVALID_SWAP_CALLBACK_DATA");
             assembly {
                 let p := add(36, calldataload(68))
                 token0 := calldataload(p)
@@ -267,7 +268,7 @@ abstract contract UniswapV3 {
                 payer := calldataload(add(p, 96))
 
                 let z := add(permit2Data, 32)
-                for { let i := 0 } lt(i, 9) { i := add(1, i) } {
+                for { let i := 0 } lt(i, div(permit2DataLength, 32)) { i := add(1, i) } {
                     mstore(add(z, mul(32, i)), calldataload(add(add(p, 128), mul(32, i))))
                 }
             }
@@ -291,12 +292,26 @@ abstract contract UniswapV3 {
         if (payer == address(this)) {
             _transferERC20Tokens(token, to, amount);
         } else {
-            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            // Single transfer permit2
+            if (permit2Data.length == 288) {
+                (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                    abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes));
 
-            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                ISignatureTransfer.SignatureTransferDetails({to: to, requestedAmount: amount});
-            PERMIT2.permitTransferFrom(permit, transferDetails, payer, sig);
+                ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                    ISignatureTransfer.SignatureTransferDetails({to: to, requestedAmount: amount});
+                PERMIT2.permitTransferFrom(permit, transferDetails, payer, sig);
+            } else {
+                // Batch transfer permit2
+                (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
+                    abi.decode(permit2Data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
+                // TODO we only support a max batch size of 2
+                ISignatureTransfer.SignatureTransferDetails[] memory transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
+                transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({to: to, requestedAmount: amount});
+                // TODO scale fee amount by the above ratio?
+                // TODO fee recipient
+                transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({to: 0x2222222222222222222222222222222222222222, requestedAmount: permit.permitted[1].amount});
+                PERMIT2.permitTransferFrom(permit, transferDetails, payer, sig);
+            }
         }
     }
 

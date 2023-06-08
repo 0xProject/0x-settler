@@ -96,8 +96,6 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_uniswapV3VIP() public {
-        deal(address(fromToken()), FROM, amount());
-
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
@@ -139,7 +137,7 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_fee() public {
+    function testSettler_uniswapV3_fee_full_custody() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (address(settler), amount(), 1, uniswapV3Path())),
@@ -147,13 +145,30 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
         );
 
-        snapStartName("settler_uniswapV3_fee");
+        snapStartName("settler_uniswapV3_buyToken_fee_full_custody");
         vm.startPrank(FROM);
         settler.execute(actions);
         snapEnd();
     }
 
-    function testSettler_uniswapV3_sellToken_fee() public {
+    function testSettler_uniswapV3_buyToken_fee_single_custody() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                (address(settler), amount(), 1, uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
+            ),
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+        );
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV3_buyToken_fee_single_custody");
+        _settler.execute(actions);
+        snapEnd();
+    }
+
+    function testSettler_uniswapV3_sellToken_fee_single_custody() public {
         ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
             permitted: new ISignatureTransfer.TokenPermissions[](2),
             nonce: PERMIT2_FROM_NONCE,
@@ -170,11 +185,37 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() - 1, 1, uniswapV3Path()))
         );
 
-        snapStartName("settler_uniswapV3_sellToken_fee");
+        snapStartName("settler_uniswapV3_sellToken_fee_single_custody");
         vm.startPrank(FROM);
         settler.execute(actions);
         snapEnd();
     }
+
+    function testSettler_uniswapV3VIP_sellToken_fee() public {
+        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
+            permitted: new ISignatureTransfer.TokenPermissions[](2),
+            nonce: PERMIT2_FROM_NONCE,
+            deadline: block.timestamp + 100
+        });
+        permit.permitted[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount() - 1});
+        permit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
+
+        bytes memory sig =
+            getPermitBatchTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                (FROM, amount()-1, 1, uniswapV3Path(), abi.encode(permit, sig))
+            )
+        );
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV3VIP_sellToken_fee");
+        _settler.execute(actions);
+        snapEnd();
+    }
+
 
     function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();

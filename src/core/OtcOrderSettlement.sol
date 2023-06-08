@@ -22,6 +22,22 @@ abstract contract OtcOrderSettlement {
         address txOrigin;
     }
 
+    /// @dev Emitted whenever an `OtcOrder` is filled.
+    /// @param orderHash The canonical hash of the order.
+    /// @param maker The maker of the order.
+    /// @param taker The taker of the order.
+    /// @param makerTokenFilledAmount How much maker token was filled.
+    /// @param takerTokenFilledAmount How much taker token was filled.
+    event OtcOrderFilled(
+        bytes32 orderHash,
+        address maker,
+        address taker,
+        address makerToken,
+        address takerToken,
+        uint128 makerTokenFilledAmount,
+        uint128 takerTokenFilledAmount
+    );
+
     string internal constant OTC_ORDER_WITNESS_TYPE_STRING =
         "OtcOrder order)OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)TokenPermissions(address token,uint256 amount)";
 
@@ -60,6 +76,17 @@ abstract contract OtcOrderSettlement {
         ISignatureTransfer.SignatureTransferDetails memory takerToMakerTransferDetails =
             ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
         PERMIT2.permitTransferFrom(takerPermit, takerToMakerTransferDetails, taker, takerSig);
+
+        // TODO actually calculate the orderHash
+        emit OtcOrderFilled(
+            witness,
+            order.maker,
+            taker,
+            order.makerToken,
+            order.takerToken,
+            order.makerAmount,
+            order.takerAmount
+        );
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
@@ -117,6 +144,17 @@ abstract contract OtcOrderSettlement {
             // No adjustment in payout of taker->maker, maker always receives full amount
         }
         PERMIT2.permitTransferFrom(takerPermit, takerTransferDetails, taker, takerSig);
+
+        // TODO actually calculate the orderHash
+        emit OtcOrderFilled(
+            witness,
+            order.maker,
+            taker,
+            order.makerToken,
+            order.takerToken,
+            order.makerAmount,
+            order.takerAmount
+        );
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
@@ -147,6 +185,17 @@ abstract contract OtcOrderSettlement {
         PERMIT2.permitWitnessTransferFrom(
             takerPermit, takerToMakerTransferDetails, order.taker, witness, OTC_ORDER_WITNESS_TYPE_STRING, takerSig
         );
+
+        // TODO actually calculate the orderHash
+        emit OtcOrderFilled(
+            witness,
+            order.maker,
+            order.taker,
+            order.makerToken,
+            order.takerToken,
+            order.makerAmount,
+            order.takerAmount
+        );
     }
 
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
@@ -171,5 +220,16 @@ abstract contract OtcOrderSettlement {
 
         // Settler pays Maker
         ERC20(order.takerToken).safeTransfer(order.maker, order.takerAmount);
+        // TODO actually calculate the orderHash
+        emit OtcOrderFilled(
+            witness,
+            order.maker,
+            // TODO fixme
+            tx.origin,
+            order.makerToken,
+            order.takerToken,
+            order.makerAmount,
+            order.takerAmount
+        );
     }
 }
