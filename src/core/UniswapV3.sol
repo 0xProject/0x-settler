@@ -167,7 +167,7 @@ abstract contract UniswapV3 {
         returns (ERC20 inputToken, uint24 fee, ERC20 outputToken)
     {
         require(encodedPath.length >= SINGLE_HOP_PATH_SIZE, "UniswapV3Feature/BAD_PATH_ENCODING");
-        assembly {
+        assembly ("memory-safe") {
             let p := add(encodedPath, 32)
             inputToken := shr(96, mload(p))
             p := add(p, 20)
@@ -186,7 +186,7 @@ abstract contract UniswapV3 {
         require(encodedPath.length >= PATH_SKIP_HOP_SIZE, "UniswapV3Feature/BAD_PATH_ENCODING");
         uint256 shiftSize = PATH_SKIP_HOP_SIZE;
         uint256 newSize = encodedPath.length - shiftSize;
-        assembly {
+        assembly ("memory-safe") {
             shiftedEncodedPath := add(encodedPath, shiftSize)
             mstore(shiftedEncodedPath, newSize)
         }
@@ -202,7 +202,7 @@ abstract contract UniswapV3 {
         bytes memory permit2Data
     ) private {
         uint256 permit2DataLength = permit2Data.length;
-        assembly {
+        assembly ("memory-safe") {
             let p := add(swapCallbackData, 32)
             mstore(p, inputToken)
             mstore(add(p, 32), outputToken)
@@ -225,7 +225,7 @@ abstract contract UniswapV3 {
         bytes32 ffFactoryAddress = UNI_FF_FACTORY_ADDRESS;
         bytes32 poolInitCodeHash = UNI_POOL_INIT_CODE_HASH;
         (ERC20 token0, ERC20 token1) = inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
-        assembly {
+        assembly ("memory-safe") {
             let s := mload(0x40)
             let p := s
             mstore(p, ffFactoryAddress)
@@ -257,7 +257,7 @@ abstract contract UniswapV3 {
         {
             uint24 fee;
             // Decode the data.
-            assembly {
+            assembly ("memory-safe") {
                 let p := add(36, calldataload(68))
                 token0 := calldataload(p)
                 token1 := calldataload(add(p, 32))
@@ -323,7 +323,7 @@ abstract contract UniswapV3 {
     function _transferERC20Tokens(ERC20 token, address to, uint256 amount) internal {
         require(address(token) != address(this), "FixinTokenSpender/CANNOT_INVOKE_SELF");
 
-        assembly {
+        assembly ("memory-safe") {
             let ptr := mload(0x40) // free memory pointer
 
             // selector for transfer(address,uint256)
