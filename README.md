@@ -413,7 +413,7 @@ sequenceDiagram
     Settler->>DEX: swap
     USDC-->>DEX: transfer
     WETH-->>Settler: transfer
-    opt sell token fee
+    opt buy token fee
         WETH-->>Fee Recipient: transfer
     end
     WETH-->>User: transfer
