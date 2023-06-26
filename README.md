@@ -184,3 +184,320 @@ To make gas comparisons fair we will use the following methodology:
 - Fee Recipient has a non-zero balance of the fee tokens.
 - Nonces for Permit2 and Otc orders (0x V4) are initialized.
 - `setUp` is used as much as possible with limited setup performed in the test. Warmup trades are avoided completely as to not warm up storage access.
+
+# Technical Reference
+
+We utilise Permit2 transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transgers and `PermitBatchTransferFrom` for batch transfers.
+
+Permit2 provides the following guarantees:
+
+- Funds can only be transferred from the user who signed the Permit2 coupon
+- Funds can only be transferred by the `spender` specified in the Permit2 coupon
+- Settler may only transfer an amount up to the amount specified in the Permit2 coupon
+- Settler may only transfer a token specified in the Permit2 coupon
+- Coupons expire after a certain time specified as `deadline`
+- Coupons can only be used once
+
+```solidity
+struct TokenPermissions {
+    // ERC20 token address
+    address token;
+    // the maximum amount that can be spent
+    uint256 amount;
+}
+
+struct PermitTransferFrom {
+    TokenPermissions permitted;
+    // a unique value for every token owner's signature to prevent signature replays
+    uint256 nonce;
+    // deadline on the permit signature
+    uint256 deadline;
+}
+
+struct PermitBatchTransferFrom {
+    // the tokens and corresponding amounts permitted for a transfer
+    TokenPermissions[] permitted;
+    // a unique value for every token owner's signature to prevent signature replays
+    uint256 nonce;
+    // deadline on the permit signature
+    uint256 deadline;
+}
+```
+
+With this it is simple to transfer the user assets to a specific destination, as well as take fixed fees. The biggest restriction is that we must consume this permit entirely once. We cannot perform the permit transfer at different times consuming different amounts.
+
+The User signs a Permit2 coupon, giving Settler the ability to spend a specific amount of their funds for a time duration. The EIP712 type the user signs is as follows:
+
+```solidity
+PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)
+TokenPermissions(address token,uint256 amount)
+```
+
+This signed coupon is then provided in the calldata to the `Settler.execute` function.
+
+Due to this design, the user is prompted for an action two times when performing a trade. Once to sign the Permit2 coupon, and once to call the `Settler.execute` function. This is a tradeoff we are willing to make to avoid passive allowances.
+
+In a MetaTransaction flow, the user is prompted only once.
+
+## Token Transfer Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    User->>Settler: execute
+    rect rgba(133, 81, 231, 0.5)
+        Settler->>Permit2: permitTransfer
+        Permit2->>USDC: transferFrom(User, Settler)
+        USDC-->>Settler: transfer
+    end
+    Settler->>UniswapV3: swap
+    UniswapV3->>WETH: transfer(Settler)
+    WETH-->>Settler: transfer
+    UniswapV3->>Settler: uniswapV3Callback
+    Settler->>USDC: transfer(UniswapV3)
+    USDC-->>UniswapV3: transfer
+    Settler->>WETH: balanceOf(Settler)
+    Settler->>WETH: transfer(User)
+    WETH-->>User: transfer
+```
+
+The above example shows the simplest form of settlement in Settler. We abuse some of the sequence diagram notation to get the point across. Token transfers are represented by dashes (-->). Normal contract calls are represented by solid lines. Highlighted in colour is the Permit2 interaction.
+
+For the sake of brevity, following diagrams will have a simplified representation to showcase the internal flow. This is what we are actually interested in describing. The initial user interaction (e.g their call to Settler) and the final transfer is omitted unless it is relevant to highlight in the flow. Function calls to the DEX may only be representative of the flow, not the accurate function name.
+
+Below is the simplified version of the above flow.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>Settler: permitTransfer
+    end
+    Settler->>UniswapV3: swap
+    WETH-->>Settler: transfer
+    UniswapV3->>Settler: uniswapV3Callback
+    USDC-->>UniswapV3: transfer
+```
+
+## Basic Flow
+
+This is the most basic flow and a flow that a number of dexes support. Essentially it is the "call function on DEX, DEX takes tokens from us, DEX gives us tokens". It has ineffeciences as `transferFrom` is more gas expensive than `transfer` and we are required to check/set allowances to the DEX. Typically this DEX also does not support a `recipient` field, introducing yet another needless `transfer` in simple swaps.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>Settler: permitTransfer
+    end
+    Settler->>DEX: swap
+    USDC-->>DEX: transfer
+    WETH-->>Settler: transfer
+    WETH-->>User: transfer
+```
+
+## VIPs
+
+Settler has a number of specialised fill flows and will add more overtime as we add support for more dexes.
+
+### UniswapV3
+
+```mermaid
+sequenceDiagram
+    autonumber
+    Settler->>UniswapV3: swap
+    WETH-->>User: transfer
+    UniswapV3->>Settler: uniswapV3Callback
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>UniswapV3: permitTransfer
+    end
+```
+
+In this flow we avoid extraneous transfers with two optimisations. Firstly, we utilise the `recipient` field of UniswapV3, providing the User as the recipient and avoiding an extra transfer. Secondly during the `uniswapV3Callback` we execute the Permit2 transfer, paying the UniswapV3 pool instead of the Settler contract, avoiding an extra transfer.
+
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill a single UniswapV3 pool, or single chain of UniswapV3 pools.
+
+Note this has the following limitations:
+
+- Single UniswapV3 pool or single chain of pools (e.g ETH->DAI->USDC)
+- Cannot support a split between pools (e.g ETH->USDC 5bps and ETH->USDC 1bps) as Permit2 transfer can only occur once. a 0xV4 equivalent would be `sellTokenForTokenToUniswapV3` as opposed to `MultiPlex[sellTokenForEthToUniswapV3,sellTokenForEthToUniswapV3]`.
+
+## OTC
+
+```mermaid
+sequenceDiagram
+    autonumber
+    rect rgba(133, 81, 231, 0.5)
+        WETH-->>User: permitWitnessTransferFrom
+    end
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>Market Maker: permitTransfer
+    end
+```
+
+For OTC we utilize 2 Permit2 Transfers, one for the `Market Maker->User` and another for `User->Market Maker`. This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill OTC orders. We simply validate the OTC order (e.g Taker/tx.origin).
+
+Note the `permitWitnessTransferFrom`, we utilise the `Witness` functionality of Permit2 which allows arbitrary data to be attached to the Permit2 coupon. This arbitrary data is the actual OTC order itself, containing the taker/tx.origin and maker/taker amount and token fields.
+
+```solidity
+struct OtcOrder {
+    address makerToken;
+    address takerToken;
+    uint128 makerAmount;
+    uint128 takerAmount;
+    address maker;
+    address taker;
+    address txOrigin;
+}
+```
+
+A Market maker signs a slightly different Permit2 coupon than a User which contains these additional fields. The EIP712 type the Market Maker signs is as follows:
+
+```solidity
+PermitWitnessTransferFrom(TokenPermissions permitted, address spender, uint256 nonce, uint256 deadline, OtcOrder order)
+OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)
+TokenPermissions(address token,uint256 amount)"
+```
+
+We use the Permit2 guarantees of a Permit2 coupon to ensure the following:
+
+- OTC Order cannot be filled more than once
+- OTC Orders expire
+- OTC Orders are signed by the Market Maker
+
+## Fees in Basic Flow
+
+In the most Basic flow, Settler has **taken custody**, usually in both assets. So a fee can be paid out be Settler.
+
+### Sell token fee
+
+```mermaid
+sequenceDiagram
+    autonumber
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>Settler: permitTransfer
+    end
+    opt sell token fee
+        USDC-->>Fee Recipient: transfer
+    end
+    Settler->>DEX: swap
+    USDC-->>DEX: transfer
+    WETH-->>Settler: transfer
+    WETH-->>User: transfer
+```
+
+It is also possible to utilise Permit2 to pay out the Sell token fee using a batch permit, where the second item in the batch is the amount to payout.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>Settler: permitTransfer
+        opt sell token fee
+            USDC-->>Fee Recipient: transfer
+        end
+    end
+    Settler->>DEX: swap
+    USDC-->>DEX: transfer
+    WETH-->>Settler: transfer
+    WETH-->>User: transfer
+```
+
+### Buy token fee
+
+```mermaid
+sequenceDiagram
+    autonumber
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>Settler: permitTransfer
+    end
+    Settler->>DEX: swap
+    USDC-->>DEX: transfer
+    WETH-->>Settler: transfer
+    opt sell token fee
+        WETH-->>Fee Recipient: transfer
+    end
+    WETH-->>User: transfer
+```
+
+## Fees via Permit2
+
+It is possible to collect fees via Permit2, which is typically in the token that the Permit2 is offloading (e.g the sell token for that counterparty). To perform this we use the Permit2 batch functionality where the second item in the batch is the fee.
+
+Note: This is still not entirely finalised and may change.
+
+### OTC fees via Permit2
+
+```mermaid
+sequenceDiagram
+    autonumber
+    rect rgba(133, 81, 231, 0.5)
+        Settler->>Permit2: permitWitnessTransfer
+        WETH-->>User: transfer
+        opt buy token fee
+            WETH-->>Fee Recipient: transfer
+        end
+    end
+    rect rgba(133, 81, 231, 0.5)
+        Settler->>Permit2: permitTransfer
+        USDC-->>Market Maker: transfer
+        opt sell token fee
+            USDC-->>Fee Recipient: transfer
+        end
+    end
+```
+
+Using the Batch functionality we can one or more transfers from either the User or the Market Maker. Allowing us to take either a buy token feel or a sell token fee, or both, during OTC order settlement.
+
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill OTC orders with fees.
+
+### Uniswap VIP sell token fees via Permit2
+
+```mermaid
+sequenceDiagram
+    autonumber
+    Settler->>UniswapV3: swap
+    WETH-->>User: transfer
+    UniswapV3->>Settler: uniswapV3Callback
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>UniswapV3: permitTransfer
+        opt sell token fee
+            USDC-->>Fee Recipient: transfer
+        end
+    end
+```
+
+It is possible to collect sell token fees via Permit2 with the UniswapV3 VIP as well, using the Permit2 batch functionality. This flow is similar to the OTC fees.
+
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UnuswapV3 with sell token fees.
+
+### Uniswap buy token fees via Permit2
+
+```mermaid
+sequenceDiagram
+    autonumber
+    Settler->>UniswapV3: swap
+    WETH-->>Settler: transfer
+    UniswapV3->>Settler: uniswapV3Callback
+    rect rgba(133, 81, 231, 0.5)
+        USDC-->>UniswapV3: permitTransfer
+    end
+    opt buy token fee
+        WETH-->>Fee Recipient: transfer
+    end
+    WETH-->>User: transfer
+```
+
+Since UniswapV3 only supports a single `recipient`, to collect buy token fees, Settler must **take custody** of the buy token. These additional transfers makes settlement with UniswapV3 and buy token fees slightly more expensive than with sell token fees.
+
+## MetaTransactions
+
+Similar to OTC orders, MetaTransactions use the Permit2 with witness. In this case the witness is the MetaTransaction itself, containing the actions the user wants to execute. This gives MetaTransactions access to the same flows above, with a slightly different entrypoint to decode the actions from the Permit2 coupon, rather than the actions being provided directly in the arguments to the execute function.
+
+The EIP712 type the user signs when wanting to perform a metatransaction is:
+
+```
+PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,bytes[] actions)
+TokenPermissions(address token,uint256 amount)
+```
+
+Where `actions` is added and contains the encoded actions the to perform.
