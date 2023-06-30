@@ -15,13 +15,18 @@ abstract contract Basic {
         address pool,
         ERC20 sellToken,
         ERC20 buyToken,
-        uint256 proportion,
+        uint256 bips,
         uint256 offset,
         bytes memory data
     ) internal returns (uint256 buyAmount) {
+        uint256 beforeBalanceSell = sellToken.balanceOf(address(this));
+        uint256 proportionSellBalance = (beforeBalanceSell * bips) / 10_000;
+        // Update the sellAmount given a proportion of the sellToken balance
+        assembly {
+            mstore(add(add(data, offset), 32), proportionSellBalance)
+        }
         sellToken.safeApproveIfBelow(pool, type(uint256).max);
         uint256 beforeBalance = buyToken.balanceOf(address(this));
-        // TODO update proportion into data at offset
         (bool success, bytes memory returnData) = address(pool).call(data);
         return buyToken.balanceOf(address(this)) - beforeBalance;
     }
