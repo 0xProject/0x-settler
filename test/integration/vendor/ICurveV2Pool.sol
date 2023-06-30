@@ -10,7 +10,7 @@ interface ICurveV2Pool {
 
     function coins(uint256 i) external view returns (address);
     function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy) external payable;
-    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy, bool use_eth) external payable;
+    // function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy, bool use_eth) external payable;
 }
 
 interface ICurveV2SwapRouter {

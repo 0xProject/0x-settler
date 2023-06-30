@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
+import {Basic} from "./core/Basic.sol";
 import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
@@ -14,7 +15,7 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
-contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
 
     error ActionInvalid(bytes4 action, bytes data);
@@ -259,6 +260,10 @@ contract Settler is OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, Zero
             ) = abi.decode(data, (address, address, uint256, uint256, uint256, uint256));
 
             sellTokenForTokenToCurve(pool, ERC20(sellToken), fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
+        } else if (action == ISettlerActions.BASIC_SELL.selector) {
+            (address pool, ERC20 sellToken, ERC20 buyToken, uint256 proportion, uint256 offset, bytes memory data) =
+                abi.decode(data, (address, ERC20, ERC20, uint256, uint256, bytes));
+            basicSellToPool(pool, sellToken, buyToken, proportion, offset, data);
         } else if (action == ISettlerActions.TRANSFER_OUT.selector) {
             (address token, address recipient, uint256 bips) = abi.decode(data, (address, address, uint256));
             uint256 balance = ERC20(token).balanceOf(address(this));

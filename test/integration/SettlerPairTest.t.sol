@@ -269,6 +269,32 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    function testSettler_basic_curve() public skipIf(getCurveV2PoolData().pool == address(0)) {
+        ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(poolData.pool),
+                    address(fromToken()),
+                    address(toToken()),
+                    10_000, // proportion
+                    0, // offset
+                    abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1))
+                )
+            ),
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+        );
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_basic_curve");
+        _settler.execute(actions);
+        snapEnd();
+    }
+
     bytes32 private constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,OtcOrder order)OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)TokenPermissions(address token,uint256 amount)"
     );

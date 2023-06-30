@@ -99,4 +99,16 @@ interface ISettlerActions {
     // Post-req: Payout
     function ZERO_EX_OTC(IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount)
         external;
+
+    /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
+    // Pre-req: Funded
+    // Post-req: Payout
+    function BASIC_SELL(
+        address pool,
+        address sellToken,
+        address buyToken,
+        uint256 proportion,
+        uint256 offset,
+        bytes calldata data
+    ) external;
 }
