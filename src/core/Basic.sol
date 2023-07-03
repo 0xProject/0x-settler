@@ -23,7 +23,7 @@ abstract contract Basic {
         uint256 proportionSellBalance = (beforeBalanceSell * bips) / 10_000;
         // Update the sellAmount given a proportion of the sellToken balance
         assembly {
-            mstore(add(add(data, offset), 32), proportionSellBalance)
+            mstore(add(data, offset), proportionSellBalance)
         }
         sellToken.safeApproveIfBelow(pool, type(uint256).max);
         uint256 beforeBalance = buyToken.balanceOf(address(this));
