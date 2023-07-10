@@ -31,6 +31,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
+        Basic(permit2)
         CurveV2()
         OtcOrderSettlement(permit2)
         Permit2Payment(permit2)

@@ -8,6 +8,13 @@ import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 abstract contract Basic {
     using SafeTransferLib for ERC20;
 
+    /// @dev Permit2 address
+    address private immutable PERMIT2;
+
+    constructor(address permit2) {
+        PERMIT2 = permit2;
+    }
+
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
     /// @return buyAmount Amount of tokens bought
@@ -19,6 +26,8 @@ abstract contract Basic {
         uint256 offset,
         bytes memory data
     ) internal returns (uint256 buyAmount) {
+        require(pool != PERMIT2, "Basic: Pool address invalid");
+
         uint256 beforeBalanceSell = sellToken.balanceOf(address(this));
         uint256 proportionSellBalance = (beforeBalanceSell * bips) / 10_000;
         // Update the sellAmount given a proportion of the sellToken balance
