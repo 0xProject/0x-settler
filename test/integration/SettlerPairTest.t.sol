@@ -26,6 +26,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
     Settler private settler;
     IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+    address private WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // 0x V4 OTCOrder
     IZeroEx.OtcOrder private otcOrder;
@@ -461,8 +462,10 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     bytes32 private constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,bytes[] actions)TokenPermissions(address token,uint256 amount)"
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)"
     );
+    bytes32 private constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
+        keccak256("ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)");
 
     function testSettler_metaTxn_uniswapV3() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -478,12 +481,13 @@ abstract contract SettlerPairTest is BasePairTest {
             actionHashes[i] = keccak256(actions[i]);
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
+        bytes32 witness = keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, actionsHash, WETH, 0 ether));
         bytes memory sig = getPermitWitnessTransferSignature(
             permit,
             address(settler),
             FROM_PRIVATE_KEY,
             FULL_PERMIT2_WITNESS_TYPEHASH,
-            actionsHash,
+            witness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
 
@@ -491,7 +495,7 @@ abstract contract SettlerPairTest is BasePairTest {
         // Submitted by third party
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
-        _settler.executeMetaTxn(actions, sig);
+        _settler.executeMetaTxn(actions, WETH, 0 ether, sig);
         snapEnd();
     }
 
