@@ -64,6 +64,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             }
         }
 
+        // This final slippage check effectively prohibits custody optimization on the
+        // final hop of every swap. This is gas-inefficient. This is on purpose. Because
+        // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
+        // mechanism, we must ensure that the user's want token increase is coming
+        // directly from us instead of from some other form of exchange of value.
         uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
         if (amountOut < minAmountOut) {
             revert ActionFailed({action: 0, data: abi.encode(wantToken, minAmountOut), output: abi.encode(amountOut)});
