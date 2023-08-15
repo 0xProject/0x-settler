@@ -470,13 +470,17 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount(), 1, uniswapV3Path()))
         );
 
-        bytes32 witness = keccak256(abi.encode(actions));
+        bytes32[] memory actionHashes = new bytes32[](actions.length);
+        for (uint256 i; i < actionHashes.length; i++) {
+            actionHashes[i] = keccak256(actions[i]);
+        }
+        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
         bytes memory sig = getPermitWitnessTransferSignature(
             permit,
             address(settler),
             FROM_PRIVATE_KEY,
             FULL_PERMIT2_WITNESS_TYPEHASH,
-            witness,
+            actionsHash,
             PERMIT2.DOMAIN_SEPARATOR()
         );
 
