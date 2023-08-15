@@ -57,6 +57,27 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         }
     }
 
+    function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            let hashesLength := shl(5, actions.length)
+            for {
+                let i := actions.offset
+                let dst := ptr
+                let end := add(i, hashesLength)
+            } lt(i, end) {
+                i := add(i, 0x20)
+                dst := add(dst, 0x20)
+            } {
+                let src := add(actions.offset, calldataload(i))
+                let length := calldataload(src)
+                calldatacopy(dst, add(src, 0x20), length)
+                mstore(dst, keccak256(dst, length))
+            }
+            result := keccak256(ptr, hashesLength)
+        }
+    }
+
     function executeMetaTxn(bytes[] calldata actions, bytes memory sig) public {
         bool success;
         bytes memory output;
@@ -106,7 +127,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
                 ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
                     .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
-                bytes32 witness = keccak256(abi.encode(actions));
+                bytes32 witness = _hashArrayOfBytes(actions);
 
                 // Now that the actions have been validated and signed by `from` we can safely assign
                 // msgSender
