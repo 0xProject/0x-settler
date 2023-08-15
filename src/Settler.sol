@@ -23,7 +23,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     error LengthMismatch();
 
     // Permit2 Witness for meta transactions
-    string internal constant METATXN_TYPE_STRING = "bytes[] actions)TokenPermissions(address token,uint256 amount)";
+    string internal constant METATXN_TYPE_STRING =
+        "ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
+    bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
+        0x740ff4b4bedfa7438eba5fd36b723b10e5b2d4781deb32a7c62bfa2c00dd9034;
 
     /// @dev The highest bit of a uint256 value.
     uint256 private constant HIGH_BIT = 2 ** 255;
@@ -37,7 +40,12 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         Permit2Payment(permit2)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
-    {}
+    {
+        assert(
+            ACTIONS_AND_SLIPPAGE_TYPEHASH
+                == keccak256("ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)")
+        );
+    }
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
         bool success;
@@ -84,7 +92,25 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         }
     }
 
-    function executeMetaTxn(bytes[] calldata actions, bytes memory sig) public {
+    function _hashActionsAndSlippage(bytes[] calldata actions, address wantToken, uint256 minAmountOut)
+        internal
+        pure
+        returns (bytes32 result)
+    {
+        bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, ACTIONS_AND_SLIPPAGE_TYPEHASH)
+            mstore(add(ptr, 0x20), arrayOfBytesHash)
+            mstore(add(ptr, 0x40), wantToken)
+            mstore(add(ptr, 0x60), minAmountOut)
+            result := keccak256(ptr, 0x80)
+        }
+    }
+
+    function executeMetaTxn(bytes[] calldata actions, address wantToken, uint256 minAmountOut, bytes memory sig)
+        public
+    {
         bool success;
         bytes memory output;
 
@@ -133,12 +159,18 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
                 ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
                     .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
-                bytes32 witness = _hashArrayOfBytes(actions);
 
                 // Now that the actions have been validated and signed by `from` we can safely assign
                 // msgSender
                 msgSender = from;
-                permit2WitnessTransferFrom(permit, transferDetails, from, sig, witness, METATXN_TYPE_STRING);
+                permit2WitnessTransferFrom(
+                    permit,
+                    transferDetails,
+                    from,
+                    sig,
+                    _hashActionsAndSlippage(actions, wantToken, minAmountOut),
+                    METATXN_TYPE_STRING
+                );
             } else {
                 (success, output) = _dispatch(action, data, msgSender);
                 if (!success) {
@@ -150,6 +182,12 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                 i++;
             }
         }
+
+        uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
+        if (amountOut < minAmountOut) {
+            revert ActionFailed({action: 0, data: abi.encode(wantToken, minAmountOut), output: abi.encode(amountOut)});
+        }
+        ERC20(wantToken).safeTransfer(msgSender, amountOut);
     }
 
     function _dispatch(bytes4 action, bytes calldata data, address msgSender)
