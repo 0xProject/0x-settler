@@ -28,6 +28,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x740ff4b4bedfa7438eba5fd36b723b10e5b2d4781deb32a7c62bfa2c00dd9034;
 
+    bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
+
     /// @dev The highest bit of a uint256 value.
     uint256 private constant HIGH_BIT = 2 ** 255;
     /// @dev Mask of the lower 255 bits of a uint256 value.
@@ -71,7 +73,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         // directly from us instead of from some other form of exchange of value.
         uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
         if (amountOut < minAmountOut) {
-            revert ActionFailed({action: 0, data: abi.encode(wantToken, minAmountOut), output: abi.encode(amountOut)});
+            revert ActionFailed({
+                action: SLIPPAGE_ACTION,
+                data: abi.encode(wantToken, minAmountOut),
+                output: abi.encode(amountOut)
+            });
         }
         ERC20(wantToken).safeTransfer(msg.sender, amountOut);
     }
@@ -190,7 +196,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
         uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
         if (amountOut < minAmountOut) {
-            revert ActionFailed({action: 0, data: abi.encode(wantToken, minAmountOut), output: abi.encode(amountOut)});
+            revert ActionFailed({
+                action: SLIPPAGE_ACTION,
+                data: abi.encode(wantToken, minAmountOut),
+                output: abi.encode(amountOut)
+            });
         }
         ERC20(wantToken).safeTransfer(msgSender, amountOut);
     }
