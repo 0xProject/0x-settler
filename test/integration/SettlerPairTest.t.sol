@@ -92,7 +92,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -107,7 +107,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -121,7 +121,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_multiplex2");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -134,7 +134,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -146,9 +146,10 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
         );
 
-        snapStartName("settler_uniswapV3_buyToken_fee_full_custody");
+        Settler _settler = settler;
         vm.startPrank(FROM);
-        settler.execute(actions);
+        snapStartName("settler_uniswapV3_buyToken_fee_full_custody");
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -165,7 +166,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_single_custody");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -186,9 +187,10 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() - 1, 1, uniswapV3Path()))
         );
 
-        snapStartName("settler_uniswapV3_sellToken_fee_single_custody");
+        Settler _settler = settler;
         vm.startPrank(FROM);
-        settler.execute(actions);
+        snapStartName("settler_uniswapV3_sellToken_fee_single_custody");
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -213,7 +215,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP_sellToken_fee");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -239,7 +241,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_curveV2VIP");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -266,7 +268,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_curveV2_fee");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -292,7 +294,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -347,7 +349,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -402,7 +404,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc_buyToken_fee");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -457,7 +459,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc_sellToken_fee");
-        _settler.execute(actions);
+        _settler.execute(actions, WETH, 0 ether);
         snapEnd();
     }
 
@@ -540,7 +542,7 @@ abstract contract SettlerPairTest is BasePairTest {
         // Submitted by third party
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_otc");
-        _settler.executeMetaTxn(actions, new bytes(0));
+        _settler.executeMetaTxn(actions, WETH, 0 ether, new bytes(0));
         snapEnd();
     }
 
@@ -552,6 +554,7 @@ abstract contract SettlerPairTest is BasePairTest {
     ///     Settler->MAKER
     ///   TRANSFER_OUT
     ///     Settler->FEE_RECIPIENT
+    ///   SLIPPAGE
     ///     Settler->FROM
     function testSettler_otc_fee_full_custody() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
@@ -579,14 +582,13 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.SETTLER_OTC_SELF_FUNDED, (order, makerPermit, makerSig, uint128(amount()))),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000))
         );
 
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_otc_fee_full_custody");
-        _settler.execute(actions);
+        _settler.execute(actions, address(toToken()), amount() * 9_000 / 10_000);
         snapEnd();
     }
 
@@ -597,6 +599,7 @@ abstract contract SettlerPairTest is BasePairTest {
     ///     TAKER->MAKER
     ///   TRANSFER_OUT
     ///     Settler->FEE_RECIPIENT
+    ///   SLIPPAGE
     ///     Settler->FROM
     function testSettler_otc_fee_single_custody() public {
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
@@ -631,14 +634,13 @@ abstract contract SettlerPairTest is BasePairTest {
                 ISettlerActions.SETTLER_OTC,
                 (order, makerPermit, makerSig, takerPermit, takerSig, uint128(amount()), address(settler))
             ),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000))
         );
 
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc_fee_single_custody");
-        _settler.execute(actions);
+        _settler.execute(actions, address(toToken()), amount() * 9_000 / 10_000);
         snapEnd();
     }
 
