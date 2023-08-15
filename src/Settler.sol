@@ -39,7 +39,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         ZeroEx(zeroEx)
     {}
 
-    function execute(bytes[] calldata actions) public payable {
+    function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
         bool success;
         bytes memory output;
 
@@ -55,6 +55,12 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                 i++;
             }
         }
+
+        uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
+        if (amountOut < minAmountOut) {
+            revert ActionFailed({action: 0, data: abi.encode(wantToken, minAmountOut), output: abi.encode(amountOut)});
+        }
+        ERC20(wantToken).safeTransfer(msg.sender, amountOut);
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
