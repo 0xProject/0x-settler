@@ -47,7 +47,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             bytes4 action = bytes4(actions[i][0:4]);
             bytes calldata data = actions[i][4:];
 
-            (success, output) = dispatch(action, data, msg.sender);
+            (success, output) = _dispatch(action, data, msg.sender);
             if (!success) {
                 revert ActionFailed({action: action, data: data, output: output});
             }
@@ -134,7 +134,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                 msgSender = from;
                 permit2WitnessTransferFrom(permit, transferDetails, from, sig, witness, METATXN_TYPE_STRING);
             } else {
-                (success, output) = dispatch(action, data, msgSender);
+                (success, output) = _dispatch(action, data, msgSender);
                 if (!success) {
                     revert ActionFailed({action: action, data: data, output: output});
                 }
@@ -146,7 +146,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         }
     }
 
-    function dispatch(bytes4 action, bytes calldata data, address msgSender)
+    function _dispatch(bytes4 action, bytes calldata data, address msgSender)
         internal
         returns (bool success, bytes memory output)
     {
