@@ -23,8 +23,14 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     error LengthMismatch();
 
     // Permit2 Witness for meta transactions
-    string internal constant METATXN_TYPE_STRING =
-        "ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
+    string internal constant ACTIONS_AND_SLIPPAGE_TYPE_STRING =
+        "ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)";
+    // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
+    string internal constant METATXN_TYPE_STRING = string(
+        abi.encodePacked(
+            "ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE_STRING, TOKEN_PERMISSIONS_TYPE_STRING
+        )
+    );
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x740ff4b4bedfa7438eba5fd36b723b10e5b2d4781deb32a7c62bfa2c00dd9034;
 
@@ -43,10 +49,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
     {
-        assert(
-            ACTIONS_AND_SLIPPAGE_TYPEHASH
-                == keccak256("ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)")
-        );
+        assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE_STRING)));
     }
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
