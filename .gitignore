@@ -15,4 +15,9 @@ docs/
 # Dotenv file
 .env
 
+# Emacs cruft
+*~
+.\#*
+\#*\#
+
 node_modules
