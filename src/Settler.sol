@@ -74,15 +74,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
-        if (amountOut < minAmountOut) {
-            revert ActionFailed({
-                action: SLIPPAGE_ACTION,
-                data: abi.encode(wantToken, minAmountOut),
-                output: abi.encode(amountOut)
-            });
+        if (wantToken != address(0) && minAmountOut != 0) {
+            uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
+            if (amountOut < minAmountOut) {
+                revert ActionFailed({
+                    action: SLIPPAGE_ACTION,
+                    data: abi.encode(wantToken, minAmountOut),
+                    output: abi.encode(amountOut)
+                });
+            }
+            ERC20(wantToken).safeTransfer(msg.sender, amountOut);
         }
-        ERC20(wantToken).safeTransfer(msg.sender, amountOut);
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
@@ -197,15 +199,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             }
         }
 
-        uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
-        if (amountOut < minAmountOut) {
-            revert ActionFailed({
-                action: SLIPPAGE_ACTION,
-                data: abi.encode(wantToken, minAmountOut),
-                output: abi.encode(amountOut)
-            });
+        if (wantToken != address(0) && minAmountOut != 0) {
+            uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
+            if (amountOut < minAmountOut) {
+                revert ActionFailed({
+                    action: SLIPPAGE_ACTION,
+                    data: abi.encode(wantToken, minAmountOut),
+                    output: abi.encode(amountOut)
+                });
+            }
+            ERC20(wantToken).safeTransfer(msgSender, amountOut);
         }
-        ERC20(wantToken).safeTransfer(msgSender, amountOut);
     }
 
     function _dispatch(bytes4 action, bytes calldata data, address msgSender)

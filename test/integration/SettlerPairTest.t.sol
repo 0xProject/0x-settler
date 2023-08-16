@@ -26,7 +26,6 @@ abstract contract SettlerPairTest is BasePairTest {
 
     Settler private settler;
     IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
-    address private WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // 0x V4 OTCOrder
     IZeroEx.OtcOrder private otcOrder;
@@ -92,7 +91,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -107,7 +106,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -121,7 +120,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_multiplex2");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -134,7 +133,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -149,7 +148,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_full_custody");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -166,7 +165,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_single_custody");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -190,7 +189,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_sellToken_fee_single_custody");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -215,7 +214,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP_sellToken_fee");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -241,7 +240,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_curveV2VIP");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -268,7 +267,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_curveV2_fee");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -294,7 +293,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -349,7 +348,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -404,7 +403,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc_buyToken_fee");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -459,7 +458,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc_sellToken_fee");
-        _settler.execute(actions, WETH, 0 ether);
+        _settler.execute(actions, address(0), 0 ether);
         snapEnd();
     }
 
@@ -483,7 +482,7 @@ abstract contract SettlerPairTest is BasePairTest {
             actionHashes[i] = keccak256(actions[i]);
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
-        bytes32 witness = keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, actionsHash, WETH, 0 ether));
+        bytes32 witness = keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, actionsHash, address(0), 0 ether));
         bytes memory sig = getPermitWitnessTransferSignature(
             permit,
             address(settler),
@@ -497,7 +496,7 @@ abstract contract SettlerPairTest is BasePairTest {
         // Submitted by third party
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
-        _settler.executeMetaTxn(actions, WETH, 0 ether, sig);
+        _settler.executeMetaTxn(actions, address(0), 0 ether, sig);
         snapEnd();
     }
 
@@ -542,7 +541,7 @@ abstract contract SettlerPairTest is BasePairTest {
         // Submitted by third party
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_otc");
-        _settler.executeMetaTxn(actions, WETH, 0 ether, new bytes(0));
+        _settler.executeMetaTxn(actions, address(0), 0 ether, new bytes(0));
         snapEnd();
     }
 
