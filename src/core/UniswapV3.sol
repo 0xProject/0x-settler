@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {Permit2} from "permit2/src/Permit2.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 interface IUniswapV3Pool {
@@ -49,12 +48,12 @@ abstract contract UniswapV3 {
     uint256 private constant UINT24_MASK = 0xffffff;
 
     /// @dev Permit2 address
-    Permit2 private immutable PERMIT2;
+    ISignatureTransfer private immutable PERMIT2;
 
     constructor(address uniFactory, bytes32 poolInitCodeHash, address permit2) {
         UNI_FF_FACTORY_ADDRESS = bytes32((uint256(0xff) << 248) | (uint256(uint160(uniFactory)) << 88));
         UNI_POOL_INIT_CODE_HASH = poolInitCodeHash;
-        PERMIT2 = Permit2(permit2);
+        PERMIT2 = ISignatureTransfer(permit2);
     }
 
     /// @dev Sell a token for another token directly against uniswap v3.

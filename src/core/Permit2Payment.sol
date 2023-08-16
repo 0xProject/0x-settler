@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.21;
 
-import {Permit2} from "permit2/src/Permit2.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 abstract contract Permit2Payment {
     /// @dev Permit2 address
-    Permit2 private immutable PERMIT2;
+    ISignatureTransfer private immutable PERMIT2;
 
     constructor(address permit2) {
-        PERMIT2 = Permit2(permit2);
+        PERMIT2 = ISignatureTransfer(permit2);
     }
 
     function permit2TransferFrom(

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {Permit2} from "permit2/src/Permit2.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
@@ -41,10 +40,10 @@ abstract contract OtcOrderSettlement {
     string internal constant OTC_ORDER_WITNESS_TYPE_STRING =
         "OtcOrder order)OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)TokenPermissions(address token,uint256 amount)";
 
-    Permit2 private immutable PERMIT2;
+    ISignatureTransfer private immutable PERMIT2;
 
     constructor(address permit2) {
-        PERMIT2 = Permit2(permit2);
+        PERMIT2 = ISignatureTransfer(permit2);
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.21;
 
 import {Test} from "forge-std/Test.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {Permit2} from "permit2/src/Permit2.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
@@ -22,7 +21,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
 
     address internal constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 
-    Permit2 internal constant PERMIT2 = Permit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     address internal constant ZERO_EX_ADDRESS = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
     function testName() internal virtual returns (string memory);
@@ -58,7 +57,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         //         msg.sender         wordPos    bitmap
         // as of writing, nonceBitmap begins at slot 0
         // keccak256(uint256(wordPos) . keccak256(uint256(msg.sender) . uint256(slot0)))
-        // https://docs.soliditylang.org/en/v0.8.17/internals/layout_in_storage.html
+        // https://docs.soliditylang.org/en/v0.8.21/internals/layout_in_storage.html
         bytes32 slotId = keccak256(abi.encode(uint256(0), keccak256(abi.encode(who, uint256(0)))));
         bytes32 beforeValue = vm.load(address(PERMIT2), slotId);
         if (uint256(beforeValue) == 0) {
