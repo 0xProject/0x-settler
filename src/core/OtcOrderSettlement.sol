@@ -3,12 +3,13 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {SignatureTransferUser} from "./SignatureTransferUser.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
 /// @dev An OtcOrder is a simplified and minimized order type. It can only be filled once and
 /// has additional requirements for txOrigin
-abstract contract OtcOrderSettlement {
+abstract contract OtcOrderSettlement is SignatureTransferUser {
     using SafeTransferLib for ERC20;
 
     struct OtcOrder {
@@ -37,8 +38,11 @@ abstract contract OtcOrderSettlement {
         uint128 takerTokenFilledAmount
     );
 
+    string internal constant OTC_ORDER_TYPE =
+        "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)";
+    // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant OTC_ORDER_WITNESS_TYPE_STRING =
-        "OtcOrder order)OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)TokenPermissions(address token,uint256 amount)";
+        string(abi.encodePacked("OtcOrder order)", OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE_STRING));
     bytes32 internal constant OTC_ORDER_TYPEHASH = 0xfb940004397cdd921b9c6d5f56542c06432403925e8ad3894ddec13430dfbb1a;
 
     function _hashOtcOrder(OtcOrder memory otcOrder) internal pure returns (bytes32 result) {
@@ -55,12 +59,7 @@ abstract contract OtcOrderSettlement {
 
     constructor(address permit2) {
         PERMIT2 = ISignatureTransfer(permit2);
-        assert(
-            OTC_ORDER_TYPEHASH
-                == keccak256(
-                    "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)"
-                )
-        );
+        assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE)));
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
