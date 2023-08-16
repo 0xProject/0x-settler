@@ -39,11 +39,28 @@ abstract contract OtcOrderSettlement {
 
     string internal constant OTC_ORDER_WITNESS_TYPE_STRING =
         "OtcOrder order)OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)TokenPermissions(address token,uint256 amount)";
+    bytes32 internal constant OTC_ORDER_TYPEHASH = 0xfb940004397cdd921b9c6d5f56542c06432403925e8ad3894ddec13430dfbb1a;
+
+    function _hashOtcOrder(OtcOrder memory otcOrder) internal pure returns (bytes32 result) {
+        assembly ("memory-safe") {
+            let ptr := sub(otcOrder, 0x20)
+            let oldValue := mload(ptr)
+            mstore(ptr, OTC_ORDER_TYPEHASH)
+            result := keccak256(ptr, 0x100)
+            mstore(ptr, oldValue)
+        }
+    }
 
     ISignatureTransfer private immutable PERMIT2;
 
     constructor(address permit2) {
         PERMIT2 = ISignatureTransfer(permit2);
+        assert(
+            OTC_ORDER_TYPEHASH
+                == keccak256(
+                    "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)"
+                )
+        );
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
@@ -66,7 +83,7 @@ abstract contract OtcOrderSettlement {
         // Maker pays recipient
         ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
             ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = _hashOtcOrder(order);
         PERMIT2.permitWitnessTransferFrom(
             makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
         );
@@ -118,7 +135,7 @@ abstract contract OtcOrderSettlement {
             makerTransferDetails[0].requestedAmount -= makerPermit.permitted[1].amount;
         }
 
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = _hashOtcOrder(order);
         PERMIT2.permitWitnessTransferFrom(
             makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
         );
@@ -158,7 +175,7 @@ abstract contract OtcOrderSettlement {
         // TODO validate tx.origin and txOrigin
         // TODO adjust amounts based on takerTokenFillAmount
 
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = _hashOtcOrder(order);
         // Maker pays Taker
         ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
             ISignatureTransfer.SignatureTransferDetails({to: order.taker, requestedAmount: order.makerAmount});
@@ -194,7 +211,7 @@ abstract contract OtcOrderSettlement {
         // Maker pays Settler
         ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
             ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: order.makerAmount});
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = _hashOtcOrder(order);
         PERMIT2.permitWitnessTransferFrom(
             makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
         );
