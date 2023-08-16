@@ -295,6 +295,9 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    bytes32 private constant OTC_ORDER_TYPEHASH = keccak256(
+        "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)"
+    );
     bytes32 private constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,OtcOrder order)OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)TokenPermissions(address token,uint256 amount)"
     );
@@ -320,7 +323,7 @@ abstract contract SettlerPairTest is BasePairTest {
             taker: address(0),
             txOrigin: FROM
         });
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
@@ -375,7 +378,7 @@ abstract contract SettlerPairTest is BasePairTest {
             taker: address(0),
             txOrigin: FROM
         });
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
         bytes memory makerSig = getPermitBatchWitnessTransferSignature(
             makerPermit,
             address(settler),
@@ -430,7 +433,7 @@ abstract contract SettlerPairTest is BasePairTest {
             taker: address(0),
             txOrigin: FROM
         });
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
         bytes memory makerSig = getPermitBatchWitnessTransferSignature(
             makerPermit,
             address(settler),
@@ -507,7 +510,7 @@ abstract contract SettlerPairTest is BasePairTest {
             taker: FROM,
             txOrigin: address(0)
         });
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
@@ -559,7 +562,7 @@ abstract contract SettlerPairTest is BasePairTest {
             taker: address(0),
             txOrigin: FROM
         });
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
@@ -609,7 +612,7 @@ abstract contract SettlerPairTest is BasePairTest {
             taker: address(0),
             txOrigin: FROM
         });
-        bytes32 witness = keccak256(abi.encode(order));
+        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
