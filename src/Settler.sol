@@ -74,7 +74,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        if (wantToken != address(0) && minAmountOut != 0) {
+        if (wantToken != address(0) || minAmountOut != 0) {
             uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
             if (amountOut < minAmountOut) {
                 revert ActionFailed({
@@ -199,7 +199,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             }
         }
 
-        if (wantToken != address(0) && minAmountOut != 0) {
+        if (wantToken != address(0) || minAmountOut != 0) {
             uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
             if (amountOut < minAmountOut) {
                 revert ActionFailed({
