@@ -215,14 +215,14 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         }
 
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
-            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
             // Consume the entire Permit with the recipient of funds as this contract
             ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
                 .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
 
             permit2TransferFrom(permit, transferDetails, msgSender, sig);
-        } else if (action == ISettlerActions.PERMIT2_BATCH_TRANSFER_FROM.selector) {
+        } else if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
             require(permit.permitted.length <= 2, "Invalid Batch Permit2");
@@ -244,9 +244,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         } else if (action == ISettlerActions.SETTLER_OTC.selector) {
             (
                 OtcOrder memory order,
-                ISignatureTransfer.PermitTransferFrom memory makerPermit,
+                ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
                 bytes memory makerSig,
-                ISignatureTransfer.PermitTransferFrom memory takerPermit,
+                ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
                 bytes memory takerSig,
                 uint128 takerTokenFillAmount,
                 address recipient
@@ -254,9 +254,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                 data,
                 (
                     OtcOrder,
-                    ISignatureTransfer.PermitTransferFrom,
+                    ISignatureTransfer.PermitBatchTransferFrom,
                     bytes,
-                    ISignatureTransfer.PermitTransferFrom,
+                    ISignatureTransfer.PermitBatchTransferFrom,
                     bytes,
                     uint128,
                     address
@@ -273,7 +273,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             fillOtcOrder(
                 order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount, recipient
             );
-        } else if (action == ISettlerActions.SETTLER_OTC_BATCH_PERMIT2.selector) {
+        } else if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
             (
                 OtcOrder memory order,
                 ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
