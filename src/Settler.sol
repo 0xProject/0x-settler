@@ -15,8 +15,17 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
+library UnsafeMath {
+    function unsafeInc(uint256 i) internal pure returns (uint256) {
+        unchecked {
+            return i + 1;
+        }
+    }
+}
+
 contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
+    using UnsafeMath for uint256;
 
     error ActionInvalid(bytes4 action, bytes data);
     error ActionFailed(bytes4 action, bytes data, bytes output);
@@ -51,16 +60,13 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     }
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
-        for (uint256 i = 0; i < actions.length;) {
+        for (uint256 i = 0; i < actions.length; i = i.unsafeInc()) {
             bytes4 action = bytes4(actions[i][0:4]);
             bytes calldata data = actions[i][4:];
 
             (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
             if (!success) {
                 revert ActionFailed({action: action, data: data, output: output});
-            }
-            unchecked {
-                i++;
             }
         }
 
@@ -124,47 +130,43 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     {
         address msgSender = msg.sender;
 
-        for (uint256 i = 0; i < actions.length;) {
-            bytes4 action = bytes4(actions[i][0:4]);
-            bytes calldata data = actions[i][4:];
+        {
+            bytes4 action = bytes4(actions[0][0:4]);
+            bytes calldata data = actions[0][4:];
 
-            if (i == 0) {
-                // We force the first action to be a Permit2 witness transfer and validate the actions
-                // against the signature
-                if (
-                    action != ISettlerActions.METATXN_PERMIT2_WITNESS_TRANSFER_FROM.selector
-                        && action != ISettlerActions.METATXN_SETTLER_OTC.selector
-                ) {
-                    revert ActionInvalid({action: action, data: data});
-                }
+            // We force the first action to be a Permit2 witness transfer and validate the actions
+            // against the signature
 
-                if (action == ISettlerActions.METATXN_SETTLER_OTC.selector) {
-                    // An optimized path involving a maker/taker in a single trade
-                    // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
-                    // so there is no need to validate `sig` against `actions` here
+            if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
+                // An optimized path involving a maker/taker in a single trade
+                // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
+                // so there is no need to validate `sig` against `actions` here
+                (
+                    OtcOrder memory order,
+                    ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    bytes memory makerSig,
+                    ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+                    bytes memory takerSig,
+                    address recipient
+                ) = abi.decode(
+                    data,
                     (
-                        OtcOrder memory order,
-                        ISignatureTransfer.PermitTransferFrom memory makerPermit,
-                        bytes memory makerSig,
-                        ISignatureTransfer.PermitTransferFrom memory takerPermit,
-                        bytes memory takerSig
-                    ) = abi.decode(
-                        data,
-                        (
-                            OtcOrder,
-                            ISignatureTransfer.PermitTransferFrom,
-                            bytes,
-                            ISignatureTransfer.PermitTransferFrom,
-                            bytes
-                        )
-                    );
-                    fillOtcOrderMetaTxn(order, makerPermit, makerSig, takerPermit, takerSig);
-                    return;
+                        OtcOrder,
+                        ISignatureTransfer.PermitBatchTransferFrom,
+                        bytes,
+                        ISignatureTransfer.PermitBatchTransferFrom,
+                        bytes,
+                        address
+                    )
+                );
+                fillOtcOrderMetaTxn(order, makerPermit, makerSig, takerPermit, takerSig, recipient);
+                if (actions.length > 1) {
+                    revert ActionInvalid({action: actions[1][0:4], data: actions[1][4:]});
                 }
-
-                // METATXN_PERMIT2_WITNESS_TRANSFER_FROM
-                (ISignatureTransfer.PermitTransferFrom memory permit, address from) =
-                    abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
+                return;
+            } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
+                (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
+                    abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
                 ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
                     .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
 
@@ -179,14 +181,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     ACTIONS_AND_SLIPPAGE_WITNESS
                 );
             } else {
-                (bool success, bytes memory output) = _dispatch(action, data, msgSender);
-                if (!success) {
-                    revert ActionFailed({action: action, data: data, output: output});
-                }
+                revert ActionInvalid({action: action, data: data});
             }
+        }
 
-            unchecked {
-                i++;
+        for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
+            bytes4 action = bytes4(actions[i][0:4]);
+            bytes calldata data = actions[i][4:];
+
+            (bool success, bytes memory output) = _dispatch(action, data, msgSender);
+            if (!success) {
+                revert ActionFailed({action: action, data: data, output: output});
             }
         }
 
