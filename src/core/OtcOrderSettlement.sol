@@ -250,7 +250,12 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
             takerSig
         );
 
-        // TODO actually calculate the orderHash
+        // `orderHash` is the OtcOrder struct hash, inclusive of the maker fee (if any),
+        // and exclusive of the taker fee (if any). `makerTokenFilledAmount` is the
+        // amount sent to the taker (not the fee recipient), exclusive of any transfer
+        // fee taken by the maker token. `takerTokenFilledAmount` is the amount sent to
+        // the maker (not the fee recipient), exclusive of any transfer fee taken by the
+        // taker token.
         emit OtcOrderFilled(
             witness, order.maker, order.taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
         );
