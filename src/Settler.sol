@@ -23,13 +23,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     error LengthMismatch();
 
     // Permit2 Witness for meta transactions
-    string internal constant ACTIONS_AND_SLIPPAGE_TYPE_STRING =
+    string internal constant ACTIONS_AND_SLIPPAGE_TYPE =
         "ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
-    string internal constant METATXN_TYPE_STRING = string(
-        abi.encodePacked(
-            "ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE_STRING, TOKEN_PERMISSIONS_TYPE_STRING
-        )
+    string internal constant ACTIONS_AND_SLIPPAGE_WITNESS = string(
+        abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x740ff4b4bedfa7438eba5fd36b723b10e5b2d4781deb32a7c62bfa2c00dd9034;
@@ -49,7 +47,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
     {
-        assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE_STRING)));
+        assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
@@ -178,7 +176,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     msgSender = from,
                     sig,
                     _hashActionsAndSlippage(actions, wantToken, minAmountOut),
-                    METATXN_TYPE_STRING
+                    ACTIONS_AND_SLIPPAGE_WITNESS
                 );
             } else {
                 (bool success, bytes memory output) = _dispatch(action, data, msgSender);
@@ -308,6 +306,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                 order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount, recipient
             );
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
+            // TODO: move into otcorder
+
             (
                 OtcOrder memory order,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,

@@ -41,9 +41,20 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
     string internal constant OTC_ORDER_TYPE =
         "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
-    string internal constant OTC_ORDER_WITNESS_TYPE_STRING =
+    string internal constant OTC_ORDER_WITNESS =
         string(abi.encodePacked("OtcOrder order)", OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE_STRING));
     bytes32 internal constant OTC_ORDER_TYPEHASH = 0xfb940004397cdd921b9c6d5f56542c06432403925e8ad3894ddec13430dfbb1a;
+
+    string internal constant TAKER_METATXN_OTC_ORDER_TYPE = "TakerMetatxnOtcOrder(OtcOrder order,address recipient)";
+    string internal constant TAKER_METATXN_OTC_ORDER_TYPE_RECURSIVE =
+        string(abi.encodePacked(TAKER_METATXN_OTC_ORDER_TYPE, OTC_ORDER_TYPE));
+    string internal constant TAKER_METATXN_OTC_ORDER_WITNESS = string(
+        abi.encodePacked(
+            "TakerMetatxnOtcOrder order)", OTC_ORDER_TYPE, TAKER_METATXN_OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE
+        )
+    );
+    bytes32 internal constant TAKER_METATXN_OTC_ORDER_TYPEHASH =
+        0xbf00b5db6c90b28592de57c30ed48371a001917709d9d55056481b8b1673b118;
 
     function _hashOtcOrder(OtcOrder memory otcOrder) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
@@ -55,11 +66,28 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         }
     }
 
+    function _hashTakerMetatxnOtcOrder(OtcOrder memory otcOrder, address recipient)
+        internal
+        pure
+        returns (bytes32 result)
+    {
+        result = _hashOtcOrder(otcOrder);
+        assembly ("memory-safe") {
+            mstore(0x00, TAKER_METATXN_OTC_ORDER_TYPEHASH)
+            mstore(0x20, result)
+            let ptr := mload(0x40)
+            mstore(0x40, recipient)
+            result := keccak256(0x00, 0x60)
+            mstore(0x40, ptr)
+        }
+    }
+
     ISignatureTransfer private immutable PERMIT2;
 
     constructor(address permit2) {
         PERMIT2 = ISignatureTransfer(permit2);
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE)));
+        assert(TAKER_METATXN_OTC_ORDER_TYPEHASH == keccak256(bytes(TAKER_METATXN_OTC_ORDER_TYPE_RECURSIVE)));
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
@@ -84,7 +112,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
             ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
         bytes32 witness = _hashOtcOrder(order);
         PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
+            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
         );
 
         // Taker pays Maker
@@ -136,7 +164,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
 
         bytes32 witness = _hashOtcOrder(order);
         PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
+            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
         );
 
         // Taker pays Maker and optional fee to fee recipient
@@ -165,28 +193,61 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
     /// is via a third party
     function fillOtcOrderMetaTxn(
         OtcOrder memory order,
-        ISignatureTransfer.PermitTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
         bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        bytes memory takerSig
+        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        bytes memory takerSig,
+        address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO validate order.taker and taker
         // TODO validate tx.origin and txOrigin
-        // TODO adjust amounts based on takerTokenFillAmount
 
+        // TODO: allow multiple fees
+        require(makerPermit.permitted.length <= 2, "Invalid Batch Permit2");
+        require(takerPermit.permitted.length <= 2, "Invalid Batch Permit2");
+
+        // Pay close attention to the order in which these operations are
+        // performed. It's very important for security and the implications are not
+        // intuitive.
+
+        // Maker pays Taker (optional fee)
         bytes32 witness = _hashOtcOrder(order);
-        // Maker pays Taker
-        ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: order.taker, requestedAmount: order.makerAmount});
+        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails =
+            new ISignatureTransfer.SignatureTransferDetails[](makerPermit.permitted.length);
+        if (makerPermit.permitted.length > 1) {
+            // TODO fee recipient
+            makerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                to: 0x2222222222222222222222222222222222222222,
+                requestedAmount: makerPermit.permitted[1].amount
+            });
+            // adjust the maker->recipient payout by the fee amount
+            order.makerAmount -= makerPermit.permitted[1].amount;
+        }
+        makerTransferDetails[0] =
+            ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
         PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
+            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
         );
 
-        // Taker pays Maker
-        ISignatureTransfer.SignatureTransferDetails memory takerToMakerTransferDetails =
+        // Taker pays Maker (optional fee)
+        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails =
+            new ISignatureTransfer.SignatureTransferDetails[](takerPermit.permitted.length);
+        takerTransferDetails[0] =
             ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
+        if (takerPermit.permitted.length > 1) {
+            // TODO fee recipient
+            takerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                to: 0x2222222222222222222222222222222222222222,
+                requestedAmount: takerPermit.permitted[1].amount
+            });
+            // No adjustment in payout of taker->maker, maker always receives full amount
+        }
         PERMIT2.permitWitnessTransferFrom(
-            takerPermit, takerToMakerTransferDetails, order.taker, witness, OTC_ORDER_WITNESS_TYPE_STRING, takerSig
+            takerPermit,
+            takerTransferDetails,
+            order.taker,
+            _hashTakerMetatxnOtcOrder(witness, recipient), // witness is completely recomputed
+            TAKER_METATXN_OTC_ORDER_WITNESS,
+            takerSig
         );
 
         // TODO actually calculate the orderHash
@@ -212,7 +273,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
             ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: order.makerAmount});
         bytes32 witness = _hashOtcOrder(order);
         PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS_TYPE_STRING, makerSig
+            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
         );
 
         // Settler pays Maker
