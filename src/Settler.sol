@@ -53,14 +53,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     }
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
-        bool success;
-        bytes memory output;
-
         for (uint256 i = 0; i < actions.length;) {
             bytes4 action = bytes4(actions[i][0:4]);
             bytes calldata data = actions[i][4:];
 
-            (success, output) = _dispatch(action, data, msg.sender);
+            (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
             if (!success) {
                 revert ActionFailed({action: action, data: data, output: output});
             }
@@ -127,9 +124,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     function executeMetaTxn(bytes[] calldata actions, address wantToken, uint256 minAmountOut, bytes memory sig)
         public
     {
-        bool success;
-        bytes memory output;
-
         address msgSender = msg.sender;
 
         for (uint256 i = 0; i < actions.length;) {
@@ -178,17 +172,16 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
                 // Now that the actions have been validated and signed by `from` we can safely assign
                 // msgSender
-                msgSender = from;
                 permit2WitnessTransferFrom(
                     permit,
                     transferDetails,
-                    from,
+                    msgSender = from,
                     sig,
                     _hashActionsAndSlippage(actions, wantToken, minAmountOut),
                     METATXN_TYPE_STRING
                 );
             } else {
-                (success, output) = _dispatch(action, data, msgSender);
+                (bool success, bytes memory output) = _dispatch(action, data, msgSender);
                 if (!success) {
                     revert ActionFailed({action: action, data: data, output: output});
                 }
