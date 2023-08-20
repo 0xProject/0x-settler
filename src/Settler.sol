@@ -214,11 +214,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     {
         success = true;
 
-        // This can only be performed and validated in `executeMetaTxn`
-        if (action == ISettlerActions.METATXN_PERMIT2_WITNESS_TRANSFER_FROM.selector) {
-            revert ActionFailed({action: action, data: data, output: new bytes(0)});
-        }
-
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
