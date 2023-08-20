@@ -29,7 +29,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
     /// @param makerTokenFilledAmount How much maker token was filled.
     /// @param takerTokenFilledAmount How much taker token was filled.
     event OtcOrderFilled(
-        bytes32 orderHash,
+        bytes32 indexed orderHash,
         address maker,
         address taker,
         address makerToken,
