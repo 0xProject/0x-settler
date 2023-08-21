@@ -7,8 +7,7 @@ import {SignatureTransferUser} from "./SignatureTransferUser.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
-/// @dev An OtcOrder is a simplified and minimized order type. It can only be filled once and
-/// has additional requirements for txOrigin
+/// @dev An OtcOrder is a simplified and minimized order type. It can only be filled once.
 abstract contract OtcOrderSettlement is SignatureTransferUser {
     using SafeTransferLib for ERC20;
 
@@ -19,7 +18,6 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         uint128 takerAmount;
         address maker;
         address taker;
-        address txOrigin;
     }
 
     /// @dev Emitted whenever an `OtcOrder` is filled.
@@ -39,11 +37,11 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
     );
 
     string internal constant OTC_ORDER_TYPE =
-        "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)";
+        "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant OTC_ORDER_WITNESS =
         string(abi.encodePacked("OtcOrder order)", OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE));
-    bytes32 internal constant OTC_ORDER_TYPEHASH = 0xfb940004397cdd921b9c6d5f56542c06432403925e8ad3894ddec13430dfbb1a;
+    bytes32 internal constant OTC_ORDER_TYPEHASH = 0x9acbf077fe8e998747874992c0fbe041db1b131cc843ec3d3f81f2ba42bcfc61;
 
     string internal constant TAKER_METATXN_OTC_ORDER_TYPE = "TakerMetatxnOtcOrder(OtcOrder order,address recipient)";
     string internal constant TAKER_METATXN_OTC_ORDER_TYPE_RECURSIVE =
@@ -54,7 +52,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         )
     );
     bytes32 internal constant TAKER_METATXN_OTC_ORDER_TYPEHASH =
-        0xbf00b5db6c90b28592de57c30ed48371a001917709d9d55056481b8b1673b118;
+        0x27ef1d4e81c48114a28aa80737fddb02a61db3f05627c3cc08848f08a17d569b;
 
     function _hashOtcOrder(OtcOrder memory otcOrder) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
@@ -104,7 +102,6 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // TODO validate order.taker and taker
-        // TODO validate tx.origin and txOrigin
         // TODO adjust amounts based on takerTokenFillAmount
 
         // TODO: allow multiple fees
@@ -170,8 +167,6 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         bytes memory takerSig,
         address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO validate tx.origin and txOrigin
-
         // TODO: allow multiple fees
         require(makerPermit.permitted.length <= 2, "Invalid Batch Permit2");
         require(takerPermit.permitted.length <= 2, "Invalid Batch Permit2");
@@ -241,7 +236,6 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         bytes memory makerSig,
         uint128 takerTokenFillAmount
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO validate tx.origin and txOrigin
         // TODO adjust amounts based on takerTokenFillAmount
 
         // Maker pays Settler
@@ -258,8 +252,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         emit OtcOrderFilled(
             witness,
             order.maker,
-            // TODO fixme
-            tx.origin,
+            order.taker,
             order.makerToken,
             order.takerToken,
             order.makerAmount,

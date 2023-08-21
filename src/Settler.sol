@@ -282,8 +282,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             }
             permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
-            // TODO: move into otcorder
-
+            require(order.taker == msgSender, "Settler: can't fill somebody else's OTC");
             (
                 OtcOrder memory order,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
