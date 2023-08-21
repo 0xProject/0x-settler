@@ -39,6 +39,8 @@ interface ISettlerActions {
         address recipient
     ) external;
 
+    // TODO: SETTLER_OTC_SELF_FUNDED needs custody optimization
+
     /// @dev Settle an OtcOrder between Maker and Settler. Transfering funds from the Settler contract to maker.
     /// Retaining funds in the settler contract.
     // Pre-req: Funded

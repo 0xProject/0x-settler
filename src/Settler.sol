@@ -60,7 +60,46 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     }
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
-        for (uint256 i = 0; i < actions.length; i = i.unsafeInc()) {
+        {
+            bytes4 action = bytes4(actions[0][0:4]);
+            bytes calldata data = actions[0][4:];
+            if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
+                if (actions.length > 1) {
+                    revert ActionInvalid({action: actions[1][0:4], data: actions[1][4:]});
+                }
+
+                require(order.taker == msg.sender, "Settler: can't fill somebody else's OTC");
+                (
+                    OtcOrder memory order,
+                    ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    bytes memory makerSig,
+                    ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+                    bytes memory takerSig,
+                    uint128 takerTokenFillAmount,
+                    address recipient
+                ) = abi.decode(
+                    data,
+                    (
+                        OtcOrder,
+                        ISignatureTransfer.PermitBatchTransferFrom,
+                        bytes,
+                        ISignatureTransfer.PermitBatchTransferFrom,
+                        bytes,
+                        uint128,
+                        address
+                    )
+                );
+                fillOtcOrder(order, makerPermit, makerSig, takerPermit, takerSig, takerTokenFillAmount, recipient);
+                return;
+            } else {
+                (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
+                if (!success) {
+                    revert ActionFailed({action: action, data: data, output: output});
+                }
+            }
+        }
+
+        for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             bytes4 action = bytes4(actions[i][0:4]);
             bytes calldata data = actions[i][4:];
 
@@ -138,6 +177,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             // against the signature
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
+                if (actions.length > 1) {
+                    revert ActionInvalid({action: actions[1][0:4], data: actions[1][4:]});
+                }
                 // An optimized path involving a maker/taker in a single trade
                 // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
                 // so there is no need to validate `sig` against `actions` here
@@ -160,9 +202,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     )
                 );
                 fillOtcOrderMetaTxn(order, makerPermit, makerSig, takerPermit, takerSig, recipient);
-                if (actions.length > 1) {
-                    revert ActionInvalid({action: actions[1][0:4], data: actions[1][4:]});
-                }
                 return;
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
                 (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
@@ -241,70 +280,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                 });
             }
             permit2TransferFrom(permit, transferDetails, msgSender, sig);
-        } else if (action == ISettlerActions.SETTLER_OTC.selector) {
-            (
-                OtcOrder memory order,
-                ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
-                bytes memory makerSig,
-                ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
-                bytes memory takerSig,
-                uint128 takerTokenFillAmount,
-                address recipient
-            ) = abi.decode(
-                data,
-                (
-                    OtcOrder,
-                    ISignatureTransfer.PermitBatchTransferFrom,
-                    bytes,
-                    ISignatureTransfer.PermitBatchTransferFrom,
-                    bytes,
-                    uint128,
-                    address
-                )
-            );
-
-            /**
-             * UNSAFE: recipient/spender mismatch and can be influenced
-             *             Ensure the tx.origin is a counterparty to this order. This ensures Mallory cannot
-             *             take an OTC order between Alice and Bob and send the funds to herself.
-             */
-            // TODO this can be handled in OtcOrderSettlement
-            require(order.txOrigin == tx.origin || order.taker == msgSender, "Settler: txOrigin mismatch");
-            fillOtcOrder(
-                order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount, recipient
-            );
-        } else if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
-            (
-                OtcOrder memory order,
-                ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
-                bytes memory makerSig,
-                ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
-                bytes memory takerSig,
-                uint128 takerTokenFillAmount,
-                address recipient
-            ) = abi.decode(
-                data,
-                (
-                    OtcOrder,
-                    ISignatureTransfer.PermitBatchTransferFrom,
-                    bytes,
-                    ISignatureTransfer.PermitBatchTransferFrom,
-                    bytes,
-                    uint128,
-                    address
-                )
-            );
-
-            /**
-             * UNSAFE: recipient/spender mismatch and can be influenced
-             *             Ensure the tx.origin is a counterparty to this order. This ensures Mallory cannot
-             *             take an OTC order between Alice and Bob and send the funds to herself.
-             */
-            // TODO this can be handled in OtcOrderSettlement
-            require(order.txOrigin == tx.origin || order.taker == msgSender, "Settler: txOrigin mismatch");
-            fillOtcOrder(
-                order, makerPermit, makerSig, takerPermit, takerSig, msgSender, takerTokenFillAmount, recipient
-            );
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             // TODO: move into otcorder
 
