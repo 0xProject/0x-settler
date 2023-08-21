@@ -111,10 +111,6 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         require(makerPermit.permitted.length <= 2, "Invalid Batch Permit2");
         require(takerPermit.permitted.length <= 2, "Invalid Batch Permit2");
 
-        // Pay close attention to the order in which these operations are
-        // performed. It's very important for security and the implications are not
-        // intuitive.
-
         // Maker pays out recipient (optional fee)
         bytes32 witness = _hashOtcOrder(order);
         ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails =
@@ -147,14 +143,10 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
             });
             // No adjustment in payout of taker->maker, maker always receives full amount
         }
-        PERMIT2.permitWitnessTransferFrom(
-            takerPermit,
-            takerTransferDetails,
-            order.taker,
-            _hashTakerMetatxnOtcOrder(order, recipient), // witness is completely recomputed
-            TAKER_METATXN_OTC_ORDER_WITNESS,
-            takerSig
-        );
+        // We don't need to include a witness here. `order.taker` is `msg.sender`, so
+        // `recipient` and the maker's details are already authenticated. We're just
+        // using PERMIT2 to move tokens, not to provide authentication.
+        PERMIT2.permitTransferFrom(takerPermit, takerTransferDetails, order.taker, takerSig);
 
         // `orderHash` is the OtcOrder struct hash, inclusive of the maker fee (if any),
         // and exclusive of the taker fee (if any). `makerTokenFilledAmount` is the
