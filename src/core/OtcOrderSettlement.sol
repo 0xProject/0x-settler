@@ -16,8 +16,8 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         address counterparty;
     }
 
-    /// @dev Emitted whenever an `OtcOrder` is filled.
-    /// @param orderHash The canonical hash of the order.
+    /// @dev Emitted whenever an OTC order is filled.
+    /// @param orderHash The canonical hash of the order. Formed as an EIP712 struct hash. See below.
     /// @param maker The maker of the order.
     /// @param taker The taker of the order.
     /// @param makerTokenFilledAmount How much maker token was filled.
@@ -54,6 +54,11 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
         0x91e22bbb454fbba18dc56f205c82681633cfd708b5f823425d62fe9b6e34abe8;
 
+    string internal constant OTC_ORDER_TYPE =
+        "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
+    string internal constant OTC_ORDER_TYPE_RECURSIVE = string(abi.encodePacked(OTC_ORDER_TYPE, CONSIDERATION_TYPE));
+    bytes32 internal constant OTC_ORDER_TYPEHASH = 0xbba9ffc2fcf49e96846cecf0c8c5aa70ee2e2abc7292003c357009c2dc6f7a11;
+
     function _hashConsideration(Consideration memory consideration) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
             let ptr := sub(consideration, 0x20)
@@ -80,9 +85,25 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         }
     }
 
+    function _hashOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash)
+        internal
+        pure
+        returns (bytes32 result)
+    {
+        assembly ("memory-safe") {
+            mstore(0x00, OTC_ORDER_TYPEHASH)
+            mstore(0x20, makerConsiderationHash)
+            let ptr := mload(0x40)
+            mstore(0x40, takerConsiderationHash)
+            result := keccak256(0x00, 0x60)
+            mstore(0x40, ptr)
+        }
+    }
+
     constructor(address permit2) Permit2Payment(permit2) {
         assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
         assert(TAKER_METATXN_CONSIDERATION_TYPEHASH == keccak256(bytes(TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE)));
+        assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
@@ -100,11 +121,11 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // TODO adjust amounts based on takerTokenFillAmount
 
-        (
-            ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails,
-            address makerToken,
-            uint256 makerAmount
-        ) = _permitToTransferDetails(makerPermit, recipient);
+        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
+        Consideration memory takerConsideration;
+        (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
+            _permitToTransferDetails(makerPermit, recipient);
+        takerConsideration.counterparty = maker;
 
         ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
         Consideration memory makerConsideration;
@@ -124,7 +145,13 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         _permit2TransferFrom(takerPermit, takerTransferDetails, msg.sender, takerSig);
 
         emit OtcOrderFilled(
-            witness, maker, msg.sender, makerToken, makerConsideration.token, makerAmount, makerConsideration.amount
+            _hashOtcOrder(witness, _hashConsideration(takerConsideration)),
+            maker,
+            msg.sender,
+            takerConsideration.token,
+            makerConsideration.token,
+            takerConsideration.amount,
+            makerConsideration.amount
         );
     }
 
@@ -163,7 +190,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         );
 
         emit OtcOrderFilled(
-            makerWitness,
+            _hashOtcOrder(makerWitness, takerWitness),
             maker,
             taker,
             takerConsideration.token,
@@ -190,14 +217,26 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // TODO adjust amounts based on takerAmount
 
-        (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address makerToken, uint256 makerAmount)
-        = _permitToTransferDetails(permit, address(this));
-        Consideration memory consideration =
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails;
+        Consideration memory takerConsideration;
+        (transferDetails, takerConsideration.token, takerConsideration.amount) =
+            _permitToTransferDetails(permit, address(this));
+        takerConsideration.counterparty = maker;
+
+        Consideration memory makerConsideration =
             Consideration({token: takerToken, amount: maxTakerAmount, counterparty: msgSender});
-        bytes32 witness = _hashConsideration(consideration);
+        bytes32 witness = _hashConsideration(makerConsideration);
         _permit2WitnessTransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);
         ERC20(takerToken).safeTransfer(maker, takerAmount);
 
-        emit OtcOrderFilled(witness, maker, msgSender, makerToken, takerToken, makerAmount, takerAmount);
+        emit OtcOrderFilled(
+            _hashOtcOrder(witness, _hashConsideration(takerConsideration)),
+            maker,
+            msgSender,
+            takerConsideration.token,
+            takerToken,
+            takerConsideration.amount,
+            takerAmount
+        );
     }
 }
