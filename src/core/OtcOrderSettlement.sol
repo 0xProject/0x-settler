@@ -42,7 +42,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant OTC_ORDER_WITNESS =
-        string(abi.encodePacked("OtcOrder order)", OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE_STRING));
+        string(abi.encodePacked("OtcOrder order)", OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE));
     bytes32 internal constant OTC_ORDER_TYPEHASH = 0xfb940004397cdd921b9c6d5f56542c06432403925e8ad3894ddec13430dfbb1a;
 
     string internal constant TAKER_METATXN_OTC_ORDER_TYPE = "TakerMetatxnOtcOrder(OtcOrder order,address recipient)";
@@ -93,42 +93,6 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
     /// the counterparties. Two Permit2 signatures are consumed, with the maker Permit2 containing
     /// a witness of the OtcOrder.
-    function fillOtcOrder(
-        OtcOrder memory order,
-        ISignatureTransfer.PermitTransferFrom memory makerPermit,
-        bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        bytes memory takerSig,
-        address taker,
-        uint128 takerTokenFillAmount,
-        address recipient
-    ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO validate order.taker and taker
-        // TODO validate tx.origin and txOrigin
-        // TODO adjust amounts based on takerTokenFillAmount
-
-        // Maker pays recipient
-        ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
-        bytes32 witness = _hashOtcOrder(order);
-        PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
-        );
-
-        // Taker pays Maker
-        ISignatureTransfer.SignatureTransferDetails memory takerToMakerTransferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
-        PERMIT2.permitTransferFrom(takerPermit, takerToMakerTransferDetails, taker, takerSig);
-
-        // TODO actually calculate the orderHash
-        emit OtcOrderFilled(
-            witness, order.maker, taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
-        );
-    }
-
-    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
-    /// the counterparties. Two Permit2 signatures are consumed, with the maker Permit2 containing
-    /// a witness of the OtcOrder.
     /// This variant also includes a fee where the taker or maker pays the fee recipient
     function fillOtcOrder(
         OtcOrder memory order,
@@ -136,7 +100,6 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         bytes memory takerSig,
-        address taker,
         uint128 takerTokenFillAmount,
         address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
