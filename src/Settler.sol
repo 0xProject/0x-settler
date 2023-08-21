@@ -62,10 +62,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             bytes calldata data = actions[0][4:];
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
                 if (actions.length > 1) {
-                    revert ActionInvalid({i: 1, action: actions[1][0:4], data: actions[1][4:]});
+                    revert ActionInvalid({i: 1, action: bytes4(actions[1][0:4]), data: actions[1][4:]});
                 }
-
-                require(order.taker == msg.sender, "Settler: can't fill somebody else's OTC");
                 (
                     OtcOrder memory order,
                     ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
@@ -86,10 +84,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                         address
                     )
                 );
+                require(order.taker == msg.sender, "Settler: can't fill somebody else's OTC");
                 fillOtcOrder(order, makerPermit, makerSig, takerPermit, takerSig, takerTokenFillAmount, recipient);
                 return;
             } else {
-                (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
+                (bool success, bytes memory output) = _dispatch(0, action, data, msg.sender);
                 if (!success) {
                     revert ActionFailed({i: 0, action: action, data: data, output: output});
                 }
@@ -100,7 +99,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             bytes4 action = bytes4(actions[i][0:4]);
             bytes calldata data = actions[i][4:];
 
-            (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
+            (bool success, bytes memory output) = _dispatch(i, action, data, msg.sender);
             if (!success) {
                 revert ActionFailed({i: i, action: action, data: data, output: output});
             }
@@ -176,7 +175,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
                 if (actions.length > 1) {
-                    revert ActionInvalid({i: 1, action: actions[1][0:4], data: actions[1][4:]});
+                    revert ActionInvalid({i: 1, action: bytes4(actions[1][0:4]), data: actions[1][4:]});
                 }
                 // An optimized path involving a maker/taker in a single trade
                 // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
@@ -204,8 +203,21 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
                 (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
                     abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
-                ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
-                    .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
+                // TODO: allow multiple fees
+                require(permit.permitted.length <= 2, "Invalid Batch Permit2");
+                ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
+                    new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
+                transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
+                    to: address(this),
+                    requestedAmount: permit.permitted[0].amount
+                });
+                if (permit.permitted.length > 1) {
+                    // TODO fee recipient
+                    transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                        to: 0x2222222222222222222222222222222222222222,
+                        requestedAmount: permit.permitted[1].amount
+                    });
+                }
 
                 // Checking this witness ensures that the entire sequence of actions is
                 // authorized.
@@ -227,7 +239,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             bytes4 action = bytes4(actions[i][0:4]);
             bytes calldata data = actions[i][4:];
 
-            (bool success, bytes memory output) = _dispatch(action, data, msgSender);
+            (bool success, bytes memory output) = _dispatch(i, action, data, msgSender);
             if (!success) {
                 revert ActionFailed({i: i, action: action, data: data, output: output});
             }
@@ -247,7 +259,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         }
     }
 
-    function _dispatch(bytes4 action, bytes calldata data, address msgSender)
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender)
         internal
         returns (bool success, bytes memory output)
     {
@@ -256,18 +268,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
-            // Consume the entire Permit with the recipient of funds as this contract
-            ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
-                .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
-
-            permit2TransferFrom(permit, transferDetails, msgSender, sig);
-        } else if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
-            (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
+            // TODO: allow multiple fees
             require(permit.permitted.length <= 2, "Invalid Batch Permit2");
-            // First item is this contract
             ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
                 new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
+            // First item is this contract
             transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
                 to: address(this),
                 requestedAmount: permit.permitted[0].amount
