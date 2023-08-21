@@ -65,8 +65,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                     revert ActionInvalid({i: 1, action: bytes4(actions[1][0:4]), data: actions[1][4:]});
                 }
                 (
-                    OtcOrder memory order,
                     ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    address maker,
                     bytes memory makerSig,
                     ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
                     bytes memory takerSig,
@@ -75,8 +75,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 ) = abi.decode(
                     data,
                     (
-                        OtcOrder,
                         ISignatureTransfer.PermitBatchTransferFrom,
+                        address,
                         bytes,
                         ISignatureTransfer.PermitBatchTransferFrom,
                         bytes,
@@ -84,8 +84,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                         address
                     )
                 );
-                require(order.taker == msg.sender, "Settler: can't fill somebody else's OTC");
-                fillOtcOrder(order, makerPermit, makerSig, takerPermit, takerSig, takerTokenFillAmount, recipient);
+                fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, takerTokenFillAmount, recipient);
                 return;
             } else {
                 (bool success, bytes memory output) = _dispatch(0, action, data, msg.sender);
@@ -181,24 +180,26 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
                 // so there is no need to validate `sig` against `actions` here
                 (
-                    OtcOrder memory order,
                     ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    address maker,
                     bytes memory makerSig,
                     ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+                    address taker,
                     bytes memory takerSig,
                     address recipient
                 ) = abi.decode(
                     data,
                     (
-                        OtcOrder,
                         ISignatureTransfer.PermitBatchTransferFrom,
+                        address,
                         bytes,
                         ISignatureTransfer.PermitBatchTransferFrom,
+                        address,
                         bytes,
                         address
                     )
                 );
-                fillOtcOrderMetaTxn(order, makerPermit, makerSig, takerPermit, takerSig, recipient);
+                fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, taker, takerSig, recipient);
                 return;
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
                 (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
@@ -260,13 +261,15 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             _permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             (
-                OtcOrder memory order,
                 ISignatureTransfer.PermitBatchTransferFrom memory permit,
+                address maker,
                 bytes memory sig,
-                uint128 takerTokenFillAmount
-            ) = abi.decode(data, (OtcOrder, ISignatureTransfer.PermitBatchTransferFrom, bytes, uint128));
-            require(order.taker == msgSender, "Settler: can't fill somebody else's OTC");
-            fillOtcOrderSelfFunded(order, permit, sig, takerTokenFillAmount);
+                address takerToken,
+                uint256 maxTakerAmount
+            ) = abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address, bytes, address, uint256));
+            fillOtcOrderSelfFunded(
+                permit, maker, sig, takerToken, maxTakerAmount, ERC20(takerToken).balanceOf(address(this)), msgSender
+            );
         } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
             (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
                 abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));

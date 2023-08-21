@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {IZeroEx} from "./core/ZeroEx.sol";
 
 interface ISettlerActions {
@@ -20,8 +19,8 @@ interface ISettlerActions {
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
     function SETTLER_OTC_PERMIT2(
-        OtcOrderSettlement.OtcOrder memory order,
         ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         bytes memory takerSig,
@@ -31,10 +30,11 @@ interface ISettlerActions {
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
     function METATXN_SETTLER_OTC_PERMIT2(
-        OtcOrderSettlement.OtcOrder memory order,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
+        address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
+        address taker,
         bytes memory takerSig,
         address recipient
     ) external;
@@ -46,7 +46,6 @@ interface ISettlerActions {
     // Pre-req: Funded
     // Post-req: Payout
     function SETTLER_OTC_SELF_FUNDED(
-        OtcOrderSettlement.OtcOrder memory order,
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         bytes memory sig,
         uint128 takerTokenFillAmount

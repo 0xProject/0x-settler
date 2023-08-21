@@ -7,17 +7,13 @@ import {Permit2Payment} from "./Permit2Payment.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
-/// @dev An OtcOrder is a simplified and minimized order type. It can only be filled once.
 abstract contract OtcOrderSettlement is Permit2Payment {
     using SafeTransferLib for ERC20;
 
-    struct OtcOrder {
-        address makerToken;
-        address takerToken;
-        uint128 makerAmount;
-        uint128 takerAmount;
-        address maker;
-        address taker;
+    struct Consideration {
+        address token;
+        uint256 amount;
+        address counterparty;
     }
 
     /// @dev Emitted whenever an `OtcOrder` is filled.
@@ -36,42 +32,46 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         uint128 takerTokenFilledAmount
     );
 
-    string internal constant OTC_ORDER_TYPE =
-        "OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker)";
+    string internal constant CONSIDERATION_TYPE = "Consideration(address token,uint256 amount,address counterparty)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
-    string internal constant OTC_ORDER_WITNESS =
-        string(abi.encodePacked("OtcOrder order)", OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE));
-    bytes32 internal constant OTC_ORDER_TYPEHASH = 0x9acbf077fe8e998747874992c0fbe041db1b131cc843ec3d3f81f2ba42bcfc61;
+    string internal constant CONSIDERATION_WITNESS =
+        string(abi.encodePacked("Consideration consideration)", CONSIDERATION_TYPE, TOKEN_PERMISSIONS_TYPE));
+    bytes32 internal constant CONSIDERATION_TYPEHASH =
+        0xad2beacc37d0284e6b9f578f414b9e1c8cc0412bb8e8a272e290b623563778e6;
 
-    string internal constant TAKER_METATXN_OTC_ORDER_TYPE = "TakerMetatxnOtcOrder(OtcOrder order,address recipient)";
-    string internal constant TAKER_METATXN_OTC_ORDER_TYPE_RECURSIVE =
-        string(abi.encodePacked(TAKER_METATXN_OTC_ORDER_TYPE, OTC_ORDER_TYPE));
-    string internal constant TAKER_METATXN_OTC_ORDER_WITNESS = string(
+    string internal constant TAKER_METATXN_CONSIDERATION_TYPE =
+        "TakerMetatxnConsideration(Consideration consideration,address recipient)";
+    string internal constant TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE =
+        string(abi.encodePacked(TAKER_METATXN_CONSIDERATION_TYPE, CONSIDERATION_TYPE));
+    string internal constant TAKER_METATXN_CONSIDERATION_WITNESS = string(
         abi.encodePacked(
-            "TakerMetatxnOtcOrder order)", OTC_ORDER_TYPE, TAKER_METATXN_OTC_ORDER_TYPE, TOKEN_PERMISSIONS_TYPE
+            "TakerMetatxnConsideration consideration)",
+            CONSIDERATION_TYPE,
+            TAKER_METATXN_CONSIDERATION_TYPE,
+            TOKEN_PERMISSIONS_TYPE
         )
     );
-    bytes32 internal constant TAKER_METATXN_OTC_ORDER_TYPEHASH =
-        0x27ef1d4e81c48114a28aa80737fddb02a61db3f05627c3cc08848f08a17d569b;
+    bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
+        0x91e22bbb454fbba18dc56f205c82681633cfd708b5f823425d62fe9b6e34abe8;
 
-    function _hashOtcOrder(OtcOrder memory otcOrder) internal pure returns (bytes32 result) {
+    function _hashConsideration(Consideration memory consideration) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
-            let ptr := sub(otcOrder, 0x20)
+            let ptr := sub(consideration, 0x20)
             let oldValue := mload(ptr)
-            mstore(ptr, OTC_ORDER_TYPEHASH)
-            result := keccak256(ptr, 0x100)
+            mstore(ptr, CONSIDERATION_TYPEHASH)
+            result := keccak256(ptr, 0x80)
             mstore(ptr, oldValue)
         }
     }
 
-    function _hashTakerMetatxnOtcOrder(OtcOrder memory otcOrder, address recipient)
+    function _hashTakerMetatxnConsideration(Consideration memory consideration, address recipient)
         internal
         pure
         returns (bytes32 result)
     {
-        result = _hashOtcOrder(otcOrder);
+        result = _hashConsideration(consideration);
         assembly ("memory-safe") {
-            mstore(0x00, TAKER_METATXN_OTC_ORDER_TYPEHASH)
+            mstore(0x00, TAKER_METATXN_CONSIDERATION_TYPEHASH)
             mstore(0x20, result)
             let ptr := mload(0x40)
             mstore(0x40, recipient)
@@ -81,8 +81,8 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     }
 
     constructor(address permit2) Permit2Payment(permit2) {
-        assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE)));
-        assert(TAKER_METATXN_OTC_ORDER_TYPEHASH == keccak256(bytes(TAKER_METATXN_OTC_ORDER_TYPE_RECURSIVE)));
+        assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
+        assert(TAKER_METATXN_CONSIDERATION_TYPEHASH == keccak256(bytes(TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE)));
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
@@ -90,48 +90,41 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     /// a witness of the OtcOrder.
     /// This variant also includes a fee where the taker or maker pays the fee recipient
     function fillOtcOrder(
-        OtcOrder memory order,
         ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         bytes memory takerSig,
         uint128 takerTokenFillAmount,
         address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO validate order.taker and taker
         // TODO adjust amounts based on takerTokenFillAmount
 
-        // Taker receives a reduced amount. Maker fees are included in the agreed amount.
-        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
-        uint256 takerReceiveAmount;
-        (makerTransferDetails, takerReceiveAmount, order.makerAmount) = _permitToTransferDetails(makerPermit, recipient);
+        (
+            ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails,
+            address makerToken,
+            uint256 makerAmount
+        ) = _permitToTransferDetails(makerPermit, recipient);
 
-        // Maker receives the full transfer amount. Taker pays fees on top.
         ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
-        (takerTransferDetails, order.takerAmount,) = _permitToTransferDetails(takerPermit, order.maker);
+        Consideration memory makerConsideration;
+        (takerTransferDetails, makerConsideration.token, makerConsideration.amount) =
+            _permitToTransferDetails(takerPermit, maker);
+        makerConsideration.counterparty = msg.sender;
 
-        bytes32 witness = _hashOtcOrder(order);
-        order.makerAmount = takerReceiveAmount;
+        bytes32 witness = _hashConsideration(makerConsideration);
         // There is no taker witness (see below)
 
         // Maker pays recipient (optional fee)
-        _permit2WitnessTransferFrom(
-            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
-        );
+        _permit2WitnessTransferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig);
         // Taker pays Maker (optional fee)
-        // We don't need to include a witness here. `order.taker` is `msg.sender`, so
+        // We don't need to include a witness here. Taker is `msg.sender`, so
         // `recipient` and the maker's details are already authenticated. We're just
         // using PERMIT2 to move tokens, not to provide authentication.
-        _permit2TransferFrom(takerPermit, takerTransferDetails, order.taker, takerSig);
+        _permit2TransferFrom(takerPermit, takerTransferDetails, msg.sender, takerSig);
 
-        // `orderHash` is the OtcOrder struct hash, inclusive of the maker fee (if any),
-        // and exclusive of the taker fee (if any). `makerTokenFilledAmount` is the
-        // amount sent to the taker (not the fee recipient), exclusive of any transfer
-        // fee taken by the maker token. `takerTokenFilledAmount` is the amount sent to
-        // the maker (not the fee recipient), exclusive of any transfer fee taken by the
-        // taker token.
         emit OtcOrderFilled(
-            witness, order.maker, order.taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
+            witness, maker, msg.sender, makerToken, makerConsideration.token, makerAmount, makerConsideration.amount
         );
     }
 
@@ -139,73 +132,72 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
     function fillOtcOrderMetaTxn(
-        OtcOrder memory order,
         ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        address taker,
         bytes memory takerSig,
         address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // Taker receives a reduced amount. Maker fees are included in the agreed amount.
         ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
-        uint256 takerReceiveAmount;
-        (makerTransferDetails, takerReceiveAmount, order.makerAmount) = _permitToTransferDetails(makerPermit, recipient);
+        Consideration memory takerConsideration;
+        (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
+            _permitToTransferDetails(makerPermit, recipient);
+        takerConsideration.counterparty = maker;
 
-        // Maker receives the full transfer amount. Taker pays fees on top.
         ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
-        (takerTransferDetails, order.takerAmount,) = _permitToTransferDetails(takerPermit, order.maker);
+        Consideration memory makerConsideration;
+        (takerTransferDetails, makerConsideration.token, makerConsideration.amount) =
+            _permitToTransferDetails(takerPermit, maker);
+        makerConsideration.counterparty = taker;
 
-        bytes32 makerWitness = _hashOtcOrder(order);
-        order.makerAmount = takerReceiveAmount;
-        bytes32 takerWitness = _hashTakerMetatxnOtcOrder(order, recipient);
+        bytes32 makerWitness = _hashConsideration(makerConsideration);
+        bytes32 takerWitness = _hashTakerMetatxnConsideration(takerConsideration, recipient);
 
-        // Maker pays recipient (optional fee)
         _permit2WitnessTransferFrom(
-            makerPermit, makerTransferDetails, order.maker, makerWitness, OTC_ORDER_WITNESS, makerSig
+            makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig
         );
-        // Taker pays Maker (optional fee)
         _permit2WitnessTransferFrom(
-            takerPermit, takerTransferDetails, order.taker, takerWitness, TAKER_METATXN_OTC_ORDER_WITNESS, takerSig
+            takerPermit, takerTransferDetails, taker, takerWitness, TAKER_METATXN_CONSIDERATION_WITNESS, takerSig
         );
 
-        // `orderHash` is the OtcOrder struct hash, inclusive of the maker fee (if any),
-        // and exclusive of the taker fee (if any). `makerTokenFilledAmount` is the
-        // amount sent to the taker (not the fee recipient), exclusive of any transfer
-        // fee taken by the maker token. `takerTokenFilledAmount` is the amount sent to
-        // the maker (not the fee recipient), exclusive of any transfer fee taken by the
-        // taker token.
         emit OtcOrderFilled(
             makerWitness,
-            order.maker,
-            order.taker,
-            order.makerToken,
-            order.takerToken,
-            order.makerAmount,
-            order.takerAmount
+            maker,
+            taker,
+            takerConsideration.token,
+            makerConsideration.token,
+            takerConsideration.amount,
+            makerConsideration.amount
         );
     }
 
     // TODO: fillOtcOrderSelfFunded needs custody optimization
 
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
-    /// @dev pre-condition: order.taker has been authenticated against the requestor
+    /// @dev pre-condition: msgSender has been authenticated against the requestor
     /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
     // In this variant, Maker pays Settler and Settler pays Maker
     function fillOtcOrderSelfFunded(
-        OtcOrder memory order,
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        address maker,
         bytes memory sig,
-        uint128 takerTokenFillAmount
+        address takerToken,
+        uint256 maxTakerAmount,
+        uint256 takerAmount,
+        address msgSender
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO adjust amounts based on takerTokenFillAmount
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails;
-        (transferDetails,, order.makerAmount) = _permitToTransferDetails(permit, address(this));
-        bytes32 witness = _hashOtcOrder(order);
-        _permit2WitnessTransferFrom(permit, transferDetails, order.maker, witness, OTC_ORDER_WITNESS, sig);
-        ERC20(order.takerToken).safeTransfer(order.maker, order.takerAmount);
+        // TODO adjust amounts based on takerAmount
 
-        emit OtcOrderFilled(
-            witness, order.maker, order.taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
-        );
+        (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address makerToken, uint256 makerAmount)
+        = _permitToTransferDetails(permit, address(this));
+        Consideration memory consideration =
+            Consideration({token: takerToken, amount: maxTakerAmount, counterparty: msgSender});
+        bytes32 witness = _hashConsideration(consideration);
+        _permit2WitnessTransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);
+        ERC20(takerToken).safeTransfer(maker, takerAmount);
+
+        emit OtcOrderFilled(witness, maker, msgSender, makerToken, takerToken, makerAmount, takerAmount);
     }
 }
