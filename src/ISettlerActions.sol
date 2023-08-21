@@ -94,11 +94,21 @@ interface ISettlerActions {
     /// and the divisor is 10_000. E.g 10_000 represents 100%, 5_000 represents 50%.
     function TRANSFER_OUT(address token, address recipient, uint256 bips) external;
 
+    /// @dev Transfers out an amount of the native asset to recipient. This amount amount can be partial
+    /// and the divisor is 10_000. E.g 10_000 represents 100%, 5_000 represents 50%.
+    function TRANSFER_OUT_ETH(address recipient, uint256 bips) external;
+
     // @dev Fill a 0x V4 OTC order using the 0x Exchange Proxy contract
     // Pre-req: Funded
     // Post-req: Payout
     function ZERO_EX_OTC(IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount)
         external;
+
+    /// @dev Deposit Ether held by Settler and receive WETH into Settler's balance
+    function WETH_DEPOSIT(uint256 amount) external;
+
+    /// @dev Withdraw WETH held by Settler and receive Ether into Settler's balance
+    function WETH_WITHDRAW(uint256 amount) external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded

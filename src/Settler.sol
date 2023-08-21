@@ -9,13 +9,14 @@ import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
+import {WethWrap} from "./core/WethWrap.sol";
 
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx, WethWrap {
     using SafeTransferLib for ERC20;
 
     error ActionInvalid(bytes4 action, bytes data);
@@ -36,18 +37,23 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
+    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     /// @dev The highest bit of a uint256 value.
     uint256 private constant HIGH_BIT = 2 ** 255;
     /// @dev Mask of the lower 255 bits of a uint256 value.
     uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
 
-    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
+    receive() external payable {}
+
+    constructor(address permit2, address zeroEx, address uniFactory, address payable weth, bytes32 poolInitCodeHash)
         Basic(permit2)
         CurveV2()
         OtcOrderSettlement(permit2)
         Permit2Payment(permit2)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
+        WethWrap(weth)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE_STRING)));
     }
@@ -71,7 +77,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        if (wantToken != address(0) || minAmountOut != 0) {
+        if (wantToken == ETH_ADDRESS && minAmountOut != 0) {
+            uint256 amountOut = address(this).balance;
+            if (amountOut < minAmountOut) {
+                revert ActionFailed({
+                    action: SLIPPAGE_ACTION,
+                    data: abi.encode(wantToken, minAmountOut),
+                    output: abi.encode(amountOut)
+                });
+            }
+            SafeTransferLib.safeTransferETH(msg.sender, amountOut);
+        } else if (wantToken != address(0) || minAmountOut != 0) {
             uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
             if (amountOut < minAmountOut) {
                 revert ActionFailed({
@@ -192,7 +208,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             }
         }
 
-        if (wantToken != address(0) || minAmountOut != 0) {
+        if (wantToken == ETH_ADDRESS && minAmountOut != 0) {
+            uint256 amountOut = address(this).balance;
+            if (amountOut < minAmountOut) {
+                revert ActionFailed({
+                    action: SLIPPAGE_ACTION,
+                    data: abi.encode(wantToken, minAmountOut),
+                    output: abi.encode(amountOut)
+                });
+            }
+            SafeTransferLib.safeTransferETH(msgSender, amountOut);
+        } else if (wantToken != address(0) || minAmountOut != 0) {
             uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
             if (amountOut < minAmountOut) {
                 revert ActionFailed({
@@ -350,6 +376,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             uint256 balance = ERC20(token).balanceOf(address(this));
             uint256 amount = (balance * bips) / 10_000;
             ERC20(token).safeTransfer(recipient, amount);
+        } else if (action == ISettlerActions.TRANSFER_OUT_ETH.selector) {
+            (address recipient, uint256 bips) = abi.decode(data, (address, uint256));
+            uint256 balance = address(this).balance;
+            uint256 amount = (balance * bips) / 10_000;
+            SafeTransferLib.safeTransferETH(recipient, amount);
+        } else if (action == ISettlerActions.WETH_DEPOSIT.selector) {
+            (uint256 amount) = abi.decode(data, (uint256));
+            depositWeth(amount);
+        } else if (action == ISettlerActions.WETH_WITHDRAW.selector) {
+            (uint256 amount) = abi.decode(data, (uint256));
+            withdrawWeth(amount);
         } else {
             revert ActionInvalid({action: action, data: data});
         }
