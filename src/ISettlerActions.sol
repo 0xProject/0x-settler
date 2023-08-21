@@ -47,8 +47,8 @@ interface ISettlerActions {
     // Post-req: Payout
     function SETTLER_OTC_SELF_FUNDED(
         OtcOrderSettlement.OtcOrder memory order,
-        ISignatureTransfer.PermitTransferFrom memory makerPermit,
-        bytes memory makerSig,
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        bytes memory sig,
         uint128 takerTokenFillAmount
     ) external;
 

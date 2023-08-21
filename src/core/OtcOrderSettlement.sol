@@ -227,36 +227,44 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         );
     }
 
+    // TODO: fillOtcOrderSelfFunded needs custody optimization
+
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
+    /// @dev pre-condition: order.taker has been authenticated against the requestor
     /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
     // In this variant, Maker pays Settler and Settler pays Maker
     function fillOtcOrderSelfFunded(
         OtcOrder memory order,
-        ISignatureTransfer.PermitTransferFrom memory makerPermit,
-        bytes memory makerSig,
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        bytes memory sig,
         uint128 takerTokenFillAmount
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // TODO adjust amounts based on takerTokenFillAmount
 
+        // TODO: allow multiple fees
+        require(permit.permitted.length <= 2, "Invalid Batch Permit2");
+
         // Maker pays Settler
-        ISignatureTransfer.SignatureTransferDetails memory makerToRecipientTransferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: order.makerAmount});
         bytes32 witness = _hashOtcOrder(order);
-        PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerToRecipientTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
-        );
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
+            new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
+        transferDetails[0] =
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: order.makerAmount});
+        if (permit.permitted.length > 1) {
+            // TODO fee recipient
+            transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                to: 0x2222222222222222222222222222222222222222,
+                requestedAmount: permit.permitted[1].amount
+            });
+            // adjust the maker->recipient payout by the fee amount
+            order.makerAmount -= permit.permitted[1].amount;
+        }
+        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, order.maker, witness, OTC_ORDER_WITNESS, sig);
 
         // Settler pays Maker
         ERC20(order.takerToken).safeTransfer(order.maker, order.takerAmount);
-        // TODO actually calculate the orderHash
         emit OtcOrderFilled(
-            witness,
-            order.maker,
-            order.taker,
-            order.makerToken,
-            order.takerToken,
-            order.makerAmount,
-            order.takerAmount
+            witness, order.maker, order.taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
         );
     }
 }

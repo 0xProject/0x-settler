@@ -280,16 +280,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     requestedAmount: permit.permitted[1].amount
                 });
             }
+            // Consume the entire Permit
             permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
-            require(order.taker == msgSender, "Settler: can't fill somebody else's OTC");
             (
                 OtcOrder memory order,
-                ISignatureTransfer.PermitTransferFrom memory makerPermit,
-                bytes memory makerSig,
+                ISignatureTransfer.PermitBatchTransferFrom memory permit,
+                bytes memory sig,
                 uint128 takerTokenFillAmount
-            ) = abi.decode(data, (OtcOrder, ISignatureTransfer.PermitTransferFrom, bytes, uint128));
-            fillOtcOrderSelfFunded(order, makerPermit, makerSig, takerTokenFillAmount);
+            ) = abi.decode(data, (OtcOrder, ISignatureTransfer.PermitBatchTransferFrom, bytes, uint128));
+            require(order.taker == msgSender, "Settler: can't fill somebody else's OTC");
+            fillOtcOrderSelfFunded(order, permit, sig, takerTokenFillAmount);
         } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
             (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
                 abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
