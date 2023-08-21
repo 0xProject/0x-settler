@@ -56,7 +56,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser, ERC2771Context {
         }
     }
 
-    ISignatureTransfer private immutable PERMIT2;
+    ISignatureTransfer internal immutable PERMIT2;
 
     constructor(address permit2, address trustedForwarder) ERC2771Context(trustedForwarder) {
         PERMIT2 = ISignatureTransfer(permit2);
