@@ -27,9 +27,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     using SafeTransferLib for ERC20;
     using UnsafeMath for uint256;
 
-    error ActionInvalid(bytes4 action, bytes data);
-    error ActionFailed(bytes4 action, bytes data, bytes output);
-    error LengthMismatch();
+    error ActionInvalid(uint256 i, bytes4 action, bytes data);
+    error ActionFailed(uint256 i, bytes4 action, bytes data, bytes output);
 
     // Permit2 Witness for meta transactions
     string internal constant ACTIONS_AND_SLIPPAGE_TYPE =
@@ -65,7 +64,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             bytes calldata data = actions[0][4:];
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
                 if (actions.length > 1) {
-                    revert ActionInvalid({action: actions[1][0:4], data: actions[1][4:]});
+                    revert ActionInvalid({i: 1, action: actions[1][0:4], data: actions[1][4:]});
                 }
 
                 require(order.taker == msg.sender, "Settler: can't fill somebody else's OTC");
@@ -94,7 +93,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             } else {
                 (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
                 if (!success) {
-                    revert ActionFailed({action: action, data: data, output: output});
+                    revert ActionFailed({i: 0, action: action, data: data, output: output});
                 }
             }
         }
@@ -105,7 +104,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
             (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
             if (!success) {
-                revert ActionFailed({action: action, data: data, output: output});
+                revert ActionFailed({i: i, action: action, data: data, output: output});
             }
         }
 
@@ -118,6 +117,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
             if (amountOut < minAmountOut) {
                 revert ActionFailed({
+                    i: type(uint256).max,
                     action: SLIPPAGE_ACTION,
                     data: abi.encode(wantToken, minAmountOut),
                     output: abi.encode(amountOut)
@@ -178,7 +178,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
                 if (actions.length > 1) {
-                    revert ActionInvalid({action: actions[1][0:4], data: actions[1][4:]});
+                    revert ActionInvalid({i: 1, action: actions[1][0:4], data: actions[1][4:]});
                 }
                 // An optimized path involving a maker/taker in a single trade
                 // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
@@ -220,7 +220,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     ACTIONS_AND_SLIPPAGE_WITNESS
                 );
             } else {
-                revert ActionInvalid({action: action, data: data});
+                revert ActionInvalid({i: 0, action: action, data: data});
             }
         }
 
@@ -230,7 +230,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
             (bool success, bytes memory output) = _dispatch(action, data, msgSender);
             if (!success) {
-                revert ActionFailed({action: action, data: data, output: output});
+                revert ActionFailed({i: i, action: action, data: data, output: output});
             }
         }
 
@@ -238,6 +238,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
             if (amountOut < minAmountOut) {
                 revert ActionFailed({
+                    i: type(uint256).max,
                     action: SLIPPAGE_ACTION,
                     data: abi.encode(wantToken, minAmountOut),
                     output: abi.encode(amountOut)
@@ -326,7 +327,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             uint256 amount = (balance * bips) / 10_000;
             ERC20(token).safeTransfer(recipient, amount);
         } else {
-            revert ActionInvalid({action: action, data: data});
+            revert ActionInvalid({i: i, action: action, data: data});
         }
     }
 }
