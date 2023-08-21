@@ -7,26 +7,19 @@ abstract contract Permit2Payment {
     /// @dev Permit2 address
     ISignatureTransfer private immutable PERMIT2;
 
+    string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
+
     constructor(address permit2) {
         PERMIT2 = ISignatureTransfer(permit2);
     }
 
-    function permit2TransferFrom(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        address from,
-        bytes memory sig
-    ) internal {
-        PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
-    }
-
     function permit2WitnessTransferFrom(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
-        bytes memory sig,
         bytes32 witness,
-        string memory witnessTypeString
+        string memory witnessTypeString,
+        bytes memory sig
     ) internal {
         PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }

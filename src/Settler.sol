@@ -10,7 +10,6 @@ import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
-import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
@@ -23,7 +22,7 @@ library UnsafeMath {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
     using UnsafeMath for uint256;
 
@@ -51,7 +50,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         Basic(permit2)
         CurveV2()
         OtcOrderSettlement(permit2)
-        Permit2Payment(permit2)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
     {
@@ -209,15 +207,16 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                 ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer
                     .SignatureTransferDetails({to: address(this), requestedAmount: permit.permitted.amount});
 
-                // Now that the actions have been validated and signed by `from` we can safely assign
-                // msgSender
+                // Checking this witness ensures that the entire sequence of actions is
+                // authorized.
+                bytes32 witness = _hashActionsAndSlippage(actions, wantToken, minAmountOut);
+                // `msgSender` becomes the metatransaction requestor (the taker of the
+                // sequence of actions).
+                msgSender = from;
+                // We simultaneously transfer-in the taker's tokens and authenticate the
+                // metatransaction.
                 permit2WitnessTransferFrom(
-                    permit,
-                    transferDetails,
-                    msgSender = from,
-                    sig,
-                    _hashActionsAndSlippage(actions, wantToken, minAmountOut),
-                    ACTIONS_AND_SLIPPAGE_WITNESS
+                    permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig
                 );
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});

@@ -3,12 +3,12 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {SignatureTransferUser} from "./SignatureTransferUser.sol";
+import {Permit2Payment} from "./Permit2Payment.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
 /// @dev An OtcOrder is a simplified and minimized order type. It can only be filled once.
-abstract contract OtcOrderSettlement is SignatureTransferUser {
+abstract contract OtcOrderSettlement is Permit2Payment {
     using SafeTransferLib for ERC20;
 
     struct OtcOrder {
@@ -80,10 +80,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         }
     }
 
-    ISignatureTransfer private immutable PERMIT2;
-
-    constructor(address permit2) {
-        PERMIT2 = ISignatureTransfer(permit2);
+    constructor(address permit2) Permit2Payment(permit2) {
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE)));
         assert(TAKER_METATXN_OTC_ORDER_TYPEHASH == keccak256(bytes(TAKER_METATXN_OTC_ORDER_TYPE_RECURSIVE)));
     }
@@ -123,9 +120,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         }
         makerTransferDetails[0] =
             ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
-        PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
-        );
+        permit2WitnessTransferFrom(makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig);
 
         // Taker pays Maker (optional fee)
         ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails =
@@ -143,7 +138,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         // We don't need to include a witness here. `order.taker` is `msg.sender`, so
         // `recipient` and the maker's details are already authenticated. We're just
         // using PERMIT2 to move tokens, not to provide authentication.
-        PERMIT2.permitTransferFrom(takerPermit, takerTransferDetails, order.taker, takerSig);
+        permit2TransferFrom(takerPermit, takerTransferDetails, order.taker, takerSig);
 
         // `orderHash` is the OtcOrder struct hash, inclusive of the maker fee (if any),
         // and exclusive of the taker fee (if any). `makerTokenFilledAmount` is the
@@ -190,9 +185,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
         }
         makerTransferDetails[0] =
             ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
-        PERMIT2.permitWitnessTransferFrom(
-            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
-        );
+        permit2WitnessTransferFrom(makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig);
 
         // Taker pays Maker (optional fee)
         ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails =
@@ -207,7 +200,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
             });
             // No adjustment in payout of taker->maker, maker always receives full amount
         }
-        PERMIT2.permitWitnessTransferFrom(
+        permit2WitnessTransferFrom(
             takerPermit,
             takerTransferDetails,
             order.taker,
@@ -259,7 +252,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
             // adjust the maker->recipient payout by the fee amount
             order.makerAmount -= permit.permitted[1].amount;
         }
-        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, order.maker, witness, OTC_ORDER_WITNESS, sig);
+        permit2WitnessTransferFrom(permit, transferDetails, order.maker, witness, OTC_ORDER_WITNESS, sig);
 
         // Settler pays Maker
         ERC20(order.takerToken).safeTransfer(order.maker, order.takerAmount);
