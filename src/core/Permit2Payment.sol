@@ -54,7 +54,7 @@ abstract contract Permit2Payment {
         token = permit.permitted.token;
     }
 
-    function _permit2WitnessTransferFrom(
+    function _permit2TransferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -65,7 +65,7 @@ abstract contract Permit2Payment {
         PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
-    function _permit2WitnessTransferFrom(
+    function _permit2TransferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,

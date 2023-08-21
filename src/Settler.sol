@@ -223,7 +223,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
         // metatransaction.
-        _permit2WitnessTransferFrom(permit, transferDetails, from, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
+        _permit2TransferFrom(permit, transferDetails, from, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
         // `from` becomes the metatransaction requestor (the taker of the sequence of actions).
         return from;
     }
