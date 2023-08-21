@@ -101,44 +101,30 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         // TODO validate order.taker and taker
         // TODO adjust amounts based on takerTokenFillAmount
 
-        // TODO: allow multiple fees
-        require(makerPermit.permitted.length <= 2, "Invalid Batch Permit2");
-        require(takerPermit.permitted.length <= 2, "Invalid Batch Permit2");
+        // Taker receives a reduced amount. Maker fees are included in the agreed amount.
+        (
+            ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails,
+            uint256 takerReceiveAmount,
+            order.makerAmount
+        ) = _permitToTransferDetails(makerPermit, recipient);
 
-        // Maker pays out recipient (optional fee)
+        // Maker receives the full transfer amount. Taker pays fees on top.
+        (ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails, order.takerAmount,) =
+            _permitToTransferDetails(takerPermit, order.maker);
+
         bytes32 witness = _hashOtcOrder(order);
-        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails =
-            new ISignatureTransfer.SignatureTransferDetails[](makerPermit.permitted.length);
-        if (makerPermit.permitted.length > 1) {
-            // TODO fee recipient
-            makerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: 0x2222222222222222222222222222222222222222,
-                requestedAmount: makerPermit.permitted[1].amount
-            });
-            // adjust the maker->recipient payout by the fee amount
-            order.makerAmount -= makerPermit.permitted[1].amount;
-        }
-        makerTransferDetails[0] =
-            ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
-        permit2WitnessTransferFrom(makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig);
+        order.makerAmount = takerReceiveAmount;
+        // There is no taker witness (see below)
 
+        // Maker pays recipient (optional fee)
+        _permit2WitnessTransferFrom(
+            makerPermit, makerTransferDetails, order.maker, makerWitness, OTC_ORDER_WITNESS, makerSig
+        );
         // Taker pays Maker (optional fee)
-        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails =
-            new ISignatureTransfer.SignatureTransferDetails[](takerPermit.permitted.length);
-        takerTransferDetails[0] =
-            ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
-        if (takerPermit.permitted.length > 1) {
-            // TODO fee recipient
-            takerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: 0x2222222222222222222222222222222222222222,
-                requestedAmount: takerPermit.permitted[1].amount
-            });
-            // No adjustment in payout of taker->maker, maker always receives full amount
-        }
         // We don't need to include a witness here. `order.taker` is `msg.sender`, so
         // `recipient` and the maker's details are already authenticated. We're just
         // using PERMIT2 to move tokens, not to provide authentication.
-        permit2TransferFrom(takerPermit, takerTransferDetails, order.taker, takerSig);
+        _permit2TransferFrom(takerPermit, takerTransferDetails, order.taker, takerSig);
 
         // `orderHash` is the OtcOrder struct hash, inclusive of the maker fee (if any),
         // and exclusive of the taker fee (if any). `makerTokenFilledAmount` is the
@@ -162,51 +148,28 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         bytes memory takerSig,
         address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO: allow multiple fees
-        require(makerPermit.permitted.length <= 2, "Invalid Batch Permit2");
-        require(takerPermit.permitted.length <= 2, "Invalid Batch Permit2");
+        // Taker receives a reduced amount. Maker fees are included in the agreed amount.
+        (
+            ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails,
+            uint256 takerReceiveAmount,
+            order.makerAmount
+        ) = _permitToTransferDetails(makerPermit, recipient);
 
-        // Pay close attention to the order in which these operations are
-        // performed. It's very important for security and the implications are not
-        // intuitive.
+        // Maker receives the full transfer amount. Taker pays fees on top.
+        (ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails, order.takerAmount,) =
+            _permitToTransferDetails(takerPermit, order.maker);
+
+        bytes32 makerWitness = _hashOtcOrder(order);
+        order.makerAmount = takerReceiveAmount;
+        bytes32 takerWitness = _hashTakerMetatxnOtcOrder(order, recipient);
 
         // Maker pays recipient (optional fee)
-        bytes32 witness = _hashOtcOrder(order);
-        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails =
-            new ISignatureTransfer.SignatureTransferDetails[](makerPermit.permitted.length);
-        if (makerPermit.permitted.length > 1) {
-            // TODO fee recipient
-            makerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: 0x2222222222222222222222222222222222222222,
-                requestedAmount: makerPermit.permitted[1].amount
-            });
-            // adjust the maker->recipient payout by the fee amount
-            order.makerAmount -= makerPermit.permitted[1].amount;
-        }
-        makerTransferDetails[0] =
-            ISignatureTransfer.SignatureTransferDetails({to: recipient, requestedAmount: order.makerAmount});
-        permit2WitnessTransferFrom(makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig);
-
+        _permit2WitnessTransferFrom(
+            makerPermit, makerTransferDetails, order.maker, makerWitness, OTC_ORDER_WITNESS, makerSig
+        );
         // Taker pays Maker (optional fee)
-        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails =
-            new ISignatureTransfer.SignatureTransferDetails[](takerPermit.permitted.length);
-        takerTransferDetails[0] =
-            ISignatureTransfer.SignatureTransferDetails({to: order.maker, requestedAmount: order.takerAmount});
-        if (takerPermit.permitted.length > 1) {
-            // TODO fee recipient
-            takerTransferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: 0x2222222222222222222222222222222222222222,
-                requestedAmount: takerPermit.permitted[1].amount
-            });
-            // No adjustment in payout of taker->maker, maker always receives full amount
-        }
-        permit2WitnessTransferFrom(
-            takerPermit,
-            takerTransferDetails,
-            order.taker,
-            _hashTakerMetatxnOtcOrder(order, recipient), // witness is completely recomputed
-            TAKER_METATXN_OTC_ORDER_WITNESS,
-            takerSig
+        _permit2WitnessTransferFrom(
+            takerPermit, takerTransferDetails, order.taker, takerWitness, TAKER_METATXN_OTC_ORDER_WITNESS, takerSig
         );
 
         // `orderHash` is the OtcOrder struct hash, inclusive of the maker fee (if any),
@@ -216,7 +179,13 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         // the maker (not the fee recipient), exclusive of any transfer fee taken by the
         // taker token.
         emit OtcOrderFilled(
-            witness, order.maker, order.taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
+            makerWitness,
+            order.maker,
+            order.taker,
+            order.makerToken,
+            order.takerToken,
+            order.makerAmount,
+            order.takerAmount
         );
     }
 
@@ -234,28 +203,12 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // TODO adjust amounts based on takerTokenFillAmount
 
-        // TODO: allow multiple fees
-        require(permit.permitted.length <= 2, "Invalid Batch Permit2");
-
-        // Maker pays Settler
+        (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,, order.makerAmount) =
+            _permitToTransferDetails(permit, address(this));
         bytes32 witness = _hashOtcOrder(order);
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
-            new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
-        transferDetails[0] =
-            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: order.makerAmount});
-        if (permit.permitted.length > 1) {
-            // TODO fee recipient
-            transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: 0x2222222222222222222222222222222222222222,
-                requestedAmount: permit.permitted[1].amount
-            });
-            // adjust the maker->recipient payout by the fee amount
-            order.makerAmount -= permit.permitted[1].amount;
-        }
-        permit2WitnessTransferFrom(permit, transferDetails, order.maker, witness, OTC_ORDER_WITNESS, sig);
-
-        // Settler pays Maker
+        _permit2WitnessTransferFrom(permit, transferDetails, order.maker, witness, OTC_ORDER_WITNESS, sig);
         ERC20(order.takerToken).safeTransfer(order.maker, order.takerAmount);
+
         emit OtcOrderFilled(
             witness, order.maker, order.taker, order.makerToken, order.takerToken, order.makerAmount, order.takerAmount
         );

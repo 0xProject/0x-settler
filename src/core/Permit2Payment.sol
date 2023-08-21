@@ -13,7 +13,37 @@ abstract contract Permit2Payment {
         PERMIT2 = ISignatureTransfer(permit2);
     }
 
-    function permit2WitnessTransferFrom(
+    function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
+        internal
+        pure
+        returns (
+            ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+            uint256 takerAmount,
+            uint256 totalAmount
+        )
+    {
+        // TODO: allow multiple fees
+        require(permit.permitted.length <= 2, "Settler: Invalid batch Permit2 -- too many fees");
+        transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
+        transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
+            to: recipient,
+            requestedAmount: takerAmount = totalAmount = permit.permitted[0].amount
+        });
+        if (permit.permitted.length > 1) {
+            require(
+                permit.permitted[0].token == permit.permitted[1].token,
+                "Settler: Invalid batch Permit2 -- fee token address mismatch"
+            );
+            // TODO fee recipient
+            transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                to: 0x2222222222222222222222222222222222222222,
+                requestedAmount: permit.permitted[1].amount
+            });
+            totalAmount += permit.permitted[1].amount;
+        }
+    }
+
+    function _permit2WitnessTransferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -24,7 +54,7 @@ abstract contract Permit2Payment {
         PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
-    function permit2TransferFrom(
+    function _permit2TransferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
