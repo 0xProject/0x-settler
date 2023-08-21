@@ -203,21 +203,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
                 (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
                     abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
-                // TODO: allow multiple fees
-                require(permit.permitted.length <= 2, "Invalid Batch Permit2");
-                ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
-                    new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
-                transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
-                    to: address(this),
-                    requestedAmount: permit.permitted[0].amount
-                });
-                if (permit.permitted.length > 1) {
-                    // TODO fee recipient
-                    transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                        to: 0x2222222222222222222222222222222222222222,
-                        requestedAmount: permit.permitted[1].amount
-                    });
-                }
+                (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+                    _permitToTransferDetails(permit, address(this));
 
                 // Checking this witness ensures that the entire sequence of actions is
                 // authorized.
@@ -227,7 +214,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 msgSender = from;
                 // We simultaneously transfer-in the taker's tokens and authenticate the
                 // metatransaction.
-                permit2WitnessTransferFrom(
+                _permit2WitnessTransferFrom(
                     permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig
                 );
             } else {
@@ -268,24 +255,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
-            // TODO: allow multiple fees
-            require(permit.permitted.length <= 2, "Invalid Batch Permit2");
-            ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
-                new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
-            // First item is this contract
-            transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
-                to: address(this),
-                requestedAmount: permit.permitted[0].amount
-            });
-            if (permit.permitted.length > 1) {
-                // TODO fee recipient
-                transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                    to: 0x2222222222222222222222222222222222222222,
-                    requestedAmount: permit.permitted[1].amount
-                });
-            }
-            // Consume the entire Permit
-            permit2TransferFrom(permit, transferDetails, msgSender, sig);
+            (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+                _permitToTransferDetails(permit, address(this));
+            _permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             (
                 OtcOrder memory order,

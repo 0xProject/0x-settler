@@ -102,15 +102,13 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         // TODO adjust amounts based on takerTokenFillAmount
 
         // Taker receives a reduced amount. Maker fees are included in the agreed amount.
-        (
-            ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails,
-            uint256 takerReceiveAmount,
-            order.makerAmount
-        ) = _permitToTransferDetails(makerPermit, recipient);
+        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
+        uint256 takerReceiveAmount;
+        (makerTransferDetails, takerReceiveAmount, order.makerAmount) = _permitToTransferDetails(makerPermit, recipient);
 
         // Maker receives the full transfer amount. Taker pays fees on top.
-        (ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails, order.takerAmount,) =
-            _permitToTransferDetails(takerPermit, order.maker);
+        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
+        (takerTransferDetails, order.takerAmount,) = _permitToTransferDetails(takerPermit, order.maker);
 
         bytes32 witness = _hashOtcOrder(order);
         order.makerAmount = takerReceiveAmount;
@@ -118,7 +116,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
 
         // Maker pays recipient (optional fee)
         _permit2WitnessTransferFrom(
-            makerPermit, makerTransferDetails, order.maker, makerWitness, OTC_ORDER_WITNESS, makerSig
+            makerPermit, makerTransferDetails, order.maker, witness, OTC_ORDER_WITNESS, makerSig
         );
         // Taker pays Maker (optional fee)
         // We don't need to include a witness here. `order.taker` is `msg.sender`, so
@@ -149,15 +147,13 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         address recipient
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // Taker receives a reduced amount. Maker fees are included in the agreed amount.
-        (
-            ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails,
-            uint256 takerReceiveAmount,
-            order.makerAmount
-        ) = _permitToTransferDetails(makerPermit, recipient);
+        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
+        uint256 takerReceiveAmount;
+        (makerTransferDetails, takerReceiveAmount, order.makerAmount) = _permitToTransferDetails(makerPermit, recipient);
 
         // Maker receives the full transfer amount. Taker pays fees on top.
-        (ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails, order.takerAmount,) =
-            _permitToTransferDetails(takerPermit, order.maker);
+        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
+        (takerTransferDetails, order.takerAmount,) = _permitToTransferDetails(takerPermit, order.maker);
 
         bytes32 makerWitness = _hashOtcOrder(order);
         order.makerAmount = takerReceiveAmount;
@@ -202,9 +198,8 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         uint128 takerTokenFillAmount
     ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
         // TODO adjust amounts based on takerTokenFillAmount
-
-        (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,, order.makerAmount) =
-            _permitToTransferDetails(permit, address(this));
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails;
+        (transferDetails,, order.makerAmount) = _permitToTransferDetails(permit, address(this));
         bytes32 witness = _hashOtcOrder(order);
         _permit2WitnessTransferFrom(permit, transferDetails, order.maker, witness, OTC_ORDER_WITNESS, sig);
         ERC20(order.takerToken).safeTransfer(order.maker, order.takerAmount);
