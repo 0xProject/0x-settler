@@ -46,10 +46,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
     /// @dev Mask of the lower 255 bits of a uint256 value.
     uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
 
-    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
+    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
         Basic(permit2)
         CurveV2()
-        OtcOrderSettlement(permit2)
+        OtcOrderSettlement(permit2, feeRecipient)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
     {

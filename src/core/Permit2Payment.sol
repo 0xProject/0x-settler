@@ -6,11 +6,13 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 abstract contract Permit2Payment {
     /// @dev Permit2 address
     ISignatureTransfer private immutable PERMIT2;
+    address private immutable FEE_RECIPIENT;
 
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
-    constructor(address permit2) {
+    constructor(address permit2, address feeRecipient) {
         PERMIT2 = ISignatureTransfer(permit2);
+        FEE_RECIPIENT = feeRecipient;
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
@@ -28,9 +30,8 @@ abstract contract Permit2Payment {
         token = permit.permitted[0].token;
         if (permit.permitted.length > 1) {
             require(token == permit.permitted[1].token, "Settler: Invalid batch Permit2 -- fee token address mismatch");
-            // TODO fee recipient
             transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: 0x2222222222222222222222222222222222222222,
+                to: FEE_RECIPIENT,
                 requestedAmount: permit.permitted[1].amount
             });
         }

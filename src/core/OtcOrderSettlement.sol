@@ -100,7 +100,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         }
     }
 
-    constructor(address permit2) Permit2Payment(permit2) {
+    constructor(address permit2, address feeRecipient) Permit2Payment(permit2, feeRecipient) {
         assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
         assert(TAKER_METATXN_CONSIDERATION_TYPEHASH == keccak256(bytes(TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE)));
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));
