@@ -22,9 +22,65 @@ library UnsafeMath {
     }
 }
 
+/// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency, but still includes checks against `calldatasize()` for safety.
+library CalldataDecoder {
+    function decodeCall(bytes[] calldata data, uint256 i)
+        internal
+        pure
+        returns (bytes4 selector, bytes calldata args)
+    {
+        assembly ("memory-safe") {
+            // helper functions
+            function panic(code) {
+                mstore(0x00, 0x4e487b71) // keccak256("Panic(uint256)")[:4]
+                mstore(0x20, code)
+                revert(0x1c, 0x24)
+            }
+            function overflow() {
+                // revert with reason for arithmetic under-/over- flow
+                panic(0x11) // 0x11 -> arithmetic under-/over- flow
+            }
+            function bad_calldata() {
+                // revert with empty reason for malformed calldata
+                revert(0x00, 0x00)
+            }
+
+            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
+            args.offset :=
+                add(
+                    data.offset,
+                    calldataload(
+                        add(shl(5, i), data.offset) // can't overflow; we assume `i` is in-bounds
+                    )
+                )
+            // because the offset to `args` stored in `data` is arbitrary, we have to check it
+            if lt(args.offset, data.offset) { overflow() }
+            if iszero(lt(args.offset, calldatasize())) { bad_calldata() }
+            // now we load `args.length` and set `args.offset` to the start of data
+            args.length := calldataload(args.offset)
+            args.offset := add(args.offset, 0x20) // can't overflow; calldata can't be that long
+            {
+                // check that the end of `args` is in-bounds
+                let end := add(args.offset, args.length)
+                if lt(end, args.offset) { overflow() }
+                if gt(end, calldatasize()) { bad_calldata() }
+            }
+            // slice off the first 4 bytes of `args` as the selector
+            if lt(args.length, 4) {
+                // loading selector results in out-of-bounds read
+                panic(0x32) // 0x32 -> out-of-bounds array access
+            }
+            selector := calldataload(args.offset) // solidity cleans dirty bits automatically
+            args.length := sub(args.length, 4) // can't underflow; checked above
+            args.offset := add(args.offset, 4) // can't overflow/oob; we already checked `end`
+        }
+    }
+}
+
 contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
     using UnsafeMath for uint256;
+    using CalldataDecoder for bytes[];
 
     error ActionInvalid(uint256 i, bytes4 action, bytes data);
     error ActionFailed(uint256 i, bytes4 action, bytes data, bytes output);
@@ -41,11 +97,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
-    /// @dev The highest bit of a uint256 value.
-    uint256 private constant HIGH_BIT = 2 ** 255;
-    /// @dev Mask of the lower 255 bits of a uint256 value.
-    uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
-
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
         Basic(permit2)
         CurveV2()
@@ -57,12 +108,12 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
     }
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
-        {
-            bytes4 action = bytes4(actions[0][0:4]);
-            bytes calldata data = actions[0][4:];
+        if (actions.length != 0) {
+            (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
                 if (actions.length > 1) {
-                    revert ActionInvalid({i: 1, action: bytes4(actions[1][0:4]), data: actions[1][4:]});
+                    (action, data) = actions.decodeCall(1);
+                    revert ActionInvalid({i: 1, action: action, data: data});
                 }
                 (
                     ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
@@ -95,9 +146,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            bytes4 action = bytes4(actions[i][0:4]);
-            bytes calldata data = actions[i][4:];
-
+            (bytes4 action, bytes calldata data) = actions.decodeCall(i);
             (bool success, bytes memory output) = _dispatch(i, action, data, msg.sender);
             if (!success) {
                 revert ActionFailed({i: i, action: action, data: data, output: output});
@@ -165,16 +214,16 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
     {
         address msgSender = msg.sender;
 
-        {
-            bytes4 action = bytes4(actions[0][0:4]);
-            bytes calldata data = actions[0][4:];
+        if (actions.length != 0) {
+            (bytes4 action, bytes calldata data) = actions.decodeCall(0);
 
             // We force the first action to be a Permit2 witness transfer and validate the actions
             // against the signature
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
                 if (actions.length > 1) {
-                    revert ActionInvalid({i: 1, action: bytes4(actions[1][0:4]), data: actions[1][4:]});
+                    (action, data) = actions.decodeCall(1);
+                    revert ActionInvalid({i: 1, action: action, data: data});
                 }
                 // An optimized path involving a maker/taker in a single trade
                 // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
@@ -224,9 +273,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            bytes4 action = bytes4(actions[i][0:4]);
-            bytes calldata data = actions[i][4:];
-
+            (bytes4 action, bytes calldata data) = actions.decodeCall(i);
             (bool success, bytes memory output) = _dispatch(i, action, data, msgSender);
             if (!success) {
                 revert ActionFailed({i: i, action: action, data: data, output: output});
