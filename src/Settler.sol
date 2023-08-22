@@ -23,22 +23,49 @@ library CalldataDecoder {
         returns (bytes4 selector, bytes calldata args)
     {
         assembly ("memory-safe") {
-            let ptr := add(data.offset, calldataload(add(shl(5, i), data.offset)))
-            args.length := calldataload(ptr)
-            ptr := add(ptr, 0x20)
-            if gt(add(ptr, args.length), calldatasize()) {
-                // malformed calldata
-                revert(0x00, 0x00)
-            }
-            if lt(args.length, 4) {
-                // decoding selector results in out-of-bounds read
+            // helper functions
+            function panic(code) {
                 mstore(0x00, 0x4e487b71) // keccak256("Panic(uint256)")[:4]
-                mstore(0x20, 0x32) // 0x32 -> out-of-bounds array access
+                mstore(0x20, code)
                 revert(0x1c, 0x24)
             }
-            selector := calldataload(ptr) // solidity cleans dirty bits automatically
-            args.length := sub(args.length, 4)
-            if args.length { args.offset := add(ptr, 4) }
+            function overflow() {
+                // revert with reason for arithmetic under-/over- flow
+                panic(0x11) // 0x11 -> arithmetic under-/over- flow
+            }
+            function bad_calldata() {
+                // revert with empty reason for malformed calldata
+                revert(0x00, 0x00)
+            }
+
+            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
+            args.offset :=
+                add(
+                    data.offset,
+                    calldataload(
+                        add(shl(5, i), data.offset) // can't overflow; we assume `i` is in-bounds
+                    )
+                )
+            // because the offset to `args` stored in `data` arbitrary, we have to check it
+            if lt(args.offset, data.offset) { overflow() }
+            if gt(args.offset, calldatasize()) { bad_calldata() }
+            // now we load `args.length` and set `args.offset` to the start of data
+            args.length := calldataload(args.offset)
+            args.offset := add(args.offset, 0x20) // can't overflow; calldata can't be that long
+            {
+                // check that the end of `args` is in-bounds
+                let end := add(args.offset, args.length)
+                if lt(end, args.offset) { overflow() }
+                if gt(end, calldatasize()) { bad_calldata() }
+            }
+            // slice off the first 4 bytes of `args` as the selector
+            if lt(args.length, 4) {
+                // loading selector results in out-of-bounds read
+                panic(0x32) // 0x32 -> out-of-bounds array access
+            }
+            selector := calldataload(args.offset) // solidity cleans dirty bits automatically
+            args.length := sub(args.length, 4) // can't underflow; checked above
+            args.offset := add(args.offset, 4) // can't overflow/oob; we already checked `end`
         }
     }
 }
