@@ -15,8 +15,37 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
+/// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency, but still includes checks against `calldatasize()` for safety.
+library CalldataDecoder {
+    function decodeCall(bytes[] calldata data, uint256 i)
+        internal
+        pure
+        returns (bytes4 selector, bytes calldata args)
+    {
+        assembly ("memory-safe") {
+            let ptr := add(data.offset, calldataload(add(shl(5, i), data.offset)))
+            args.length := calldataload(ptr)
+            ptr := add(ptr, 0x20)
+            if gt(add(ptr, args.length), calldatasize()) {
+                // malformed calldata
+                revert(0x00, 0x00)
+            }
+            if lt(args.length, 4) {
+                // decoding selector results in out-of-bounds read
+                mstore(0x00, 0x4e487b71) // keccak256("Panic(uint256)")[:4]
+                mstore(0x20, 0x32) // 0x32 -> out-of-bounds array access
+                revert(0x1c, 0x24)
+            }
+            selector := calldataload(ptr) // solidity cleans dirty bits automatically
+            args.length := sub(args.length, 4)
+            if args.length { args.offset := add(ptr, 4) }
+        }
+    }
+}
+
 contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
+    using CalldataDecoder for bytes[];
 
     error ActionInvalid(bytes4 action, bytes data);
     error ActionFailed(bytes4 action, bytes data, bytes output);
@@ -36,11 +65,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
-    /// @dev The highest bit of a uint256 value.
-    uint256 private constant HIGH_BIT = 2 ** 255;
-    /// @dev Mask of the lower 255 bits of a uint256 value.
-    uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
-
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
         Basic(permit2)
         CurveV2()
@@ -54,8 +78,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
 
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
         for (uint256 i = 0; i < actions.length;) {
-            bytes4 action = bytes4(actions[i][0:4]);
-            bytes calldata data = actions[i][4:];
+            (bytes4 action, bytes calldata data) = actions.decodeCall(i);
 
             (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
             if (!success) {
@@ -127,8 +150,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
         address msgSender = msg.sender;
 
         for (uint256 i = 0; i < actions.length;) {
-            bytes4 action = bytes4(actions[i][0:4]);
-            bytes calldata data = actions[i][4:];
+            (bytes4 action, bytes calldata data) = actions.decodeCall(i);
 
             if (i == 0) {
                 // We force the first action to be a Permit2 witness transfer and validate the actions
