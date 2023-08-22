@@ -27,11 +27,12 @@ abstract contract Basic {
         bytes memory data
     ) internal returns (uint256 buyAmount) {
         require(pool != PERMIT2, "Basic: Pool address invalid");
+        require(offset + 32 <= data.length, "Basic: out of bounds");
 
         uint256 beforeBalanceSell = sellToken.balanceOf(address(this));
         uint256 proportionSellBalance = (beforeBalanceSell * bips) / 10_000;
         // Update the sellAmount given a proportion of the sellToken balance
-        assembly {
+        assembly ("memory-safe") {
             mstore(add(data, offset), proportionSellBalance)
         }
         sellToken.safeApproveIfBelow(pool, type(uint256).max);
