@@ -48,7 +48,7 @@ library CalldataDecoder {
                 )
             // because the offset to `args` stored in `data` is arbitrary, we have to check it
             if lt(args.offset, data.offset) { overflow() }
-            if not(lt(args.offset, calldatasize())) { bad_calldata() }
+            if iszero(lt(args.offset, calldatasize())) { bad_calldata() }
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
             args.offset := add(args.offset, 0x20) // can't overflow; calldata can't be that long
