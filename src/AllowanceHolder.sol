@@ -56,12 +56,14 @@ contract AllowanceHolder {
     }
 
     function execute(
+        uint256 deadline,
         address to,
         ISignatureTransfer.TokenPermissions[] calldata permitted,
         address payable target,
         bytes calldata data
     ) public payable returns (bytes memory) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard
+        require(block.timestamp <= deadline);
         _storePermits(msg.sender, to, permitted);
         (bool success, bytes memory returndata) =
             target.call{value: msg.value}(bytes.concat(data, bytes20(uint160(msg.sender))));
