@@ -83,7 +83,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
     using CalldataDecoder for bytes[];
 
     error ActionInvalid(uint256 i, bytes4 action, bytes data);
-    error ActionFailed(uint256 i, bytes4 action, bytes data, bytes output);
+    error TooMuchSlippage(address token, uint256 expected, uint256 actual);
 
     // Permit2 Witness for meta transactions
     string internal constant ACTIONS_AND_SLIPPAGE_TYPE =
@@ -107,9 +107,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
 
-    function _checkSlippageAndTransfer(uint256 i, address wantToken, uint256 minAmountOut, address msgSender)
-        internal
-    {
+    function _checkSlippageAndTransfer(address wantToken, uint256 minAmountOut, address msgSender) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
@@ -118,12 +116,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         if (wantToken != address(0) || minAmountOut != 0) {
             uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
             if (amountOut < minAmountOut) {
-                revert ActionFailed({
-                    i: i,
-                    action: SLIPPAGE_ACTION,
-                    data: abi.encode(wantToken, minAmountOut),
-                    output: abi.encode(amountOut)
-                });
+                revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
             }
             ERC20(wantToken).safeTransfer(msgSender, amountOut);
         }
@@ -160,22 +153,16 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, takerTokenFillAmount, recipient);
                 return;
             } else {
-                (bool success, bytes memory output) = _dispatch(0, action, data, msg.sender);
-                if (!success) {
-                    revert ActionFailed({i: 0, action: action, data: data, output: output});
-                }
+                _dispatch(0, action, data, msg.sender);
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            (bool success, bytes memory output) = _dispatch(i, action, data, msg.sender);
-            if (!success) {
-                revert ActionFailed({i: i, action: action, data: data, output: output});
-            }
+            _dispatch(i, action, data, msg.sender);
         }
 
-        _checkSlippageAndTransfer(actions.length, wantToken, minAmountOut, msg.sender);
+        _checkSlippageAndTransfer(wantToken, minAmountOut, msg.sender);
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
@@ -280,21 +267,13 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            (bool success, bytes memory output) = _dispatch(i, action, data, msgSender);
-            if (!success) {
-                revert ActionFailed({i: i, action: action, data: data, output: output});
-            }
+            _dispatch(i, action, data, msgSender);
         }
 
-        _checkSlippageAndTransfer(actions.length, wantToken, minAmountOut, msgSender);
+        _checkSlippageAndTransfer(wantToken, minAmountOut, msgSender);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender)
-        internal
-        returns (bool success, bytes memory output)
-    {
-        success = true;
-
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender) internal {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
