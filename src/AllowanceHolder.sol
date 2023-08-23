@@ -5,6 +5,8 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
+// import {ERC2771Context} from "./ERC2771Context.sol";
+
 contract AllowanceHolder {
     using SafeTransferLib for ERC20;
 
@@ -64,6 +66,7 @@ contract AllowanceHolder {
     ) public payable returns (bytes memory) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard
         require(block.timestamp <= deadline);
+        // require(ERC2771Context(target).isTrustedForwarder(address(this)));
         _storePermits(msg.sender, to, permitted);
         (bool success, bytes memory returndata) =
             target.call{value: msg.value}(bytes.concat(data, bytes20(uint160(msg.sender))));
