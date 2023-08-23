@@ -37,7 +37,7 @@ abstract contract UniswapV3 {
     ///      sizeof(address(inputToken) | uint24(fee))
     uint256 private constant PATH_SKIP_HOP_SIZE = 20 + 3;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 128;
+    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x80;
     /// @dev Minimum tick price sqrt ratio.
     uint160 internal constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -115,9 +115,11 @@ abstract contract UniswapV3 {
         if (sellAmount != 0) {
             require(sellAmount <= uint256(type(int256).max), "UniswapV3Feature/SELL_AMOUNT_OVERFLOW");
 
-            // TODO don't allocate permit2 data is empty (e.g a multhop where we are paying)
             // Perform a swap for each hop in the path.
-            bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
+            bytes memory swapCallbackData;
+            if (permit2Data.length != 0) {
+                swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
+            }
             while (true) {
                 bool isPathMultiHop = _isPathMultiHop(encodedPath);
                 bool zeroForOne;
@@ -200,16 +202,19 @@ abstract contract UniswapV3 {
         address payer,
         bytes memory permit2Data
     ) private {
-        uint256 permit2DataLength = permit2Data.length;
         assembly ("memory-safe") {
-            let p := add(swapCallbackData, 32)
-            mstore(p, inputToken)
-            mstore(add(p, 32), outputToken)
-            mstore(add(p, 64), and(UINT24_MASK, fee))
-            mstore(add(p, 96), and(ADDRESS_MASK, payer))
-            for { let i := 0 } lt(i, div(permit2DataLength, 32)) { i := add(1, i) } {
-                mstore(add(add(p, 128), mul(32, i)), mload(add(permit2Data, mul(32, add(1, i)))))
-            }
+            mstore(add(swapCallbackData, 0x20), inputToken)
+            mstore(add(swapCallbackData, 0x40), outputToken)
+            mstore(add(swapCallbackData, 0x60), and(UINT24_MASK, fee))
+            mstore(add(swapCallbackData, 0x80), and(ADDRESS_MASK, payer))
+            for {
+                let dst := add(swapCallbackData, 0xa0)
+                let src := add(permit2Data, 0x20)
+                let end := add(src, mload(permit2Data))
+            } lt(src, end) {
+                src := add(0x20, src)
+                dst := add(0x20, dst)
+            } { mstore(dst, mload(src)) }
         }
     }
 
