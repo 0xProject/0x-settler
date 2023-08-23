@@ -3,6 +3,7 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
@@ -28,6 +29,7 @@ interface IUniswapV3Pool {
 }
 
 abstract contract UniswapV3 {
+    using FullMath for uint256;
     using SafeTransferLib for ERC20;
 
     /// @dev UniswapV3 Factory contract address prepended with '0xff' and left-aligned.
@@ -62,16 +64,16 @@ abstract contract UniswapV3 {
 
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param sellAmount amount of the first token in the path to sell.
-    /// @param recipient The recipient of the bought tokens. Can be zero for sender.
+    /// @param bips proportion of current balance of the first token in the path to sell.
+    /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellTokenForTokenToUniswapV3(bytes memory encodedPath, uint256 sellAmount, address recipient)
+    function sellTokenForTokenToUniswapV3(bytes memory encodedPath, uint256 bips, address recipient)
         internal
         returns (uint256 buyAmount)
     {
         buyAmount = _swap(
             encodedPath,
-            sellAmount,
+            ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000),
             address(this), // payer
             recipient,
             new bytes(0)
@@ -89,15 +91,10 @@ abstract contract UniswapV3 {
         bytes memory encodedPath,
         uint256 sellAmount,
         address recipient,
+        address payer,
         bytes memory permit2Data
     ) internal returns (uint256 buyAmount) {
-        buyAmount = _swap(
-            encodedPath,
-            sellAmount,
-            msg.sender, // payer
-            recipient,
-            permit2Data
-        );
+        buyAmount = _swap(encodedPath, sellAmount, payer, recipient, permit2Data);
     }
 
     // Executes successive swaps along an encoded uniswap path.

@@ -307,14 +307,14 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
 
             fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
-            (address recipient, uint256 amountIn, bytes memory path) = abi.decode(data, (address, uint256, bytes));
+            (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
-            sellTokenForTokenToUniswapV3(path, amountIn, recipient);
+            sellTokenForTokenToUniswapV3(path, bips, recipient);
         } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 amountIn, bytes memory path, bytes memory permit2Data) =
                 abi.decode(data, (address, uint256, bytes, bytes));
 
-            sellTokenForTokenToUniswapV3(path, amountIn, recipient, permit2Data);
+            sellTokenForTokenToUniswapV3(path, amountIn, recipient, msgSender, permit2Data);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
             (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
