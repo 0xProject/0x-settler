@@ -79,12 +79,12 @@ contract AllowanceHolder {
         return returndata;
     }
 
-    function transferFrom(ISignatureTransfer.SignatureTransferDetails[] calldata transferDetails, address owner)
+    function transferFrom(ISignatureTransfer.SignatureTransferDetails[] calldata transferDetails)
         public
     {
         (address from, address to, ISignatureTransfer.TokenPermissions[] memory permitted) = _getPermits();
         require(msg.sender == to);
-        require(from == owner);
+        require(transferDetails.length == permitted.length);
         _clearPermits(); // this is effectively a reentrancy guard
         for (uint256 i; i < permitted.length; i++) {
             ISignatureTransfer.TokenPermissions memory permit = permitted[i];
