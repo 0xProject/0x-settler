@@ -43,9 +43,9 @@ abstract contract UniswapV3 {
     /// @dev The size of the swap callback prefix data before the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x80;
     /// @dev Minimum tick price sqrt ratio.
-    uint160 internal constant MIN_PRICE_SQRT_RATIO = 4295128739;
+    uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
-    uint160 internal constant MAX_PRICE_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
+    uint160 private constant MAX_PRICE_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
     /// @dev Mask of lower 20 bytes.
     uint256 private constant ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     /// @dev Mask of lower 3 bytes.
