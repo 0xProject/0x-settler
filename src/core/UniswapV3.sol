@@ -91,16 +91,10 @@ abstract contract UniswapV3 {
         uint256 sellAmount,
         uint256 minBuyAmount,
         address recipient,
+        address payer,
         bytes memory permit2Data
     ) internal returns (uint256 buyAmount) {
-        buyAmount = _swap(
-            encodedPath,
-            sellAmount,
-            minBuyAmount,
-            msg.sender, // payer
-            recipient,
-            permit2Data
-        );
+        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, permit2Data);
     }
 
     // Executes successive swaps along an encoded uniswap path.

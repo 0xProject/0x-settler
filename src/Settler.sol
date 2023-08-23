@@ -329,7 +329,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bytes memory permit2Data) =
                 abi.decode(data, (address, uint256, uint256, bytes, bytes));
 
-            sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, permit2Data);
+            sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit2Data);
         } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,
