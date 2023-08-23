@@ -122,7 +122,9 @@ abstract contract UniswapV3 {
                     (ERC20 inputToken, uint24 fee, ERC20 outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
                     pool = _toPool(inputToken, fee, outputToken);
                     zeroForOne = inputToken < outputToken;
-                    _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
+                    if (permit2Data.length != 0) {
+                        _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
+                    }
                 }
                 (int256 amount0, int256 amount1) = pool.swap(
                     // Intermediate tokens go to this contract.
@@ -146,6 +148,7 @@ abstract contract UniswapV3 {
                 sellAmount = buyAmount;
                 // Skip to next hop along path.
                 encodedPath = _shiftHopFromPathInPlace(encodedPath);
+                // TODO: for multi-hop, do we need to truncate `permit2Data` and `swapCallbackData`?
             }
         }
         require(minBuyAmount <= buyAmount, "UniswapV3Feature/UNDERBOUGHT");
