@@ -236,15 +236,15 @@ abstract contract UniswapV3 {
             let s := mload(0x40)
             let p := s
             mstore(p, ffFactoryAddress)
-            p := add(p, 21)
+            p := add(p, 0x15)
             // Compute the inner hash in-place
-            mstore(p, token0)
-            mstore(add(p, 32), token1)
-            mstore(add(p, 64), and(UINT24_MASK, fee))
-            mstore(p, keccak256(p, 96))
-            p := add(p, 32)
-            mstore(p, poolInitCodeHash)
-            pool := and(ADDRESS_MASK, keccak256(s, 85))
+            mstore(p, and(ADDRESS_MASK, token0))
+            mstore(add(p, 0x20), and(ADDRESS_MASK, token1))
+            mstore(add(p, 0x40), and(UINT24_MASK, fee))
+            mstore(p, keccak256(p, 0x60))
+            // compute the address
+            mstore(add(p, 0x20), poolInitCodeHash)
+            pool := keccak256(s, 0x55) // solidity clears dirty bits for us
         }
     }
 
