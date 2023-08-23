@@ -58,20 +58,16 @@ abstract contract UniswapV3 {
 
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param sellAmount amount of the first token in the path to sell.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
+    /// @param bips proportion of current balance of the first token in the path to sell.
     /// @param recipient The recipient of the bought tokens. Can be zero for sender.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellTokenForTokenToUniswapV3(
-        bytes memory encodedPath,
-        uint256 sellAmount,
-        uint256 minBuyAmount,
-        address recipient
-    ) internal returns (uint256 buyAmount) {
+    function sellTokenForTokenToUniswapV3(bytes memory encodedPath, uint256 bips, address recipient)
+        internal
+        returns (uint256 buyAmount)
+    {
         buyAmount = _swap(
             encodedPath,
-            sellAmount,
-            minBuyAmount,
+            bips * ERC20(address(bytes20(encodedPath))).balanceOf(address(this)) / 10_000,
             address(this), // payer
             recipient,
             new bytes(0)
@@ -89,19 +85,17 @@ abstract contract UniswapV3 {
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
         uint256 sellAmount,
-        uint256 minBuyAmount,
         address recipient,
         address payer,
         bytes memory permit2Data
     ) internal returns (uint256 buyAmount) {
-        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, permit2Data);
+        buyAmount = _swap(encodedPath, sellAmount, payer, recipient, permit2Data);
     }
 
     // Executes successive swaps along an encoded uniswap path.
     function _swap(
         bytes memory encodedPath,
         uint256 sellAmount,
-        uint256 minBuyAmount,
         address payer,
         address recipient,
         bytes memory permit2Data
@@ -151,7 +145,6 @@ abstract contract UniswapV3 {
                 // TODO: for multi-hop, do we need to truncate `permit2Data` and `swapCallbackData`?
             }
         }
-        require(minBuyAmount <= buyAmount, "UniswapV3Feature/UNDERBOUGHT");
     }
 
     // Return whether or not an encoded uniswap path contains more than one hop.
