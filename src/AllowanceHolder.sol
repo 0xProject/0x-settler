@@ -4,11 +4,37 @@ pragma solidity ^0.8.21;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
+import {UnsafeMath} from "./UnsafeMath.sol";
 
 // import {ERC2771Context} from "./ERC2771Context.sol";
 
+library UnsafeArray {
+    function unsafeGet(ISignatureTransfer.TokenPermissions[] memory a, uint256 i)
+        internal
+        pure
+        returns (ISignatureTransfer.TokenPermissions memory r)
+    {
+        assembly ("memory-safe") {
+            r := add(add(shl(6, i), 0x20), a)
+        }
+    }
+
+    function unsafeGet(ISignatureTransfer.SignatureTransferDetails[] memory a, uint256 i)
+        internal
+        pure
+        returns (ISignatureTransfer.SignatureTransferDetails memory r)
+    {
+        assembly ("memory-safe") {
+            r := add(add(shl(6, i), 0x20), a)
+        }
+    }
+}
+
 contract AllowanceHolder {
     using SafeTransferLib for ERC20;
+    using UnsafeMath for uint256;
+    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
+    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
     bytes32 internal constant _MOCK_TRANSIENT_START_SLOT =
         0x588fe8b62ed655cf29d31d5107e62b4fbc51f24e11339fa0f890fb831d2e43bb;
@@ -79,16 +105,15 @@ contract AllowanceHolder {
         return returndata;
     }
 
-    function transferFrom(ISignatureTransfer.SignatureTransferDetails[] calldata transferDetails)
-        public
-    {
+    function transferFrom(ISignatureTransfer.SignatureTransferDetails[] calldata transferDetails) public {
         (address from, address to, ISignatureTransfer.TokenPermissions[] memory permitted) = _getPermits();
         require(msg.sender == to);
-        require(transferDetails.length == permitted.length);
+        uint256 length = transferDetails.length;
+        require(length == permitted.length);
         _clearPermits(); // this is effectively a reentrancy guard
-        for (uint256 i; i < permitted.length; i++) {
-            ISignatureTransfer.TokenPermissions memory permit = permitted[i];
-            ISignatureTransfer.SignatureTransferDetails memory detail = transferDetails[i];
+        for (uint256 i; i < length; i = i.unsafeInc()) {
+            ISignatureTransfer.TokenPermissions memory permit = permitted.unsafeGet(i);
+            ISignatureTransfer.SignatureTransferDetails memory detail = transferDetails.unsafeGet(i);
             uint256 amount = detail.requestedAmount;
             require(amount <= permit.amount);
             if (amount != 0) {
