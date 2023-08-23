@@ -4,12 +4,13 @@ pragma solidity ^0.8.21;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SignatureTransferUser} from "./SignatureTransferUser.sol";
+import {ERC2771Context} from "../ERC2771Context.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
 /// @dev An OtcOrder is a simplified and minimized order type. It can only be filled once and
 /// has additional requirements for txOrigin
-abstract contract OtcOrderSettlement is SignatureTransferUser {
+abstract contract OtcOrderSettlement is SignatureTransferUser, ERC2771Context {
     using SafeTransferLib for ERC20;
 
     struct OtcOrder {
@@ -57,7 +58,7 @@ abstract contract OtcOrderSettlement is SignatureTransferUser {
 
     ISignatureTransfer private immutable PERMIT2;
 
-    constructor(address permit2) {
+    constructor(address permit2, address trustedForwarder) ERC2771Context(trustedForwarder) {
         PERMIT2 = ISignatureTransfer(permit2);
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE)));
     }

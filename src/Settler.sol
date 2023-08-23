@@ -41,10 +41,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     /// @dev Mask of the lower 255 bits of a uint256 value.
     uint256 private constant LOWER_255_BITS = HIGH_BIT - 1;
 
-    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash)
+    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address trustedForwarder)
         Basic(permit2)
         CurveV2()
-        OtcOrderSettlement(permit2)
+        OtcOrderSettlement(permit2, trustedForwarder)
         Permit2Payment(permit2)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
@@ -57,7 +57,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             bytes4 action = bytes4(actions[i][0:4]);
             bytes calldata data = actions[i][4:];
 
-            (bool success, bytes memory output) = _dispatch(action, data, msg.sender);
+            (bool success, bytes memory output) = _dispatch(action, data, _msgSender());
             if (!success) {
                 revert ActionFailed({action: action, data: data, output: output});
             }
@@ -80,7 +80,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
                     output: abi.encode(amountOut)
                 });
             }
-            ERC20(wantToken).safeTransfer(msg.sender, amountOut);
+            ERC20(wantToken).safeTransfer(_msgSender(), amountOut);
         }
     }
 
@@ -124,7 +124,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
     function executeMetaTxn(bytes[] calldata actions, address wantToken, uint256 minAmountOut, bytes memory sig)
         public
     {
-        address msgSender = msg.sender;
+        address msgSender = _msgSender();
 
         for (uint256 i = 0; i < actions.length;) {
             bytes4 action = bytes4(actions[i][0:4]);

@@ -13,6 +13,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
+import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 import {ISettlerActions} from "../../src/ISettlerActions.sol";
 import {OtcOrderSettlement} from "../../src/core/OtcOrderSettlement.sol";
@@ -67,11 +68,13 @@ abstract contract SettlerPairTest is BasePairTest {
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     function getSettler() private returns (Settler settler) {
+        AllowanceHolder trustedForwarder = new AllowanceHolder();
         settler = new Settler(
             address(PERMIT2), 
             address(ZERO_EX), // ZeroEx
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
-            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54 // UniV3 pool init code hash
+            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
+            address(trustedForwarder)
         );
     }
 
