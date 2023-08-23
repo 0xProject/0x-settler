@@ -43,7 +43,7 @@ abstract contract UniswapV3 {
     /// @dev Minimum tick price sqrt ratio.
     uint160 internal constant MAX_PRICE_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
     /// @dev Mask of lower 20 bytes.
-    uint256 private constant ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+    uint256 internal constant ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
 

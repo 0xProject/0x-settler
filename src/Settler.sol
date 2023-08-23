@@ -115,7 +115,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, Permit2Payment, CurveV
             let ptr := mload(0x40)
             mstore(ptr, ACTIONS_AND_SLIPPAGE_TYPEHASH)
             mstore(add(ptr, 0x20), arrayOfBytesHash)
-            mstore(add(ptr, 0x40), wantToken)
+            mstore(add(ptr, 0x40), and(ADDRESS_MASK, wantToken))
             mstore(add(ptr, 0x60), minAmountOut)
             result := keccak256(ptr, 0x80)
         }
