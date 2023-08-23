@@ -126,7 +126,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
-                if (actions.length > 1) {
+                if (actions.length != 1) {
                     (action, data) = actions.decodeCall(1);
                     revert ActionInvalid({i: 1, action: action, data: data});
                 }
@@ -214,7 +214,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             // against the signature
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
-                if (actions.length > 1) {
+                if (actions.length != 1) {
                     (action, data) = actions.decodeCall(1);
                     revert ActionInvalid({i: 1, action: action, data: data});
                 }
