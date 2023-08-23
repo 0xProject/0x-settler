@@ -203,8 +203,8 @@ abstract contract UniswapV3 {
         bytes memory permit2Data
     ) private {
         assembly ("memory-safe") {
-            mstore(add(swapCallbackData, 0x20), inputToken)
-            mstore(add(swapCallbackData, 0x40), outputToken)
+            mstore(add(swapCallbackData, 0x20), and(ADDRESS_MASK, inputToken))
+            mstore(add(swapCallbackData, 0x40), and(ADDRESS_MASK, outputToken))
             mstore(add(swapCallbackData, 0x60), and(UINT24_MASK, fee))
             mstore(add(swapCallbackData, 0x80), and(ADDRESS_MASK, payer))
             for {
@@ -233,15 +233,15 @@ abstract contract UniswapV3 {
             let s := mload(0x40)
             let p := s
             mstore(p, ffFactoryAddress)
-            p := add(p, 21)
+            p := add(p, 0x15)
             // Compute the inner hash in-place
-            mstore(p, token0)
-            mstore(add(p, 32), token1)
-            mstore(add(p, 64), and(UINT24_MASK, fee))
-            mstore(p, keccak256(p, 96))
-            p := add(p, 32)
-            mstore(p, poolInitCodeHash)
-            pool := and(ADDRESS_MASK, keccak256(s, 85))
+            mstore(p, and(ADDRESS_MASK, token0))
+            mstore(add(p, 0x20), and(ADDRESS_MASK, token1))
+            mstore(add(p, 0x40), and(UINT24_MASK, fee))
+            mstore(p, keccak256(p, 0x60))
+            // compute the address
+            mstore(add(p, 0x20), poolInitCodeHash)
+            pool := keccak256(s, 0x55) // solidity clears dirty bits for us
         }
     }
 
@@ -332,12 +332,10 @@ abstract contract UniswapV3 {
 
             // selector for transfer(address,uint256)
             mstore(ptr, 0xa9059cbb00000000000000000000000000000000000000000000000000000000)
-            mstore(add(ptr, 0x04), and(to, ADDRESS_MASK))
+            mstore(add(ptr, 0x04), and(ADDRESS_MASK, to))
             mstore(add(ptr, 0x24), amount)
 
-            let success := call(gas(), and(token, ADDRESS_MASK), 0, ptr, 0x44, ptr, 32)
-
-            let rdsize := returndatasize()
+            let success := call(gas(), token, 0, ptr, 0x44, 0x00, 0x20)
 
             // Check for ERC20 success. ERC20 tokens should return a boolean,
             // but some don't. We accept 0-length return data as success, or at
@@ -346,17 +344,18 @@ abstract contract UniswapV3 {
                 and(
                     success, // call itself succeeded
                     or(
-                        iszero(rdsize), // no return data, or
+                        iszero(returndatasize()), // no return data, or
                         and(
-                            iszero(lt(rdsize, 32)), // at least 32 bytes
-                            eq(mload(ptr), 1) // starts with uint256(1)
+                            gt(returndatasize(), 0x1f), // at least 32 bytes
+                            eq(mload(0x00), 1) // starts with uint256(1)
                         )
                     )
                 )
 
+            // bubble revert reason
             if iszero(success) {
-                returndatacopy(ptr, 0, rdsize)
-                revert(ptr, rdsize)
+                returndatacopy(ptr, 0, returndatasize())
+                revert(ptr, returndatasize())
             }
         }
     }
