@@ -107,6 +107,28 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
 
+    function _checkSlippageAndTransfer(uint256 i, address wantToken, uint256 minAmountOut, address msgSender)
+        internal
+    {
+        // This final slippage check effectively prohibits custody optimization on the
+        // final hop of every swap. This is gas-inefficient. This is on purpose. Because
+        // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
+        // mechanism, we must ensure that the user's want token increase is coming
+        // directly from us instead of from some other form of exchange of value.
+        if (wantToken != address(0) || minAmountOut != 0) {
+            uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
+            if (amountOut < minAmountOut) {
+                revert ActionFailed({
+                    i: i,
+                    action: SLIPPAGE_ACTION,
+                    data: abi.encode(wantToken, minAmountOut),
+                    output: abi.encode(amountOut)
+                });
+            }
+            ERC20(wantToken).safeTransfer(msgSender, amountOut);
+        }
+    }
+
     function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
@@ -153,23 +175,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             }
         }
 
-        // This final slippage check effectively prohibits custody optimization on the
-        // final hop of every swap. This is gas-inefficient. This is on purpose. Because
-        // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
-        // mechanism, we must ensure that the user's want token increase is coming
-        // directly from us instead of from some other form of exchange of value.
-        if (wantToken != address(0) || minAmountOut != 0) {
-            uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revert ActionFailed({
-                    i: type(uint256).max,
-                    action: SLIPPAGE_ACTION,
-                    data: abi.encode(wantToken, minAmountOut),
-                    output: abi.encode(amountOut)
-                });
-            }
-            ERC20(wantToken).safeTransfer(msg.sender, amountOut);
-        }
+        _checkSlippageAndTransfer(actions.length, wantToken, minAmountOut, msg.sender);
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
@@ -280,18 +286,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             }
         }
 
-        if (wantToken != address(0) || minAmountOut != 0) {
-            uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revert ActionFailed({
-                    i: type(uint256).max,
-                    action: SLIPPAGE_ACTION,
-                    data: abi.encode(wantToken, minAmountOut),
-                    output: abi.encode(amountOut)
-                });
-            }
-            ERC20(wantToken).safeTransfer(msgSender, amountOut);
-        }
+        _checkSlippageAndTransfer(actions.length, wantToken, minAmountOut, msgSender);
     }
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender)
