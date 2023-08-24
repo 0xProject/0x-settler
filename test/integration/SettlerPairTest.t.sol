@@ -102,7 +102,7 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (FROM, amount(), 1, uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
+                (FROM, amount(), uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
             )
         );
 
@@ -116,8 +116,8 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_uniswapV3_multiplex2() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() / 2, 1, uniswapV3Path())),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() / 2, 1, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 5_000, uniswapV3Path())),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 5_000, uniswapV3Path()))
         );
 
         Settler _settler = settler;
@@ -130,7 +130,7 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_uniswapV3() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount(), 1, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, uniswapV3Path()))
         );
 
         Settler _settler = settler;
@@ -143,7 +143,7 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_uniswapV3_fee_full_custody() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (address(settler), amount(), 1, uniswapV3Path())),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (address(settler), 10_000, uniswapV3Path())),
             abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
             abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
         );
@@ -159,7 +159,7 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (address(settler), amount(), 1, uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
+                (address(settler), amount(), uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
             ),
             abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
             abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
@@ -186,7 +186,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.PERMIT2_BATCH_TRANSFER_FROM, (permit, sig)),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() - 1, 1, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 9_999, uniswapV3Path()))
         );
 
         Settler _settler = settler;
@@ -210,7 +210,7 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (FROM, amount() - 1, 1, uniswapV3Path(), abi.encode(permit, sig))
+                (FROM, amount() - 1, uniswapV3Path(), abi.encode(permit, sig))
             )
         );
 
@@ -477,7 +477,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_PERMIT2_WITNESS_TRANSFER_FROM, (permit, FROM)),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount(), 1, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, uniswapV3Path()))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);

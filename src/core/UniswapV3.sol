@@ -78,7 +78,6 @@ abstract contract UniswapV3 {
     ///      using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
     /// @param sellAmount amount of the first token in the path to sell.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens. Can be zero for sender.
     /// @param permit2Data The concatenated PermitTransferFrom, and (v,r,s) signature
     /// @return buyAmount Amount of the last token in the path bought.
