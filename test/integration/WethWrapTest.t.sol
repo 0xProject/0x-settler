@@ -28,9 +28,7 @@ contract WethWrapTest is Test {
 
     function testWethDeposit() public {
         vm.deal(address(_settler), 1e18);
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.WETH_DEPOSIT, (1e18))
-        );
+        bytes[] memory actions = ActionDataBuilder.build(abi.encodeCall(ISettlerActions.WETH_DEPOSIT, (1e18)));
 
         uint256 balanceBefore = _weth.balanceOf(address(this));
         _settler.execute(actions, address(_weth), 1e18);
@@ -39,9 +37,7 @@ contract WethWrapTest is Test {
 
     function testWethWithdraw() public {
         deal(address(_weth), address(_settler), 1e18);
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.WETH_WITHDRAW, (1e18))
-        );
+        bytes[] memory actions = ActionDataBuilder.build(abi.encodeCall(ISettlerActions.WETH_WITHDRAW, (1e18)));
 
         uint256 balanceBefore = address(this).balance;
         _settler.execute(actions, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, 1e18);
