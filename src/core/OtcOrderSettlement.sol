@@ -211,7 +211,6 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         bytes memory sig,
         address takerToken,
         uint256 maxTakerAmount,
-        uint256 takerAmount,
         address msgSender
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails;
@@ -224,6 +223,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
             Consideration({token: takerToken, amount: maxTakerAmount, counterparty: msgSender});
         bytes32 witness = _hashConsideration(makerConsideration);
 
+        uint256 takerAmount = ERC20(takerToken).balanceOf(address(this));
         transferDetails.requestedAmount = transferDetails.requestedAmount.mulDiv(takerAmount, maxTakerAmount);
 
         _permit2WitnessTransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);

@@ -281,9 +281,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 address takerToken,
                 uint256 maxTakerAmount
             ) = abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address, bytes, address, uint256));
-            fillOtcOrderSelfFunded(
-                permit, maker, sig, takerToken, maxTakerAmount, ERC20(takerToken).balanceOf(address(this)), msgSender
-            );
+            fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
             (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
                 abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
