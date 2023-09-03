@@ -66,12 +66,13 @@ abstract contract SettlerPairTest is BasePairTest {
     function uniswapV3Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
-    function getSettler() private returns (Settler settler) {
-        settler = new Settler(
+    function getSettler() private returns (Settler) {
+        return new Settler(
             address(PERMIT2),
             address(ZERO_EX), // ZeroEx
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
-            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54 // UniV3 pool init code hash
+            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
+            0x2222222222222222222222222222222222222222
         );
     }
 
@@ -179,10 +180,10 @@ abstract contract SettlerPairTest is BasePairTest {
         permit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
 
         bytes memory sig =
-            getPermitBatchTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+            getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.PERMIT2_BATCH_TRANSFER_FROM, (permit, sig)),
+            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (permit, sig)),
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() - 1, 1, uniswapV3Path()))
         );
 
@@ -203,7 +204,7 @@ abstract contract SettlerPairTest is BasePairTest {
         permit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
 
         bytes memory sig =
-            getPermitBatchTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+            getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
@@ -281,7 +282,6 @@ abstract contract SettlerPairTest is BasePairTest {
                 (
                     address(poolData.pool),
                     address(fromToken()),
-                    address(toToken()),
                     10_000, // bips
                     100, // offset
                     abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1))
@@ -319,9 +319,9 @@ abstract contract SettlerPairTest is BasePairTest {
     /// @dev Performs an direct OTC trade between MAKER and FROM
     // Funds are transferred MAKER->FROM and FROM->MAKER
     function testSettler_otc() public {
-        ISignatureTransfer.PermitTransferFrom memory makerPermit =
+        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), uint160(amount()), PERMIT2_MAKER_NONCE);
-        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
 
         OtcOrderSettlement.Consideration memory makerConsideration =
@@ -339,7 +339,7 @@ abstract contract SettlerPairTest is BasePairTest {
             makerPermit,
             address(settler),
             MAKER_PRIVATE_KEY,
-            OTC_PERMIT2_WITNESS_TYPEHASH,
+            OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
             makerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
@@ -350,8 +350,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_PERMIT2,
-                (makerPermit, MAKER, makerSig, takerPermit, FROM, takerSig, uint128(amount()), FROM)
+                ISettlerActions.SETTLER_OTC_PERMIT2, (makerPermit, MAKER, makerSig, takerPermit, takerSig, FROM)
             )
         );
 
@@ -381,17 +380,10 @@ abstract contract SettlerPairTest is BasePairTest {
         });
         takerPermit.permitted[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
 
-        OtcOrderSettlement.OtcOrder memory order = OtcOrderSettlement.OtcOrder({
-            makerToken: address(toToken()),
-            takerToken: address(fromToken()),
-            makerAmount: uint128(amount()),
-            takerAmount: uint128(amount()),
-            maker: MAKER,
-            taker: address(0),
-            txOrigin: FROM
-        });
-        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
-        bytes memory makerSig = getPermitBatchWitnessTransferSignature(
+        OtcOrderSettlement.Consideration memory makerConsideration =
+            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+        bytes32 witness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
+        bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
             MAKER_PRIVATE_KEY,
@@ -401,12 +393,11 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         bytes memory takerSig =
-            getPermitBatchTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+            getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_BATCH_PERMIT2,
-                (order, makerPermit, makerSig, takerPermit, takerSig, uint128(amount()), FROM)
+                ISettlerActions.SETTLER_OTC_PERMIT2, (makerPermit, MAKER, makerSig, takerPermit, takerSig, FROM)
             )
         );
 
@@ -446,7 +437,7 @@ abstract contract SettlerPairTest is BasePairTest {
             txOrigin: FROM
         });
         bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
-        bytes memory makerSig = getPermitBatchWitnessTransferSignature(
+        bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
             MAKER_PRIVATE_KEY,
@@ -456,7 +447,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         bytes memory takerSig =
-            getPermitBatchTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+            getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
@@ -479,11 +470,11 @@ abstract contract SettlerPairTest is BasePairTest {
         keccak256("ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)");
 
     function testSettler_metaTxn_uniswapV3() public {
-        ISignatureTransfer.PermitTransferFrom memory permit =
+        ISignatureTransfer.PermitBatchTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_PERMIT2_WITNESS_TRANSFER_FROM, (permit, FROM)),
+            abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (permit, FROM)),
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount(), 1, uniswapV3Path()))
         );
 
@@ -654,7 +645,7 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
-        ISignatureTransfer.PermitTransferFrom memory permit =
+        ISignatureTransfer.PermitBatchTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());

@@ -24,7 +24,6 @@ interface ISettlerActions {
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         bytes memory takerSig,
-        uint128 takerTokenFillAmount,
         address recipient
     ) external;
 
@@ -91,12 +90,6 @@ interface ISettlerActions {
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
-    function BASIC_SELL(
-        address pool,
-        address sellToken,
-        address buyToken,
-        uint256 proportion,
-        uint256 offset,
-        bytes calldata data
-    ) external;
+    function BASIC_SELL(address pool, address sellToken, uint256 proportion, uint256 offset, bytes calldata data)
+        external;
 }

@@ -199,7 +199,7 @@ abstract contract UniswapV3 {
         uint24 fee,
         address payer,
         bytes memory permit2Data
-    ) private {
+    ) private pure {
         uint256 permit2DataLength = permit2Data.length;
         assembly ("memory-safe") {
             let p := add(swapCallbackData, 32)

@@ -30,8 +30,8 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         address taker,
         address makerToken,
         address takerToken,
-        uint128 makerTokenFilledAmount,
-        uint128 takerTokenFilledAmount
+        uint256 makerTokenFilledAmount,
+        uint256 takerTokenFilledAmount
     );
 
     string internal constant CONSIDERATION_TYPE = "Consideration(address token,uint256 amount,address counterparty)";
@@ -209,7 +209,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,
         bytes memory sig,
-        address takerToken,
+        ERC20 takerToken,
         uint256 maxTakerAmount,
         address msgSender
     ) internal {
@@ -220,21 +220,21 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         takerConsideration.counterparty = maker;
 
         Consideration memory makerConsideration =
-            Consideration({token: takerToken, amount: maxTakerAmount, counterparty: msgSender});
+            Consideration({token: address(takerToken), amount: maxTakerAmount, counterparty: msgSender});
         bytes32 witness = _hashConsideration(makerConsideration);
 
-        uint256 takerAmount = ERC20(takerToken).balanceOf(address(this));
+        uint256 takerAmount = takerToken.balanceOf(address(this));
         transferDetails.requestedAmount = transferDetails.requestedAmount.mulDiv(takerAmount, maxTakerAmount);
 
         _permit2WitnessTransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);
-        ERC20(takerToken).safeTransfer(maker, takerAmount);
+        takerToken.safeTransfer(maker, takerAmount);
 
         emit OtcOrderFilled(
             _hashOtcOrder(witness, _hashConsideration(takerConsideration)),
             maker,
             msgSender,
             takerConsideration.token,
-            takerToken,
+            address(takerToken),
             transferDetails.requestedAmount,
             takerAmount
         );

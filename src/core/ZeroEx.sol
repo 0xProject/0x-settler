@@ -57,7 +57,7 @@ abstract contract ZeroEx {
         IZeroEx.OtcOrder memory order,
         IZeroEx.Signature memory signature,
         uint256 sellAmount
-    ) internal returns (uint256 buyAmount) {
+    ) internal {
         order.takerToken.safeApproveIfBelow(address(ZERO_EX), type(uint256).max);
         ZERO_EX.fillOtcOrder(order, signature, uint128(sellAmount));
     }

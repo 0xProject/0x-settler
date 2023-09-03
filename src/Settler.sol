@@ -129,7 +129,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                     bytes memory makerSig,
                     ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
                     bytes memory takerSig,
-                    uint128 takerTokenFillAmount,
                     address recipient
                 ) = abi.decode(
                     data,
@@ -139,11 +138,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                         bytes,
                         ISignatureTransfer.PermitBatchTransferFrom,
                         bytes,
-                        uint128,
                         address
                     )
                 );
-                fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, takerTokenFillAmount, recipient);
+                fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, recipient);
                 return;
             } else {
                 _dispatch(0, action, data, msg.sender);
@@ -275,12 +273,12 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             _permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             (
-                ISignatureTransfer.PermitBatchTransferFrom memory permit,
+                ISignatureTransfer.PermitTransferFrom memory permit,
                 address maker,
                 bytes memory sig,
-                address takerToken,
+                ERC20 takerToken,
                 uint256 maxTakerAmount
-            ) = abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address, bytes, address, uint256));
+            ) = abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address, bytes, ERC20, uint256));
 
             fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
@@ -301,19 +299,19 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,
-                address sellToken,
+                ERC20 sellToken,
                 uint256 fromTokenIndex,
                 uint256 toTokenIndex,
                 uint256 sellAmount,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, address, uint256, uint256, uint256, uint256));
+            ) = abi.decode(data, (address, ERC20, uint256, uint256, uint256, uint256));
 
-            sellTokenForTokenToCurve(pool, ERC20(sellToken), fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
+            sellTokenForTokenToCurve(pool, sellToken, fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
         } else if (action == ISettlerActions.BASIC_SELL.selector) {
-            (address pool, ERC20 sellToken, ERC20 buyToken, uint256 proportion, uint256 offset, bytes memory data) =
-                abi.decode(data, (address, ERC20, ERC20, uint256, uint256, bytes));
+            (address pool, ERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
+                abi.decode(data, (address, ERC20, uint256, uint256, bytes));
 
-            basicSellToPool(pool, sellToken, buyToken, proportion, offset, data);
+            basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.TRANSFER_OUT.selector) {
             (address token, address recipient, uint256 bips) = abi.decode(data, (address, address, uint256));
 

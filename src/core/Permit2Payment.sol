@@ -17,7 +17,7 @@ abstract contract Permit2Payment {
 
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
-        pure
+        view
         returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount)
     {
         // TODO: allow multiple fees

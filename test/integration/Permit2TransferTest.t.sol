@@ -18,7 +18,7 @@ abstract contract Permit2TransferTest is BasePairTest {
     }
 
     // function testPermit2_permitTransferFrom() public {
-    //     ISignatureTransfer.PermitTransferFrom memory permit =
+    //     ISignatureTransfer.PermitBatchTransferFrom memory permit =
     //         defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
     //     bytes memory sig =
     //         getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
@@ -33,13 +33,15 @@ abstract contract Permit2TransferTest is BasePairTest {
     // }
 
     function testPermit2_permitTransferFrom_warmNonce() public {
-        ISignatureTransfer.PermitTransferFrom memory permit =
+        ISignatureTransfer.PermitBatchTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
         bytes memory sig =
             getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
+            new ISignatureTransfer.SignatureTransferDetails[](1);
+        transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
             to: address(BURN_ADDRESS),
-            requestedAmount: permit.permitted.amount
+            requestedAmount: permit.permitted[0].amount
         });
 
         snapStartName("permit2_permitTransferFrom_warmNonce");
@@ -61,14 +63,16 @@ abstract contract Permit2TransferTest is BasePairTest {
         MockWitness memory witnessData = MockWitness(address(1));
         bytes32 witness = keccak256(abi.encode(witnessData));
 
-        ISignatureTransfer.PermitTransferFrom memory permit =
+        ISignatureTransfer.PermitBatchTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
         bytes memory sig = getPermitWitnessTransferSignature(
             permit, address(this), FROM_PRIVATE_KEY, FULL_MOCK_WITNESS_TYPEHASH, witness, PERMIT2.DOMAIN_SEPARATOR()
         );
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
+            new ISignatureTransfer.SignatureTransferDetails[](1);
+        transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
             to: address(BURN_ADDRESS),
-            requestedAmount: permit.permitted.amount
+            requestedAmount: permit.permitted[0].amount
         });
 
         snapStartName("permit2_permitWitnessTransferFrom_warmNonce");
