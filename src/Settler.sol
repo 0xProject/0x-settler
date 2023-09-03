@@ -11,16 +11,9 @@ import {UniswapV3} from "./core/UniswapV3.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
+import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-
-library UnsafeMath {
-    function unsafeInc(uint256 i) internal pure returns (uint256) {
-        unchecked {
-            return i + 1;
-        }
-    }
-}
 
 /// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency, but still includes checks against `calldatasize()` for safety.
 library CalldataDecoder {

@@ -6,9 +6,11 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {Permit2Payment} from "./Permit2Payment.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {FullMath} from "../utils/FullMath.sol";
 
 abstract contract OtcOrderSettlement is Permit2Payment {
     using SafeTransferLib for ERC20;
+    using FullMath for uint256;
 
     struct Consideration {
         address token;
@@ -222,8 +224,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
             Consideration({token: takerToken, amount: maxTakerAmount, counterparty: msgSender});
         bytes32 witness = _hashConsideration(makerConsideration);
 
-        // TODO: use FullMath
-        transferDetails.requestedAmount = transferDetails.requestedAmount * takerAmount / maxTakerAmount;
+        transferDetails.requestedAmount = transferDetails.requestedAmount.mulDiv(takerAmount, maxTakerAmount);
 
         _permit2WitnessTransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);
         ERC20(takerToken).safeTransfer(maker, takerAmount);
