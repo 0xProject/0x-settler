@@ -37,9 +37,30 @@ abstract contract Permit2Payment {
         }
     }
 
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+        internal
+        pure
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
+    {
+        transferDetails.to = recipient;
+        transferDetails.requestedAmount = amount = permit.permitted.amount;
+        token = permit.permitted.token;
+    }
+
     function _permit2WitnessTransferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal {
+        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+    }
+
+    function _permit2WitnessTransferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
         bytes32 witness,
         string memory witnessTypeString,

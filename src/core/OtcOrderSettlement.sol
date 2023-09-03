@@ -116,11 +116,8 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         bytes memory takerSig,
-        uint128 takerTokenFillAmount,
         address recipient
-    ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO adjust amounts based on takerTokenFillAmount
-
+    ) internal {
         ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
         Consideration memory takerConsideration;
         (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
@@ -166,7 +163,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         address taker,
         bytes memory takerSig,
         address recipient
-    ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
+    ) internal {
         ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
         Consideration memory takerConsideration;
         (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
@@ -207,17 +204,15 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
     // In this variant, Maker pays Settler and Settler pays Maker
     function fillOtcOrderSelfFunded(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,
         bytes memory sig,
         address takerToken,
         uint256 maxTakerAmount,
         uint256 takerAmount,
         address msgSender
-    ) internal returns (uint128 takerTokenFilledAmount, uint128 makerTokenFilledAmount) {
-        // TODO adjust amounts based on takerAmount
-
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails;
+    ) internal {
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails;
         Consideration memory takerConsideration;
         (transferDetails, takerConsideration.token, takerConsideration.amount) =
             _permitToTransferDetails(permit, address(this));
@@ -226,6 +221,10 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         Consideration memory makerConsideration =
             Consideration({token: takerToken, amount: maxTakerAmount, counterparty: msgSender});
         bytes32 witness = _hashConsideration(makerConsideration);
+
+        // TODO: use FullMath
+        transferDetails.requestedAmount = transferDetails.requestedAmount * takerAmount / maxTakerAmount;
+
         _permit2WitnessTransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);
         ERC20(takerToken).safeTransfer(maker, takerAmount);
 
@@ -235,7 +234,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
             msgSender,
             takerConsideration.token,
             takerToken,
-            takerConsideration.amount,
+            transferDetails.requestedAmount,
             takerAmount
         );
     }
