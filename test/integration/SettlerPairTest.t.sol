@@ -427,16 +427,9 @@ abstract contract SettlerPairTest is BasePairTest {
             ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount() - 1});
         takerPermit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
 
-        OtcOrderSettlement.OtcOrder memory order = OtcOrderSettlement.OtcOrder({
-            makerToken: address(toToken()),
-            takerToken: address(fromToken()),
-            makerAmount: uint128(amount()),
-            takerAmount: uint128(amount() - 1),
-            maker: MAKER,
-            taker: address(0),
-            txOrigin: FROM
-        });
-        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
+        OtcOrderSettlement.Consideration memory makerConsideration =
+            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+        bytes32 witness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
@@ -451,8 +444,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_BATCH_PERMIT2,
-                (order, makerPermit, makerSig, takerPermit, takerSig, uint128(amount()), FROM)
+                ISettlerActions.SETTLER_OTC_PERMIT2, (makerPermit, MAKER, makerSig, takerPermit, takerSig, FROM)
             )
         );
 
