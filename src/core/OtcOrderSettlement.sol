@@ -224,7 +224,10 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         bytes32 witness = _hashConsideration(makerConsideration);
 
         uint256 takerAmount = takerToken.balanceOf(address(this));
-        transferDetails.requestedAmount = transferDetails.requestedAmount.mulDiv(takerAmount, maxTakerAmount);
+        if (takerAmount >= maxTakerAmount) {
+            takerAmount = maxTakerAmount;
+        }
+        transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
         _permit2WitnessTransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);
         takerToken.safeTransfer(maker, takerAmount);

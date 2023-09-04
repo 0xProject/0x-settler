@@ -12,6 +12,7 @@ import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
+import {FullMath} from "./utils/FullMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
@@ -73,6 +74,7 @@ library CalldataDecoder {
 contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
     using SafeTransferLib for ERC20;
     using UnsafeMath for uint256;
+    using FullMath for uint256;
     using CalldataDecoder for bytes[];
 
     error ActionInvalid(uint256 i, bytes4 action, bytes data);
@@ -314,9 +316,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.TRANSFER_OUT.selector) {
             (address token, address recipient, uint256 bips) = abi.decode(data, (address, address, uint256));
+            require(bips <= 10_000, "Settler: can't transfer more than 10,000 bips");
 
             uint256 balance = ERC20(token).balanceOf(address(this));
-            uint256 amount = (balance * bips) / 10_000;
+            uint256 amount = balance.unsafeMulDiv(bips, 10_000);
             ERC20(token).safeTransfer(recipient, amount);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
