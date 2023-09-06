@@ -45,9 +45,11 @@ interface ISettlerActions {
     // Pre-req: Funded
     // Post-req: Payout
     function SETTLER_OTC_SELF_FUNDED(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        address maker,
         bytes memory sig,
-        uint128 takerTokenFillAmount
+        address takerToken,
+        uint256 maxTakerAmount
     ) external;
 
     /// @dev Trades against UniswapV3 using the contracts balance for funding

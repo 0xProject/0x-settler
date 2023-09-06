@@ -299,11 +299,9 @@ abstract contract SettlerPairTest is BasePairTest {
 
     bytes32 private constant CONSIDERATION_TYPEHASH =
         keccak256("Consideration(address token,uint256 amount,address counterparty)");
-    /*
     bytes32 private constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty)TokenPermissions(address token,uint256 amount)"
     );
-    */
     bytes32 private constant OTC_PERMIT2_BATCH_WITNESS_TYPEHASH = keccak256(
         "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty)TokenPermissions(address token,uint256 amount)"
     );
@@ -563,31 +561,28 @@ abstract contract SettlerPairTest is BasePairTest {
     ///   SLIPPAGE
     ///     Settler->FROM
     function testSettler_otc_fee_full_custody() public {
-        ISignatureTransfer.PermitTransferFrom memory makerPermit =
-            defaultERC20PermitTransfer(address(toToken()), uint160(amount()), PERMIT2_MAKER_NONCE);
-
-        OtcOrderSettlement.OtcOrder memory order = OtcOrderSettlement.OtcOrder({
-            makerToken: address(toToken()),
-            takerToken: address(fromToken()),
-            makerAmount: uint128(amount()),
-            takerAmount: uint128(amount()),
-            maker: MAKER,
-            taker: address(0),
-            txOrigin: FROM
+        ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: address(toToken()), amount: amount()}),
+            nonce: PERMIT2_MAKER_NONCE,
+            deadline: block.timestamp + 100
         });
-        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
+        OtcOrderSettlement.Consideration memory makerConsideration =
+            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
             MAKER_PRIVATE_KEY,
             OTC_PERMIT2_WITNESS_TYPEHASH,
-            witness,
+            makerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.SETTLER_OTC_SELF_FUNDED, (order, makerPermit, makerSig, uint128(amount()))),
+            abi.encodeCall(
+                ISettlerActions.SETTLER_OTC_SELF_FUNDED, (makerPermit, MAKER, makerSig, address(fromToken()), amount())
+            ),
             abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000))
         );
 
