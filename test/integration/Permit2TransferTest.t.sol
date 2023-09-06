@@ -54,7 +54,7 @@ abstract contract Permit2TransferTest is BasePairTest {
     }
 
     bytes32 private constant FULL_MOCK_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,MockWitness witness)MockWitness(address person)TokenPermissions(address token,uint256 amount)"
+        "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,MockWitness witness)MockWitness(address person)TokenPermissions(address token,uint256 amount)"
     );
     string private constant WITNESS_TYPE_STRING =
         "MockWitness witness)MockWitness(address person)TokenPermissions(address token,uint256 amount)";
