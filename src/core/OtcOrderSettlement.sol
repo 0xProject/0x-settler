@@ -120,19 +120,15 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         bytes memory takerSig,
         address recipient
     ) internal {
-        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
-        Consideration memory takerConsideration;
-        (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
-            _permitToTransferDetails(makerPermit, recipient);
-        takerConsideration.counterparty = maker;
+        (ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails, address buyToken, uint256 buyAmount)
+        = _permitToTransferDetails(makerPermit, recipient);
 
         ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
-        Consideration memory makerConsideration;
-        (takerTransferDetails, makerConsideration.token, makerConsideration.amount) =
-            _permitToTransferDetails(takerPermit, maker);
-        makerConsideration.counterparty = msg.sender;
+        Consideration memory consideration;
+        (takerTransferDetails, consideration.token, consideration.amount) = _permitToTransferDetails(takerPermit, maker);
+        consideration.counterparty = msg.sender;
 
-        bytes32 witness = _hashConsideration(makerConsideration);
+        bytes32 witness = _hashConsideration(consideration);
         // There is no taker witness (see below)
 
         // Maker pays recipient (optional fee)
@@ -144,13 +140,15 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         _permit2TransferFrom(takerPermit, takerTransferDetails, msg.sender, takerSig);
 
         emit OtcOrderFilled(
-            _hashOtcOrder(witness, _hashConsideration(takerConsideration)),
+            _hashOtcOrder(
+                witness, _hashConsideration(Consideration({token: buyToken, amount: buyAmount, counterparty: maker}))
+            ),
             maker,
             msg.sender,
-            takerConsideration.token,
-            makerConsideration.token,
-            takerConsideration.amount,
-            makerConsideration.amount
+            buyToken,
+            consideration.token,
+            buyAmount,
+            consideration.amount
         );
     }
 
