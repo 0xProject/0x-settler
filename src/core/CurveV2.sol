@@ -20,7 +20,6 @@ abstract contract CurveV2 {
     /// @param toTokenIndex the index of the coin to buy.
     /// @param sellAmount amount of sellToken to sell.
     /// @param minBuyAmount Minimum amount of token to buy.
-    /// @return buyAmount Amount of tokens bought
     function sellTokenForTokenToCurve(
         address pool,
         ERC20 sellToken,
@@ -28,7 +27,7 @@ abstract contract CurveV2 {
         uint256 toTokenIndex,
         uint256 sellAmount,
         uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+    ) internal {
         sellToken.safeApproveIfBelow(pool, type(uint256).max);
         // TODO balanceOf since there is no return amount on Curve
         ICurveV2Pool(pool).exchange(fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);

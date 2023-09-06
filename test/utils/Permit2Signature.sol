@@ -14,16 +14,16 @@ contract Permit2Signature is Test {
         "PermitBatchTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
     );
 
-    function defaultERC20PermitTransfer(address token0, uint160 amount, uint256 nonce)
+    function defaultERC20PermitTransfer(address token0, uint256 amount, uint256 nonce)
         internal
         view
-        returns (ISignatureTransfer.PermitTransferFrom memory)
+        returns (ISignatureTransfer.PermitBatchTransferFrom memory result)
     {
-        return ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: token0, amount: amount}),
-            nonce: nonce,
-            deadline: block.timestamp + 100
-        });
+        result.permitted = new ISignatureTransfer.TokenPermissions[](1);
+        result.permitted[0].token = token0;
+        result.permitted[0].amount = amount;
+        result.nonce = nonce;
+        result.deadline = block.timestamp + 100;
     }
 
     function getPermitTransferSignature(
@@ -31,7 +31,7 @@ contract Permit2Signature is Test {
         address spender,
         uint256 privateKey,
         bytes32 domainSeparator
-    ) internal returns (bytes memory sig) {
+    ) internal pure returns (bytes memory sig) {
         bytes32 tokenPermissions = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted));
         bytes32 msgHash = keccak256(
             abi.encodePacked(
@@ -54,7 +54,7 @@ contract Permit2Signature is Test {
         bytes32 typehash,
         bytes32 witness,
         bytes32 domainSeparator
-    ) internal returns (bytes memory sig) {
+    ) internal pure returns (bytes memory sig) {
         bytes32 tokenPermissions = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted));
 
         bytes32 msgHash = keccak256(
@@ -69,15 +69,15 @@ contract Permit2Signature is Test {
         return bytes.concat(r, s, bytes1(v));
     }
 
-    function getPermitBatchTransferSignature(
+    function getPermitTransferSignature(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         address spender,
         uint256 privateKey,
         bytes32 domainSeparator
-    ) internal returns (bytes memory sig) {
+    ) internal pure returns (bytes memory sig) {
         bytes32[] memory tokenPermissions = new bytes32[](permit.permitted.length);
         for (uint256 i = 0; i < permit.permitted.length; ++i) {
-            tokenPermissions[i] = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted[i]));
+            tokenPermissions[i] = keccak256(bytes.concat(_TOKEN_PERMISSIONS_TYPEHASH, abi.encode(permit.permitted[i])));
         }
         bytes32 msgHash = keccak256(
             abi.encodePacked(
@@ -99,17 +99,17 @@ contract Permit2Signature is Test {
         return bytes.concat(r, s, bytes1(v));
     }
 
-    function getPermitBatchWitnessTransferSignature(
+    function getPermitWitnessTransferSignature(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         address spender,
         uint256 privateKey,
         bytes32 typeHash,
         bytes32 witness,
         bytes32 domainSeparator
-    ) internal returns (bytes memory sig) {
+    ) internal pure returns (bytes memory sig) {
         bytes32[] memory tokenPermissions = new bytes32[](permit.permitted.length);
         for (uint256 i = 0; i < permit.permitted.length; ++i) {
-            tokenPermissions[i] = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted[i]));
+            tokenPermissions[i] = keccak256(bytes.concat(_TOKEN_PERMISSIONS_TYPEHASH, abi.encode(permit.permitted[i])));
         }
 
         bytes32 msgHash = keccak256(
