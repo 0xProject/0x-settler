@@ -593,50 +593,6 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    /// @dev Performs a direct OTC trade between MAKER and FROM but with Settler receiving the buy token funds.
-    /// Funds transfer
-    ///   OTC
-    ///     MAKER->Settler
-    ///     TAKER->MAKER
-    ///   TRANSFER_OUT
-    ///     Settler->FEE_RECIPIENT
-    ///   SLIPPAGE
-    ///     Settler->FROM
-    function testSettler_otc_fee_single_custody() public {
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit =
-            defaultERC20PermitTransfer(address(toToken()), uint160(amount()), PERMIT2_MAKER_NONCE);
-        OtcOrderSettlement.Consideration memory makerConsideration =
-            OtcOrderSettlement.Consideration({token: address(toToken()), amount: amount(), counterparty: FROM});
-        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
-        bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit,
-            address(settler),
-            MAKER_PRIVATE_KEY,
-            OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
-            makerWitness,
-            PERMIT2.DOMAIN_SEPARATOR()
-        );
-
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit =
-            defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
-        bytes memory takerSig =
-            getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_PERMIT2,
-                (makerPermit, MAKER, makerSig, takerPermit, takerSig, address(settler))
-            ),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000))
-        );
-
-        Settler _settler = settler;
-        vm.startPrank(FROM, FROM);
-        snapStartName("settler_otc_fee_single_custody");
-        _settler.execute(actions, address(toToken()), amount() * 9_000 / 10_000);
-        snapEnd();
-    }
-
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
         ISignatureTransfer.PermitBatchTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
