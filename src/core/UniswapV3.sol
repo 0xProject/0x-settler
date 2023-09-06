@@ -301,15 +301,18 @@ abstract contract UniswapV3 {
                 (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                     abi.decode(permit2Data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
                 // TODO we only support a max batch size of 2
+                require(permit.permitted.length <= 2, "too many permits");
                 ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
                     new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
                 transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({to: to, requestedAmount: amount});
-                // TODO scale fee amount by the above ratio?
-                // TODO fee recipient
-                transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                    to: 0x2222222222222222222222222222222222222222,
-                    requestedAmount: permit.permitted[1].amount
-                });
+                if (permit.permitted.length > 1) {
+                    // TODO scale fee amount by the above ratio?
+                    // TODO fee recipient
+                    transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+                        to: 0x2222222222222222222222222222222222222222,
+                        requestedAmount: permit.permitted[1].amount
+                    });
+                }
                 PERMIT2.permitTransferFrom(permit, transferDetails, payer, sig);
             }
         }
