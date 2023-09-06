@@ -321,10 +321,10 @@ abstract contract SettlerPairTest is BasePairTest {
     /// @dev Performs an direct OTC trade between MAKER and FROM
     // Funds are transferred MAKER->FROM and FROM->MAKER
     function testSettler_otc() public {
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit =
+        ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         OtcOrderSettlement.Consideration memory makerConsideration =
             OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
@@ -334,7 +334,7 @@ abstract contract SettlerPairTest is BasePairTest {
             makerPermit,
             address(settler),
             MAKER_PRIVATE_KEY,
-            OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
+            OTC_PERMIT2_WITNESS_TYPEHASH,
             makerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
@@ -484,10 +484,10 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_metaTxn_otc() public {
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit =
+        ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         OtcOrderSettlement.Consideration memory makerConsideration =
             OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
@@ -496,7 +496,7 @@ abstract contract SettlerPairTest is BasePairTest {
             makerPermit,
             address(settler),
             MAKER_PRIVATE_KEY,
-            OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
+            OTC_PERMIT2_WITNESS_TYPEHASH,
             makerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
@@ -586,7 +586,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
         ISignatureTransfer.PermitBatchTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 

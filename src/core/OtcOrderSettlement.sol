@@ -113,15 +113,15 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     /// a witness of the OtcOrder.
     /// This variant also includes a fee where the taker or maker pays the fee recipient
     function fillOtcOrder(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         bytes memory takerSig,
         address recipient
     ) internal {
-        (ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails, address buyToken, uint256 buyAmount)
-        = _permitToTransferDetails(makerPermit, recipient);
+        (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, address buyToken, uint256 buyAmount) =
+            _permitToTransferDetails(makerPermit, recipient);
 
         ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
         Consideration memory consideration;
@@ -156,7 +156,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
     function fillOtcOrderMetaTxn(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
@@ -164,7 +164,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         bytes memory takerSig,
         address recipient
     ) internal {
-        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
+        ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
         (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
             _permitToTransferDetails(makerPermit, recipient);

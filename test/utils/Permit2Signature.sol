@@ -14,14 +14,25 @@ contract Permit2Signature is Test {
         "PermitBatchTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
     );
 
-    function defaultERC20PermitTransfer(address token0, uint256 amount, uint256 nonce)
+    function defaultERC20PermitBatchTransfer(address token, uint256 amount, uint256 nonce)
         internal
         view
         returns (ISignatureTransfer.PermitBatchTransferFrom memory result)
     {
         result.permitted = new ISignatureTransfer.TokenPermissions[](1);
-        result.permitted[0].token = token0;
+        result.permitted[0].token = token;
         result.permitted[0].amount = amount;
+        result.nonce = nonce;
+        result.deadline = block.timestamp + 100;
+    }
+
+    function defaultERC20PermitTransfer(address token, uint256 amount, uint256 nonce)
+        internal
+        view
+        returns (ISignatureTransfer.PermitTransferFrom memory result)
+    {
+        result.permitted.token = token;
+        result.permitted.amount = amount;
         result.nonce = nonce;
         result.deadline = block.timestamp + 100;
     }

@@ -19,7 +19,7 @@ interface ISettlerActions {
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
     function SETTLER_OTC_PERMIT2(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
@@ -29,7 +29,7 @@ interface ISettlerActions {
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
     function METATXN_SETTLER_OTC_PERMIT2(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,

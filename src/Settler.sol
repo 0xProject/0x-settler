@@ -127,7 +127,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
                     revert ActionInvalid({i: 1, action: action, data: data});
                 }
                 (
-                    ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    ISignatureTransfer.PermitTransferFrom memory makerPermit,
                     address maker,
                     bytes memory makerSig,
                     ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
@@ -136,7 +136,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
                 ) = abi.decode(
                     data,
                     (
-                        ISignatureTransfer.PermitBatchTransferFrom,
+                        ISignatureTransfer.PermitTransferFrom,
                         address,
                         bytes,
                         ISignatureTransfer.PermitBatchTransferFrom,
@@ -216,7 +216,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
                 // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
                 // so there is no need to validate `sig` against `actions` here
                 (
-                    ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    ISignatureTransfer.PermitTransferFrom memory makerPermit,
                     address maker,
                     bytes memory makerSig,
                     ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
@@ -226,7 +226,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
                 ) = abi.decode(
                     data,
                     (
-                        ISignatureTransfer.PermitBatchTransferFrom,
+                        ISignatureTransfer.PermitTransferFrom,
                         address,
                         bytes,
                         ISignatureTransfer.PermitBatchTransferFrom,
