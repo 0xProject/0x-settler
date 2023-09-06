@@ -92,7 +92,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -107,7 +107,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -121,7 +121,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_multiplex2");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -134,7 +134,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -149,7 +149,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_full_custody");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -166,7 +166,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_single_custody");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -190,7 +190,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_sellToken_fee_single_custody");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -215,7 +215,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP_sellToken_fee");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -241,7 +241,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_curveV2VIP");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -268,7 +268,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_curveV2_fee");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -293,7 +293,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -314,6 +314,9 @@ abstract contract SettlerPairTest is BasePairTest {
     bytes32 private constant TAKER_CONSIDERATION_TYPEHASH = keccak256(
         "TakerMetatxnConsideration(Consideration consideration,address recipient)Consideration(address token,uint256 amount,address counterparty)"
     );
+    bytes32 private constant TAKER_OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,TakerMetatxnConsideration consideration)Consideration(address token,uint256 amount,address counterparty)TakerMetatxnConsideration(Consideration consideration,address recipient)TokenPermissions(address token,uint256 amount)"
+    );
     bytes32 private constant TAKER_OTC_PERMIT2_BATCH_WITNESS_TYPEHASH = keccak256(
         "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,TakerMetatxnConsideration consideration)Consideration(address token,uint256 amount,address counterparty)TakerMetatxnConsideration(Consideration consideration,address recipient)TokenPermissions(address token,uint256 amount)"
     );
@@ -323,8 +326,8 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_otc() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit =
-            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         OtcOrderSettlement.Consideration memory makerConsideration =
             OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
@@ -351,7 +354,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_otc");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -398,7 +401,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc_buyToken_fee");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -441,7 +444,7 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_otc_sellToken_fee");
-        _settler.execute(actions, address(0), 0 ether);
+        _settler.execute(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}));
         snapEnd();
     }
 
@@ -453,7 +456,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
     function testSettler_metaTxn_uniswapV3() public {
         ISignatureTransfer.PermitBatchTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (permit, FROM)),
@@ -479,15 +482,15 @@ abstract contract SettlerPairTest is BasePairTest {
         // Submitted by third party
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
-        _settler.executeMetaTxn(actions, address(0), 0 ether, sig);
+        _settler.executeMetaTxn(actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}), sig);
         snapEnd();
     }
 
     function testSettler_metaTxn_otc() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit =
-            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         OtcOrderSettlement.Consideration memory makerConsideration =
             OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
@@ -521,7 +524,7 @@ abstract contract SettlerPairTest is BasePairTest {
             takerPermit,
             address(settler),
             FROM_PRIVATE_KEY,
-            TAKER_OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
+            TAKER_OTC_PERMIT2_WITNESS_TYPEHASH,
             takerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
@@ -537,7 +540,9 @@ abstract contract SettlerPairTest is BasePairTest {
         // Submitted by third party
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_otc");
-        _settler.executeMetaTxn(actions, address(0), 0 ether, new bytes(0));
+        _settler.executeMetaTxn(
+            actions, Settler.AllowedSlippage({buyToken: address(0), minAmountOut: 0 ether}), new bytes(0)
+        );
         snapEnd();
     }
 

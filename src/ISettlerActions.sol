@@ -22,7 +22,7 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig,
         address recipient
     ) external;
@@ -32,7 +32,7 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
         bytes memory takerSig,
         address recipient

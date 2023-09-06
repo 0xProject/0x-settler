@@ -77,4 +77,13 @@ abstract contract Permit2Payment {
     ) internal {
         PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
     }
+
+    function _permit2TransferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes memory sig
+    ) internal {
+        PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
+    }
 }
