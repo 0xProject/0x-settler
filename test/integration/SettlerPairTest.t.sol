@@ -306,6 +306,11 @@ abstract contract SettlerPairTest is BasePairTest {
         "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty)TokenPermissions(address token,uint256 amount)"
     );
 
+    struct TakerMetatxnConsideration {
+        OtcOrderSettlement.Consideration consideration;
+        address recipient;
+    }
+
     bytes32 private constant TAKER_CONSIDERATION_TYPEHASH = keccak256(
         "TakerMetatxnConsideration(Consideration consideration,address recipient)Consideration(address token,uint256 amount,address counterparty)"
     );
@@ -510,14 +515,28 @@ abstract contract SettlerPairTest is BasePairTest {
             makerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
-        OtcOrderSettlement.Consideration memory takerConsideration =
-            OtcOrderSettlement.Consideration({token: address(toToken()), amount: amount(), counterparty: MAKER});
-        bytes32 takerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(takerConsideration)));
+
+        TakerMetatxnConsideration memory takerConsideration = TakerMetatxnConsideration({
+            consideration: OtcOrderSettlement.Consideration({
+                token: address(toToken()),
+                amount: amount(),
+                counterparty: MAKER
+            }),
+            recipient: FROM
+        });
+        bytes32 takerWitness = keccak256(
+            bytes.concat(
+                TAKER_CONSIDERATION_TYPEHASH,
+                abi.encode(
+                    keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(takerConsideration.consideration))), FROM
+                )
+            )
+        );
         bytes memory takerSig = getPermitWitnessTransferSignature(
             takerPermit,
             address(settler),
             FROM_PRIVATE_KEY,
-            OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
+            TAKER_OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
             takerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
