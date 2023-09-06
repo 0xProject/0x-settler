@@ -13,6 +13,7 @@ import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {FullMath} from "./utils/FullMath.sol";
+import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
@@ -71,7 +72,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using UnsafeMath for uint256;
     using FullMath for uint256;
@@ -266,7 +267,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         _checkSlippageAndTransfer(wantToken, minAmountOut, msgSender);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender) internal {
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender)
+        internal
+        DANGEROUS_freeMemory
+    {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
             (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
