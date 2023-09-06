@@ -29,10 +29,10 @@ interface ISettlerActions {
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
     function METATXN_SETTLER_OTC_PERMIT2(
-        ISignatureTransfer.PermitTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit,
+        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         address taker,
         bytes memory takerSig,
         address recipient

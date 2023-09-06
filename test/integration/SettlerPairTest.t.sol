@@ -494,40 +494,39 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_metaTxn_otc() public {
-        ISignatureTransfer.PermitTransferFrom memory makerPermit =
+        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), uint160(amount()), PERMIT2_MAKER_NONCE);
-        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), PERMIT2_FROM_NONCE);
 
-        OtcOrderSettlement.OtcOrder memory order = OtcOrderSettlement.OtcOrder({
-            makerToken: address(toToken()),
-            takerToken: address(fromToken()),
-            makerAmount: uint128(amount()),
-            takerAmount: uint128(amount()),
-            maker: MAKER,
-            taker: FROM,
-            txOrigin: address(0)
-        });
-        bytes32 witness = keccak256(bytes.concat(OTC_ORDER_TYPEHASH, abi.encode(order)));
+        OtcOrderSettlement.Consideration memory makerConsideration =
+            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
             address(settler),
             MAKER_PRIVATE_KEY,
-            OTC_PERMIT2_WITNESS_TYPEHASH,
-            witness,
+            OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
+            makerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
+        OtcOrderSettlement.Consideration memory takerConsideration =
+            OtcOrderSettlement.Consideration({token: address(toToken()), amount: amount(), counterparty: MAKER});
+        bytes32 takerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(takerConsideration)));
         bytes memory takerSig = getPermitWitnessTransferSignature(
             takerPermit,
             address(settler),
             FROM_PRIVATE_KEY,
-            OTC_PERMIT2_WITNESS_TYPEHASH,
-            witness,
+            OTC_PERMIT2_BATCH_WITNESS_TYPEHASH,
+            takerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_SETTLER_OTC, (order, makerPermit, makerSig, takerPermit, takerSig))
+            abi.encodeCall(
+                ISettlerActions.METATXN_SETTLER_OTC_PERMIT2,
+                (makerPermit, MAKER, makerSig, takerPermit, FROM, takerSig, FROM)
+            )
         );
 
         Settler _settler = settler;
