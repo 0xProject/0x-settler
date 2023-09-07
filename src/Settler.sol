@@ -31,12 +31,10 @@ library CalldataDecoder {
                 revert(0x1c, 0x24)
             }
             function overflow() {
-                // revert with reason for arithmetic under-/over- flow
                 panic(0x11) // 0x11 -> arithmetic under-/over- flow
             }
             function bad_calldata() {
-                // revert with empty reason for malformed calldata
-                revert(0x00, 0x00)
+                revert(0x00, 0x00) // empty reason for malformed calldata
             }
 
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
@@ -48,7 +46,7 @@ library CalldataDecoder {
                     )
                 )
             // because the offset to `args` stored in `data` is arbitrary, we have to check it
-            if lt(args.offset, data.offset) { overflow() }
+            if lt(args.offset, add(shl(5, data.length), data.offset)) { overflow() }
             if iszero(lt(args.offset, calldatasize())) { bad_calldata() }
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
