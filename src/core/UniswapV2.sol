@@ -191,7 +191,7 @@ abstract contract UniswapV2 {
             }
 
             // final swap
-            if not(iszero(fromPool)) {
+            if iszero(iszero(fromPool)) {
                 // perform swap at the fromPool sending bought tokens to settler
                 mstore(add(swapCalldata, 68), address())
                 if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
