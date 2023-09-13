@@ -200,7 +200,24 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
         }
     }
 
-    function executeMetaTxn(bytes[] calldata actions, AllowedSlippage calldata slippage, bytes memory sig) public {
+    function _metaTxnTransferFrom(bytes calldata data, bytes32 witness, bytes calldata sig)
+        internal
+        DANGEROUS_freeMemory
+        returns (address)
+    {
+        (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
+            abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
+        (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+            _permitToTransferDetails(permit, address(this));
+
+        // We simultaneously transfer-in the taker's tokens and authenticate the
+        // metatransaction.
+        _permit2WitnessTransferFrom(permit, transferDetails, from, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
+        // `from` becomes the metatransaction requestor (the taker of the sequence of actions).
+        return from;
+    }
+
+    function executeMetaTxn(bytes[] calldata actions, AllowedSlippage calldata slippage, bytes calldata sig) public {
         address msgSender = msg.sender;
 
         if (actions.length != 0) {
@@ -240,22 +257,13 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
                 fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, taker, takerSig, recipient);
                 return;
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
-                (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
-                    abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
-                (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
-                    _permitToTransferDetails(permit, address(this));
-
                 // Checking this witness ensures that the entire sequence of actions is
                 // authorized.
                 bytes32 witness = _hashActionsAndSlippage(actions, slippage);
-                // `msgSender` becomes the metatransaction requestor (the taker of the
-                // sequence of actions).
-                msgSender = from;
-                // We simultaneously transfer-in the taker's tokens and authenticate the
-                // metatransaction.
-                _permit2WitnessTransferFrom(
-                    permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig
-                );
+                // `msgSender` is the signer of the metatransaction. This
+                // ensures that the whole sequence of actions is authorized by
+                // the requestor from whom we transferred.
+                msgSender = _metaTxnTransferFrom(data, witness, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }
