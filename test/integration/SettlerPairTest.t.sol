@@ -142,8 +142,8 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (address(settler), amount(), 1, uniswapV3Path())),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), BURN_ADDRESS, 1_000)),
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), FROM, 10_000))
         );
 
         Settler _settler = settler;
@@ -159,8 +159,8 @@ abstract contract SettlerPairTest is BasePairTest {
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
                 (address(settler), amount(), 1, uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
             ),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), BURN_ADDRESS, 1_000)),
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), FROM, 10_000))
         );
 
         Settler _settler = settler;
@@ -235,7 +235,7 @@ abstract contract SettlerPairTest is BasePairTest {
                     1
                 )
             ),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), FROM, 10_000))
         );
 
         Settler _settler = settler;
@@ -261,8 +261,8 @@ abstract contract SettlerPairTest is BasePairTest {
                     1
                 )
             ),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000)),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), BURN_ADDRESS, 1_000)),
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), FROM, 10_000))
         );
 
         Settler _settler = settler;
@@ -287,7 +287,7 @@ abstract contract SettlerPairTest is BasePairTest {
                     abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1))
                 )
             ),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), FROM, 10_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), FROM, 10_000))
         );
 
         Settler _settler = settler;
@@ -547,7 +547,7 @@ abstract contract SettlerPairTest is BasePairTest {
     ///     TAKER->Settler
     ///     MAKER->Settler
     ///     Settler->MAKER
-    ///   TRANSFER_OUT
+    ///   TRANSFER_OUT_PROPORTIONAL
     ///     Settler->FEE_RECIPIENT
     ///   SLIPPAGE
     ///     Settler->FROM
@@ -574,7 +574,7 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(
                 ISettlerActions.SETTLER_OTC_SELF_FUNDED, (makerPermit, MAKER, makerSig, address(fromToken()), amount())
             ),
-            abi.encodeCall(ISettlerActions.TRANSFER_OUT, (address(toToken()), BURN_ADDRESS, 1_000))
+            abi.encodeCall(ISettlerActions.TRANSFER_OUT_PROPORTIONAL, (address(toToken()), BURN_ADDRESS, 1_000))
         );
 
         Settler _settler = settler;

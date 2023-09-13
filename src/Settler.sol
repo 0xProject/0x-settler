@@ -312,13 +312,16 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 abi.decode(data, (address, ERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
-        } else if (action == ISettlerActions.TRANSFER_OUT.selector) {
-            (address token, address recipient, uint256 bips) = abi.decode(data, (address, address, uint256));
+        } else if (action == ISettlerActions.TRANSFER_OUT_FIXED.selector) {
+            (ERC20 token, address recipient, uint256 amount) = abi.decode(data, (ERC20, address, uint256));
+            token.safeTransfer(recipient, amount);
+        } else if (action == ISettlerActions.TRANSFER_OUT_PROPORTIONAL.selector) {
+            (ERC20 token, address recipient, uint256 bips) = abi.decode(data, (ERC20, address, uint256));
             require(bips <= 10_000, "Settler: can't transfer more than 10,000 bips");
 
             uint256 balance = ERC20(token).balanceOf(address(this));
             uint256 amount = balance.unsafeMulDiv(bips, 10_000);
-            ERC20(token).safeTransfer(recipient, amount);
+            token.safeTransfer(recipient, amount);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }
