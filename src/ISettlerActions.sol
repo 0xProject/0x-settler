@@ -23,8 +23,7 @@ interface ISettlerActions {
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
-        bytes memory takerSig,
-        address recipient
+        bytes memory takerSig
     ) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
@@ -34,8 +33,7 @@ interface ISettlerActions {
         bytes memory makerSig,
         ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
         address taker,
-        bytes memory takerSig,
-        address recipient
+        bytes memory takerSig
     ) external;
 
     // TODO: SETTLER_OTC_SELF_FUNDED needs custody optimization

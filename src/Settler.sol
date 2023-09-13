@@ -80,13 +80,13 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
 
     // Permit2 Witness for meta transactions
     string internal constant ACTIONS_AND_SLIPPAGE_TYPE =
-        "ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)";
+        "ActionsAndSlippage(bytes[] actions,address wantToken,address recipient,uint256 minAmountOut)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant ACTIONS_AND_SLIPPAGE_WITNESS = string(
         abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
-        0x740ff4b4bedfa7438eba5fd36b723b10e5b2d4781deb32a7c62bfa2c00dd9034;
+        0x4ab0563587faa1f2e86ede76cfacd8c39103aeb94829021cb7a790cc1776fa37;
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
@@ -100,7 +100,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
 
-    function _checkSlippageAndTransfer(address wantToken, uint256 minAmountOut, address msgSender) internal {
+    function _checkSlippageAndTransfer(address wantToken, address recipient, uint256 minAmountOut) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
@@ -111,11 +111,14 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             if (amountOut < minAmountOut) {
                 revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
             }
-            ERC20(wantToken).safeTransfer(msgSender, amountOut);
+            ERC20(wantToken).safeTransfer(recipient, amountOut);
         }
     }
 
-    function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
+    function execute(bytes[] calldata actions, address wantToken, address recipient, uint256 minAmountOut)
+        public
+        payable
+    {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
@@ -128,8 +131,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                     address maker,
                     bytes memory makerSig,
                     ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
-                    bytes memory takerSig,
-                    address recipient
+                    bytes memory takerSig
                 ) = abi.decode(
                     data,
                     (
@@ -137,8 +139,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                         address,
                         bytes,
                         ISignatureTransfer.PermitBatchTransferFrom,
-                        bytes,
-                        address
+                        bytes
                     )
                 );
                 fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, recipient);
@@ -153,7 +154,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             _dispatch(i, action, data, msg.sender);
         }
 
-        _checkSlippageAndTransfer(wantToken, minAmountOut, msg.sender);
+        _checkSlippageAndTransfer(wantToken, recipient, minAmountOut);
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
@@ -177,25 +178,31 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         }
     }
 
-    function _hashActionsAndSlippage(bytes[] calldata actions, address wantToken, uint256 minAmountOut)
-        internal
-        pure
-        returns (bytes32 result)
-    {
+    function _hashActionsAndSlippage(
+        bytes[] calldata actions,
+        address wantToken,
+        address recipient,
+        uint256 minAmountOut
+    ) internal pure returns (bytes32 result) {
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, ACTIONS_AND_SLIPPAGE_TYPEHASH)
             mstore(add(ptr, 0x20), arrayOfBytesHash)
             mstore(add(ptr, 0x40), wantToken)
-            mstore(add(ptr, 0x60), minAmountOut)
-            result := keccak256(ptr, 0x80)
+            mstore(add(ptr, 0x60), recipient)
+            mstore(add(ptr, 0x80), minAmountOut)
+            result := keccak256(ptr, 0xa0)
         }
     }
 
-    function executeMetaTxn(bytes[] calldata actions, address wantToken, uint256 minAmountOut, bytes memory sig)
-        public
-    {
+    function executeMetaTxn(
+        bytes[] calldata actions,
+        address wantToken,
+        address recipient,
+        uint256 minAmountOut,
+        bytes memory sig
+    ) public {
         address msgSender = msg.sender;
 
         if (actions.length != 0) {
@@ -218,8 +225,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                     bytes memory makerSig,
                     ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
                     address taker,
-                    bytes memory takerSig,
-                    address recipient
+                    bytes memory takerSig
                 ) = abi.decode(
                     data,
                     (
@@ -228,8 +234,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                         bytes,
                         ISignatureTransfer.PermitBatchTransferFrom,
                         address,
-                        bytes,
-                        address
+                        bytes
                     )
                 );
                 fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, taker, takerSig, recipient);
@@ -242,7 +247,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
 
                 // Checking this witness ensures that the entire sequence of actions is
                 // authorized.
-                bytes32 witness = _hashActionsAndSlippage(actions, wantToken, minAmountOut);
+                bytes32 witness = _hashActionsAndSlippage(actions, wantToken, recipient, minAmountOut);
                 // `msgSender` becomes the metatransaction requestor (the taker of the
                 // sequence of actions).
                 msgSender = from;
@@ -261,7 +266,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             _dispatch(i, action, data, msgSender);
         }
 
-        _checkSlippageAndTransfer(wantToken, minAmountOut, msgSender);
+        _checkSlippageAndTransfer(wantToken, recipient, minAmountOut);
     }
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender) internal {
