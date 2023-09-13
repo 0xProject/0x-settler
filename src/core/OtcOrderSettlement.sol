@@ -41,7 +41,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     string internal constant CONSIDERATION_WITNESS =
         string(abi.encodePacked("Consideration consideration)", CONSIDERATION_TYPE, TOKEN_PERMISSIONS_TYPE));
     bytes32 internal constant CONSIDERATION_TYPEHASH =
-        0xad2beacc37d0284e6b9f578f414b9e1c8cc0412bb8e8a272e290b623563778e6;
+        0x7d806873084f389a66fd0315dead7adaad8ae6e8b6cf9fb0d3db61e5a91c3ffa;
 
     string internal constant TAKER_METATXN_CONSIDERATION_TYPE =
         "TakerMetatxnConsideration(Consideration consideration,address recipient)";
@@ -56,12 +56,12 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         )
     );
     bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
-        0x91e22bbb454fbba18dc56f205c82681633cfd708b5f823425d62fe9b6e34abe8;
+        0xce50a9f8675c66e6197d1253c716a193f5fff29f4ca719df1f8e5fa761640b6f;
 
     string internal constant OTC_ORDER_TYPE =
         "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
     string internal constant OTC_ORDER_TYPE_RECURSIVE = string(abi.encodePacked(OTC_ORDER_TYPE, CONSIDERATION_TYPE));
-    bytes32 internal constant OTC_ORDER_TYPEHASH = 0xbba9ffc2fcf49e96846cecf0c8c5aa70ee2e2abc7292003c357009c2dc6f7a11;
+    bytes32 internal constant OTC_ORDER_TYPEHASH = 0x4efcac36537dd5721596376472101aec5ff380b23b286c66cdfe70a509c0cef3;
 
     function _hashConsideration(Consideration memory consideration) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
