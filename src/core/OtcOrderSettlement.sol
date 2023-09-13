@@ -16,6 +16,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         address token;
         uint256 amount;
         address counterparty;
+        bool partialFillAllowed;
     }
 
     /// @dev Emitted whenever an OTC order is filled.
@@ -34,7 +35,8 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         uint256 takerTokenFilledAmount
     );
 
-    string internal constant CONSIDERATION_TYPE = "Consideration(address token,uint256 amount,address counterparty)";
+    string internal constant CONSIDERATION_TYPE =
+        "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant CONSIDERATION_WITNESS =
         string(abi.encodePacked("Consideration consideration)", CONSIDERATION_TYPE, TOKEN_PERMISSIONS_TYPE));
@@ -66,7 +68,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
             let ptr := sub(consideration, 0x20)
             let oldValue := mload(ptr)
             mstore(ptr, CONSIDERATION_TYPEHASH)
-            result := keccak256(ptr, 0x80)
+            result := keccak256(ptr, 0xa0)
             mstore(ptr, oldValue)
         }
     }
@@ -141,7 +143,10 @@ abstract contract OtcOrderSettlement is Permit2Payment {
 
         emit OtcOrderFilled(
             _hashOtcOrder(
-                witness, _hashConsideration(Consideration({token: buyToken, amount: buyAmount, counterparty: maker}))
+                witness,
+                _hashConsideration(
+                    Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
+                )
             ),
             maker,
             msg.sender,
@@ -213,12 +218,17 @@ abstract contract OtcOrderSettlement is Permit2Payment {
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails;
         Consideration memory takerConsideration;
+        takerConsideration.partialFillAllowed = true;
         (transferDetails, takerConsideration.token, takerConsideration.amount) =
             _permitToTransferDetails(permit, address(this));
         takerConsideration.counterparty = maker;
 
-        Consideration memory makerConsideration =
-            Consideration({token: address(takerToken), amount: maxTakerAmount, counterparty: msgSender});
+        Consideration memory makerConsideration = Consideration({
+            token: address(takerToken),
+            amount: maxTakerAmount,
+            counterparty: msgSender,
+            partialFillAllowed: true
+        });
         bytes32 witness = _hashConsideration(makerConsideration);
 
         uint256 takerAmount = takerToken.balanceOf(address(this));

@@ -298,9 +298,9 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     bytes32 private constant CONSIDERATION_TYPEHASH =
-        keccak256("Consideration(address token,uint256 amount,address counterparty)");
+        keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)");
     bytes32 private constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty)TokenPermissions(address token,uint256 amount)"
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TokenPermissions(address token,uint256 amount)"
     );
     bytes32 private constant OTC_PERMIT2_BATCH_WITNESS_TYPEHASH = keccak256(
         "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty)TokenPermissions(address token,uint256 amount)"
@@ -312,10 +312,10 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     bytes32 private constant TAKER_CONSIDERATION_TYPEHASH = keccak256(
-        "TakerMetatxnConsideration(Consideration consideration,address recipient)Consideration(address token,uint256 amount,address counterparty)"
+        "TakerMetatxnConsideration(Consideration consideration,address recipient)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
     );
     bytes32 private constant TAKER_OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,TakerMetatxnConsideration consideration)Consideration(address token,uint256 amount,address counterparty)TakerMetatxnConsideration(Consideration consideration,address recipient)TokenPermissions(address token,uint256 amount)"
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,TakerMetatxnConsideration consideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TakerMetatxnConsideration(Consideration consideration,address recipient)TokenPermissions(address token,uint256 amount)"
     );
     bytes32 private constant TAKER_OTC_PERMIT2_BATCH_WITNESS_TYPEHASH = keccak256(
         "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,TakerMetatxnConsideration consideration)Consideration(address token,uint256 amount,address counterparty)TakerMetatxnConsideration(Consideration consideration,address recipient)TokenPermissions(address token,uint256 amount)"
@@ -329,8 +329,12 @@ abstract contract SettlerPairTest is BasePairTest {
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
-        OtcOrderSettlement.Consideration memory makerConsideration =
-            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+            token: address(fromToken()),
+            amount: amount(),
+            counterparty: FROM,
+            partialFillAllowed: false
+        });
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
@@ -378,7 +382,7 @@ abstract contract SettlerPairTest is BasePairTest {
         takerPermit.permitted[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
 
         OtcOrderSettlement.Consideration memory makerConsideration =
-            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM, partialFillAllowed: false});
         bytes32 witness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
@@ -421,7 +425,7 @@ abstract contract SettlerPairTest is BasePairTest {
         takerPermit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
 
         OtcOrderSettlement.Consideration memory makerConsideration =
-            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount() - 1, counterparty: FROM});
+            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount() - 1, counterparty: FROM, partialFillAllowed: false});
         bytes32 witness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
@@ -492,8 +496,12 @@ abstract contract SettlerPairTest is BasePairTest {
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
-        OtcOrderSettlement.Consideration memory makerConsideration =
-            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+            token: address(fromToken()),
+            amount: amount(),
+            counterparty: FROM,
+            partialFillAllowed: false
+        });
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
@@ -508,7 +516,8 @@ abstract contract SettlerPairTest is BasePairTest {
             consideration: OtcOrderSettlement.Consideration({
                 token: address(toToken()),
                 amount: amount(),
-                counterparty: MAKER
+                counterparty: MAKER,
+                partialFillAllowed: false
             }),
             recipient: FROM
         });
@@ -562,8 +571,12 @@ abstract contract SettlerPairTest is BasePairTest {
             nonce: PERMIT2_MAKER_NONCE,
             deadline: block.timestamp + 100
         });
-        OtcOrderSettlement.Consideration memory makerConsideration =
-            OtcOrderSettlement.Consideration({token: address(fromToken()), amount: amount(), counterparty: FROM});
+        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+            token: address(fromToken()),
+            amount: amount(),
+            counterparty: FROM,
+            partialFillAllowed: true
+        });
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
             makerPermit,
@@ -585,7 +598,9 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_otc_fee_full_custody");
-        _settler.execute(actions, address(toToken()), amount() * 9_000 / 10_000);
+        _settler.execute(
+            actions, Settler.AllowedSlippage({buyToken: address(toToken()), minAmountOut: amount() * 9_000 / 10_000})
+        );
         snapEnd();
     }
 
