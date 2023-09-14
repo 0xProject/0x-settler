@@ -23,8 +23,7 @@ interface ISettlerActions {
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        bytes memory takerSig,
-        address recipient
+        bytes memory takerSig
     ) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
@@ -34,8 +33,7 @@ interface ISettlerActions {
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
-        bytes memory takerSig,
-        address recipient
+        bytes memory takerSig
     ) external;
 
     // TODO: SETTLER_OTC_SELF_FUNDED needs custody optimization
@@ -79,9 +77,13 @@ interface ISettlerActions {
         uint256 minBuyAmount
     ) external;
 
+    function TRANSFER_OUT_FIXED(address token, address recipient, uint256 amount) external;
+
     /// @dev Transfers out an amount of the token to recipient. This amount amount can be partial
     /// and the divisor is 10_000. E.g 10_000 represents 100%, 5_000 represents 50%.
-    function TRANSFER_OUT(address token, address recipient, uint256 bips) external;
+    function TRANSFER_OUT_PROPORTIONAL(address token, address recipient, uint256 bips) external;
+
+    function TRANSFER_OUT_POSITIVE_SLIPPAGE(address token, address recipient, uint256 expectedAmount) external;
 
     // @dev Fill a 0x V4 OTC order using the 0x Exchange Proxy contract
     // Pre-req: Funded
