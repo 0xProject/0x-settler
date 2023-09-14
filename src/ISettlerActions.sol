@@ -53,14 +53,12 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
-    function UNISWAPV3_SWAP_EXACT_IN(address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path)
-        external;
+    function UNISWAPV3_SWAP_EXACT_IN(address recipient, uint256 amountIn, bytes memory path) external;
 
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
         address recipient,
         uint256 amountIn,
-        uint256 amountOutMin,
         bytes memory path,
         bytes memory permit2Data
     ) external;

@@ -3,6 +3,7 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {Panic} from "../utils/Panic.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -59,19 +60,15 @@ abstract contract UniswapV3 {
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
     /// @param sellAmount amount of the first token in the path to sell.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens. Can be zero for sender.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellTokenForTokenToUniswapV3(
-        bytes memory encodedPath,
-        uint256 sellAmount,
-        uint256 minBuyAmount,
-        address recipient
-    ) internal returns (uint256 buyAmount) {
+    function sellTokenForTokenToUniswapV3(bytes memory encodedPath, uint256 sellAmount, address recipient)
+        internal
+        returns (uint256 buyAmount)
+    {
         buyAmount = _swap(
             encodedPath,
             sellAmount,
-            minBuyAmount,
             address(this), // payer
             recipient,
             new bytes(0)
@@ -82,21 +79,18 @@ abstract contract UniswapV3 {
     ///      using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
     /// @param sellAmount amount of the first token in the path to sell.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens. Can be zero for sender.
     /// @param permit2Data The concatenated PermitTransferFrom, and (v,r,s) signature
     /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
         uint256 sellAmount,
-        uint256 minBuyAmount,
         address recipient,
         bytes memory permit2Data
     ) internal returns (uint256 buyAmount) {
         buyAmount = _swap(
             encodedPath,
             sellAmount,
-            minBuyAmount,
             msg.sender, // payer
             recipient,
             permit2Data
@@ -107,13 +101,14 @@ abstract contract UniswapV3 {
     function _swap(
         bytes memory encodedPath,
         uint256 sellAmount,
-        uint256 minBuyAmount,
         address payer,
         address recipient,
         bytes memory permit2Data
     ) private returns (uint256 buyAmount) {
         if (sellAmount != 0) {
-            require(sellAmount <= uint256(type(int256).max), "UniswapV3Feature/SELL_AMOUNT_OVERFLOW");
+            if (sellAmount > uint256(type(int256).max)) {
+                Panic.panic(0x11); // 0x11 -> arithmetic overflow
+            }
 
             // TODO don't allocate permit2 data is empty (e.g a multhop where we are paying)
             // Perform a swap for each hop in the path.
@@ -138,7 +133,9 @@ abstract contract UniswapV3 {
                 );
                 {
                     int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
-                    require(_buyAmount >= 0, "UniswapV3Feature/INVALID_BUY_AMOUNT");
+                    if (_buyAmount < 0) {
+                        Panic.panic(0x11); // 0x11 -> arithmetic over/underflow
+                    }
                     buyAmount = uint256(_buyAmount);
                 }
                 if (!isPathMultiHop) {
@@ -152,7 +149,6 @@ abstract contract UniswapV3 {
                 encodedPath = _shiftHopFromPathInPlace(encodedPath);
             }
         }
-        require(minBuyAmount <= buyAmount, "UniswapV3Feature/UNDERBOUGHT");
     }
 
     // Return whether or not an encoded uniswap path contains more than one hop.
@@ -165,7 +161,9 @@ abstract contract UniswapV3 {
         pure
         returns (ERC20 inputToken, uint24 fee, ERC20 outputToken)
     {
-        require(encodedPath.length >= SINGLE_HOP_PATH_SIZE, "UniswapV3Feature/BAD_PATH_ENCODING");
+        if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
+            Panic.panic(0x32); // 0x32 -> array out of bounds
+        }
         assembly ("memory-safe") {
             let p := add(encodedPath, 32)
             inputToken := shr(96, mload(p))
@@ -182,7 +180,9 @@ abstract contract UniswapV3 {
         pure
         returns (bytes memory shiftedEncodedPath)
     {
-        require(encodedPath.length >= PATH_SKIP_HOP_SIZE, "UniswapV3Feature/BAD_PATH_ENCODING");
+        if (encodedPath.length < PATH_SKIP_HOP_SIZE) {
+            Panic.panic(0x32); // 0x32 -> array out of bounds
+        }
         uint256 shiftSize = PATH_SKIP_HOP_SIZE;
         uint256 newSize = encodedPath.length - shiftSize;
         assembly ("memory-safe") {
@@ -240,6 +240,8 @@ abstract contract UniswapV3 {
         }
     }
 
+    error ZeroSwapAmount();
+
     /// @dev The UniswapV3 pool swap callback which pays the funds requested
     ///      by the caller/pool to the pool. Can only be called by a valid
     ///      UniswapV3 pool.
@@ -270,9 +272,7 @@ abstract contract UniswapV3 {
             }
             (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
             // Only a valid pool contract can call this function.
-            require(
-                msg.sender == address(_toPool(token0, fee, token1)), "UniswapV3Feature/INVALID_SWAP_CALLBACK_CALLER"
-            );
+            require(msg.sender == address(_toPool(token0, fee, token1)));
         }
         // Pay the amount owed to the pool.
         if (amount0Delta > 0) {
@@ -280,7 +280,7 @@ abstract contract UniswapV3 {
         } else if (amount1Delta > 0) {
             _pay(token1, payer, msg.sender, uint256(amount1Delta), permit2Data);
         } else {
-            revert("UniswapV3Feature/INVALID_SWAP_AMOUNTS");
+            revert ZeroSwapAmount();
         }
     }
 
@@ -301,7 +301,9 @@ abstract contract UniswapV3 {
                 (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
                     abi.decode(permit2Data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
                 // TODO we only support a max batch size of 2
-                require(permit.permitted.length <= 2, "too many permits");
+                if (permit.permitted.length > 2) {
+                    Panic.panic(0x32); // 0x32 -> array out of bounds
+                }
                 ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
                     new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
                 transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({to: to, requestedAmount: amount});
@@ -323,8 +325,6 @@ abstract contract UniswapV3 {
     /// @param to The recipient of the tokens.
     /// @param amount The amount of `token` to transfer.
     function _transferERC20Tokens(ERC20 token, address to, uint256 amount) internal {
-        require(address(token) != address(this), "FixinTokenSpender/CANNOT_INVOKE_SELF");
-
         assembly ("memory-safe") {
             let ptr := mload(0x40) // free memory pointer
 

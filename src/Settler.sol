@@ -298,15 +298,14 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
 
             sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
-            (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path) =
-                abi.decode(data, (address, uint256, uint256, bytes));
+            (address recipient, uint256 amountIn, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
-            sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient);
+            sellTokenForTokenToUniswapV3(path, amountIn, recipient);
         } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-            (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bytes memory permit2Data) =
-                abi.decode(data, (address, uint256, uint256, bytes, bytes));
+            (address recipient, uint256 amountIn, bytes memory path, bytes memory permit2Data) =
+                abi.decode(data, (address, uint256, bytes, bytes));
 
-            sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, permit2Data);
+            sellTokenForTokenToUniswapV3(path, amountIn, recipient, permit2Data);
         } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,
@@ -328,10 +327,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
             token.safeTransfer(recipient, amount);
         } else if (action == ISettlerActions.TRANSFER_OUT_PROPORTIONAL.selector) {
             (ERC20 token, address recipient, uint256 bips) = abi.decode(data, (ERC20, address, uint256));
-            require(bips <= 10_000, "Settler: can't transfer more than 10,000 bips");
 
             uint256 balance = token.balanceOf(address(this));
-            uint256 amount = balance.unsafeMulDiv(bips, 10_000);
+            uint256 amount = balance.mulDiv(bips, 10_000);
             token.safeTransfer(recipient, amount);
         } else if (action == ISettlerActions.TRANSFER_OUT_POSITIVE_SLIPPAGE.selector) {
             (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
