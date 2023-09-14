@@ -19,7 +19,7 @@ abstract contract Permit2TransferTest is BasePairTest {
 
     // function testPermit2_permitTransferFrom() public {
     //     ISignatureTransfer.PermitBatchTransferFrom memory permit =
-    //         defaultERC20PermitTransfer(address(fromToken()), uint160(amount()), 1);
+    //         defaultERC20PermitTransfer(address(fromToken()), amount(), 1);
     //     bytes memory sig =
     //         getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
     //     ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
@@ -34,7 +34,7 @@ abstract contract Permit2TransferTest is BasePairTest {
 
     function testPermit2_permitTransferFrom_warmNonce() public {
         ISignatureTransfer.PermitBatchTransferFrom memory permit =
-            defaultERC20PermitBatchTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), 1);
         bytes memory sig =
             getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
@@ -64,7 +64,7 @@ abstract contract Permit2TransferTest is BasePairTest {
         bytes32 witness = keccak256(abi.encode(witnessData));
 
         ISignatureTransfer.PermitBatchTransferFrom memory permit =
-            defaultERC20PermitBatchTransfer(address(fromToken()), uint160(amount()), 1);
+            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), 1);
         bytes memory sig = getPermitWitnessTransferSignature(
             permit, address(this), FROM_PRIVATE_KEY, FULL_MOCK_WITNESS_TYPEHASH, witness, PERMIT2.DOMAIN_SEPARATOR()
         );
