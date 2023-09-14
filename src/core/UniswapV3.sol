@@ -4,6 +4,7 @@ pragma solidity ^0.8.21;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
+import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -27,6 +28,8 @@ interface IUniswapV3Pool {
 }
 
 abstract contract UniswapV3 {
+    using SafeTransferLib for ERC20;
+
     /// @dev UniswapV3 Factory contract address prepended with '0xff' and left-aligned.
     bytes32 private immutable UNI_FF_FACTORY_ADDRESS;
     /// @dev UniswapV3 pool init code hash.
@@ -286,7 +289,7 @@ abstract contract UniswapV3 {
 
     function _pay(ERC20 token, address payer, address to, uint256 amount, bytes memory permit2Data) private {
         if (payer == address(this)) {
-            _transferERC20Tokens(token, to, amount);
+            token.safeTransfer(to, amount);
         } else {
             // Single transfer permit2
             if (permit2Data.length == 288) {
@@ -316,45 +319,6 @@ abstract contract UniswapV3 {
                     });
                 }
                 PERMIT2.permitTransferFrom(permit, transferDetails, payer, sig);
-            }
-        }
-    }
-
-    /// @dev Transfers ERC20 tokens from ourselves to `to`.
-    /// @param token The token to spend.
-    /// @param to The recipient of the tokens.
-    /// @param amount The amount of `token` to transfer.
-    function _transferERC20Tokens(ERC20 token, address to, uint256 amount) internal {
-        assembly ("memory-safe") {
-            let ptr := mload(0x40) // free memory pointer
-
-            // selector for transfer(address,uint256)
-            mstore(ptr, 0xa9059cbb00000000000000000000000000000000000000000000000000000000)
-            mstore(add(ptr, 0x04), and(to, ADDRESS_MASK))
-            mstore(add(ptr, 0x24), amount)
-
-            let success := call(gas(), and(token, ADDRESS_MASK), 0, ptr, 0x44, ptr, 32)
-
-            let rdsize := returndatasize()
-
-            // Check for ERC20 success. ERC20 tokens should return a boolean,
-            // but some don't. We accept 0-length return data as success, or at
-            // least 32 bytes that starts with a 32-byte boolean true.
-            success :=
-                and(
-                    success, // call itself succeeded
-                    or(
-                        iszero(rdsize), // no return data, or
-                        and(
-                            iszero(lt(rdsize, 32)), // at least 32 bytes
-                            eq(mload(ptr), 1) // starts with uint256(1)
-                        )
-                    )
-                )
-
-            if iszero(success) {
-                returndatacopy(ptr, 0, rdsize)
-                revert(ptr, rdsize)
             }
         }
     }
