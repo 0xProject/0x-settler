@@ -107,7 +107,7 @@ abstract contract UniswapV3 {
     ) private returns (uint256 buyAmount) {
         if (sellAmount != 0) {
             if (sellAmount > uint256(type(int256).max)) {
-                Panic.panic(0x11); // 0x11 -> arithmetic overflow
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
 
             // TODO don't allocate permit2 data is empty (e.g a multhop where we are paying)
@@ -134,7 +134,7 @@ abstract contract UniswapV3 {
                 {
                     int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
                     if (_buyAmount < 0) {
-                        Panic.panic(0x11); // 0x11 -> arithmetic over/underflow
+                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
                     buyAmount = uint256(_buyAmount);
                 }
@@ -162,7 +162,7 @@ abstract contract UniswapV3 {
         returns (ERC20 inputToken, uint24 fee, ERC20 outputToken)
     {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
-            Panic.panic(0x32); // 0x32 -> array out of bounds
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
             let p := add(encodedPath, 32)
@@ -181,7 +181,7 @@ abstract contract UniswapV3 {
         returns (bytes memory shiftedEncodedPath)
     {
         if (encodedPath.length < PATH_SKIP_HOP_SIZE) {
-            Panic.panic(0x32); // 0x32 -> array out of bounds
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         uint256 shiftSize = PATH_SKIP_HOP_SIZE;
         uint256 newSize = encodedPath.length - shiftSize;
@@ -302,7 +302,7 @@ abstract contract UniswapV3 {
                     abi.decode(permit2Data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
                 // TODO we only support a max batch size of 2
                 if (permit.permitted.length > 2) {
-                    Panic.panic(0x32); // 0x32 -> array out of bounds
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
                 }
                 ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
                     new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);

@@ -27,7 +27,7 @@ abstract contract Basic {
             revert ConfusedDeputy();
         }
         if ((offset += 32) > data.length) {
-            Panic.panic(0x32); // 0x32 -> array out of bounds
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
 
         uint256 beforeBalanceSell = sellToken.balanceOf(address(this));

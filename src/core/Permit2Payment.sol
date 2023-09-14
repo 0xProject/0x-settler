@@ -25,7 +25,7 @@ abstract contract Permit2Payment {
     {
         // TODO: allow multiple fees
         if (permit.permitted.length > 2) {
-            Panic.panic(0x32); // 0x32 -> array out of bounds
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
         transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
