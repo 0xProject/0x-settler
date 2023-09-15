@@ -38,12 +38,13 @@ abstract contract Basic {
             value = amount = address(this).balance.mulDiv(bips, 10_000);
         } else {
             amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
-            sellToken.safeApproveIfBelow(pool, type(uint256).max);
+            sellToken.safeApproveIfBelow(pool, amount);
         }
         assembly ("memory-safe") {
             mstore(add(data, offset), amount)
         }
-        (bool success, bytes memory returnData) = payable(address(pool)).call{value: value}(data);
+        // We omit the EXTCODESIZE check here deliberately. This can be used to send value to EOAs.
+        (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
         if (!success) {
             assembly ("memory-safe") {
                 revert(add(0x20, returnData), mload(returnData))

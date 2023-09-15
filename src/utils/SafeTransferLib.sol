@@ -108,7 +108,11 @@ library SafeTransferLib {
     }
 
     function safeApproveIfBelow(ERC20 token, address spender, uint256 amount) internal {
-        if (token.allowance(address(this), spender) < amount) {
+        uint256 allowance = token.allowance(address(this), spender);
+        if (allowance < amount) {
+            if (allowance != 0) {
+                safeApprove(token, spender, 0);
+            }
             safeApprove(token, spender, type(uint256).max);
         }
     }
