@@ -38,7 +38,9 @@ abstract contract Basic {
             value = amount = address(this).balance.mulDiv(bips, 10_000);
         } else {
             amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
-            sellToken.safeApproveIfBelow(pool, amount);
+            if (pool != address(sellToken)) {
+                sellToken.safeApproveIfBelow(pool, amount);
+            }
         }
         assembly ("memory-safe") {
             mstore(add(data, offset), amount)
