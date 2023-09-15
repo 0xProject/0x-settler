@@ -51,8 +51,8 @@ abstract contract UniswapV2 {
 
     /// @dev Sell a token for another token using UniswapV2.
     /// @param encodedPath Custom encoded path of the swap.
-    /// @param bips Bips to sell of settler's balance of the initial token in the path.
-    function sellToUniswapV2(bytes memory encodedPath, uint256 bips) internal {
+    /// @param initialSellAmount Amount of the initial token in the path to sell, from the settler's balance.
+    function sellToUniswapV2(bytes memory encodedPath, uint256 initialSellAmount) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let swapCalldata := ptr
@@ -66,7 +66,7 @@ abstract contract UniswapV2 {
             ptr := add(ptr, 164)
 
             let fromPool
-            let sellAmount
+            let sellAmount := initialSellAmount
 
             for {
                 let pathLength := mload(encodedPath)
@@ -75,16 +75,13 @@ abstract contract UniswapV2 {
                 pathLength := sub(pathLength, HOP_SHIFT_SIZE)
                 path := add(path, HOP_SHIFT_SIZE)
             } {
-                let toPool
-                let zeroForOne
-
                 // decode hop info
                 let buyToken := shr(96, mload(add(path, 21)))
                 let sellToken := shr(88, mload(path))
                 let sellTokenHasFee := and(0x80, sellToken)
                 let fork := and(0x7f, sellToken)
                 sellToken := shr(8, sellToken)
-                zeroForOne := lt(sellToken, buyToken)
+                let zeroForOne := lt(sellToken, buyToken)
 
                 // compute the pool address
                 // address(keccak256(abi.encodePacked(
@@ -117,7 +114,7 @@ abstract contract UniswapV2 {
                     mstore(add(ptr, 53), SUSHI_PAIR_INIT_CODE_HASH)
                 }
                 default { revert(0, 0) }
-                toPool := and(ADDRESS_MASK, keccak256(ptr, 85))
+                let toPool := and(ADDRESS_MASK, keccak256(ptr, 85))
 
                 // if the next pool is not the initial pool, swap tokens and send to the next pool
                 // otherwise, transfer tokens from the settler to the initial pool
@@ -128,19 +125,8 @@ abstract contract UniswapV2 {
                     if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
                 }
                 default {
-                    // retrieve settler's balance of sellToken
-                    mstore(ptr, ERC20_BALANCEOF_CALL_SELECTOR_32)
-                    mstore(add(ptr, 4), address())
-                    if iszero(staticcall(gas(), sellToken, ptr, 36, ptr, 32)) { bubbleRevert() }
-                    if lt(returndatasize(), 32) { revert(0, 0) }
-                    let bal := mload(ptr)
-
-                    // compute sellAmount based on bips and balance
-                    // TODO safety
-                    sellAmount := div(mul(bips, bal), 10000)
-
                     // if we aren't selling anything, abort
-                    if eq(sellAmount, 0) { break }
+                    if iszero(sellAmount) { break }
 
                     // transfer sellAmount of sellToken to the pool
                     mstore(ptr, ERC20_TRANSFER_CALL_SELECTOR_32)
