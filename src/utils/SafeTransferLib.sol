@@ -8,9 +8,9 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 /// @dev Use with caution! Some functions in this library knowingly create dirty bits at the destination of the free memory pointer.
 /// @dev Note that none of the functions in this library check that a token has code at all! That responsibility is delegated to the caller.
 library SafeTransferLib {
-    bytes4 private constant _TRANSFER_FROM_FAILED_SELECTOR = 0x7939f424; // bytes4(keccak256("TransferFromFailed()"))
-    bytes4 private constant _TRANSFER_FAILED_SELECTOR = 0x90b8ec18; // bytes4(keccak256("TransferFailed()"))
-    bytes4 private constant _APPROVE_FAILED_SELECTOR = 0x3e3f8f73; // bytes4(keccak256("ApproveFailed()"))
+    uint32 private constant _TRANSFER_FROM_FAILED_SELECTOR = 0x7939f424; // bytes4(keccak256("TransferFromFailed()"))
+    uint32 private constant _TRANSFER_FAILED_SELECTOR = 0x90b8ec18; // bytes4(keccak256("TransferFailed()"))
+    uint32 private constant _APPROVE_FAILED_SELECTOR = 0x3e3f8f73; // bytes4(keccak256("ApproveFailed()"))
 
     /*//////////////////////////////////////////////////////////////
                              ETH OPERATIONS
