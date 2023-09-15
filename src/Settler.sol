@@ -362,11 +362,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
             uint256 amount = (balance * bips) / 10_000;
             SafeTransferLib.safeTransferETH(recipient, amount);
         } else if (action == ISettlerActions.WETH_DEPOSIT.selector) {
-            (uint256 amount) = abi.decode(data, (uint256));
-            depositWeth(amount);
+            (uint256 bips) = abi.decode(data, (uint256));
+            depositWeth(bips);
         } else if (action == ISettlerActions.WETH_WITHDRAW.selector) {
-            (uint256 amount) = abi.decode(data, (uint256));
-            withdrawWeth(amount);
+            (uint256 bips) = abi.decode(data, (uint256));
+            withdrawWeth(bips);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }
