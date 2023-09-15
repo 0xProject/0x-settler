@@ -20,7 +20,7 @@ library SafeTransferLib {
         SolmateSafeTransferLib.safeTransfer(token, to, amount);
     }
 
-    function safeTransferETH(address to, uint256 amount) internal {
+    function safeTransferETH(address payable to, uint256 amount) internal {
         SolmateSafeTransferLib.safeTransferETH(to, amount);
     }
 

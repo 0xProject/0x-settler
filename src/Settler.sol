@@ -72,6 +72,7 @@ library CalldataDecoder {
 
 contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethWrap {
     using SafeTransferLib for ERC20;
+    using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using CalldataDecoder for bytes[];
@@ -123,7 +124,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
                 if (amountOut < minAmountOut) {
                     revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
                 }
-                SafeTransferLib.safeTransferETH(recipient, amountOut);
+                payable(recipient).safeTransferETH(amountOut);
             } else {
                 uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
                 if (amountOut < minAmountOut) {
@@ -338,27 +339,41 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
             basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.TRANSFER_OUT_FIXED.selector) {
             (ERC20 token, address recipient, uint256 amount) = abi.decode(data, (ERC20, address, uint256));
-            token.safeTransfer(recipient, amount);
+            if (token == ERC20(ETH_ADDRESS)) {
+                payable(recipient).safeTransferETH(amount);
+            } else {
+                token.safeTransfer(recipient, amount);
+            }
         } else if (action == ISettlerActions.TRANSFER_OUT_PROPORTIONAL.selector) {
             (ERC20 token, address recipient, uint256 bips) = abi.decode(data, (ERC20, address, uint256));
             require(bips <= 10_000, "Settler: can't transfer more than 10,000 bips");
 
-            uint256 balance = token.balanceOf(address(this));
-            uint256 amount = balance.unsafeMulDiv(bips, 10_000);
-            token.safeTransfer(recipient, amount);
+            if (token == ERC20(ETH_ADDRESS)) {
+                uint256 balance = address(this).balance;
+                uint256 amount = balance.unsafeMulDiv(bips, 10_000);
+                payable(recipient).safeTransferETH(amount);
+            } else {
+                uint256 balance = token.balanceOf(address(this));
+                uint256 amount = balance.unsafeMulDiv(bips, 10_000);
+                token.safeTransfer(recipient, amount);
+            }
         } else if (action == ISettlerActions.TRANSFER_OUT_POSITIVE_SLIPPAGE.selector) {
             (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
-            uint256 balance = token.balanceOf(address(this));
-            if (balance > expectedAmount) {
-                unchecked {
-                    token.safeTransfer(recipient, balance - expectedAmount);
+            if (token == ERC20(ETH_ADDRESS)) {
+                uint256 balance = address(this).balance;
+                if (balance > expectedAmount) {
+                    unchecked {
+                        payable(recipient).safeTransferETH(balance - expectedAmount);
+                    }
+                }
+            } else {
+                uint256 balance = token.balanceOf(address(this));
+                if (balance > expectedAmount) {
+                    unchecked {
+                        token.safeTransfer(recipient, balance - expectedAmount);
+                    }
                 }
             }
-        } else if (action == ISettlerActions.TRANSFER_OUT_ETH.selector) {
-            (address recipient, uint256 bips) = abi.decode(data, (address, uint256));
-            uint256 balance = address(this).balance;
-            uint256 amount = (balance * bips) / 10_000;
-            SafeTransferLib.safeTransferETH(recipient, amount);
         } else if (action == ISettlerActions.WETH_DEPOSIT.selector) {
             (uint256 bips) = abi.decode(data, (uint256));
             depositWeth(bips);
