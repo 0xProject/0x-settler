@@ -113,8 +113,7 @@ library FullMath {
         // Make sure the result is less than 2**256.
         // Also prevents denominator == 0
         if (denominator <= prod1) {
-            // 0x11 -> overflow; 0x12 -> division by zero
-            Panic.panic(denominator == 0 ? 0x12 : 0x11);
+            Panic.panic(denominator == 0 ? Panic.DIVISION_BY_ZERO : Panic.ARITHMETIC_OVERFLOW);
         }
 
         // Handle non-overflow cases, 256 by 256 division

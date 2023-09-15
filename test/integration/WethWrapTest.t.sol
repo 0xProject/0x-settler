@@ -30,7 +30,9 @@ contract WethWrapTest is Test {
         bytes[] memory actions = ActionDataBuilder.build(abi.encodeCall(ISettlerActions.WETH_DEPOSIT, (10_000)));
 
         uint256 balanceBefore = _weth.balanceOf(address(this));
-        _settler.execute(actions, address(_weth), address(this), 1e18);
+        _settler.execute(
+            actions, Settler.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
+        );
         assert(_weth.balanceOf(address(this)) - balanceBefore == 1e18);
     }
 
@@ -39,7 +41,14 @@ contract WethWrapTest is Test {
         bytes[] memory actions = ActionDataBuilder.build(abi.encodeCall(ISettlerActions.WETH_WITHDRAW, (10_000)));
 
         uint256 balanceBefore = address(this).balance;
-        _settler.execute(actions, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, address(this), 1e18);
+        _settler.execute(
+            actions,
+            Settler.AllowedSlippage({
+                buyToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
+                recipient: address(this),
+                minAmountOut: 1e18
+            })
+        );
         assert(address(this).balance - balanceBefore == 1e18);
     }
 

@@ -19,19 +19,19 @@ interface ISettlerActions {
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
     function SETTLER_OTC_PERMIT2(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
     function METATXN_SETTLER_OTC_PERMIT2(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
         bytes memory takerSig
     ) external;
@@ -53,14 +53,12 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
-    function UNISWAPV3_SWAP_EXACT_IN(address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path)
-        external;
+    function UNISWAPV3_SWAP_EXACT_IN(address recipient, uint256 amountIn, bytes memory path) external;
 
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
         address recipient,
         uint256 amountIn,
-        uint256 amountOutMin,
         bytes memory path,
         bytes memory permit2Data
     ) external;
