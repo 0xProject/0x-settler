@@ -8,20 +8,23 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 /// @dev Use with caution! Some functions in this library knowingly create dirty bits at the destination of the free memory pointer.
 /// @dev Note that none of the functions in this library check that a token has code at all! That responsibility is delegated to the caller.
 library SafeTransferLib {
+    bytes4 private constant _TRANSFER_FROM_FAILED_SELECTOR = 0x7939f424; // bytes4(keccak256("TransferFromFailed()"))
+    bytes4 private constant _TRANSFER_FAILED_SELECTOR = 0x90b8ec18; // bytes4(keccak256("TransferFailed()"))
+    bytes4 private constant _APPROVE_FAILED_SELECTOR = 0x3e3f8f73; // bytes4(keccak256("ApproveFailed()"))
+
     /*//////////////////////////////////////////////////////////////
                              ETH OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
     function safeTransferETH(address payable to, uint256 amount) internal {
-        bool success;
-
-        /// @solidity memory-safe-assembly
-        assembly {
+        assembly ("memory-safe") {
             // Transfer the ETH and store if it succeeded or not.
-            success := call(gas(), to, amount, 0, 0, 0, 0)
+            if iszero(call(gas(), to, amount, 0, 0, 0, 0)) {
+                let freeMemoryPointer := mload(0x40)
+                returndatacopy(freeMemoryPointer, 0, returndatasize())
+                revert(freeMemoryPointer, returndatasize())
+            }
         }
-
-        require(success, "ETH_TRANSFER_FAILED");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -31,8 +34,7 @@ library SafeTransferLib {
     function safeTransferFrom(ERC20 token, address from, address to, uint256 amount) internal {
         bool success;
 
-        /// @solidity memory-safe-assembly
-        assembly {
+        assembly ("memory-safe") {
             // Get a pointer to some free memory.
             let freeMemoryPointer := mload(0x40)
 
@@ -61,8 +63,7 @@ library SafeTransferLib {
     function safeTransfer(ERC20 token, address to, uint256 amount) internal {
         bool success;
 
-        /// @solidity memory-safe-assembly
-        assembly {
+        assembly ("memory-safe") {
             // Get a pointer to some free memory.
             let freeMemoryPointer := mload(0x40)
 
@@ -90,8 +91,7 @@ library SafeTransferLib {
     function safeApprove(ERC20 token, address to, uint256 amount) internal {
         bool success;
 
-        /// @solidity memory-safe-assembly
-        assembly {
+        assembly ("memory-safe") {
             // Get a pointer to some free memory.
             let freeMemoryPointer := mload(0x40)
 
