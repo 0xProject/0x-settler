@@ -11,6 +11,8 @@ abstract contract Basic {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
 
+    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     /// @dev Permit2 address
     address private immutable PERMIT2;
 
@@ -30,14 +32,18 @@ abstract contract Basic {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
 
-        uint256 beforeBalanceSell = sellToken.balanceOf(address(this));
-        uint256 proportionSellBalance = beforeBalanceSell.mulDiv(bips, 10_000);
-        // Update the sellAmount given a proportion of the sellToken balance
-        assembly ("memory-safe") {
-            mstore(add(data, offset), proportionSellBalance)
+        uint256 value;
+        uint256 amount;
+        if (sellToken == ERC20(ETH_ADDRESS)) {
+            value = amount = address(this).balance.mulDiv(bips, 10_000);
+        } else {
+            amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
+            sellToken.safeApproveIfBelow(pool, type(uint256).max);
         }
-        sellToken.safeApproveIfBelow(pool, type(uint256).max);
-        (bool success, bytes memory returnData) = address(pool).call(data);
+        assembly ("memory-safe") {
+            mstore(add(data, offset), amount)
+        }
+        (bool success, bytes memory returnData) = payable(address(pool)).call{value: value}(data);
         if (!success) {
             assembly ("memory-safe") {
                 revert(add(0x20, returnData), mload(returnData))

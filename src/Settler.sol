@@ -93,8 +93,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
-    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     constructor(
         address permit2,
         address zeroEx,
