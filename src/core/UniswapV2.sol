@@ -49,9 +49,10 @@ abstract contract UniswapV2 {
     // Number of bytes to shift the path by each hop
     uint256 private constant HOP_SHIFT_SIZE = 20 + 1;
 
-    /// @dev TODO
+    /// @dev Sell a token for another token using UniswapV2.
+    /// @param encodedPath Custom encoded path of the swap.
+    /// @param bips Bips to sell of settler's balance of the initial token in the path.
     function sellToUniswapV2(bytes memory encodedPath, uint256 bips) internal {
-        // TODO definitely stack too deep, move some stuff into memory and generally optimize
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let swapCalldata := ptr
@@ -101,7 +102,7 @@ abstract contract UniswapV2 {
                     mstore(add(ptr, 20), buyToken)
                     mstore(ptr, sellToken)
                 }
-                let salt := keccak256(ptr, 40)
+                let salt := keccak256(add(ptr, 12), 40)
                 switch fork
                 case 0 {
                     // univ2
@@ -127,19 +128,31 @@ abstract contract UniswapV2 {
                     if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
                 }
                 default {
+                    // retrieve settler's balance of sellToken
+                    mstore(ptr, ERC20_BALANCEOF_CALL_SELECTOR_32)
+                    mstore(add(ptr, 4), address())
+                    if iszero(staticcall(gas(), sellToken, ptr, 36, ptr, 32)) { bubbleRevert() }
+                    if lt(returndatasize(), 32) { revert(0, 0) }
+                    let bal := mload(ptr)
+
                     // compute sellAmount based on bips and balance
                     // TODO safety
-                    sellAmount := div(mul(bips, balanceOf(ptr, sellToken, address())), 10000)
+                    sellAmount := div(mul(bips, bal), 10000)
 
                     // if we aren't selling anything, abort
                     if eq(sellAmount, 0) { break }
 
                     // transfer sellAmount of sellToken to the pool
                     mstore(ptr, ERC20_TRANSFER_CALL_SELECTOR_32)
-                    mstore(add(ptr, 4), sellToken)
+                    mstore(add(ptr, 4), toPool)
                     mstore(add(ptr, 36), sellAmount)
-                    if iszero(call(gas(), sellToken, 0, ptr, 68, 0, 0)) { bubbleRevert() }
-                    // TODO check for ERC20 successful return value
+                    let success := call(gas(), sellToken, 0, ptr, 68, ptr, 32)
+                    if iszero(
+                        and(
+                            success,
+                            or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 32)), eq(mload(ptr), 1)))
+                        )
+                    ) { bubbleRevert() }
                 }
 
                 // get toPool reserves
@@ -147,7 +160,7 @@ abstract contract UniswapV2 {
                 let buyReserve
                 mstore(ptr, UNI_PAIR_RESERVES_CALL_SELECTOR_32)
                 if iszero(staticcall(gas(), toPool, ptr, 4, ptr, 64)) { bubbleRevert() }
-                // TODO check returndatasize
+                if lt(returndatasize(), 64) { revert(0, 0) }
                 switch zeroForOne
                 case 0 {
                     sellReserve := mload(add(ptr, 32))
@@ -155,13 +168,21 @@ abstract contract UniswapV2 {
                 }
                 default {
                     sellReserve := mload(ptr)
-                    buyReserve := mload(add(ptr, 20))
+                    buyReserve := mload(add(ptr, 32))
                 }
 
                 // if the sellToken has a fee on transfer, determine the real sellAmount
                 if sellTokenHasFee {
+                    // retrieve the sellToken balance of the pool
+                    mstore(ptr, ERC20_BALANCEOF_CALL_SELECTOR_32)
+                    mstore(add(ptr, 4), toPool)
+                    if iszero(staticcall(gas(), sellToken, ptr, 36, ptr, 32)) { bubbleRevert() }
+                    if lt(returndatasize(), 32) { revert(0, 0) }
+                    let bal := mload(ptr)
+
                     // determine real sellAmount by comparing pool's sellToken balance to reserve amount
-                    sellAmount := sub(sellReserve, balanceOf(ptr, sellToken, toPool))
+                    if iszero(gt(bal, sellReserve)) { revert(0, 0) }
+                    sellAmount := sub(bal, sellReserve)
                 }
 
                 // compute buyAmount based on sellAmount and reserves
@@ -191,19 +212,10 @@ abstract contract UniswapV2 {
             }
 
             // final swap
-            if iszero(iszero(fromPool)) {
+            if fromPool {
                 // perform swap at the fromPool sending bought tokens to settler
                 mstore(add(swapCalldata, 68), address())
                 if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
-            }
-
-            // TODO inline
-            function balanceOf(p, token, addr) -> bal {
-                mstore(p, ERC20_BALANCEOF_CALL_SELECTOR_32)
-                mstore(add(p, 4), addr)
-                if iszero(call(gas(), token, 0, p, 36, p, 32)) { bubbleRevert() }
-                // TODO check returndatasize
-                bal := mload(p)
             }
 
             // revert with the return data from the most recent call
