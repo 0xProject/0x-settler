@@ -119,18 +119,20 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        if (wantToken == ETH_ADDRESS && minAmountOut != 0) {
-            uint256 amountOut = address(this).balance;
-            if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
+        if (minAmountOut != 0) {
+            if (wantToken == ETH_ADDRESS) {
+                uint256 amountOut = address(this).balance;
+                if (amountOut < minAmountOut) {
+                    revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
+                }
+                SafeTransferLib.safeTransferETH(recipient, amountOut);
+            } else {
+                uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
+                if (amountOut < minAmountOut) {
+                    revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
+                }
+                ERC20(wantToken).safeTransfer(recipient, amountOut);
             }
-            SafeTransferLib.safeTransferETH(recipient, amountOut);
-        } else if (wantToken != address(0) || minAmountOut != 0) {
-            uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
-            }
-            ERC20(wantToken).safeTransfer(recipient, amountOut);
         }
     }
 
