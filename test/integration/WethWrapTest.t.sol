@@ -6,8 +6,9 @@ import {WETH} from "solmate/src/tokens/WETH.sol";
 import {Settler} from "../../src/Settler.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "../../src/ISettlerActions.sol";
+import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 
-contract WethWrapTest is Test {
+contract WethWrapTest is Test, GasSnapshot {
     WETH private constant _weth = WETH(payable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
     address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     Settler private _settler;
@@ -15,6 +16,7 @@ contract WethWrapTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
         vm.label(address(this), "FoundryTest");
+        vm.label(address(_weth), "WETH");
 
         _settler = new Settler(
             0x000000000022D473030F116dDEE9F6B43aC78BA3, // Permit2
@@ -23,6 +25,7 @@ contract WethWrapTest is Test {
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
             0x2222222222222222222222222222222222222222
         );
+        vm.label(address(_settler), "Settler");
     }
 
     function testWethDeposit() public {
@@ -35,9 +38,13 @@ contract WethWrapTest is Test {
         );
 
         uint256 balanceBefore = _weth.balanceOf(address(this));
-        _settler.execute(
+        Settler settler = _settler;
+        vm.startPrank(address(this));
+        snapStart("wethDeposit");
+        settler.execute(
             actions, Settler.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
         );
+        snapEnd();
         assert(_weth.balanceOf(address(this)) - balanceBefore == 1e18);
     }
 
@@ -51,7 +58,10 @@ contract WethWrapTest is Test {
         );
 
         uint256 balanceBefore = address(this).balance;
-        _settler.execute(
+        Settler settler = _settler;
+        vm.startPrank(address(this));
+        snapStart("wethWithdraw");
+        settler.execute(
             actions,
             Settler.AllowedSlippage({
                 buyToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
@@ -59,6 +69,7 @@ contract WethWrapTest is Test {
                 minAmountOut: 1e18
             })
         );
+        snapEnd();
         assert(address(this).balance - balanceBefore == 1e18);
     }
 
