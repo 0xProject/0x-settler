@@ -3,14 +3,6 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
-interface IUniswapV2 {
-    // TODO ShibaSwap, CryptoCom
-    enum ProtocolFork {
-        UniswapV2,
-        SushiSwap
-    }
-}
-
 abstract contract UniswapV2 {
     // UniswapV2 Factory contract address prepended with '0xff' and left-aligned
     bytes32 private constant UNI_FF_FACTORY_ADDRESS = 0xFF5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f0000000000000000000000;
