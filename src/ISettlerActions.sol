@@ -89,15 +89,8 @@ interface ISettlerActions {
     function ZERO_EX_OTC(IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount)
         external;
 
-    /// @dev Deposit Ether held by Settler and receive WETH into Settler's balance
-    function WETH_DEPOSIT(uint256 bips) external;
-
-    /// @dev Withdraw WETH held by Settler and receive Ether into Settler's balance
-    function WETH_WITHDRAW(uint256 bips) external;
-
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
-    function BASIC_SELL(address pool, address sellToken, uint256 proportion, uint256 offset, bytes calldata data)
-        external;
+    function BASIC_SELL(address pool, address sellToken, uint256 bips, uint256 offset, bytes calldata data) external;
 }

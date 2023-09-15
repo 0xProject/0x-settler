@@ -9,7 +9,6 @@ import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
-import {WethWrap} from "./core/WethWrap.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
@@ -71,7 +70,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethWrap, FreeMemory {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -93,20 +92,14 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
-    constructor(
-        address permit2,
-        address zeroEx,
-        address uniFactory,
-        address payable weth,
-        bytes32 poolInitCodeHash,
-        address feeRecipient
-    )
+    receive() external payable {}
+
+    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
         Basic(permit2)
         CurveV2()
         OtcOrderSettlement(permit2, feeRecipient)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
-        WethWrap(weth)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
@@ -378,12 +371,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
                     }
                 }
             }
-        } else if (action == ISettlerActions.WETH_DEPOSIT.selector) {
-            (uint256 bips) = abi.decode(data, (uint256));
-            depositWeth(bips);
-        } else if (action == ISettlerActions.WETH_WITHDRAW.selector) {
-            (uint256 bips) = abi.decode(data, (uint256));
-            withdrawWeth(bips);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }
