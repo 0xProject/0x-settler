@@ -34,7 +34,7 @@ abstract contract Basic {
 
         uint256 value;
         uint256 amount;
-        if (sellToken == ERC20(ETH_ADDRESS)) {
+        if (sellToken == ERC20(ETH_ADDRESS) || sellToken == ERC20(address(0))) {
             value = amount = address(this).balance.mulDiv(bips, 10_000);
         } else {
             amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
