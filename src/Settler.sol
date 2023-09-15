@@ -342,18 +342,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
             } else {
                 token.safeTransfer(recipient, amount);
             }
-        } else if (action == ISettlerActions.TRANSFER_OUT_PROPORTIONAL.selector) {
-            (ERC20 token, address recipient, uint256 bips) = abi.decode(data, (ERC20, address, uint256));
-
-            if (token == ERC20(ETH_ADDRESS)) {
-                uint256 balance = address(this).balance;
-                uint256 amount = balance.mulDiv(bips, 10_000);
-                payable(recipient).safeTransferETH(amount);
-            } else {
-                uint256 balance = token.balanceOf(address(this));
-                uint256 amount = balance.mulDiv(bips, 10_000);
-                token.safeTransfer(recipient, amount);
-            }
         } else if (action == ISettlerActions.TRANSFER_OUT_POSITIVE_SLIPPAGE.selector) {
             (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
             if (token == ERC20(ETH_ADDRESS)) {

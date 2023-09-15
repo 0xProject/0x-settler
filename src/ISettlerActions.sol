@@ -77,10 +77,6 @@ interface ISettlerActions {
 
     function TRANSFER_OUT_FIXED(address token, address recipient, uint256 amount) external;
 
-    /// @dev Transfers out an amount of the token to recipient. This amount amount can be partial
-    /// and the divisor is 10_000. E.g 10_000 represents 100%, 5_000 represents 50%.
-    function TRANSFER_OUT_PROPORTIONAL(address token, address recipient, uint256 bips) external;
-
     function TRANSFER_OUT_POSITIVE_SLIPPAGE(address token, address recipient, uint256 expectedAmount) external;
 
     // @dev Fill a 0x V4 OTC order using the 0x Exchange Proxy contract
