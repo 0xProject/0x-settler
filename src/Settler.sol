@@ -305,11 +305,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
             ) = abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address, bytes, ERC20, uint256));
 
             fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
-        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
-            (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
-                abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
-
-            sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 amountIn, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
@@ -359,6 +354,11 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
                     }
                 }
             }
+        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
+            (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
+                abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
+
+            sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }
