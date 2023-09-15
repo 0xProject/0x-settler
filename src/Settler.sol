@@ -215,9 +215,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
         DANGEROUS_freeMemory
         returns (address)
     {
-        (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
-            abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
-        (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+        (ISignatureTransfer.PermitTransferFrom memory permit, address from) =
+            abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
             _permitToTransferDetails(permit, address(this));
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
@@ -290,9 +290,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
         DANGEROUS_freeMemory
     {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
-            (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
-            (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, address(this));
             _permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
