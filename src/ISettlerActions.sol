@@ -92,10 +92,10 @@ interface ISettlerActions {
         external;
 
     /// @dev Deposit Ether held by Settler and receive WETH into Settler's balance
-    function WETH_DEPOSIT(uint256 amount) external;
+    function WETH_DEPOSIT(uint256 bips) external;
 
     /// @dev Withdraw WETH held by Settler and receive Ether into Settler's balance
-    function WETH_WITHDRAW(uint256 amount) external;
+    function WETH_WITHDRAW(uint256 bips) external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
