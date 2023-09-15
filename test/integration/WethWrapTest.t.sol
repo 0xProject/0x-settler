@@ -11,8 +11,6 @@ contract WethWrapTest is Test {
     WETH private constant _weth = WETH(payable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
     Settler private _settler;
 
-    receive() external payable {}
-
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
         vm.label(address(this), "FoundryTest");

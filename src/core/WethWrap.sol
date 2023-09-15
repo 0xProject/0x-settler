@@ -27,4 +27,6 @@ abstract contract WethWrap {
         _weth.withdraw(amount);
         emit WethWithdrawal(amount);
     }
+
+    receive() external payable {}
 }
