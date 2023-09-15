@@ -118,7 +118,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, WethW
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        if (minAmountOut != 0) {
+        if (minAmountOut != 0 || wantToken != address(0)) {
             if (wantToken == ETH_ADDRESS) {
                 uint256 amountOut = address(this).balance;
                 if (amountOut < minAmountOut) {
