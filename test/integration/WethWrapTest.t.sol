@@ -22,7 +22,8 @@ contract WethWrapTest is Test {
             0xDef1C0ded9bec7F1a1670819833240f027b25EfF, // ZeroEx
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             payable(_weth), // WETH
-            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54 // UniV3 pool init code hash
+            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
+            0x2222222222222222222222222222222222222222
         );
     }
 
@@ -31,7 +32,7 @@ contract WethWrapTest is Test {
         bytes[] memory actions = ActionDataBuilder.build(abi.encodeCall(ISettlerActions.WETH_DEPOSIT, (1e18)));
 
         uint256 balanceBefore = _weth.balanceOf(address(this));
-        _settler.execute(actions, address(_weth), 1e18);
+        _settler.execute(actions, address(_weth), address(this), 1e18);
         assert(_weth.balanceOf(address(this)) - balanceBefore == 1e18);
     }
 
@@ -40,7 +41,7 @@ contract WethWrapTest is Test {
         bytes[] memory actions = ActionDataBuilder.build(abi.encodeCall(ISettlerActions.WETH_WITHDRAW, (1e18)));
 
         uint256 balanceBefore = address(this).balance;
-        _settler.execute(actions, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, 1e18);
+        _settler.execute(actions, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, address(this), 1e18);
         assert(address(this).balance - balanceBefore == 1e18);
     }
 }
