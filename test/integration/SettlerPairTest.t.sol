@@ -146,7 +146,7 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_fee_full_custody() public {
+    function testSettler_uniswapV3_buyToken_fee_full_custody() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (address(settler), amount(), uniswapV3Path())),
@@ -159,10 +159,6 @@ abstract contract SettlerPairTest is BasePairTest {
                     36,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )
-            ),
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 36, abi.encodeCall(toToken().transfer, (FROM, 0)))
             )
         );
 
@@ -170,7 +166,7 @@ abstract contract SettlerPairTest is BasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_full_custody");
         _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            actions, Settler.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
         );
         snapEnd();
     }
@@ -190,10 +186,6 @@ abstract contract SettlerPairTest is BasePairTest {
                     36,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )
-            ),
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 36, abi.encodeCall(toToken().transfer, (FROM, 0)))
             )
         );
 
@@ -201,7 +193,7 @@ abstract contract SettlerPairTest is BasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_single_custody");
         _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            actions, Settler.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
         );
         snapEnd();
     }
