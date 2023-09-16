@@ -206,53 +206,34 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_sellToken_fee_single_custody() public {
-        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
-            permitted: new ISignatureTransfer.TokenPermissions[](2),
+    function testSettler_uniswapV3_sellToken_fee_full_custody() public {
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()}),
             nonce: PERMIT2_FROM_NONCE,
             deadline: block.timestamp + 100
         });
-        permit.permitted[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount() - 1});
-        permit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
 
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (permit, sig)),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() - 1, uniswapV3Path()))
-        );
-
-        Settler _settler = settler;
-        vm.startPrank(FROM);
-        snapStartName("settler_uniswapV3_sellToken_fee_single_custody");
-        _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
-        );
-        snapEnd();
-    }
-
-    function testSettler_uniswapV3VIP_sellToken_fee() public {
-        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
-            permitted: new ISignatureTransfer.TokenPermissions[](2),
-            nonce: PERMIT2_FROM_NONCE,
-            deadline: block.timestamp + 100
-        });
-        permit.permitted[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount() - 1});
-        permit.permitted[1] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: 1});
-
-        bytes memory sig =
-            getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-        bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (FROM, amount() - 1, uniswapV3Path(), abi.encode(permit, sig))
-            )
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(fromToken()),
+                    address(fromToken()),
+                    1,
+                    36,
+                    abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
+                )
+            ),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() * 9_999 / 10_000, uniswapV3Path()))
         );
 
         Settler _settler = settler;
         vm.startPrank(FROM);
-        snapStartName("settler_uniswapV3VIP_sellToken_fee");
+        snapStartName("settler_uniswapV3_sellToken_fee_full_custody");
         _settler.execute(
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
@@ -437,8 +418,8 @@ abstract contract SettlerPairTest is BasePairTest {
         keccak256("ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)");
 
     function testSettler_metaTxn_uniswapV3() public {
-        ISignatureTransfer.PermitBatchTransferFrom memory permit =
-            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (permit, FROM)),
@@ -601,8 +582,8 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
-        ISignatureTransfer.PermitBatchTransferFrom memory permit =
-            defaultERC20PermitBatchTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 

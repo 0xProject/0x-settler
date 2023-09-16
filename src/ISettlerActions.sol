@@ -9,12 +9,11 @@ interface ISettlerActions {
 
     /// @dev Transfer funds from msg.sender to multiple destinations using Permit2.
     /// First element is the amount to transfer into Settler. Second element is the amount to transfer to fee recipient.
-    function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig)
-        external;
+    function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) external;
 
     /// @dev Transfer funds from `from` into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn`
     /// where the signature is provided as calldata
-    function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitBatchTransferFrom memory, address from) external;
+    function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory, address from) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
