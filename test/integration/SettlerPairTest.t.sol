@@ -156,7 +156,7 @@ abstract contract SettlerPairTest is BasePairTest {
                     address(toToken()),
                     address(toToken()),
                     1_000,
-                    36,
+                    0x24,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )
             )
@@ -183,7 +183,7 @@ abstract contract SettlerPairTest is BasePairTest {
                     address(toToken()),
                     address(toToken()),
                     1_000,
-                    36,
+                    0x24,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )
             )
@@ -216,7 +216,7 @@ abstract contract SettlerPairTest is BasePairTest {
                     address(fromToken()),
                     address(fromToken()),
                     1,
-                    36,
+                    0x24,
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
                 )
             ),
@@ -250,7 +250,7 @@ abstract contract SettlerPairTest is BasePairTest {
             ),
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 36, abi.encodeCall(toToken().transfer, (FROM, 0)))
+                (address(toToken()), address(toToken()), 10_000, 0x24, abi.encodeCall(toToken().transfer, (FROM, 0)))
             )
         );
 
@@ -285,13 +285,13 @@ abstract contract SettlerPairTest is BasePairTest {
                     address(toToken()),
                     address(toToken()),
                     1_000,
-                    36,
+                    0x24,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )
             ),
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 36, abi.encodeCall(toToken().transfer, (FROM, 0)))
+                (address(toToken()), address(toToken()), 10_000, 0x24, abi.encodeCall(toToken().transfer, (FROM, 0)))
             )
         );
 
@@ -321,7 +321,7 @@ abstract contract SettlerPairTest is BasePairTest {
             ),
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 36, abi.encodeCall(toToken().transfer, (FROM, 0)))
+                (address(toToken()), address(toToken()), 10_000, 0x24, abi.encodeCall(toToken().transfer, (FROM, 0)))
             )
         );
 
@@ -553,7 +553,7 @@ abstract contract SettlerPairTest is BasePairTest {
                     address(toToken()),
                     address(toToken()),
                     1_000,
-                    36,
+                    0x24,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )
             )
