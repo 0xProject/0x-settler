@@ -404,7 +404,7 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     bytes32 private constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
-        "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)"
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)"
     );
     bytes32 private constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         keccak256("ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)");
