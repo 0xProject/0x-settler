@@ -73,6 +73,7 @@ library CalldataDecoder {
 
 contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
+    using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using CalldataDecoder for bytes[];
@@ -91,6 +92,8 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
         0x192e3b91169192370449da1ed14831706ef016a610bdabc518be7102ce47b0d9;
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
+
+    receive() external payable {}
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
         Basic(permit2)
@@ -114,12 +117,22 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        if (slippage.buyToken != address(0) || slippage.minAmountOut != 0) {
-            uint256 amountOut = ERC20(slippage.buyToken).balanceOf(address(this));
-            if (amountOut < slippage.minAmountOut) {
-                revert TooMuchSlippage(slippage.buyToken, slippage.minAmountOut, amountOut);
+        (address buyToken, address recipient, uint256 minAmountOut) =
+            (slippage.buyToken, slippage.recipient, slippage.minAmountOut);
+        if (minAmountOut != 0 || buyToken != address(0)) {
+            if (buyToken == ETH_ADDRESS) {
+                uint256 amountOut = address(this).balance;
+                if (amountOut < minAmountOut) {
+                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                }
+                payable(recipient).safeTransferETH(amountOut);
+            } else {
+                uint256 amountOut = ERC20(buyToken).balanceOf(address(this));
+                if (amountOut < minAmountOut) {
+                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                }
+                ERC20(buyToken).safeTransfer(recipient, amountOut);
             }
-            ERC20(slippage.buyToken).safeTransfer(slippage.recipient, amountOut);
         }
     }
 
@@ -203,9 +216,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
         DANGEROUS_freeMemory
         returns (address)
     {
-        (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
-            abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
-        (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+        (ISignatureTransfer.PermitTransferFrom memory permit, address from) =
+            abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
             _permitToTransferDetails(permit, address(this));
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
@@ -278,9 +291,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
         DANGEROUS_freeMemory
     {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
-            (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
-            (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, address(this));
             _permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
@@ -293,11 +306,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
             ) = abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address, bytes, ERC20, uint256));
 
             fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
-        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
-            (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
-                abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
-
-            sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 amountIn, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
@@ -329,21 +337,33 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
             basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.TRANSFER_OUT_FIXED.selector) {
             (ERC20 token, address recipient, uint256 amount) = abi.decode(data, (ERC20, address, uint256));
-            token.safeTransfer(recipient, amount);
-        } else if (action == ISettlerActions.TRANSFER_OUT_PROPORTIONAL.selector) {
-            (ERC20 token, address recipient, uint256 bips) = abi.decode(data, (ERC20, address, uint256));
-
-            uint256 balance = token.balanceOf(address(this));
-            uint256 amount = balance.mulDiv(bips, 10_000);
-            token.safeTransfer(recipient, amount);
+            if (token == ERC20(ETH_ADDRESS)) {
+                payable(recipient).safeTransferETH(amount);
+            } else {
+                token.safeTransfer(recipient, amount);
+            }
         } else if (action == ISettlerActions.TRANSFER_OUT_POSITIVE_SLIPPAGE.selector) {
             (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
-            uint256 balance = token.balanceOf(address(this));
-            if (balance > expectedAmount) {
-                unchecked {
-                    token.safeTransfer(recipient, balance - expectedAmount);
+            if (token == ERC20(ETH_ADDRESS)) {
+                uint256 balance = address(this).balance;
+                if (balance > expectedAmount) {
+                    unchecked {
+                        payable(recipient).safeTransferETH(balance - expectedAmount);
+                    }
+                }
+            } else {
+                uint256 balance = token.balanceOf(address(this));
+                if (balance > expectedAmount) {
+                    unchecked {
+                        token.safeTransfer(recipient, balance - expectedAmount);
+                    }
                 }
             }
+        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
+            (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
+                abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
+
+            sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }
