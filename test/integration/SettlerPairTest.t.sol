@@ -64,6 +64,7 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
+    function uniswapV2Path() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     function getSettler() private returns (Settler) {
@@ -229,6 +230,20 @@ abstract contract SettlerPairTest is BasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP_sellToken_fee");
+        _settler.execute(
+            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+        );
+        snapEnd();
+    }
+
+    function testSettler_uniswapV2() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(), abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (10_000, uniswapV2Path()))
+        );
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV2");
         _settler.execute(
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
