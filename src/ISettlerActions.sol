@@ -63,6 +63,9 @@ interface ISettlerActions {
         bytes memory permit2Data
     ) external;
 
+    /// @dev Trades against UniswapV2 using the contracts balance for funding
+    function UNISWAPV2_SWAP(uint256 bips, bytes memory path) external;
+
     /// @dev Trades against Curve (uint256 variants) using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout

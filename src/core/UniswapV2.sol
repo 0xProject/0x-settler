@@ -2,8 +2,13 @@
 pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {FullMath} from "../utils/FullMath.sol";
 
 abstract contract UniswapV2 {
+    using FullMath for uint256;
+
+    error PathTooShort(uint256 length);
+
     // UniswapV2 Factory contract address prepended with '0xff' and left-aligned
     bytes32 private constant UNI_FF_FACTORY_ADDRESS = 0xFF5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f0000000000000000000000;
     // UniswapV2 pool init code hash
@@ -43,11 +48,18 @@ abstract contract UniswapV2 {
 
     /// @dev Sell a token for another token using UniswapV2.
     /// @param encodedPath Custom encoded path of the swap.
-    /// @param initialSellAmount Amount of the initial token in the path to sell, from the settler's balance.
-    function sellToUniswapV2(bytes memory encodedPath, uint256 initialSellAmount) internal {
+    /// @param bips Bips to sell of settler's balance of the initial token in the path.
+    function sellToUniswapV2(bytes memory encodedPath, uint256 bips) internal {
+        if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
+            revert PathTooShort(encodedPath.length);
+        }
+
+        uint256 balance = ERC20(address(bytes20(encodedPath))).balanceOf(address(this));
+        uint256 sellAmount = balance.mulDiv(bips, 10_000);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let swapCalldata := ptr
+            let fromPool
 
             // set up swap call selector and empty callback data
             mstore(ptr, UNI_PAIR_SWAP_CALL_SELECTOR_32)
@@ -56,9 +68,6 @@ abstract contract UniswapV2 {
 
             // 4b selector, 32b amount0Out, 32b amount1Out, 32b to, 64b data
             ptr := add(ptr, 164)
-
-            let fromPool
-            let sellAmount := initialSellAmount
 
             for {
                 let pathLength := mload(encodedPath)
@@ -117,9 +126,6 @@ abstract contract UniswapV2 {
                     if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
                 }
                 default {
-                    // if we aren't selling anything, abort
-                    if iszero(sellAmount) { break }
-
                     // transfer sellAmount of sellToken to the pool
                     mstore(ptr, ERC20_TRANSFER_CALL_SELECTOR_32)
                     mstore(add(ptr, 4), toPool)
@@ -198,6 +204,7 @@ abstract contract UniswapV2 {
 
             // revert with the return data from the most recent call
             function bubbleRevert() {
+                // let p := mload(0x40) // TODO
                 returndatacopy(0, 0, returndatasize())
                 revert(0, returndatasize())
             }

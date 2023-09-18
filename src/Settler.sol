@@ -8,6 +8,7 @@ import {Basic} from "./core/Basic.sol";
 import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
+import {UniswapV2} from "./core/UniswapV2.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
@@ -70,7 +71,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeMemory {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using UnsafeMath for uint256;
     using FullMath for uint256;
@@ -306,6 +307,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx, FreeM
                 abi.decode(data, (address, uint256, bytes, bytes));
 
             sellTokenForTokenToUniswapV3(path, amountIn, recipient, permit2Data);
+        } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
+            (uint256 bips, bytes memory path) = abi.decode(data, (uint256, bytes));
+
+            sellToUniswapV2(path, bips);
         } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,
