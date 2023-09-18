@@ -308,9 +308,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
 
             sellTokenForTokenToUniswapV3(path, amountIn, recipient, permit2Data);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
-            (uint256 bips, bytes memory path) = abi.decode(data, (uint256, bytes));
+            (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
-            sellToUniswapV2(path, bips);
+            sellToUniswapV2(path, bips, recipient);
         } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,

@@ -49,7 +49,7 @@ abstract contract UniswapV2 {
     /// @dev Sell a token for another token using UniswapV2.
     /// @param encodedPath Custom encoded path of the swap.
     /// @param bips Bips to sell of settler's balance of the initial token in the path.
-    function sellToUniswapV2(bytes memory encodedPath, uint256 bips) internal {
+    function sellToUniswapV2(bytes memory encodedPath, uint256 bips, address recipient) internal {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
             revert PathTooShort(encodedPath.length);
         }
@@ -117,26 +117,24 @@ abstract contract UniswapV2 {
                 default { revert(0, 0) }
                 let toPool := and(ADDRESS_MASK, keccak256(ptr, 85))
 
-                // if the next pool is not the initial pool, swap tokens and send to the next pool
-                // otherwise, transfer tokens from the settler to the initial pool
-                switch iszero(fromPool)
+                // if the next pool is the initial pool, transfer tokens from the settler to the initial pool
+                // otherwise, swap tokens and send to the next pool
+                switch fromPool
                 case 0 {
-                    // perform swap at the fromPool sending bought tokens to the toPool
-                    mstore(add(swapCalldata, 68), toPool)
-                    if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
-                }
-                default {
                     // transfer sellAmount of sellToken to the pool
+                    // TODO handle incoming custody optimization for initial pool
                     mstore(ptr, ERC20_TRANSFER_CALL_SELECTOR_32)
                     mstore(add(ptr, 4), toPool)
                     mstore(add(ptr, 36), sellAmount)
-                    let success := call(gas(), sellToken, 0, ptr, 68, ptr, 32)
-                    if iszero(
-                        and(
-                            success,
-                            or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 32)), eq(mload(ptr), 1)))
-                        )
-                    ) { bubbleRevert() }
+                    if iszero(call(gas(), sellToken, 0, ptr, 68, ptr, 32)) { bubbleRevert() }
+                    if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 32)), eq(mload(ptr), 1)))) {
+                        revert(0, 0)
+                    }
+                }
+                default {
+                    // perform swap at the fromPool sending bought tokens to the toPool
+                    mstore(add(swapCalldata, 68), toPool)
+                    if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
                 }
 
                 // get toPool reserves
@@ -165,19 +163,14 @@ abstract contract UniswapV2 {
                     let bal := mload(ptr)
 
                     // determine real sellAmount by comparing pool's sellToken balance to reserve amount
-                    if iszero(gt(bal, sellReserve)) { revert(0, 0) }
+                    // TODO panic arithmetic underflow
+                    if lt(bal, sellReserve) { revert(0, 0) }
                     sellAmount := sub(bal, sellReserve)
                 }
 
                 // compute buyAmount based on sellAmount and reserves
-                let buyAmount
-                {
-                    // ensure that the sellAmount is < 2¹¹²
-                    if gt(sellAmount, MAX_SWAP_AMOUNT) { revert(0, 0) }
-                    // pairs are in the range (0, 2¹¹²) so this shouldn't overflow
-                    let sellAmountWithFee := mul(sellAmount, 997)
-                    buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 1000)))
-                }
+                let sellAmountWithFee := mul(sellAmount, 997)
+                let buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 1000)))
 
                 // set amount0Out and amount1Out
                 switch zeroForOne
@@ -198,7 +191,7 @@ abstract contract UniswapV2 {
             // final swap
             if fromPool {
                 // perform swap at the fromPool sending bought tokens to settler
-                mstore(add(swapCalldata, 68), address())
+                mstore(add(swapCalldata, 68), recipient)
                 if iszero(call(gas(), fromPool, 0, swapCalldata, 164, 0, 0)) { bubbleRevert() }
             }
 

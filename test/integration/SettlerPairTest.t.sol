@@ -238,7 +238,8 @@ abstract contract SettlerPairTest is BasePairTest {
 
     function testSettler_uniswapV2() public {
         bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultFromPermit2Action(), abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (10_000, uniswapV2Path()))
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, 10_000, uniswapV2Path()))
         );
 
         Settler _settler = settler;

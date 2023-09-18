@@ -41,7 +41,7 @@ contract DAIWETHTest is SettlerPairTest, TokenTransferTest, UniswapV3PairTest, Z
     }
 
     function uniswapV2Path() internal pure override(SettlerPairTest) returns (bytes memory) {
-        return abi.encodePacked(fromToken(), uint8(0), toToken());
+        return abi.encodePacked(fromToken(), uint8(1), toToken());
     }
 
     function getCurveV2PoolData()
