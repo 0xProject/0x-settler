@@ -163,8 +163,11 @@ abstract contract UniswapV2 {
                     let bal := mload(ptr)
 
                     // determine real sellAmount by comparing pool's sellToken balance to reserve amount
-                    // TODO panic arithmetic underflow
-                    if lt(bal, sellReserve) { revert(0, 0) }
+                    if lt(bal, sellReserve) {
+                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                        mstore(0x20, 0x11) // panic code for arithmetic underflow
+                        revert(0x1c, 0x24)
+                    }
                     sellAmount := sub(bal, sellReserve)
                 }
 
