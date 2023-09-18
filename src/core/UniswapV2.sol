@@ -122,7 +122,6 @@ abstract contract UniswapV2 {
                 switch fromPool
                 case 0 {
                     // transfer sellAmount of sellToken to the pool
-                    // TODO handle incoming custody optimization for initial pool
                     mstore(ptr, ERC20_TRANSFER_CALL_SELECTOR_32)
                     mstore(add(ptr, 4), toPool)
                     mstore(add(ptr, 36), sellAmount)
