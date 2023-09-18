@@ -204,9 +204,9 @@ abstract contract UniswapV2 {
 
             // revert with the return data from the most recent call
             function bubbleRevert() {
-                // let p := mload(0x40) // TODO
-                returndatacopy(0, 0, returndatasize())
-                revert(0, returndatasize())
+                let p := mload(0x40)
+                returndatacopy(p, 0, returndatasize())
+                revert(p, returndatasize())
             }
         }
     }
