@@ -3,11 +3,10 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {FullMath} from "../utils/FullMath.sol";
+import {Panic} from "../utils/Panic.sol";
 
 abstract contract UniswapV2 {
     using FullMath for uint256;
-
-    error PathTooShort(uint256 length);
 
     // UniswapV2 Factory contract address prepended with '0xff' and left-aligned
     bytes32 private constant UNI_FF_FACTORY_ADDRESS = 0xFF5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f0000000000000000000000;
@@ -35,8 +34,6 @@ abstract contract UniswapV2 {
     uint256 private constant ERC20_BALANCEOF_CALL_SELECTOR_32 =
         0x70a0823100000000000000000000000000000000000000000000000000000000;
 
-    // Mask of the lower 20 bytes of a bytes32
-    uint256 private constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
     // Minimum size of an encoded swap path:
     //   sizeof(address(sellToken) | uint8(hopInfo) | address(buyToken))
     // where first bit of `hopInfo` is `sellTokenHasFee` and the rest is `fork`
@@ -49,11 +46,10 @@ abstract contract UniswapV2 {
     /// @param bips Bips to sell of settler's balance of the initial token in the path.
     function sellToUniswapV2(bytes memory encodedPath, uint256 bips, address recipient) internal {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
-            revert PathTooShort(encodedPath.length);
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
 
-        uint256 balance = ERC20(address(bytes20(encodedPath))).balanceOf(address(this));
-        uint256 sellAmount = balance.mulDiv(bips, 10_000);
+        uint256 sellAmount = ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let swapCalldata := ptr
@@ -113,7 +109,7 @@ abstract contract UniswapV2 {
                     mstore(add(ptr, 53), SUSHI_PAIR_INIT_CODE_HASH)
                 }
                 default { revert(0, 0) }
-                let toPool := and(ADDRESS_MASK, keccak256(ptr, 85))
+                let toPool := keccak256(ptr, 85)
 
                 // if the next pool is the initial pool, transfer tokens from the settler to the initial pool
                 // otherwise, swap tokens and send to the next pool
