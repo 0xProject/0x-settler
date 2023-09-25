@@ -37,8 +37,6 @@ abstract contract UniswapV2 {
 
     // Mask of the lower 20 bytes of a bytes32
     uint256 private constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
-    // Maximum token quantity that can be swapped against the UniswapV2Pair contract
-    uint256 private constant MAX_SWAP_AMOUNT = 2 ** 112;
     // Minimum size of an encoded swap path:
     //   sizeof(address(sellToken) | uint8(hopInfo) | address(buyToken))
     // where first bit of `hopInfo` is `sellTokenHasFee` and the rest is `fork`
@@ -109,7 +107,7 @@ abstract contract UniswapV2 {
                     mstore(add(ptr, 53), UNI_PAIR_INIT_CODE_HASH)
                 }
                 case 1 {
-                    // sooshie
+                    // sushi
                     mstore(ptr, SUSHI_FF_FACTORY_ADDRESS)
                     mstore(add(ptr, 21), salt)
                     mstore(add(ptr, 53), SUSHI_PAIR_INIT_CODE_HASH)
