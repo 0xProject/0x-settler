@@ -27,8 +27,8 @@ library UnsafeArray {
 }
 
 abstract contract Permit2Payment {
-    using UnsafeArray for ISignatureTransfer.TokenPermissions;
-    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails;
+    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
+    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
     /// @dev Permit2 address
     ISignatureTransfer private immutable PERMIT2;
@@ -55,9 +55,9 @@ abstract contract Permit2Payment {
         transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
         {
             ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(0);
-            transferDetails.to = recipient;
+            transferDetail.to = recipient;
             ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(0);
-            transferDetails.requestedAmount = amount = permitted.amount;
+            transferDetail.requestedAmount = amount = permitted.amount;
             token = permitted.token;
         }
         if (permit.permitted.length > 1) {
@@ -66,8 +66,8 @@ abstract contract Permit2Payment {
                 revert FeeTokenMismatch(token, permitted.token);
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
-            transferDetails.to = FEE_RECIPIENT;
-            transferDetails.requestedAmount = permitted.amount;
+            transferDetail.to = FEE_RECIPIENT;
+            transferDetail.requestedAmount = permitted.amount;
         }
     }
 
