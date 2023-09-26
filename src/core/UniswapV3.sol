@@ -107,11 +107,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
+        // TODO don't allocate permit2 data is empty (e.g a multhop where we are paying)
         // Perform a swap for each hop in the path.
-        bytes memory swapCallbackData;
-        if (permit2Data.length != 0) {
-            swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
-        }
+        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
         while (true) {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
@@ -120,9 +118,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
                 (ERC20 inputToken, uint24 fee, ERC20 outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
                 pool = _toPool(inputToken, fee, outputToken);
                 zeroForOne = inputToken < outputToken;
-                if (permit2Data.length != 0) {
-                    _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
-                }
+                _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
             }
             (int256 amount0, int256 amount1) = pool.swap(
                 // Intermediate tokens go to this contract.
