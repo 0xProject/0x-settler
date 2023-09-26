@@ -17,6 +17,7 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
         address token;
         uint256 amount;
         address counterparty;
+        bool partialFillAllowed;
     }
 
     /// @dev Emitted whenever an OTC order is filled.
@@ -35,12 +36,13 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
         uint256 takerTokenFilledAmount
     );
 
-    string internal constant CONSIDERATION_TYPE = "Consideration(address token,uint256 amount,address counterparty)";
+    string internal constant CONSIDERATION_TYPE =
+        "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant CONSIDERATION_WITNESS =
         string(abi.encodePacked("Consideration consideration)", CONSIDERATION_TYPE, TOKEN_PERMISSIONS_TYPE));
     bytes32 internal constant CONSIDERATION_TYPEHASH =
-        0xad2beacc37d0284e6b9f578f414b9e1c8cc0412bb8e8a272e290b623563778e6;
+        0x7d806873084f389a66fd0315dead7adaad8ae6e8b6cf9fb0d3db61e5a91c3ffa;
 
     string internal constant TAKER_METATXN_CONSIDERATION_TYPE =
         "TakerMetatxnConsideration(Consideration consideration,address recipient)";
@@ -55,19 +57,19 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
         )
     );
     bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
-        0x91e22bbb454fbba18dc56f205c82681633cfd708b5f823425d62fe9b6e34abe8;
+        0xce50a9f8675c66e6197d1253c716a193f5fff29f4ca719df1f8e5fa761640b6f;
 
     string internal constant OTC_ORDER_TYPE =
         "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
     string internal constant OTC_ORDER_TYPE_RECURSIVE = string(abi.encodePacked(OTC_ORDER_TYPE, CONSIDERATION_TYPE));
-    bytes32 internal constant OTC_ORDER_TYPEHASH = 0xbba9ffc2fcf49e96846cecf0c8c5aa70ee2e2abc7292003c357009c2dc6f7a11;
+    bytes32 internal constant OTC_ORDER_TYPEHASH = 0x4efcac36537dd5721596376472101aec5ff380b23b286c66cdfe70a509c0cef3;
 
     function _hashConsideration(Consideration memory consideration) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
             let ptr := sub(consideration, 0x20)
             let oldValue := mload(ptr)
             mstore(ptr, CONSIDERATION_TYPEHASH)
-            result := keccak256(ptr, 0x80)
+            result := keccak256(ptr, 0xa0)
             mstore(ptr, oldValue)
         }
     }
@@ -114,26 +116,22 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
     /// a witness of the OtcOrder.
     /// This variant also includes a fee where the taker or maker pays the fee recipient
     function fillOtcOrder(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig,
         address recipient
     ) internal {
-        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
-        Consideration memory takerConsideration;
-        (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
+        (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, address buyToken, uint256 buyAmount) =
             _permitToTransferDetails(makerPermit, recipient);
-        takerConsideration.counterparty = maker;
 
-        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
-        Consideration memory makerConsideration;
-        (takerTransferDetails, makerConsideration.token, makerConsideration.amount) =
-            _permitToTransferDetails(takerPermit, maker);
-        makerConsideration.counterparty = msg.sender;
+        ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
+        Consideration memory consideration;
+        (takerTransferDetails, consideration.token, consideration.amount) = _permitToTransferDetails(takerPermit, maker);
+        consideration.counterparty = msg.sender;
 
-        bytes32 witness = _hashConsideration(makerConsideration);
+        bytes32 witness = _hashConsideration(consideration);
         // There is no taker witness (see below)
 
         // Maker pays recipient (optional fee)
@@ -145,13 +143,18 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
         _permit2TransferFrom(takerPermit, takerTransferDetails, msg.sender, takerSig);
 
         emit OtcOrderFilled(
-            _hashOtcOrder(witness, _hashConsideration(takerConsideration)),
+            _hashOtcOrder(
+                witness,
+                _hashConsideration(
+                    Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
+                )
+            ),
             maker,
             msg.sender,
-            takerConsideration.token,
-            makerConsideration.token,
-            takerConsideration.amount,
-            makerConsideration.amount
+            buyToken,
+            consideration.token,
+            buyAmount,
+            consideration.amount
         );
     }
 
@@ -159,21 +162,21 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
     function fillOtcOrderMetaTxn(
-        ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+        ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
         bytes memory takerSig,
         address recipient
     ) internal {
-        ISignatureTransfer.SignatureTransferDetails[] memory makerTransferDetails;
+        ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
         (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
             _permitToTransferDetails(makerPermit, recipient);
         takerConsideration.counterparty = maker;
 
-        ISignatureTransfer.SignatureTransferDetails[] memory takerTransferDetails;
+        ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
         Consideration memory makerConsideration;
         (takerTransferDetails, makerConsideration.token, makerConsideration.amount) =
             _permitToTransferDetails(takerPermit, maker);
@@ -216,12 +219,17 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails;
         Consideration memory takerConsideration;
+        takerConsideration.partialFillAllowed = true;
         (transferDetails, takerConsideration.token, takerConsideration.amount) =
             _permitToTransferDetails(permit, address(this));
         takerConsideration.counterparty = maker;
 
-        Consideration memory makerConsideration =
-            Consideration({token: address(takerToken), amount: maxTakerAmount, counterparty: msgSender});
+        Consideration memory makerConsideration = Consideration({
+            token: address(takerToken),
+            amount: maxTakerAmount,
+            counterparty: msgSender,
+            partialFillAllowed: true
+        });
         bytes32 witness = _hashConsideration(makerConsideration);
 
         uint256 takerAmount = takerToken.balanceOf(address(this));

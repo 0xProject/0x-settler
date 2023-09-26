@@ -8,11 +8,13 @@ import {Basic} from "./core/Basic.sol";
 import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
+import {UniswapV2} from "./core/UniswapV2.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {FullMath} from "./utils/FullMath.sol";
+import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
@@ -31,12 +33,10 @@ library CalldataDecoder {
                 revert(0x1c, 0x24)
             }
             function overflow() {
-                // revert with reason for arithmetic under-/over- flow
                 panic(0x11) // 0x11 -> arithmetic under-/over- flow
             }
             function bad_calldata() {
-                // revert with empty reason for malformed calldata
-                revert(0x00, 0x00)
+                revert(0x00, 0x00) // empty reason for malformed calldata
             }
 
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
@@ -48,7 +48,7 @@ library CalldataDecoder {
                     )
                 )
             // because the offset to `args` stored in `data` is arbitrary, we have to check it
-            if lt(args.offset, data.offset) { overflow() }
+            if lt(args.offset, add(shl(5, data.length), data.offset)) { overflow() }
             if iszero(lt(args.offset, calldatasize())) { bad_calldata() }
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
@@ -71,8 +71,9 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
+    using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using CalldataDecoder for bytes[];
@@ -82,15 +83,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
 
     // Permit2 Witness for meta transactions
     string internal constant ACTIONS_AND_SLIPPAGE_TYPE =
-        "ActionsAndSlippage(bytes[] actions,address wantToken,uint256 minAmountOut)";
+        "ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant ACTIONS_AND_SLIPPAGE_WITNESS = string(
         abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
-        0x740ff4b4bedfa7438eba5fd36b723b10e5b2d4781deb32a7c62bfa2c00dd9034;
+        0x192e3b91169192370449da1ed14831706ef016a610bdabc518be7102ce47b0d9;
 
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
+
+    receive() external payable {}
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient, address trustedForwarder)
         Basic(permit2)
@@ -102,22 +105,38 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
 
-    function _checkSlippageAndTransfer(address wantToken, uint256 minAmountOut, address msgSender) internal {
+    struct AllowedSlippage {
+        address buyToken;
+        address recipient;
+        uint256 minAmountOut;
+    }
+
+    function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        if (wantToken != address(0) || minAmountOut != 0) {
-            uint256 amountOut = ERC20(wantToken).balanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(wantToken, minAmountOut, amountOut);
+        (address buyToken, address recipient, uint256 minAmountOut) =
+            (slippage.buyToken, slippage.recipient, slippage.minAmountOut);
+        if (minAmountOut != 0 || buyToken != address(0)) {
+            if (buyToken == ETH_ADDRESS) {
+                uint256 amountOut = address(this).balance;
+                if (amountOut < minAmountOut) {
+                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                }
+                payable(recipient).safeTransferETH(amountOut);
+            } else {
+                uint256 amountOut = ERC20(buyToken).balanceOf(address(this));
+                if (amountOut < minAmountOut) {
+                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                }
+                ERC20(buyToken).safeTransfer(recipient, amountOut);
             }
-            ERC20(wantToken).safeTransfer(_msgSender(), amountOut);
         }
     }
 
-    function execute(bytes[] calldata actions, address wantToken, uint256 minAmountOut) public payable {
+    function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
@@ -126,24 +145,22 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                     revert ActionInvalid({i: 1, action: action, data: data});
                 }
                 (
-                    ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    ISignatureTransfer.PermitTransferFrom memory makerPermit,
                     address maker,
                     bytes memory makerSig,
-                    ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
-                    bytes memory takerSig,
-                    address recipient
+                    ISignatureTransfer.PermitTransferFrom memory takerPermit,
+                    bytes memory takerSig
                 ) = abi.decode(
                     data,
                     (
-                        ISignatureTransfer.PermitBatchTransferFrom,
+                        ISignatureTransfer.PermitTransferFrom,
                         address,
                         bytes,
-                        ISignatureTransfer.PermitBatchTransferFrom,
-                        bytes,
-                        address
+                        ISignatureTransfer.PermitTransferFrom,
+                        bytes
                     )
                 );
-                fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, recipient);
+                fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, slippage.recipient);
                 return;
             } else {
                 _dispatch(0, action, data, msg.sender);
@@ -155,7 +172,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             _dispatch(i, action, data, msg.sender);
         }
 
-        _checkSlippageAndTransfer(wantToken, minAmountOut, msg.sender);
+        _checkSlippageAndTransfer(slippage);
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
@@ -179,7 +196,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
         }
     }
 
-    function _hashActionsAndSlippage(bytes[] calldata actions, address wantToken, uint256 minAmountOut)
+    function _hashActionsAndSlippage(bytes[] calldata actions, AllowedSlippage calldata slippage)
         internal
         pure
         returns (bytes32 result)
@@ -189,15 +206,29 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             let ptr := mload(0x40)
             mstore(ptr, ACTIONS_AND_SLIPPAGE_TYPEHASH)
             mstore(add(ptr, 0x20), arrayOfBytesHash)
-            mstore(add(ptr, 0x40), and(ADDRESS_MASK, wantToken))
-            mstore(add(ptr, 0x60), minAmountOut)
-            result := keccak256(ptr, 0x80)
+            calldatacopy(add(ptr, 0x40), slippage, 0x60)
+            result := keccak256(ptr, 0xa0)
         }
     }
 
-    function executeMetaTxn(bytes[] calldata actions, address wantToken, uint256 minAmountOut, bytes memory sig)
-        public
+    function _metaTxnTransferFrom(bytes calldata data, bytes32 witness, bytes calldata sig)
+        internal
+        DANGEROUS_freeMemory
+        returns (address)
     {
+        (ISignatureTransfer.PermitTransferFrom memory permit, address from) =
+            abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
+            _permitToTransferDetails(permit, address(this));
+
+        // We simultaneously transfer-in the taker's tokens and authenticate the
+        // metatransaction.
+        _permit2WitnessTransferFrom(permit, transferDetails, from, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
+        // `from` becomes the metatransaction requestor (the taker of the sequence of actions).
+        return from;
+    }
+
+    function executeMetaTxn(bytes[] calldata actions, AllowedSlippage calldata slippage, bytes calldata sig) public {
         address msgSender = _msgSender();
 
         if (actions.length != 0) {
@@ -215,44 +246,33 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 // The OTC order is signed by both maker and taker, validation is performed inside the OtcOrderSettlement
                 // so there is no need to validate `sig` against `actions` here
                 (
-                    ISignatureTransfer.PermitBatchTransferFrom memory makerPermit,
+                    ISignatureTransfer.PermitTransferFrom memory makerPermit,
                     address maker,
                     bytes memory makerSig,
-                    ISignatureTransfer.PermitBatchTransferFrom memory takerPermit,
+                    ISignatureTransfer.PermitTransferFrom memory takerPermit,
                     address taker,
-                    bytes memory takerSig,
-                    address recipient
+                    bytes memory takerSig
                 ) = abi.decode(
                     data,
                     (
-                        ISignatureTransfer.PermitBatchTransferFrom,
+                        ISignatureTransfer.PermitTransferFrom,
                         address,
                         bytes,
-                        ISignatureTransfer.PermitBatchTransferFrom,
+                        ISignatureTransfer.PermitTransferFrom,
                         address,
-                        bytes,
-                        address
+                        bytes
                     )
                 );
-                fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, taker, takerSig, recipient);
+                fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, taker, takerSig, slippage.recipient);
                 return;
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
-                (ISignatureTransfer.PermitBatchTransferFrom memory permit, address from) =
-                    abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, address));
-                (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
-                    _permitToTransferDetails(permit, address(this));
-
                 // Checking this witness ensures that the entire sequence of actions is
                 // authorized.
-                bytes32 witness = _hashActionsAndSlippage(actions, wantToken, minAmountOut);
-                // `msgSender` becomes the metatransaction requestor (the taker of the
-                // sequence of actions).
-                msgSender = from;
-                // We simultaneously transfer-in the taker's tokens and authenticate the
-                // metatransaction.
-                _permit2WitnessTransferFrom(
-                    permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig
-                );
+                bytes32 witness = _hashActionsAndSlippage(actions, slippage);
+                // `msgSender` is the signer of the metatransaction. This
+                // ensures that the whole sequence of actions is authorized by
+                // the requestor from whom we transferred.
+                msgSender = _metaTxnTransferFrom(data, witness, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }
@@ -263,14 +283,17 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             _dispatch(i, action, data, msgSender);
         }
 
-        _checkSlippageAndTransfer(wantToken, minAmountOut, msgSender);
+        _checkSlippageAndTransfer(slippage);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender) internal {
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender)
+        internal
+        DANGEROUS_freeMemory
+    {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
-            (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
-            (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
+            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, address(this));
             _permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
@@ -283,11 +306,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
             ) = abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address, bytes, ERC20, uint256));
 
             fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
-        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
-            (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
-                abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
-
-            sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
@@ -297,6 +315,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 abi.decode(data, (address, uint256, bytes, bytes));
 
             sellTokenForTokenToUniswapV3(path, amountIn, recipient, msgSender, permit2Data);
+        } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
+            (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
+
+            sellToUniswapV2(path, bips, recipient);
         } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,
@@ -313,13 +335,35 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, CurveV2, ZeroEx {
                 abi.decode(data, (address, ERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
-        } else if (action == ISettlerActions.TRANSFER_OUT.selector) {
-            (address token, address recipient, uint256 bips) = abi.decode(data, (address, address, uint256));
-            require(bips <= 10_000, "Settler: can't transfer more than 10,000 bips");
+        } else if (action == ISettlerActions.TRANSFER_OUT_FIXED.selector) {
+            (ERC20 token, address recipient, uint256 amount) = abi.decode(data, (ERC20, address, uint256));
+            if (token == ERC20(ETH_ADDRESS)) {
+                payable(recipient).safeTransferETH(amount);
+            } else {
+                token.safeTransfer(recipient, amount);
+            }
+        } else if (action == ISettlerActions.TRANSFER_OUT_POSITIVE_SLIPPAGE.selector) {
+            (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
+            if (token == ERC20(ETH_ADDRESS)) {
+                uint256 balance = address(this).balance;
+                if (balance > expectedAmount) {
+                    unchecked {
+                        payable(recipient).safeTransferETH(balance - expectedAmount);
+                    }
+                }
+            } else {
+                uint256 balance = token.balanceOf(address(this));
+                if (balance > expectedAmount) {
+                    unchecked {
+                        token.safeTransfer(recipient, balance - expectedAmount);
+                    }
+                }
+            }
+        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
+            (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
+                abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
 
-            uint256 balance = ERC20(token).balanceOf(address(this));
-            uint256 amount = balance.unsafeMulDiv(bips, 10_000);
-            ERC20(token).safeTransfer(recipient, amount);
+            sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }

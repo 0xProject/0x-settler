@@ -55,4 +55,8 @@ contract USDTWETHTest is CurveV2PairTest, SettlerPairTest, TokenTransferTest, Un
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
+
+    function uniswapV2Path() internal pure override(SettlerPairTest) returns (bytes memory) {
+        return abi.encodePacked(fromToken(), uint8(0x80), toToken());
+    }
 }
