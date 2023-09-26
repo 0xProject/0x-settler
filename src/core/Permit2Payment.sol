@@ -42,9 +42,9 @@ library UnsafeArray {
 
 abstract contract Permit2Payment is ERC2771Context {
     using UnsafeMath for uint256;
-    using UnsafeArray for AllowanceHolder.TransferDetails;
-    using UnsafeArray for ISignatureTransfer.TokenPermissions;
-    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails;
+    using UnsafeArray for AllowanceHolder.TransferDetails[];
+    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
+    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
     /// @dev Permit2 address
     ISignatureTransfer private immutable PERMIT2;
@@ -52,7 +52,7 @@ abstract contract Permit2Payment is ERC2771Context {
 
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
-    constructor(address permit2, address feeRecipient) ERC2771Context(trustedForwarder) {
+    constructor(address permit2, address feeRecipient, address trustedForwarder) ERC2771Context(trustedForwarder) {
         PERMIT2 = ISignatureTransfer(permit2);
         FEE_RECIPIENT = feeRecipient;
     }
@@ -71,9 +71,9 @@ abstract contract Permit2Payment is ERC2771Context {
         transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
         {
             ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(0);
-            transferDetails.to = recipient;
+            transferDetail.to = recipient;
             ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(0);
-            transferDetails.requestedAmount = amount = permitted.amount;
+            transferDetail.requestedAmount = amount = permitted.amount;
             token = permitted.token;
         }
         if (permit.permitted.length > 1) {
@@ -82,8 +82,8 @@ abstract contract Permit2Payment is ERC2771Context {
                 revert FeeTokenMismatch(token, permitted.token);
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
-            transferDetails.to = FEE_RECIPIENT;
-            transferDetails.requestedAmount = permitted.amount;
+            transferDetail.to = FEE_RECIPIENT;
+            transferDetail.requestedAmount = permitted.amount;
         }
     }
 
@@ -103,7 +103,7 @@ abstract contract Permit2Payment is ERC2771Context {
     ) internal pure returns (AllowanceHolder.TransferDetails[] memory result) {
         uint256 length;
         // TODO: allow multiple fees
-        if ((length = permit.length) != transferDetails.length || length > 2) {
+        if ((length = permit.permitted.length) != transferDetails.length || length > 2) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         result = new AllowanceHolder.TransferDetails[](length);
@@ -166,7 +166,7 @@ abstract contract Permit2Payment is ERC2771Context {
         bytes memory sig
     ) internal {
         if (_isForwarded()) {
-            AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, trnasferDetails));
+            AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails));
         } else {
             PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }

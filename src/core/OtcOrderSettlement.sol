@@ -8,7 +8,7 @@ import {Permit2Payment} from "./Permit2Payment.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 
-abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
+abstract contract OtcOrderSettlement is Permit2Payment {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
 

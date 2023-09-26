@@ -15,7 +15,7 @@ library UnsafeArray {
         returns (ISignatureTransfer.TokenPermissions calldata r)
     {
         assembly ("memory-safe") {
-            r.offset := add(a.offset, shl(6, i))
+            r := add(a.offset, shl(6, i))
         }
     }
 
@@ -25,7 +25,7 @@ library UnsafeArray {
         returns (AllowanceHolder.TransferDetails calldata r)
     {
         assembly ("memory-safe") {
-            r.offset := add(a.offset, mul(0x60, i))
+            r := add(a.offset, mul(0x60, i))
         }
     }
 }
@@ -63,8 +63,7 @@ contract AllowanceHolder {
         bytes calldata data
     ) public payable returns (bytes memory) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard
-        require(block.timestamp <= deadline);
-        require(ERC2771Context(target).isTrustedForwarder(address(this)));
+        require(ERC2771Context(target).isTrustedForwarder(address(this))); // prevent confused deputy attacks
 
         MockTransientStorage storage tstor = _getTransientStorage();
         tstor.operator = operator;
@@ -107,7 +106,7 @@ contract AllowanceHolder {
         }
         for (uint256 i; i < length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            ERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetails.to, transferDetails.amount);
+            ERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
         }
     }
 
@@ -123,7 +122,6 @@ contract AllowanceHolder {
         require(msg.sender == tstor.operator);
         require(witness == tstor.witness);
         tstor.operator = address(0);
-        tstor.witness = bytes32(0);
         _checkAmountsAndTransfer(transferDetails, tstor);
     }
 }
