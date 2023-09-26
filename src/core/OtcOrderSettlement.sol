@@ -3,7 +3,6 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {ERC2771Context} from "../ERC2771Context.sol";
 import {Permit2Payment} from "./Permit2Payment.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
@@ -105,7 +104,9 @@ abstract contract OtcOrderSettlement is Permit2Payment, ERC2771Context {
         }
     }
 
-    constructor(address permit2, address feeRecipient, address trustedForwarder) Permit2Payment(permit2, feeRecipient) ERC2771Context(trustedForwarder) {
+    constructor(address permit2, address feeRecipient, address trustedForwarder)
+        Permit2Payment(permit2, feeRecipient, trustedForwarder)
+    {
         assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
         assert(TAKER_METATXN_CONSIDERATION_TYPEHASH == keccak256(bytes(TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE)));
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));
