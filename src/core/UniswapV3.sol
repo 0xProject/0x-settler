@@ -43,7 +43,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     uint256 private constant SINGLE_HOP_PATH_SIZE = 20 + 3 + 20;
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
     ///      sizeof(address(inputToken) | uint24(fee))
-    uint256 private constant PATH_SKIP_HOP_SIZE = 20 + 3;
+    uint256 private constant PATH_SKIP_HOP_SIZE = 23;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x80;
     /// @dev Minimum tick price sqrt ratio.
@@ -172,20 +172,16 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     }
 
     // Skip past the first hop of an encoded uniswap path in-place.
-    function _shiftHopFromPathInPlace(bytes memory encodedPath)
-        private
-        pure
-        returns (bytes memory shiftedEncodedPath)
-    {
+    function _shiftHopFromPathInPlace(bytes memory encodedPath) private pure returns (bytes memory) {
         if (encodedPath.length < PATH_SKIP_HOP_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
-        uint256 shiftSize = PATH_SKIP_HOP_SIZE;
-        uint256 newSize = encodedPath.length - shiftSize;
         assembly ("memory-safe") {
-            shiftedEncodedPath := add(encodedPath, shiftSize)
-            mstore(shiftedEncodedPath, newSize)
+            let length := sub(mload(encodedPath), PATH_SKIP_HOP_SIZE)
+            encodedPath := add(encodedPath, PATH_SKIP_HOP_SIZE)
+            mstore(encodedPath, length)
         }
+        return encodedPath;
     }
 
     // Update `swapCallbackData` in place with new values.
@@ -196,20 +192,19 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         uint24 fee,
         address payer,
         bytes memory permit2Data
-    ) private pure {
+    ) private view {
         assembly ("memory-safe") {
             mstore(add(swapCallbackData, 0x20), and(ADDRESS_MASK, inputToken))
             mstore(add(swapCallbackData, 0x40), and(ADDRESS_MASK, outputToken))
             mstore(add(swapCallbackData, 0x60), and(UINT24_MASK, fee))
             mstore(add(swapCallbackData, 0x80), and(ADDRESS_MASK, payer))
-            for {
-                let dst := add(swapCallbackData, 0xa0)
-                let src := add(permit2Data, 0x20)
-                let end := add(src, mload(permit2Data))
-            } lt(src, end) {
-                src := add(0x20, src)
-                dst := add(0x20, dst)
-            } { mstore(dst, mload(src)) }
+            let length := mload(permit2Data)
+            if length {
+                if or(
+                    iszero(returndatasize()),
+                    iszero(staticcall(gas(), 0x04, add(permit2Data, 0x20), length, add(swapCallbackData, 0xa0), length))
+                ) { invalid() }
+            }
         }
     }
 
@@ -226,9 +221,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         (ERC20 token0, ERC20 token1) = inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
         assembly ("memory-safe") {
             let s := mload(0x40)
-            let p := s
-            mstore(p, ffFactoryAddress)
-            p := add(p, 0x15)
+            mstore(s, ffFactoryAddress)
+            let p := add(s, 0x15)
             // Compute the inner hash in-place
             mstore(p, and(ADDRESS_MASK, token0))
             mstore(add(p, 0x20), and(ADDRESS_MASK, token1))
