@@ -3,12 +3,12 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {Permit2Payment} from "./Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 
-abstract contract OtcOrderSettlement is Permit2Payment {
+abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
 
@@ -104,7 +104,7 @@ abstract contract OtcOrderSettlement is Permit2Payment {
         }
     }
 
-    constructor(address permit2, address feeRecipient) Permit2Payment(permit2, feeRecipient) {
+    constructor() {
         assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
         assert(TAKER_METATXN_CONSIDERATION_TYPEHASH == keccak256(bytes(TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE)));
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));

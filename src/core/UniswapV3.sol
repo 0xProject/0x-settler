@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -28,7 +29,7 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
-abstract contract UniswapV3 {
+abstract contract UniswapV3 is Permit2PaymentAbstract {
     using FullMath for uint256;
     using SafeTransferLib for ERC20;
 
@@ -53,13 +54,9 @@ abstract contract UniswapV3 {
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
 
-    /// @dev Permit2 address
-    ISignatureTransfer private immutable PERMIT2;
-
-    constructor(address uniFactory, bytes32 poolInitCodeHash, address permit2) {
+    constructor(address uniFactory, bytes32 poolInitCodeHash) {
         UNI_FF_FACTORY_ADDRESS = bytes32((uint256(0xff) << 248) | (uint256(uint160(uniFactory)) << 88));
         UNI_POOL_INIT_CODE_HASH = poolInitCodeHash;
-        PERMIT2 = ISignatureTransfer(permit2);
     }
 
     /// @dev Sell a token for another token directly against uniswap v3.
@@ -303,7 +300,7 @@ abstract contract UniswapV3 {
 
                 ISignatureTransfer.SignatureTransferDetails memory transferDetails =
                     ISignatureTransfer.SignatureTransferDetails({to: to, requestedAmount: amount});
-                PERMIT2.permitTransferFrom(permit, transferDetails, payer, sig);
+                PERMIT2().permitTransferFrom(permit, transferDetails, payer, sig);
             } else {
                 // Batch transfer permit2
                 (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
@@ -323,7 +320,7 @@ abstract contract UniswapV3 {
                         requestedAmount: permit.permitted[1].amount
                     });
                 }
-                PERMIT2.permitTransferFrom(permit, transferDetails, payer, sig);
+                PERMIT2().permitTransferFrom(permit, transferDetails, payer, sig);
             }
         }
     }

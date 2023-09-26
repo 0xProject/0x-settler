@@ -26,19 +26,71 @@ library UnsafeArray {
     }
 }
 
-abstract contract Permit2Payment {
+abstract contract Permit2PaymentAbstract {
+    string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
+
+    function PERMIT2() internal view virtual returns (ISignatureTransfer);
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
+        internal
+        view
+        virtual
+        returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount);
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+        internal
+        pure
+        virtual
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount);
+
+    function _permit2TransferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal virtual;
+
+    function _permit2TransferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal virtual;
+
+    function _permit2TransferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes memory sig
+    ) internal virtual;
+
+    function _permit2TransferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes memory sig
+    ) internal virtual;
+}
+
+abstract contract Permit2Payment is Permit2PaymentAbstract {
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
     /// @dev Permit2 address
-    ISignatureTransfer private immutable PERMIT2;
-    address private immutable FEE_RECIPIENT;
+    ISignatureTransfer private immutable _PERMIT2;
+    address private immutable _FEE_RECIPIENT;
 
-    string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
+    function PERMIT2() internal view override returns (ISignatureTransfer) {
+        return _PERMIT2;
+    }
 
     constructor(address permit2, address feeRecipient) {
-        PERMIT2 = ISignatureTransfer(permit2);
-        FEE_RECIPIENT = feeRecipient;
+        _PERMIT2 = ISignatureTransfer(permit2);
+        _FEE_RECIPIENT = feeRecipient;
     }
 
     error FeeTokenMismatch(address paymentToken, address feeToken);
@@ -46,6 +98,7 @@ abstract contract Permit2Payment {
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
         view
+        override
         returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount)
     {
         // TODO: allow multiple fees
@@ -66,7 +119,7 @@ abstract contract Permit2Payment {
                 revert FeeTokenMismatch(token, permitted.token);
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
-            transferDetail.to = FEE_RECIPIENT;
+            transferDetail.to = _FEE_RECIPIENT;
             transferDetail.requestedAmount = permitted.amount;
         }
     }
@@ -74,6 +127,7 @@ abstract contract Permit2Payment {
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure
+        override
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
     {
         transferDetails.to = recipient;
@@ -88,8 +142,8 @@ abstract contract Permit2Payment {
         bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
-    ) internal {
-        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+    ) internal override {
+        _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
     function _permit2TransferFrom(
@@ -99,8 +153,8 @@ abstract contract Permit2Payment {
         bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
-    ) internal {
-        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+    ) internal override {
+        _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
     function _permit2TransferFrom(
@@ -108,8 +162,8 @@ abstract contract Permit2Payment {
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
         bytes memory sig
-    ) internal {
-        PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
+    ) internal override {
+        _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
     }
 
     function _permit2TransferFrom(
@@ -117,7 +171,7 @@ abstract contract Permit2Payment {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
         bytes memory sig
-    ) internal {
-        PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
+    ) internal override {
+        _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
     }
 }
