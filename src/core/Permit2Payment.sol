@@ -40,21 +40,73 @@ library UnsafeArray {
     }
 }
 
-abstract contract Permit2Payment is ERC2771Context {
+abstract contract Permit2PaymentAbstract {
+    string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
+
+    function PERMIT2() internal view virtual returns (ISignatureTransfer);
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
+        internal
+        view
+        virtual
+        returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount);
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+        internal
+        pure
+        virtual
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount);
+
+    function _permit2WitnessTransferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal virtual;
+
+    function _permit2WitnessTransferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal virtual;
+
+    function _permit2TransferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes memory sig
+    ) internal virtual;
+
+    function _permit2TransferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes memory sig
+    ) internal virtual;
+}
+
+abstract contract Permit2Payment is Permit2PaymentAbstract, ERC2771Context {
     using UnsafeMath for uint256;
     using UnsafeArray for AllowanceHolder.TransferDetails[];
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
     /// @dev Permit2 address
-    ISignatureTransfer private immutable PERMIT2;
-    address private immutable FEE_RECIPIENT;
+    ISignatureTransfer private immutable _PERMIT2;
+    address private immutable _FEE_RECIPIENT;
 
-    string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
+    function PERMIT2() internal view override returns (ISignatureTransfer) {
+        return _PERMIT2;
+    }
 
     constructor(address permit2, address feeRecipient, address trustedForwarder) ERC2771Context(trustedForwarder) {
-        PERMIT2 = ISignatureTransfer(permit2);
-        FEE_RECIPIENT = feeRecipient;
+        _PERMIT2 = ISignatureTransfer(permit2);
+        _FEE_RECIPIENT = feeRecipient;
     }
 
     error FeeTokenMismatch(address paymentToken, address feeToken);
@@ -62,6 +114,7 @@ abstract contract Permit2Payment is ERC2771Context {
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
         view
+        override
         returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount)
     {
         // TODO: allow multiple fees
@@ -82,7 +135,7 @@ abstract contract Permit2Payment is ERC2771Context {
                 revert FeeTokenMismatch(token, permitted.token);
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
-            transferDetail.to = FEE_RECIPIENT;
+            transferDetail.to = _FEE_RECIPIENT;
             transferDetail.requestedAmount = permitted.amount;
         }
     }
@@ -90,6 +143,7 @@ abstract contract Permit2Payment is ERC2771Context {
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure
+        override
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
     {
         transferDetails.to = recipient;
@@ -100,7 +154,7 @@ abstract contract Permit2Payment is ERC2771Context {
     function _formatForAllowanceHolder(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails
-    ) internal pure returns (AllowanceHolder.TransferDetails[] memory result) {
+    ) private pure returns (AllowanceHolder.TransferDetails[] memory result) {
         uint256 length;
         // TODO: allow multiple fees
         if ((length = permit.permitted.length) != transferDetails.length || length > 2) {
@@ -121,7 +175,7 @@ abstract contract Permit2Payment is ERC2771Context {
     function _formatForAllowanceHolder(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails
-    ) internal pure returns (AllowanceHolder.TransferDetails[] memory result) {
+    ) private pure returns (AllowanceHolder.TransferDetails[] memory result) {
         result = new AllowanceHolder.TransferDetails[](1);
         AllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(0);
         newDetail.token = permit.permitted.token;
@@ -136,11 +190,11 @@ abstract contract Permit2Payment is ERC2771Context {
         bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
-    ) internal {
+    ) internal override {
         if (_isForwarded()) {
             AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
         } else {
-            PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+            _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
         }
     }
 
@@ -151,11 +205,11 @@ abstract contract Permit2Payment is ERC2771Context {
         bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
-    ) internal {
+    ) internal override {
         if (_isForwarded()) {
             AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
         } else {
-            PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+            _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
         }
     }
 
@@ -164,11 +218,11 @@ abstract contract Permit2Payment is ERC2771Context {
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
         bytes memory sig
-    ) internal {
+    ) internal override {
         if (_isForwarded()) {
             AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails));
         } else {
-            PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
+            _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
     }
 
@@ -177,11 +231,11 @@ abstract contract Permit2Payment is ERC2771Context {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
         bytes memory sig
-    ) internal {
+    ) internal override {
         if (_isForwarded()) {
             AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails));
         } else {
-            PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
+            _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
     }
 }

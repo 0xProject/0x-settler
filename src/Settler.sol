@@ -9,6 +9,7 @@ import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
+import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
@@ -71,7 +72,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
+contract Settler is Basic, Permit2Payment, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -104,9 +105,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
         address trustedForwarder
     )
         Basic(permit2)
+        Permit2Payment(permit2, feeRecipient, trustedForwarder)
+        OtcOrderSettlement()
+        UniswapV3(uniFactory, poolInitCodeHash)
         CurveV2()
-        OtcOrderSettlement(permit2, feeRecipient, trustedForwarder)
-        UniswapV3(uniFactory, poolInitCodeHash, permit2)
         ZeroEx(zeroEx)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
