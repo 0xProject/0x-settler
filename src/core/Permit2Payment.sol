@@ -4,7 +4,32 @@ pragma solidity ^0.8.21;
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
 
+library UnsafeArray {
+    function unsafeGet(ISignatureTransfer.TokenPermissions[] memory a, uint256 i)
+        internal
+        pure
+        returns (ISignatureTransfer.TokenPermissions memory r)
+    {
+        assembly ("memory-safe") {
+            r := add(add(shl(6, i), 0x20), a)
+        }
+    }
+
+    function unsafeGet(ISignatureTransfer.SignatureTransferDetails[] memory a, uint256 i)
+        internal
+        pure
+        returns (ISignatureTransfer.SignatureTransferDetails memory r)
+    {
+        assembly ("memory-safe") {
+            r := add(add(shl(6, i), 0x20), a)
+        }
+    }
+}
+
 abstract contract Permit2Payment {
+    using UnsafeArray for ISignatureTransfer.TokenPermissions;
+    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails;
+
     /// @dev Permit2 address
     ISignatureTransfer private immutable PERMIT2;
     address private immutable FEE_RECIPIENT;
@@ -28,19 +53,21 @@ abstract contract Permit2Payment {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
-        transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
-            to: recipient,
-            requestedAmount: amount = permit.permitted[0].amount
-        });
-        token = permit.permitted[0].token;
+        {
+            ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(0);
+            transferDetails.to = recipient;
+            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(0);
+            transferDetails.requestedAmount = amount = permitted.amount;
+            token = permitted.token;
+        }
         if (permit.permitted.length > 1) {
-            if (token != permit.permitted[1].token) {
-                revert FeeTokenMismatch(token, permit.permitted[1].token);
+            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(1);
+            if (token != permitted.token) {
+                revert FeeTokenMismatch(token, permitted.token);
             }
-            transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: FEE_RECIPIENT,
-                requestedAmount: permit.permitted[1].amount
-            });
+            ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
+            transferDetails.to = FEE_RECIPIENT;
+            transferDetails.requestedAmount = permitted.amount;
         }
     }
 
