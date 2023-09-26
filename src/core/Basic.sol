@@ -3,29 +3,24 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
+import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 
-abstract contract Basic {
+abstract contract Basic is Permit2PaymentAbstract {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
 
     address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
-    /// @dev Permit2 address
-    address private immutable PERMIT2;
-
-    constructor(address permit2) {
-        PERMIT2 = permit2;
-    }
 
     error ConfusedDeputy();
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
     function basicSellToPool(address pool, ERC20 sellToken, uint256 bips, uint256 offset, bytes memory data) internal {
-        if (pool == PERMIT2) {
+        if (pool == address(PERMIT2())) {
             revert ConfusedDeputy();
         }
         if ((offset += 32) > data.length) {

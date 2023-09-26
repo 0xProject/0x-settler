@@ -4,12 +4,12 @@ pragma solidity ^0.8.21;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
+import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
 import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
-import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
@@ -72,7 +72,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, Permit2Payment, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
+contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -97,8 +97,8 @@ contract Settler is Basic, Permit2Payment, OtcOrderSettlement, UniswapV3, Uniswa
     receive() external payable {}
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
-        Basic(permit2)
         Permit2Payment(permit2, feeRecipient)
+        Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
         CurveV2()
