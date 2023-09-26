@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
-import {UnsafeMath} from "./UnsafeMath.sol";
+import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ERC2771Context} from "./ERC2771Context.sol";
 
