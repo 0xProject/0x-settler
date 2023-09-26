@@ -73,7 +73,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000),
             address(this), // payer
             recipient,
-            new bytes(0)
+            ""
         );
     }
 
@@ -102,54 +102,52 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         address recipient,
         bytes memory permit2Data
     ) private returns (uint256 buyAmount) {
-        if (sellAmount != 0) {
-            if (sellAmount > uint256(type(int256).max)) {
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-            }
+        if (sellAmount > uint256(type(int256).max)) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
 
-            // Perform a swap for each hop in the path.
-            bytes memory swapCallbackData;
-            if (permit2Data.length != 0) {
-                swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
+        // Perform a swap for each hop in the path.
+        bytes memory swapCallbackData;
+        if (permit2Data.length != 0) {
+            swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
+        }
+        while (true) {
+            bool isPathMultiHop = _isPathMultiHop(encodedPath);
+            bool zeroForOne;
+            IUniswapV3Pool pool;
+            {
+                (ERC20 inputToken, uint24 fee, ERC20 outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
+                pool = _toPool(inputToken, fee, outputToken);
+                zeroForOne = inputToken < outputToken;
+                if (permit2Data.length != 0) {
+                    _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
+                }
             }
-            while (true) {
-                bool isPathMultiHop = _isPathMultiHop(encodedPath);
-                bool zeroForOne;
-                IUniswapV3Pool pool;
-                {
-                    (ERC20 inputToken, uint24 fee, ERC20 outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
-                    pool = _toPool(inputToken, fee, outputToken);
-                    zeroForOne = inputToken < outputToken;
-                    if (permit2Data.length != 0) {
-                        _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
-                    }
+            (int256 amount0, int256 amount1) = pool.swap(
+                // Intermediate tokens go to this contract.
+                isPathMultiHop ? address(this) : recipient,
+                zeroForOne,
+                int256(sellAmount),
+                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                swapCallbackData
+            );
+            {
+                int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
+                if (_buyAmount < 0) {
+                    Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                 }
-                (int256 amount0, int256 amount1) = pool.swap(
-                    // Intermediate tokens go to this contract.
-                    isPathMultiHop ? address(this) : recipient,
-                    zeroForOne,
-                    int256(sellAmount),
-                    zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                    swapCallbackData
-                );
-                {
-                    int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
-                    if (_buyAmount < 0) {
-                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-                    }
-                    buyAmount = uint256(_buyAmount);
-                }
-                if (!isPathMultiHop) {
-                    // Done.
-                    break;
-                }
-                // Continue with next hop.
-                payer = address(this); // Subsequent hops are paid for by us.
-                sellAmount = buyAmount;
-                // Skip to next hop along path.
-                encodedPath = _shiftHopFromPathInPlace(encodedPath);
-                // TODO: for multi-hop, do we need to truncate `permit2Data` and `swapCallbackData`?
+                buyAmount = uint256(_buyAmount);
             }
+            if (!isPathMultiHop) {
+                // Done.
+                break;
+            }
+            // Continue with next hop.
+            payer = address(this); // Subsequent hops are paid for by us.
+            sellAmount = buyAmount;
+            // Skip to next hop along path.
+            encodedPath = _shiftHopFromPathInPlace(encodedPath);
+            // TODO: for multi-hop, do we need to truncate `permit2Data` and `swapCallbackData`?
         }
     }
 
@@ -293,21 +291,14 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         if (payer == address(this)) {
             token.safeTransfer(recipient, amount);
         } else {
-            if (permit2Data.length == 288) {
-                // Single transfer permit2
-                (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                    abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes));
-                (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-                    _permitToTransferDetails(permit, recipient);
-                _permit2TransferFrom(permit, transferDetails, payer, sig);
-            } else {
-                // Batch transfer permit2
-                (ISignatureTransfer.PermitBatchTransferFrom memory permit, bytes memory sig) =
-                    abi.decode(permit2Data, (ISignatureTransfer.PermitBatchTransferFrom, bytes));
-                (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,,) =
-                    _permitToTransferDetails(permit, recipient);
-                _permit2TransferFrom(permit, transferDetails, payer, sig);
+            if (permit2Data.length != 288) {
+                Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }
+            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
+                _permitToTransferDetails(permit, recipient);
+            _permit2TransferFrom(permit, transferDetails, payer, sig);
         }
     }
 }
