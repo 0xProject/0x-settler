@@ -8,8 +8,43 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
+library UnsafeArray {
+    function unsafeGet(AllowanceHolder.TransferDetails[] memory a, uint256 i)
+        internal
+        pure
+        returns (AllowanceHolder.TransferDetails memory r)
+    {
+        assembly ("memory-safe") {
+            r := add(add(mul(0x60, i), 0x20), a)
+        }
+    }
+
+    function unsafeGet(ISignatureTransfer.TokenPermissions[] memory a, uint256 i)
+        internal
+        pure
+        returns (ISignatureTransfer.TokenPermissions memory r)
+    {
+        assembly ("memory-safe") {
+            r := add(add(shl(6, i), 0x20), a)
+        }
+    }
+
+    function unsafeGet(ISignatureTransfer.SignatureTransferDetails[] memory a, uint256 i)
+        internal
+        pure
+        returns (ISignatureTransfer.SignatureTransferDetails memory r)
+    {
+        assembly ("memory-safe") {
+            r := add(add(shl(6, i), 0x20), a)
+        }
+    }
+}
+
 abstract contract Permit2Payment is ERC2771Context {
     using UnsafeMath for uint256;
+    using UnsafeArray for AllowanceHolder.TransferDetails;
+    using UnsafeArray for ISignatureTransfer.TokenPermissions;
+    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails;
 
     /// @dev Permit2 address
     ISignatureTransfer private immutable PERMIT2;
@@ -34,19 +69,21 @@ abstract contract Permit2Payment is ERC2771Context {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
-        transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
-            to: recipient,
-            requestedAmount: amount = permit.permitted[0].amount
-        });
-        token = permit.permitted[0].token;
+        {
+            ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(0);
+            transferDetails.to = recipient;
+            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(0);
+            transferDetails.requestedAmount = amount = permitted.amount;
+            token = permitted.token;
+        }
         if (permit.permitted.length > 1) {
-            if (token != permit.permitted[1].token) {
-                revert FeeTokenMismatch(token, permit.permitted[1].token);
+            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(1);
+            if (token != permitted.token) {
+                revert FeeTokenMismatch(token, permitted.token);
             }
-            transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-                to: FEE_RECIPIENT,
-                requestedAmount: permit.permitted[1].amount
-            });
+            ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
+            transferDetails.to = FEE_RECIPIENT;
+            transferDetails.requestedAmount = permitted.amount;
         }
     }
 
@@ -71,9 +108,13 @@ abstract contract Permit2Payment is ERC2771Context {
         }
         result = new AllowanceHolder.TransferDetails[](length);
         for (uint256 i; i < length; i = i.unsafeInc()) {
-            result[i].token = permit.permitted[i].token;
-            result[i].recipient = transferDetails[i].to;
-            result[i].amount = transferDetails[i].requestedAmount;
+            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(i);
+            ISignatureTransfer.SignatureTransferDetails memory oldDetail = transferDetails.unsafeGet(i);
+            AllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(i);
+
+            newDetail.token = permitted.token;
+            newDetail.recipient = oldDetail.to;
+            newDetail.amount = oldDetail.requestedAmount;
         }
     }
 
@@ -82,9 +123,10 @@ abstract contract Permit2Payment is ERC2771Context {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails
     ) internal pure returns (AllowanceHolder.TransferDetails[] memory result) {
         result = new AllowanceHolder.TransferDetails[](1);
-        result[0].token = permit.permitted.token;
-        result[0].recipient = transferDetails.to;
-        result[0].amount = transferDetails.requestedAmount;
+        AllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(0);
+        newDetail.token = permit.permitted.token;
+        newDetail.recipient = transferDetails.to;
+        newDetail.amount = transferDetails.requestedAmount;
     }
 
     function _permit2WitnessTransferFrom(
