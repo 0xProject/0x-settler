@@ -143,7 +143,10 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             sellAmount = buyAmount;
             // Skip to next hop along path.
             encodedPath = _shiftHopFromPathInPlace(encodedPath);
-            // TODO: for multi-hop, do we need to truncate `permit2Data` and `swapCallbackData`?
+            assembly ("memory-safe") {
+                mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
+                mstore(permit2Data, 0)
+            }
         }
     }
 
@@ -246,8 +249,12 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         ERC20 token0;
         ERC20 token1;
         address payer;
-        uint256 permit2DataLength = data.length - SWAP_CALLBACK_PREFIX_DATA_SIZE;
-        bytes memory permit2Data = new bytes(permit2DataLength);
+        bytes memory permit2Data;
+        if (data.length > SWAP_CALLBACK_PREFIX_DATA_SIZE) {
+            unchecked {
+                permit2Data = new bytes(data.length - SWAP_CALLBACK_PREFIX_DATA_SIZE);
+            }
+        }
         {
             uint24 fee;
             // Decode the data.
@@ -266,17 +273,17 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         }
         // Pay the amount owed to the pool.
         if (amount0Delta > 0) {
-            _pay(token0, payer, msg.sender, uint256(amount0Delta), permit2Data);
+            _pay(token0, payer, uint256(amount0Delta), permit2Data);
         } else if (amount1Delta > 0) {
-            _pay(token1, payer, msg.sender, uint256(amount1Delta), permit2Data);
+            _pay(token1, payer, uint256(amount1Delta), permit2Data);
         } else {
             revert ZeroSwapAmount();
         }
     }
 
-    function _pay(ERC20 token, address payer, address recipient, uint256 amount, bytes memory permit2Data) private {
+    function _pay(ERC20 token, address payer, uint256 amount, bytes memory permit2Data) private {
         if (payer == address(this)) {
-            token.safeTransfer(recipient, amount);
+            token.safeTransfer(msg.sender, amount);
         } else {
             if (permit2Data.length != 288) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
@@ -284,7 +291,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-                _permitToTransferDetails(permit, recipient);
+                _permitToTransferDetails(permit, msg.sender);
             _permit2TransferFrom(permit, transferDetails, payer, sig);
         }
     }
