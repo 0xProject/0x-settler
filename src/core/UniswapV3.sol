@@ -265,10 +265,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
                 fee := calldataload(add(p, 64))
                 payer := calldataload(add(p, 96))
 
-                let z := add(permit2Data, 32)
-                for { let i := 0 } lt(i, div(permit2DataLength, 32)) { i := add(1, i) } {
-                    mstore(add(z, mul(32, i)), calldataload(add(add(p, 128), mul(32, i))))
-                }
+                calldatacopy(add(permit2Data, 32), add(p, 128), mload(permit2Data))
             }
             (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
             // Only a valid pool contract can call this function.
