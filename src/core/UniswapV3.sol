@@ -44,7 +44,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     ///      sizeof(address(inputToken) | uint24(fee))
     uint256 private constant PATH_SKIP_HOP_SIZE = 23;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x80;
+    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0xa0;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -204,7 +204,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             if length {
                 if or(
                     iszero(returndatasize()),
-                    iszero(staticcall(gas(), 0x04, add(permit2Data, 0x20), length, add(swapCallbackData, 0xa0), length))
+                    iszero(staticcall(gas(), 0x04, add(permit2Data, 0x20), length, add(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE), length))
                 ) { invalid() }
             }
         }
