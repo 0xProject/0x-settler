@@ -65,6 +65,7 @@ abstract contract Permit2Payment is ERC2771Context {
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails
     ) internal pure returns (AllowanceHolder.TransferDetails[] memory result) {
         uint256 length;
+        // TODO: allow multiple fees
         if ((length = permit.length) != transferDetails.length || length > 2) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }

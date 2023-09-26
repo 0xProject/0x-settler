@@ -95,7 +95,14 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
 
     receive() external payable {}
 
-    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient, address trustedForwarder)
+    constructor(
+        address permit2,
+        address zeroEx,
+        address uniFactory,
+        bytes32 poolInitCodeHash,
+        address feeRecipient,
+        address trustedForwarder
+    )
         Basic(permit2)
         CurveV2()
         OtcOrderSettlement(permit2, feeRecipient, trustedForwarder)
