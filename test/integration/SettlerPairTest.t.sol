@@ -189,12 +189,12 @@ abstract contract SettlerPairTest is BasePairTest {
                 (
                     address(fromToken()),
                     address(fromToken()),
-                    1,
+                    1_000,
                     0x24,
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
                 )
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, amount() * 9_999 / 10_000, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, uniswapV3Path()))
         );
 
         Settler _settler = settler;
