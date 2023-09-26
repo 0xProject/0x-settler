@@ -62,7 +62,7 @@ contract AllowanceHolder {
         address payable target,
         bytes calldata data
     ) public payable returns (bytes memory) {
-        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard
+        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely to be adopted
         require(ERC2771Context(target).isTrustedForwarder(address(this))); // prevent confused deputy attacks
 
         MockTransientStorage storage tstor = _getTransientStorage();
@@ -82,6 +82,7 @@ contract AllowanceHolder {
             }
         }
 
+        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
         tstor.operator = address(0);
         tstor.witness = bytes32(0);
         for (uint256 i; i < length; i = i.unsafeInc()) {
