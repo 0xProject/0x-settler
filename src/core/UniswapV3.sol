@@ -40,7 +40,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     bytes32 private immutable UNI_POOL_INIT_CODE_HASH;
     /// @dev Minimum size of an encoded swap path:
     ///      sizeof(address(inputToken) | uint24(fee) | address(outputToken))
-    uint256 private constant SINGLE_HOP_PATH_SIZE = 20 + 3 + 20;
+    uint256 private constant SINGLE_HOP_PATH_SIZE = 43;
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
     ///      sizeof(address(inputToken) | uint24(fee))
     uint256 private constant PATH_SKIP_HOP_SIZE = 23;
@@ -167,12 +167,12 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
-            let p := add(encodedPath, 32)
-            inputToken := shr(96, mload(p))
-            p := add(p, 20)
-            fee := shr(232, mload(p))
-            p := add(p, 3)
-            outputToken := shr(96, mload(p))
+            let p := add(encodedPath, 0x20)
+            inputToken := shr(0x60, mload(p))
+            p := add(p, 0x14)
+            fee := shr(0xe8, mload(p))
+            p := add(p, 0x03)
+            outputToken := shr(0x60, mload(p))
         }
     }
 
