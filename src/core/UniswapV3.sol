@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -34,6 +33,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     using FullMath for uint256;
     using SafeTransferLib for ERC20;
 
+    error TooMuchSlippage(address token, uint256 expected, uint256 actual);
+
     /// @dev UniswapV3 Factory contract address prepended with '0xff' and left-aligned.
     bytes32 private immutable UNI_FF_FACTORY_ADDRESS;
     /// @dev UniswapV3 pool init code hash.
@@ -49,11 +50,11 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0xa0;
     /// @dev Minimum tick price sqrt ratio.
-    uint160 internal constant MIN_PRICE_SQRT_RATIO = 4295128739;
+    uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
-    uint160 internal constant MAX_PRICE_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
+    uint160 private constant MAX_PRICE_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
     /// @dev Mask of lower 20 bytes.
-    uint256 internal constant ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+    uint256 private constant ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
 
@@ -65,15 +66,19 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
     /// @param bips proportion of current balance of the first token in the path to sell.
+    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellTokenForTokenToUniswapV3(bytes memory encodedPath, uint256 bips, address recipient)
-        internal
-        returns (uint256 buyAmount)
-    {
+    function sellTokenForTokenToUniswapV3(
+        bytes memory encodedPath,
+        uint256 bips,
+        uint256 minBuyAmount,
+        address recipient
+    ) internal returns (uint256 buyAmount) {
         buyAmount = _swap(
             encodedPath,
             ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000),
+            minBuyAmount,
             address(this), // payer
             recipient,
             ""
@@ -84,23 +89,26 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     ///      using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
     /// @param sellAmount amount of the first token in the path to sell.
+    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens. Can be zero for sender.
     /// @param permit2Data The concatenated PermitTransferFrom, and (v,r,s) signature
     /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
         uint256 sellAmount,
+        uint256 minBuyAmount,
         address recipient,
         address payer,
         bytes memory permit2Data
     ) internal returns (uint256 buyAmount) {
-        buyAmount = _swap(encodedPath, sellAmount, payer, recipient, permit2Data);
+        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, permit2Data);
     }
 
     // Executes successive swaps along an encoded uniswap path.
     function _swap(
         bytes memory encodedPath,
         uint256 sellAmount,
+        uint256 minBuyAmount,
         address payer,
         address recipient,
         bytes memory permit2Data
@@ -112,12 +120,15 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         // TODO don't allocate permit2 data is empty (e.g a multhop where we are paying)
         // Perform a swap for each hop in the path.
         bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
+        ERC20 outputToken;
         while (true) {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
             IUniswapV3Pool pool;
             {
-                (ERC20 inputToken, uint24 fee, ERC20 outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
+                ERC20 inputToken;
+                uint24 fee;
+                (inputToken, fee, outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
                 pool = _toPool(inputToken, fee, outputToken);
                 zeroForOne = inputToken < outputToken;
                 _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
@@ -150,6 +161,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
                 mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
                 mstore(permit2Data, 0)
             }
+        }
+        if (buyAmount < minBuyAmount) {
+            revert TooMuchSlippage(address(outputToken), minBuyAmount, buyAmount);
         }
     }
 

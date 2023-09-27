@@ -80,7 +80,6 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     using CalldataDecoder for bytes[];
 
     error ActionInvalid(uint256 i, bytes4 action, bytes data);
-    error TooMuchSlippage(address token, uint256 expected, uint256 actual);
 
     // Permit2 Witness for meta transactions
     string internal constant ACTIONS_AND_SLIPPAGE_TYPE =
@@ -316,14 +315,15 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
             fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
-            (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
+            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
+                abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellTokenForTokenToUniswapV3(path, bips, recipient);
+            sellTokenForTokenToUniswapV3(path, bips, amountOutMin, recipient);
         } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-            (address recipient, uint256 amountIn, bytes memory path, bytes memory permit2Data) =
-                abi.decode(data, (address, uint256, bytes, bytes));
+            (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bytes memory permit2Data) =
+                abi.decode(data, (address, uint256, uint256, bytes, bytes));
 
-            sellTokenForTokenToUniswapV3(path, amountIn, recipient, msgSender, permit2Data);
+            sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit2Data);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
             (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
