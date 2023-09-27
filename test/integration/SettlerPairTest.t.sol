@@ -149,8 +149,10 @@ abstract contract SettlerPairTest is BasePairTest {
 
     function testSettler_uniswapV3_buyToken_fee_full_custody() public {
         bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (address(settler), 10_000, uniswapV3Path())),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                (address(settler), amount(), uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
+            ),
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
                 (
