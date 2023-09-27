@@ -287,9 +287,6 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
-            if (permit2Data.length != 288) {
-                Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-            }
             (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
