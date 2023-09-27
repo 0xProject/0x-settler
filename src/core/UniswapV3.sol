@@ -263,15 +263,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         // Only a valid pool contract can call this function.
         require(msg.sender == address(_toPool(token0, fee, token1)));
 
-        bytes memory permit2Data;
-        if (data.length > SWAP_CALLBACK_PREFIX_DATA_SIZE) {
-            unchecked {
-                permit2Data = new bytes(data.length - SWAP_CALLBACK_PREFIX_DATA_SIZE);
-            }
-            assembly ("memory-safe") {
-                calldatacopy(add(permit2Data, 0x20), add(data.offset, 0x80), mload(permit2Data))
-            }
-        }
+        bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
         // Pay the amount owed to the pool.
         if (amount0Delta > 0) {
             _pay(token0, payer, uint256(amount0Delta), permit2Data);
