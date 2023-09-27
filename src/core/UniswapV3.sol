@@ -289,7 +289,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         }
     }
 
-    function _pay(ERC20 token, address payer, uint256 amount, bytes memory permit2Data) private {
+    function _pay(ERC20 token, address payer, uint256 amount, bytes calldata permit2Data) private {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
