@@ -44,7 +44,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     ///      sizeof(address(inputToken) | uint24(fee))
     uint256 private constant PATH_SKIP_HOP_SIZE = 23;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0xa0;
+    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x80;
+    /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
+    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0xa0;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -204,7 +206,16 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             if length {
                 if or(
                     iszero(returndatasize()),
-                    iszero(staticcall(gas(), 0x04, add(permit2Data, 0x20), length, add(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE), length))
+                    iszero(
+                        staticcall(
+                            gas(),
+                            0x04,
+                            add(permit2Data, 0x20),
+                            length,
+                            add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET),
+                            length
+                        )
+                    )
                 ) { invalid() }
             }
         }
@@ -246,30 +257,20 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     /// @param data Arbitrary data forwarded from swap() caller. An ABI-encoded
     ///        struct of: inputToken, outputToken, fee, payer
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
-        ERC20 token0;
-        ERC20 token1;
-        address payer;
+        // Decode the data.
+        (ERC20 token0, ERC20 token1, uint24 fee, address payer) = abi.decode(data, (ERC20, ERC20, uint24, address));
+        (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
+        // Only a valid pool contract can call this function.
+        require(msg.sender == address(_toPool(token0, fee, token1)));
+
         bytes memory permit2Data;
         if (data.length > SWAP_CALLBACK_PREFIX_DATA_SIZE) {
             unchecked {
                 permit2Data = new bytes(data.length - SWAP_CALLBACK_PREFIX_DATA_SIZE);
             }
-        }
-        {
-            uint24 fee;
-            // Decode the data.
             assembly ("memory-safe") {
-                let p := add(36, calldataload(68))
-                token0 := calldataload(p)
-                token1 := calldataload(add(p, 32))
-                fee := calldataload(add(p, 64))
-                payer := calldataload(add(p, 96))
-
-                calldatacopy(add(permit2Data, 32), add(p, 128), mload(permit2Data))
+                calldatacopy(add(permit2Data, 0x20), add(data.offset, 0x80), mload(permit2Data))
             }
-            (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
-            // Only a valid pool contract can call this function.
-            require(msg.sender == address(_toPool(token0, fee, token1)));
         }
         // Pay the amount owed to the pool.
         if (amount0Delta > 0) {
