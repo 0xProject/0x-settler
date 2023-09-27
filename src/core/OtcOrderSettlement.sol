@@ -184,9 +184,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         bytes32 makerWitness = _hashConsideration(makerConsideration);
         bytes32 takerWitness = _hashTakerMetatxnConsideration(takerConsideration, recipient);
 
-        _permit2TransferFrom(
-            makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig
-        );
+        _permit2TransferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig);
         _permit2TransferFrom(
             takerPermit, takerTransferDetails, taker, takerWitness, TAKER_METATXN_CONSIDERATION_WITNESS, takerSig
         );
