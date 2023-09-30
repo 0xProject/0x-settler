@@ -164,10 +164,16 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, slippage.recipient);
                 return;
             } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-                (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bytes memory permit2Data) =
-                    abi.decode(data, (address, uint256, uint256, bytes, bytes));
+                (
+                    address recipient,
+                    uint256 amountIn,
+                    uint256 amountOutMin,
+                    bytes memory path,
+                    ISignatureTransfer.PermitTransferFrom memory permit,
+                    bytes memory sig
+                ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit2Data);
+                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit, sig);
             } else {
                 _dispatch(0, action, data, msg.sender);
             }
@@ -279,6 +285,17 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 // ensures that the whole sequence of actions is authorized by
                 // the requestor from whom we transferred.
                 msgSender = _metaTxnTransferFrom(data, witness, sig);
+            } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
+                // TODO: free memory
+                (
+                    address recipient,
+                    uint256 amountIn,
+                    uint256 amountOutMin,
+                    bytes memory path,
+                    ISignatureTransfer.PermitTransferFrom memory permit,
+                ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+                bytes32 witness = _hashActionsAndSlippage(actions, slippage);
+                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit, sig, witness);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }

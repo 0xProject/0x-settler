@@ -49,6 +49,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x80;
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0xa0;
+    uint256 private constant PERMIT_DATA_SIZE = 0x80;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -81,7 +82,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             minBuyAmount,
             address(this), // payer
             recipient,
-            ""
+            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
         );
     }
 
@@ -99,10 +100,32 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         uint256 minBuyAmount,
         address recipient,
         address payer,
-        bytes memory permit2Data
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig
     ) internal returns (uint256 buyAmount) {
-        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, permit2Data);
+        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
+        _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig);
+
+        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
     }
+
+    function sellTokenForTokenToUniswapV3(
+        bytes memory encodedPath,
+        uint256 sellAmount,
+        uint256 minBuyAmount,
+        address recipient,
+        address payer,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        bytes32 witness
+    ) internal returns (uint256 buyAmount) {
+        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
+        _encodePermit2Data(swapCallbackData, permit, witness, sig);
+
+        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
+    }
+
+    function _witnessTypeString() internal view virtual returns (string memory);
 
     // Executes successive swaps along an encoded uniswap path.
     function _swap(
@@ -111,15 +134,12 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         uint256 minBuyAmount,
         address payer,
         address recipient,
-        bytes memory permit2Data
+        bytes memory swapCallbackData
     ) private returns (uint256 buyAmount) {
         if (sellAmount > uint256(type(int256).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
-        // TODO don't allocate permit2 data is empty (e.g a multhop where we are paying)
-        // Perform a swap for each hop in the path.
-        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + permit2Data.length);
         ERC20 outputToken;
         while (true) {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
@@ -131,7 +151,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
                 (inputToken, fee, outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
                 pool = _toPool(inputToken, fee, outputToken);
                 zeroForOne = inputToken < outputToken;
-                _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer, permit2Data);
+                _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer);
             }
             (int256 amount0, int256 amount1) = pool.swap(
                 // Intermediate tokens go to this contract.
@@ -159,7 +179,6 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             encodedPath = _shiftHopFromPathInPlace(encodedPath);
             assembly ("memory-safe") {
                 mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
-                mstore(permit2Data, 0)
             }
         }
         if (buyAmount < minBuyAmount) {
@@ -203,36 +222,40 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         return encodedPath;
     }
 
+    function _encodePermit2Data(
+        bytes memory swapCallbackData,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes32 witness,
+        bytes memory sig
+    ) private view {
+        assembly ("memory-safe") {
+            function _memcpy(dst, src, len) {
+                if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
+            _memcpy(add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET), permit, PERMIT_DATA_SIZE)
+            mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE)), witness)
+            _memcpy(
+                add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x20)),
+                add(sig, 0x20),
+                mload(sig)
+            )
+        }
+    }
+
     // Update `swapCallbackData` in place with new values.
     function _updateSwapCallbackData(
         bytes memory swapCallbackData,
         ERC20 inputToken,
         ERC20 outputToken,
         uint24 fee,
-        address payer,
-        bytes memory permit2Data
+        address payer
     ) private view {
         assembly ("memory-safe") {
             mstore(add(swapCallbackData, 0x20), and(ADDRESS_MASK, inputToken))
             mstore(add(swapCallbackData, 0x40), and(ADDRESS_MASK, outputToken))
             mstore(add(swapCallbackData, 0x60), and(UINT24_MASK, fee))
             mstore(add(swapCallbackData, 0x80), and(ADDRESS_MASK, payer))
-            let length := mload(permit2Data)
-            if length {
-                if or(
-                    iszero(returndatasize()),
-                    iszero(
-                        staticcall(
-                            gas(),
-                            0x04,
-                            add(permit2Data, 0x20),
-                            length,
-                            add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET),
-                            length
-                        )
-                    )
-                ) { invalid() }
-            }
         }
     }
 
@@ -293,11 +316,16 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
-            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.PermitTransferFrom memory permit, bytes32 witness) =
+                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes32));
+            bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + 0x20:];
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
-            _permit2TransferFrom(permit, transferDetails, payer, sig);
+            if (witness == bytes32(0)) {
+                _permit2TransferFrom(permit, transferDetails, payer, sig);
+            } else {
+                _permit2TransferFrom(permit, transferDetails, payer, witness, _witnessTypeString(), sig);
+            }
         }
     }
 }
