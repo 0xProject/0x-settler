@@ -163,6 +163,11 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 );
                 fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, slippage.recipient);
                 return;
+            } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
+                (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bytes memory permit2Data) =
+                    abi.decode(data, (address, uint256, uint256, bytes, bytes));
+
+                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit2Data);
             } else {
                 _dispatch(0, action, data, msg.sender);
             }
@@ -312,11 +317,6 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 abi.decode(data, (address, uint256, uint256, bytes));
 
             sellTokenForTokenToUniswapV3(path, bips, amountOutMin, recipient);
-        } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-            (address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bytes memory permit2Data) =
-                abi.decode(data, (address, uint256, uint256, bytes, bytes));
-
-            sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit2Data);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
             (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
