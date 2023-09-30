@@ -309,6 +309,7 @@ abstract contract SettlerPairTest is BasePairTest {
             )
         );
 
+        uint256 beforeBalance = toToken().balanceOf(FROM);
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
@@ -316,6 +317,7 @@ abstract contract SettlerPairTest is BasePairTest {
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
         snapEnd();
+        assertGt(toToken().balanceOf(FROM), beforeBalance);
     }
 
     bytes32 private constant CONSIDERATION_TYPEHASH =
