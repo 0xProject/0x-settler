@@ -28,29 +28,31 @@ abstract contract Basic {
         if (pool == PERMIT2) {
             revert ConfusedDeputy();
         }
-        if ((offset += 32) > data.length) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
 
         uint256 value;
         uint256 amount;
         if (sellToken == ERC20(ETH_ADDRESS)) {
             value = amount = address(this).balance.mulDiv(bips, 10_000);
-        } else {
+        } else if (sellToken != address(0)) {
             amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
             if (pool != address(sellToken)) {
                 sellToken.safeApproveIfBelow(pool, amount);
             }
         }
-        assembly ("memory-safe") {
-            mstore(add(data, offset), amount)
+        if (amount != 0) {
+            if ((offset += 32) > data.length) {
+                Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+            }
+            assembly ("memory-safe") {
+                mstore(add(data, offset), amount)
+            }
         }
-        // We omit the EXTCODESIZE check here deliberately. This can be used to send value to EOAs.
         (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
         if (!success) {
             assembly ("memory-safe") {
                 revert(add(0x20, returnData), mload(returnData))
             }
         }
+        require(returnData.length > 0 || sellToken == ERC20(ETH_ADDRESS) || pool.code.length > 0);
     }
 }
