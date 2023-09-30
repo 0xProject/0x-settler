@@ -65,18 +65,6 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV2 using the contracts balance for funding
     function UNISWAPV2_SWAP(address recipient, uint256 bips, bytes memory path) external;
 
-    /// @dev Trades against Curve (uint256 variants) using the contracts balance for funding
-    // Pre-req: Funded
-    // Post-req: Payout
-    function CURVE_UINT256_EXCHANGE(
-        address pool,
-        address sellToken,
-        uint256 fromTokenIndex,
-        uint256 toTokenIndex,
-        uint256 sellAmount,
-        uint256 minBuyAmount
-    ) external;
-
     function TRANSFER_OUT_FIXED(address token, address recipient, uint256 amount) external;
 
     function TRANSFER_OUT_POSITIVE_SLIPPAGE(address token, address recipient, uint256 expectedAmount) external;

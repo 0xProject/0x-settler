@@ -5,7 +5,6 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Basic} from "./core/Basic.sol";
-import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
@@ -71,7 +70,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
+contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -97,9 +96,9 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
         Basic(permit2)
-        CurveV2()
         OtcOrderSettlement(permit2, feeRecipient)
         UniswapV3(uniFactory, poolInitCodeHash, permit2)
+        UniswapV2()
         ZeroEx(zeroEx)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
@@ -319,17 +318,6 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
             (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
 
             sellToUniswapV2(path, bips, recipient);
-        } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
-            (
-                address pool,
-                ERC20 sellToken,
-                uint256 fromTokenIndex,
-                uint256 toTokenIndex,
-                uint256 sellAmount,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, ERC20, uint256, uint256, uint256, uint256));
-
-            sellTokenForTokenToCurve(pool, sellToken, fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
         } else if (action == ISettlerActions.BASIC_SELL.selector) {
             (address pool, ERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, ERC20, uint256, uint256, bytes));
