@@ -323,14 +323,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, ZeroEx, Fre
                 abi.decode(data, (address, ERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
-        } else if (action == ISettlerActions.TRANSFER_OUT_FIXED.selector) {
-            (ERC20 token, address recipient, uint256 amount) = abi.decode(data, (ERC20, address, uint256));
-            if (token == ERC20(ETH_ADDRESS)) {
-                payable(recipient).safeTransferETH(amount);
-            } else {
-                token.safeTransfer(recipient, amount);
-            }
-        } else if (action == ISettlerActions.TRANSFER_OUT_POSITIVE_SLIPPAGE.selector) {
+        } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
             if (token == ERC20(ETH_ADDRESS)) {
                 uint256 balance = address(this).balance;
