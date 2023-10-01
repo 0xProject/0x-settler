@@ -64,6 +64,8 @@ abstract contract Basic {
                 assembly ("memory-safe") {
                     mstore(add(data, offset), amount)
                 }
+            } else {
+                require(offset == 0);
             }
             (bool success, bytes memory returnData) = pool.call(data);
             if (!success) {
