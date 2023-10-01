@@ -33,7 +33,7 @@ contract WethWrapTest is Test, GasSnapshot {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
-                (address(_weth), _eth, 10_000, 4, bytes.concat(abi.encodeCall(_weth.deposit, ()), bytes32(0)))
+                (address(_weth), _eth, 10_000, 0, "")
             )
         );
 

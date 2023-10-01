@@ -23,29 +23,52 @@ abstract contract Basic is Permit2PaymentAbstract {
         if (pool == address(PERMIT2())) {
             revert ConfusedDeputy();
         }
-        if ((offset += 32) > data.length) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
 
-        uint256 value;
-        uint256 amount;
         if (sellToken == ERC20(ETH_ADDRESS)) {
-            value = amount = address(this).balance.mulDiv(bips, 10_000);
+            uint256 amount = address(this).balance.mulDiv(bips, 10_000);
+            if (data.length == 0) {
+                require(offset == 0);
+                (bool success, bytes memory returnData) = payable(pool).call{value: amount}("");
+                if (!success) {
+                    assembly ("memory-safe") {
+                        revert(add(0x20, returnData), mload(returnData))
+                    }
+                }
+            } else {
+                if ((offset += 32) > data.length) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+                assembly ("memory-safe") {
+                    mstore(add(data, offset), amount)
+                }
+                (bool success, bytes memory returnData) = payable(pool).call{value: amount}(data);
+                if (!success) {
+                    assembly ("memory-safe") {
+                        revert(add(0x20, returnData), mload(returnData))
+                    }
+                }
+                require(returnData.length > 0 || pool.code.length > 0); // forbid sending data to EOAs
+            }
         } else {
-            amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
-            if (pool != address(sellToken)) {
-                sellToken.safeApproveIfBelow(pool, amount);
+            uint256 amount;
+            if (address(sellToken) != address(0)) {
+                amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
+                if ((offset += 32) > data.length) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+                assembly ("memory-safe") {
+                    mstore(add(data, offset), amount)
+                }
+            } else {
+                require(offset == 0);
             }
-        }
-        assembly ("memory-safe") {
-            mstore(add(data, offset), amount)
-        }
-        // We omit the EXTCODESIZE check here deliberately. This can be used to send value to EOAs.
-        (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
-        if (!success) {
-            assembly ("memory-safe") {
-                revert(add(0x20, returnData), mload(returnData))
+            (bool success, bytes memory returnData) = pool.call(data);
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(0x20, returnData), mload(returnData))
+                }
             }
+            require(returnData.length > 0 || pool.code.length > 0); // forbid EOAs
         }
     }
 }
