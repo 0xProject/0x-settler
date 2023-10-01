@@ -41,7 +41,7 @@ contract WethWrapTest is Test, GasSnapshot {
             actions, Settler.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
         );
         snapEnd();
-        assert(_weth.balanceOf(address(this)) - balanceBefore == 1e18);
+        assertEq(_weth.balanceOf(address(this)) - balanceBefore, 1e18);
     }
 
     function testWethWithdraw() public {
@@ -66,7 +66,7 @@ contract WethWrapTest is Test, GasSnapshot {
             })
         );
         snapEnd();
-        assert(address(this).balance - balanceBefore == 1e18);
+        assertEq(address(this).balance - balanceBefore, 1e18);
     }
 
     receive() external payable {}
