@@ -64,6 +64,9 @@ abstract contract Basic {
                 assembly ("memory-safe") {
                     mstore(add(data, offset), amount)
                 }
+                if (address(sellToken) != pool) {
+                    sellToken.safeApproveIfBelow(pool, amount);
+                }
             } else {
                 require(offset == 0);
             }
