@@ -242,7 +242,13 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
                 if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
             }
 
-            _memcpy(add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET), permit, PERMIT_DATA_SIZE)
+            {
+                let permitted := mload(permit)
+                mstore(add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET), mload(permitted))
+                mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20)), mload(add(permitted, 0x20)))
+            }
+            mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40)), mload(add(permit, 0x20)))
+            mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x60)), mload(add(permit, 0x40)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE)), witness)
             _memcpy(
                 add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x20)),
