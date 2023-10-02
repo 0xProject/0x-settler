@@ -56,7 +56,9 @@ abstract contract Basic {
             }
         } else {
             uint256 amount;
-            if (address(sellToken) != address(0)) {
+            if (address(sellToken) == address(0)) {
+                require(offset == 0);
+            } else {
                 amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
                 if ((offset += 32) > data.length) {
                     Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
@@ -67,8 +69,6 @@ abstract contract Basic {
                 if (address(sellToken) != pool) {
                     sellToken.safeApproveIfBelow(pool, amount);
                 }
-            } else {
-                require(offset == 0);
             }
             (bool success, bytes memory returnData) = pool.call(data);
             if (!success) {
