@@ -259,7 +259,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         ERC20 outputToken,
         uint24 fee,
         address payer
-    ) private view {
+    ) private pure {
         assembly ("memory-safe") {
             mstore(add(swapCallbackData, 0x20), and(ADDRESS_MASK, inputToken))
             mstore(add(swapCallbackData, 0x40), and(ADDRESS_MASK, outputToken))

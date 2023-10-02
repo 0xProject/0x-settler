@@ -100,10 +100,10 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_uniswapV3VIP() public {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (FROM, amount(), 0, uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
+                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN, (FROM, amount(), 0, uniswapV3Path(), permit, sig)
             )
         );
 
@@ -173,10 +173,11 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_uniswapV3_buyToken_fee_single_custody() public {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (address(settler), amount(), 0, uniswapV3Path(), _getDefaultFromPermit2Action().popSelector())
+                (address(settler), amount(), 0, uniswapV3Path(), permit, sig)
             ),
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
@@ -590,11 +591,15 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
+        return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (permit, sig));
+    }
+
+    function _getDefaultFromPermit2() private returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-
-        return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (permit, sig));
+        return (permit, sig);
     }
 }

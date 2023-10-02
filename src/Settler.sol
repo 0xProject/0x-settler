@@ -91,7 +91,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x192e3b91169192370449da1ed14831706ef016a610bdabc518be7102ce47b0d9;
 
-    function _uniV3WitnessTypeString() internal view override returns (string memory) {
+    function _uniV3WitnessTypeString() internal pure override returns (string memory) {
         return ACTIONS_AND_SLIPPAGE_WITNESS;
     }
 
@@ -297,7 +297,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                     uint256 amountIn,
                     uint256 amountOutMin,
                     bytes memory path,
-                    ISignatureTransfer.PermitTransferFrom memory permit,
+                    ISignatureTransfer.PermitTransferFrom memory permit
                 ) = abi.decode(data, (address, address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
                 bytes32 witness = _hashActionsAndSlippage(actions, slippage);
                 sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, taker, permit, sig, witness);
