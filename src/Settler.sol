@@ -223,47 +223,43 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         }
     }
 
-    function _metaTxnTransferFrom(bytes calldata data, bytes32 witness, bytes calldata sig)
+    function _metaTxnTransferFrom(bytes calldata data, bytes32 witness, address msgSender, bytes calldata sig)
         internal
         DANGEROUS_freeMemory
-        returns (address)
     {
-        (ISignatureTransfer.PermitTransferFrom memory permit, address from) =
-            abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address));
+        ISignatureTransfer.PermitTransferFrom memory permit = abi.decode(data, (ISignatureTransfer.PermitTransferFrom));
         (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
             _permitToTransferDetails(permit, address(this));
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
         // metatransaction.
-        _permit2TransferFrom(permit, transferDetails, from, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
-        // `from` becomes the metatransaction requestor (the taker of the sequence of actions).
-        return from;
+        _permit2TransferFrom(permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
     }
 
     function _uniV3WitnessTypeString() internal pure override returns (string memory) {
         return ACTIONS_AND_SLIPPAGE_WITNESS;
     }
 
-    function _metaTxnUniV3VIP(bytes calldata data, bytes32 witness, bytes calldata sig)
+    function _metaTxnUniV3VIP(bytes calldata data, bytes32 witness, address msgSender, bytes calldata sig)
         internal
         DANGEROUS_freeMemory
-        returns (address)
     {
         (
-            address taker,
             address recipient,
             uint256 amountIn,
             uint256 amountOutMin,
             bytes memory path,
             ISignatureTransfer.PermitTransferFrom memory permit
-        ) = abi.decode(data, (address, address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, taker, permit, sig, witness);
-        return taker;
+        ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
+        sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit, sig, witness);
     }
 
-    function executeMetaTxn(bytes[] calldata actions, AllowedSlippage calldata slippage, bytes calldata sig) public {
-        address msgSender = msg.sender;
-
+    function executeMetaTxn(
+        bytes[] calldata actions,
+        AllowedSlippage calldata slippage,
+        address msgSender,
+        bytes calldata sig
+    ) public {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
 
@@ -282,21 +278,11 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                     ISignatureTransfer.PermitTransferFrom memory makerPermit,
                     address maker,
                     bytes memory makerSig,
-                    ISignatureTransfer.PermitTransferFrom memory takerPermit,
-                    address taker,
-                    bytes memory takerSig
+                    ISignatureTransfer.PermitTransferFrom memory takerPermit
                 ) = abi.decode(
-                    data,
-                    (
-                        ISignatureTransfer.PermitTransferFrom,
-                        address,
-                        bytes,
-                        ISignatureTransfer.PermitTransferFrom,
-                        address,
-                        bytes
-                    )
+                    data, (ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
                 );
-                fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, taker, takerSig, slippage.recipient);
+                fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, msgSender, sig, slippage.recipient);
                 return;
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
                 // Checking this witness ensures that the entire sequence of actions is
@@ -305,10 +291,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 // `msgSender` is the signer of the metatransaction. This
                 // ensures that the whole sequence of actions is authorized by
                 // the requestor from whom we transferred.
-                msgSender = _metaTxnTransferFrom(data, witness, sig);
+                _metaTxnTransferFrom(data, witness, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
                 bytes32 witness = _hashActionsAndSlippage(actions, slippage);
-                msgSender = _metaTxnUniV3VIP(data, witness, sig);
+                _metaTxnUniV3VIP(data, witness, msgSender, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }

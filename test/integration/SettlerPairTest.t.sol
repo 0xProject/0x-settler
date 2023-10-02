@@ -431,7 +431,7 @@ abstract contract SettlerPairTest is BasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (permit, FROM)),
+            abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (permit)),
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
@@ -456,7 +456,10 @@ abstract contract SettlerPairTest is BasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
         _settler.executeMetaTxn(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}), sig
+            actions,
+            Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}),
+            FROM,
+            sig
         );
         snapEnd();
     }
@@ -467,8 +470,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (FROM, FROM, amount(), 0, uniswapV3Path(), permit)
+                ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN, (FROM, amount(), 0, uniswapV3Path(), permit)
             )
         );
 
@@ -493,7 +495,10 @@ abstract contract SettlerPairTest is BasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3VIP");
         _settler.executeMetaTxn(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}), sig
+            actions,
+            Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}),
+            FROM,
+            sig
         );
         snapEnd();
     }
@@ -547,9 +552,7 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.METATXN_SETTLER_OTC_PERMIT2, (makerPermit, MAKER, makerSig, takerPermit, FROM, takerSig)
-            )
+            abi.encodeCall(ISettlerActions.METATXN_SETTLER_OTC_PERMIT2, (makerPermit, MAKER, makerSig, takerPermit))
         );
 
         Settler _settler = settler;
@@ -559,7 +562,8 @@ abstract contract SettlerPairTest is BasePairTest {
         _settler.executeMetaTxn(
             actions,
             Settler.AllowedSlippage({buyToken: address(0), recipient: FROM, minAmountOut: 0 ether}),
-            new bytes(0)
+            FROM,
+            takerSig
         );
         snapEnd();
     }

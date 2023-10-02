@@ -10,8 +10,8 @@ interface ISettlerActions {
     /// @dev Transfer funds from msg.sender Permit2.
     function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) external;
 
-    /// @dev Transfer funds from `from` into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
-    function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory, address from) external;
+    /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
+    function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
@@ -28,9 +28,7 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        address taker,
-        bytes memory takerSig
+        ISignatureTransfer.PermitTransferFrom memory takerPermit
     ) external;
 
     // TODO: SETTLER_OTC_SELF_FUNDED needs custody optimization
@@ -65,7 +63,6 @@ interface ISettlerActions {
 
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
     function METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
-        address from,
         address recipient,
         uint256 amountIn,
         uint256 amountOutMin,
