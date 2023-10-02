@@ -125,7 +125,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
     }
 
-    function _witnessTypeString() internal view virtual returns (string memory);
+    function _uniV3WitnessTypeString() internal view virtual returns (string memory);
 
     // Executes successive swaps along an encoded uniswap path.
     function _swap(
@@ -324,7 +324,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             if (witness == bytes32(0)) {
                 _permit2TransferFrom(permit, transferDetails, payer, sig);
             } else {
-                _permit2TransferFrom(permit, transferDetails, payer, witness, _witnessTypeString(), sig);
+                _permit2TransferFrom(permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig);
             }
         }
     }

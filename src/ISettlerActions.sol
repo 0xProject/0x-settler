@@ -61,7 +61,18 @@ interface ISettlerActions {
         uint256 amountIn,
         uint256 amountOutMin,
         bytes memory path,
-        bytes memory permit2Data
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig
+    ) external;
+
+    /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
+    function METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
+        address from,
+        address recipient,
+        uint256 amountIn,
+        uint256 amountOutMin,
+        bytes memory path,
+        ISignatureTransfer.PermitTransferFrom memory permit
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
