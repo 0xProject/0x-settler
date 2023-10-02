@@ -29,37 +29,31 @@ abstract contract Basic {
             revert ConfusedDeputy();
         }
 
+        uint256 value;
         if (sellToken == ERC20(ETH_ADDRESS)) {
-            uint256 amount = address(this).balance.mulDiv(bips, 10_000);
+            value = address(this).balance.mulDiv(bips, 10_000);
             if (data.length == 0) {
                 require(offset == 0);
-                (bool success, bytes memory returnData) = payable(pool).call{value: amount}("");
+                (bool success, bytes memory returnData) = payable(pool).call{value: value}("");
                 if (!success) {
                     assembly ("memory-safe") {
                         revert(add(0x20, returnData), mload(returnData))
                     }
                 }
+                return;
             } else {
                 if ((offset += 32) > data.length) {
                     Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
                 }
                 assembly ("memory-safe") {
-                    mstore(add(data, offset), amount)
+                    mstore(add(data, offset), value)
                 }
-                (bool success, bytes memory returnData) = payable(pool).call{value: amount}(data);
-                if (!success) {
-                    assembly ("memory-safe") {
-                        revert(add(0x20, returnData), mload(returnData))
-                    }
-                }
-                require(returnData.length > 0 || pool.code.length > 0); // forbid sending data to EOAs
             }
         } else {
-            uint256 amount;
             if (address(sellToken) == address(0)) {
                 require(offset == 0);
             } else {
-                amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
+                uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
                 if ((offset += 32) > data.length) {
                     Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
                 }
@@ -70,13 +64,13 @@ abstract contract Basic {
                     sellToken.safeApproveIfBelow(pool, amount);
                 }
             }
-            (bool success, bytes memory returnData) = pool.call(data);
-            if (!success) {
-                assembly ("memory-safe") {
-                    revert(add(0x20, returnData), mload(returnData))
-                }
-            }
-            require(returnData.length > 0 || pool.code.length > 0); // forbid EOAs
         }
+        (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(0x20, returnData), mload(returnData))
+            }
+        }
+        require(returnData.length > 0 || pool.code.length > 0); // forbid sending data to EOAs
     }
 }
