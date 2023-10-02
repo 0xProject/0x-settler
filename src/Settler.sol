@@ -91,10 +91,6 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x192e3b91169192370449da1ed14831706ef016a610bdabc518be7102ce47b0d9;
 
-    function _uniV3WitnessTypeString() internal pure override returns (string memory) {
-        return ACTIONS_AND_SLIPPAGE_WITNESS;
-    }
-
     bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
     receive() external payable {}
@@ -244,6 +240,27 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         return from;
     }
 
+    function _uniV3WitnessTypeString() internal pure override returns (string memory) {
+        return ACTIONS_AND_SLIPPAGE_WITNESS;
+    }
+
+    function _metaTxnUniV3VIP(bytes calldata data, bytes32 witness, bytes calldata sig)
+        internal
+        DANGEROUS_freeMemory
+        returns (address)
+    {
+        (
+            address taker,
+            address recipient,
+            uint256 amountIn,
+            uint256 amountOutMin,
+            bytes memory path,
+            ISignatureTransfer.PermitTransferFrom memory permit
+        ) = abi.decode(data, (address, address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
+        sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, taker, permit, sig, witness);
+        return taker;
+    }
+
     function executeMetaTxn(bytes[] calldata actions, AllowedSlippage calldata slippage, bytes calldata sig) public {
         address msgSender = msg.sender;
 
@@ -290,17 +307,8 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 // the requestor from whom we transferred.
                 msgSender = _metaTxnTransferFrom(data, witness, sig);
             } else if (action == ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-                // TODO: free memory
-                (
-                    address taker,
-                    address recipient,
-                    uint256 amountIn,
-                    uint256 amountOutMin,
-                    bytes memory path,
-                    ISignatureTransfer.PermitTransferFrom memory permit
-                ) = abi.decode(data, (address, address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
                 bytes32 witness = _hashActionsAndSlippage(actions, slippage);
-                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, taker, permit, sig, witness);
+                msgSender = _metaTxnUniV3VIP(data, witness, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }
