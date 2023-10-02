@@ -7,12 +7,10 @@ import {IZeroEx} from "./core/ZeroEx.sol";
 interface ISettlerActions {
     // TODO: PERMIT2_TRANSFER_FROM and METATXN_PERMIT2_TRANSFER_FROM need custody optimization
 
-    /// @dev Transfer funds from msg.sender to multiple destinations using Permit2.
-    /// First element is the amount to transfer into Settler. Second element is the amount to transfer to fee recipient.
+    /// @dev Transfer funds from msg.sender Permit2.
     function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) external;
 
-    /// @dev Transfer funds from `from` into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn`
-    /// where the signature is provided as calldata
+    /// @dev Transfer funds from `from` into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
     function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory, address from) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties

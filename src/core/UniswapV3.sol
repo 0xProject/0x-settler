@@ -86,13 +86,13 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         );
     }
 
-    /// @dev Sell a token for another token directly against uniswap v3. Payment is from the msg.sender
-    ///      using a Permit2 signature.
+    /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
     /// @param sellAmount amount of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
-    /// @param recipient The recipient of the bought tokens. Can be zero for sender.
-    /// @param permit2Data The concatenated PermitTransferFrom, and (v,r,s) signature
+    /// @param recipient The recipient of the bought tokens.
+    /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
+    /// @param sig The taker's signature for Permit2
     /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
@@ -109,6 +109,15 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
     }
 
+    /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
+    /// @param encodedPath Uniswap-encoded path.
+    /// @param sellAmount amount of the first token in the path to sell.
+    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
+    /// @param recipient The recipient of the bought tokens.
+    /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
+    /// @param sig The taker's signature for Permit2
+    /// @param witness Hashed additional data to be combined with _uniV3WitnessTypeString(), signed over, and verified by Permit2
+    /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
         uint256 sellAmount,
