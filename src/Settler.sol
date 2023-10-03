@@ -161,7 +161,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                         bytes
                     )
                 );
-                fillOtcOrder(makerPermit, maker, makerSig, takerPermit, takerSig, slippage.recipient);
+                fillOtcOrder(slippage.recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
                 return;
             } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
                 (
@@ -227,9 +227,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         internal
         DANGEROUS_freeMemory
     {
-        ISignatureTransfer.PermitTransferFrom memory permit = abi.decode(data, (ISignatureTransfer.PermitTransferFrom));
+        (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
+            abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
         (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-            _permitToTransferDetails(permit, address(this));
+            _permitToTransferDetails(permit, recipient);
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
         // metatransaction.
@@ -282,7 +283,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 ) = abi.decode(
                     data, (ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
                 );
-                fillOtcOrderMetaTxn(makerPermit, maker, makerSig, takerPermit, msgSender, sig, slippage.recipient);
+                fillOtcOrderMetaTxn(slippage.recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
                 return;
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
                 // Checking this witness ensures that the entire sequence of actions is
@@ -313,21 +314,22 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         DANGEROUS_freeMemory
     {
         if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
-            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes));
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-                _permitToTransferDetails(permit, address(this));
+                _permitToTransferDetails(permit, recipient);
             _permit2TransferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             (
+                address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 address maker,
-                bytes memory sig,
+                bytes memory makerSig,
                 ERC20 takerToken,
                 uint256 maxTakerAmount
-            ) = abi.decode(data, (ISignatureTransfer.PermitTransferFrom, address, bytes, ERC20, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ERC20, uint256));
 
-            fillOtcOrderSelfFunded(permit, maker, sig, takerToken, maxTakerAmount, msgSender);
+            fillOtcOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
