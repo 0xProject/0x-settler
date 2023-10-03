@@ -7,9 +7,24 @@ import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 
+library Revert {
+    function _revert(bytes memory reason) internal pure {
+        assembly ("memory-safe") {
+            revert(add(reason, 0x20), mload(reason))
+        }
+    }
+
+    function maybeRevert(bool success, bytes memory reason) internal pure {
+        if (!success) {
+            _revert(reason);
+        }
+    }
+}
+
 abstract contract Basic {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
+    using Revert for bool;
 
     address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -35,11 +50,7 @@ abstract contract Basic {
             if (data.length == 0) {
                 require(offset == 0);
                 (bool success, bytes memory returnData) = payable(pool).call{value: value}("");
-                if (!success) {
-                    assembly ("memory-safe") {
-                        revert(add(0x20, returnData), mload(returnData))
-                    }
-                }
+                success.maybeRevert(returnData);
                 return;
             } else {
                 if ((offset += 32) > data.length) {
@@ -66,11 +77,7 @@ abstract contract Basic {
             }
         }
         (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
-        if (!success) {
-            assembly ("memory-safe") {
-                revert(add(0x20, returnData), mload(returnData))
-            }
-        }
+        success.maybeRevert(returnData);
         require(returnData.length > 0 || pool.code.length > 0); // forbid sending data to EOAs
     }
 }
