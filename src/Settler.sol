@@ -334,9 +334,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
             sellTokenForTokenToUniswapV3(path, bips, amountOutMin, recipient);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
-            (address recipient, uint256 bips, bytes memory path) = abi.decode(data, (address, uint256, bytes));
+            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
+                abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellToUniswapV2(path, bips, recipient);
+            sellToUniswapV2(path, bips, amountOutMin, recipient);
         } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
             (
                 address pool,
