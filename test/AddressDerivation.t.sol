@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {AddressDerivation} from "src/AddressDerivation.sol";
+import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import "forge-std/Test.sol";
 

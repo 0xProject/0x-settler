@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {TwoStepOwnable} from "./TwoStepOwnable.sol";
-import {AddressDerivation} from "./AddressDerivation.sol";
+import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
 contract Deployer is TwoStepOwnable {
     uint64 public nonce;
