@@ -8,8 +8,8 @@ contract Deployer is TwoStepOwnable {
     bytes32 private _pad;
     uint64 public nonce;
     address public feeCollector;
-    mapping(address => bool) isAuthorized;
-    mapping(address => bool) isUnsafe;
+    mapping(address => bool) public isAuthorized;
+    mapping(address => bool) public isUnsafe;
 
     constructor(address initialOwner) {
         emit OwnershipPending(initialOwner);
