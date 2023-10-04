@@ -88,7 +88,7 @@ contract Deployer is TwoStepOwnable {
         unchecked {
             for (uint64 i = nonce; i > 0; --i) {
                 address instance = AddressDerivation.deriveContract(address(this), i);
-                if (isDeployed[instance] && !isUnsafe[instance] && instance.code.length > 0) {
+                if (!isUnsafe[instance] && instance.code.length > 0) {
                     return instance;
                 }
             }
