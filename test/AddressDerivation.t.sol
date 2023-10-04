@@ -25,10 +25,8 @@ contract AddressDerivationTest is Test {
         vm.assume(
             deployer > address(255) && deployer != address(this) && deployer != tx.origin && deployer != address(vm)
         );
-        nonce = uint64(bound(nonce, vm.getNonce(deployer), type(uint64).max - 1));
-        if (nonce > vm.getNonce(deployer)) {
-            vm.setNonce(deployer, nonce);
-        }
+        nonce = uint64(bound(nonce, 0, type(uint64).max - 1));
+        vm.setNonceUnsafe(deployer, nonce);
         vm.prank(deployer);
         address expected = address(new Dummy());
 
