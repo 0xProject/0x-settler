@@ -8,10 +8,16 @@ contract Deployer is TwoStepOwnable {
     uint64 public nonce;
     address public feeCollector;
     mapping(address => bool) isAuthorized;
+    mapping(address => bool) isUnsafe;
 
     constructor(address initialOwner) {
         emit OwnershipPending(initialOwner);
         pendingOwner = initialOwner;
+
+        // contracts can't deploy at nonce zero. blacklist it to avoid foot guns.
+        address zeroInstance = AddressDerivation.deriveContract(address(this), 0);
+        isUnsafe[zeroInstance] = true;
+        emit Unsafe(0, zeroInstance);
     }
 
     event Authorized(address indexed, bool);
@@ -66,5 +72,27 @@ contract Deployer is TwoStepOwnable {
 
     function deployment() public view returns (address) {
         return AddressDerivation.deriveContract(address(this), nonce);
+    }
+
+    event Unsafe(uint64 indexed, address indexed);
+
+    function setUnsafe(uint64 _nonce) public onlyAuthorized returns (bool) {
+        address instance = AddressDerivation.deriveContract(address(this), _nonce);
+        require(_nonce <= nonce);
+        isUnsafe[instance] = true;
+        emit Unsafe(_nonce, instance);
+        return true;
+    }
+
+    function safeDeployment() public view returns (address) {
+        unchecked {
+            for (uint64 i = nonce; i-- > 0;) {
+                address instance = AddressDerivation.deriveContract(address(this), i);
+                if (isDeployed[instance] && !isUnsafe[instance] && instance.code.length > 0) {
+                    return instance;
+                }
+            }
+        }
+        revert();
     }
 }
