@@ -33,6 +33,14 @@ contract Deployer is TwoStepOwnable {
         _;
     }
 
+    event FeeCollectorChanged(address indexed);
+
+    function setFeeCollector(address newFeeCollector) public onlyOwner returns (bool) {
+        emit FeeCollectorChanged(newFeeCollector);
+        feeCollector = newFeeCollector;
+        return true;
+    }
+
     event Deployed(uint64 indexed, address indexed);
 
     function deploy(bytes calldata initCode)
