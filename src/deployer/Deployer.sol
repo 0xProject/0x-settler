@@ -5,6 +5,7 @@ import {TwoStepOwnable} from "./TwoStepOwnable.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
 contract Deployer is TwoStepOwnable {
+    bytes32 private _pad;
     uint64 public nonce;
     address public feeCollector;
     mapping(address => bool) isAuthorized;
