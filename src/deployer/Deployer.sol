@@ -50,6 +50,8 @@ contract Deployer is TwoStepOwnable {
 
     event Deployed(uint64 indexed, address indexed);
 
+    error DeployFailed();
+
     function deploy(bytes calldata initCode)
         public
         payable
@@ -63,6 +65,9 @@ contract Deployer is TwoStepOwnable {
             calldatacopy(ptr, initCode.offset, initCode.length)
             mstore(add(ptr, initCode.length), _feeCollector)
             deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
+        }
+        if (deployed == address(0) || deployed.code.length == 0) {
+            revert DeployFailed();
         }
         emit Deployed(newNonce, deployed);
     }
