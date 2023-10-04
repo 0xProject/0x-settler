@@ -9,8 +9,8 @@ contract Dummy {}
 
 contract AddressDerivationTest is Test {
     function testEOA(uint256 privKey, uint256 k) public {
-        privKey = bound(privKey, 1, AddressDerivation._SECP256K1_N - 1);
-        k = bound(k, 1, AddressDerivation._SECP256K1_N - 1);
+        privKey = boundPrivateKey(privKey);
+        k = boundPrivateKey(k);
         Vm.Wallet memory parent = vm.createWallet(privKey, "parent");
         Vm.Wallet memory child = vm.createWallet(mulmod(privKey, k, AddressDerivation._SECP256K1_N), "child");
         assertEq(
@@ -18,10 +18,7 @@ contract AddressDerivationTest is Test {
             address(uint160(uint256(keccak256(abi.encodePacked(parent.publicKeyX, parent.publicKeyY))))),
             "sanity check"
         );
-        uint8 v = 27 + uint8(parent.publicKeyY & 1);
-        bytes32 r = bytes32(parent.publicKeyX);
-        bytes32 s = bytes32(mulmod(parent.publicKeyX, k, AddressDerivation._SECP256K1_N));
-        assertEq(ecrecover(bytes32(0), v, r, s), child.addr, "hack");
+        assertEq(AddressDerivation.deriveEOA(parent.publicKeyX, parent.publicKeyY, k), child.addr);
     }
 
     function testContract(address deployer, uint64 nonce) public {
