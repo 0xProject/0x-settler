@@ -81,11 +81,13 @@ contract AllowanceHolder {
             tstor.allowed[permit.token] = permit.amount;
         }
 
-        (bool success, bytes memory returndata) =
-            target.call{value: msg.value}(bytes.concat(data, bytes20(uint160(msg.sender))));
-        if (!success) {
-            assembly ("memory-safe") {
-                revert(add(returndata, 0x20), mload(returndata))
+        {
+            (bool success, bytes memory returndata) =
+                target.call{value: msg.value}(bytes.concat(data, bytes20(uint160(msg.sender))));
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(returndata, 0x20), mload(returndata))
+                }
             }
         }
 
