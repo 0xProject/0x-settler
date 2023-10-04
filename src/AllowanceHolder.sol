@@ -55,20 +55,24 @@ contract AllowanceHolder {
         }
     }
 
+    error ConfusedDeputy();
+
     function execute(
         address operator,
         bytes32 witness,
         ISignatureTransfer.TokenPermissions[] calldata permits,
         address payable target,
         bytes calldata data
-    ) public payable returns (bytes memory) {
+    ) public payable returns (bytes memory result) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely to be adopted
-        require(ERC2771Context(target).isTrustedForwarder(address(this))); // prevent confused deputy attacks
+        if (!ERC2771Context(target).isTrustedForwarder(address(this))) {
+            revert ConfusedDeputy();
+        }
         {
             (bool success, bytes memory returnData) =
                 target.staticcall(abi.encodeCall(ERC20(target).balanceOf, (msg.sender)));
             if (success && returnData.length >= 32) {
-                revert(); // prevent confused deputy attacks
+                revert ConfusedDeputy();
             }
         }
 
@@ -82,11 +86,11 @@ contract AllowanceHolder {
         }
 
         {
-            (bool success, bytes memory returndata) =
-                target.call{value: msg.value}(bytes.concat(data, bytes20(uint160(msg.sender))));
+            bool success;
+            (success, result) = target.call{value: msg.value}(bytes.concat(data, bytes20(uint160(msg.sender))));
             if (!success) {
                 assembly ("memory-safe") {
-                    revert(add(returndata, 0x20), mload(returndata))
+                    revert(add(result, 0x20), mload(result))
                 }
             }
         }
@@ -97,7 +101,6 @@ contract AllowanceHolder {
         for (uint256 i; i < length; i = i.unsafeInc()) {
             tstor.allowed[permits.unsafeGet(i).token] = 0;
         }
-        return returndata;
     }
 
     struct TransferDetails {
