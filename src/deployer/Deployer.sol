@@ -98,7 +98,7 @@ contract Deployer is TwoStepOwnable {
     }
 
     // in spite of the fact that `deploy` is payable, `multicall` cannot be
-    // payable for security. therefore, there are some instances where it is
+    // payable for security. therefore, there are some use cases where it is
     // necessary to make multiple calls to this contract.
     function multicall(bytes[] calldata datas) public {
         uint256 freeMemPtr;
