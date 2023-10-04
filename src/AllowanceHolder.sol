@@ -64,6 +64,13 @@ contract AllowanceHolder {
     ) public payable returns (bytes memory) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely to be adopted
         require(ERC2771Context(target).isTrustedForwarder(address(this))); // prevent confused deputy attacks
+        {
+            (bool success, bytes memory returnData) =
+                target.staticcall(abi.encodeCall(ERC20(target).balanceOf, (msg.sender)));
+            if (success && returnData.length >= 32) {
+                revert(); // prevent confused deputy attacks
+            }
+        }
 
         MockTransientStorage storage tstor = _getTransientStorage();
         tstor.operator = operator;
