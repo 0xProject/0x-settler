@@ -66,11 +66,16 @@ contract DeployerTest is Test {
 
     function testDeploy() public {
         deployer.authorize(address(this), true);
+        deployer.setFeeCollector(auth);
+        assertEq(deployer.nonce(), 0);
         address predicted = deployer.deployment(1);
         vm.expectEmit(true, true, false, false);
         emit Deployed(1, predicted);
         (uint64 nonce, address instance) = deployer.deploy(type(Dummy).creationCode);
         assertEq(nonce, 1);
         assertEq(instance, predicted);
+        assertEq(deployer.nonce(), 1);
+        assertEq(deployer.deployment(), predicted);
+        assertEq(Dummy(instance).feeCollector(), auth);
     }
 }
