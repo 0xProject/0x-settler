@@ -13,6 +13,12 @@ contract Dummy {
     }
 }
 
+contract DeployFail {
+    constructor() {
+        revert();
+    }
+}
+
 contract DeployerTest is Test {
     Deployer public deployer;
     address public auth = address(0xc0de60d);
@@ -77,5 +83,45 @@ contract DeployerTest is Test {
         assertEq(deployer.nonce(), 1);
         assertEq(deployer.deployment(), predicted);
         assertEq(Dummy(instance).feeCollector(), auth);
+    }
+
+    function testDeployNotAuthorized() public {
+        vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
+        deployer.deploy(type(Dummy).creationCode);
+    }
+
+    function testDeployRevert() public {
+        deployer.authorize(address(this), true);
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        deployer.deploy(type(DeployFail).creationCode);
+    }
+
+    function testDeployEmpty() public {
+        deployer.authorize(address(this), true);
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        deployer.deploy(hex"00"); // STOP opcode; succeeds with empty returnData
+    }
+
+    function testSafeDeployment() public {
+        deployer.authorize(address(this), true);
+
+        vm.expectRevert(new bytes(0));
+        deployer.safeDeployment();
+
+        (, address instance) = deployer.deploy(type(Dummy).creationCode);
+        assertEq(deployer.safeDeployment(), instance);
+
+        assertTrue(deployer.setUnsafe(1));
+        vm.expectRevert(new bytes(0));
+        deployer.safeDeployment();
+
+        (, instance) = deployer.deploy(type(Dummy).creationCode);
+        assertEq(deployer.safeDeployment(), instance);
+
+        deployer.deploy(type(Dummy).creationCode);
+        assertNotEq(deployer.safeDeployment(), instance);
+
+        assertTrue(deployer.setUnsafe(3));
+        assertEq(deployer.safeDeployment(), instance);
     }
 }
