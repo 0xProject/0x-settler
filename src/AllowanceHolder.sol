@@ -71,8 +71,12 @@ contract AllowanceHolder {
             revert ConfusedDeputy();
         }
         {
-            (bool success, bytes memory returnData) =
-                target.functionStaticCallWithGas(abi.encodeCall(ERC20(target).balanceOf, (msg.sender)), 500_000, CallWithGas._MAX_MEM);
+            // 500k gas seems like a pretty healthy upper bound for the amount
+            // of gas that `balanceOf` could reasonably consume in a
+            // well-behaved ERC20
+            (bool success, bytes memory returnData) = target.functionStaticCallWithGas(
+                abi.encodeCall(ERC20(target).balanceOf, (msg.sender)), 500_000, CallWithGas._MAX_MEM
+            );
             if (success && returnData.length >= 32) {
                 revert ConfusedDeputy();
             }
