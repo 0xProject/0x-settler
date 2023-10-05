@@ -5,6 +5,7 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
+import {CallWithGas} from "./utils/CallWithGas.sol";
 
 import {ERC2771Context} from "./ERC2771Context.sol";
 
@@ -32,6 +33,7 @@ library UnsafeArray {
 
 contract AllowanceHolder {
     using SafeTransferLib for ERC20;
+    using CallWithGas for address;
     using UnsafeMath for uint256;
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for TransferDetails[];
@@ -70,7 +72,7 @@ contract AllowanceHolder {
         }
         {
             (bool success, bytes memory returnData) =
-                target.staticcall(abi.encodeCall(ERC20(target).balanceOf, (msg.sender)));
+                target.functionStaticCallWithGas(abi.encodeCall(ERC20(target).balanceOf, (msg.sender)), 500_000, CallWithGas._MAX_MEM);
             if (success && returnData.length >= 32) {
                 revert ConfusedDeputy();
             }
