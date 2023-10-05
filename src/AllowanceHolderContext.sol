@@ -22,4 +22,10 @@ abstract contract AllowanceHolderContext is Context {
             sender = super._msgSender();
         }
     }
+
+    // this is here to avoid foot-guns and make it very explicit that we intend
+    // to pass the confused deputy check in AllowanceHolder
+    function balanceOf(address) external pure returns (bool) {
+        revert();
+    }
 }
