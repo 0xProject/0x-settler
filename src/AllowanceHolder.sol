@@ -71,14 +71,23 @@ contract AllowanceHolder {
             revert ConfusedDeputy();
         }
         {
+            uint256 freeMemPtr;
+            assembly ("memory-safe") {
+                freeMemPtr := mload(0x40)
+            }
             // 500k gas seems like a pretty healthy upper bound for the amount
             // of gas that `balanceOf` could reasonably consume in a
-            // well-behaved ERC20
+            // well-behaved ERC20. 0x7724e bytes of returndata would cause this
+            // context to consume over 500k gas in memory costs, something
+            // well-behaved ERC20 ought to do.
             (bool success, bytes memory returnData) = target.functionStaticCallWithGas(
-                abi.encodeCall(ERC20(target).balanceOf, (msg.sender)), 500_000, CallWithGas._MAX_MEM
+                abi.encodeCall(ERC20(target).balanceOf, (msg.sender)), 500_000, 0x7724e
             );
             if (success && returnData.length >= 32) {
                 revert ConfusedDeputy();
+            }
+            assembly ("memory-safe") {
+                mstore(0x40, freeMemPtr)
             }
         }
 
