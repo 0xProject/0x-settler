@@ -1,3 +1,5 @@
 solmate/=lib/solmate
 permit2/=lib/permit2
+forge-std/=lib/forge-std/src
 forge-gas-snapshot/=lib/forge-gas-snapshot/src
+ds-test/=lib/forge-std/lib/ds-test/src
