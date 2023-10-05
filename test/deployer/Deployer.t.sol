@@ -13,12 +13,6 @@ contract Dummy {
     }
 }
 
-contract DeployFail {
-    constructor() {
-        revert();
-    }
-}
-
 contract DeployerTest is Test {
     Deployer public deployer;
     address public auth = address(0xc0de60d);
@@ -93,13 +87,13 @@ contract DeployerTest is Test {
     function testDeployRevert() public {
         deployer.authorize(address(this), true);
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
-        deployer.deploy(type(DeployFail).creationCode);
+        deployer.deploy(hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
         deployer.authorize(address(this), true);
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
-        deployer.deploy(hex"00"); // STOP opcode; succeeds with empty returnData
+        deployer.deploy(hex"00"); // STOP; succeeds with empty returnData
     }
 
     function testSafeDeployment() public {
