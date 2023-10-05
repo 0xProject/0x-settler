@@ -44,6 +44,8 @@ library UnsafeArray {
 contract Deployer is TwoStepOwnable {
     using UnsafeArray for bytes[];
 
+    bytes32 private constant _EMPTYHASH = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+
     bytes32 private _pad;
     uint64 public nonce;
     address public feeCollector;
@@ -105,7 +107,7 @@ contract Deployer is TwoStepOwnable {
             mstore(add(ptr, initCode.length), _feeCollector)
             deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
         }
-        if (deployed == address(0) || deployed.code.length == 0) {
+        if (deployed == address(0) || deployed.codehash == _EMPTYHASH) {
             revert DeployFailed();
         }
         emit Deployed(newNonce, deployed);
@@ -133,7 +135,7 @@ contract Deployer is TwoStepOwnable {
         unchecked {
             for (uint64 i = nonce; i != 0; --i) {
                 address instance = AddressDerivation.deriveContract(address(this), i);
-                if (!isUnsafe[instance] && instance.code.length > 0) {
+                if (!isUnsafe[instance] && instance.codehash != _EMPTYHASH) {
                     return instance;
                 }
             }
