@@ -501,3 +501,32 @@ TokenPermissions(address token,uint256 amount)
 ```
 
 Where `actions` is added and contains the encoded actions the to perform.
+
+## Anticipated AMM support
+
+| AMM          | support? | notes  |
+| :------------| :------: | :----- |
+| Balancer     |    ✅     | |
+| Balancer V2  |    ✅     | |
+| Bancor       |    ✅     | |
+| Bancor V3    |    ✅     | |
+| Component    |    ✅     | Shell clone |
+| CryptoCom    |    ✅     | UniV2 clone |
+| Curve        |    ✅     | |
+| Curve V2     |    ✅     | |
+| DODO         |    ❌     | Requires a helper contract in a specific direction to calculate the correct sell amount. One can only buy asset A and sell asset B |
+| DODO V2      |    ❌     | Uses a transfer + sync flow |
+| KyberDMM     |    ✅     | |
+| KyberElastic |    ✅     | |
+| Lido         |    ✅     | |
+| MakerPsm     |    ❌     | Additional calculation required for `buyGem` |
+| mStable      |    ✅     | |
+| Saddle       |    ✅     | Curve clone |
+| Shell        |    ✅     | |
+| ShibaSwap    |    ✅     | UniV2 clone |
+| SushiSwap    |    ✅     | UniV2 clone |
+| Synapse      |    ✅     | Curve clone |
+| Synthetix    |    ❌     | |
+| Uniswap      |    ✅     | |
+| Uniswap V2   |    ✅     | Has VIP |
+| Uniswap V3   |    ✅     | Has VIP |
