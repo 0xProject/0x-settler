@@ -104,7 +104,7 @@ contract Deployer is TwoStepOwnable {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             calldatacopy(ptr, initCode.offset, initCode.length)
-            mstore(add(ptr, initCode.length), _feeCollector)
+            mstore(add(ptr, initCode.length), and(0xffffffffffffffffffffffffffffffffffffffff, _feeCollector))
             deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
         }
         if (deployed == address(0) || deployed.codehash == _EMPTYHASH) {
