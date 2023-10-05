@@ -200,8 +200,6 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         );
     }
 
-    // TODO: fillOtcOrderSelfFunded needs custody optimization
-
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
     /// @dev pre-condition: msgSender has been authenticated against the requestor
     /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
