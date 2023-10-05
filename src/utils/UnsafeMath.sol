@@ -43,4 +43,16 @@ library UnsafeMath {
             remainder := smod(numerator, denominator)
         }
     }
+
+    function unsafeMulMod(uint256 a, uint256 b, uint256 m) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mulmod(a, b, m)
+        }
+    }
+
+    function unsafeAddMod(uint256 a, uint256 b, uint256 m) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := addmod(a, b, m)
+        }
+    }
 }

@@ -25,16 +25,16 @@ contract AddressDerivationTest is Test {
         assertEq(AddressDerivation.deriveEOA(parent.publicKeyX, parent.publicKeyY, k), child.addr);
     }
 
-    function _inverse(uint256 r_prime, uint256 m) internal pure returns (uint256 t) {
+    function _inverse(uint256 r_, uint256 m) internal pure returns (uint256 t) {
         // extended euclidean algorithm
-        uint256 t_prime = 1;
+        uint256 t_ = 1;
         uint256 r = m;
-        r_prime = r_prime.unsafeMod(m);
-        while (r_prime != 0) {
-            uint256 q = r.unsafeDiv(r_prime);
+        r_ = r_.unsafeMod(m);
+        while (r_ != 0) {
+            uint256 q = r.unsafeDiv(r_);
             unchecked {
-                (r, r_prime, t, t_prime) =
-                    (r_prime, addmod(r, m - mulmod(q, r_prime, m), m), t_prime, addmod(t, m - mulmod(q, t_prime, m), m));
+                (r, r_, t, t_) =
+                    (r_, r.unsafeAddMod(m - q.unsafeMulMod(r_, m), m), t_, t.unsafeAddMod(m - q.unsafeMulMod(t_, m), m));
             }
         }
         if (r != 1) {
