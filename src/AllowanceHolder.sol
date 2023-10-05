@@ -89,8 +89,7 @@ contract AllowanceHolder {
         MockTransientStorage storage tstor = _getTransientStorage();
         tstor.operator = operator;
         tstor.witness = witness;
-        uint256 length = permits.length;
-        for (uint256 i; i < length; i = i.unsafeInc()) {
+        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
             tstor.allowed[permit.token] = permit.amount;
         }
@@ -108,7 +107,7 @@ contract AllowanceHolder {
         // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
         tstor.operator = address(0);
         tstor.witness = bytes32(0);
-        for (uint256 i; i < length; i = i.unsafeInc()) {
+        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             tstor.allowed[permits.unsafeGet(i).token] = 0;
         }
     }
@@ -122,12 +121,11 @@ contract AllowanceHolder {
     function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails, MockTransientStorage storage tstor)
         private
     {
-        uint256 length = transferDetails.length;
-        for (uint256 i; i < length; i = i.unsafeInc()) {
+        for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
             tstor.allowed[transferDetail.token] -= transferDetail.amount; // reverts on underflow
         }
-        for (uint256 i; i < length; i = i.unsafeInc()) {
+        for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
             ERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
         }
