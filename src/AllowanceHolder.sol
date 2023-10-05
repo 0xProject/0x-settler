@@ -33,7 +33,7 @@ library UnsafeArray {
 
 contract AllowanceHolder {
     using SafeTransferLib for ERC20;
-    using CallWithGas for address;
+    using CallWithGas for address payable;
     using UnsafeMath for uint256;
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for TransferDetails[];

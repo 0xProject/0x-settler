@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.21;
 
 library CallWithGas {
     // (_MAX_MEM/32)**2/512 + (_MAX_MEM/32)*3 ~= 30_000_000
@@ -37,7 +37,7 @@ library CallWithGas {
             success := staticcall(callGas, target, add(data, 0x20), mload(data), add(returnData, 0x20), maxReturnBytes)
 
             // As of the time this contract was written, `verbatim` doesn't work in
-            // inline assembly.  Assignment of a value to a variable costs gas
+            // inline assembly. Assignment of a value to a variable costs gas
             // (although how much is unpredictable because it depends on the Yul/IR
             // optimizer), as does the `GAS` opcode itself. Also solc tends to reorder
             // the call to `gas()` with preparing the arguments for `div`. Therefore,
@@ -127,7 +127,7 @@ library CallWithGas {
             success := call(callGas, target, value, add(data, 0x20), mload(data), add(returnData, 0x20), maxReturnBytes)
 
             // As of the time this contract was written, `verbatim` doesn't work in
-            // inline assembly.  Assignment of a value to a variable costs gas
+            // inline assembly. Assignment of a value to a variable costs gas
             // (although how much is unpredictable because it depends on the Yul/IR
             // optimizer), as does the `GAS` opcode itself. Also solc tends to reorder
             // the call to `gas()` with preparing the arguments for `div`. Therefore,
