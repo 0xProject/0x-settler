@@ -131,7 +131,7 @@ contract Deployer is TwoStepOwnable {
 
     function safeDeployment() public view returns (address) {
         unchecked {
-            for (uint64 i = nonce; i > 0; --i) {
+            for (uint64 i = nonce; i != 0; --i) {
                 address instance = AddressDerivation.deriveContract(address(this), i);
                 if (!isUnsafe[instance] && instance.code.length > 0) {
                     return instance;

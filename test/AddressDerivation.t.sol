@@ -35,9 +35,9 @@ contract AddressDerivationTest is Test {
             unchecked {
                 (r, r_prime, t, t_prime) = (
                     r_prime,
-                    addmod(r, m - mulmod(quotient, r_prime, m), m),
+                    (r - quotient * r_prime).unsafeMod(m),
                     t_prime,
-                    addmod(t, m - mulmod(quotient, t_prime, m), m)
+                    (t - quotient * t_prime).unsafeMod(m)
                 );
             }
         }
