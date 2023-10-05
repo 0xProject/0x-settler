@@ -31,14 +31,10 @@ contract AddressDerivationTest is Test {
         uint256 r = m;
         r_prime = r_prime.unsafeMod(m);
         while (r_prime != 0) {
-            uint256 quotient = r.unsafeDiv(r_prime);
+            uint256 q = r.unsafeDiv(r_prime);
             unchecked {
-                (r, r_prime, t, t_prime) = (
-                    r_prime,
-                    (r - quotient * r_prime).unsafeMod(m),
-                    t_prime,
-                    (t - quotient * t_prime).unsafeMod(m)
-                );
+                (r, r_prime, t, t_prime) =
+                    (r_prime, addmod(r, m - mulmod(q, r_prime, m), m), t_prime, addmod(t, m - mulmod(q, t_prime, m), m));
             }
         }
         if (r != 1) {
@@ -50,6 +46,7 @@ contract AddressDerivationTest is Test {
         privKey = boundPrivateKey(privKey);
         Vm.Wallet memory parent = vm.createWallet(privKey, "parent");
         uint256 k = _inverse(parent.publicKeyX, AddressDerivation._SECP256K1_N);
+        assertEq(mulmod(k, parent.publicKeyX, AddressDerivation._SECP256K1_N), 1);
         Vm.Wallet memory child = vm.createWallet(mulmod(privKey, k, AddressDerivation._SECP256K1_N), "child");
         assertEq(AddressDerivation.deriveEOA(parent.publicKeyX, parent.publicKeyY, k), child.addr);
     }
