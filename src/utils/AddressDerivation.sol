@@ -9,6 +9,9 @@ library AddressDerivation {
     uint256 internal constant SECP256K1_GY = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
 
     // keccak256(abi.encodePacked(ECMUL([x, y], k)))[12:]
+    // If [x, y] is not a point on the curve or the coordinates are out of
+    // range, you'll get unexpected garbage here. This function only takes the
+    // parity of `y` and lets `ecrecover` rederive the uncompressed point.
     function deriveEOA(uint256 x, uint256 y, uint256 k) internal pure returns (address) {
         if (k == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
@@ -30,43 +33,49 @@ library AddressDerivation {
         }
         if (nonce == 0) {
             assembly ("memory-safe") {
-                mstore(0x14, and(0xffffffffffffffffffffffffffffffffffffffff, deployer))
-                mstore(0x00, 0xd694)
-                mstore8(0x34, 0x80)
-                result := keccak256(0x1e, 0x17)
+                mstore(
+                    0x00,
+                    or(
+                        0xd694000000000000000000000000000000000000000080,
+                        shl(8, and(0xffffffffffffffffffffffffffffffffffffffff, deployer))
+                    )
+                )
+                result := keccak256(0x09, 0x17)
             }
         } else if (nonce < 0x80) {
             assembly ("memory-safe") {
-                mstore(0x14, and(0xffffffffffffffffffffffffffffffffffffffff, deployer))
+                // we don't care about dirty bits in `deployer`; they'll be overwritten later
+                mstore(0x14, deployer)
                 mstore(0x00, 0xd694)
                 mstore8(0x34, nonce)
                 result := keccak256(0x1e, 0x17)
             }
         } else {
-            uint256 nonceLength;
+            // compute ceil(log_256(nonce)) + 1
+            uint256 nonceLength = 1;
             unchecked {
-                // compute ceil(log_256(nonce))
-                if ((nonce >> 32) != 0) {
-                    nonceLength = 4;
+                if ((uint256(nonce) >> 32) != 0) {
+                    nonceLength += 4;
                 }
-                if ((nonce >> 16) >= (1 << (nonceLength << 3))) {
+                if ((uint256(nonce) >> 8) >= (1 << (nonceLength << 3))) {
                     nonceLength += 2;
                 }
-                if ((nonce >> 8) >= (1 << (nonceLength << 3))) {
+                if (uint256(nonce) >= (1 << (nonceLength << 3))) {
                     nonceLength += 1;
                 }
                 // ceil
-                if (nonce >= (1 << (nonceLength << 3))) {
+                if ((uint256(nonce) << 8) >= (1 << (nonceLength << 3))) {
                     nonceLength += 1;
                 }
             }
             assembly ("memory-safe") {
-                mstore(add(0x01, nonceLength), nonce)
-                mstore8(0x20, add(0x80, nonceLength))
-                mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, deployer))
-                mstore8(0x0a, add(0xd6, nonceLength))
+                // we don't care about dirty bits in `deployer` or `nonce`. they'll be overwritten later
+                mstore(nonceLength, nonce)
+                mstore8(0x20, add(0x7f, nonceLength))
+                mstore(0x00, deployer)
+                mstore8(0x0a, add(0xd5, nonceLength))
                 mstore8(0x0b, 0x94)
-                result := keccak256(0x0a, add(0x17, nonceLength))
+                result := keccak256(0x0a, add(0x16, nonceLength))
             }
         }
     }
@@ -79,7 +88,8 @@ library AddressDerivation {
     {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, and(0xffffffffffffffffffffffffffffffffffffffff, deployer))
+            // we don't care about dirty bits in `deployer`; they'll be overwritten later
+            mstore(ptr, deployer)
             mstore8(add(ptr, 0x0b), 0xff)
             mstore(add(ptr, 0x20), salt)
             mstore(add(ptr, 0x40), initHash)

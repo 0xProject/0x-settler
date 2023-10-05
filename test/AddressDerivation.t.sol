@@ -2,12 +2,16 @@
 pragma solidity ^0.8.21;
 
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {Panic} from "src/utils/Panic.sol";
+import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
 import "forge-std/Test.sol";
 
 contract Dummy {}
 
 contract AddressDerivationTest is Test {
+    using UnsafeMath for uint256;
+
     function testEOA(uint256 privKey, uint256 k) public {
         privKey = boundPrivateKey(privKey);
         k = boundPrivateKey(k);
@@ -18,6 +22,35 @@ contract AddressDerivationTest is Test {
             address(uint160(uint256(keccak256(abi.encodePacked(parent.publicKeyX, parent.publicKeyY))))),
             "sanity check"
         );
+        assertEq(AddressDerivation.deriveEOA(parent.publicKeyX, parent.publicKeyY, k), child.addr);
+    }
+
+    function _inverse(uint256 r_prime, uint256 m) internal pure returns (uint256 t) {
+        // extended euclidean algorithm
+        uint256 t_prime = 1;
+        uint256 r = m;
+        r_prime = r_prime.unsafeMod(m);
+        while (r_prime != 0) {
+            uint256 quotient = r.unsafeDiv(r_prime);
+            unchecked {
+                (r, r_prime, t, t_prime) = (
+                    r_prime,
+                    addmod(r, m - mulmod(quotient, r_prime, m), m),
+                    t_prime,
+                    addmod(t, m - mulmod(quotient, t_prime, m), m)
+                );
+            }
+        }
+        if (r != 1) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+    }
+
+    function testEOADegenerate(uint256 privKey) public {
+        privKey = boundPrivateKey(privKey);
+        Vm.Wallet memory parent = vm.createWallet(privKey, "parent");
+        uint256 k = _inverse(parent.publicKeyX, AddressDerivation._SECP256K1_N);
+        Vm.Wallet memory child = vm.createWallet(mulmod(privKey, k, AddressDerivation._SECP256K1_N), "child");
         assertEq(AddressDerivation.deriveEOA(parent.publicKeyX, parent.publicKeyY, k), child.addr);
     }
 
