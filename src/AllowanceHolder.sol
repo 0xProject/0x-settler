@@ -7,8 +7,6 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CallWithGas} from "./utils/CallWithGas.sol";
 
-import {ERC2771Context} from "./ERC2771Context.sol";
-
 library UnsafeArray {
     function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
         internal
@@ -67,9 +65,6 @@ contract AllowanceHolder {
         bytes calldata data
     ) public payable returns (bytes memory result) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely to be adopted
-        if (!ERC2771Context(target).isTrustedForwarder(address(this))) {
-            revert ConfusedDeputy();
-        }
         {
             uint256 freeMemPtr;
             assembly ("memory-safe") {
@@ -102,7 +97,7 @@ contract AllowanceHolder {
 
         {
             bool success;
-            (success, result) = target.call{value: msg.value}(bytes.concat(data, bytes20(uint160(msg.sender))));
+            (success, result) = target.call{value: msg.value}(data);
             if (!success) {
                 assembly ("memory-safe") {
                     revert(add(result, 0x20), mload(result))

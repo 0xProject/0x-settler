@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC2771Context} from "../ERC2771Context.sol";
+import {AllowanceHolderContext} from "../AllowanceHolderContext.sol";
 import {AllowanceHolder} from "../AllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
@@ -126,7 +126,7 @@ abstract contract Permit2PaymentAbstract {
     ) internal virtual;
 }
 
-abstract contract Permit2Payment is Permit2PaymentAbstract, ERC2771Context {
+abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderContext {
     using UnsafeMath for uint256;
     using UnsafeArray for AllowanceHolder.TransferDetails[];
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
@@ -140,7 +140,9 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, ERC2771Context {
         return _PERMIT2;
     }
 
-    constructor(address permit2, address feeRecipient, address trustedForwarder) ERC2771Context(trustedForwarder) {
+    constructor(address permit2, address feeRecipient, address allowanceHolder)
+        AllowanceHolderContext(allowanceHolder)
+    {
         _PERMIT2 = ISignatureTransfer(permit2);
         _FEE_RECIPIENT = feeRecipient;
     }
@@ -229,7 +231,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, ERC2771Context {
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
+            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
         } else {
             _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
         }
@@ -256,7 +258,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, ERC2771Context {
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
+            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
         } else {
             _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
         }
@@ -281,7 +283,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, ERC2771Context {
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails));
+            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails));
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
@@ -304,7 +306,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, ERC2771Context {
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            AllowanceHolder(trustedForwarder).transferFrom(_formatForAllowanceHolder(permit, transferDetails));
+            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails));
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
