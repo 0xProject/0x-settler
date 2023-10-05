@@ -50,6 +50,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0xa0;
     uint256 private constant PERMIT_DATA_SIZE = 0x80;
+    uint256 private constant WITNESS_AND_ISFORWARDED_DATA_SIZE = 0x40;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -103,7 +104,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x40 + sig.length);
+        bytes memory swapCallbackData =
+        new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
@@ -128,7 +130,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         bytes memory sig,
         bytes32 witness
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x40 + sig.length);
+        bytes memory swapCallbackData =
+        new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, witness, sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
@@ -256,7 +259,10 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
                 and(isForwarded, 1)
             )
             _memcpy(
-                add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x40)),
+                add(
+                    swapCallbackData,
+                    add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), WITNESS_AND_ISFORWARDED_DATA_SIZE)
+                ),
                 add(sig, 0x20),
                 mload(sig)
             )
@@ -338,7 +344,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         } else {
             (ISignatureTransfer.PermitTransferFrom memory permit, bytes32 witness, bool isForwarded) =
                 abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes32, bool));
-            bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + 0x20:];
+            bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE:];
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
             if (witness == bytes32(0)) {
