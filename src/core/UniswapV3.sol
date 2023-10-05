@@ -103,8 +103,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
-        _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig);
+        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x40 + sig.length);
+        _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
     }
@@ -128,8 +128,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         bytes memory sig,
         bytes32 witness
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
-        _encodePermit2Data(swapCallbackData, permit, witness, sig);
+        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x40 + sig.length);
+        _encodePermit2Data(swapCallbackData, permit, witness, sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
     }
@@ -235,7 +235,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         bytes memory swapCallbackData,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes32 witness,
-        bytes memory sig
+        bytes memory sig,
+        bool isForwarded
     ) private view {
         assembly ("memory-safe") {
             function _memcpy(dst, src, len) {
@@ -250,8 +251,12 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40)), mload(add(permit, 0x20)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x60)), mload(add(permit, 0x40)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE)), witness)
-            _memcpy(
+            mstore(
                 add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x20)),
+                and(isForwarded, 1)
+            )
+            _memcpy(
+                add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x40)),
                 add(sig, 0x20),
                 mload(sig)
             )
@@ -331,15 +336,17 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
-            (ISignatureTransfer.PermitTransferFrom memory permit, bytes32 witness) =
-                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes32));
+            (ISignatureTransfer.PermitTransferFrom memory permit, bytes32 witness, bool isForwarded) =
+                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes32, bool));
             bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + 0x20:];
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
             if (witness == bytes32(0)) {
-                _permit2TransferFrom(permit, transferDetails, payer, sig);
+                _permit2TransferFrom(permit, transferDetails, payer, sig, isForwarded);
             } else {
-                _permit2TransferFrom(permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig);
+                _permit2TransferFrom(
+                    permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig, isForwarded
+                );
             }
         }
     }
