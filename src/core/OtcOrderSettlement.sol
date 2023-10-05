@@ -128,7 +128,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
         Consideration memory consideration;
         (takerTransferDetails, consideration.token, consideration.amount) = _permitToTransferDetails(takerPermit, maker);
-        consideration.counterparty = msg.sender;
+        consideration.counterparty = _msgSender();
 
         bytes32 witness = _hashConsideration(consideration);
         // There is no taker witness (see below)
@@ -136,10 +136,10 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         // Maker pays recipient (optional fee)
         _permit2TransferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig);
         // Taker pays Maker (optional fee)
-        // We don't need to include a witness here. Taker is `msg.sender`, so
+        // We don't need to include a witness here. Taker is `_msgSender()`, so
         // `recipient` and the maker's details are already authenticated. We're just
         // using PERMIT2 to move tokens, not to provide authentication.
-        _permit2TransferFrom(takerPermit, takerTransferDetails, msg.sender, takerSig);
+        _permit2TransferFrom(takerPermit, takerTransferDetails, _msgSender(), takerSig);
 
         emit OtcOrderFilled(
             _hashOtcOrder(
@@ -149,7 +149,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
                 )
             ),
             maker,
-            msg.sender,
+            _msgSender(),
             buyToken,
             consideration.token,
             buyAmount,

@@ -180,15 +180,15 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                     bytes memory sig
                 ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msg.sender, permit, sig);
+                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, _msgSender(), permit, sig);
             } else {
-                _dispatch(0, action, data, msg.sender);
+                _dispatch(0, action, data, _msgSender());
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            _dispatch(i, action, data, msg.sender);
+            _dispatch(i, action, data, _msgSender());
         }
 
         _checkSlippageAndTransfer(slippage);

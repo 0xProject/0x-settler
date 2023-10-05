@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import {ContextAbstract} from "../Context.sol";
 import {AllowanceHolderContext} from "../AllowanceHolderContext.sol";
 import {AllowanceHolder} from "../AllowanceHolder.sol";
 
@@ -40,7 +41,7 @@ library UnsafeArray {
     }
 }
 
-abstract contract Permit2PaymentAbstract {
+abstract contract Permit2PaymentAbstract is ContextAbstract {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
     function PERMIT2() internal view virtual returns (ISignatureTransfer);
