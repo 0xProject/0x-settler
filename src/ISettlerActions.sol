@@ -7,13 +7,11 @@ import {IZeroEx} from "./core/ZeroEx.sol";
 interface ISettlerActions {
     // TODO: PERMIT2_TRANSFER_FROM and METATXN_PERMIT2_TRANSFER_FROM need custody optimization
 
-    /// @dev Transfer funds from msg.sender to multiple destinations using Permit2.
-    /// First element is the amount to transfer into Settler. Second element is the amount to transfer to fee recipient.
+    /// @dev Transfer funds from msg.sender Permit2.
     function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) external;
 
-    /// @dev Transfer funds from `from` into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn`
-    /// where the signature is provided as calldata
-    function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory, address from) external;
+    /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
+    function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
@@ -30,9 +28,7 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        address taker,
-        bytes memory takerSig
+        ISignatureTransfer.PermitTransferFrom memory takerPermit
     ) external;
 
     // TODO: SETTLER_OTC_SELF_FUNDED needs custody optimization
@@ -61,7 +57,17 @@ interface ISettlerActions {
         uint256 amountIn,
         uint256 amountOutMin,
         bytes memory path,
-        bytes memory permit2Data
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig
+    ) external;
+
+    /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
+    function METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
+        address recipient,
+        uint256 amountIn,
+        uint256 amountOutMin,
+        bytes memory path,
+        ISignatureTransfer.PermitTransferFrom memory permit
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
