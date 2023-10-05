@@ -78,8 +78,8 @@ contract AllowanceHolder {
             // 500k gas seems like a pretty healthy upper bound for the amount
             // of gas that `balanceOf` could reasonably consume in a
             // well-behaved ERC20. 0x7724e bytes of returndata would cause this
-            // context to consume over 500k gas in memory costs, something
-            // well-behaved ERC20 ought to do.
+            // context to consume over 500k gas in memory costs, again something
+            // a well-behaved ERC20 never ought to do.
             (bool success, bytes memory returnData) = target.functionStaticCallWithGas(
                 abi.encodeCall(ERC20(target).balanceOf, (msg.sender)), 500_000, 0x7724e
             );
@@ -130,7 +130,7 @@ contract AllowanceHolder {
         uint256 length = transferDetails.length;
         for (uint256 i; i < length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            tstor.allowed[transferDetail.token] -= transferDetail.amount;
+            tstor.allowed[transferDetail.token] -= transferDetail.amount; // reverts on underflow
         }
         for (uint256 i; i < length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
