@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Basic} from "./core/Basic.sol";
@@ -71,7 +72,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
+contract Settler is ReentrancyGuard, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -136,7 +137,7 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
         }
     }
 
-    function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
+    function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable nonReentrant {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
@@ -228,7 +229,10 @@ contract Settler is Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, Ze
         return from;
     }
 
-    function executeMetaTxn(bytes[] calldata actions, AllowedSlippage calldata slippage, bytes calldata sig) public {
+    function executeMetaTxn(bytes[] calldata actions, AllowedSlippage calldata slippage, bytes calldata sig)
+        public
+        nonReentrant
+    {
         address msgSender = msg.sender;
 
         if (actions.length != 0) {
