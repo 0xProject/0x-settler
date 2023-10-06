@@ -92,8 +92,6 @@ contract Settler is ReentrancyGuard, Basic, OtcOrderSettlement, UniswapV3, Unisw
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x192e3b91169192370449da1ed14831706ef016a610bdabc518be7102ce47b0d9;
 
-    bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
-
     receive() external payable {}
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
