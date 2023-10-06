@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
 import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 
 import {Basic} from "./core/Basic.sol";
@@ -16,6 +15,7 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {FullMath} from "./utils/FullMath.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
+import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
@@ -104,6 +104,7 @@ contract Settler is ReentrancyGuard, Basic, OtcOrderSettlement, UniswapV3, Unisw
         ZeroEx(zeroEx)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
+        ReentrancyGuard._initialize();
     }
 
     struct AllowedSlippage {
