@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
 
 abstract contract Permit2Payment {

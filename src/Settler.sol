@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
+import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 
 import {Basic} from "./core/Basic.sol";
 import {CurveV2} from "./core/CurveV2.sol";
