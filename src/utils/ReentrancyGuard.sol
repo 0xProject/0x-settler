@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-abstract contract ReentrancyGuard {
+import {ContextAbstract} from "../Context.sol";
+
+abstract contract ReentrancyGuard is ContextAbstract {
     uint256 private constant _UNLOCKED = 1;
     uint256 private constant _LOCKED = 2;
 
@@ -13,24 +15,17 @@ abstract contract ReentrancyGuard {
 
     error Reentrancy();
 
-    function _checkLock() private view {
-        if (_lock == _LOCKED) {
-            revert Reentrancy();
-        }
-    }
-
-    function _lockLock() private {
-        _lock = _LOCKED;
-    }
-
-    function _unlockLock() private {
-        _lock = _UNLOCKED;
-    }
-
     modifier nonReentrant() {
-        _checkLock();
-        _lockLock();
+        bool isForwarded = _isForwarded();
+        if (!isForwarded) {
+            if (_lock == _LOCKED) {
+                revert Reentrancy();
+            }
+            _lock = _LOCKED;
+        }
         _;
-        _unlockLock();
+        if (!isForwarded) {
+            _lock = _UNLOCKED;
+        }
     }
 }
