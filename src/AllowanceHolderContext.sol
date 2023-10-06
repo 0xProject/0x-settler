@@ -25,7 +25,9 @@ abstract contract AllowanceHolderContext is Context {
 
     // this is here to avoid foot-guns and make it very explicit that we intend
     // to pass the confused deputy check in AllowanceHolder
-    function balanceOf(address) external pure returns (bool) {
-        revert();
+    function balanceOf(address) external pure {
+        assembly ("memory-safe") {
+            revert(msize(), 0x01)
+        }
     }
 }
