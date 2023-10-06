@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
@@ -16,6 +16,7 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {FullMath} from "./utils/FullMath.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
+import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
@@ -72,7 +73,17 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
+contract Settler is
+    ReentrancyGuard,
+    Permit2Payment,
+    Basic,
+    OtcOrderSettlement,
+    UniswapV3,
+    UniswapV2,
+    CurveV2,
+    ZeroEx,
+    FreeMemory
+{
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -90,8 +101,6 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     );
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x192e3b91169192370449da1ed14831706ef016a610bdabc518be7102ce47b0d9;
-
-    bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
 
     receive() external payable {}
 
@@ -111,6 +120,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         ZeroEx(zeroEx)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
+        ReentrancyGuard._initialize();
     }
 
     struct AllowedSlippage {
@@ -144,7 +154,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         }
     }
 
-    function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
+    function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable nonReentrant {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
@@ -266,7 +276,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         AllowedSlippage calldata slippage,
         address msgSender,
         bytes calldata sig
-    ) public {
+    ) public nonReentrant {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
 
