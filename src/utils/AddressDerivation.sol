@@ -31,9 +31,6 @@ library AddressDerivation {
 
     // keccak256(RLP([deployer, nonce]))[12:]
     function deriveContract(address deployer, uint64 nonce) internal pure returns (address result) {
-        if (nonce == type(uint64).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         if (nonce == 0) {
             assembly ("memory-safe") {
                 mstore(
@@ -59,6 +56,9 @@ library AddressDerivation {
             unchecked {
                 if ((uint256(nonce) >> 32) != 0) {
                     nonceLength += 4;
+                    if (nonce == type(uint64).max) {
+                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                    }
                 }
                 if ((uint256(nonce) >> 8) >= (1 << (nonceLength << 3))) {
                     nonceLength += 2;
