@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {Panic} from "./Panic.sol";
+import {UnsafeMath} from "./UnsafeMath.sol";
 
 library AddressDerivation {
     uint256 internal constant _SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
@@ -22,7 +23,9 @@ library AddressDerivation {
 
         unchecked {
             // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384
-            return ecrecover(bytes32(0), 27 + uint8(y & 1), bytes32(x), bytes32(mulmod(x, k, _SECP256K1_N)));
+            return ecrecover(
+                bytes32(0), 27 + uint8(y & 1), bytes32(x), bytes32(UnsafeMath.unsafeMulMod(x, k, _SECP256K1_N))
+            );
         }
     }
 
