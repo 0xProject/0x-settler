@@ -180,7 +180,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                     bytes memory sig
                 ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, _msgSender(), permit, sig);
+                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, permit, sig);
             } else {
                 _dispatch(0, action, data, _msgSender());
             }

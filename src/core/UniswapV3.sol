@@ -100,7 +100,6 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         uint256 sellAmount,
         uint256 minBuyAmount,
         address recipient,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
@@ -108,7 +107,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
         new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig, _isForwarded());
 
-        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
+        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, _msgSender(), recipient, swapCallbackData);
     }
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
@@ -116,6 +115,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     /// @param sellAmount amount of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
+    /// @param payer The taker of the transaction and the signer of the permit
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
     /// @param witness Hashed additional data to be combined with _uniV3WitnessTypeString(), signed over, and verified by Permit2
