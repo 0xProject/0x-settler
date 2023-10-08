@@ -79,7 +79,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract {
     ) internal returns (uint256 buyAmount) {
         buyAmount = _swap(
             encodedPath,
-            ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000),
+            ERC20(address(uint160(bytes20(encodedPath)))).balanceOf(address(this)).mulDiv(bips, 10_000),
             minBuyAmount,
             address(this), // payer
             recipient,
