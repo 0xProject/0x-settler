@@ -6,7 +6,6 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
-import {CurveV2} from "./core/CurveV2.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
@@ -72,7 +71,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, CurveV2, ZeroEx, FreeMemory {
+contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -100,7 +99,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
-        CurveV2()
+        UniswapV2()
         ZeroEx(zeroEx)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
@@ -340,30 +339,12 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 abi.decode(data, (address, uint256, uint256, bytes));
 
             sellToUniswapV2(path, bips, amountOutMin, recipient);
-        } else if (action == ISettlerActions.CURVE_UINT256_EXCHANGE.selector) {
-            (
-                address pool,
-                ERC20 sellToken,
-                uint256 fromTokenIndex,
-                uint256 toTokenIndex,
-                uint256 sellAmount,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, ERC20, uint256, uint256, uint256, uint256));
-
-            sellTokenForTokenToCurve(pool, sellToken, fromTokenIndex, toTokenIndex, sellAmount, minBuyAmount);
         } else if (action == ISettlerActions.BASIC_SELL.selector) {
             (address pool, ERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, ERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
-        } else if (action == ISettlerActions.TRANSFER_OUT_FIXED.selector) {
-            (ERC20 token, address recipient, uint256 amount) = abi.decode(data, (ERC20, address, uint256));
-            if (token == ERC20(ETH_ADDRESS)) {
-                payable(recipient).safeTransferETH(amount);
-            } else {
-                token.safeTransfer(recipient, amount);
-            }
-        } else if (action == ISettlerActions.TRANSFER_OUT_POSITIVE_SLIPPAGE.selector) {
+        } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
             if (token == ERC20(ETH_ADDRESS)) {
                 uint256 balance = address(this).balance;

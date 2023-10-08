@@ -249,51 +249,19 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
-    function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
-        ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultFromPermit2Action(),
-            abi.encodeCall(
-                ISettlerActions.CURVE_UINT256_EXCHANGE,
-                (
-                    address(poolData.pool),
-                    address(fromToken()),
-                    poolData.fromTokenIndex,
-                    poolData.toTokenIndex,
-                    amount(),
-                    1
-                )
-            ),
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 0x24, abi.encodeCall(toToken().transfer, (FROM, 0)))
-            )
-        );
-
-        Settler _settler = settler;
-        vm.startPrank(FROM);
-        snapStartName("settler_curveV2VIP");
-        _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
-        );
-        snapEnd();
-    }
-
     function testSettler_curveV2_fee() public skipIf(getCurveV2PoolData().pool == address(0)) {
         ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.CURVE_UINT256_EXCHANGE,
+                ISettlerActions.BASIC_SELL,
                 (
-                    address(poolData.pool),
+                    poolData.pool,
                     address(fromToken()),
-                    poolData.fromTokenIndex,
-                    poolData.toTokenIndex,
-                    amount(),
-                    1
+                    10_000,
+                    0x44,
+                    abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, 0, 0))
                 )
             ),
             abi.encodeCall(
@@ -329,11 +297,11 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
                 (
-                    address(poolData.pool),
+                    poolData.pool,
                     address(fromToken()),
                     10_000, // bips
-                    100, // offset
-                    abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1))
+                    0x44, // offset
+                    abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, 0, 0))
                 )
             ),
             abi.encodeCall(
@@ -342,6 +310,7 @@ abstract contract SettlerPairTest is BasePairTest {
             )
         );
 
+        uint256 beforeBalance = toToken().balanceOf(FROM);
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
@@ -349,6 +318,7 @@ abstract contract SettlerPairTest is BasePairTest {
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
         snapEnd();
+        assertGt(toToken().balanceOf(FROM), beforeBalance);
     }
 
     bytes32 private constant CONSIDERATION_TYPEHASH =
