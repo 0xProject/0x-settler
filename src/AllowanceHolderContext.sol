@@ -27,7 +27,8 @@ abstract contract AllowanceHolderContext is Context {
     // to pass the confused deputy check in AllowanceHolder
     function balanceOf(address) external pure {
         assembly ("memory-safe") {
-            revert(msize(), 0x01)
+            mstore8(0x00, 0x00)
+            revert(0x00, 0x01)
         }
     }
 }
