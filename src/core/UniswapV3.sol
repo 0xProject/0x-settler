@@ -5,6 +5,7 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -30,8 +31,8 @@ interface IUniswapV3Pool {
 abstract contract UniswapV3 {
     using SafeTransferLib for ERC20;
 
-    /// @dev UniswapV3 Factory contract address prepended with '0xff' and left-aligned.
-    bytes32 private immutable UNI_FF_FACTORY_ADDRESS;
+    /// @dev UniswapV3 Factory contract address
+    address private immutable UNI_FACTORY_ADDRESS;
     /// @dev UniswapV3 pool init code hash.
     bytes32 private immutable UNI_POOL_INIT_CODE_HASH;
     /// @dev Minimum size of an encoded swap path:
@@ -55,7 +56,7 @@ abstract contract UniswapV3 {
     ISignatureTransfer private immutable PERMIT2;
 
     constructor(address uniFactory, bytes32 poolInitCodeHash, address permit2) {
-        UNI_FF_FACTORY_ADDRESS = bytes32((uint256(0xff) << 248) | (uint256(uint160(uniFactory)) << 88));
+        UNI_FACTORY_ADDRESS = uniFactory;
         UNI_POOL_INIT_CODE_HASH = poolInitCodeHash;
         PERMIT2 = ISignatureTransfer(permit2);
     }
@@ -217,30 +218,26 @@ abstract contract UniswapV3 {
     }
 
     // Compute the pool address given two tokens and a fee.
-    function _toPool(ERC20 inputToken, uint24 fee, ERC20 outputToken) private view returns (IUniswapV3Pool pool) {
+    function _toPool(ERC20 inputToken, uint24 fee, ERC20 outputToken) private view returns (IUniswapV3Pool) {
         // address(keccak256(abi.encodePacked(
         //     hex"ff",
         //     UNI_FACTORY_ADDRESS,
         //     keccak256(abi.encode(inputToken, outputToken, fee)),
         //     UNI_POOL_INIT_CODE_HASH
         // )))
-        bytes32 ffFactoryAddress = UNI_FF_FACTORY_ADDRESS;
-        bytes32 poolInitCodeHash = UNI_POOL_INIT_CODE_HASH;
         (ERC20 token0, ERC20 token1) = inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
+        bytes32 salt;
         assembly ("memory-safe") {
-            let s := mload(0x40)
-            let p := s
-            mstore(p, ffFactoryAddress)
-            p := add(p, 21)
-            // Compute the inner hash in-place
-            mstore(p, token0)
-            mstore(add(p, 32), token1)
-            mstore(add(p, 64), and(UINT24_MASK, fee))
-            mstore(p, keccak256(p, 96))
-            p := add(p, 32)
-            mstore(p, poolInitCodeHash)
-            pool := and(ADDRESS_MASK, keccak256(s, 85))
+            let ptr := mload(0x40)
+            mstore(0x00, and(ADDRESS_MASK, token0))
+            mstore(0x20, and(ADDRESS_MASK, token1))
+            mstore(0x40, and(UINT24_MASK, fee))
+            salt := keccak256(0x00, 0x60)
+            mstore(0x40, ptr)
         }
+        return IUniswapV3Pool(
+            AddressDerivation.deriveDeterministicContract(UNI_FACTORY_ADDRESS, salt, UNI_POOL_INIT_CODE_HASH)
+        );
     }
 
     error ZeroSwapAmount();
