@@ -24,7 +24,7 @@ library AddressDerivation {
         unchecked {
             // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384
             return ecrecover(
-                bytes32(0), 27 + uint8(y & 1), bytes32(x), bytes32(UnsafeMath.unsafeMulMod(x, k, _SECP256K1_N))
+                bytes32(0), uint8(27 + (y & 1)), bytes32(x), bytes32(UnsafeMath.unsafeMulMod(x, k, _SECP256K1_N))
             );
         }
     }
