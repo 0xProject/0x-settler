@@ -64,25 +64,44 @@ contract AllowanceHolder {
         address payable target,
         bytes calldata data
     ) public payable returns (bytes memory result) {
-        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely to be adopted
+        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
         {
-            uint256 freeMemPtr;
+            bytes memory testData;
+            // We could just choose a random address for this check, but to make
+            // confused deputy attacks harder for tokens that might be badly
+            // behaved (e.g. tokens with blacklists), we choose to copy the
+            // first argument out of `data` and mask it as an address.
             assembly ("memory-safe") {
-                freeMemPtr := mload(0x40)
+                testData := mload(0x40)
+                mstore(0x40, add(testData, 0x44))
+                mstore(testData, 0x24) // length
+                mstore(
+                    add(testData, 0x20),
+                    // balanceOf(address) selector
+                    0x70a0823100000000000000000000000000000000000000000000000000000000
+                )
+                switch lt(data.length, 0x24)
+                case 0 {
+                    // copy what might be an address out of `data`
+                    calldatacopy(add(testData, 0x30), add(data.offset, 0x10), 0x14)
+                }
+                default {
+                    // `data` is too short; guess we have to choose a random address anyways
+                    mstore(add(testData, 0x24), 0xdead)
+                }
             }
             // 500k gas seems like a pretty healthy upper bound for the amount
             // of gas that `balanceOf` could reasonably consume in a
             // well-behaved ERC20. 0x7724e bytes of returndata would cause this
             // context to consume over 500k gas in memory costs, again something
             // a well-behaved ERC20 never ought to do.
-            (bool success, bytes memory returnData) = target.functionStaticCallWithGas(
-                abi.encodeCall(ERC20(target).balanceOf, (msg.sender)), 500_000, 0x7724e
-            );
+            (bool success, bytes memory returnData) = target.functionStaticCallWithGas(testData, 500_000, 0x7724e);
             if (success && returnData.length >= 32) {
                 revert ConfusedDeputy();
             }
+            // clear the memory we just allocated
             assembly ("memory-safe") {
-                mstore(0x40, freeMemPtr)
+                mstore(0x40, testData)
             }
         }
 
