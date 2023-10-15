@@ -44,7 +44,7 @@ library UnsafeArray {
 abstract contract Permit2PaymentAbstract is ContextAbstract {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
-    function PERMIT2() internal view virtual returns (ISignatureTransfer);
+    function isAllowanceHolder(address) internal view virtual returns (bool);
 
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
@@ -137,8 +137,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     ISignatureTransfer private immutable _PERMIT2;
     address private immutable _FEE_RECIPIENT;
 
-    function PERMIT2() internal view override returns (ISignatureTransfer) {
-        return _PERMIT2;
+    function isAllowanceHolder(address target) internal view override returns (bool) {
+        return target == address(_PERMIT2) || target == address(allowanceHolder);
     }
 
     constructor(address permit2, address feeRecipient, address allowanceHolder)
@@ -232,8 +232,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            require(from == tx.origin && sig.length == 0); // sanity check
-            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
+            require(sig.length == 0); // sanity check
+            allowanceHolder.transferFrom(from, _formatForAllowanceHolder(permit, transferDetails), witness);
         } else {
             _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
         }
@@ -260,8 +260,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            require(from == tx.origin && sig.length == 0); // sanity check
-            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails), witness);
+            require(sig.length == 0); // sanity check
+            allowanceHolder.transferFrom(from, _formatForAllowanceHolder(permit, transferDetails), witness);
         } else {
             _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
         }
@@ -286,8 +286,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            require(from == tx.origin && sig.length == 0); // sanity check
-            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails));
+            require(sig.length == 0); // sanity check
+            allowanceHolder.transferFrom(from, _formatForAllowanceHolder(permit, transferDetails));
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
@@ -310,8 +310,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            require(from == tx.origin && sig.length == 0); // sanity check
-            allowanceHolder.transferFrom(_formatForAllowanceHolder(permit, transferDetails));
+            require(sig.length == 0); // sanity check
+            allowanceHolder.transferFrom(from, _formatForAllowanceHolder(permit, transferDetails));
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }

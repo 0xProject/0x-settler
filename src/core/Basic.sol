@@ -20,7 +20,7 @@ abstract contract Basic is Permit2PaymentAbstract {
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
     function basicSellToPool(address pool, ERC20 sellToken, uint256 bips, uint256 offset, bytes memory data) internal {
-        if (pool == address(PERMIT2())) {
+        if (isAllowanceHolder(pool)) {
             revert ConfusedDeputy();
         }
         if ((offset += 32) > data.length) {

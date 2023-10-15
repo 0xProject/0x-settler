@@ -150,14 +150,16 @@ contract AllowanceHolder {
         }
     }
 
-    function transferFrom(TransferDetails[] calldata transferDetails) public {
+    function transferFrom(address owner, TransferDetails[] calldata transferDetails) public {
+        assert(owner == tx.origin);
         MockTransientStorage storage tstor = _getTransientStorage();
         require(msg.sender == tstor.operator);
         require(tstor.witness == bytes32(0));
         _checkAmountsAndTransfer(transferDetails, tstor);
     }
 
-    function transferFrom(TransferDetails[] calldata transferDetails, bytes32 witness) public {
+    function transferFrom(address owner, TransferDetails[] calldata transferDetails, bytes32 witness) public {
+        assert(owner == tx.origin);
         MockTransientStorage storage tstor = _getTransientStorage();
         require(msg.sender == tstor.operator);
         require(witness == tstor.witness);
