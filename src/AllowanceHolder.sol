@@ -77,7 +77,7 @@ contract AllowanceHolder {
                 mstore(testData, 0x24) // length
                 mstore(
                     add(testData, 0x20),
-                    // balanceOf(address) selector
+                    // `balanceOf(address)` selector
                     0x70a0823100000000000000000000000000000000000000000000000000000000
                 )
                 switch lt(data.length, 0x24)
@@ -99,7 +99,7 @@ contract AllowanceHolder {
             if (success && returnData.length >= 32) {
                 revert ConfusedDeputy();
             }
-            // clear the memory we just allocated
+            // free the memory we just allocated
             assembly ("memory-safe") {
                 mstore(0x40, testData)
             }
