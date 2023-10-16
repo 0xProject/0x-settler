@@ -55,20 +55,18 @@ abstract contract Basic is Permit2PaymentAbstract {
                     mstore(add(data, offset), value)
                 }
             }
+        } else if (address(sellToken) == address(0)) {
+            require(offset == 0);
         } else {
-            if (address(sellToken) == address(0)) {
-                require(offset == 0);
-            } else {
-                uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
-                if ((offset += 32) > data.length) {
-                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-                }
-                assembly ("memory-safe") {
-                    mstore(add(data, offset), amount)
-                }
-                if (address(sellToken) != pool) {
-                    sellToken.safeApproveIfBelow(pool, amount);
-                }
+            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
+            if ((offset += 32) > data.length) {
+                Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+            }
+            assembly ("memory-safe") {
+                mstore(add(data, offset), amount)
+            }
+            if (address(sellToken) != pool) {
+                sellToken.safeApproveIfBelow(pool, amount);
             }
         }
         (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
