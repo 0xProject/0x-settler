@@ -82,7 +82,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
             mstore(0x00, TAKER_METATXN_CONSIDERATION_TYPEHASH)
             mstore(0x20, considerationHash)
             let ptr := mload(0x40)
-            mstore(0x40, recipient)
+            mstore(0x40, and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
             result := keccak256(0x00, 0x60)
             mstore(0x40, ptr)
         }
