@@ -73,15 +73,14 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         }
     }
 
-    function _hashTakerMetatxnConsideration(Consideration memory consideration, address recipient)
+    function _hashTakerMetatxnConsideration(bytes32 considerationHash, address recipient)
         internal
         pure
         returns (bytes32 result)
     {
-        result = _hashConsideration(consideration);
         assembly ("memory-safe") {
             mstore(0x00, TAKER_METATXN_CONSIDERATION_TYPEHASH)
-            mstore(0x20, result)
+            mstore(0x20, considerationHash)
             let ptr := mload(0x40)
             mstore(0x40, recipient)
             result := keccak256(0x00, 0x60)
@@ -182,11 +181,16 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         makerConsideration.counterparty = taker;
 
         bytes32 makerWitness = _hashConsideration(makerConsideration);
-        bytes32 takerWitness = _hashTakerMetatxnConsideration(takerConsideration, recipient);
+        bytes32 takerWitness = _hashConsideration(takerConsideration);
 
         _permit2TransferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig);
         _permit2TransferFrom(
-            takerPermit, takerTransferDetails, taker, takerWitness, TAKER_METATXN_CONSIDERATION_WITNESS, takerSig
+            takerPermit,
+            takerTransferDetails,
+            taker,
+            _hashTakerMetatxnConsideration(takerWitness, recipient),
+            TAKER_METATXN_CONSIDERATION_WITNESS,
+            takerSig
         );
 
         emit OtcOrderFilled(
