@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {VIPBase} from "./VIPBase.sol";
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 
 interface IUniswapV3Pool {
@@ -29,11 +30,9 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
-abstract contract UniswapV3 is Permit2PaymentAbstract {
+abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     using FullMath for uint256;
     using SafeTransferLib for ERC20;
-
-    error TooMuchSlippage(address token, uint256 expected, uint256 actual);
 
     /// @dev UniswapV3 Factory contract address prepended with '0xff' and left-aligned.
     bytes32 private immutable UNI_FF_FACTORY_ADDRESS;

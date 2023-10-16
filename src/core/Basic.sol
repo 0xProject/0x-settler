@@ -9,9 +9,24 @@ import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 
+library Revert {
+    function _revert(bytes memory reason) internal pure {
+        assembly ("memory-safe") {
+            revert(add(reason, 0x20), mload(reason))
+        }
+    }
+
+    function maybeRevert(bool success, bytes memory reason) internal pure {
+        if (!success) {
+            _revert(reason);
+        }
+    }
+}
+
 abstract contract Basic is Permit2PaymentAbstract {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
+    using Revert for bool;
 
     address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -23,29 +38,41 @@ abstract contract Basic is Permit2PaymentAbstract {
         if (isAllowanceHolder(pool)) {
             revert ConfusedDeputy();
         }
-        if ((offset += 32) > data.length) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
 
         uint256 value;
-        uint256 amount;
         if (sellToken == ERC20(ETH_ADDRESS)) {
-            value = amount = address(this).balance.mulDiv(bips, 10_000);
+            value = address(this).balance.mulDiv(bips, 10_000);
+            if (data.length == 0) {
+                require(offset == 0);
+                (bool success, bytes memory returnData) = payable(pool).call{value: value}("");
+                success.maybeRevert(returnData);
+                return;
+            } else {
+                if ((offset += 32) > data.length) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+                assembly ("memory-safe") {
+                    mstore(add(data, offset), value)
+                }
+            }
         } else {
-            amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
-            if (pool != address(sellToken)) {
-                sellToken.safeApproveIfBelow(pool, amount);
+            if (address(sellToken) == address(0)) {
+                require(offset == 0);
+            } else {
+                uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
+                if ((offset += 32) > data.length) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+                assembly ("memory-safe") {
+                    mstore(add(data, offset), amount)
+                }
+                if (address(sellToken) != pool) {
+                    sellToken.safeApproveIfBelow(pool, amount);
+                }
             }
         }
-        assembly ("memory-safe") {
-            mstore(add(data, offset), amount)
-        }
-        // We omit the EXTCODESIZE check here deliberately. This can be used to send value to EOAs.
         (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
-        if (!success) {
-            assembly ("memory-safe") {
-                revert(add(0x20, returnData), mload(returnData))
-            }
-        }
+        success.maybeRevert(returnData);
+        require(returnData.length > 0 || pool.code.length > 0); // forbid sending data to EOAs
     }
 }

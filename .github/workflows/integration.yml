@@ -18,7 +18,7 @@ jobs:
           version: nightly
 
       - name: Install dependencies
-        run: forge install
+        run: git submodule update --recursive --init
 
       - name: Check contract sizes
         run: forge build --sizes

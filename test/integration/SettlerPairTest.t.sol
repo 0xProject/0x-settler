@@ -214,7 +214,7 @@ abstract contract SettlerPairTest is BasePairTest {
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (permit, sig)),
+            _getDefaultFromPermit2Action(),
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
                 (
@@ -240,43 +240,12 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_uniswapV2() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, 10_000, uniswapV2Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, 10_000, 0, uniswapV2Path()))
         );
 
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2");
-        _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
-        );
-        snapEnd();
-    }
-
-    function testSettler_curveV2VIP() public skipIf(getCurveV2PoolData().pool == address(0)) {
-        ICurveV2Pool.CurveV2PoolData memory poolData = getCurveV2PoolData();
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultFromPermit2Action(),
-            abi.encodeCall(
-                ISettlerActions.CURVE_UINT256_EXCHANGE,
-                (
-                    address(poolData.pool),
-                    address(fromToken()),
-                    poolData.fromTokenIndex,
-                    poolData.toTokenIndex,
-                    amount(),
-                    1
-                )
-            ),
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 0x24, abi.encodeCall(toToken().transfer, (FROM, 0)))
-            )
-        );
-
-        Settler _settler = settler;
-        vm.startPrank(FROM);
-        snapStartName("settler_curveV2VIP");
         _settler.execute(
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
@@ -289,14 +258,13 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.CURVE_UINT256_EXCHANGE,
+                ISettlerActions.BASIC_SELL,
                 (
-                    address(poolData.pool),
+                    poolData.pool,
                     address(fromToken()),
-                    poolData.fromTokenIndex,
-                    poolData.toTokenIndex,
-                    amount(),
-                    1
+                    10_000,
+                    0x44,
+                    abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, 0, 0))
                 )
             ),
             abi.encodeCall(
@@ -332,11 +300,11 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
                 (
-                    address(poolData.pool),
+                    poolData.pool,
                     address(fromToken()),
                     10_000, // bips
-                    100, // offset
-                    abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, amount(), 1))
+                    0x44, // offset
+                    abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, 0, 0))
                 )
             ),
             abi.encodeCall(
@@ -345,6 +313,7 @@ abstract contract SettlerPairTest is BasePairTest {
             )
         );
 
+        uint256 beforeBalance = toToken().balanceOf(FROM);
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
@@ -352,6 +321,7 @@ abstract contract SettlerPairTest is BasePairTest {
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
         snapEnd();
+        assertGt(toToken().balanceOf(FROM), beforeBalance);
     }
 
     bytes32 private constant CONSIDERATION_TYPEHASH =
@@ -434,7 +404,7 @@ abstract contract SettlerPairTest is BasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (permit)),
+            abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (address(settler), permit)),
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
@@ -606,7 +576,8 @@ abstract contract SettlerPairTest is BasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_SELF_FUNDED, (makerPermit, MAKER, makerSig, address(fromToken()), amount())
+                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
+                (address(settler), makerPermit, MAKER, makerSig, address(fromToken()), amount())
             ),
             abi.encodeCall(
                 ISettlerActions.BASIC_SELL,
@@ -636,7 +607,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
-        return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (permit, sig));
+        return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), permit, sig));
     }
 
     function _getDefaultFromPermit2() private returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {

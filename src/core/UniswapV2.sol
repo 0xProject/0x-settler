@@ -4,8 +4,9 @@ pragma solidity ^0.8.21;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
+import {VIPBase} from "./VIPBase.sol";
 
-abstract contract UniswapV2 {
+abstract contract UniswapV2 is VIPBase {
     using FullMath for uint256;
 
     // UniswapV2 Factory contract address prepended with '0xff' and left-aligned
@@ -44,7 +45,9 @@ abstract contract UniswapV2 {
     /// @dev Sell a token for another token using UniswapV2.
     /// @param encodedPath Custom encoded path of the swap.
     /// @param bips Bips to sell of settler's balance of the initial token in the path.
-    function sellToUniswapV2(bytes memory encodedPath, uint256 bips, address recipient) internal {
+    function sellToUniswapV2(bytes memory encodedPath, uint256 bips, uint256 minBuyAmount, address recipient)
+        internal
+    {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
@@ -197,6 +200,14 @@ abstract contract UniswapV2 {
                 returndatacopy(p, 0, returndatasize())
                 revert(p, returndatasize())
             }
+        }
+        // sellAmount is the amount sent from the final hop
+        if (sellAmount < minBuyAmount) {
+            address buyToken;
+            assembly ("memory-safe") {
+                buyToken := mload(add(encodedPath, mload(encodedPath)))
+            }
+            revert TooMuchSlippage(buyToken, minBuyAmount, sellAmount);
         }
     }
 }
