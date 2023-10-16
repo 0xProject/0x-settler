@@ -186,6 +186,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
+        // This function deliberate does no bounds checking on `actions` for gas
+        // efficiency. We assume that `actions` will get used elsewhere in this
+        // context and any OOB or other malformed calldata will result in a
+        // revert later.
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let hashesLength := shl(5, actions.length)
@@ -211,6 +215,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         pure
         returns (bytes32 result)
     {
+        // This function does not check for or clean any dirty bits that might
+        // exist in `slippage`. We assume that `slippage` will be used elsewhere
+        // in this context and that if there are dirty bits it will result in a
+        // revert later.
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
