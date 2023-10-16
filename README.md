@@ -148,9 +148,9 @@ See [ISettlerActions](https://github.com/0xProject/0x-settler/blob/master/src/IS
 - [x] Curve
 - [x] MetaTxn
 - [x] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
-- [ ] WETH wrap/unwrap
+- [x] WETH wrap/unwrap
 - [ ] Payable OTC (ETH)
-- [ ] Sell token fees
+- [x] Sell token fees
 - [x] Buy token fees
 - [x] consider using argument encoding for action names, ala solidity function encoding
 - [ ] can we support all dexes without hitting the contract size limit and requiring `DELEGATECALL's`
