@@ -272,10 +272,6 @@ abstract contract SettlerPairTest is BasePairTest {
                     0x24,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )
-            ),
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 0x24, abi.encodeCall(toToken().transfer, (FROM, 0)))
             )
         );
 
@@ -283,7 +279,7 @@ abstract contract SettlerPairTest is BasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_curveV2_fee");
         _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            actions, Settler.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
         );
         snapEnd();
     }
@@ -302,10 +298,6 @@ abstract contract SettlerPairTest is BasePairTest {
                     0x44, // offset
                     abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, 0, 0))
                 )
-            ),
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(toToken()), address(toToken()), 10_000, 0x24, abi.encodeCall(toToken().transfer, (FROM, 0)))
             )
         );
 
@@ -314,7 +306,7 @@ abstract contract SettlerPairTest is BasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
         _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            actions, Settler.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
         );
         snapEnd();
         assertGt(toToken().balanceOf(FROM), beforeBalance);
