@@ -127,7 +127,7 @@ tables.push(
       "Curve",
       [
         ["0x V4", "Curve", "zeroEx_curveV2VIP"],
-        ["Settler", "Curve", "settler_curveV2VIP"],
+        ["Settler", "Curve", "settler_basic_curve"],
         ["Curve", "Curve", "curveV2Pool"],
         ["Curve Swap Router", "Curve", "curveV2Pool_swapRouter"],
       ],
@@ -156,8 +156,9 @@ tables.push(
     generateTable(
       "Sell token fee",
       [
-        ["Settler ", "Uniswap V3", "settler_uniswapV3VIP_sellToken_fee"],
+        ["Settler ", "Uniswap V3", "settler_uniswapV3_sellToken_fee_full_custody"],
         ["Settler", "OTC", "settler_otc_sellToken_fee"],
+        ["Settler", "Curve", "settler_curveV2_fee"],
       ],
       pairs
     ),
