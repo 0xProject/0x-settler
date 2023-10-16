@@ -83,15 +83,13 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     // Permit2 Witness for meta transactions
     string internal constant ACTIONS_AND_SLIPPAGE_TYPE =
-        "ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)";
+        "ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     string internal constant ACTIONS_AND_SLIPPAGE_WITNESS = string(
         abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
-        0x192e3b91169192370449da1ed14831706ef016a610bdabc518be7102ce47b0d9;
-
-    bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
+        0x7d6b6ac05bf0d3f905c044bcb7baf6b20670f84c2275870747ac3b8fa8c43e12;
 
     receive() external payable {}
 
@@ -217,8 +215,8 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, ACTIONS_AND_SLIPPAGE_TYPEHASH)
-            mstore(add(ptr, 0x20), arrayOfBytesHash)
-            calldatacopy(add(ptr, 0x40), slippage, 0x60)
+            calldatacopy(add(ptr, 0x20), slippage, 0x60)
+            mstore(add(ptr, 0x80), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
         }
     }

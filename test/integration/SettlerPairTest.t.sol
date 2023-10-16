@@ -424,7 +424,7 @@ abstract contract SettlerPairTest is BasePairTest {
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)"
     );
     bytes32 private constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
-        keccak256("ActionsAndSlippage(bytes[] actions,address buyToken,address recipient,uint256 minAmountOut)");
+        keccak256("ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)");
 
     function testSettler_metaTxn_uniswapV3() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -441,7 +441,7 @@ abstract contract SettlerPairTest is BasePairTest {
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
         bytes32 witness =
-            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, actionsHash, address(0), address(0), 0 ether));
+            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
         bytes memory sig = getPermitWitnessTransferSignature(
             permit,
             address(settler),
@@ -480,7 +480,7 @@ abstract contract SettlerPairTest is BasePairTest {
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
         bytes32 witness =
-            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, actionsHash, address(0), address(0), 0 ether));
+            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
         bytes memory sig = getPermitWitnessTransferSignature(
             permit,
             address(settler),
