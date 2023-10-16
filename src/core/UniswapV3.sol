@@ -206,12 +206,10 @@ abstract contract UniswapV3 is SettlerAbstract, VIPBase {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
-            let p := add(encodedPath, 0x20)
-            inputToken := shr(0x60, mload(p))
-            p := add(p, 0x14)
-            fee := shr(0xe8, mload(p))
-            p := add(p, 0x03)
-            outputToken := shr(0x60, mload(p))
+            // Solidity cleans dirty bits automatically
+            inputToken := mload(add(0x14, encodedPath))
+            fee := mload(add(0x17, encodedPath))
+            outputToken := mload(add(SINGLE_HOP_PATH_SIZE, encodedPath))
         }
     }
 

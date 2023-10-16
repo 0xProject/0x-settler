@@ -81,8 +81,6 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
-    bytes4 internal constant SLIPPAGE_ACTION = bytes4(keccak256("SLIPPAGE(address,uint256)"));
-
     receive() external payable {}
 
     constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
@@ -176,6 +174,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
+        // This function deliberate does no bounds checking on `actions` for gas
+        // efficiency. We assume that `actions` will get used elsewhere in this
+        // context and any OOB or other malformed calldata will result in a
+        // revert later.
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let hashesLength := shl(5, actions.length)
@@ -201,12 +203,16 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         pure
         returns (bytes32 result)
     {
+        // This function does not check for or clean any dirty bits that might
+        // exist in `slippage`. We assume that `slippage` will be used elsewhere
+        // in this context and that if there are dirty bits it will result in a
+        // revert later.
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, ACTIONS_AND_SLIPPAGE_TYPEHASH)
-            mstore(add(ptr, 0x20), arrayOfBytesHash)
-            calldatacopy(add(ptr, 0x40), slippage, 0x60)
+            calldatacopy(add(ptr, 0x20), slippage, 0x60)
+            mstore(add(ptr, 0x80), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
         }
     }
