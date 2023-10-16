@@ -408,14 +408,16 @@ abstract contract SettlerPairTest is BasePairTest {
             getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.SETTLER_OTC_PERMIT2, (makerPermit, MAKER, makerSig, takerPermit, takerSig))
+            abi.encodeCall(
+                ISettlerActions.SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig)
+            )
         );
 
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_otc");
         _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: FROM, minAmountOut: 0 ether})
+            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
         snapEnd();
     }
@@ -552,7 +554,9 @@ abstract contract SettlerPairTest is BasePairTest {
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_SETTLER_OTC_PERMIT2, (makerPermit, MAKER, makerSig, takerPermit))
+            abi.encodeCall(
+                ISettlerActions.METATXN_SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit)
+            )
         );
 
         Settler _settler = settler;
@@ -561,7 +565,7 @@ abstract contract SettlerPairTest is BasePairTest {
         snapStartName("settler_metaTxn_otc");
         _settler.executeMetaTxn(
             actions,
-            Settler.AllowedSlippage({buyToken: address(0), recipient: FROM, minAmountOut: 0 ether}),
+            Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}),
             FROM,
             takerSig
         );

@@ -3,12 +3,12 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 
-abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
+abstract contract OtcOrderSettlement is SettlerAbstract {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
 
@@ -43,20 +43,22 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
     bytes32 internal constant CONSIDERATION_TYPEHASH =
         0x7d806873084f389a66fd0315dead7adaad8ae6e8b6cf9fb0d3db61e5a91c3ffa;
 
+    // TODO: rename `recipient` so that it's more obvious in-wallet that it's the next hop of the OTC
     string internal constant TAKER_METATXN_CONSIDERATION_TYPE =
-        "TakerMetatxnConsideration(Consideration consideration,address recipient)";
+        "TakerMetatxnConsideration(Consideration consideration,address recipient,ActionsAndSlippage actionsAndSlippage)";
     string internal constant TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE =
-        string(abi.encodePacked(TAKER_METATXN_CONSIDERATION_TYPE, CONSIDERATION_TYPE));
+        string(abi.encodePacked(TAKER_METATXN_CONSIDERATION_TYPE, ACTIONS_AND_SLIPPAGE_TYPE, CONSIDERATION_TYPE));
     string internal constant TAKER_METATXN_CONSIDERATION_WITNESS = string(
         abi.encodePacked(
             "TakerMetatxnConsideration consideration)",
+            ACTIONS_AND_SLIPPAGE_TYPE,
             CONSIDERATION_TYPE,
             TAKER_METATXN_CONSIDERATION_TYPE,
             TOKEN_PERMISSIONS_TYPE
         )
     );
     bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
-        0xce50a9f8675c66e6197d1253c716a193f5fff29f4ca719df1f8e5fa761640b6f;
+        0x26aa1f7bf8acae4d6220c31f608a7da9c4ae97dbdacd64e2fa5d489ed8c22a6a;
 
     string internal constant OTC_ORDER_TYPE =
         "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
@@ -73,7 +75,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         }
     }
 
-    function _hashTakerMetatxnConsideration(Consideration memory consideration, address recipient)
+    function _hashTakerMetatxnConsideration(Consideration memory consideration, address recipient, bytes32 witness)
         internal
         pure
         returns (bytes32 result)
@@ -84,8 +86,10 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
             mstore(0x20, result)
             let ptr := mload(0x40)
             mstore(0x40, recipient)
-            result := keccak256(0x00, 0x60)
+            mstore(0x60, witness)
+            result := keccak256(0x00, 0x80)
             mstore(0x40, ptr)
+            mstore(0x60, 0)
         }
     }
 
@@ -167,7 +171,8 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
-        bytes memory takerSig
+        bytes memory takerSig,
+        bytes32 witness
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
@@ -182,7 +187,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         makerConsideration.counterparty = taker;
 
         bytes32 makerWitness = _hashConsideration(makerConsideration);
-        bytes32 takerWitness = _hashTakerMetatxnConsideration(takerConsideration, recipient);
+        bytes32 takerWitness = _hashTakerMetatxnConsideration(takerConsideration, recipient, witness);
 
         _permit2TransferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig);
         _permit2TransferFrom(
