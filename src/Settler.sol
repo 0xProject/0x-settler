@@ -123,7 +123,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         }
     }
 
-    function _takerSubmittedOtc(bytes calldata data) internal DANGEROUS_freeMemory {
+    function _otcVIP(bytes calldata data) internal DANGEROUS_freeMemory {
         (
             address recipient,
             ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -146,7 +146,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         fillOtcOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
-    function _uniswapV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
+    function _uniV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
         (
             address recipient,
             uint256 amountIn,
@@ -163,9 +163,9 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
-                _takerSubmittedOtc(data);
+                _otcVIP(data);
             } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-                _uniswapV3VIP(data);
+                _uniV3VIP(data);
             } else {
                 _dispatch(0, action, data, msg.sender);
             }
@@ -223,7 +223,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         }
     }
 
-    function _metaTxnOtc(bytes calldata data, bytes32 witness, address msgSender, bytes calldata sig)
+    function _metaTxnOtcVIP(bytes calldata data, bytes32 witness, address msgSender, bytes calldata sig)
         internal
         DANGEROUS_freeMemory
     {
@@ -287,7 +287,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             bytes32 witness = _hashActionsAndSlippage(actions, slippage);
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
-                _metaTxnOtc(data, witness, msgSender, sig);
+                _metaTxnOtcVIP(data, witness, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
                 _metaTxnTransferFrom(data, witness, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
