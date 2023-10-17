@@ -123,43 +123,49 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         }
     }
 
+    function _takerSubmittedOtc(bytes calldata data) internal DANGEROUS_freeMemory {
+        (
+            address recipient,
+            ISignatureTransfer.PermitTransferFrom memory makerPermit,
+            address maker,
+            bytes memory makerSig,
+            ISignatureTransfer.PermitTransferFrom memory takerPermit,
+            bytes memory takerSig
+        ) = abi.decode(
+            data,
+            (
+                address,
+                ISignatureTransfer.PermitTransferFrom,
+                address,
+                bytes,
+                ISignatureTransfer.PermitTransferFrom,
+                bytes
+            )
+        );
+
+        fillOtcOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
+    }
+
+    function _uniswapV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
+        (
+            address recipient,
+            uint256 amountIn,
+            uint256 amountOutMin,
+            bytes memory path,
+            ISignatureTransfer.PermitTransferFrom memory permit,
+            bytes memory sig
+        ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+
+        sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msg.sender, permit, sig);
+    }
+
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
             if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
-                // TODO: free memory
-                (
-                    address recipient,
-                    ISignatureTransfer.PermitTransferFrom memory makerPermit,
-                    address maker,
-                    bytes memory makerSig,
-                    ISignatureTransfer.PermitTransferFrom memory takerPermit,
-                    bytes memory takerSig
-                ) = abi.decode(
-                    data,
-                    (
-                        address,
-                        ISignatureTransfer.PermitTransferFrom,
-                        address,
-                        bytes,
-                        ISignatureTransfer.PermitTransferFrom,
-                        bytes
-                    )
-                );
-
-                fillOtcOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
+                _takerSubmittedOtc(data);
             } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-                // TODO: free memory
-                (
-                    address recipient,
-                    uint256 amountIn,
-                    uint256 amountOutMin,
-                    bytes memory path,
-                    ISignatureTransfer.PermitTransferFrom memory permit,
-                    bytes memory sig
-                ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
-
-                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msg.sender, permit, sig);
+                _uniswapV3VIP(data);
             } else {
                 _dispatch(0, action, data, msg.sender);
             }
