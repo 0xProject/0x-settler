@@ -201,12 +201,6 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_uniswapV3_sellToken_fee_full_custody() public {
-        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()}),
-            nonce: PERMIT2_FROM_NONCE,
-            deadline: block.timestamp + 100
-        });
-
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(

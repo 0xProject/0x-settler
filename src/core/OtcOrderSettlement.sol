@@ -58,7 +58,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         )
     );
     bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
-        0x26aa1f7bf8acae4d6220c31f608a7da9c4ae97dbdacd64e2fa5d489ed8c22a6a;
+        0x96e3ffeb14a8db999e1873287a35d250819e62cdf9bb75c25b5b590fa2693964;
 
     string internal constant OTC_ORDER_TYPE =
         "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
