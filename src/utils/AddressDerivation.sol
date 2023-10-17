@@ -70,6 +70,7 @@ library AddressDerivation {
                 if ((uint256(nonce) << 8) >= (1 << nonceLength)) {
                     nonceLength += 8;
                 }
+                // bytes, not bits
                 nonceLength >>= 3;
             }
             assembly ("memory-safe") {
