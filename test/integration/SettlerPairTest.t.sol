@@ -530,7 +530,7 @@ abstract contract SettlerPairTest is BasePairTest {
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
         bytes32 witness =
-            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, actionsHash, address(0), address(0), 0 ether));
+            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
 
         TakerMetatxnConsideration memory takerConsideration = TakerMetatxnConsideration({
             consideration: OtcOrderSettlement.Consideration({
