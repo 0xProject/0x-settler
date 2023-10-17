@@ -43,23 +43,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     bytes32 internal constant CONSIDERATION_TYPEHASH =
         0x7d806873084f389a66fd0315dead7adaad8ae6e8b6cf9fb0d3db61e5a91c3ffa;
 
-    // TODO: rename `recipient` so that it's more obvious in-wallet that it's the next hop of the OTC
-    string internal constant TAKER_METATXN_CONSIDERATION_TYPE =
-        "TakerMetatxnConsideration(Consideration consideration,address recipient,ActionsAndSlippage actionsAndSlippage)";
-    string internal constant TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE =
-        string(abi.encodePacked(TAKER_METATXN_CONSIDERATION_TYPE, ACTIONS_AND_SLIPPAGE_TYPE, CONSIDERATION_TYPE));
-    string internal constant TAKER_METATXN_CONSIDERATION_WITNESS = string(
-        abi.encodePacked(
-            "TakerMetatxnConsideration consideration)",
-            ACTIONS_AND_SLIPPAGE_TYPE,
-            CONSIDERATION_TYPE,
-            TAKER_METATXN_CONSIDERATION_TYPE,
-            TOKEN_PERMISSIONS_TYPE
-        )
-    );
-    bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
-        0x96e3ffeb14a8db999e1873287a35d250819e62cdf9bb75c25b5b590fa2693964;
-
     string internal constant OTC_ORDER_TYPE =
         "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
     string internal constant OTC_ORDER_TYPE_RECURSIVE = string(abi.encodePacked(OTC_ORDER_TYPE, CONSIDERATION_TYPE));
@@ -72,23 +55,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
             mstore(ptr, CONSIDERATION_TYPEHASH)
             result := keccak256(ptr, 0xa0)
             mstore(ptr, oldValue)
-        }
-    }
-
-    function _hashTakerMetatxnConsideration(bytes32 considerationHash, address recipient, bytes32 witness)
-        internal
-        pure
-        returns (bytes32 result)
-    {
-        assembly ("memory-safe") {
-            mstore(0x00, TAKER_METATXN_CONSIDERATION_TYPEHASH)
-            mstore(0x20, considerationHash)
-            let ptr := mload(0x40)
-            mstore(0x40, and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
-            mstore(0x60, witness)
-            result := keccak256(0x00, 0x80)
-            mstore(0x40, ptr)
-            mstore(0x60, 0)
         }
     }
 
@@ -109,7 +75,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
 
     constructor() {
         assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
-        assert(TAKER_METATXN_CONSIDERATION_TYPEHASH == keccak256(bytes(TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE)));
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));
     }
 
@@ -171,7 +136,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
         bytes memory takerSig,
-        bytes32 witness
+        bytes32 takerWitness
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
@@ -186,20 +151,14 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         makerConsideration.counterparty = taker;
 
         bytes32 makerWitness = _hashConsideration(makerConsideration);
-        bytes32 takerWitness = _hashConsideration(takerConsideration);
 
         _permit2TransferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig);
         _permit2TransferFrom(
-            takerPermit,
-            takerTransferDetails,
-            taker,
-            _hashTakerMetatxnConsideration(takerWitness, recipient, witness),
-            TAKER_METATXN_CONSIDERATION_WITNESS,
-            takerSig
+            takerPermit, takerTransferDetails, taker, takerWitness, ACTIONS_AND_SLIPPAGE_WITNESS, takerSig
         );
 
         emit OtcOrderFilled(
-            _hashOtcOrder(makerWitness, takerWitness),
+            _hashOtcOrder(makerWitness, _hashConsideration(takerConsideration)),
             maker,
             taker,
             takerConsideration.token,

@@ -353,24 +353,6 @@ abstract contract SettlerPairTest is BasePairTest {
     );
     */
 
-    struct TakerMetatxnConsideration {
-        OtcOrderSettlement.Consideration consideration;
-        address recipient;
-        bytes32 actionsAndSlippage;
-    }
-
-    bytes32 private constant TAKER_CONSIDERATION_TYPEHASH = keccak256(
-        "TakerMetatxnConsideration(Consideration consideration,address recipient,ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
-    );
-    bytes32 private constant TAKER_OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,TakerMetatxnConsideration consideration)ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TakerMetatxnConsideration(Consideration consideration,address recipient,ActionsAndSlippage actionsAndSlippage)TokenPermissions(address token,uint256 amount)"
-    );
-    /*
-    bytes32 private constant TAKER_OTC_PERMIT2_BATCH_WITNESS_TYPEHASH = keccak256(
-        "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,TakerMetatxnConsideration consideration)Consideration(address token,uint256 amount,address counterparty)TakerMetatxnConsideration(Consideration consideration,address recipient)TokenPermissions(address token,uint256 amount)"
-    );
-    */
-
     /// @dev Performs an direct OTC trade between MAKER and FROM
     // Funds are transferred MAKER->FROM and FROM->MAKER
     function testSettler_otc() public {
@@ -529,33 +511,14 @@ abstract contract SettlerPairTest is BasePairTest {
             actionHashes[i] = keccak256(actions[i]);
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
-        bytes32 witness =
+        bytes32 takerWitness =
             keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
 
-        TakerMetatxnConsideration memory takerConsideration = TakerMetatxnConsideration({
-            consideration: OtcOrderSettlement.Consideration({
-                token: address(toToken()),
-                amount: amount(),
-                counterparty: MAKER,
-                partialFillAllowed: false
-            }),
-            recipient: FROM,
-            actionsAndSlippage: witness
-        });
-        bytes32 takerWitness = keccak256(
-            bytes.concat(
-                TAKER_CONSIDERATION_TYPEHASH,
-                abi.encode(
-                    keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(takerConsideration.consideration))), FROM
-                ),
-                witness
-            )
-        );
         bytes memory takerSig = getPermitWitnessTransferSignature(
             takerPermit,
             address(settler),
             FROM_PRIVATE_KEY,
-            TAKER_OTC_PERMIT2_WITNESS_TYPEHASH,
+            FULL_PERMIT2_WITNESS_TYPEHASH,
             takerWitness,
             PERMIT2.DOMAIN_SEPARATOR()
         );
