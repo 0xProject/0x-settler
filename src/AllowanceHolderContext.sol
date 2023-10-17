@@ -31,4 +31,19 @@ abstract contract AllowanceHolderContext is Context {
             revert(0x00, 0x01)
         }
     }
+
+    // We're definitely not an ERC20. Understand!?!?
+    function transfer(address, uint256) external pure {
+        assembly ("memory-safe") {
+            mstore8(0x00, 0x00)
+            revert(0x00, 0x01)
+        }
+    }
+
+    function transferFrom(address, address, uint256) external pure {
+        assembly ("memory-safe") {
+            mstore8(0x00, 0x00)
+            revert(0x00, 0x01)
+        }
+    }
 }
