@@ -207,9 +207,6 @@ abstract contract SettlerPairTest is BasePairTest {
             deadline: block.timestamp + 100
         });
 
-        bytes memory sig =
-            getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
