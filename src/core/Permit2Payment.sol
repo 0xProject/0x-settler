@@ -11,7 +11,7 @@ library UnsafeArray {
         returns (ISignatureTransfer.TokenPermissions memory r)
     {
         assembly ("memory-safe") {
-            r := add(add(shl(6, i), 0x20), a)
+            r := mload(add(add(a, 0x20), shl(5, i)))
         }
     }
 
@@ -21,7 +21,7 @@ library UnsafeArray {
         returns (ISignatureTransfer.SignatureTransferDetails memory r)
     {
         assembly ("memory-safe") {
-            r := add(add(shl(6, i), 0x20), a)
+            r := mload(add(add(a, 0x20), shl(5, i)))
         }
     }
 }
