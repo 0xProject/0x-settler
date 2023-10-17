@@ -52,24 +52,25 @@ library AddressDerivation {
             }
         } else {
             // compute ceil(log_256(nonce)) + 1
-            uint256 nonceLength = 1;
+            uint256 nonceLength = 8;
             unchecked {
                 if ((uint256(nonce) >> 32) != 0) {
-                    nonceLength += 4;
+                    nonceLength += 32;
                     if (nonce == type(uint64).max) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
                 }
-                if ((uint256(nonce) >> 8) >= (1 << (nonceLength << 3))) {
-                    nonceLength += 2;
+                if ((uint256(nonce) >> 8) >= (1 << nonceLength)) {
+                    nonceLength += 16;
                 }
-                if (uint256(nonce) >= (1 << (nonceLength << 3))) {
-                    nonceLength += 1;
+                if (uint256(nonce) >= (1 << nonceLength)) {
+                    nonceLength += 8;
                 }
                 // ceil
-                if ((uint256(nonce) << 8) >= (1 << (nonceLength << 3))) {
-                    nonceLength += 1;
+                if ((uint256(nonce) << 8) >= (1 << nonceLength)) {
+                    nonceLength += 8;
                 }
+                nonceLength >>= 3;
             }
             assembly ("memory-safe") {
                 // we don't care about dirty bits in `deployer` or `nonce`. they'll be overwritten later
