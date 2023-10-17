@@ -5,7 +5,6 @@ optimizer = true
 via_ir = true
 optimizer_runs = 1000000
 no_match_path = "*/integration/*"
-fuzz_runs = 10000
 # needed for marktoda/forge-gas-snapshot
 ffi = true
 fs_permissions = [{ access = "read-write", path = ".forge-snapshots/"}]
@@ -13,3 +12,6 @@ fs_permissions = [{ access = "read-write", path = ".forge-snapshots/"}]
 [profile.integration]
 no_match_path = ""
 match_path = "*/integration/*"
+
+[fuzz]
+runs = 100_000
