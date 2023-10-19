@@ -1,0 +1,63 @@
+Compiling 5 files with 0.8.21
+Solc 0.8.21 finished in 150.99s
+Compiler run [33msuccessful with warnings:[0m
+[1;33mWarning (2519)[0m[1;37m: This declaration shadows an existing declaration.[0m
+  [34m-->[0m src/core/Basic.sol:47:18:
+[34m   |[0m
+[34m47 |[0m                 ([33mbool success[0m, bytes memory returnData) = payable(pool).call{value: value}("");
+[34m   |[0m                  [1;33m^^^^^^^^^^^^[0m
+[1;36mNote[0m[1;37m: The shadowed declaration is here:[0m
+  [34m-->[0m src/core/Basic.sol:74:10:
+[34m   |[0m
+[34m74 |[0m         ([33mbool success[0m, bytes memory returnData) = payable(pool).call{value: value}(data);
+[34m   |[0m          [1;33m^^^^^^^^^^^^[0m
+
+[1;33mWarning (2519)[0m[1;37m: This declaration shadows an existing declaration.[0m
+  [34m-->[0m src/core/Basic.sol:47:32:
+[34m   |[0m
+[34m47 |[0m                 (bool success, [33mbytes memory returnData[0m) = payable(pool).call{value: value}("");
+[34m   |[0m                                [1;33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1;36mNote[0m[1;37m: The shadowed declaration is here:[0m
+  [34m-->[0m src/core/Basic.sol:74:24:
+[34m   |[0m
+[34m74 |[0m         (bool success, [33mbytes memory returnData[0m) = payable(pool).call{value: value}(data);
+[34m   |[0m                        [1;33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+
+[1;33mWarning (5667)[0m[1;37m: Unused function parameter. Remove or comment out the variable name to silence this warning.[0m
+  [34m-->[0m src/Settler.sol:97:34:
+[34m   |[0m
+[34m97 |[0m     constructor(address permit2, [33maddress zeroEx[0m, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
+[34m   |[0m                                  [1;33m^^^^^^^^^^^^^^[0m
+
+[1;33mWarning (2072)[0m[1;37m: Unused local variable.[0m
+   [34m-->[0m test/integration/SettlerPairTest.t.sol:210:9:
+[34m    |[0m
+[34m210 |[0m         [33mbytes memory sig[0m =
+[34m    |[0m         [1;33m^^^^^^^^^^^^^^^^[0m
+
+| Contract          | Size (kB) | Margin (kB) |
+|-------------------|-----------|-------------|
+| ActionDataBuilder | 0.017     | 24.559      |
+| BridgeProtocols   | 0.017     | 24.559      |
+| CalldataDecoder   | 0.017     | 24.559      |
+| FullMath          | 0.017     | 24.559      |
+| LibBytes          | 0.017     | 24.559      |
+| MockERC20         | 3.758     | 20.818      |
+| Panic             | 0.017     | 24.559      |
+| Revert            | 0.017     | 24.559      |
+| SafeTransferLib   | 0.017     | 24.559      |
+| Settler           | 18.666    | 5.91        |
+| StdStyle          | 0.017     | 24.559      |
+| UintString        | 0.017     | 24.559      |
+| UnsafeArray       | 0.017     | 24.559      |
+| UnsafeMath        | 0.017     | 24.559      |
+| WETH              | 4.037     | 20.539      |
+| console           | 0.017     | 24.559      |
+| console2          | 0.017     | 24.559      |
+| safeconsole       | 0.017     | 24.559      |
+| stdError          | 1.307     | 23.269      |
+| stdJson           | 0.017     | 24.559      |
+| stdMath           | 0.017     | 24.559      |
+| stdStorage        | 0.017     | 24.559      |
+| stdStorageSafe    | 0.017     | 24.559      |
+

@@ -1,0 +1,35 @@
+Compiling 6 files with 0.8.21
+Solc 0.8.21 finished in 155.76s
+Compiler run [33msuccessful with warnings:[0m
+[1;33mWarning (2072)[0m[1;37m: Unused local variable.[0m
+   [34m-->[0m test/integration/SettlerPairTest.t.sol:210:9:
+[34m    |[0m
+[34m210 |[0m         [33mbytes memory sig[0m =
+[34m    |[0m         [1;33m^^^^^^^^^^^^^^^^[0m
+
+| Contract          | Size (kB) | Margin (kB) |
+|-------------------|-----------|-------------|
+| ActionDataBuilder | 0.017     | 24.559      |
+| BridgeProtocols   | 0.017     | 24.559      |
+| CalldataDecoder   | 0.017     | 24.559      |
+| FullMath          | 0.017     | 24.559      |
+| LibBytes          | 0.017     | 24.559      |
+| MockERC20         | 3.758     | 20.818      |
+| Panic             | 0.017     | 24.559      |
+| Revert            | 0.017     | 24.559      |
+| SafeTransferLib   | 0.017     | 24.559      |
+| Settler           | 21.13     | 3.446       |
+| StdStyle          | 0.017     | 24.559      |
+| UintString        | 0.017     | 24.559      |
+| UnsafeArray       | 0.017     | 24.559      |
+| UnsafeMath        | 0.017     | 24.559      |
+| WETH              | 4.037     | 20.539      |
+| console           | 0.017     | 24.559      |
+| console2          | 0.017     | 24.559      |
+| safeconsole       | 0.017     | 24.559      |
+| stdError          | 1.307     | 23.269      |
+| stdJson           | 0.017     | 24.559      |
+| stdMath           | 0.017     | 24.559      |
+| stdStorage        | 0.017     | 24.559      |
+| stdStorageSafe    | 0.017     | 24.559      |
+

@@ -1,0 +1,27 @@
+No files changed, compilation skipped
+| Contract          | Size (kB) | Margin (kB) |
+|-------------------|-----------|-------------|
+| ActionDataBuilder | 0.017     | 24.559      |
+| BridgeProtocols   | 0.017     | 24.559      |
+| CalldataDecoder   | 0.017     | 24.559      |
+| FullMath          | 0.017     | 24.559      |
+| LibBytes          | 0.017     | 24.559      |
+| MockERC20         | 3.758     | 20.818      |
+| Panic             | 0.017     | 24.559      |
+| Revert            | 0.017     | 24.559      |
+| SafeTransferLib   | 0.017     | 24.559      |
+| Settler           | 16.699    | 7.877       |
+| StdStyle          | 0.017     | 24.559      |
+| UintString        | 0.017     | 24.559      |
+| UnsafeArray       | 0.017     | 24.559      |
+| UnsafeMath        | 0.017     | 24.559      |
+| WETH              | 4.037     | 20.539      |
+| console           | 0.017     | 24.559      |
+| console2          | 0.017     | 24.559      |
+| safeconsole       | 0.017     | 24.559      |
+| stdError          | 1.307     | 23.269      |
+| stdJson           | 0.017     | 24.559      |
+| stdMath           | 0.017     | 24.559      |
+| stdStorage        | 0.017     | 24.559      |
+| stdStorageSafe    | 0.017     | 24.559      |
+
