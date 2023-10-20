@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../src/IERC20.sol";
 
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
@@ -9,7 +9,7 @@ import {BasePairTest} from "./BasePairTest.t.sol";
 import {ICurveV2Pool, ICurveV2SwapRouter} from "./vendor/ICurveV2Pool.sol";
 
 abstract contract CurveV2PairTest is BasePairTest {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
 
     ICurveV2SwapRouter private constant CURVEV2_SWAP_ROUTER =
         ICurveV2SwapRouter(0x99a58482BD75cbab83b27EC03CA68fF489b5788f);

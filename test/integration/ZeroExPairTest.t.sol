@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../src/IERC20.sol";
 
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
@@ -18,7 +18,7 @@ import {
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 abstract contract ZeroExPairTest is BasePairTest {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
 
     IZeroEx private constant ZERO_EX = IZeroEx(ZERO_EX_ADDRESS);
     // Note: Eventually this will be outdated
@@ -73,7 +73,7 @@ abstract contract ZeroExPairTest is BasePairTest {
             expirationTimeSeconds: block.timestamp + 60,
             salt: 123,
             callData: mtxCallData,
-            feeToken: ERC20(address(0)),
+            feeToken: IERC20(address(0)),
             fees: fees
         });
         mtxHash = ZERO_EX.getMetaTransactionV2Hash(mtx);

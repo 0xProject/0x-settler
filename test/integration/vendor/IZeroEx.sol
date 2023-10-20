@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../../src/IERC20.sol";
 
 /// @dev Feature to composably transform between ERC20 tokens.
 interface ITransformERC20Feature {
@@ -21,10 +21,10 @@ interface ITransformERC20Feature {
         address payable taker;
         // The token being provided by the taker.
         // If `0xeee...`, ETH is implied and should be provided with the call.`
-        ERC20 inputToken;
+        IERC20 inputToken;
         // The token to be acquired by the taker.
         // `0xeee...` implies ETH.
-        ERC20 outputToken;
+        IERC20 outputToken;
         // The amount of `inputToken` to take from the taker.
         // If set to `uint256(-1)`, the entire spendable balance of the taker
         // will be solt.
@@ -64,7 +64,7 @@ interface IMetaTransactionsFeatureV2 {
         // Encoded call data to a function on the exchange proxy.
         bytes callData;
         // ERC20 fee `signer` pays `sender`.
-        ERC20 feeToken;
+        IERC20 feeToken;
         // ERC20 fees.
         MetaTransactionFeeData[] fees;
     }
@@ -105,16 +105,16 @@ interface IZeroEx {
     }
 
     function multiplexBatchSellTokenForToken(
-        ERC20 inputToken,
-        ERC20 outputToken,
+        IERC20 inputToken,
+        IERC20 outputToken,
         BatchSellSubcall[] calldata calls,
         uint256 sellAmount,
         uint256 minBuyAmount
     ) external returns (uint256 boughtAmount);
 
     function sellToLiquidityProvider(
-        ERC20 inputToken,
-        ERC20 outputToken,
+        IERC20 inputToken,
+        IERC20 outputToken,
         address provider,
         address recipient,
         uint256 sellAmount,
@@ -123,16 +123,16 @@ interface IZeroEx {
     ) external payable returns (uint256 boughtAmount);
 
     function transformERC20(
-        ERC20 inputToken,
-        ERC20 outputToken,
+        IERC20 inputToken,
+        IERC20 outputToken,
         uint256 inputTokenAmount,
         uint256 minOutputTokenAmount,
         ITransformERC20Feature.Transformation[] calldata transformations
     ) external payable returns (uint256 outputTokenAmount);
 
     struct LimitOrder {
-        ERC20 makerToken;
-        ERC20 takerToken;
+        IERC20 makerToken;
+        IERC20 takerToken;
         uint128 makerAmount;
         uint128 takerAmount;
         uint128 takerTokenFeeAmount;
@@ -147,8 +147,8 @@ interface IZeroEx {
 
     /// @dev An RFQ limit order.
     struct RfqOrder {
-        ERC20 makerToken;
-        ERC20 takerToken;
+        IERC20 makerToken;
+        IERC20 takerToken;
         uint128 makerAmount;
         uint128 takerAmount;
         address maker;
@@ -161,8 +161,8 @@ interface IZeroEx {
 
     /// @dev An OTC limit order.
     struct OtcOrder {
-        ERC20 makerToken;
-        ERC20 takerToken;
+        IERC20 makerToken;
+        IERC20 takerToken;
         uint128 makerAmount;
         uint128 takerAmount;
         address maker;
@@ -250,10 +250,10 @@ interface IFillQuoteTransformer {
         Side side;
         // The token being sold.
         // This should be an actual token, not the ETH pseudo-token.
-        ERC20 sellToken;
+        IERC20 sellToken;
         // The token being bought.
         // This should be an actual token, not the ETH pseudo-token.
-        ERC20 buyToken;
+        IERC20 buyToken;
         // External liquidity bridge orders. Sorted by fill sequence.
         IBridgeAdapter.BridgeOrder[] bridgeOrders;
         // Native limit orders. Sorted by fill sequence.

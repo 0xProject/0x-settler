@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../IERC20.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {VIPBase} from "./VIPBase.sol";
@@ -52,7 +52,7 @@ abstract contract UniswapV2 is VIPBase {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
 
-        uint256 sellAmount = ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000);
+        uint256 sellAmount = IERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let swapCalldata := ptr
