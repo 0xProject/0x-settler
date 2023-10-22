@@ -36,22 +36,39 @@ contract AllowanceHolder {
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for TransferDetails[];
 
-    bytes32 internal constant _MOCK_TRANSIENT_START_SLOT =
-        0x588fe8b62ed655cf29d31d5107e62b4fbc51f24e11339fa0f890fb831d2d43bc;
+    bytes32 private _sentinel;
 
     constructor() {
-        assert(_MOCK_TRANSIENT_START_SLOT == bytes32(uint256(keccak256("mock transient start slot")) - 65536));
-    }
-
-    struct MockTransientStorage {
-        address operator;
-        bytes32 witness;
-        mapping(address => uint256) allowed;
-    }
-
-    function _getTransientStorage() private pure returns (MockTransientStorage storage result) {
+        uint256 _sentinelSlot;
         assembly ("memory-safe") {
-            result.slot := _MOCK_TRANSIENT_START_SLOT
+            _sentinelSlot := _sentinel.slot
+        }
+        assert(_sentinelSlot == 0);
+    }
+
+    function _getAllowed(address token) private view returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sload(and(0xffffffffffffffffffffffffffffffffffffffff, token))
+        }
+    }
+
+    function _setAllowed(address token, uint256 allowed) private {
+        assembly ("memory-safe") {
+            sstore(and(0xffffffffffffffffffffffffffffffffffffffff, token), allowed)
+        }
+    }
+
+    function _getOperator() private view returns (address r) {
+        assembly ("memory-safe") {
+            r := sload(0x10000000000000000000000000000000000000000)
+        }
+    }
+
+    function _setOperator(address operator) private {
+        assembly ("memory-safe") {
+            sstore(
+                0x10000000000000000000000000000000000000000, and(0xffffffffffffffffffffffffffffffffffffffff, operator)
+            )
         }
     }
 
@@ -59,7 +76,6 @@ contract AllowanceHolder {
 
     function execute(
         address operator,
-        bytes32 witness,
         ISignatureTransfer.TokenPermissions[] calldata permits,
         address payable target,
         bytes calldata data
@@ -105,12 +121,10 @@ contract AllowanceHolder {
             }
         }
 
-        MockTransientStorage storage tstor = _getTransientStorage();
-        tstor.operator = operator;
-        tstor.witness = witness;
+        _setOperator(operator);
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            tstor.allowed[permit.token] = permit.amount;
+            _setAllowed(permit.token, permit.amount);
         }
 
         {
@@ -124,10 +138,9 @@ contract AllowanceHolder {
         }
 
         // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
-        tstor.operator = address(0);
-        tstor.witness = bytes32(0);
+        _setOperator(address(0));
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            tstor.allowed[permits.unsafeGet(i).token] = 0;
+            _setAllowed(permits.unsafeGet(i).token, 0);
         }
     }
 
@@ -137,12 +150,10 @@ contract AllowanceHolder {
         uint256 amount;
     }
 
-    function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails, MockTransientStorage storage tstor)
-        private
-    {
+    function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            tstor.allowed[transferDetail.token] -= transferDetail.amount; // reverts on underflow
+            _setAllowed(transferDetail.token, _getAllowed(transferDetail.token) - transferDetail.amount); // reverts on underflow
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
@@ -152,18 +163,7 @@ contract AllowanceHolder {
 
     function transferFrom(address owner, TransferDetails[] calldata transferDetails) public {
         assert(owner == tx.origin);
-        MockTransientStorage storage tstor = _getTransientStorage();
-        require(msg.sender == tstor.operator);
-        require(tstor.witness == bytes32(0));
-        _checkAmountsAndTransfer(transferDetails, tstor);
-    }
-
-    function transferFrom(address owner, TransferDetails[] calldata transferDetails, bytes32 witness) public {
-        assert(owner == tx.origin);
-        MockTransientStorage storage tstor = _getTransientStorage();
-        require(msg.sender == tstor.operator);
-        require(witness == tstor.witness);
-        tstor.operator = address(0);
-        _checkAmountsAndTransfer(transferDetails, tstor);
+        require(msg.sender == _getOperator());
+        _checkAmountsAndTransfer(transferDetails);
     }
 }

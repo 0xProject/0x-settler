@@ -231,12 +231,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        if (isForwarded) {
-            require(sig.length == 0); // sanity check
-            allowanceHolder.transferFrom(from, _formatForAllowanceHolder(permit, transferDetails), witness);
-        } else {
-            _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
-        }
+        require(!isForwarded); // sanity check
+        _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
     function _permit2TransferFrom(
@@ -259,12 +255,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        if (isForwarded) {
-            require(sig.length == 0); // sanity check
-            allowanceHolder.transferFrom(from, _formatForAllowanceHolder(permit, transferDetails), witness);
-        } else {
-            _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
-        }
+        require(!isForwarded); // sanity check
+        _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
     function _permit2TransferFrom(
