@@ -519,7 +519,7 @@ Where `actions` is added and contains the encoded actions the to perform.
 | KyberDMM     |    ✅     | |
 | KyberElastic |    ✅     | |
 | Lido         |    ✅     | |
-| MakerPsm     |    ❌     | Additional calculation required for `buyGem` |
+| MakerPsm     |    ✅     | Has VIP |
 | mStable      |    ✅     | |
 | Saddle       |    ✅     | Curve clone |
 | Shell        |    ✅     | |
