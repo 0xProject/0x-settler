@@ -9,6 +9,7 @@ import {Basic} from "./core/Basic.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
+import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
 import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
@@ -71,7 +72,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, ZeroEx, FreeMemory {
+contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, MakerPSM, ZeroEx, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -94,12 +95,20 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     receive() external payable {}
 
-    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
+    constructor(
+        address permit2,
+        address zeroEx,
+        address uniFactory,
+        bytes32 poolInitCodeHash,
+        address dai,
+        address feeRecipient
+    )
         Permit2Payment(permit2, feeRecipient)
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
         UniswapV2()
+        MakerPSM(dai)
         ZeroEx(zeroEx)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
@@ -339,6 +348,16 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 abi.decode(data, (address, uint256, uint256, bytes));
 
             sellToUniswapV2(path, bips, amountOutMin, recipient);
+        } else if (action == ISettlerActions.MAKER_PSM_SELL_GEM.selector) {
+            (address recipient, uint256 bips, IPSM psm, ERC20 gemToken) =
+                abi.decode(data, (address, uint256, IPSM, ERC20));
+
+            makerPsmSellGem(recipient, bips, psm, gemToken);
+        } else if (action == ISettlerActions.MAKER_PSM_BUY_GEM.selector) {
+            (address recipient, uint256 bips, IPSM psm, ERC20 gemToken) =
+                abi.decode(data, (address, uint256, IPSM, ERC20));
+
+            makerPsmBuyGem(recipient, bips, psm, gemToken);
         } else if (action == ISettlerActions.BASIC_SELL.selector) {
             (address pool, ERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, ERC20, uint256, uint256, bytes));
