@@ -108,6 +108,47 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    function testSettler_zeroExOtcOrder_partialFill() public {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(ZERO_EX),
+                    address(fromToken()),
+                    5_000,
+                    0x184,
+                    abi.encodeCall(
+                        ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
+                        )
+                )
+            ),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(fromToken()),
+                    address(fromToken()),
+                    10_000,
+                    0x24,
+                    abi.encodeCall(fromToken().transfer, (FROM, 0))
+                )
+            )
+        );
+
+        Settler _settler = settler;
+        Settler.AllowedSlippage memory allowedSlippage = Settler.AllowedSlippage({
+            buyToken: address(otcOrder.makerToken),
+            recipient: FROM,
+            minAmountOut: otcOrder.makerAmount / 2
+        });
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_zeroExOtc_partialFill");
+        _settler.execute(actions, allowedSlippage);
+        snapEnd();
+    }
+
     function testSettler_uniswapV3VIP() public {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
