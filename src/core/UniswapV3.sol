@@ -40,14 +40,14 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     bytes32 private immutable UNI_POOL_INIT_CODE_HASH;
     /// @dev Minimum size of an encoded swap path:
     ///      sizeof(address(inputToken) | uint24(fee) | address(outputToken))
-    uint256 private constant SINGLE_HOP_PATH_SIZE = 43;
+    uint256 private constant SINGLE_HOP_PATH_SIZE = 0x2b;
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
     ///      sizeof(address(inputToken) | uint24(fee))
-    uint256 private constant PATH_SKIP_HOP_SIZE = 23;
+    uint256 private constant PATH_SKIP_HOP_SIZE = 0x17;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x80;
+    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x3f;
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0xa0;
+    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x5f;
     uint256 private constant PERMIT_DATA_SIZE = 0x80;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
@@ -212,12 +212,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
-            let p := add(encodedPath, 0x20)
-            inputToken := shr(0x60, mload(p))
-            p := add(p, 0x14)
-            fee := shr(0xe8, mload(p))
-            p := add(p, 0x03)
-            outputToken := shr(0x60, mload(p))
+            inputToken := mload(add(encodedPath, 0x14))
+            fee := mload(add(encodedPath, 0x17))
+            outputToken := mload(add(encodedPath, 0x2b))
         }
     }
 
@@ -270,10 +267,12 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         address payer
     ) private pure {
         assembly ("memory-safe") {
-            mstore(add(swapCallbackData, 0x20), and(ADDRESS_MASK, token0))
-            mstore(add(swapCallbackData, 0x40), and(UINT24_MASK, fee))
-            mstore(add(swapCallbackData, 0x60), and(ADDRESS_MASK, token1))
-            mstore(add(swapCallbackData, 0x80), and(ADDRESS_MASK, payer))
+            let length := mload(swapCallbackData)
+            mstore(add(swapCallbackData, 0x3f), payer)
+            mstore(add(swapCallbackData, 0x2b), token1)
+            mstore(add(swapCallbackData, 0x17), fee)
+            mstore(add(swapCallbackData, 0x14), token0)
+            mstore(swapCallbackData, length)
         }
     }
 
@@ -309,19 +308,21 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     ///      UniswapV3 pool.
     /// @param amount0Delta Token0 amount owed.
     /// @param amount1Delta Token1 amount owed.
-    /// @param data Arbitrary data forwarded from swap() caller. An ABI-encoded
-    ///        struct of: inputToken, outputToken, fee, payer
+    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: inputToken, outputToken, fee, payer, abi.encode(permit, witness)
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
         // Decode the data.
         ERC20 token0;
-        ERC20 token1;
         uint24 fee;
+        ERC20 token1;
         address payer;
         assembly ("memory-safe") {
-            token0 := calldataload(data.offset)
-            fee := calldataload(add(data.offset, 0x20))
-            token1 := calldataload(add(data.offset, 0x40))
-            payer := calldataload(add(data.offset, 0x60))
+            {
+                let firstWord := calldataload(data.offset)
+                token0 := shr(0x60, firstWord)
+                fee := shr(0x48, firstWord)
+            }
+            token1 := calldataload(add(data.offset, 0xb))
+            payer := calldataload(add(data.offset, 0x1f))
         }
         // Only a valid pool contract can call this function.
         require(msg.sender == address(_toPool(token0, fee, token1)));
