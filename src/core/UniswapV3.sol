@@ -157,12 +157,13 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
             bool zeroForOne;
             IUniswapV3Pool pool;
             {
-                ERC20 inputToken;
-                uint24 fee;
-                (inputToken, fee, outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
-                pool = _toPool(inputToken, fee, outputToken);
-                zeroForOne = inputToken < outputToken;
-                _updateSwapCallbackData(swapCallbackData, inputToken, outputToken, fee, payer);
+                (ERC20 token0, uint24 fee, ERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
+                outputToken = token1;
+                if (!(zeroForOne = token0 < token1)) {
+                    (token0, token1) = (token1, token0);
+                }
+                pool = _toPool(token0, fee, token1);
+                _updateSwapCallbackData(swapCallbackData, token0, fee, token1, payer);
             }
             (int256 amount0, int256 amount1) = pool.swap(
                 // Intermediate tokens go to this contract.
@@ -263,21 +264,21 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     // Update `swapCallbackData` in place with new values.
     function _updateSwapCallbackData(
         bytes memory swapCallbackData,
-        ERC20 inputToken,
-        ERC20 outputToken,
+        ERC20 token0,
         uint24 fee,
+        ERC20 token1,
         address payer
     ) private pure {
         assembly ("memory-safe") {
-            mstore(add(swapCallbackData, 0x20), and(ADDRESS_MASK, inputToken))
-            mstore(add(swapCallbackData, 0x40), and(ADDRESS_MASK, outputToken))
-            mstore(add(swapCallbackData, 0x60), and(UINT24_MASK, fee))
+            mstore(add(swapCallbackData, 0x20), and(ADDRESS_MASK, token0))
+            mstore(add(swapCallbackData, 0x40), and(UINT24_MASK, fee))
+            mstore(add(swapCallbackData, 0x60), and(ADDRESS_MASK, token1))
             mstore(add(swapCallbackData, 0x80), and(ADDRESS_MASK, payer))
         }
     }
 
     // Compute the pool address given two tokens and a fee.
-    function _toPool(ERC20 inputToken, uint24 fee, ERC20 outputToken) private view returns (IUniswapV3Pool pool) {
+    function _toPool(ERC20 token0, uint24 fee, ERC20 token1) private view returns (IUniswapV3Pool pool) {
         // address(keccak256(abi.encodePacked(
         //     hex"ff",
         //     UNI_FACTORY_ADDRESS,
@@ -286,7 +287,6 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         // )))
         bytes32 ffFactoryAddress = UNI_FF_FACTORY_ADDRESS;
         bytes32 poolInitCodeHash = UNI_POOL_INIT_CODE_HASH;
-        (ERC20 token0, ERC20 token1) = inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
         assembly ("memory-safe") {
             let s := mload(0x40)
             mstore(s, ffFactoryAddress)
@@ -313,8 +313,16 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     ///        struct of: inputToken, outputToken, fee, payer
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
         // Decode the data.
-        (ERC20 token0, ERC20 token1, uint24 fee, address payer) = abi.decode(data, (ERC20, ERC20, uint24, address));
-        (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
+        ERC20 token0;
+        ERC20 token1;
+        uint24 fee;
+        address payer;
+        assembly ("memory-safe") {
+            token0 := calldataload(data.offset)
+            fee := calldataload(add(data.offset, 0x20))
+            token1 := calldataload(add(data.offset, 0x40))
+            payer := calldataload(add(data.offset, 0x60))
+        }
         // Only a valid pool contract can call this function.
         require(msg.sender == address(_toPool(token0, fee, token1)));
 
