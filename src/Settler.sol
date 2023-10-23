@@ -10,7 +10,6 @@ import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
-import {IZeroEx, ZeroEx} from "./core/ZeroEx.sol";
 
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
@@ -72,7 +71,7 @@ library CalldataDecoder {
     }
 }
 
-contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, MakerPSM, ZeroEx, FreeMemory {
+contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, MakerPSM, FreeMemory {
     using SafeTransferLib for ERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -95,21 +94,13 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     receive() external payable {}
 
-    constructor(
-        address permit2,
-        address zeroEx,
-        address uniFactory,
-        bytes32 poolInitCodeHash,
-        address dai,
-        address feeRecipient
-    )
+    constructor(address permit2, address uniFactory, bytes32 poolInitCodeHash, address dai, address feeRecipient)
         Permit2Payment(permit2, feeRecipient)
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
         UniswapV2()
         MakerPSM(dai)
-        ZeroEx(zeroEx)
     {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
@@ -380,11 +371,6 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                     }
                 }
             }
-        } else if (action == ISettlerActions.ZERO_EX_OTC.selector) {
-            (IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount) =
-                abi.decode(data, (IZeroEx.OtcOrder, IZeroEx.Signature, uint256));
-
-            sellTokenForTokenToZeroExOTC(order, signature, sellAmount);
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }

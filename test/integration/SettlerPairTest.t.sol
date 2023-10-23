@@ -70,7 +70,6 @@ abstract contract SettlerPairTest is BasePairTest {
     function getSettler() private returns (Settler) {
         return new Settler(
             address(PERMIT2),
-            address(ZERO_EX), // ZeroEx
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
             0x6B175474E89094C44Da98b954EedeAC495271d0F, // DAI
@@ -81,22 +80,31 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_zeroExOtcOrder() public {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
 
-        // TODO can use safer encodeCall
-        bytes[] memory actions = new bytes[](2);
-        actions[0] = _getDefaultFromPermit2Action();
-        actions[1] = abi.encodeWithSelector(
-            ISettlerActions.ZERO_EX_OTC.selector,
-            otcOrder,
-            IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s),
-            amount()
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(ZERO_EX),
+                    address(fromToken()),
+                    10_000,
+                    0x184,
+                    abi.encodeCall(
+                        ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
+                        )
+                )
+            )
         );
 
         Settler _settler = settler;
+        Settler.AllowedSlippage memory allowedSlippage = Settler.AllowedSlippage({
+            buyToken: address(otcOrder.makerToken),
+            recipient: FROM,
+            minAmountOut: otcOrder.makerAmount
+        });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
-        _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
-        );
+        _settler.execute(actions, allowedSlippage);
         snapEnd();
     }
 
@@ -202,15 +210,6 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_uniswapV3_sellToken_fee_full_custody() public {
-        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()}),
-            nonce: PERMIT2_FROM_NONCE,
-            deadline: block.timestamp + 100
-        });
-
-        bytes memory sig =
-            getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
-
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(

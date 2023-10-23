@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {IZeroEx} from "./core/ZeroEx.sol";
 
 interface ISettlerActions {
     /// @dev Transfer funds from msg.sender Permit2.
@@ -78,12 +77,6 @@ interface ISettlerActions {
     function UNISWAPV2_SWAP(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
 
     function POSITIVE_SLIPPAGE(address token, address recipient, uint256 expectedAmount) external;
-
-    // @dev Fill a 0x V4 OTC order using the 0x Exchange Proxy contract
-    // Pre-req: Funded
-    // Post-req: Payout
-    function ZERO_EX_OTC(IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount)
-        external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
