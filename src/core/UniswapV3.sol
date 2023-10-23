@@ -3,7 +3,7 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {FullMath} from "../utils/FullMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {VIPBase} from "./VIPBase.sol";
@@ -31,7 +31,7 @@ interface IUniswapV3Pool {
 }
 
 abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
     using SafeTransferLib for ERC20;
 
     /// @dev UniswapV3 Factory contract address prepended with '0xff' and left-aligned.
@@ -77,7 +77,10 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     ) internal returns (uint256 buyAmount) {
         buyAmount = _swap(
             encodedPath,
-            ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000),
+            // We don't care about phantom overflow here because reserves are
+            // limited to 128 bits. Any token balance that would overflow here
+            // would also break UniV3.
+            (ERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bips).unsafeDiv(10_000),
             minBuyAmount,
             address(this), // payer
             recipient,

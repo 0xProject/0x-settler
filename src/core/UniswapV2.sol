@@ -2,12 +2,12 @@
 pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {FullMath} from "../utils/FullMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {VIPBase} from "./VIPBase.sol";
 
 abstract contract UniswapV2 is VIPBase {
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
 
     // UniswapV2 Factory contract address prepended with '0xff' and left-aligned
     bytes32 private constant UNI_FF_FACTORY_ADDRESS = 0xFF5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f0000000000000000000000;
@@ -52,7 +52,10 @@ abstract contract UniswapV2 is VIPBase {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
 
-        uint256 sellAmount = ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000);
+        // We don't care about phantom overflow here because reserves are
+        // limited to 112 bits. Any token balance that would overflow here would
+        // also break UniV2.
+        uint256 sellAmount = (ERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bips).unsafeDiv(10_000);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let swapCalldata := ptr

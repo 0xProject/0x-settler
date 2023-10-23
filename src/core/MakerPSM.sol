@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
-import {FullMath} from "../utils/FullMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 interface IPSM {
     // @dev Get the fee for selling DAI to USDC in PSM
@@ -27,7 +27,7 @@ interface IPSM {
 }
 
 abstract contract MakerPSM {
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
     using SafeTransferLib for ERC20;
 
     // Maker units https://github.com/makerdao/dss/blob/master/DEVELOPING.md
@@ -41,17 +41,22 @@ abstract contract MakerPSM {
     }
 
     function makerPsmSellGem(address recipient, uint256 bips, IPSM psm, ERC20 gemToken) internal {
-        uint256 sellAmount = gemToken.balanceOf(address(this)).mulDiv(bips, 10_000);
+        // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
+        uint256 sellAmount = (gemToken.balanceOf(address(this)) * bips).unsafeDiv(10_000);
         gemToken.safeApproveIfBelow(psm.gemJoin(), sellAmount);
         psm.sellGem(recipient, sellAmount);
     }
 
     function makerPsmBuyGem(address recipient, uint256 bips, IPSM psm, ERC20 gemToken) internal {
-        uint256 sellAmount = DAI.balanceOf(address(this)).mulDiv(bips, 10_000);
-        uint256 feeDivisor = WAD + psm.tout(); // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
-        uint256 buyAmount = sellAmount.mulDiv(10 ** uint256(gemToken.decimals()), feeDivisor);
+        // phantom overflow can't happen here because DAI has decimals = 18
+        uint256 sellAmount = (DAI.balanceOf(address(this)) * bips).unsafeDiv(10_000);
+        unchecked {
+            uint256 feeDivisor = psm.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
+            // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
+            uint256 buyAmount = (sellAmount * 10 ** uint256(gemToken.decimals())).unsafeDiv(feeDivisor);
 
-        DAI.safeApproveIfBelow(address(psm), sellAmount);
-        psm.buyGem(recipient, buyAmount);
+            DAI.safeApproveIfBelow(address(psm), sellAmount);
+            psm.buyGem(recipient, buyAmount);
+        }
     }
 }
