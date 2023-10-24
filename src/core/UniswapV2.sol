@@ -65,12 +65,9 @@ abstract contract UniswapV2 is VIPBase {
             ptr := add(ptr, 0xc0)
 
             for {
-                let pathLength := mload(encodedPath)
                 let path := add(encodedPath, 0x20)
-            } iszero(lt(pathLength, SINGLE_HOP_PATH_SIZE)) {
-                pathLength := sub(pathLength, HOP_SHIFT_SIZE)
-                path := add(path, HOP_SHIFT_SIZE)
-            } {
+                let end := add(add(encodedPath, mload(encodedPath)), 0x0c)
+            } lt(path, end) { path := add(path, HOP_SHIFT_SIZE) } {
                 // decode hop info
                 let buyToken := shr(0x60, mload(add(path, HOP_SHIFT_SIZE)))
                 let sellToken := shr(0x58, mload(path))

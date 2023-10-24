@@ -291,14 +291,16 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_uniswapV2_multihop() public {
-        address wBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+        ERC20 wBTC = ERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
                 ISettlerActions.UNISWAPV2_SWAP,
-                (FROM, 10_000, 0, bytes.concat(uniswapV2Path(), bytes1(0x00), bytes20(uint160(wBTC))))
+                (FROM, 10_000, 0, bytes.concat(uniswapV2Path(), bytes1(0x00), bytes20(uint160(address(wBTC)))))
             )
         );
+
+        uint256 balanceBefore = wBTC.balanceOf(FROM);
 
         Settler _settler = settler;
         vm.startPrank(FROM);
@@ -307,6 +309,8 @@ abstract contract SettlerPairTest is BasePairTest {
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
         snapEnd();
+
+        assertGt(wBTC.balanceOf(FROM), balanceBefore);
     }
 
     function testSettler_curveV2_fee() public skipIf(getCurveV2PoolData().pool == address(0)) {
