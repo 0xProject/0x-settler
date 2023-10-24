@@ -70,17 +70,17 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
+        address recipient,
         bytes memory encodedPath,
         uint256 bips,
-        uint256 minBuyAmount,
-        address recipient
+        uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         buyAmount = _swap(
+            recipient,
             encodedPath,
             ERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000),
             minBuyAmount,
             address(this), // payer
-            recipient,
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
         );
     }
@@ -94,10 +94,10 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     /// @param sig The taker's signature for Permit2
     /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
+        address recipient,
         bytes memory encodedPath,
         uint256 sellAmount,
         uint256 minBuyAmount,
-        address recipient,
         address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
@@ -105,7 +105,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
         _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig);
 
-        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
+        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, payer, swapCallbackData);
     }
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
@@ -118,10 +118,10 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     /// @param witness Hashed additional data to be combined with _uniV3WitnessTypeString(), signed over, and verified by Permit2
     /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
+        address recipient,
         bytes memory encodedPath,
         uint256 sellAmount,
         uint256 minBuyAmount,
-        address recipient,
         address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
@@ -130,18 +130,18 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
         _encodePermit2Data(swapCallbackData, permit, witness, sig);
 
-        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
+        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, payer, swapCallbackData);
     }
 
     function _uniV3WitnessTypeString() internal view virtual returns (string memory);
 
     // Executes successive swaps along an encoded uniswap path.
     function _swap(
+        address recipient,
         bytes memory encodedPath,
         uint256 sellAmount,
         uint256 minBuyAmount,
         address payer,
-        address recipient,
         bytes memory swapCallbackData
     ) private returns (uint256 buyAmount) {
         if (sellAmount > uint256(type(int256).max)) {

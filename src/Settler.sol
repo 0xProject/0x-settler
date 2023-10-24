@@ -172,7 +172,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                     bytes memory sig
                 ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msg.sender, permit, sig);
+                sellTokenForTokenToUniswapV3(recipient, path, amountIn, amountOutMin, msg.sender, permit, sig);
             } else {
                 _dispatch(0, action, data, msg.sender);
             }
@@ -251,7 +251,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             bytes memory path,
             ISignatureTransfer.PermitTransferFrom memory permit
         ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msgSender, permit, sig, witness);
+        sellTokenForTokenToUniswapV3(recipient, path, amountIn, amountOutMin, msgSender, permit, sig, witness);
     }
 
     function executeMetaTxn(
@@ -333,19 +333,19 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellTokenForTokenToUniswapV3(path, bips, amountOutMin, recipient);
+            sellTokenForTokenToUniswapV3(recipient, path, bips, amountOutMin);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
             (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellToUniswapV2(path, bips, amountOutMin, recipient);
+            sellToUniswapV2(recipient, path, bips, amountOutMin);
         } else if (action == ISettlerActions.BASIC_SELL.selector) {
             (address pool, ERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, ERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
-            (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
+            (address recipient, ERC20 token, uint256 expectedAmount) = abi.decode(data, (address, ERC20, uint256));
             if (token == ERC20(ETH_ADDRESS)) {
                 uint256 balance = address(this).balance;
                 if (balance > expectedAmount) {
