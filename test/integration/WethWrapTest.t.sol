@@ -30,12 +30,8 @@ contract WethWrapTest is Test, GasSnapshot {
 
     function testWethDeposit() public {
         vm.deal(address(_settler), 1e18);
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(_weth), _eth, 10_000, 4, bytes.concat(abi.encodeCall(_weth.deposit, ()), bytes32(0)))
-            )
-        );
+        bytes[] memory actions =
+            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC_SELL, (address(_weth), _eth, 10_000, 0, "")));
 
         uint256 balanceBefore = _weth.balanceOf(address(this));
         Settler settler = _settler;
@@ -45,7 +41,7 @@ contract WethWrapTest is Test, GasSnapshot {
             actions, Settler.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
         );
         snapEnd();
-        assert(_weth.balanceOf(address(this)) - balanceBefore == 1e18);
+        assertEq(_weth.balanceOf(address(this)) - balanceBefore, 1e18);
     }
 
     function testWethWithdraw() public {
@@ -70,7 +66,7 @@ contract WethWrapTest is Test, GasSnapshot {
             })
         );
         snapEnd();
-        assert(address(this).balance - balanceBefore == 1e18);
+        assertEq(address(this).balance - balanceBefore, 1e18);
     }
 
     receive() external payable {}
