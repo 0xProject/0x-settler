@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {TwoStepOwnable} from "./TwoStepOwnable.sol";
+import {Panic} from "../utils/Panic.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -66,6 +67,9 @@ contract Deployer is TwoStepOwnable {
     event Authorized(uint256 indexed, address indexed, uint256);
 
     function authorize(uint256 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
+        if (feature == 0) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
         emit Authorized(feature, who, expiry);
         authorizedUntil[feature][who] = expiry;
         return true;
