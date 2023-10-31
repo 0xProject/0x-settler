@@ -49,7 +49,7 @@ contract Deployer is TwoStepOwnable {
         uint256 feature;
     }
 
-    mapping(address => DoublyLinkedList) internal _deploymentLists;
+    mapping(address => DoublyLinkedList) private _deploymentLists;
     mapping(uint256 => address) public deployments;
 
     address public feeCollector;
@@ -132,14 +132,16 @@ contract Deployer is TwoStepOwnable {
                 // deployments[feature] = predicted;
                 sstore(headSlot, predicted)
 
-                // _deploymentLists[oldHead].next = predicted;
-                mstore(0x00, oldHead)
                 mstore(0x20, _deploymentLists.slot)
-                sstore(add(1, keccak256(0x00, 0x40)), predicted)
+                if oldHead {
+                    // _deploymentLists[oldHead].next = predicted;
+                    mstore(0x00, oldHead)
+                    sstore(add(1, keccak256(0x00, 0x40)), predicted)
+                }
                 // _deploymentLists[predicted].prev = oldHead;
                 mstore(0x00, predicted)
                 let predictedSlot := keccak256(0x00, 0x40)
-                sstore(predictedSlot, oldHead)
+                sstore(predictedSlot, oldHead) // don't bother checking if oldHead is zero
                 // _deploymentLists[predicted].feature = feature;
                 sstore(add(2, predictedSlot), feature)
             }
