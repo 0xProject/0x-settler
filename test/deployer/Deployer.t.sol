@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {Deployer} from "src/deployer/Deployer.sol";
+import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import "forge-std/Test.sol";
 
@@ -22,28 +23,33 @@ contract DeployerTest is Test {
         deployer.acceptOwnership();
     }
 
-    event Authorized(address indexed, bool);
+    event Authorized(uint256 indexed, address indexed, uint256);
 
     function testAuthorize() public {
-        assertFalse(deployer.isAuthorized(auth));
-        vm.expectEmit(true, false, false, true);
-        emit Authorized(auth, true);
-        assertTrue(deployer.authorize(auth, true));
-        assertTrue(deployer.isAuthorized(auth));
+        assertEq(deployer.authorizedUntil(1, auth), 0);
+        vm.expectEmit(true, true, false, true);
+        emit Authorized(1, auth, block.timestamp + 1 days);
+        assertTrue(deployer.authorize(1, auth, block.timestamp + 1 days));
+        assertEq(deployer.authorizedUntil(1, auth), block.timestamp + 1 days);
+    }
+
+    function testAuthorizeZero() public {
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
+        deployer.authorize(0, auth, block.timestamp + 1 days);
     }
 
     function testUnauthorize() public {
-        deployer.authorize(auth, true);
-        vm.expectEmit(true, false, false, true);
-        emit Authorized(auth, false);
-        assertTrue(deployer.authorize(auth, false));
-        assertFalse(deployer.isAuthorized(auth));
+        deployer.authorize(1, auth, block.timestamp + 1 days);
+        vm.expectEmit(true, true, false, true);
+        emit Authorized(1, auth, 0);
+        assertTrue(deployer.authorize(1, auth, 0));
+        assertEq(deployer.authorizedUntil(1, auth), 0);
     }
 
     function testAuthorizeNotOwner() public {
         vm.startPrank(auth);
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.authorize(auth, true);
+        deployer.authorize(1, auth, block.timestamp + 1 days);
     }
 
     event FeeCollectorChanged(address indexed);
@@ -62,60 +68,60 @@ contract DeployerTest is Test {
         deployer.setFeeCollector(auth);
     }
 
-    event Deployed(uint64 indexed, address indexed);
+    event Deployed(uint256 indexed, address indexed);
 
     function testDeploy() public {
-        deployer.authorize(address(this), true);
+        deployer.authorize(1, address(this), block.timestamp + 1 days);
         deployer.setFeeCollector(auth);
-        assertEq(deployer.nonce(), 0);
-        address predicted = deployer.deployment(1);
+        address predicted = AddressDerivation.deriveDeterministicContract(
+            address(deployer),
+            bytes32(0),
+            keccak256(bytes.concat(type(Dummy).creationCode, bytes32(uint256(uint160(deployer.feeCollector())))))
+        );
         vm.expectEmit(true, true, false, false);
         emit Deployed(1, predicted);
-        (uint64 nonce, address instance) = deployer.deploy(type(Dummy).creationCode);
-        assertEq(nonce, 1);
+        address instance = deployer.deploy(1, type(Dummy).creationCode, bytes32(0));
         assertEq(instance, predicted);
-        assertEq(deployer.nonce(), 1);
-        assertEq(deployer.deployment(), predicted);
+        assertEq(deployer.deployments(1), predicted);
         assertEq(Dummy(instance).feeCollector(), auth);
     }
 
     function testDeployNotAuthorized() public {
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.deploy(type(Dummy).creationCode);
+        deployer.deploy(1, type(Dummy).creationCode, bytes32(0));
     }
 
     function testDeployRevert() public {
-        deployer.authorize(address(this), true);
+        deployer.authorize(1, address(this), block.timestamp + 1 days);
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
-        deployer.deploy(hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
+        deployer.deploy(1, hex"5f5ffd", bytes32(0)); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
-        deployer.authorize(address(this), true);
+        deployer.authorize(1, address(this), block.timestamp + 1 days);
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
-        deployer.deploy(hex"00"); // STOP; succeeds with empty returnData
+        deployer.deploy(1, hex"00", bytes32(0)); // STOP; succeeds with empty returnData
     }
 
     function testSafeDeployment() public {
-        deployer.authorize(address(this), true);
+        deployer.authorize(1, address(this), block.timestamp + 1 days);
 
-        vm.expectRevert(new bytes(0));
-        deployer.safeDeployment();
+        assertEq(deployer.deployments(1), address(0));
 
-        (, address instance) = deployer.deploy(type(Dummy).creationCode);
-        assertEq(deployer.safeDeployment(), instance);
+        address instance = deployer.deploy(1, type(Dummy).creationCode, bytes32(0));
+        assertEq(deployer.deployments(1), instance);
 
-        assertTrue(deployer.setUnsafe(1));
-        vm.expectRevert(new bytes(0));
-        deployer.safeDeployment();
+        assertTrue(deployer.setUnsafe(1, instance));
+        assertEq(deployer.deployments(1), address(0));
 
-        (, instance) = deployer.deploy(type(Dummy).creationCode);
-        assertEq(deployer.safeDeployment(), instance);
+        instance = deployer.deploy(1, type(Dummy).creationCode, bytes32(uint256(1)));
+        assertEq(deployer.deployments(1), instance);
 
-        deployer.deploy(type(Dummy).creationCode);
-        assertNotEq(deployer.safeDeployment(), instance);
+        address newInstance = deployer.deploy(1, type(Dummy).creationCode, bytes32(uint256(2)));
+        assertNotEq(newInstance, instance);
+        assertEq(deployer.deployments(1), newInstance);
 
-        assertTrue(deployer.setUnsafe(3));
-        assertEq(deployer.safeDeployment(), instance);
+        assertTrue(deployer.setUnsafe(1, newInstance));
+        assertEq(deployer.deployments(1), instance);
     }
 }
