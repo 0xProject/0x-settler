@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {TwoStepOwnable} from "./TwoStepOwnable.sol";
-import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -44,40 +43,42 @@ library UnsafeArray {
 contract Deployer is TwoStepOwnable {
     using UnsafeArray for bytes[];
 
-    bytes32 private constant _EMPTYHASH = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+    struct DoublyLinkedList {
+        address prev;
+        address next;
+        uint256 feature;
+    }
 
-    bytes32 private _pad;
-    uint64 public nonce;
+    mapping(address => DoublyLinkedList) internal _deploymentLists;
+    mapping(uint256 => address) public deployments;
+
     address public feeCollector;
-    mapping(address => bool) public isAuthorized;
-    mapping(address => bool) public isUnsafe;
+    mapping(uint256 => mapping(address => bool)) public isAuthorized;
+
+    bytes32 private constant _EMPTYHASH = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
     constructor(address initialOwner) {
         emit OwnershipPending(initialOwner);
         pendingOwner = initialOwner;
-
-        // contracts can't deploy at nonce zero. blacklist it to avoid foot guns.
-        address zeroInstance = AddressDerivation.deriveContract(address(this), 0);
-        isUnsafe[zeroInstance] = true;
-        emit Unsafe(0, zeroInstance);
     }
 
-    event Authorized(address indexed, bool);
+    event Authorized(uint256 indexed, address indexed, bool);
 
-    function authorize(address who, bool auth) public onlyOwner returns (bool) {
-        emit Authorized(who, auth);
-        isAuthorized[who] = auth;
+    function authorize(uint256 feature, address who, bool auth) public onlyOwner returns (bool) {
+        emit Authorized(feature, who, auth);
+        isAuthorized[feature][who] = auth;
         return true;
     }
 
-    function _requireAuthorized() private view {
-        if (!isAuthorized[msg.sender]) {
+    function _requireAuthorized(uint256 feature) private view {
+        if (!isAuthorized[feature][msg.sender]) {
             revert PermissionDenied();
         }
     }
 
-    modifier onlyAuthorized() {
-        _requireAuthorized();
+    modifier onlyAuthorized(uint256 feature) {
+        _requireAuthorized(feature);
         _;
     }
 
@@ -89,58 +90,92 @@ contract Deployer is TwoStepOwnable {
         return true;
     }
 
-    event Deployed(uint64 indexed, address indexed);
+    event Deployed(uint256 indexed, address indexed);
 
     error DeployFailed();
 
-    function deploy(bytes calldata initCode)
+    function deploy(uint256 feature, bytes calldata initCode, bytes32 salt)
         public
         payable
-        onlyAuthorized
-        returns (uint64 newNonce, address deployed)
+        onlyAuthorized(feature)
+        returns (address deployed)
     {
-        newNonce = ++nonce;
-        address _feeCollector = feeCollector;
+        address predicted;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+            let initLength := add(initCode.length, 0x20)
+            let initEnd := add(ptr, initLength)
+
+            // this is for computing the CREATE2 address. doing this here avoids having to
+            // manipulate any padding later
+            mstore(sub(initEnd, 0x0b), address())
+
+            // store the initcode in memory, with the fee collector appended to the constructor
             calldatacopy(ptr, initCode.offset, initCode.length)
-            mstore(add(ptr, initCode.length), and(0xffffffffffffffffffffffffffffffffffffffff, _feeCollector))
-            deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
+            mstore(add(ptr, initCode.length), and(_ADDRESS_MASK, sload(feeCollector.slot)))
+
+            // compute the CREATE2 address
+            mstore8(initEnd, 0xff)
+            mstore(add(initEnd, 0x15), salt)
+            mstore(add(initEnd, 0x35), keccak256(ptr, initLength))
+            predicted := and(_ADDRESS_MASK, keccak256(initEnd, 0x55))
+
+            // push the predicted address into the doubly-linked list
+            // we do this here in assembly to strictly follow checks-effects-interactions before deploying
+            {
+                // set the predicted value as the head of the list
+                mstore(0x00, feature)
+                mstore(0x20, deployments.slot)
+                let headSlot := keccak256(0x00, 0x40)
+                // address oldHead = deployments[feature];
+                let oldHead := and(_ADDRESS_MASK, sload(headSlot))
+                // deployments[feature] = predicted;
+                sstore(headSlot, predicted)
+
+                // _deploymentLists[oldHead].next = predicted;
+                mstore(0x00, oldHead)
+                mstore(0x20, _deploymentLists.slot)
+                sstore(add(1, keccak256(0x00, 0x40)), predicted)
+                // _deploymentLists[predicted].prev = oldHead;
+                mstore(0x00, predicted)
+                let predictedSlot := keccak256(0x00, 0x40)
+                sstore(predictedSlot, oldHead)
+                // _deploymentLists[predicted].feature = feature;
+                sstore(add(2, predictedSlot), feature)
+            }
+
+            // this is the interaction; no more state updates past this point
+            deployed := create2(callvalue(), ptr, initLength, salt)
         }
-        if (deployed != AddressDerivation.deriveContract(address(this), newNonce) || deployed.codehash == _EMPTYHASH) {
+        if (deployed != predicted || deployed.codehash == _EMPTYHASH) {
             revert DeployFailed();
         }
-        emit Deployed(newNonce, deployed);
+        emit Deployed(feature, deployed);
     }
 
-    function deployment(uint64 _nonce) public view returns (address) {
-        return AddressDerivation.deriveContract(address(this), _nonce);
-    }
+    event Unsafe(uint256 indexed, address indexed);
 
-    function deployment() public view returns (address) {
-        return AddressDerivation.deriveContract(address(this), nonce);
-    }
-
-    event Unsafe(uint64 indexed, address indexed);
-
-    function setUnsafe(uint64 _nonce) public onlyAuthorized returns (bool) {
-        address instance = AddressDerivation.deriveContract(address(this), _nonce);
-        require(_nonce <= nonce);
-        isUnsafe[instance] = true;
-        emit Unsafe(_nonce, instance);
-        return true;
-    }
-
-    function safeDeployment() public view returns (address) {
-        unchecked {
-            for (uint64 i = nonce; i != 0; --i) {
-                address instance = AddressDerivation.deriveContract(address(this), i);
-                if (!isUnsafe[instance] && instance.codehash != _EMPTYHASH) {
-                    return instance;
-                }
-            }
+    function setUnsafe(uint256 feature, address addr) public onlyAuthorized(feature) returns (bool) {
+        DoublyLinkedList storage entry = _deploymentLists[addr];
+        if (entry.feature != feature) {
+            revert PermissionDenied();
         }
-        revert();
+        address prev = entry.prev;
+        address next = entry.next;
+        if (next == address(0)) {
+            deployments[feature] = prev;
+        } else {
+            _deploymentLists[next].prev = prev;
+        }
+        if (prev != address(0)) {
+            _deploymentLists[prev].next = next;
+        }
+        delete entry.prev;
+        delete entry.next;
+        delete entry.feature;
+
+        emit Unsafe(feature, addr);
+        return true;
     }
 
     // in spite of the fact that `deploy` is payable, `multicall` cannot be
