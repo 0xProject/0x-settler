@@ -53,7 +53,7 @@ contract Deployer is TwoStepOwnable {
     mapping(uint256 => address) public deployments;
 
     address public feeCollector;
-    mapping(uint256 => mapping(address => bool)) public isAuthorized;
+    mapping(uint256 => mapping(address => uint256)) public authorizedUntil;
 
     bytes32 private constant _EMPTYHASH = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
@@ -63,16 +63,16 @@ contract Deployer is TwoStepOwnable {
         pendingOwner = initialOwner;
     }
 
-    event Authorized(uint256 indexed, address indexed, bool);
+    event Authorized(uint256 indexed, address indexed, uint256);
 
-    function authorize(uint256 feature, address who, bool auth) public onlyOwner returns (bool) {
-        emit Authorized(feature, who, auth);
-        isAuthorized[feature][who] = auth;
+    function authorize(uint256 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
+        emit Authorized(feature, who, expiry);
+        authorizedUntil[feature][who] = expiry;
         return true;
     }
 
     function _requireAuthorized(uint256 feature) private view {
-        if (!isAuthorized[feature][msg.sender]) {
+        if (block.timestamp >= authorizedUntil[feature][msg.sender]) {
             revert PermissionDenied();
         }
     }
@@ -165,6 +165,7 @@ contract Deployer is TwoStepOwnable {
         address prev = entry.prev;
         address next = entry.next;
         if (next == address(0)) {
+            // assert(deployments[feature] == addr);
             deployments[feature] = prev;
         } else {
             _deploymentLists[next].prev = prev;
