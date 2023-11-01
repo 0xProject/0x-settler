@@ -44,6 +44,7 @@ contract AllowanceHolder {
             _sentinelSlot := _sentinel.slot
         }
         assert(_sentinelSlot == 0);
+        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
     }
 
     function _getAllowed(address token) private view returns (uint256 r) {
@@ -127,20 +128,19 @@ contract AllowanceHolder {
             _setAllowed(permit.token, permit.amount);
         }
 
-        {
-            bool success;
-            (success, result) = target.call{value: msg.value}(data);
-            if (!success) {
-                assembly ("memory-safe") {
-                    revert(add(result, 0x20), mload(result))
-                }
-            }
-        }
+        bool success;
+        (success, result) = target.call{value: msg.value}(data);
 
         // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
-        _setOperator(address(0));
+        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             _setAllowed(permits.unsafeGet(i).token, 0);
+        }
+
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(result, 0x20), mload(result))
+            }
         }
     }
 
