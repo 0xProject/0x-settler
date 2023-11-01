@@ -47,29 +47,30 @@ contract AllowanceHolder {
         _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
     }
 
+    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+    uint256 private constant _OPERATOR_SLOT = 0x010000000000000000000000000000000000000000;
+
     function _getAllowed(address token) private view returns (uint256 r) {
         assembly ("memory-safe") {
-            r := sload(and(0xffffffffffffffffffffffffffffffffffffffff, token))
+            r := sload(and(_ADDRESS_MASK, token))
         }
     }
 
     function _setAllowed(address token, uint256 allowed) private {
         assembly ("memory-safe") {
-            sstore(and(0xffffffffffffffffffffffffffffffffffffffff, token), allowed)
+            sstore(and(_ADDRESS_MASK, token), allowed)
         }
     }
 
     function _getOperator() private view returns (address r) {
         assembly ("memory-safe") {
-            r := sload(0x10000000000000000000000000000000000000000)
+            r := sload(_OPERATOR_SLOT)
         }
     }
 
     function _setOperator(address operator) private {
         assembly ("memory-safe") {
-            sstore(
-                0x10000000000000000000000000000000000000000, and(0xffffffffffffffffffffffffffffffffffffffff, operator)
-            )
+            sstore(_OPERATOR_SLOT, and(_ADDRESS_MASK, operator))
         }
     }
 
