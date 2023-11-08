@@ -148,14 +148,27 @@ contract Deployer is TwoStepOwnable {
                 sstore(add(2, predictedSlot), feature)
             }
 
-            // this is the interaction; no more state updates past this point
-            if iszero(
+            // do the deployment and check for success
+            predicted :=
                 and(
-                    // order of evaluation is right-to-left. `extcodesize` must come after `create2`
-                    iszero(iszero(extcodesize(predicted))),
-                    eq(create2(callvalue(), ptr, initLength, salt), predicted)
+                    // this `sub` produces a mask that is zero iff the deployment failed
+                    sub(
+                        or(
+                            // order of evaluation is right-to-left. `extcodesize` must come after `create2`
+                            iszero(extcodesize(predicted)),
+                            iszero(
+                                eq(
+                                    // this is the interaction; no more state updates past this point
+                                    create2(callvalue(), ptr, initLength, salt),
+                                    predicted
+                                )
+                            )
+                        ),
+                        1
+                    ),
+                    // the failure mask passes `predicted` unchanged if the deployment suceeded
+                    predicted
                 )
-            ) { predicted := 0 }
         }
         if (predicted == address(0)) {
             revert DeployFailed();
