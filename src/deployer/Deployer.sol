@@ -56,7 +56,6 @@ contract Deployer is TwoStepOwnable {
     address public feeCollector;
     mapping(uint256 => mapping(address => uint256)) public authorizedUntil;
 
-    bytes32 private constant _EMPTYHASH = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
     constructor(address initialOwner) {
@@ -102,9 +101,8 @@ contract Deployer is TwoStepOwnable {
         public
         payable
         onlyAuthorized(feature)
-        returns (address deployed)
+        returns (address predicted)
     {
-        address predicted;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let initLength := add(initCode.length, 0x20)
@@ -151,12 +149,18 @@ contract Deployer is TwoStepOwnable {
             }
 
             // this is the interaction; no more state updates past this point
-            deployed := create2(callvalue(), ptr, initLength, salt)
+            if iszero(
+                and(
+                    // order of evaluation is right-to-left. `extcodesize` must come after `create2`
+                    iszero(iszero(extcodesize(predicted))),
+                    eq(create2(callvalue(), ptr, initLength, salt), predicted)
+                )
+            ) { predicted := 0 }
         }
-        if (deployed != predicted || deployed.codehash == _EMPTYHASH) {
+        if (predicted == address(0)) {
             revert DeployFailed();
         }
-        emit Deployed(feature, deployed);
+        emit Deployed(feature, predicted);
     }
 
     event Unsafe(uint256 indexed, address indexed);
