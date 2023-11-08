@@ -23,7 +23,7 @@ contract DeployerTest is Test {
         deployer.acceptOwnership();
     }
 
-    event Authorized(uint256 indexed, address indexed, uint256);
+    event Authorized(uint96 indexed, address indexed, uint256);
 
     function testAuthorize() public {
         assertEq(deployer.authorizedUntil(1, auth), 0);
@@ -68,7 +68,7 @@ contract DeployerTest is Test {
         deployer.setFeeCollector(auth);
     }
 
-    event Deployed(uint256 indexed, address indexed);
+    event Deployed(uint96 indexed, address indexed);
 
     function testDeploy() public {
         deployer.authorize(1, address(this), block.timestamp + 1 days);

@@ -46,15 +46,15 @@ contract Deployer is TwoStepOwnable {
 
     struct DoublyLinkedList {
         address prev;
+        uint96 feature;
         address next;
-        uint256 feature;
     }
 
     mapping(address => DoublyLinkedList) private _deploymentLists;
-    mapping(uint256 => address) public deployments;
+    mapping(uint96 => address) public deployments;
 
     address public feeCollector;
-    mapping(uint256 => mapping(address => uint256)) public authorizedUntil;
+    mapping(uint96 => mapping(address => uint256)) public authorizedUntil;
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
@@ -63,9 +63,9 @@ contract Deployer is TwoStepOwnable {
         pendingOwner = initialOwner;
     }
 
-    event Authorized(uint256 indexed, address indexed, uint256);
+    event Authorized(uint96 indexed, address indexed, uint256);
 
-    function authorize(uint256 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
+    function authorize(uint96 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -74,13 +74,13 @@ contract Deployer is TwoStepOwnable {
         return true;
     }
 
-    function _requireAuthorized(uint256 feature) private view {
+    function _requireAuthorized(uint96 feature) private view {
         if (block.timestamp >= authorizedUntil[feature][msg.sender]) {
             revert PermissionDenied();
         }
     }
 
-    modifier onlyAuthorized(uint256 feature) {
+    modifier onlyAuthorized(uint96 feature) {
         _requireAuthorized(feature);
         _;
     }
@@ -93,11 +93,11 @@ contract Deployer is TwoStepOwnable {
         return true;
     }
 
-    event Deployed(uint256 indexed, address indexed);
+    event Deployed(uint96 indexed, address indexed);
 
     error DeployFailed();
 
-    function deploy(uint256 feature, bytes calldata initCode, bytes32 salt)
+    function deploy(uint96 feature, bytes calldata initCode, bytes32 salt)
         public
         payable
         onlyAuthorized(feature)
@@ -141,11 +141,10 @@ contract Deployer is TwoStepOwnable {
                     sstore(add(1, keccak256(0x00, 0x40)), predicted)
                 }
                 // _deploymentLists[predicted].prev = oldHead;
+                // _deploymentLists[predicted].feature = feature;
                 mstore(0x00, predicted)
                 let predictedSlot := keccak256(0x00, 0x40)
-                sstore(predictedSlot, oldHead) // don't bother checking if oldHead is zero
-                // _deploymentLists[predicted].feature = feature;
-                sstore(add(2, predictedSlot), feature)
+                sstore(predictedSlot, or(shl(160, feature), oldHead)) // don't bother checking if oldHead is zero
             }
 
             // do the deployment and check for success
@@ -176,9 +175,9 @@ contract Deployer is TwoStepOwnable {
         emit Deployed(feature, predicted);
     }
 
-    event Unsafe(uint256 indexed, address indexed);
+    event Unsafe(uint96 indexed, address indexed);
 
-    function setUnsafe(uint256 feature, address addr) public onlyAuthorized(feature) returns (bool) {
+    function setUnsafe(uint96 feature, address addr) public onlyAuthorized(feature) returns (bool) {
         DoublyLinkedList storage entry = _deploymentLists[addr];
         if (entry.feature != feature) {
             revert PermissionDenied();
