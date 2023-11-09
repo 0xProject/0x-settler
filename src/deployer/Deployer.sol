@@ -194,8 +194,8 @@ contract Deployer is TwoStepOwnable {
             _deploymentLists[prev].next = next;
         }
         delete entry.prev;
-        delete entry.next;
         delete entry.feature;
+        delete entry.next;
 
         emit Unsafe(feature, addr);
         return true;
