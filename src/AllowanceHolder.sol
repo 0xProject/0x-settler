@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
@@ -20,10 +21,10 @@ library UnsafeArray {
         }
     }
 
-    function unsafeGet(AllowanceHolder.TransferDetails[] calldata a, uint256 i)
+    function unsafeGet(IAllowanceHolder.TransferDetails[] calldata a, uint256 i)
         internal
         pure
-        returns (AllowanceHolder.TransferDetails calldata r)
+        returns (IAllowanceHolder.TransferDetails calldata r)
     {
         assembly ("memory-safe") {
             r := add(a.offset, mul(0x60, i))
@@ -74,7 +75,7 @@ abstract contract TransientStorageMock {
     }
 }
 
-contract AllowanceHolder is TransientStorageMock, FreeMemory {
+contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
     using UnsafeMath for uint256;
@@ -107,7 +108,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
         ISignatureTransfer.TokenPermissions[] calldata permits,
         address payable target,
         bytes calldata data
-    ) public payable returns (bytes memory result) {
+    ) public payable override returns (bytes memory result) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
@@ -134,12 +135,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
         }
     }
 
-    struct TransferDetails {
-        address token;
-        address recipient;
-        uint256 amount;
-    }
-
     function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
@@ -151,7 +146,11 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
         }
     }
 
-    function transferFrom(address owner, TransferDetails[] calldata transferDetails) public returns (bool) {
+    function holderTransferFrom(address owner, TransferDetails[] calldata transferDetails)
+        public
+        override
+        returns (bool)
+    {
         assert(owner == tx.origin);
         require(msg.sender == _getOperator());
         _checkAmountsAndTransfer(transferDetails);

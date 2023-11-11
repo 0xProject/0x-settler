@@ -2,13 +2,13 @@
 pragma solidity ^0.8.21;
 
 import {Context} from "./Context.sol";
-import {AllowanceHolder} from "./AllowanceHolder.sol";
+import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 
 abstract contract AllowanceHolderContext is Context {
-    AllowanceHolder public immutable allowanceHolder;
+    IAllowanceHolder public immutable allowanceHolder;
 
     constructor(address _allowanceHolder) {
-        allowanceHolder = AllowanceHolder(_allowanceHolder);
+        allowanceHolder = IAllowanceHolder(_allowanceHolder);
     }
 
     function _isForwarded() internal view virtual override returns (bool) {
