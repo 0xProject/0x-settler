@@ -31,18 +31,10 @@ library UnsafeArray {
     }
 }
 
-contract AllowanceHolder is FreeMemory {
-    using SafeTransferLib for IERC20;
-    using CheckCall for address payable;
-    using UnsafeMath for uint256;
-    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
-    using UnsafeArray for TransferDetails[];
-    using Revert for bool;
-
+abstract contract TransientStorageMock {
     bytes32 private _sentinel;
 
     constructor() {
-        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
         uint256 _sentinelSlot;
         assembly ("memory-safe") {
             _sentinelSlot := _sentinel.slot
@@ -57,34 +49,42 @@ contract AllowanceHolder is FreeMemory {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     uint256 private constant _OPERATOR_SLOT = 0x010000000000000000000000000000000000000000;
 
-    function _getAllowed(address token) private view returns (uint256 r) {
+    function _getAllowed(address token) internal view returns (uint256 r) {
         assembly ("memory-safe") {
             r := sload(and(_ADDRESS_MASK, token))
         }
     }
 
-    function _setAllowed(address token, uint256 allowed) private {
+    function _setAllowed(address token, uint256 allowed) internal {
         assembly ("memory-safe") {
             sstore(and(_ADDRESS_MASK, token), allowed)
         }
     }
 
-    function _getOperator() private view returns (address r) {
+    function _getOperator() internal view returns (address r) {
         assembly ("memory-safe") {
             r := sload(_OPERATOR_SLOT)
         }
     }
 
-    function _setOperator(address operator) private {
+    function _setOperator(address operator) internal {
         assembly ("memory-safe") {
             sstore(_OPERATOR_SLOT, and(_ADDRESS_MASK, operator))
         }
     }
-    // end transient storage emulation
+}
+
+contract AllowanceHolder is FreeMemory {
+    using SafeTransferLib for IERC20;
+    using CheckCall for address payable;
+    using UnsafeMath for uint256;
+    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
+    using UnsafeArray for TransferDetails[];
+    using Revert for bool;
 
     error ConfusedDeputy();
 
-    function _rejectERC20(address payable maybeERC20, bytes calldata data) internal view DANGEROUS_freeMemory {
+    function _rejectERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
         // confused deputy attacks harder for tokens that might be badly behaved
         // (e.g. tokens with blacklists), we choose to copy the first argument
