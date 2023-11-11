@@ -7,6 +7,7 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
+import {Revert} from "./utils/Revert.sol";
 
 library UnsafeArray {
     function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
@@ -36,6 +37,7 @@ contract AllowanceHolder is FreeMemory {
     using UnsafeMath for uint256;
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for TransferDetails[];
+    using Revert for bool;
 
     bytes32 private _sentinel;
 
@@ -123,11 +125,7 @@ contract AllowanceHolder is FreeMemory {
             _setAllowed(permits.unsafeGet(i).token, 0);
         }
 
-        if (!success) {
-            assembly ("memory-safe") {
-                revert(add(result, 0x20), mload(result))
-            }
-        }
+        success.maybeRevert(result);
     }
 
     struct TransferDetails {

@@ -8,20 +8,7 @@ import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
-
-library Revert {
-    function _revert(bytes memory reason) internal pure {
-        assembly ("memory-safe") {
-            revert(add(reason, 0x20), mload(reason))
-        }
-    }
-
-    function maybeRevert(bool success, bytes memory reason) internal pure {
-        if (!success) {
-            _revert(reason);
-        }
-    }
-}
+import {Revert} from "../utils/Revert.sol";
 
 abstract contract Basic is Permit2PaymentAbstract {
     using SafeTransferLib for IERC20;
