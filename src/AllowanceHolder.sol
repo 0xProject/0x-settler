@@ -74,7 +74,7 @@ abstract contract TransientStorageMock {
     }
 }
 
-contract AllowanceHolder is FreeMemory {
+contract AllowanceHolder is TransientStorageMock, FreeMemory {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
     using UnsafeMath for uint256;
@@ -125,6 +125,7 @@ contract AllowanceHolder is FreeMemory {
         (success, result) = target.call{value: msg.value}(data);
 
         // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
+        // putting this here between the `.call` and the `.maybeRevert` increases gas refunds on revert (see: EIP-3978)
         _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             _setAllowed(permits.unsafeGet(i).token, 0);
