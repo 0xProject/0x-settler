@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Permit2Payment} from "./core/Permit2Payment.sol";
@@ -72,7 +72,7 @@ library CalldataDecoder {
 }
 
 contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, ZeroEx, FreeMemory {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
     using FullMath for uint256;
@@ -134,11 +134,11 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 }
                 payable(recipient).safeTransferETH(amountOut);
             } else {
-                uint256 amountOut = ERC20(buyToken).balanceOf(address(this));
+                uint256 amountOut = IERC20(buyToken).balanceOf(address(this));
                 if (amountOut < minAmountOut) {
                     revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
                 }
-                ERC20(buyToken).safeTransfer(recipient, amountOut);
+                IERC20(buyToken).safeTransfer(recipient, amountOut);
             }
         }
     }
@@ -331,9 +331,9 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 address maker,
                 bytes memory makerSig,
-                ERC20 takerToken,
+                IERC20 takerToken,
                 uint256 maxTakerAmount
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ERC20, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
 
             fillOtcOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
@@ -347,13 +347,13 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
             sellToUniswapV2(path, bips, amountOutMin, recipient);
         } else if (action == ISettlerActions.BASIC_SELL.selector) {
-            (address pool, ERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
-                abi.decode(data, (address, ERC20, uint256, uint256, bytes));
+            (address pool, IERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
+                abi.decode(data, (address, IERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
-            (ERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (ERC20, address, uint256));
-            if (token == ERC20(ETH_ADDRESS)) {
+            (IERC20 token, address recipient, uint256 expectedAmount) = abi.decode(data, (IERC20, address, uint256));
+            if (token == IERC20(ETH_ADDRESS)) {
                 uint256 balance = address(this).balance;
                 if (balance > expectedAmount) {
                     unchecked {

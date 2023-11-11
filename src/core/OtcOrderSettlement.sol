@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 
@@ -9,7 +9,7 @@ import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 
 abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
     using FullMath for uint256;
 
     struct Consideration {
@@ -211,7 +211,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,
         bytes memory makerSig,
-        ERC20 takerToken,
+        IERC20 takerToken,
         uint256 maxTakerAmount,
         address msgSender
     ) internal {

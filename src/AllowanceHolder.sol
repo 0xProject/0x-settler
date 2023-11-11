@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
@@ -31,7 +31,7 @@ library UnsafeArray {
 }
 
 contract AllowanceHolder is FreeMemory {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
     using CheckCall for address payable;
     using UnsafeMath for uint256;
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
@@ -84,7 +84,7 @@ contract AllowanceHolder is FreeMemory {
         // out of `data` and mask it as an address. If there isn't enough
         // `data`, we use 0xdead instead.
         bytes memory testData = abi.encodeCall(
-            ERC20(maybeERC20).balanceOf,
+            IERC20(maybeERC20).balanceOf,
             (data.length >= 0x24 ? address(uint160(bytes20(data[0x10:]))) : address(0xdead))
         );
         // 500k gas seems like a pretty healthy upper bound for the amount of
@@ -143,7 +143,7 @@ contract AllowanceHolder is FreeMemory {
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            ERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
+            IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
         }
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../IERC20.sol";
 
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 
@@ -24,7 +24,7 @@ library Revert {
 }
 
 abstract contract Basic is Permit2PaymentAbstract {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
     using FullMath for uint256;
     using Revert for bool;
 
@@ -34,13 +34,15 @@ abstract contract Basic is Permit2PaymentAbstract {
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
-    function basicSellToPool(address pool, ERC20 sellToken, uint256 bips, uint256 offset, bytes memory data) internal {
+    function basicSellToPool(address pool, IERC20 sellToken, uint256 bips, uint256 offset, bytes memory data)
+        internal
+    {
         if (isAllowanceHolder(pool)) {
             revert ConfusedDeputy();
         }
 
         uint256 value;
-        if (sellToken == ERC20(ETH_ADDRESS)) {
+        if (sellToken == IERC20(ETH_ADDRESS)) {
             value = address(this).balance.mulDiv(bips, 10_000);
             if (data.length == 0) {
                 require(offset == 0);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../src/IERC20.sol";
 
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
@@ -19,12 +19,12 @@ contract DAIWETHTest is SettlerPairTest, TokenTransferTest, UniswapV3PairTest, Z
         return "DAI-WETH";
     }
 
-    function fromToken() internal pure override returns (ERC20) {
-        return ERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    function fromToken() internal pure override returns (IERC20) {
+        return IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     }
 
-    function toToken() internal pure override returns (ERC20) {
-        return ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    function toToken() internal pure override returns (IERC20) {
+        return IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     }
 
     function amount() internal pure override returns (uint256) {

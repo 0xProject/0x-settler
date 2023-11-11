@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -32,7 +32,7 @@ interface IUniswapV3Pool {
 
 abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     using FullMath for uint256;
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
 
     /// @dev UniswapV3 Factory contract address prepended with '0xff' and left-aligned.
     bytes32 private immutable UNI_FF_FACTORY_ADDRESS;
@@ -78,7 +78,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     ) internal returns (uint256 buyAmount) {
         buyAmount = _swap(
             encodedPath,
-            ERC20(address(uint160(bytes20(encodedPath)))).balanceOf(address(this)).mulDiv(bips, 10_000),
+            IERC20(address(uint160(bytes20(encodedPath)))).balanceOf(address(this)).mulDiv(bips, 10_000),
             minBuyAmount,
             address(this), // payer
             recipient,
@@ -151,13 +151,13 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
-        ERC20 outputToken;
+        IERC20 outputToken;
         while (true) {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
             IUniswapV3Pool pool;
             {
-                ERC20 inputToken;
+                IERC20 inputToken;
                 uint24 fee;
                 (inputToken, fee, outputToken) = _decodeFirstPoolInfoFromPath(encodedPath);
                 pool = _toPool(inputToken, fee, outputToken);
@@ -205,7 +205,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     function _decodeFirstPoolInfoFromPath(bytes memory encodedPath)
         private
         pure
-        returns (ERC20 inputToken, uint24 fee, ERC20 outputToken)
+        returns (IERC20 inputToken, uint24 fee, IERC20 outputToken)
     {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
@@ -271,8 +271,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     // Update `swapCallbackData` in place with new values.
     function _updateSwapCallbackData(
         bytes memory swapCallbackData,
-        ERC20 inputToken,
-        ERC20 outputToken,
+        IERC20 inputToken,
+        IERC20 outputToken,
         uint24 fee,
         address payer
     ) private pure {
@@ -285,7 +285,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     }
 
     // Compute the pool address given two tokens and a fee.
-    function _toPool(ERC20 inputToken, uint24 fee, ERC20 outputToken) private view returns (IUniswapV3Pool pool) {
+    function _toPool(IERC20 inputToken, uint24 fee, IERC20 outputToken) private view returns (IUniswapV3Pool pool) {
         // address(keccak256(abi.encodePacked(
         //     hex"ff",
         //     UNI_FACTORY_ADDRESS,
@@ -294,7 +294,8 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         // )))
         bytes32 ffFactoryAddress = UNI_FF_FACTORY_ADDRESS;
         bytes32 poolInitCodeHash = UNI_POOL_INIT_CODE_HASH;
-        (ERC20 token0, ERC20 token1) = inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
+        (IERC20 token0, IERC20 token1) =
+            inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
         assembly ("memory-safe") {
             let s := mload(0x40)
             mstore(s, ffFactoryAddress)
@@ -321,7 +322,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     ///        struct of: inputToken, outputToken, fee, payer
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
         // Decode the data.
-        (ERC20 token0, ERC20 token1, uint24 fee, address payer) = abi.decode(data, (ERC20, ERC20, uint24, address));
+        (IERC20 token0, IERC20 token1, uint24 fee, address payer) = abi.decode(data, (IERC20, IERC20, uint24, address));
         (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
         // Only a valid pool contract can call this function.
         require(msg.sender == address(_toPool(token0, fee, token1)));
@@ -337,7 +338,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         }
     }
 
-    function _pay(ERC20 token, address payer, uint256 amount, bytes calldata permit2Data) private {
+    function _pay(IERC20 token, address payer, uint256 amount, bytes calldata permit2Data) private {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {

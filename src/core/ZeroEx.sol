@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../IERC20.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 
@@ -29,8 +29,8 @@ interface IZeroEx {
 
     /// @dev An OTC limit order.
     struct OtcOrder {
-        ERC20 makerToken;
-        ERC20 takerToken;
+        IERC20 makerToken;
+        IERC20 takerToken;
         uint128 makerAmount;
         uint128 takerAmount;
         address maker;
@@ -45,7 +45,7 @@ interface IZeroEx {
 }
 
 abstract contract ZeroEx {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
 
     IZeroEx private immutable ZERO_EX;
 
