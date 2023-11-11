@@ -4,7 +4,7 @@ pragma solidity 0.8.21;
 library CheckCall {
     /**
      * @notice `staticcall` another contract forwarding a precomputed amount of
-     *         gas. Check the length of the return actually reading it.
+     *         gas. Check the length of the return without reading it.
      * @dev contains protections against EIP-150-induced insufficient gas
      *      griefing
      * @dev reverts iff the target is not a contract or we encounter an
