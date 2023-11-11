@@ -147,9 +147,10 @@ contract AllowanceHolder is FreeMemory {
         }
     }
 
-    function transferFrom(address owner, TransferDetails[] calldata transferDetails) public {
+    function transferFrom(address owner, TransferDetails[] calldata transferDetails) public returns (bool) {
         assert(owner == tx.origin);
         require(msg.sender == _getOperator());
         _checkAmountsAndTransfer(transferDetails);
+        return true;
     }
 }
