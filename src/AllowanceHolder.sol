@@ -121,17 +121,17 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
             _setAllowed(permit.token, permit.amount);
         }
 
-        bool success;
-        (success, result) = target.call{value: msg.value}(data);
+        {
+            bool success;
+            (success, result) = target.call{value: msg.value}(data);
+            success.maybeRevert(result);
+        }
 
         // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
-        // putting this here between the `.call` and the `.maybeRevert` increases gas refunds on revert (see: EIP-3978)
         _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             _setAllowed(permits.unsafeGet(i).token, 0);
         }
-
-        success.maybeRevert(result);
     }
 
     struct TransferDetails {
