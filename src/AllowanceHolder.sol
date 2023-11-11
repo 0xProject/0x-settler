@@ -42,6 +42,7 @@ contract AllowanceHolder is FreeMemory {
     bytes32 private _sentinel;
 
     constructor() {
+        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
         uint256 _sentinelSlot;
         assembly ("memory-safe") {
             _sentinelSlot := _sentinel.slot
@@ -50,6 +51,9 @@ contract AllowanceHolder is FreeMemory {
         _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
     }
 
+    // this emulates transient storage while solc doesn't support it. there's no
+    // reason to use a mapping here because this contract has only 2 things it
+    // needs to store.
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     uint256 private constant _OPERATOR_SLOT = 0x010000000000000000000000000000000000000000;
 
@@ -76,6 +80,7 @@ contract AllowanceHolder is FreeMemory {
             sstore(_OPERATOR_SLOT, and(_ADDRESS_MASK, operator))
         }
     }
+    // end transient storage emulation
 
     error ConfusedDeputy();
 
