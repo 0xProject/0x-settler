@@ -5,7 +5,8 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
-import {CallWithGas} from "./utils/CallWithGas.sol";
+import {CheckCall} from "./utils/CheckCall.sol";
+import {FreeMemory} from "./utils/FreeMemory.sol";
 
 library UnsafeArray {
     function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
@@ -29,9 +30,9 @@ library UnsafeArray {
     }
 }
 
-contract AllowanceHolder {
+contract AllowanceHolder is FreeMemory {
     using SafeTransferLib for ERC20;
-    using CallWithGas for address payable;
+    using CheckCall for address payable;
     using UnsafeMath for uint256;
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for TransferDetails[];
@@ -76,6 +77,24 @@ contract AllowanceHolder {
 
     error ConfusedDeputy();
 
+    function _rejectERC20(address payable maybeERC20, bytes calldata data) internal view DANGEROUS_freeMemory {
+        // We could just choose a random address for this check, but to make
+        // confused deputy attacks harder for tokens that might be badly behaved
+        // (e.g. tokens with blacklists), we choose to copy the first argument
+        // out of `data` and mask it as an address. If there isn't enough
+        // `data`, we use 0xdead instead.
+        bytes memory testData = abi.encodeCall(
+            ERC20(maybeERC20).balanceOf,
+            (data.length >= 0x24 ? address(uint160(bytes20(data[0x10:]))) : address(0xdead))
+        );
+        // 500k gas seems like a pretty healthy upper bound for the amount of
+        // gas that `balanceOf` could reasonably consume in a well-behaved
+        // ERC20.
+        if (maybeERC20.checkCall(testData, 500_000, 0x20)) {
+            revert ConfusedDeputy();
+        }
+    }
+
     function execute(
         address operator,
         ISignatureTransfer.TokenPermissions[] calldata permits,
@@ -83,45 +102,11 @@ contract AllowanceHolder {
         bytes calldata data
     ) public payable returns (bytes memory result) {
         require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
-        {
-            bytes memory testData;
-            // We could just choose a random address for this check, but to make
-            // confused deputy attacks harder for tokens that might be badly
-            // behaved (e.g. tokens with blacklists), we choose to copy the
-            // first argument out of `data` and mask it as an address.
-            assembly ("memory-safe") {
-                testData := mload(0x40)
-                mstore(0x40, add(testData, 0x44))
-                mstore(testData, 0x24) // length
-                mstore(
-                    add(testData, 0x20),
-                    // `balanceOf(address)` selector
-                    0x70a0823100000000000000000000000000000000000000000000000000000000
-                )
-                switch lt(data.length, 0x24)
-                case 0 {
-                    // copy what might be an address out of `data`
-                    calldatacopy(add(testData, 0x30), add(data.offset, 0x10), 0x14)
-                }
-                default {
-                    // `data` is too short; guess we have to choose a random address anyways
-                    mstore(add(testData, 0x24), 0xdead)
-                }
-            }
-            // 500k gas seems like a pretty healthy upper bound for the amount
-            // of gas that `balanceOf` could reasonably consume in a
-            // well-behaved ERC20. 0x7724e bytes of returndata would cause this
-            // context to consume over 500k gas in memory costs, again something
-            // a well-behaved ERC20 never ought to do.
-            (bool success, bytes memory returnData) = target.functionStaticCallWithGas(testData, 500_000, 0x7724e);
-            if (success && returnData.length >= 32) {
-                revert ConfusedDeputy();
-            }
-            // free the memory we just allocated
-            assembly ("memory-safe") {
-                mstore(0x40, testData)
-            }
-        }
+        // This contract has no special privileges, except for the allowances it
+        // holds. In order to prevent abusing those allowances, we prohibit
+        // sending arbitrary calldata (doing `target.call(data)`) to any
+        // contract that might be an ERC20.
+        _rejectERC20(target, data);
 
         _setOperator(operator);
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
