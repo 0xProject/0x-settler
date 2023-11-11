@@ -58,7 +58,7 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         virtual
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount);
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -68,7 +68,7 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         bool isForwarded
     ) internal virtual;
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -77,7 +77,7 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         bytes memory sig
     ) internal virtual;
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -87,7 +87,7 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         bool isForwarded
     ) internal virtual;
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -96,7 +96,7 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         bytes memory sig
     ) internal virtual;
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -104,14 +104,14 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         bool isForwarded
     ) internal virtual;
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
         bytes memory sig
     ) internal virtual;
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -119,7 +119,7 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         bool isForwarded
     ) internal virtual;
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -222,7 +222,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         newDetail.amount = transferDetails.requestedAmount;
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -235,7 +235,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -243,10 +243,10 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         string memory witnessTypeString,
         bytes memory sig
     ) internal override {
-        _permit2TransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
+        _transferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -259,7 +259,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -267,10 +267,10 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         string memory witnessTypeString,
         bytes memory sig
     ) internal override {
-        _permit2TransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
+        _transferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
@@ -285,16 +285,16 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         }
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
         bytes memory sig
     ) internal override {
-        _permit2TransferFrom(permit, transferDetails, from, sig, _isForwarded());
+        _transferFrom(permit, transferDetails, from, sig, _isForwarded());
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -309,12 +309,12 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         }
     }
 
-    function _permit2TransferFrom(
+    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
         bytes memory sig
     ) internal override {
-        _permit2TransferFrom(permit, transferDetails, from, sig, _isForwarded());
+        _transferFrom(permit, transferDetails, from, sig, _isForwarded());
     }
 }

@@ -348,11 +348,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
             if (witness == bytes32(0)) {
-                _permit2TransferFrom(permit, transferDetails, payer, sig, isForwarded);
+                _transferFrom(permit, transferDetails, payer, sig, isForwarded);
             } else {
-                _permit2TransferFrom(
-                    permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig, isForwarded
-                );
+                _transferFrom(permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig, isForwarded);
             }
         }
     }
