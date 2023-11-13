@@ -156,4 +156,17 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         _checkAmountsAndTransfer(transferDetails);
         return true;
     }
+
+    // This is here as a deploy-time check that AllowanceHolder doesn't have any
+    // state. If it did, it would interfere with TransientStorageMock. This can
+    // be removed once *actual* EIP-1153 is adopted.
+    bytes32 private _sentinel;
+
+    constructor() {
+        uint256 _sentinelSlot;
+        assembly ("memory-safe") {
+            _sentinelSlot := _sentinel.slot
+        }
+        assert(_sentinelSlot == 1);
+    }
 }
