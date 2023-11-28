@@ -19,7 +19,7 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.label(address(this), "FoundryTest");
         vm.label(address(_weth), "WETH");
 
-        AllowanceHolder trustedForwarder = new AllowanceHolder();
+        AllowanceHolder trustedForwarder = new AllowanceHolder(0x000000000022D473030F116dDEE9F6B43aC78BA3 /* Permit2 */);
         _settler = new Settler(
             0x000000000022D473030F116dDEE9F6B43aC78BA3, // Permit2
             0xDef1C0ded9bec7F1a1670819833240f027b25EfF, // ZeroEx

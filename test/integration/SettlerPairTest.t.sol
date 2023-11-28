@@ -3,6 +3,7 @@ pragma solidity ^0.8.21;
 
 import {IERC20} from "../../src/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
@@ -39,8 +40,6 @@ abstract contract SettlerPairTest is BasePairTest {
 
         // ### Taker ###
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
-        // Trusted Forwarder / Allowance Holder
-        safeApproveIfBelow(fromToken(), FROM, address(trustedForwarder), amount());
 
         // ### Maker / Seller ###
         // Otc via ZeroEx
@@ -76,7 +75,7 @@ abstract contract SettlerPairTest is BasePairTest {
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     function getSettler() private returns (Settler) {
-        trustedForwarder = new AllowanceHolder();
+        trustedForwarder = new AllowanceHolder(address(PERMIT2));
         return new Settler(
             address(PERMIT2),
             address(ZERO_EX), // ZeroEx
@@ -604,6 +603,9 @@ abstract contract SettlerPairTest is BasePairTest {
     }
 
     function testSettler_allowanceHolder_uniswapV3() public {
+        // Trusted Forwarder / Allowance Holder
+        safeApproveIfBelow(fromToken(), FROM, address(trustedForwarder), amount());
+
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.PERMIT2_TRANSFER_FROM,
@@ -633,6 +635,55 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    function testSettler_allowanceHolder_firstTime_uniswapV3() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.PERMIT2_TRANSFER_FROM,
+                (
+                    address(settler),
+                    defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE),
+                    new bytes(0)
+                )
+            ),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+        );
+
+        // Rather than grant the TrustedForwarder an unlimited allowance, we give it a time limited allowance via Permit2
+        (IAllowanceTransfer.PermitSingle memory firstPermit, bytes memory sig) =
+            _getDefaultFromAllowanceTransferPermit2(address(trustedForwarder));
+
+        Settler _settler = settler;
+        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+        snapStartName("settler_allowanceHolder_permit2AllowanceTransfer_firstTime_uniswapV3");
+        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
+        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        trustedForwarder.executeFirstTime(
+            address(settler),
+            firstPermit,
+            sig,
+            permits,
+            payable(address(settler)),
+            abi.encodeCall(
+                Settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+
+        deal(address(fromToken()), FROM, amount());
+        snapStartName("settler_allowanceHolder_permit2AllowanceTransfer_uniswapV3");
+        trustedForwarder.execute(
+            address(settler),
+            permits,
+            payable(address(settler)),
+            abi.encodeCall(
+                Settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), permit, sig));
@@ -643,6 +694,21 @@ abstract contract SettlerPairTest is BasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig =
             getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+        return (permit, sig);
+    }
+
+    function _getDefaultFromAllowanceTransferPermit2(address spender)
+        private
+        returns (IAllowanceTransfer.PermitSingle memory, bytes memory)
+    {
+        IAllowanceTransfer.PermitSingle memory permit = defaultERC20PermitAllowance(
+            address(fromToken()),
+            spender,
+            type(uint160).max,
+            uint48(block.timestamp + 100),
+            uint48(0) /* nonce is hardcoded, different nonce to signature transfer */
+        );
+        bytes memory sig = getPermitAllowanceTransferSignature(permit, FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
         return (permit, sig);
     }
 }

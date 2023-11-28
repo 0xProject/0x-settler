@@ -4,6 +4,7 @@ pragma solidity ^0.8.21;
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
@@ -135,6 +136,44 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
     }
 
+    /// @dev In this variant the user has passed us a signed AllowancePermit
+    /// granting this contract unlimited allowance for a time period using Permit2
+    function executeFirstTime(
+        address operator,
+        IAllowanceTransfer.PermitSingle calldata firstPermit,
+        bytes memory sig,
+        ISignatureTransfer.TokenPermissions[] calldata permits,
+        address payable target,
+        bytes calldata data
+    ) public payable override returns (bytes memory result) {
+        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
+        // This contract has no special privileges, except for the allowances it
+        // holds. In order to prevent abusing those allowances, we prohibit
+        // sending arbitrary calldata (doing `target.call(data)`) to any
+        // contract that might be an ERC20.
+        _rejectERC20(target, data);
+
+        _setOperator(operator);
+        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
+            ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
+            _setAllowed(permit.token, permit.amount);
+        }
+
+        _PERMIT2.permit(msg.sender, firstPermit, sig);
+
+        {
+            bool success;
+            (success, result) = target.call{value: msg.value}(data);
+            success.maybeRevert(result);
+        }
+
+        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
+        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
+        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
+            _setAllowed(permits.unsafeGet(i).token, 0);
+        }
+    }
+
     function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails[i];
@@ -142,7 +181,10 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails[i];
-            IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
+            // IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
+            _PERMIT2.transferFrom(
+                tx.origin, transferDetail.recipient, uint160(transferDetail.amount), transferDetail.token
+            );
         }
     }
 
@@ -161,12 +203,14 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     // state. If it did, it would interfere with TransientStorageMock. This can
     // be removed once *actual* EIP-1153 is adopted.
     bytes32 private _sentinel;
+    IAllowanceTransfer private immutable _PERMIT2;
 
-    constructor() {
+    constructor(address permit2) {
         uint256 _sentinelSlot;
         assembly ("memory-safe") {
             _sentinelSlot := _sentinel.slot
         }
         assert(_sentinelSlot == 1);
+        _PERMIT2 = IAllowanceTransfer(permit2);
     }
 }
