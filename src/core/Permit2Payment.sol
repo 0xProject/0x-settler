@@ -216,7 +216,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         ISignatureTransfer.SignatureTransferDetails memory transferDetails
     ) private returns (IAllowanceHolder.TransferDetails[] memory result) {
         result = new IAllowanceHolder.TransferDetails[](1);
-        IAllowanceHolder.TransferDetails memory newDetail;// = result.unsafeGet(0);
+        IAllowanceHolder.TransferDetails memory newDetail; // = result.unsafeGet(0);
         // IAllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(0);
         newDetail.token = permit.permitted.token;
         newDetail.recipient = transferDetails.to;
