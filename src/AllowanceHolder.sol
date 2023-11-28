@@ -137,11 +137,11 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
 
     function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
-            TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
+            TransferDetails calldata transferDetail = transferDetails[i];
             _setAllowed(transferDetail.token, _getAllowed(transferDetail.token) - transferDetail.amount); // reverts on underflow
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
-            TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
+            TransferDetails calldata transferDetail = transferDetails[i];
             IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
         }
     }

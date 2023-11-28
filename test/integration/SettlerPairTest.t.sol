@@ -27,6 +27,7 @@ abstract contract SettlerPairTest is BasePairTest {
 
     Settler private settler;
     IZeroEx private ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+    AllowanceHolder trustedForwarder;
 
     // 0x V4 OTCOrder
     IZeroEx.OtcOrder private otcOrder;
@@ -35,7 +36,13 @@ abstract contract SettlerPairTest is BasePairTest {
     function setUp() public virtual override {
         super.setUp();
         settler = getSettler();
+
+        // ### Taker ###
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
+        // Trusted Forwarder / Allowance Holder
+        safeApproveIfBelow(fromToken(), FROM, address(trustedForwarder), amount());
+
+        // ### Maker / Seller ###
         // Otc via ZeroEx
         safeApproveIfBelow(toToken(), MAKER, address(ZERO_EX), amount());
         // Otc inside of Settler
@@ -69,7 +76,7 @@ abstract contract SettlerPairTest is BasePairTest {
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     function getSettler() private returns (Settler) {
-        AllowanceHolder trustedForwarder = new AllowanceHolder();
+        trustedForwarder = new AllowanceHolder();
         return new Settler(
             address(PERMIT2),
             address(ZERO_EX), // ZeroEx
@@ -592,6 +599,36 @@ abstract contract SettlerPairTest is BasePairTest {
                 recipient: FROM,
                 minAmountOut: amount() * 9_000 / 10_000
             })
+        );
+        snapEnd();
+    }
+
+    function testSettler_allowanceHolder_uniswapV3() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.PERMIT2_TRANSFER_FROM,
+                (
+                    address(settler),
+                    defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE),
+                    new bytes(0)
+                )
+            ),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+        );
+
+        Settler _settler = settler;
+        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+        snapStartName("settler_allowanceHolder_uniswapV3");
+        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
+        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        trustedForwarder.execute(
+            address(settler),
+            permits,
+            payable(address(settler)),
+            abi.encodeCall(
+                Settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
         );
         snapEnd();
     }
