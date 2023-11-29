@@ -91,10 +91,14 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         // (e.g. tokens with blacklists), we choose to copy the first argument
         // out of `data` and mask it as an address. If there isn't enough
         // `data`, we use 0xdead instead.
-        bytes memory testData = abi.encodeCall(
-            IERC20(maybeERC20).balanceOf,
-            (data.length > 0x10 ? address(uint160(bytes20(data[0x10:]))) : address(0xdead))
-        );
+        address target;
+        if (data.length > 0x10) {
+            target = address(uint160(bytes20(data[0x10:])));
+        }
+        if (target == address(0)) {
+            target = address(0xdead);
+        }
+        bytes memory testData = abi.encodeCall(IERC20(maybeERC20).balanceOf, target);
         // 500k gas seems like a pretty healthy upper bound for the amount of
         // gas that `balanceOf` could reasonably consume in a well-behaved
         // ERC20.
