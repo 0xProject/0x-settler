@@ -607,7 +607,17 @@ abstract contract SettlerPairTest is BasePairTest {
         ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
         permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+
         snapStartName("settler_allowanceHolder_uniswapV3");
+
+        // `_warm_allowanceHolder_slots` also warms the whole `AllowanceHolder`
+        // account. in order to pretend that we didn't just do that, we do a
+        // cold account access inside the metered path. this costs an
+        // erroneously-extra 100 gas.
+        assembly ("memory-safe") {
+            let _pop := call(gas(), 0xdead, 0, 0x00, 0x00, 0x00, 0x00)
+        }
+
         _trustedForwarder.execute(
             address(_settler),
             permits,
@@ -642,7 +652,17 @@ abstract contract SettlerPairTest is BasePairTest {
         ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
         permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+
         snapStartName("settler_allowanceHolder_uniswapV3VIP");
+
+        // `_warm_allowanceHolder_slots` also warms the whole `AllowanceHolder`
+        // account. in order to pretend that we didn't just do that, we do a
+        // cold account access inside the metered path. this costs an
+        // erroneously-extra 100 gas.
+        assembly ("memory-safe") {
+            let _pop := call(gas(), 0xdead, 0, 0x00, 0x00, 0x00, 0x00)
+        }
+
         _trustedForwarder.execute(
             address(_settler),
             permits,
