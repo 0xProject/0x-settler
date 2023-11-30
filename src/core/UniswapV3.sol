@@ -242,7 +242,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     ) private view {
         assembly ("memory-safe") {
             function _memcpy(dst, src, len) {
-                if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
             }
 
             {
