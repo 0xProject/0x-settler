@@ -24,6 +24,13 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     address internal constant ZERO_EX_ADDRESS = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
+    bytes32 internal immutable permit2Domain;
+
+    constructor() {
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
+    }
+
     function testName() internal virtual returns (string memory);
     function fromToken() internal virtual returns (IERC20);
     function toToken() internal virtual returns (IERC20);
