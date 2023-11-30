@@ -578,6 +578,15 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    function _warm_allowanceHolder_slots(address token, uint256 amount) internal {
+        bytes32 operatorSlot = bytes32(uint256(0x010000000000000000000000000000000000000000));
+        bytes32 operatorValue = bytes32(uint256(uint160(address(settler))));
+        bytes32 allowedSlot = bytes32(uint256(uint160(token)));
+        bytes32 allowedValue = bytes32(amount);
+        vm.store(address(trustedForwarder), operatorSlot, operatorValue);
+        vm.store(address(trustedForwarder), allowedSlot, allowedValue);
+    }
+
     function testSettler_allowanceHolder_uniswapV3() public {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
@@ -591,17 +600,20 @@ abstract contract SettlerPairTest is BasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
+        _warm_allowanceHolder_slots(address(fromToken()), amount());
+
         AllowanceHolder _trustedForwarder = trustedForwarder;
+        Settler _settler = settler;
         ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
         permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("settler_allowanceHolder_uniswapV3");
         _trustedForwarder.execute(
-            address(settler),
+            address(_settler),
             permits,
-            payable(address(settler)),
+            payable(address(_settler)),
             abi.encodeCall(
-                Settler.execute,
+                _settler.execute,
                 (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
             )
         );
@@ -623,17 +635,20 @@ abstract contract SettlerPairTest is BasePairTest {
             )
         );
 
+        _warm_allowanceHolder_slots(address(fromToken()), amount());
+
         AllowanceHolder _trustedForwarder = trustedForwarder;
+        Settler _settler = settler;
         ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
         permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("settler_allowanceHolder_uniswapV3VIP");
         _trustedForwarder.execute(
-            address(settler),
+            address(_settler),
             permits,
-            payable(address(settler)),
+            payable(address(_settler)),
             abi.encodeCall(
-                Settler.execute,
+                _settler.execute,
                 (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
             )
         );
