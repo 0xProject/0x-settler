@@ -608,6 +608,38 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    function testSettler_allowanceHolder_uniswapV3VIP() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                (
+                    FROM,
+                    amount(),
+                    0,
+                    uniswapV3Path(),
+                    defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE),
+                    new bytes(0)
+                )
+            )
+        );
+
+        AllowanceHolder _trustedForwarder = trustedForwarder;
+        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
+        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+        snapStartName("settler_allowanceHolder_uniswapV3VIP");
+        _trustedForwarder.execute(
+            address(settler),
+            permits,
+            payable(address(settler)),
+            abi.encodeCall(
+                Settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), permit, sig));
