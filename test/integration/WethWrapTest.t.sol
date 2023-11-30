@@ -15,7 +15,7 @@ contract WethWrapTest is Test, GasSnapshot {
     Settler private _settler;
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
         vm.label(address(this), "FoundryTest");
         vm.label(address(_weth), "WETH");
 

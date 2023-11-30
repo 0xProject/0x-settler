@@ -27,7 +27,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     bytes32 internal immutable permit2Domain;
 
     constructor() {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
         permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
     }
 
@@ -37,7 +37,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     function amount() internal virtual returns (uint256);
 
     function setUp() public virtual {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
         vm.label(address(this), "FoundryTest");
         vm.label(FROM, "FROM");
         vm.label(MAKER, "MAKER");
