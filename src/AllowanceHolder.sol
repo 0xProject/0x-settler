@@ -190,7 +190,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
     }
 
-
     // This is here as a deploy-time check that AllowanceHolder doesn't have any
     // state. If it did, it would interfere with TransientStorageMock. This can
     // be removed once *actual* EIP-1153 is adopted.

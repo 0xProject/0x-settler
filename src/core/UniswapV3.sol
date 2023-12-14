@@ -102,8 +102,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData =
-        new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length
+        );
         _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, _msgSender(), recipient, swapCallbackData);
@@ -129,8 +130,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         bytes memory sig,
         bytes32 witness
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData =
-        new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length
+        );
         _encodePermit2Data(swapCallbackData, permit, witness, sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
