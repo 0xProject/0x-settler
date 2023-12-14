@@ -85,7 +85,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
 
     error ConfusedDeputy();
 
-    function _rejectERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
+    function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
         // confused deputy attacks harder for tokens that might be badly behaved
         // (e.g. tokens with blacklists), we choose to copy the first argument
@@ -107,6 +107,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
     }
 
+    /// @inheritdoc IAllowanceHolder
     function execute(
         address operator,
         ISignatureTransfer.TokenPermissions[] calldata permits,
@@ -118,7 +119,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         // holds. In order to prevent abusing those allowances, we prohibit
         // sending arbitrary calldata (doing `target.call(data)`) to any
         // contract that might be an ERC20.
-        _rejectERC20(target, data);
+        _rejectIfERC20(target, data);
 
         _setOperator(operator);
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
@@ -128,7 +129,8 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
 
         {
             bool success;
-            (success, result) = target.call{value: msg.value}(data);
+            // EIP-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, tx.origin));
             success.maybeRevert(result);
         }
 
@@ -150,6 +152,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
     }
 
+    /// @inheritdoc IAllowanceHolder
     function holderTransferFrom(address owner, TransferDetails[] calldata transferDetails)
         public
         override
@@ -160,6 +163,33 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         _checkAmountsAndTransfer(transferDetails);
         return true;
     }
+
+    /// @inheritdoc IAllowanceHolder
+    function moveExecute(
+        ISignatureTransfer.TokenPermissions[] calldata permits,
+        address payable target,
+        bytes calldata data
+    ) public payable override returns (bytes memory result) {
+        // This contract has no special privileges, except for the allowances it
+        // holds. In order to prevent abusing those allowances, we prohibit
+        // sending arbitrary calldata (doing `target.call(data)`) to any
+        // contract that might be an ERC20.
+        _rejectIfERC20(target, data);
+
+        // Move all funds into `target`
+        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
+            ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
+            IERC20(permit.token).safeTransferFrom(msg.sender, target, permit.amount);
+        }
+
+        {
+            bool success;
+            // EIP-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, msg.sender));
+            success.maybeRevert(result);
+        }
+    }
+
 
     // This is here as a deploy-time check that AllowanceHolder doesn't have any
     // state. If it did, it would interfere with TransientStorageMock. This can
