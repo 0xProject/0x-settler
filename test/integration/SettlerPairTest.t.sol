@@ -675,6 +675,40 @@ abstract contract SettlerPairTest is BasePairTest {
         snapEnd();
     }
 
+    function testSettler_allowanceHolder_moveExecute_uniswapV3() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+        );
+
+        _warm_allowanceHolder_slots(address(fromToken()), amount());
+
+        AllowanceHolder _trustedForwarder = trustedForwarder;
+        Settler _settler = settler;
+        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
+        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+
+        snapStartName("settler_allowanceHolder_moveExecute_uniswapV3");
+
+        // `_warm_allowanceHolder_slots` also warms the whole `AllowanceHolder`
+        // account. in order to pretend that we didn't just do that, we do a
+        // cold account access inside the metered path. this costs an
+        // erroneously-extra 100 gas.
+        assembly ("memory-safe") {
+            let _pop := call(gas(), 0xdead, 0, 0x00, 0x00, 0x00, 0x00)
+        }
+
+        _trustedForwarder.moveExecute(
+            permits,
+            payable(address(_settler)),
+            abi.encodeCall(
+                _settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
     function _getDefaultFromPermit2Action() private returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), permit, sig));
