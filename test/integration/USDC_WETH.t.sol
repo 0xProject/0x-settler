@@ -7,6 +7,7 @@ import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 
@@ -15,6 +16,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 contract USDCWETHTest is
     AllowanceHolderPairTest,
     SettlerPairTest,
+    SettlerMetaTxnPairTest,
     ZeroExPairTest,
     UniswapV3PairTest,
     TokenTransferTest,
@@ -25,6 +27,7 @@ contract USDCWETHTest is
         override(
             AllowanceHolderPairTest,
             SettlerPairTest,
+            SettlerMetaTxnPairTest,
             ZeroExPairTest,
             UniswapV3PairTest,
             TokenTransferTest,
@@ -53,7 +56,7 @@ contract USDCWETHTest is
     function uniswapV3Path()
         internal
         pure
-        override(SettlerPairTest, AllowanceHolderPairTest, UniswapV3PairTest, ZeroExPairTest)
+        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest, UniswapV3PairTest, ZeroExPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
