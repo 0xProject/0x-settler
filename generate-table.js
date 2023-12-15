@@ -75,7 +75,7 @@ tables.push(
         ["0x V4 Multiplex", "Uniswap V3", "zeroEx_uniswapV3VIP_multiplex1"],
         ["Settler VIP (warm)", "Uniswap V3", "settler_uniswapV3VIP"],
         ["Settler VIP (cold)", "Uniswap V3", "settler_uniswapV3VIP_cold"],
-        ["Settler VIP (AllowanceHolder)", "Uniswap V3", "settler_allowanceHolder_uniswapV3VIP"],
+        ["AllowanceHolder VIP", "Uniswap V3", "allowanceHolder_uniswapV3VIP"],
         ["UniswapRouter V3", "Uniswap V3", "uniswapRouter_uniswapV3"],
       ],
       pairs
@@ -92,7 +92,7 @@ tables.push(
           "zeroEx_uniswapV3_transformERC20",
         ],
         ["Settler", "Uniswap V3", "settler_uniswapV3"],
-        ["Settler (AllowanceHolder)", "Uniswap V3", "settler_allowanceHolder_uniswapV3"],
+        ["AllowanceHolder", "Uniswap V3", "allowanceHolder_uniswapV3"],
       ],
       pairs
     ),
@@ -171,8 +171,9 @@ tables.push(
     generateTable(
       "AllowanceHolder",
       [
-        ["execute", "Uniswap V3 VIP", "settler_allowanceHolder_uniswapV3VIP"],
-        ["moveExecute", "Uniswap V3", "settler_allowanceHolder_moveExecute_uniswapV3"],
+        ["execute", "Uniswap V3 VIP", "allowanceHolder_uniswapV3VIP"],
+        ["execute - single", "Uniswap V3 VIP", "allowanceHolder_single_uniswapV3VIP"],
+        ["moveExecute", "Uniswap V3", "allowanceHolder_moveExecute_uniswapV3"],
       ],
       pairs
     ),

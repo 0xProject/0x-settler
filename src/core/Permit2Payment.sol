@@ -214,12 +214,10 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     function _formatForAllowanceHolder(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails
-    ) private pure returns (IAllowanceHolder.TransferDetails[] memory result) {
-        result = new IAllowanceHolder.TransferDetails[](1);
-        IAllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(0);
-        newDetail.token = permit.permitted.token;
-        newDetail.recipient = transferDetails.to;
-        newDetail.amount = transferDetails.requestedAmount;
+    ) private pure returns (IAllowanceHolder.TransferDetails memory result) {
+        result.token = permit.permitted.token;
+        result.recipient = transferDetails.to;
+        result.amount = transferDetails.requestedAmount;
     }
 
     function _transferFrom(

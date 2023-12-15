@@ -141,6 +141,35 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
     }
 
+    /// @inheritdoc IAllowanceHolder
+    function execute(
+        address operator,
+        ISignatureTransfer.TokenPermissions calldata permit,
+        address payable target,
+        bytes calldata data
+    ) public payable override returns (bytes memory result) {
+        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
+        // This contract has no special privileges, except for the allowances it
+        // holds. In order to prevent abusing those allowances, we prohibit
+        // sending arbitrary calldata (doing `target.call(data)`) to any
+        // contract that might be an ERC20.
+        _rejectIfERC20(target, data);
+
+        _setOperator(operator);
+        _setAllowed(permit.token, permit.amount);
+
+        {
+            bool success;
+            // EIP-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, tx.origin));
+            success.maybeRevert(result);
+        }
+
+        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
+        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
+        _setAllowed(permit.token, 0);
+    }
+
     function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
@@ -161,6 +190,19 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         assert(owner == tx.origin);
         require(msg.sender == _getOperator());
         _checkAmountsAndTransfer(transferDetails);
+        return true;
+    }
+
+    /// @inheritdoc IAllowanceHolder
+    function holderTransferFrom(address owner, TransferDetails calldata transferDetail)
+        public
+        override
+        returns (bool)
+    {
+        assert(owner == tx.origin);
+        require(msg.sender == _getOperator());
+        _setAllowed(transferDetail.token, _getAllowed(transferDetail.token) - transferDetail.amount); // reverts on underflow
+        IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
         return true;
     }
 

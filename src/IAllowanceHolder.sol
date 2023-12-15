@@ -27,12 +27,20 @@ interface IAllowanceHolder {
         bytes calldata data
     ) external payable returns (bytes memory result);
 
+    function execute(
+        address operator,
+        ISignatureTransfer.TokenPermissions calldata permit,
+        address payable target,
+        bytes calldata data
+    ) external payable returns (bytes memory result);
+
     /// @notice The counterpart to `execute` which allows for the consumption of token permits later during execution
     /// @dev can only be called by the `operator` previously registered in `execute`
     /// @dev can only spend funds from `tx.origin`
     /// @param owner The owner of tokens to transfer
     /// @param transferDetails The tokens, recipient and amounts which `operator` wants to spend during this interaction
     function holderTransferFrom(address owner, TransferDetails[] calldata transferDetails) external returns (bool);
+    function holderTransferFrom(address owner, TransferDetails calldata transferDetail) external returns (bool);
 
     /// @notice Moves funds from msg.sender into target prior to execution.
     /// @dev Unlike `execute` no storage is used, all tokens are moved prior

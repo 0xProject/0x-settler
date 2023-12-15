@@ -3,6 +3,7 @@ pragma solidity ^0.8.21;
 
 import {IERC20} from "../../src/IERC20.sol";
 
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
@@ -10,8 +11,17 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract DAIWETHTest is SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest {
-    function setUp() public override(SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest) {
+contract DAIWETHTest is
+    AllowanceHolderPairTest,
+    SettlerPairTest,
+    TokenTransferTest,
+    UniswapV3PairTest,
+    ZeroExPairTest
+{
+    function setUp()
+        public
+        override(AllowanceHolderPairTest, SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest)
+    {
         super.setUp();
     }
 
@@ -34,7 +44,7 @@ contract DAIWETHTest is SettlerPairTest, TokenTransferTest, UniswapV3PairTest, Z
     function uniswapV3Path()
         internal
         pure
-        override(SettlerPairTest, UniswapV3PairTest, ZeroExPairTest)
+        override(SettlerPairTest, AllowanceHolderPairTest, UniswapV3PairTest, ZeroExPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
