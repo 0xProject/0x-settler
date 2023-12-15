@@ -126,6 +126,18 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler        | Curve      | USDT/WETH | 435702 | 157.38% |
 |                |            |           |        |         |
 
+| AllowanceHolder | DEX            | Pair      | Gas    | %      |
+| --------------- | -------------- | --------- | ------ | ------ |
+| execute         | Uniswap V3 VIP | USDC/WETH | 131532 | 0.00%  |
+| moveExecute     | Uniswap V3     | USDC/WETH | 155298 | 18.07% |
+|                 |                |           |        |        |
+| execute         | Uniswap V3 VIP | DAI/WETH  | 118966 | 0.00%  |
+| moveExecute     | Uniswap V3     | DAI/WETH  | 138676 | 16.57% |
+|                 |                |           |        |        |
+| execute         | Uniswap V3 VIP | USDT/WETH | 121804 | 0.00%  |
+| moveExecute     | Uniswap V3     | USDT/WETH | 145370 | 19.35% |
+|                 |                |           |        |        |
+
 [//]: # "END TABLES"
 
 ### Settler vs X
@@ -194,9 +206,11 @@ To make gas comparisons fair we will use the following methodology:
 
 # Technical Reference
 
-We utilise Permit2 transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transgers and `PermitBatchTransferFrom` for batch transfers.
+## Permit2 Based Flows
 
-Permit2 provides the following guarantees:
+We utilise `Permit2` transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transgers and `PermitBatchTransferFrom` for batch transfers.
+
+`Permit2` provides the following guarantees:
 
 - Funds can only be transferred from the user who signed the Permit2 coupon
 - Funds can only be transferred by the `spender` specified in the Permit2 coupon
@@ -268,7 +282,7 @@ sequenceDiagram
     WETH-->>User: transfer
 ```
 
-The above example shows the simplest form of settlement in Settler. We abuse some of the sequence diagram notation to get the point across. Token transfers are represented by dashes (-->). Normal contract calls are represented by solid lines. Highlighted in colour is the Permit2 interaction.
+The above example shows the simplest form of settlement in Settler. We abuse some of the sequence diagram notation to get the point across. Token transfers are represented by dashes (-->). Normal contract calls are represented by solid lines. Highlighted in purple is the Permit2 interaction.
 
 For the sake of brevity, following diagrams will have a simplified representation to showcase the internal flow. This is what we are actually interested in describing. The initial user interaction (e.g their call to Settler) and the final transfer is omitted unless it is relevant to highlight in the flow. Function calls to the DEX may only be representative of the flow, not the accurate function name.
 
@@ -508,3 +522,54 @@ TokenPermissions(address token,uint256 amount)
 ```
 
 Where `actions` is added and contains the encoded actions the to perform.
+
+
+## AllowanceHolder
+As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x V5 and acts as transparently as possible. 0x V5 has a one way trust relationship with `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0xV5 in a similar way to EIP-2771. `Permit2` is not used in conjunction with `AllowanceHolder`
+
+There are two possible ways to use `AllowanceHolder`:
+
+1. `execute`: An EOA can utilise this function to perform a swap via 0x V5. Tokens are transferred efficiently and on-demand as the swap executes 
+2. `moveExecute`: A contract can utilise this function to perform a swap via 0x V5. All funds are __immediately__ transferred into 0x V5 contract prior to execution. As such, tokens are not transferred on demand nor as effeciently as `execute`. 0x V5 then uses its internal balance to perform the trades.
+
+
+Highlighted in orange is the standard token transfer operations. Note: these are not the most effiecient swaps available, just enough to demonstrate the point.
+
+
+
+`execute` transfers the tokens on demand in the middle of the swap
+
+```mermaid
+sequenceDiagram
+    autonumber
+    User->>AllowanceHolder: execute
+    AllowanceHolder->>Settler: execute
+    Settler->>UniswapV3: swap
+    WETH-->>Settler: transfer
+    UniswapV3->>Settler: uniswapV3Callback
+    Settler->>AllowanceHolder: holderTransferFrom 
+    rect rgba(255, 148, 112, 0.5)
+        USDC-->>UniswapV3: transferFrom(User, UniswapV3, amt)
+    end
+    WETH-->>User: transfer
+```
+
+
+`moveExecute` transfers the tokens prior to calling 0x V5. As it can be seen, there is an additional transfer in `moveExecute` which comes with an increase in gas cost.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    User->>AllowanceHolder: moveExecute
+    rect rgba(255, 148, 112, 0.5)
+        USDC-->>Settler: transferFrom(User, Settler, amt)
+    end
+    AllowanceHolder->>Settler: execute
+    Settler->>UniswapV3: swap
+    WETH-->>Settler: transfer
+    UniswapV3->>Settler: uniswapV3Callback
+    rect rgba(255, 148, 112, 0.5)
+        USDC-->>UniswapV3: transfer(UniswapV3, amt)
+    end
+    WETH-->>User: transfer
+```

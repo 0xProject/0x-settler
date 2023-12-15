@@ -158,9 +158,21 @@ tables.push(
     generateTable(
       "Sell token fee",
       [
-        ["Settler ", "Uniswap V3", "settler_uniswapV3_sellToken_fee_full_custody"],
+        ["Settler", "Uniswap V3", "settler_uniswapV3_sellToken_fee_full_custody"],
         ["Settler", "OTC", "settler_otc_sellToken_fee"],
         ["Settler", "Curve", "settler_curveV2_fee"],
+      ],
+      pairs
+    ),
+    { stringLength: stringWidth }
+  ),
+  // Allowance Holder
+  markdownTable(
+    generateTable(
+      "AllowanceHolder",
+      [
+        ["execute", "Uniswap V3 VIP", "settler_allowanceHolder_uniswapV3VIP"],
+        ["moveExecute", "Uniswap V3", "settler_allowanceHolder_moveExecute_uniswapV3"],
       ],
       pairs
     ),
