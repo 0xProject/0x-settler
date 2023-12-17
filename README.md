@@ -522,7 +522,7 @@ Where `actions` is added and contains the encoded actions the to perform.
 
 
 ## AllowanceHolder
-As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x V5 and acts as transparently as possible. 0x V5 has a one way trust relationship with `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0xV5 in a similar way to EIP-2771. `Permit2` is not used in conjunction with `AllowanceHolder`
+As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x V5 and acts as transparently as possible. 0x V5 has a one way trust relationship with `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0xV5 in a similar way to [ERC-2771](https://eips.ethereum.org/EIPS/eip-2771). `Permit2` is not used in conjunction with `AllowanceHolder`
 
 There are two possible ways to use `AllowanceHolder`:
 

@@ -107,44 +107,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_single_uniswapV3VIP() public {
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (
-                    FROM,
-                    amount(),
-                    0,
-                    uniswapV3Path(),
-                    defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
-                    new bytes(0) /* sig (empty) */
-                )
-            )
-        );
-
-        AllowanceHolder _allowanceHolder = allowanceHolder;
-        Settler _settler = settler;
-        _warm_allowanceHolder_slots(address(fromToken()), amount());
-
-        ISignatureTransfer.TokenPermissions memory permit =
-            ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
-
-        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
-        snapStartName("allowanceHolder_single_uniswapV3VIP");
-        _cold_account_access();
-
-        _allowanceHolder.execute(
-            address(_settler),
-            permit,
-            payable(address(_settler)),
-            abi.encodeCall(
-                _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
-            )
-        );
-        snapEnd();
-    }
-
     function testAllowanceHolder_moveExecute_uniswapV3() public {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))

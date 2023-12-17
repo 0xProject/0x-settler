@@ -129,7 +129,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
 
         {
             bool success;
-            // EIP-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+            // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
             (success, result) = target.call{value: msg.value}(abi.encodePacked(data, tx.origin));
             success.maybeRevert(result);
         }
@@ -139,35 +139,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             _setAllowed(permits.unsafeGet(i).token, 0);
         }
-    }
-
-    /// @inheritdoc IAllowanceHolder
-    function execute(
-        address operator,
-        ISignatureTransfer.TokenPermissions calldata permit,
-        address payable target,
-        bytes calldata data
-    ) public payable override returns (bytes memory result) {
-        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
-        // This contract has no special privileges, except for the allowances it
-        // holds. In order to prevent abusing those allowances, we prohibit
-        // sending arbitrary calldata (doing `target.call(data)`) to any
-        // contract that might be an ERC20.
-        _rejectIfERC20(target, data);
-
-        _setOperator(operator);
-        _setAllowed(permit.token, permit.amount);
-
-        {
-            bool success;
-            // EIP-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
-            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, tx.origin));
-            success.maybeRevert(result);
-        }
-
-        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
-        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
-        _setAllowed(permit.token, 0);
     }
 
     function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
@@ -194,19 +165,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     }
 
     /// @inheritdoc IAllowanceHolder
-    function holderTransferFrom(address owner, TransferDetails calldata transferDetail)
-        public
-        override
-        returns (bool)
-    {
-        assert(owner == tx.origin);
-        require(msg.sender == _getOperator());
-        _setAllowed(transferDetail.token, _getAllowed(transferDetail.token) - transferDetail.amount); // reverts on underflow
-        IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
-        return true;
-    }
-
-    /// @inheritdoc IAllowanceHolder
     function moveExecute(
         ISignatureTransfer.TokenPermissions[] calldata permits,
         address payable target,
@@ -226,7 +184,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
 
         {
             bool success;
-            // EIP-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+            // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
             (success, result) = target.call{value: msg.value}(abi.encodePacked(data, msg.sender));
             success.maybeRevert(result);
         }
