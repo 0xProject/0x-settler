@@ -120,20 +120,17 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler        | Curve      | USDT/WETH | 435708 | 157.39% |
 |                |            |           |        |         |
 
-| AllowanceHolder  | DEX            | Pair      | Gas    | %      |
-| ---------------- | -------------- | --------- | ------ | ------ |
-| execute          | Uniswap V3 VIP | USDC/WETH | 131553 | 0.00%  |
-| execute - single | Uniswap V3 VIP | USDC/WETH | 129932 | -1.23% |
-| moveExecute      | Uniswap V3     | USDC/WETH | 155298 | 18.05% |
-|                  |                |           |        |        |
-| execute          | Uniswap V3 VIP | DAI/WETH  | 118987 | 0.00%  |
-| execute - single | Uniswap V3 VIP | DAI/WETH  | 117366 | -1.36% |
-| moveExecute      | Uniswap V3     | DAI/WETH  | 138676 | 16.55% |
-|                  |                |           |        |        |
-| execute          | Uniswap V3 VIP | USDT/WETH | 121825 | 0.00%  |
-| execute - single | Uniswap V3 VIP | USDT/WETH | 120204 | -1.33% |
-| moveExecute      | Uniswap V3     | USDT/WETH | 145370 | 19.33% |
-|                  |                |           |        |        |
+| AllowanceHolder | DEX            | Pair      | Gas    | %      |
+| --------------- | -------------- | --------- | ------ | ------ |
+| execute         | Uniswap V3 VIP | USDC/WETH | 131553 | 0.00%  |
+| moveExecute     | Uniswap V3     | USDC/WETH | 155298 | 18.05% |
+|                 |                |           |        |        |
+| execute         | Uniswap V3 VIP | DAI/WETH  | 118987 | 0.00%  |
+| moveExecute     | Uniswap V3     | DAI/WETH  | 138676 | 16.55% |
+|                 |                |           |        |        |
+| execute         | Uniswap V3 VIP | USDT/WETH | 121825 | 0.00%  |
+| moveExecute     | Uniswap V3     | USDT/WETH | 145370 | 19.33% |
+|                 |                |           |        |        |
 
 [//]: # "END TABLES"
 
