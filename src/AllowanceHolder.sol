@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
+import {InvalidSender, ConfusedDeputy} from "./AllowanceHolderErrors.sol";
 import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
@@ -83,8 +84,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     using UnsafeArray for TransferDetails[];
     using Revert for bool;
 
-    error ConfusedDeputy();
-
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
         // confused deputy attacks harder for tokens that might be badly behaved
@@ -102,9 +101,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         // 500k gas seems like a pretty healthy upper bound for the amount of
         // gas that `balanceOf` could reasonably consume in a well-behaved
         // ERC20.
-        if (maybeERC20.checkCall(testData, 500_000, 0x20)) {
-            revert ConfusedDeputy();
-        }
+        if (maybeERC20.checkCall(testData, 500_000, 0x20)) revert ConfusedDeputy();
     }
 
     /// @inheritdoc IAllowanceHolder
@@ -114,7 +111,9 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         address payable target,
         bytes calldata data
     ) public payable override returns (bytes memory result) {
-        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
+        // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
+        if (msg.sender != tx.origin) revert InvalidSender();
+
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
         // sending arbitrary calldata (doing `target.call(data)`) to any
@@ -158,8 +157,8 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         override
         returns (bool)
     {
-        assert(owner == tx.origin);
-        require(msg.sender == _getOperator());
+        if (owner != tx.origin) revert InvalidSender();
+        if (msg.sender != _getOperator()) revert InvalidSender();
         _checkAmountsAndTransfer(transferDetails);
         return true;
     }
