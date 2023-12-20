@@ -297,4 +297,21 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
         assertGt(toToken().balanceOf(FROM), beforeBalance);
     }
+
+    function testSettler_externalMoveExecute_uniswapV3() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+        );
+
+        Settler _settler = settler;
+
+        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+        snapStartName("settler_externalMoveExecute_uniswapV3");
+        // Transfer the tokens INTO Settler then execute against its own balance
+        fromToken().safeTransfer(address(_settler), amount());
+        _settler.execute(
+            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+        );
+        snapEnd();
+    }
 }

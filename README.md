@@ -120,17 +120,20 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler        | Curve      | USDT/WETH | 435708 | 157.39% |
 |                |            |           |        |         |
 
-| AllowanceHolder | DEX            | Pair      | Gas    | %      |
-| --------------- | -------------- | --------- | ------ | ------ |
-| execute         | Uniswap V3 VIP | USDC/WETH | 131553 | 0.00%  |
-| moveExecute     | Uniswap V3     | USDC/WETH | 155298 | 18.05% |
-|                 |                |           |        |        |
-| execute         | Uniswap V3 VIP | DAI/WETH  | 118987 | 0.00%  |
-| moveExecute     | Uniswap V3     | DAI/WETH  | 138676 | 16.55% |
-|                 |                |           |        |        |
-| execute         | Uniswap V3 VIP | USDT/WETH | 121825 | 0.00%  |
-| moveExecute     | Uniswap V3     | USDT/WETH | 145370 | 19.33% |
-|                 |                |           |        |        |
+| AllowanceHolder                      | DEX            | Pair      | Gas    | %      |
+| ------------------------------------ | -------------- | --------- | ------ | ------ |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 131553 | 0.00%  |
+| moveExecute                          | Uniswap V3     | USDC/WETH | 155298 | 18.05% |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 140380 | 6.71%  |
+|                                      |                |           |        |        |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 118987 | 0.00%  |
+| moveExecute                          | Uniswap V3     | DAI/WETH  | 138676 | 16.55% |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 129404 | 8.75%  |
+|                                      |                |           |        |        |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 121825 | 0.00%  |
+| moveExecute                          | Uniswap V3     | USDT/WETH | 145370 | 19.33% |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 136398 | 11.96% |
+|                                      |                |           |        |        |
 
 [//]: # "END TABLES"
 
