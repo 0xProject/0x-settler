@@ -172,7 +172,6 @@ tables.push(
       "AllowanceHolder",
       [
         ["execute", "Uniswap V3 VIP", "allowanceHolder_uniswapV3VIP"],
-        ["moveExecute", "Uniswap V3", "allowanceHolder_moveExecute_uniswapV3"],
         ["Settler - external move then execute", "Uniswap V3", "settler_externalMoveExecute_uniswapV3"],
       ],
       pairs

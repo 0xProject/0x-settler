@@ -51,15 +51,26 @@ abstract contract TransientStorageMock {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     uint256 private constant _OPERATOR_SLOT = 0x010000000000000000000000000000000000000000;
 
-    function _getAllowed(address token) internal view returns (uint256 r) {
+    function _getAllowed(address owner, address token) internal view returns (uint256 r) {
         assembly ("memory-safe") {
-            r := sload(and(_ADDRESS_MASK, token))
+            let ptr := mload(0x40)
+            mstore(ptr, owner)
+            mstore(add(ptr, 0x20), token) // store token at ptr + 0x20
+            // Key is the keccak256 hash of owner and token
+            r := sload(keccak256(ptr, 0x40))
         }
     }
 
-    function _setAllowed(address token, uint256 allowed) internal {
+    /// @dev They key for this ephemeral allowance is the keccak256(owner, token).
+    /// Later authorisation for this is validated through the presence of this key being
+    /// set
+    function _setAllowed(address owner, address token, uint256 allowed) internal {
         assembly ("memory-safe") {
-            sstore(and(_ADDRESS_MASK, token), allowed)
+            let ptr := mload(0x40)
+            mstore(ptr, owner)
+            mstore(add(ptr, 0x20), token) // store token at ptr + 0x20
+            // Key is the keccak256 hash of owner and token
+            sstore(keccak256(ptr, 0x40), allowed)
         }
     }
 
@@ -111,9 +122,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         address payable target,
         bytes calldata data
     ) public payable override returns (bytes memory result) {
-        // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
-        if (msg.sender != tx.origin) revert InvalidSender();
-
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
         // sending arbitrary calldata (doing `target.call(data)`) to any
@@ -123,31 +131,32 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         _setOperator(operator);
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            _setAllowed(permit.token, permit.amount);
+            _setAllowed(msg.sender, permit.token, permit.amount);
         }
 
         {
             bool success;
             // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
-            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, tx.origin));
+            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, msg.sender));
             success.maybeRevert(result);
         }
 
         // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
         _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            _setAllowed(permits.unsafeGet(i).token, 0);
+            _setAllowed(msg.sender, permits.unsafeGet(i).token, 0);
         }
     }
 
-    function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
+    function _checkAmountsAndTransfer(address owner, TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            _setAllowed(transferDetail.token, _getAllowed(transferDetail.token) - transferDetail.amount); // reverts on underflow
+            // validation of the ephemeral allowance via uint underflow
+            _setAllowed(owner, transferDetail.token, _getAllowed(owner, transferDetail.token) - transferDetail.amount);
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
+            IERC20(transferDetail.token).safeTransferFrom(owner, transferDetail.recipient, transferDetail.amount);
         }
     }
 
@@ -157,36 +166,9 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         override
         returns (bool)
     {
-        if (owner != tx.origin) revert InvalidSender();
         if (msg.sender != _getOperator()) revert InvalidSender();
-        _checkAmountsAndTransfer(transferDetails);
+        _checkAmountsAndTransfer(owner, transferDetails);
         return true;
-    }
-
-    /// @inheritdoc IAllowanceHolder
-    function moveExecute(
-        ISignatureTransfer.TokenPermissions[] calldata permits,
-        address payable target,
-        bytes calldata data
-    ) public payable override returns (bytes memory result) {
-        // This contract has no special privileges, except for the allowances it
-        // holds. In order to prevent abusing those allowances, we prohibit
-        // sending arbitrary calldata (doing `target.call(data)`) to any
-        // contract that might be an ERC20.
-        _rejectIfERC20(target, data);
-
-        // Move all funds into `target`
-        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            IERC20(permit.token).safeTransferFrom(msg.sender, target, permit.amount);
-        }
-
-        {
-            bool success;
-            // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
-            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, msg.sender));
-            success.maybeRevert(result);
-        }
     }
 
     // This is here as a deploy-time check that AllowanceHolder doesn't have any

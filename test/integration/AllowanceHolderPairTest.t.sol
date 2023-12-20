@@ -107,9 +107,20 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_moveExecute_uniswapV3() public {
+    function testAllowanceHolder_uniswapV3VIP_contract() public {
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(
+                // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
+                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                (
+                    FROM,
+                    amount(),
+                    0,
+                    uniswapV3Path(),
+                    defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
+                    new bytes(0) // sig (empty)
+                )
+            )
         );
 
         AllowanceHolder _allowanceHolder = allowanceHolder;
@@ -119,11 +130,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
         permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
 
-        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
-        snapStartName("allowanceHolder_moveExecute_uniswapV3");
+        vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
+        snapStartName("allowanceHolder_uniswapV3VIP_contract");
         _cold_account_access();
 
-        _allowanceHolder.moveExecute(
+        _allowanceHolder.execute(
+            address(_settler),
             permits,
             payable(address(_settler)),
             abi.encodeCall(
@@ -140,7 +152,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     function _warm_allowanceHolder_slots(address token, uint256 amount) internal {
         bytes32 operatorSlot = bytes32(uint256(0x010000000000000000000000000000000000000000));
         bytes32 operatorValue = bytes32(uint256(uint160(address(settler))));
-        bytes32 allowedSlot = bytes32(uint256(uint160(token)));
+        bytes32 allowedSlot = keccak256(abi.encode(FROM, token));
         bytes32 allowedValue = bytes32(amount);
         vm.store(address(allowanceHolder), operatorSlot, operatorValue);
         vm.store(address(allowanceHolder), allowedSlot, allowedValue);

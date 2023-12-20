@@ -33,19 +33,19 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | 0x V4 VIP           | Uniswap V3 | USDC/WETH | 125117 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138686 | 10.85% |
 | Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 135470 | 8.27%  |
-| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 131553 | 5.14%  |
+| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 131604 | 5.18%  |
 | UniswapRouter V3    | Uniswap V3 | USDC/WETH | 121137 | -3.18% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112551 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126120 | 12.06% |
 | Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 122904 | 9.20%  |
-| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 118987 | 5.72%  |
+| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 119017 | 5.74%  |
 | UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108571 | -3.54% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | USDT/WETH | 115358 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128927 | 11.76% |
 | Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 125742 | 9.00%  |
-| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 121825 | 5.61%  |
+| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 121855 | 5.63%  |
 | UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111250 | -3.56% |
 |                     |            |           |        |        |
 
@@ -53,15 +53,15 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | -------------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 246374 | 0.00%   |
 | Settler              | Uniswap V3 | USDC/WETH | 165198 | -32.95% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 161842 | -34.31% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 161893 | -34.29% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 223372 | 0.00%   |
 | Settler              | Uniswap V3 | DAI/WETH  | 148576 | -33.48% |
-| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 145220 | -34.99% |
+| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 145250 | -34.97% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230271 | 0.00%   |
 | Settler              | Uniswap V3 | USDT/WETH | 155270 | -32.57% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 151914 | -34.03% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 151944 | -34.02% |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
@@ -122,17 +122,14 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | AllowanceHolder                      | DEX            | Pair      | Gas    | %      |
 | ------------------------------------ | -------------- | --------- | ------ | ------ |
-| execute                              | Uniswap V3 VIP | USDC/WETH | 131553 | 0.00%  |
-| moveExecute                          | Uniswap V3     | USDC/WETH | 155298 | 18.05% |
-| Settler - external move then execute | Uniswap V3     | USDC/WETH | 140380 | 6.71%  |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 131604 | 0.00%  |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 140380 | 6.67%  |
 |                                      |                |           |        |        |
-| execute                              | Uniswap V3 VIP | DAI/WETH  | 118987 | 0.00%  |
-| moveExecute                          | Uniswap V3     | DAI/WETH  | 138676 | 16.55% |
-| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 129404 | 8.75%  |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 119017 | 0.00%  |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 129404 | 8.73%  |
 |                                      |                |           |        |        |
-| execute                              | Uniswap V3 VIP | USDT/WETH | 121825 | 0.00%  |
-| moveExecute                          | Uniswap V3     | USDT/WETH | 145370 | 19.33% |
-| Settler - external move then execute | Uniswap V3     | USDT/WETH | 136398 | 11.96% |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 121855 | 0.00%  |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 136398 | 11.93% |
 |                                      |                |           |        |        |
 
 [//]: # "END TABLES"
@@ -522,17 +519,11 @@ Where `actions` is added and contains the encoded actions the to perform.
 
 
 ## AllowanceHolder
-As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x V5 and acts as transparently as possible. 0x V5 has a one way trust relationship with `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0xV5 in a similar way to [ERC-2771](https://eips.ethereum.org/EIPS/eip-2771). `Permit2` is not used in conjunction with `AllowanceHolder`
+As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x V5 and acts as transparently as possible. 0x V5 has a one way trust relationship to `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0x V5 in a similar way to [ERC-2771](https://eips.ethereum.org/EIPS/eip-2771). `Permit2` is not used in conjunction with `AllowanceHolder`
 
-There are two possible ways to use `AllowanceHolder`:
-
-1. `execute`: An EOA can utilise this function to perform a swap via 0x V5. Tokens are transferred efficiently and on-demand as the swap executes 
-2. `moveExecute`: A contract can utilise this function to perform a swap via 0x V5. All funds are __immediately__ transferred into 0x V5 contract prior to execution. As such, tokens are not transferred on demand nor as effeciently as `execute`. 0x V5 then uses its internal balance to perform the trades.
-
+`execute`: An EOA or a Contract can utilise this function to perform a swap via 0x V5. Tokens are transferred efficiently and on-demand as the swap executes 
 
 Highlighted in orange is the standard token transfer operations. Note: these are not the most effiecient swaps available, just enough to demonstrate the point.
-
-
 
 `execute` transfers the tokens on demand in the middle of the swap
 
@@ -547,26 +538,6 @@ sequenceDiagram
     Settler->>AllowanceHolder: holderTransferFrom 
     rect rgba(255, 148, 112, 0.5)
         USDC-->>UniswapV3: transferFrom(User, UniswapV3, amt)
-    end
-    WETH-->>User: transfer
-```
-
-
-`moveExecute` transfers the tokens prior to calling 0x V5. As it can be seen, there is an additional transfer in `moveExecute` which comes with an increase in gas cost.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    User->>AllowanceHolder: moveExecute
-    rect rgba(255, 148, 112, 0.5)
-        USDC-->>Settler: transferFrom(User, Settler, amt)
-    end
-    AllowanceHolder->>Settler: execute
-    Settler->>UniswapV3: swap
-    WETH-->>Settler: transfer
-    UniswapV3->>Settler: uniswapV3Callback
-    rect rgba(255, 148, 112, 0.5)
-        USDC-->>UniswapV3: transfer(UniswapV3, amt)
     end
     WETH-->>User: transfer
 ```
