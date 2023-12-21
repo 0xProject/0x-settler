@@ -150,11 +150,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     /// and therefor cost the same as if they were already warm
     /// TODO should we keep this on of have it as a flag if we deploy prior to EIP1153
     function _warm_allowanceHolder_slots(address token, uint256 amount) internal {
-        bytes32 operatorSlot = bytes32(uint256(0x010000000000000000000000000000000000000000));
-        bytes32 operatorValue = bytes32(uint256(uint160(address(settler))));
-        bytes32 allowedSlot = keccak256(abi.encode(FROM, token));
+        bytes32 allowedSlot = keccak256(abi.encode(address(settler), FROM, token));
         bytes32 allowedValue = bytes32(amount);
-        vm.store(address(allowanceHolder), operatorSlot, operatorValue);
         vm.store(address(allowanceHolder), allowedSlot, allowedValue);
     }
 

@@ -42,47 +42,35 @@ abstract contract TransientStorageMock {
             _sentinelSlot := _sentinel.slot
         }
         assert(_sentinelSlot == 0);
-        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
     }
 
     // this emulates transient storage while solc doesn't support it. there's no
     // reason to use a mapping here because this contract has only 2 things it
     // needs to store.
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-    uint256 private constant _OPERATOR_SLOT = 0x010000000000000000000000000000000000000000;
 
-    function _getAllowed(address owner, address token) internal view returns (uint256 r) {
+    function _getAllowed(address operator, address owner, address token) internal view returns (uint256 r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, owner)
-            mstore(add(ptr, 0x20), token) // store token at ptr + 0x20
-            // Key is the keccak256 hash of owner and token
-            r := sload(keccak256(ptr, 0x40))
+            mstore(ptr, operator)
+            mstore(add(ptr, 0x20), owner) // store owner at ptr + 0x20
+            mstore(add(ptr, 0x40), token) // store token at ptr + 0x40
+            // Key is the keccak256(operator, owner, token)
+            r := sload(keccak256(ptr, 0x60))
         }
     }
 
-    /// @dev They key for this ephemeral allowance is the keccak256(owner, token).
+    /// @dev They key for this ephemeral allowance is the keccak256(operator, owner, token).
     /// Later authorisation for this is validated through the presence of this key being
     /// set
-    function _setAllowed(address owner, address token, uint256 allowed) internal {
+    function _setAllowed(address operator, address owner, address token, uint256 allowed) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, owner)
-            mstore(add(ptr, 0x20), token) // store token at ptr + 0x20
-            // Key is the keccak256 hash of owner and token
-            sstore(keccak256(ptr, 0x40), allowed)
-        }
-    }
-
-    function _getOperator() internal view returns (address r) {
-        assembly ("memory-safe") {
-            r := sload(_OPERATOR_SLOT)
-        }
-    }
-
-    function _setOperator(address operator) internal {
-        assembly ("memory-safe") {
-            sstore(_OPERATOR_SLOT, and(_ADDRESS_MASK, operator))
+            mstore(ptr, operator)
+            mstore(add(ptr, 0x20), owner) // store owner at ptr + 0x20
+            mstore(add(ptr, 0x40), token) // store token at ptr + 0x40
+            // Key is the keccak256(operator, owner, token)
+            sstore(keccak256(ptr, 0x60), allowed)
         }
     }
 }
@@ -128,10 +116,9 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         // contract that might be an ERC20.
         _rejectIfERC20(target, data);
 
-        _setOperator(operator);
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            _setAllowed(msg.sender, permit.token, permit.amount);
+            _setAllowed(operator, msg.sender, permit.token, permit.amount);
         }
 
         {
@@ -141,18 +128,23 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
             success.maybeRevert(result);
         }
 
-        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
-        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            _setAllowed(msg.sender, permits.unsafeGet(i).token, 0);
+            _setAllowed(operator, msg.sender, permits.unsafeGet(i).token, 0);
         }
     }
 
-    function _checkAmountsAndTransfer(address owner, TransferDetails[] calldata transferDetails) private {
+    function _checkAmountsAndTransfer(address operator, address owner, TransferDetails[] calldata transferDetails)
+        private
+    {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            // validation of the ephemeral allowance via uint underflow
-            _setAllowed(owner, transferDetail.token, _getAllowed(owner, transferDetail.token) - transferDetail.amount);
+            // validation of the ephemeral allowance for operator, owner, token via uint underflow
+            _setAllowed(
+                operator,
+                owner,
+                transferDetail.token,
+                _getAllowed(operator, owner, transferDetail.token) - transferDetail.amount
+            );
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
@@ -166,8 +158,8 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         override
         returns (bool)
     {
-        if (msg.sender != _getOperator()) revert InvalidSender();
-        _checkAmountsAndTransfer(owner, transferDetails);
+        // msg.sender is the assumed and later verified operator
+        _checkAmountsAndTransfer(msg.sender, owner, transferDetails);
         return true;
     }
 
