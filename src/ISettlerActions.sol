@@ -74,7 +74,7 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV2 using the contracts balance for funding
     function UNISWAPV2_SWAP(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
 
-    function POSITIVE_SLIPPAGE(address token, address recipient, uint256 expectedAmount) external;
+    function POSITIVE_SLIPPAGE(address recipient, address token, uint256 expectedAmount) external;
 
     // @dev Fill a 0x V4 OTC order using the 0x Exchange Proxy contract
     // Pre-req: Funded

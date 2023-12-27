@@ -45,7 +45,7 @@ abstract contract UniswapV2 is VIPBase {
     /// @dev Sell a token for another token using UniswapV2.
     /// @param encodedPath Custom encoded path of the swap.
     /// @param bips Bips to sell of settler's balance of the initial token in the path.
-    function sellToUniswapV2(bytes memory encodedPath, uint256 bips, uint256 minBuyAmount, address recipient)
+    function sellToUniswapV2(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
         internal
     {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
