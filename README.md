@@ -74,15 +74,15 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | ------- | ------- | --------- | ------ | ------ |
 | 0x V4   | 0x V4   | USDC/WETH | 112785 | 0.00%  |
 | Settler | Settler | USDC/WETH | 113732 | 0.84%  |
-| Settler | 0x V4   | USDC/WETH | 174977 | 55.14% |
+| Settler | 0x V4   | USDC/WETH | 202822 | 79.83% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | DAI/WETH  | 93311  | 0.00%  |
 | Settler | Settler | DAI/WETH  | 94258  | 1.01%  |
-| Settler | 0x V4   | DAI/WETH  | 145780 | 56.23% |
+| Settler | 0x V4   | DAI/WETH  | 172912 | 85.31% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | USDT/WETH | 104423 | 0.00%  |
 | Settler | Settler | USDT/WETH | 105370 | 0.91%  |
-| Settler | 0x V4   | USDT/WETH | 160683 | 53.88% |
+| Settler | 0x V4   | USDT/WETH | 188244 | 80.27% |
 |         |         |           |        |        |
 
 | Curve             | DEX   | Pair      | Gas    | %       |
@@ -519,7 +519,7 @@ Where `actions` is added and contains the encoded actions the to perform.
 | KyberDMM     |    ✅     | |
 | KyberElastic |    ✅     | |
 | Lido         |    ✅     | |
-| MakerPsm     |    ❌     | Additional calculation required for `buyGem` |
+| MakerPsm     |    ✅     | Has VIP |
 | mStable      |    ✅     | |
 | Saddle       |    ✅     | Curve clone |
 | Shell        |    ✅     | |

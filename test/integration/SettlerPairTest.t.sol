@@ -70,9 +70,9 @@ abstract contract SettlerPairTest is BasePairTest {
     function getSettler() private returns (Settler) {
         return new Settler(
             address(PERMIT2),
-            address(ZERO_EX), // ZeroEx
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
+            0x6B175474E89094C44Da98b954EedeAC495271d0F, // DAI
             0x2222222222222222222222222222222222222222
         );
     }
@@ -80,22 +80,72 @@ abstract contract SettlerPairTest is BasePairTest {
     function testSettler_zeroExOtcOrder() public {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
 
-        // TODO can use safer encodeCall
-        bytes[] memory actions = new bytes[](2);
-        actions[0] = _getDefaultFromPermit2Action();
-        actions[1] = abi.encodeWithSelector(
-            ISettlerActions.ZERO_EX_OTC.selector,
-            otcOrder,
-            IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s),
-            amount()
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(ZERO_EX),
+                    address(fromToken()),
+                    10_000,
+                    0x184,
+                    abi.encodeCall(
+                        ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
+                        )
+                )
+            )
         );
 
         Settler _settler = settler;
+        Settler.AllowedSlippage memory allowedSlippage = Settler.AllowedSlippage({
+            buyToken: address(otcOrder.makerToken),
+            recipient: FROM,
+            minAmountOut: otcOrder.makerAmount
+        });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
-        _settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+        _settler.execute(actions, allowedSlippage);
+        snapEnd();
+    }
+
+    function testSettler_zeroExOtcOrder_partialFill() public {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(ZERO_EX),
+                    address(fromToken()),
+                    5_000,
+                    0x184,
+                    abi.encodeCall(
+                        ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
+                        )
+                )
+            ),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(fromToken()),
+                    address(fromToken()),
+                    10_000,
+                    0x24,
+                    abi.encodeCall(fromToken().transfer, (FROM, 0))
+                )
+            )
         );
+
+        Settler _settler = settler;
+        Settler.AllowedSlippage memory allowedSlippage = Settler.AllowedSlippage({
+            buyToken: address(otcOrder.makerToken),
+            recipient: FROM,
+            minAmountOut: otcOrder.makerAmount / 2
+        });
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_zeroExOtc_partialFill");
+        _settler.execute(actions, allowedSlippage);
         snapEnd();
     }
 
@@ -238,6 +288,29 @@ abstract contract SettlerPairTest is BasePairTest {
             actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
         snapEnd();
+    }
+
+    function testSettler_uniswapV2_multihop() public {
+        ERC20 wBTC = ERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2_SWAP,
+                (FROM, 10_000, 0, bytes.concat(uniswapV2Path(), bytes1(0x00), bytes20(uint160(address(wBTC)))))
+            )
+        );
+
+        uint256 balanceBefore = wBTC.balanceOf(FROM);
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV2_multihop");
+        _settler.execute(
+            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+        );
+        snapEnd();
+
+        assertGt(wBTC.balanceOf(FROM), balanceBefore);
     }
 
     function testSettler_curveV2_fee() public skipIf(getCurveV2PoolData().pool == address(0)) {
