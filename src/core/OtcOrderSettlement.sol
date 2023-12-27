@@ -114,12 +114,12 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
     /// a witness of the OtcOrder.
     /// This variant also includes a fee where the taker or maker pays the fee recipient
     function fillOtcOrder(
+        address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        bytes memory takerSig,
-        address recipient
+        bytes memory takerSig
     ) internal {
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, address buyToken, uint256 buyAmount) =
             _permitToTransferDetails(makerPermit, recipient);
@@ -160,13 +160,13 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
     function fillOtcOrderMetaTxn(
+        address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
-        bytes memory takerSig,
-        address recipient
+        bytes memory takerSig
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
@@ -204,16 +204,15 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         );
     }
 
-    // TODO: fillOtcOrderSelfFunded needs custody optimization
-
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
     /// @dev pre-condition: msgSender has been authenticated against the requestor
     /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
     // In this variant, Maker pays Settler and Settler pays Maker
     function fillOtcOrderSelfFunded(
+        address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,
-        bytes memory sig,
+        bytes memory makerSig,
         ERC20 takerToken,
         uint256 maxTakerAmount,
         address msgSender
@@ -222,7 +221,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         Consideration memory takerConsideration;
         takerConsideration.partialFillAllowed = true;
         (transferDetails, takerConsideration.token, takerConsideration.amount) =
-            _permitToTransferDetails(permit, address(this));
+            _permitToTransferDetails(permit, recipient);
         takerConsideration.counterparty = maker;
 
         Consideration memory makerConsideration = Consideration({
@@ -239,7 +238,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         }
         transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
-        _permit2TransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, sig);
+        _permit2TransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig);
         takerToken.safeTransfer(maker, takerAmount);
 
         emit OtcOrderFilled(

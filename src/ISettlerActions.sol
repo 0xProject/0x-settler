@@ -5,13 +5,15 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {IZeroEx} from "./core/ZeroEx.sol";
 
 interface ISettlerActions {
-    // TODO: PERMIT2_TRANSFER_FROM and METATXN_PERMIT2_TRANSFER_FROM need custody optimization
-
     /// @dev Transfer funds from msg.sender Permit2.
-    function PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) external;
+    function PERMIT2_TRANSFER_FROM(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig
+    ) external;
 
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
-    function METATXN_PERMIT2_TRANSFER_FROM(ISignatureTransfer.PermitTransferFrom memory) external;
+    function METATXN_PERMIT2_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
@@ -31,16 +33,15 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory takerPermit
     ) external;
 
-    // TODO: SETTLER_OTC_SELF_FUNDED needs custody optimization
-
     /// @dev Settle an OtcOrder between Maker and Settler. Transfering funds from the Settler contract to maker.
     /// Retaining funds in the settler contract.
     // Pre-req: Funded
     // Post-req: Payout
     function SETTLER_OTC_SELF_FUNDED(
+        address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,
-        bytes memory sig,
+        bytes memory makerSig,
         address takerToken,
         uint256 maxTakerAmount
     ) external;
@@ -71,7 +72,7 @@ interface ISettlerActions {
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
-    function UNISWAPV2_SWAP(address recipient, uint256 bips, bytes memory path) external;
+    function UNISWAPV2_SWAP(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
 
     /// @dev Trades against Curve (uint256 variants) using the contracts balance for funding
     // Pre-req: Funded
