@@ -7,7 +7,7 @@ import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {VIPBase} from "./VIPBase.sol";
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -30,7 +30,7 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
-abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
+abstract contract UniswapV3 is SettlerAbstract, VIPBase {
     using FullMath for uint256;
     using SafeTransferLib for ERC20;
 
@@ -115,7 +115,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     /// @param recipient The recipient of the bought tokens.
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
-    /// @param witness Hashed additional data to be combined with _uniV3WitnessTypeString(), signed over, and verified by Permit2
+    /// @param witness Hashed additional data to be combined with ACTIONS_AND_SLIPPAGE_WITNESS, signed over, and verified by Permit2
     /// @return buyAmount Amount of the last token in the path bought.
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
@@ -132,8 +132,6 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
     }
-
-    function _uniV3WitnessTypeString() internal view virtual returns (string memory);
 
     // Executes successive swaps along an encoded uniswap path.
     function _swap(
@@ -336,7 +334,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
             if (witness == bytes32(0)) {
                 _permit2TransferFrom(permit, transferDetails, payer, sig);
             } else {
-                _permit2TransferFrom(permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig);
+                _permit2TransferFrom(permit, transferDetails, payer, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
             }
         }
     }

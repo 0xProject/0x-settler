@@ -3,12 +3,12 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 
-abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
+abstract contract OtcOrderSettlement is SettlerAbstract {
     using SafeTransferLib for ERC20;
     using FullMath for uint256;
 
@@ -43,21 +43,6 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
     bytes32 internal constant CONSIDERATION_TYPEHASH =
         0x7d806873084f389a66fd0315dead7adaad8ae6e8b6cf9fb0d3db61e5a91c3ffa;
 
-    string internal constant TAKER_METATXN_CONSIDERATION_TYPE =
-        "TakerMetatxnConsideration(Consideration consideration,address recipient)";
-    string internal constant TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE =
-        string(abi.encodePacked(TAKER_METATXN_CONSIDERATION_TYPE, CONSIDERATION_TYPE));
-    string internal constant TAKER_METATXN_CONSIDERATION_WITNESS = string(
-        abi.encodePacked(
-            "TakerMetatxnConsideration consideration)",
-            CONSIDERATION_TYPE,
-            TAKER_METATXN_CONSIDERATION_TYPE,
-            TOKEN_PERMISSIONS_TYPE
-        )
-    );
-    bytes32 internal constant TAKER_METATXN_CONSIDERATION_TYPEHASH =
-        0xce50a9f8675c66e6197d1253c716a193f5fff29f4ca719df1f8e5fa761640b6f;
-
     string internal constant OTC_ORDER_TYPE =
         "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
     string internal constant OTC_ORDER_TYPE_RECURSIVE = string(abi.encodePacked(OTC_ORDER_TYPE, CONSIDERATION_TYPE));
@@ -70,21 +55,6 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
             mstore(ptr, CONSIDERATION_TYPEHASH)
             result := keccak256(ptr, 0xa0)
             mstore(ptr, oldValue)
-        }
-    }
-
-    function _hashTakerMetatxnConsideration(bytes32 considerationHash, address recipient)
-        internal
-        pure
-        returns (bytes32 result)
-    {
-        assembly ("memory-safe") {
-            mstore(0x00, TAKER_METATXN_CONSIDERATION_TYPEHASH)
-            mstore(0x20, considerationHash)
-            let ptr := mload(0x40)
-            mstore(0x40, and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
-            result := keccak256(0x00, 0x60)
-            mstore(0x40, ptr)
         }
     }
 
@@ -105,7 +75,6 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
 
     constructor() {
         assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
-        assert(TAKER_METATXN_CONSIDERATION_TYPEHASH == keccak256(bytes(TAKER_METATXN_CONSIDERATION_TYPE_RECURSIVE)));
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));
     }
 
@@ -166,7 +135,8 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         address taker,
-        bytes memory takerSig
+        bytes memory takerSig,
+        bytes32 takerWitness
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
@@ -181,20 +151,14 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         makerConsideration.counterparty = taker;
 
         bytes32 makerWitness = _hashConsideration(makerConsideration);
-        bytes32 takerWitness = _hashConsideration(takerConsideration);
 
         _permit2TransferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig);
         _permit2TransferFrom(
-            takerPermit,
-            takerTransferDetails,
-            taker,
-            _hashTakerMetatxnConsideration(takerWitness, recipient),
-            TAKER_METATXN_CONSIDERATION_WITNESS,
-            takerSig
+            takerPermit, takerTransferDetails, taker, takerWitness, ACTIONS_AND_SLIPPAGE_WITNESS, takerSig
         );
 
         emit OtcOrderFilled(
-            _hashOtcOrder(makerWitness, takerWitness),
+            _hashOtcOrder(makerWitness, _hashConsideration(takerConsideration)),
             maker,
             taker,
             takerConsideration.token,
