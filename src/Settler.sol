@@ -94,8 +94,15 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     receive() external payable {}
 
-    constructor(address permit2, address zeroEx, address uniFactory, bytes32 poolInitCodeHash, address feeRecipient)
-        Permit2Payment(permit2, feeRecipient)
+    constructor(
+        address permit2,
+        address zeroEx,
+        address uniFactory,
+        bytes32 poolInitCodeHash,
+        address feeRecipient,
+        address trustedForwarder
+    )
+        Permit2Payment(permit2, feeRecipient, trustedForwarder)
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
@@ -172,15 +179,15 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                     bytes memory sig
                 ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, msg.sender, permit, sig);
+                sellTokenForTokenToUniswapV3(path, amountIn, amountOutMin, recipient, permit, sig);
             } else {
-                _dispatch(0, action, data, msg.sender);
+                _dispatch(0, action, data, _msgSender());
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            _dispatch(i, action, data, msg.sender);
+            _dispatch(i, action, data, _msgSender());
         }
 
         _checkSlippageAndTransfer(slippage);
@@ -233,7 +240,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
         // metatransaction.
-        _permit2TransferFrom(permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
+        _transferFrom(permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
     }
 
     function _uniV3WitnessTypeString() internal pure override returns (string memory) {
@@ -317,7 +324,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, recipient);
-            _permit2TransferFrom(permit, transferDetails, msgSender, sig);
+            _transferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             (
                 address recipient,

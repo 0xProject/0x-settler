@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import {VIPBase} from "./VIPBase.sol";
+import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {InvalidSender} from "./SettlerErrors.sol";
+
 import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
-import {VIPBase} from "./VIPBase.sol";
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -49,6 +51,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0xa0;
     uint256 private constant PERMIT_DATA_SIZE = 0x80;
+    uint256 private constant WITNESS_AND_ISFORWARDED_DATA_SIZE = 0x40;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -77,7 +80,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     ) internal returns (uint256 buyAmount) {
         buyAmount = _swap(
             encodedPath,
-            IERC20(address(bytes20(encodedPath))).balanceOf(address(this)).mulDiv(bips, 10_000),
+            IERC20(address(uint160(bytes20(encodedPath)))).balanceOf(address(this)).mulDiv(bips, 10_000),
             minBuyAmount,
             address(this), // payer
             recipient,
@@ -98,14 +101,15 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         uint256 sellAmount,
         uint256 minBuyAmount,
         address recipient,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
-        _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length
+        );
+        _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig, _isForwarded());
 
-        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
+        buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, _msgSender(), recipient, swapCallbackData);
     }
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
@@ -113,6 +117,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
     /// @param sellAmount amount of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
+    /// @param payer The taker of the transaction and the signer of the permit
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
     /// @param witness Hashed additional data to be combined with _uniV3WitnessTypeString(), signed over, and verified by Permit2
@@ -127,8 +132,10 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         bytes memory sig,
         bytes32 witness
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + 0x20 + sig.length);
-        _encodePermit2Data(swapCallbackData, permit, witness, sig);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length
+        );
+        _encodePermit2Data(swapCallbackData, permit, witness, sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
     }
@@ -234,11 +241,12 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         bytes memory swapCallbackData,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes32 witness,
-        bytes memory sig
+        bytes memory sig,
+        bool isForwarded
     ) private view {
         assembly ("memory-safe") {
             function _memcpy(dst, src, len) {
-                if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
             }
 
             {
@@ -249,8 +257,15 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40)), mload(add(permit, 0x20)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x60)), mload(add(permit, 0x40)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE)), witness)
-            _memcpy(
+            mstore(
                 add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x20)),
+                and(isForwarded, 1)
+            )
+            _memcpy(
+                add(
+                    swapCallbackData,
+                    add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), WITNESS_AND_ISFORWARDED_DATA_SIZE)
+                ),
                 add(sig, 0x20),
                 mload(sig)
             )
@@ -314,7 +329,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         (IERC20 token0, IERC20 token1, uint24 fee, address payer) = abi.decode(data, (IERC20, IERC20, uint24, address));
         (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
         // Only a valid pool contract can call this function.
-        require(msg.sender == address(_toPool(token0, fee, token1)));
+        if (msg.sender != address(_toPool(token0, fee, token1))) revert InvalidSender();
 
         bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
         // Pay the amount owed to the pool.
@@ -331,15 +346,15 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
-            (ISignatureTransfer.PermitTransferFrom memory permit, bytes32 witness) =
-                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes32));
-            bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + 0x20:];
+            (ISignatureTransfer.PermitTransferFrom memory permit, bytes32 witness, bool isForwarded) =
+                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bytes32, bool));
+            bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE:];
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
             if (witness == bytes32(0)) {
-                _permit2TransferFrom(permit, transferDetails, payer, sig);
+                _transferFrom(permit, transferDetails, payer, sig, isForwarded);
             } else {
-                _permit2TransferFrom(permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig);
+                _transferFrom(permit, transferDetails, payer, witness, _uniV3WitnessTypeString(), sig, isForwarded);
             }
         }
     }

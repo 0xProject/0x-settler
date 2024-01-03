@@ -128,18 +128,18 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
         Consideration memory consideration;
         (takerTransferDetails, consideration.token, consideration.amount) = _permitToTransferDetails(takerPermit, maker);
-        consideration.counterparty = msg.sender;
+        consideration.counterparty = _msgSender();
 
         bytes32 witness = _hashConsideration(consideration);
         // There is no taker witness (see below)
 
         // Maker pays recipient (optional fee)
-        _permit2TransferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig);
+        _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
         // Taker pays Maker (optional fee)
-        // We don't need to include a witness here. Taker is `msg.sender`, so
+        // We don't need to include a witness here. Taker is `_msgSender()`, so
         // `recipient` and the maker's details are already authenticated. We're just
         // using PERMIT2 to move tokens, not to provide authentication.
-        _permit2TransferFrom(takerPermit, takerTransferDetails, msg.sender, takerSig);
+        _transferFrom(takerPermit, takerTransferDetails, _msgSender(), takerSig);
 
         emit OtcOrderFilled(
             _hashOtcOrder(
@@ -149,7 +149,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
                 )
             ),
             maker,
-            msg.sender,
+            _msgSender(),
             buyToken,
             consideration.token,
             buyAmount,
@@ -184,8 +184,8 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         bytes32 makerWitness = _hashConsideration(makerConsideration);
         bytes32 takerWitness = _hashTakerMetatxnConsideration(takerConsideration, recipient);
 
-        _permit2TransferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig);
-        _permit2TransferFrom(
+        _transferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFrom(
             takerPermit, takerTransferDetails, taker, takerWitness, TAKER_METATXN_CONSIDERATION_WITNESS, takerSig
         );
 
@@ -234,7 +234,7 @@ abstract contract OtcOrderSettlement is Permit2PaymentAbstract {
         }
         transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
-        _permit2TransferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig);
+        _transferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
         takerToken.safeTransfer(maker, takerAmount);
 
         emit OtcOrderFilled(
