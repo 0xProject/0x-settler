@@ -8,7 +8,6 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
-import {Revert} from "./utils/Revert.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();
@@ -79,7 +78,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     using UnsafeMath for uint256;
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for TransferDetails[];
-    using Revert for bool;
 
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
@@ -119,11 +117,33 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
             _setAllowed(operator, msg.sender, permit.token, permit.amount);
         }
 
-        {
-            bool success;
+        // For gas efficiency we're omitting a bunch of checks here. Notably,
+        // we're omitting the check that `address(this)` has sufficient value to
+        // send (we know it does), and we're omitting the check that `target`
+        // contains code (we already checked in `_rejectIfERC20`).
+        assembly ("memory-safe") {
+            result := mload(0x40)
+            calldatacopy(result, data.offset, data.length)
             // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
-            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, msg.sender));
-            success.maybeRevert(result);
+            mstore(add(result, data.length), shl(0x60, caller()))
+            let success :=
+                call(
+                    gas(),
+                    and(0xffffffffffffffffffffffffffffffffffffffff, target),
+                    callvalue(),
+                    result,
+                    add(data.length, 0x14),
+                    0x00,
+                    0x00
+                )
+            let ptr := add(result, 0x20)
+            returndatacopy(ptr, 0x00, returndatasize())
+            switch success
+            case 0 { revert(ptr, returndatasize()) }
+            default {
+                mstore(result, returndatasize())
+                mstore(0x40, add(ptr, returndatasize()))
+            }
         }
 
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
