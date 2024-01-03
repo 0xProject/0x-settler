@@ -26,6 +26,7 @@ library CheckCall {
         returns (bool success)
     {
         assembly ("memory-safe") {
+            target := and(0xffffffffffffffffffffffffffffffffffffffff, target)
             success := staticcall(callGas, target, add(data, 0x20), mload(data), 0x00, 0x00)
 
             // As of the time this contract was written, `verbatim` doesn't work in
