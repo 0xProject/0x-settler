@@ -10,6 +10,9 @@ import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
 import {Revert} from "./utils/Revert.sol";
 
+/// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
+error ConfusedDeputy();
+
 library UnsafeArray {
     function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
         internal
@@ -41,36 +44,35 @@ abstract contract TransientStorageMock {
             _sentinelSlot := _sentinel.slot
         }
         assert(_sentinelSlot == 0);
-        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
     }
 
     // this emulates transient storage while solc doesn't support it. there's no
     // reason to use a mapping here because this contract has only 2 things it
     // needs to store.
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-    uint256 private constant _OPERATOR_SLOT = 0x010000000000000000000000000000000000000000;
 
-    function _getAllowed(address token) internal view returns (uint256 r) {
+    function _getAllowed(address operator, address owner, address token) internal view returns (uint256 r) {
         assembly ("memory-safe") {
-            r := sload(and(_ADDRESS_MASK, token))
+            let ptr := mload(0x40)
+            mstore(ptr, shl(0x60, operator))
+            mstore(add(ptr, 0x14), shl(0x60, owner)) // store owner at ptr + 0x14
+            mstore(add(ptr, 0x28), shl(0x60, token)) // store token at ptr + 0x28
+            // Key is the keccak256(abi.encodePacked(operator, owner, token))
+            r := sload(keccak256(ptr, 0x3c))
         }
     }
 
-    function _setAllowed(address token, uint256 allowed) internal {
+    /// @dev They key for this ephemeral allowance is the keccak256(operator, owner, token).
+    /// Later authorisation for this is validated through the presence of this key being
+    /// set
+    function _setAllowed(address operator, address owner, address token, uint256 allowed) internal {
         assembly ("memory-safe") {
-            sstore(and(_ADDRESS_MASK, token), allowed)
-        }
-    }
-
-    function _getOperator() internal view returns (address r) {
-        assembly ("memory-safe") {
-            r := sload(_OPERATOR_SLOT)
-        }
-    }
-
-    function _setOperator(address operator) internal {
-        assembly ("memory-safe") {
-            sstore(_OPERATOR_SLOT, and(_ADDRESS_MASK, operator))
+            let ptr := mload(0x40)
+            mstore(ptr, shl(0x60, operator))
+            mstore(add(ptr, 0x14), shl(0x60, owner)) // store owner at ptr + 0x14
+            mstore(add(ptr, 0x28), shl(0x60, token)) // store token at ptr + 0x28
+            // Key is the keccak256(abi.encodePacked(operator, owner, token))
+            sstore(keccak256(ptr, 0x3c), allowed)
         }
     }
 }
@@ -83,9 +85,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     using UnsafeArray for TransferDetails[];
     using Revert for bool;
 
-    error ConfusedDeputy();
-
-    function _rejectERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
+    function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
         // confused deputy attacks harder for tokens that might be badly behaved
         // (e.g. tokens with blacklists), we choose to copy the first argument
@@ -102,62 +102,64 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         // 500k gas seems like a pretty healthy upper bound for the amount of
         // gas that `balanceOf` could reasonably consume in a well-behaved
         // ERC20.
-        if (maybeERC20.checkCall(testData, 500_000, 0x20)) {
-            revert ConfusedDeputy();
-        }
+        if (maybeERC20.checkCall(testData, 500_000, 0x20)) revert ConfusedDeputy();
     }
 
+    /// @inheritdoc IAllowanceHolder
     function execute(
         address operator,
         ISignatureTransfer.TokenPermissions[] calldata permits,
         address payable target,
         bytes calldata data
     ) public payable override returns (bytes memory result) {
-        require(msg.sender == tx.origin); // caller is an EOA; effectively a reentrancy guard; EIP-3074 seems unlikely
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
         // sending arbitrary calldata (doing `target.call(data)`) to any
         // contract that might be an ERC20.
-        _rejectERC20(target, data);
+        _rejectIfERC20(target, data);
 
-        _setOperator(operator);
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            _setAllowed(permit.token, permit.amount);
+            _setAllowed(operator, msg.sender, permit.token, permit.amount);
         }
 
         {
             bool success;
-            (success, result) = target.call{value: msg.value}(data);
+            // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+            (success, result) = target.call{value: msg.value}(abi.encodePacked(data, msg.sender));
             success.maybeRevert(result);
         }
 
-        // this isn't required after *actual* EIP-1153 is adopted. this is only needed for the mock
-        _setOperator(address(1)); // this is the address of a precompile, but it doesn't matter
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            _setAllowed(permits.unsafeGet(i).token, 0);
+            _setAllowed(operator, msg.sender, permits.unsafeGet(i).token, 0);
         }
     }
 
-    function _checkAmountsAndTransfer(TransferDetails[] calldata transferDetails) private {
+    function _checkAmountsAndTransfer(address owner, TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            _setAllowed(transferDetail.token, _getAllowed(transferDetail.token) - transferDetail.amount); // reverts on underflow
+            // validation of the ephemeral allowance for operator, owner, token via uint underflow
+            _setAllowed(
+                msg.sender,
+                owner,
+                transferDetail.token,
+                _getAllowed(msg.sender, owner, transferDetail.token) - transferDetail.amount
+            );
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            IERC20(transferDetail.token).safeTransferFrom(tx.origin, transferDetail.recipient, transferDetail.amount);
+            IERC20(transferDetail.token).safeTransferFrom(owner, transferDetail.recipient, transferDetail.amount);
         }
     }
 
+    /// @inheritdoc IAllowanceHolder
     function holderTransferFrom(address owner, TransferDetails[] calldata transferDetails)
         public
         override
         returns (bool)
     {
-        assert(owner == tx.origin);
-        require(msg.sender == _getOperator());
-        _checkAmountsAndTransfer(transferDetails);
+        // msg.sender is the assumed and later verified operator
+        _checkAmountsAndTransfer(owner, transferDetails);
         return true;
     }
 

@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import {VIPBase} from "./VIPBase.sol";
+import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {InvalidSender} from "./SettlerErrors.sol";
+
 import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
-import {VIPBase} from "./VIPBase.sol";
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -102,8 +104,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData =
-        new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length
+        );
         _encodePermit2Data(swapCallbackData, permit, bytes32(0), sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, _msgSender(), recipient, swapCallbackData);
@@ -129,8 +132,9 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         bytes memory sig,
         bytes32 witness
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData =
-        new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + WITNESS_AND_ISFORWARDED_DATA_SIZE + sig.length
+        );
         _encodePermit2Data(swapCallbackData, permit, witness, sig, _isForwarded());
 
         buyAmount = _swap(encodedPath, sellAmount, minBuyAmount, payer, recipient, swapCallbackData);
@@ -325,7 +329,7 @@ abstract contract UniswapV3 is Permit2PaymentAbstract, VIPBase {
         (IERC20 token0, IERC20 token1, uint24 fee, address payer) = abi.decode(data, (IERC20, IERC20, uint24, address));
         (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
         // Only a valid pool contract can call this function.
-        require(msg.sender == address(_toPool(token0, fee, token1)));
+        if (msg.sender != address(_toPool(token0, fee, token1))) revert InvalidSender();
 
         bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
         // Pay the amount owed to the pool.

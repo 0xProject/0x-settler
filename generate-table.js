@@ -75,7 +75,7 @@ tables.push(
         ["0x V4 Multiplex", "Uniswap V3", "zeroEx_uniswapV3VIP_multiplex1"],
         ["Settler VIP (warm)", "Uniswap V3", "settler_uniswapV3VIP"],
         ["Settler VIP (cold)", "Uniswap V3", "settler_uniswapV3VIP_cold"],
-        ["Settler VIP (AllowanceHolder)", "Uniswap V3", "settler_allowanceHolder_uniswapV3VIP"],
+        ["AllowanceHolder VIP", "Uniswap V3", "allowanceHolder_uniswapV3VIP"],
         ["UniswapRouter V3", "Uniswap V3", "uniswapRouter_uniswapV3"],
       ],
       pairs
@@ -92,7 +92,7 @@ tables.push(
           "zeroEx_uniswapV3_transformERC20",
         ],
         ["Settler", "Uniswap V3", "settler_uniswapV3"],
-        ["Settler (AllowanceHolder)", "Uniswap V3", "settler_allowanceHolder_uniswapV3"],
+        ["AllowanceHolder", "Uniswap V3", "allowanceHolder_uniswapV3"],
       ],
       pairs
     ),
@@ -158,9 +158,21 @@ tables.push(
     generateTable(
       "Sell token fee",
       [
-        ["Settler ", "Uniswap V3", "settler_uniswapV3_sellToken_fee_full_custody"],
+        ["Settler", "Uniswap V3", "settler_uniswapV3_sellToken_fee_full_custody"],
         ["Settler", "OTC", "settler_otc_sellToken_fee"],
         ["Settler", "Curve", "settler_curveV2_fee"],
+      ],
+      pairs
+    ),
+    { stringLength: stringWidth }
+  ),
+  // Allowance Holder
+  markdownTable(
+    generateTable(
+      "AllowanceHolder",
+      [
+        ["execute", "Uniswap V3 VIP", "allowanceHolder_uniswapV3VIP"],
+        ["Settler - external move then execute", "Uniswap V3", "settler_externalMoveExecute_uniswapV3"],
       ],
       pairs
     ),

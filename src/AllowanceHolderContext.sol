@@ -17,7 +17,11 @@ abstract contract AllowanceHolderContext is Context {
 
     function _msgSender() internal view virtual override returns (address sender) {
         if (msg.sender == address(allowanceHolder)) {
-            sender = tx.origin;
+            // ERC-2771 like usage where the _trusted_ `AllowanceHolder` has appended the appropriate
+            // msg.sender to the msg data
+            assembly ("memory-safe") {
+                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
         } else {
             sender = super._msgSender();
         }
