@@ -52,11 +52,11 @@ abstract contract TransientStorageMock {
     function _getAllowed(address operator, address owner, address token) internal view returns (uint256 r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, operator)
-            mstore(add(ptr, 0x20), owner) // store owner at ptr + 0x20
-            mstore(add(ptr, 0x40), token) // store token at ptr + 0x40
-            // Key is the keccak256(operator, owner, token)
-            r := sload(keccak256(ptr, 0x60))
+            mstore(ptr, shl(0x60, operator))
+            mstore(add(ptr, 0x14), shl(0x60, owner)) // store owner at ptr + 0x14
+            mstore(add(ptr, 0x28), shl(0x60, token)) // store token at ptr + 0x28
+            // Key is the keccak256(abi.encodePacked(operator, owner, token))
+            r := sload(keccak256(ptr, 0x3c))
         }
     }
 
@@ -66,11 +66,11 @@ abstract contract TransientStorageMock {
     function _setAllowed(address operator, address owner, address token, uint256 allowed) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, operator)
-            mstore(add(ptr, 0x20), owner) // store owner at ptr + 0x20
-            mstore(add(ptr, 0x40), token) // store token at ptr + 0x40
-            // Key is the keccak256(operator, owner, token)
-            sstore(keccak256(ptr, 0x60), allowed)
+            mstore(ptr, shl(0x60, operator))
+            mstore(add(ptr, 0x14), shl(0x60, owner)) // store owner at ptr + 0x14
+            mstore(add(ptr, 0x28), shl(0x60, token)) // store token at ptr + 0x28
+            // Key is the keccak256(abi.encodePacked(operator, owner, token))
+            sstore(keccak256(ptr, 0x3c), allowed)
         }
     }
 }

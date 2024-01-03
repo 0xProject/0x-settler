@@ -106,8 +106,8 @@ contract AllowanceHolderUnitTest is Test {
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
         (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(ah));
 
-        // Authorisation key is calculated as keccak(oeprator, owner, token)
-        bytes32 key = keccak256(abi.encode(OPERATOR, OWNER, TOKEN));
+        // Authorisation key is calculated as packed encoded keccak(operator, owner, token)
+        bytes32 key = keccak256(abi.encodePacked(OPERATOR, OWNER, TOKEN));
         assertEq(reads.length, 1);
         assertEq(writes.length, 1);
         assertEq(reads[0], key);
