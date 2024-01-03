@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
-import {InvalidSender, ConfusedDeputy} from "./AllowanceHolderErrors.sol";
 import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
@@ -10,6 +9,9 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
 import {Revert} from "./utils/Revert.sol";
+
+/// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
+error ConfusedDeputy();
 
 library UnsafeArray {
     function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
@@ -133,17 +135,15 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
     }
 
-    function _checkAmountsAndTransfer(address operator, address owner, TransferDetails[] calldata transferDetails)
-        private
-    {
+    function _checkAmountsAndTransfer(address owner, TransferDetails[] calldata transferDetails) private {
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
             // validation of the ephemeral allowance for operator, owner, token via uint underflow
             _setAllowed(
-                operator,
+                msg.sender,
                 owner,
                 transferDetail.token,
-                _getAllowed(operator, owner, transferDetail.token) - transferDetail.amount
+                _getAllowed(msg.sender, owner, transferDetail.token) - transferDetail.amount
             );
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
@@ -159,7 +159,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         returns (bool)
     {
         // msg.sender is the assumed and later verified operator
-        _checkAmountsAndTransfer(msg.sender, owner, transferDetails);
+        _checkAmountsAndTransfer(owner, transferDetails);
         return true;
     }
 
