@@ -21,8 +21,8 @@ abstract contract UniswapV3PairTest is BasePairTest {
     function uniswapV3Path() internal virtual returns (bytes memory);
 
     function testUniswapRouter() public {
-        snapStartName("uniswapRouter_uniswapV3");
         vm.startPrank(FROM);
+        snapStartName("uniswapRouter_uniswapV3");
         UNISWAP_ROUTER.exactInput(
             IUniswapV3Router.ExactInputParams({
                 path: uniswapV3Path(),

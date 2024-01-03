@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {IERC20} from "../IERC20.sol";
-
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {InvalidOffset, ConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
 
+import {IERC20} from "../IERC20.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {FullMath} from "../utils/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -17,14 +17,12 @@ abstract contract Basic is Permit2PaymentAbstract {
 
     address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    error ConfusedDeputy();
-
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
     function basicSellToPool(address pool, IERC20 sellToken, uint256 bips, uint256 offset, bytes memory data)
         internal
     {
-        if (isAllowanceHolder(pool)) {
+        if (isRestrictedTarget(pool)) {
             revert ConfusedDeputy();
         }
 
@@ -32,7 +30,7 @@ abstract contract Basic is Permit2PaymentAbstract {
         if (sellToken == IERC20(ETH_ADDRESS)) {
             value = address(this).balance.mulDiv(bips, 10_000);
             if (data.length == 0) {
-                require(offset == 0);
+                if (offset != 0) revert InvalidOffset();
                 (bool success, bytes memory returnData) = payable(pool).call{value: value}("");
                 success.maybeRevert(returnData);
                 return;
@@ -45,7 +43,7 @@ abstract contract Basic is Permit2PaymentAbstract {
                 }
             }
         } else if (address(sellToken) == address(0)) {
-            require(offset == 0);
+            if (offset != 0) revert InvalidOffset();
         } else {
             uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
             if ((offset += 32) > data.length) {
@@ -60,6 +58,7 @@ abstract contract Basic is Permit2PaymentAbstract {
         }
         (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
         success.maybeRevert(returnData);
-        require(returnData.length > 0 || pool.code.length > 0); // forbid sending data to EOAs
+        // forbid sending data to EOAs
+        if (returnData.length == 0 && pool.code.length == 0) revert InvalidTarget();
     }
 }
