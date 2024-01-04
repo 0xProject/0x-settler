@@ -22,9 +22,9 @@ contract WethWrapTest is Test, GasSnapshot {
         AllowanceHolder trustedForwarder = new AllowanceHolder();
         _settler = new Settler(
             0x000000000022D473030F116dDEE9F6B43aC78BA3, // Permit2
-            0xDef1C0ded9bec7F1a1670819833240f027b25EfF, // ZeroEx
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
+            0x6B175474E89094C44Da98b954EedeAC495271d0F, // DAI
             0x2222222222222222222222222222222222222222, // fee recipient
             address(trustedForwarder)
         );

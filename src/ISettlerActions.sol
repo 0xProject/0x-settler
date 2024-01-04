@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {IZeroEx} from "./core/ZeroEx.sol";
 
 interface ISettlerActions {
     /// @dev Transfer funds from msg.sender Permit2.
@@ -18,6 +17,7 @@ interface ISettlerActions {
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
     function SETTLER_OTC_PERMIT2(
+        address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
@@ -27,6 +27,7 @@ interface ISettlerActions {
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
     function METATXN_SETTLER_OTC_PERMIT2(
+        address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
@@ -62,6 +63,9 @@ interface ISettlerActions {
         bytes memory sig
     ) external;
 
+    function MAKER_PSM_SELL_GEM(address recipient, uint256 bips, address psm, address gemToken) external;
+    function MAKER_PSM_BUY_GEM(address recipient, uint256 bips, address psm, address gemToken) external;
+
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
     function METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
         address recipient,
@@ -74,13 +78,7 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV2 using the contracts balance for funding
     function UNISWAPV2_SWAP(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
 
-    function POSITIVE_SLIPPAGE(address token, address recipient, uint256 expectedAmount) external;
-
-    // @dev Fill a 0x V4 OTC order using the 0x Exchange Proxy contract
-    // Pre-req: Funded
-    // Post-req: Payout
-    function ZERO_EX_OTC(IZeroEx.OtcOrder memory order, IZeroEx.Signature memory signature, uint256 sellAmount)
-        external;
+    function POSITIVE_SLIPPAGE(address recipient, address token, uint256 expectedAmount) external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
