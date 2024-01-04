@@ -36,4 +36,9 @@ contract Utils {
         _vm.mockCall(callee, data, returnData);
         _vm.expectCall(callee, data);
     }
+
+    function _mockExpectCall(address callee, uint256 value, bytes memory data, bytes memory returnData) internal {
+        _vm.mockCall(callee, value, data, returnData);
+        _vm.expectCall(callee, value, data);
+    }
 }

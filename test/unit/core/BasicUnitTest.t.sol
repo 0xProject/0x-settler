@@ -94,4 +94,104 @@ contract BasicUnitTest is Utils, Test {
         _mockExpectCall(address(POOL), abi.encodePacked(selector, amount * 2), abi.encode(true));
         basic.sellToPool(POOL, TOKEN, bips, offset, data);
     }
+
+    /// @dev When 0xeeee (native asset) is used we expect it to transfer as value
+    function testBasicSellEthValue() public {
+        uint256 bips = 10_000;
+        uint256 offset = 4;
+        uint256 amount = 99999;
+        uint256 value = amount;
+        bytes4 selector = bytes4(hex"12345678");
+        bytes memory data = abi.encodePacked(selector, amount);
+
+        _mockExpectCall(address(POOL), value, abi.encodePacked(selector, amount), abi.encode(true));
+
+        vm.deal(address(basic), value);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+    }
+
+    /// @dev When 0xeeee (native asset) is used we expect it to transfer as value and adjust for the current balance if lower
+    function testBasicSellLowerEthValue() public {
+        uint256 bips = 10_000;
+        uint256 offset = 4;
+        uint256 amount = 99999;
+        uint256 value = amount / 2;
+        bytes4 selector = bytes4(hex"12345678");
+        bytes memory data = abi.encodePacked(selector, amount);
+
+        _mockExpectCall(address(POOL), value, abi.encodePacked(selector, value), abi.encode(true));
+
+        vm.deal(address(basic), value);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+    }
+
+    /// @dev When 0xeeee (native asset) is used we expect it to transfer as value and adjust for the current balance if greater
+    function testBasicSellGreaterEthValue() public {
+        uint256 bips = 10_000;
+        uint256 offset = 4;
+        uint256 amount = 99999;
+        uint256 value = amount * 2;
+        bytes4 selector = bytes4(hex"12345678");
+        bytes memory data = abi.encodePacked(selector, amount);
+
+        _mockExpectCall(address(POOL), value, abi.encodePacked(selector, value), abi.encode(true));
+
+        vm.deal(address(basic), value);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+    }
+
+    /// @dev When 0xeeee (native asset) is used we expect it to transfer as value and adjust for the current balance
+    function testBasicSellAdjustedEthValue() public {
+        uint256 bips = 5_000; // sell half
+        uint256 offset = 4;
+        uint256 amount = 99999;
+        uint256 value = amount * 2;
+        bytes4 selector = bytes4(hex"12345678");
+        bytes memory data = abi.encodePacked(selector, amount);
+
+        // 5_000 / 10_000 * value == amount
+        _mockExpectCall(address(POOL), amount, abi.encodePacked(selector, amount), abi.encode(true));
+
+        vm.deal(address(basic), value);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+    }
+
+    /// @dev When 0xeeee (native asset) is used we expect it to support a transfer with no data
+    function testBasicSellTransferValue() public {
+        uint256 bips = 10_000;
+        uint256 offset = 0;
+        uint256 amount = 99999;
+        uint256 value = amount;
+        bytes memory data;
+
+        _mockExpectCall(address(POOL), value, data, abi.encode(true));
+
+        vm.deal(address(basic), value);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+    }
+
+    function testBasicRestrictedTarget() public {
+        uint256 bips = 10_000;
+        uint256 offset = 0;
+        uint256 amount = 99999;
+        uint256 value = amount;
+        bytes memory data;
+
+        vm.expectRevert();
+        basic.sellToPool(PERMIT2, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+
+        vm.expectRevert();
+        basic.sellToPool(ALLOWANCE_HOLDER, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+    }
+
+    function testBasicBubblesUpRevert() public {
+        uint256 bips = 10_000;
+        uint256 offset = 0;
+        uint256 amount = 99999;
+        uint256 value = amount;
+        bytes memory data;
+
+        vm.expectRevert();
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+    }
 }
