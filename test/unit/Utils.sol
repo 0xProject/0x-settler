@@ -32,6 +32,12 @@ contract Utils {
         _vm.label(a, name);
     }
 
+    function _etchNamedRejectionDummy(string memory name, address a) internal returns (address) {
+        _vm.etch(a, type(RejectionFallbackDummy).runtimeCode);
+        _vm.label(a, name);
+        return a;
+    }
+
     function _mockExpectCall(address callee, bytes memory data, bytes memory returnData) internal {
         _vm.mockCall(callee, data, returnData);
         _vm.expectCall(callee, data);
