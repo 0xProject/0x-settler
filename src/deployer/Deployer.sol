@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {TwoStepOwnable} from "./TwoStepOwnable.sol";
+import {IERC165, TwoStepOwnable, Ownable} from "./TwoStepOwnable.sol";
 import {Panic} from "../utils/Panic.sol";
+import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -41,20 +42,39 @@ library UnsafeArray {
     }
 }
 
-contract Deployer is TwoStepOwnable {
+interface IERC721View is IERC165 {
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+
+    function balanceOf(address) external view returns (uint256);
+    function ownerOf(uint256 tokenId) external view returns (address);
+    function getApproved(uint256 tokenId) external view returns (address);
+    function isApprovedForAll(address owner, address operator) external view returns (bool);
+}
+
+interface IERC721ViewMetadata is IERC721View {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function tokenURI(uint256) external view returns (string memory);
+}
+
+contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     using UnsafeArray for bytes[];
 
     struct DoublyLinkedList {
-        address prev;
-        uint96 feature;
-        address next;
+        uint64 prev;
+        uint64 next;
+        uint128 feature;
     }
 
-    mapping(address => DoublyLinkedList) private _deploymentLists;
-    mapping(uint96 => address) public deployments;
+    uint64 public nextNonce = 1;
+    mapping(uint64 => DoublyLinkedList) private _deploymentLists;
+    mapping(uint128 => uint64) private _featureNonce;
 
-    address public feeCollector;
-    mapping(uint96 => mapping(address => uint256)) public authorizedUntil;
+    // TODO: can this just store the feature instead of the nonce to avoid indirection
+    mapping(address => uint64) public deploymentNonce;
+
+    mapping(uint128 => address) public feeCollector;
+    mapping(uint128 => mapping(address => uint256)) public authorizedUntil;
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
@@ -63,9 +83,9 @@ contract Deployer is TwoStepOwnable {
         pendingOwner = initialOwner;
     }
 
-    event Authorized(uint96 indexed, address indexed, uint256);
+    event Authorized(uint128 indexed, address indexed, uint256);
 
-    function authorize(uint96 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
+    function authorize(uint128 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -74,130 +94,92 @@ contract Deployer is TwoStepOwnable {
         return true;
     }
 
-    function _requireAuthorized(uint96 feature) private view {
+    function _requireAuthorized(uint128 feature) private view {
         if (block.timestamp >= authorizedUntil[feature][msg.sender]) {
             revert PermissionDenied();
         }
     }
 
-    modifier onlyAuthorized(uint96 feature) {
+    modifier onlyAuthorized(uint128 feature) {
         _requireAuthorized(feature);
         _;
     }
 
-    event FeeCollectorChanged(address indexed);
+    event FeeCollectorChanged(uint128 indexed, address indexed);
 
-    function setFeeCollector(address newFeeCollector) public onlyOwner returns (bool) {
-        emit FeeCollectorChanged(newFeeCollector);
-        feeCollector = newFeeCollector;
+    function setFeeCollector(uint128 feature, address newFeeCollector) public onlyOwner returns (bool) {
+        emit FeeCollectorChanged(feature, newFeeCollector);
+        feeCollector[feature] = newFeeCollector;
         return true;
     }
 
-    event Deployed(uint96 indexed, address indexed);
+    event Deployed(uint128 indexed, address indexed);
 
     error DeployFailed();
 
-    function deploy(uint96 feature, bytes calldata initCode, bytes32 salt)
+    function deploy(uint128 feature, bytes calldata initCode)
         public
         payable
         onlyAuthorized(feature)
         returns (address predicted)
     {
+        uint64 thisNonce = nextNonce++;
+        predicted = AddressDerivation.deriveContract(address(this), thisNonce);
+        emit Deployed(feature, predicted);
+        uint64 prevNonce = _featureNonce[feature];
+        _featureNonce[feature] = thisNonce;
+        if (prevNonce == 0) {
+            emit Transfer(address(0), predicted, feature);
+        } else {
+            emit Transfer(AddressDerivation.deriveContract(address(this), prevNonce), predicted, feature);
+            _deploymentLists[prevNonce].next = thisNonce;
+        }
+
+        _deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
+        deploymentNonce[predicted] = thisNonce;
+        address thisFeeCollector = feeCollector[feature];
+        address deployed;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            let initLength := add(initCode.length, 0x20)
-            let initEnd := add(ptr, initLength)
-
-            // this is for computing the CREATE2 address. doing this here avoids having to
-            // manipulate any padding later
-            mstore(sub(initEnd, 0x0b), address())
-
-            // store the initcode in memory, with the fee collector appended to the constructor
             calldatacopy(ptr, initCode.offset, initCode.length)
-            mstore(add(ptr, initCode.length), and(_ADDRESS_MASK, sload(feeCollector.slot)))
-
-            // compute the CREATE2 address
-            mstore8(initEnd, 0xff)
-            mstore(add(initEnd, 0x15), salt)
-            mstore(add(initEnd, 0x35), keccak256(ptr, initLength))
-            predicted := and(_ADDRESS_MASK, keccak256(initEnd, 0x55))
-
-            // push the predicted address into the doubly-linked list
-            // we do this here in assembly to strictly follow checks-effects-interactions before deploying
-            {
-                // set the predicted value as the head of the list
-                mstore(0x00, feature)
-                mstore(0x20, deployments.slot)
-                let headSlot := keccak256(0x00, 0x40)
-                // address oldHead = deployments[feature];
-                let oldHead := and(_ADDRESS_MASK, sload(headSlot))
-                // deployments[feature] = predicted;
-                sstore(headSlot, predicted)
-
-                mstore(0x20, _deploymentLists.slot)
-                if oldHead {
-                    // _deploymentLists[oldHead].next = predicted;
-                    mstore(0x00, oldHead)
-                    sstore(add(1, keccak256(0x00, 0x40)), predicted)
-                }
-                // _deploymentLists[predicted].prev = oldHead;
-                // _deploymentLists[predicted].feature = feature;
-                mstore(0x00, predicted)
-                let predictedSlot := keccak256(0x00, 0x40)
-                sstore(predictedSlot, or(shl(160, feature), oldHead)) // don't bother checking if oldHead is zero
-            }
-
-            // do the deployment and check for success
-            predicted :=
-                and(
-                    // this `sub` produces a mask that is zero iff the deployment failed
-                    sub(
-                        or(
-                            // order of evaluation is right-to-left. `extcodesize` must come after `create2`
-                            iszero(extcodesize(predicted)),
-                            iszero(
-                                eq(
-                                    // this is the interaction; no more state updates past this point
-                                    create2(callvalue(), ptr, initLength, salt),
-                                    predicted
-                                )
-                            )
-                        ),
-                        1
-                    ),
-                    // the failure mask passes `predicted` unchanged if the deployment suceeded
-                    predicted
-                )
+            mstore(add(ptr, initCode.length), and(_ADDRESS_MASK, thisFeeCollector))
+            deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
         }
-        if (predicted == address(0)) {
+        if (deployed != predicted || deployed.code.length == 0) {
             revert DeployFailed();
         }
-        emit Deployed(feature, predicted);
     }
 
-    event Unsafe(uint96 indexed, address indexed);
+    event Unsafe(uint128 indexed, uint64 indexed);
 
-    function setUnsafe(uint96 feature, address addr) public onlyAuthorized(feature) returns (bool) {
-        DoublyLinkedList storage entry = _deploymentLists[addr];
+    function setUnsafe(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
+        DoublyLinkedList storage entry = _deploymentLists[nonce];
         if (entry.feature != feature) {
             revert PermissionDenied();
         }
-        address prev = entry.prev;
-        address next = entry.next;
-        if (next == address(0)) {
-            // assert(deployments[feature] == addr);
-            deployments[feature] = prev;
+        uint64 prev = entry.prev;
+        uint64 next = entry.next;
+        if (next == 0) {
+            // assert(_featureNonce[feature] == nonce);
+            _featureNonce[feature] = prev;
         } else {
             _deploymentLists[next].prev = prev;
         }
-        if (prev != address(0)) {
+        if (prev == 0) {
+            emit Transfer(AddressDerivation.deriveContract(address(this), nonce), address(0), feature);
+        } else {
+            emit Transfer(
+                AddressDerivation.deriveContract(address(this), nonce),
+                AddressDerivation.deriveContract(address(this), prev),
+                feature
+            );
             _deploymentLists[prev].next = next;
         }
         delete entry.prev;
-        delete entry.feature;
         delete entry.next;
+        delete entry.feature;
 
-        emit Unsafe(feature, addr);
+        emit Unsafe(feature, nonce);
         return true;
     }
 
@@ -222,5 +204,44 @@ contract Deployer is TwoStepOwnable {
                 }
             }
         }
+    }
+
+    string public constant override name = "0xV5";
+    string public constant override symbol = "0xV5";
+
+    function supportsInterface(bytes4 interfaceId) public view override(IERC165, Ownable) returns (bool) {
+        return super.supportsInterface(interfaceId) || interfaceId == 0x80ac58cd || interfaceId == 0x5b5e139f;
+    }
+
+    function balanceOf(address owner) external view override returns (uint256) {
+        uint64 thisNonce = deploymentNonce[owner];
+        return _featureNonce[_deploymentLists[thisNonce].feature] == thisNonce ? 1 : 0;
+    }
+
+    function ownerOf(uint256 tokenId) external view returns (address) {
+        if (tokenId > type(uint128).max) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        uint64 nonce = _featureNonce[uint128(tokenId)];
+        if (nonce == 0) {
+            return address(0);
+        } else {
+            return AddressDerivation.deriveContract(address(this), nonce);
+        }
+    }
+
+    function getApproved(uint256) external pure override returns (address) {
+        return address(0);
+    }
+
+    function isApprovedForAll(address, address) external pure override returns (bool) {
+        return false;
+    }
+
+    function tokenURI(uint256 tokenId) external view returns (string memory) {
+        if (tokenId > type(uint128).max) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        // TODO:
     }
 }

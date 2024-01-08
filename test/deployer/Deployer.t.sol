@@ -23,11 +23,11 @@ contract DeployerTest is Test {
         deployer.acceptOwnership();
     }
 
-    event Authorized(uint96 indexed, address indexed, uint256);
+    event Authorized(uint128 indexed, address indexed, uint256);
 
     function testAuthorize() public {
         assertEq(deployer.authorizedUntil(1, auth), 0);
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, true, false, true, address(deployer));
         emit Authorized(1, auth, block.timestamp + 1 days);
         assertTrue(deployer.authorize(1, auth, block.timestamp + 1 days));
         assertEq(deployer.authorizedUntil(1, auth), block.timestamp + 1 days);
@@ -40,7 +40,7 @@ contract DeployerTest is Test {
 
     function testUnauthorize() public {
         deployer.authorize(1, auth, block.timestamp + 1 days);
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, true, false, true, address(deployer));
         emit Authorized(1, auth, 0);
         assertTrue(deployer.authorize(1, auth, 0));
         assertEq(deployer.authorizedUntil(1, auth), 0);
@@ -52,76 +52,84 @@ contract DeployerTest is Test {
         deployer.authorize(1, auth, block.timestamp + 1 days);
     }
 
-    event FeeCollectorChanged(address indexed);
+    event FeeCollectorChanged(uint128 indexed, address indexed);
 
     function testFeeCollector() public {
-        assertEq(deployer.feeCollector(), address(0));
-        vm.expectEmit(true, false, false, false);
-        emit FeeCollectorChanged(address(this));
-        assertTrue(deployer.setFeeCollector(address(this)));
-        assertEq(deployer.feeCollector(), address(this));
+        assertEq(deployer.feeCollector(1), address(0));
+        vm.expectEmit(true, false, false, false, address(deployer));
+        emit FeeCollectorChanged(1, address(this));
+        assertTrue(deployer.setFeeCollector(1, address(this)));
+        assertEq(deployer.feeCollector(1), address(this));
     }
 
     function testFeeCollectorNotOwner() public {
         vm.startPrank(auth);
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.setFeeCollector(auth);
+        deployer.setFeeCollector(1, auth);
     }
 
-    event Deployed(uint96 indexed, address indexed);
+    event Deployed(uint128 indexed, address indexed);
+    event Transfer(address indexed, address indexed, uint256 indexed);
 
     function testDeploy() public {
         deployer.authorize(1, address(this), block.timestamp + 1 days);
-        deployer.setFeeCollector(auth);
-        address predicted = AddressDerivation.deriveDeterministicContract(
-            address(deployer),
-            bytes32(0),
-            keccak256(bytes.concat(type(Dummy).creationCode, bytes32(uint256(uint160(deployer.feeCollector())))))
-        );
-        vm.expectEmit(true, true, false, false);
+        deployer.setFeeCollector(1, auth);
+        address predicted = AddressDerivation.deriveContract(address(deployer), 1);
+        vm.expectEmit(true, true, false, false, address(deployer));
         emit Deployed(1, predicted);
-        address instance = deployer.deploy(1, type(Dummy).creationCode, bytes32(0));
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Transfer(address(0), predicted, 1);
+        address instance = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(instance, predicted);
-        assertEq(deployer.deployments(1), predicted);
+        assertEq(deployer.ownerOf(1), predicted);
         assertEq(Dummy(instance).feeCollector(), auth);
     }
 
     function testDeployNotAuthorized() public {
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.deploy(1, type(Dummy).creationCode, bytes32(0));
+        deployer.deploy(1, type(Dummy).creationCode);
     }
 
     function testDeployRevert() public {
         deployer.authorize(1, address(this), block.timestamp + 1 days);
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
-        deployer.deploy(1, hex"5f5ffd", bytes32(0)); // PUSH0 PUSH0 REVERT; empty revert message
+        deployer.deploy(1, hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
         deployer.authorize(1, address(this), block.timestamp + 1 days);
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
-        deployer.deploy(1, hex"00", bytes32(0)); // STOP; succeeds with empty returnData
+        deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
+
+    event Unsafe(uint128 indexed, uint64 indexed);
 
     function testSafeDeployment() public {
         deployer.authorize(1, address(this), block.timestamp + 1 days);
 
-        assertEq(deployer.deployments(1), address(0));
+        assertEq(deployer.ownerOf(1), address(0));
 
-        address instance = deployer.deploy(1, type(Dummy).creationCode, bytes32(0));
-        assertEq(deployer.deployments(1), instance);
+        uint64 nonce = deployer.nextNonce();
+        address instance = deployer.deploy(1, type(Dummy).creationCode);
+        assertEq(deployer.ownerOf(1), instance);
 
-        assertTrue(deployer.setUnsafe(1, instance));
-        assertEq(deployer.deployments(1), address(0));
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Transfer(AddressDerivation.deriveContract(address(deployer), 1), address(0), 1);
+        vm.expectEmit(true, true, false, false, address(deployer));
+        emit Unsafe(1, 1);
+        assertTrue(deployer.setUnsafe(1, nonce));
+        assertEq(deployer.ownerOf(1), address(0), "goes to zero");
 
-        instance = deployer.deploy(1, type(Dummy).creationCode, bytes32(uint256(1)));
-        assertEq(deployer.deployments(1), instance);
+        nonce = deployer.nextNonce();
+        instance = deployer.deploy(1, type(Dummy).creationCode);
+        assertEq(deployer.ownerOf(1), instance, "redeploy after unsafe");
 
-        address newInstance = deployer.deploy(1, type(Dummy).creationCode, bytes32(uint256(2)));
+        nonce = deployer.nextNonce();
+        address newInstance = deployer.deploy(1, type(Dummy).creationCode);
         assertNotEq(newInstance, instance);
-        assertEq(deployer.deployments(1), newInstance);
+        assertEq(deployer.ownerOf(1), newInstance, "2nd redeploy after unsafe");
 
-        assertTrue(deployer.setUnsafe(1, newInstance));
-        assertEq(deployer.deployments(1), instance);
+        assertTrue(deployer.setUnsafe(1, nonce));
+        assertEq(deployer.ownerOf(1), instance, "reverts to previous deployment");
     }
 }
