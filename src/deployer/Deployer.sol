@@ -123,7 +123,8 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
             revert FeatureInitialized(feature);
         }
         // TODO: put something better in the `"name"` field
-        string memory content = string(abi.encodePacked("{\"description\": \"", description, "\", \"name\": \"0xV5\"}"));
+        string memory content =
+            string(abi.encodePacked("{\"description\": \"", description, "\", \"name\": \"0xV5\"}\n"));
         bytes32 contentHash = verifyIPFS.ipfsHash(content);
         descriptionHash[feature] = contentHash;
         string memory ipfsURI = string(abi.encodePacked("ipfs://", verifyIPFS.toBase58(contentHash)));

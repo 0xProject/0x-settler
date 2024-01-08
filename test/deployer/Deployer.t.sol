@@ -23,8 +23,8 @@ contract DeployerTest is Test {
         deployer.acceptOwnership();
     }
 
-    bytes32 ipfsHash = 0x55fa85b555094012e583d2ddcb777745ff7f343991c11aa6e75dccca1bb456ed;
-    bytes32 ipfsUriHash = keccak256("ipfs://QmU8GviotZ9EvE2zHd8DwM8RqNnJfinax8s8mgTg8k4Tm6");
+    bytes32 ipfsHash = 0x25270b7f556519a7aac7e9778a627bc21a13018569214f21217597c6a11affba;
+    bytes32 ipfsUriHash = keccak256("ipfs://QmQqgKrVMDeLmJ3scs4FmDms6N9zFGpRQ1HLEsitQEr8jb");
 
     function testSetDescription() public {
         assertEq(keccak256(bytes(deployer.setDescription(1, "nothing to see here"))), ipfsUriHash);
