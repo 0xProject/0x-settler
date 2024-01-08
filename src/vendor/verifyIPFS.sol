@@ -3,19 +3,6 @@ pragma solidity ^0.8.0;
 /// @title verifyIPFS
 /// @author Martin Lundfall (martin.lundfall@gmail.com)
 library verifyIPFS {
-    bytes constant prefix1 = hex"0a";
-    bytes constant prefix2 = hex"080212";
-    bytes constant postfix = hex"18";
-    bytes constant sha256MultiHash = hex"1220";
-    bytes constant ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-    /// @dev generates the corresponding IPFS hash (in base 58) to the given string
-    /// @param contentHash The hash of the content of the IPFS object
-    /// @return The IPFS hash in base 58
-    function formatHash(bytes32 contentHash) internal pure returns (bytes memory) {
-        return toBase58(concat(sha256MultiHash, toBytes(contentHash)));
-    }
-
     function ipfsHash(string memory contentString) internal view returns (bytes32 r) {
         bytes memory len = lengthEncode(bytes(contentString).length);
         bytes memory len2 = lengthEncode(bytes(contentString).length + 6 * len.length);
@@ -48,33 +35,162 @@ library verifyIPFS {
         }
     }
 
-    /// @dev Compares an IPFS hash with content
-    function verifyHash(string memory contentString, string memory hash) internal view returns (bool) {
-        return equal(formatHash(ipfsHash(contentString)), bytes(hash));
-    }
-
     /// @dev Converts hex string to base 58
-    function toBase58(bytes memory source) internal pure returns (bytes memory) {
-        if (source.length == 0) return new bytes(0);
-        uint8[] memory digits = new uint8[](64); //TODO: figure out exactly how much is needed
-        digits[0] = 0;
-        uint8 digitlength = 1;
-        for (uint256 i = 0; i < source.length; ++i) {
-            uint256 carry = uint8(source[i]);
-            for (uint256 j = 0; j < digitlength; ++j) {
-                carry += uint256(digits[j]) * 256;
-                digits[j] = uint8(carry % 58);
-                carry = carry / 58;
-            }
+    function toBase58(bytes32 h) internal pure returns (bytes memory r) {
+        assembly ("memory-safe") {
+            r := mload(0x40)
+            let ptr := add(r, 0x4d)
 
-            while (carry > 0) {
-                digits[digitlength] = uint8(carry % 58);
-                digitlength++;
-                carry = carry / 58;
-            }
+            // TODO: align so that we don't need padding
+            mstore(0x1f, "123456789ABCDEFGHJKLMNPQRSTUVWXY")
+            mstore(0x3f, "Zabcdefghijkmnopqrstuvwxyz")
+
+            // the first 3 iterations are special because we're actually encoding 34 bytes
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := add(0x04, div(h, 0x3a)) // 0x04 is the residue of prepending `hex"1220"`
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := add(0x28, div(h, 0x3a)) // 0x28 is the residue of prepending `hex"1220"`
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            // this absurd constant prepends `hex"1220"` to `h`
+            h := add(h, 0x616868b6a3c45673102217be3fec84b7db78d8bb82965f94d9f33718a8074e3)
+
+            // the rest is "normal"
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+            ptr := sub(ptr, 1)
+            h := div(h, 0x3a)
+            mstore8(ptr, mload(mod(h, 0x3a)))
+
+            mstore(r, 0x2e)
+            mstore(0x40, add(r, 0x4e))
+            mstore(0x60, 0x00)
         }
-        //return digits;
-        return toAlphabet(reverse(truncate(digits, digitlength)));
     }
 
     function lengthEncode(uint256 length) internal pure returns (bytes memory) {
@@ -83,50 +199,6 @@ library verifyIPFS {
         } else {
             return concat(to_binary(length % 128 + 128), to_binary(length / 128));
         }
-    }
-
-    function toBytes(bytes32 input) internal pure returns (bytes memory) {
-        bytes memory output = new bytes(32);
-        for (uint8 i = 0; i < 32; i++) {
-            output[i] = input[i];
-        }
-        return output;
-    }
-
-    function equal(bytes memory one, bytes memory two) internal pure returns (bool) {
-        if (!(one.length == two.length)) {
-            return false;
-        }
-        for (uint256 i = 0; i < one.length; i++) {
-            if (!(one[i] == two[i])) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    function truncate(uint8[] memory array, uint8 length) internal pure returns (uint8[] memory) {
-        uint8[] memory output = new uint8[](length);
-        for (uint256 i = 0; i < length; i++) {
-            output[i] = array[i];
-        }
-        return output;
-    }
-
-    function reverse(uint8[] memory input) internal pure returns (uint8[] memory) {
-        uint8[] memory output = new uint8[](input.length);
-        for (uint256 i = 0; i < input.length; i++) {
-            output[i] = input[input.length - 1 - i];
-        }
-        return output;
-    }
-
-    function toAlphabet(uint8[] memory indices) internal pure returns (bytes memory) {
-        bytes memory output = new bytes(indices.length);
-        for (uint256 i = 0; i < indices.length; i++) {
-            output[i] = ALPHABET[indices[i]];
-        }
-        return output;
     }
 
     function concat(bytes memory byteArray, bytes memory byteArray2) internal pure returns (bytes memory) {
