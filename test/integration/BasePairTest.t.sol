@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {Test} from "forge-std/Test.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../src/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
@@ -12,7 +12,7 @@ import {Permit2Signature} from "../utils/Permit2Signature.sol";
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
 
     uint256 internal constant FROM_PRIVATE_KEY = 0x1337;
     address internal FROM = vm.addr(FROM_PRIVATE_KEY);
@@ -24,13 +24,20 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     address internal constant ZERO_EX_ADDRESS = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
+    bytes32 internal immutable permit2Domain;
+
+    constructor() {
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
+        permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
+    }
+
     function testName() internal virtual returns (string memory);
-    function fromToken() internal virtual returns (ERC20);
-    function toToken() internal virtual returns (ERC20);
+    function fromToken() internal virtual returns (IERC20);
+    function toToken() internal virtual returns (IERC20);
     function amount() internal virtual returns (uint256);
 
     function setUp() public virtual {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
         vm.label(address(this), "FoundryTest");
         vm.label(FROM, "FROM");
         vm.label(MAKER, "MAKER");
@@ -82,7 +89,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         }
     }
 
-    function safeApproveIfBelow(ERC20 token, address who, address spender, uint256 _amount) internal {
+    function safeApproveIfBelow(IERC20 token, address who, address spender, uint256 _amount) internal {
         // Can't use SafeTransferLib directly due to Foundry.prank not changing address(this)
         if (spender != address(0) && token.allowance(who, spender) < _amount) {
             vm.startPrank(who);

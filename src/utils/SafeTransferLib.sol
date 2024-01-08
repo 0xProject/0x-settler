@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../IERC20.sol";
 
 /// @notice Safe ETH and ERC20 transfer library that gracefully handles missing return values.
 /// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/utils/SafeTransferLib.sol)
@@ -31,7 +31,7 @@ library SafeTransferLib {
                             ERC20 OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    function safeTransferFrom(ERC20 token, address from, address to, uint256 amount) internal {
+    function safeTransferFrom(IERC20 token, address from, address to, uint256 amount) internal {
         assembly ("memory-safe") {
             // Get a pointer to some free memory.
             let freeMemoryPointer := mload(0x40)
@@ -57,7 +57,7 @@ library SafeTransferLib {
         }
     }
 
-    function safeTransfer(ERC20 token, address to, uint256 amount) internal {
+    function safeTransfer(IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
             // Get a pointer to some free memory.
             let freeMemoryPointer := mload(0x40)
@@ -82,7 +82,7 @@ library SafeTransferLib {
         }
     }
 
-    function safeApprove(ERC20 token, address to, uint256 amount) internal {
+    function safeApprove(IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
             // Get a pointer to some free memory.
             let freeMemoryPointer := mload(0x40)
@@ -107,7 +107,7 @@ library SafeTransferLib {
         }
     }
 
-    function safeApproveIfBelow(ERC20 token, address spender, uint256 amount) internal {
+    function safeApproveIfBelow(IERC20 token, address spender, uint256 amount) internal {
         uint256 allowance = token.allowance(address(this), spender);
         if (allowance < amount) {
             if (allowance != 0) {

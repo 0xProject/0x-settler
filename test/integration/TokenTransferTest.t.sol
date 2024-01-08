@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../src/IERC20.sol";
 
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
 abstract contract TokenTransferTest is BasePairTest {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
 
     function setUp() public virtual override {
         super.setUp();

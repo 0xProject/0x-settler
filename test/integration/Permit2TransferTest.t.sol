@@ -2,14 +2,14 @@
 pragma solidity ^0.8.21;
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../src/IERC20.sol";
 
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
 abstract contract Permit2TransferTest is BasePairTest {
-    using SafeTransferLib for ERC20;
+    using SafeTransferLib for IERC20;
 
     function setUp() public virtual override {
         super.setUp();
@@ -21,7 +21,7 @@ abstract contract Permit2TransferTest is BasePairTest {
     //     ISignatureTransfer.PermitBatchTransferFrom memory permit =
     //         defaultERC20PermitTransfer(address(fromToken()), amount(), 1);
     //     bytes memory sig =
-    //         getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+    //         getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, permit2Domain);
     //     ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
     //         to: address(BURN_ADDRESS),
     //         requestedAmount: permit.permitted.amount
@@ -35,8 +35,7 @@ abstract contract Permit2TransferTest is BasePairTest {
     function testPermit2_permitTransferFrom_warmNonce() public {
         ISignatureTransfer.PermitBatchTransferFrom memory permit =
             defaultERC20PermitBatchTransfer(address(fromToken()), amount(), 1);
-        bytes memory sig =
-            getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+        bytes memory sig = getPermitTransferSignature(permit, address(this), FROM_PRIVATE_KEY, permit2Domain);
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
             new ISignatureTransfer.SignatureTransferDetails[](1);
         transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
@@ -66,7 +65,7 @@ abstract contract Permit2TransferTest is BasePairTest {
         ISignatureTransfer.PermitBatchTransferFrom memory permit =
             defaultERC20PermitBatchTransfer(address(fromToken()), amount(), 1);
         bytes memory sig = getPermitWitnessTransferSignature(
-            permit, address(this), FROM_PRIVATE_KEY, FULL_MOCK_WITNESS_TYPEHASH, witness, PERMIT2.DOMAIN_SEPARATOR()
+            permit, address(this), FROM_PRIVATE_KEY, FULL_MOCK_WITNESS_TYPEHASH, witness, permit2Domain
         );
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
             new ISignatureTransfer.SignatureTransferDetails[](1);

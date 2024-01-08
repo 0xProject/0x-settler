@@ -1,19 +1,37 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IERC20} from "../../src/IERC20.sol";
 
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {CurveV2PairTest} from "./CurveV2PairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDTWETHTest is CurveV2PairTest, SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest {
+contract USDTWETHTest is
+    AllowanceHolderPairTest,
+    CurveV2PairTest,
+    SettlerPairTest,
+    SettlerMetaTxnPairTest,
+    TokenTransferTest,
+    UniswapV3PairTest,
+    ZeroExPairTest
+{
     function setUp()
         public
-        override(CurveV2PairTest, SettlerPairTest, TokenTransferTest, UniswapV3PairTest, ZeroExPairTest)
+        override(
+            AllowanceHolderPairTest,
+            CurveV2PairTest,
+            SettlerPairTest,
+            SettlerMetaTxnPairTest,
+            TokenTransferTest,
+            UniswapV3PairTest,
+            ZeroExPairTest
+        )
     {
         super.setUp();
     }
@@ -22,12 +40,12 @@ contract USDTWETHTest is CurveV2PairTest, SettlerPairTest, TokenTransferTest, Un
         return "USDT-WETH";
     }
 
-    function fromToken() internal pure override returns (ERC20) {
-        return ERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+    function fromToken() internal pure override returns (IERC20) {
+        return IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     }
 
-    function toToken() internal pure override returns (ERC20) {
-        return ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    function toToken() internal pure override returns (IERC20) {
+        return IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     }
 
     function amount() internal pure override returns (uint256) {
@@ -50,7 +68,7 @@ contract USDTWETHTest is CurveV2PairTest, SettlerPairTest, TokenTransferTest, Un
     function uniswapV3Path()
         internal
         pure
-        override(SettlerPairTest, UniswapV3PairTest, ZeroExPairTest)
+        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest, UniswapV3PairTest, ZeroExPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
