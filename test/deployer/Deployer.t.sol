@@ -23,7 +23,19 @@ contract DeployerTest is Test {
         deployer.acceptOwnership();
     }
 
-    // TODO: testSetDescription
+    bytes32 ipfsHash = 0x55fa85b555094012e583d2ddcb777745ff7f343991c11aa6e75dccca1bb456ed;
+    bytes32 ipfsUriHash = keccak256("ipfs://QmU8GviotZ9EvE2zHd8DwM8RqNnJfinax8s8mgTg8k4Tm6");
+
+    function testSetDescription() public {
+        assertEq(keccak256(bytes(deployer.setDescription(1, "nothing to see here"))), ipfsUriHash);
+        assertEq(deployer.descriptionHash(1), ipfsHash);
+    }
+
+    function testSetDescriptionNotOwner() public {
+        vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
+        vm.startPrank(auth);
+        deployer.setDescription(1, "nothing to see here");
+    }
 
     event Authorized(uint128 indexed, address indexed, uint256);
 
@@ -141,5 +153,12 @@ contract DeployerTest is Test {
 
         assertTrue(deployer.setUnsafe(1, nonce));
         assertEq(deployer.ownerOf(1), instance, "reverts to previous deployment");
+    }
+
+    function testTokenURI() public {
+        deployer.setDescription(1, "nothing to see here");
+        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        deployer.deploy(1, type(Dummy).creationCode);
+        assertEq(ipfsUriHash, keccak256(bytes(deployer.tokenURI(1))));
     }
 }
