@@ -126,9 +126,13 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         if (descriptionHash[feature] != 0) {
             revert FeatureInitialized(feature);
         }
+        // TODO: put something better in the `"name"` field
         string memory content = string(abi.encodePacked("{\"description\": \"", description, "\", \"name\": \"0xV5\"}"));
-        string memory ipfsURI = string(abi.encodePacked("ipfs://", verifyIPFS.generateHash(content)));
+        bytes32 contentHash = verifyIPFS.ipfsHash(content);
+        descriptionHash[feature] = contentHash;
+        string memory ipfsURI = string(abi.encodePacked("ipfs://", verifyIPFS.formatHash(contentHash)));
         emit PermanentURI(ipfsURI, feature);
+        return ipfsURI;
     }
 
     event Deployed(uint128 indexed, address indexed);
@@ -256,10 +260,15 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         return false;
     }
 
+    error NoToken(uint256);
+
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         if (tokenId > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        // TODO:
+        if (_featureNonce[uint128(tokenId)] == 0) {
+            revert NoToken(tokenId);
+        }
+        return string(abi.encodePacked("ipfs://", verifyIPFS.formatHash(descriptionHash[uint128(tokenId)])));
     }
 }

@@ -10,22 +10,22 @@ library verifyIPFS {
     bytes constant ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
     /// @dev generates the corresponding IPFS hash (in base 58) to the given string
-    /// @param contentString The content of the IPFS object
+    /// @param contentHash The hash of the content of the IPFS object
     /// @return The IPFS hash in base 58
-    function generateHash(string memory contentString) internal pure returns (bytes memory) {
+    function formatHash(bytes32 contentHash) internal pure returns (bytes memory) {
+        return toBase58(concat(sha256MultiHash, toBytes(contentHash)));
+    }
+
+    function ipfsHash(string memory contentString) internal pure returns (bytes32) {
         bytes memory content = bytes(contentString);
         bytes memory len = lengthEncode(content.length);
         bytes memory len2 = lengthEncode(content.length + 4 + 2 * len.length);
-        return toBase58(
-            concat(
-                sha256MultiHash, toBytes(sha256(abi.encodePacked(prefix1, len2, prefix2, len, content, postfix, len)))
-            )
-        );
+        return sha256(abi.encodePacked(prefix1, len2, prefix2, len, content, postfix, len));
     }
 
     /// @dev Compares an IPFS hash with content
     function verifyHash(string memory contentString, string memory hash) internal pure returns (bool) {
-        return equal(generateHash(contentString), bytes(hash));
+        return equal(formatHash(ipfsHash(contentString)), bytes(hash));
     }
 
     /// @dev Converts hex string to base 58
