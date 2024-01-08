@@ -76,8 +76,6 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     mapping(uint128 => mapping(address => uint256)) public authorizedUntil;
     mapping(uint128 => bytes32) public descriptionHash;
 
-    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-
     constructor(address initialOwner) {
         emit OwnershipPending(initialOwner);
         pendingOwner = initialOwner;
@@ -145,9 +143,12 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     {
         uint64 thisNonce = nextNonce++;
         predicted = AddressDerivation.deriveContract(address(this), thisNonce);
+        _deploymentNonce[predicted] = thisNonce;
         emit Deployed(feature, predicted);
+
         uint64 prevNonce = _featureNonce[feature];
         _featureNonce[feature] = thisNonce;
+        _deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
         } else {
@@ -155,14 +156,12 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
             _deploymentLists[prevNonce].next = thisNonce;
         }
 
-        _deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
-        _deploymentNonce[predicted] = thisNonce;
         address thisFeeCollector = feeCollector[feature];
         address deployed;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             calldatacopy(ptr, initCode.offset, initCode.length)
-            mstore(add(ptr, initCode.length), and(_ADDRESS_MASK, thisFeeCollector))
+            mstore(add(ptr, initCode.length), and(0xffffffffffffffffffffffffffffffffffffffff, thisFeeCollector))
             deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
         }
         if (deployed != predicted || deployed.code.length == 0) {
@@ -177,8 +176,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         if (entry.feature != feature) {
             revert PermissionDenied();
         }
-        uint64 prev = entry.prev;
-        uint64 next = entry.next;
+        (uint64 prev, uint64 next) = (entry.prev, entry.next);
         if (next == 0) {
             // assert(_featureNonce[feature] == nonce);
             _featureNonce[feature] = prev;
