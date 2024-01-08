@@ -200,20 +200,8 @@ library verifyIPFS {
         if (length < 128) {
             return to_binary(length);
         } else {
-            return concat(to_binary(length % 128 + 128), to_binary(length / 128));
+            return bytes.concat(to_binary(length % 128 + 128), to_binary(length / 128));
         }
-    }
-
-    function concat(bytes memory byteArray, bytes memory byteArray2) internal pure returns (bytes memory) {
-        bytes memory returnArray = new bytes(byteArray.length + byteArray2.length);
-        uint256 i = 0;
-        for (i; i < byteArray.length; i++) {
-            returnArray[i] = byteArray[i];
-        }
-        for (i; i < (byteArray.length + byteArray2.length); i++) {
-            returnArray[i] = byteArray2[i - byteArray.length];
-        }
-        return returnArray;
     }
 
     function to_binary(uint256 x) internal pure returns (bytes memory) {
@@ -223,7 +211,7 @@ library verifyIPFS {
             bytes1 s = bytes1(uint8(x % 256));
             bytes memory r = new bytes(1);
             r[0] = s;
-            return concat(to_binary(x / 256), r);
+            return bytes.concat(to_binary(x / 256), r);
         }
     }
 }
