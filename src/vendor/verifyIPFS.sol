@@ -16,15 +16,40 @@ library verifyIPFS {
         return toBase58(concat(sha256MultiHash, toBytes(contentHash)));
     }
 
-    function ipfsHash(string memory contentString) internal pure returns (bytes32) {
-        bytes memory content = bytes(contentString);
-        bytes memory len = lengthEncode(content.length);
-        bytes memory len2 = lengthEncode(content.length + 4 + 2 * len.length);
-        return sha256(abi.encodePacked(prefix1, len2, prefix2, len, content, postfix, len));
+    function ipfsHash(string memory contentString) internal view returns (bytes32 r) {
+        bytes memory len = lengthEncode(bytes(contentString).length);
+        bytes memory len2 = lengthEncode(bytes(contentString).length + 6 * len.length);
+        assembly ("memory-safe") {
+            function _memcpy(_dst, _src, _len) {
+                if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
+                    invalid()
+                }
+            }
+
+            let ptr := mload(0x40)
+            let dst := ptr
+            mstore8(ptr, 0x0a)
+            dst := add(dst, 0x01)
+            mstore(add(dst, mload(len2)), hex"080212")
+            _memcpy(dst, add(len2, 0x20), mload(len2))
+            dst := add(dst, add(0x03, mload(len2)))
+            _memcpy(dst, add(len, 0x20), mload(len))
+            dst := add(dst, mload(len))
+            _memcpy(dst, add(contentString, 0x20), mload(contentString))
+            dst := add(dst, mload(contentString))
+            mstore8(dst, 0x18)
+            dst := add(dst, 0x01)
+            _memcpy(dst, add(len, 0x20), mload(len))
+            dst := add(dst, mload(len))
+            if or(xor(returndatasize(), 0x20), iszero(staticcall(gas(), 0x02, ptr, sub(dst, ptr), ptr, 0x20))) {
+                invalid()
+            }
+            r := mload(ptr)
+        }
     }
 
     /// @dev Compares an IPFS hash with content
-    function verifyHash(string memory contentString, string memory hash) internal pure returns (bool) {
+    function verifyHash(string memory contentString, string memory hash) internal view returns (bool) {
         return equal(formatHash(ipfsHash(contentString)), bytes(hash));
     }
 
