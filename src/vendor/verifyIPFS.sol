@@ -38,12 +38,15 @@ library verifyIPFS {
     /// @dev Converts hex string to base 58
     function toBase58(bytes32 h) internal pure returns (bytes memory r) {
         assembly ("memory-safe") {
+            // we're going to take total control of the first 4 words of
+            // memory. we will restore the free memory pointer and the zero word
+            // at the end
             r := mload(0x40)
             let ptr := add(r, 0x4d)
 
-            // TODO: align so that we don't need padding
-            mstore(0x1f, "123456789ABCDEFGHJKLMNPQRSTUVWXY")
-            mstore(0x3f, "Zabcdefghijkmnopqrstuvwxyz")
+            // store the base58 alphabet lookup table
+            mstore(0x19, 0x31323334353637383941424344454647484a4b4c4d4e50515253)
+            mstore(0x39, 0x5455565758595a6162636465666768696a6b6d6e6f707172737475767778797a)
 
             // the first 3 iterations are special because we're actually encoding 34 bytes
             mstore8(ptr, mload(mod(h, 0x3a)))
