@@ -5,20 +5,31 @@ import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
 
 library AddressDerivation {
+    using UnsafeMath for uint256;
+
+    uint256 internal constant _SECP256K1_P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
     uint256 internal constant _SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
     uint256 internal constant SECP256K1_GX = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
     uint256 internal constant SECP256K1_GY = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
 
+    error InvalidCurve(uint256 x, uint256 y);
+
     // keccak256(abi.encodePacked(ECMUL([x, y], k)))[12:]
     // If [x, y] is not a point on the curve or the coordinates are out of
-    // range, you'll get unexpected garbage here. This function only takes the
-    // parity of `y` and lets `ecrecover` rederive the uncompressed point.
+    // range, you'll get unexpected garbage here.
     function deriveEOA(uint256 x, uint256 y, uint256 k) internal pure returns (address) {
         if (k == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
         if (k >= _SECP256K1_N) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+
+        if (
+            y.unsafeMulMod(y, _SECP256K1_P)
+                != x.unsafeMulMod(x, _SECP256K1_P).unsafeMulMod(x, _SECP256K1_P).unsafeAddMod(7, _SECP256K1_P)
+        ) {
+            revert InvalidCurve(x, y);
         }
 
         unchecked {
