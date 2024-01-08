@@ -204,14 +204,37 @@ library verifyIPFS {
         }
     }
 
-    function to_binary(uint256 x) internal pure returns (bytes memory) {
-        if (x == 0) {
-            return new bytes(0);
-        } else {
-            bytes1 s = bytes1(uint8(x % 256));
-            bytes memory r = new bytes(1);
-            r[0] = s;
-            return bytes.concat(to_binary(x / 256), r);
+    function to_binary(uint256 x) internal pure returns (bytes memory r) {
+        unchecked {
+            // compute byte length
+            uint256 length;
+            if (x >> 32 != 0) {
+                length += 32;
+            }
+            if (x >> 16 >= 1 << length) {
+                length += 16;
+            }
+            if (x >> 8 >= 1 << length) {
+                length += 8;
+            }
+            if (x >= 1 << length) {
+                length += 8;
+            }
+            length >>= 3;
+
+            // swap endianness
+            x = ((x & 0xFF00FF00FF00FF00) >> 8) | ((x & 0x00FF00FF00FF00FF) << 8); // byte
+            x = ((x & 0xFFFF0000FFFF0000) >> 16) | ((x & 0x0000FFFF0000FFFF) << 16); // word
+            x = (x >> 32) | (x << 32); // dword
+            x <<= 192; // left align
+
+            // format as bytes
+            assembly ("memory-safe") {
+                r := mload(0x40)
+                mstore(r, length)
+                mstore(add(r, 0x20), x)
+                mstore(0x40, add(add(r, 0x20), length))
+            }
         }
     }
 }
