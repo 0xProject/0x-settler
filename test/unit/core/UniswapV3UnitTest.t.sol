@@ -186,6 +186,14 @@ contract UniswapV3UnitTest is Utils, Test {
         );
 
         vm.prank(ALLOWANCE_HOLDER);
-        uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, address(this), permitTransfer, hex"");
+        address(uni).call(
+            abi.encodePacked(
+                abi.encodeCall(
+                    uni.sellTokenForToken, (RECIPIENT, data, amount, minBuyAmount, address(this), permitTransfer, hex"")
+                ),
+                address(this)
+            ) // Forward on true msg.sender
+        );
+        // uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, address(this), permitTransfer, hex"");
     }
 }
