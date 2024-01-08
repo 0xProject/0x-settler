@@ -9,7 +9,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
 
-import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     using SafeTransferLib for IERC20;

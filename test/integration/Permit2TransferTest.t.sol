@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IERC20} from "../../src/IERC20.sol";
 
-import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 

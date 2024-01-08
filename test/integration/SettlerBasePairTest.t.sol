@@ -9,7 +9,7 @@ import {IZeroEx} from "./vendor/IZeroEx.sol";
 
 import {IERC20} from "../../src/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
-import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 
 import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";

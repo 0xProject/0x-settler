@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";

@@ -3,7 +3,7 @@ pragma solidity ^0.8.21;
 
 import {IERC20, IERC20Meta} from "../IERC20.sol";
 
-import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 interface IPSM {

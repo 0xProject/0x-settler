@@ -9,7 +9,7 @@ import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
-import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {VIPBase} from "./VIPBase.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";

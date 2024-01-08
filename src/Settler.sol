@@ -11,7 +11,7 @@ import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
 
-import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {FullMath} from "./utils/FullMath.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
