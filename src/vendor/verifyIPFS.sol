@@ -35,8 +35,7 @@ library verifyIPFS {
         }
     }
 
-    /// @dev Converts hex string to base 58
-    function toBase58(bytes32 h) internal pure returns (bytes memory r) {
+    function base58sha256multihash(bytes32 h) internal pure returns (bytes memory r) {
         assembly ("memory-safe") {
             // we're going to take total control of the first 4 words of
             // memory. we will restore the free memory pointer and the zero word
