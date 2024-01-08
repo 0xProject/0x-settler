@@ -3,7 +3,9 @@ pragma solidity ^0.8.21;
 
 import {VIPBase} from "./VIPBase.sol";
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
-import {InvalidSender} from "./SettlerErrors.sol";
+// import {InvalidSender} from "./SettlerErrors.sol";
+
+error InvalidSender(address sender);
 
 import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
@@ -344,7 +346,9 @@ abstract contract UniswapV3 is SettlerAbstract, VIPBase {
             payer := calldataload(add(data.offset, 0x1f))
         }
         // Only a valid pool contract can call this function.
-        if (msg.sender != address(_toPool(token0, fee, token1))) revert InvalidSender();
+        if (msg.sender != address(_toPool(token0, fee, token1))) {
+            revert InvalidSender(address(_toPool(token0, fee, token1)));
+        }
 
         bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
         // Pay the amount owed to the pool.
