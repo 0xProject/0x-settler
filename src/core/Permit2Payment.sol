@@ -245,7 +245,6 @@ abstract contract Permit2BatchPayment is Permit2BatchPaymentAbstract, AllowanceH
             newDetail.amount = oldDetail.requestedAmount;
         }
     }
-
 }
 
 abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderContext {
