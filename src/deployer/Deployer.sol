@@ -234,8 +234,9 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     }
 
     function balanceOf(address owner) external view override returns (uint256) {
-        uint64 ownerNonce = _deploymentNonce[owner];
-        if (ownerNonce != 0 && _featureNonce[_deploymentLists[ownerNonce].feature] == ownerNonce) {
+        DoublyLinkedList storage entry = _deploymentLists[_deploymentNonce[owner]];
+        (uint64 next, uint128 feature) = (entry.next, entry.feature);
+        if (feature != 0 && next == 0) {
             return 1;
         }
         return 0;
