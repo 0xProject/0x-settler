@@ -4,6 +4,7 @@ pragma solidity ^0.8.21;
 import {IERC165, TwoStepOwnable, Ownable} from "./TwoStepOwnable.sol";
 import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
+import {verifyIPFS} from "verifyIPFS/verifyIPFS.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -75,6 +76,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     mapping(uint128 => address) public feeCollector;
     mapping(uint128 => mapping(address => uint256)) public authorizedUntil;
+    mapping(uint128 => bytes32) public descriptionHash;
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
@@ -83,11 +85,16 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         pendingOwner = initialOwner;
     }
 
+    error FeatureInitialized(uint128);
+
     event Authorized(uint128 indexed, address indexed, uint256);
 
     function authorize(uint128 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (descriptionHash[feature] == 0) {
+            revert FeatureInitialized(feature);
         }
         emit Authorized(feature, who, expiry);
         authorizedUntil[feature][who] = expiry;
@@ -111,6 +118,17 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         emit FeeCollectorChanged(feature, newFeeCollector);
         feeCollector[feature] = newFeeCollector;
         return true;
+    }
+
+    event PermanentURI(string, uint256 indexed);
+
+    function setDescription(uint128 feature, string calldata description) public onlyOwner returns (string memory) {
+        if (descriptionHash[feature] != 0) {
+            revert FeatureInitialized(feature);
+        }
+        string memory content = string(abi.encodePacked("{\"description\": \"", description, "\", \"name\": \"0xV5\"}"));
+        string memory ipfsURI = string(abi.encodePacked("ipfs://", verifyIPFS.generateHash(content)));
+        emit PermanentURI(ipfsURI, feature);
     }
 
     event Deployed(uint128 indexed, address indexed);
