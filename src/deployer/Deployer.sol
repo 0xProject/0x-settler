@@ -70,9 +70,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     uint64 public nextNonce = 1;
     mapping(uint64 => DoublyLinkedList) private _deploymentLists;
     mapping(uint128 => uint64) private _featureNonce;
-
-    // TODO: can this just store the feature instead of the nonce to avoid indirection
-    mapping(address => uint64) public deploymentNonce;
+    mapping(address => uint64) private _deploymentNonce;
 
     mapping(uint128 => address) public feeCollector;
     mapping(uint128 => mapping(address => uint256)) public authorizedUntil;
@@ -158,7 +156,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         }
 
         _deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
-        deploymentNonce[predicted] = thisNonce;
+        _deploymentNonce[predicted] = thisNonce;
         address thisFeeCollector = feeCollector[feature];
         address deployed;
         assembly ("memory-safe") {
@@ -236,8 +234,11 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     }
 
     function balanceOf(address owner) external view override returns (uint256) {
-        uint64 thisNonce = deploymentNonce[owner];
-        return _featureNonce[_deploymentLists[thisNonce].feature] == thisNonce ? 1 : 0;
+        uint64 ownerNonce = _deploymentNonce[owner];
+        if (ownerNonce != 0 && _featureNonce[_deploymentLists[ownerNonce].feature] == ownerNonce) {
+            return 1;
+        }
+        return 0;
     }
 
     function ownerOf(uint256 tokenId) external view returns (address) {
