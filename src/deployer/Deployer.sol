@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {IERC165, TwoStepOwnable, Ownable} from "./TwoStepOwnable.sol";
 import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
-import {verifyIPFS} from "verifyIPFS/verifyIPFS.sol";
+import {verifyIPFS} from "../vendor/verifyIPFS.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
