@@ -8,7 +8,6 @@ import {IERC20} from "../../../src/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
 import {Test} from "forge-std/Test.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 
 contract BasicDummy is Basic, Permit2Payment {
     constructor(address permit2, address feeRecipient, address allowanceHolder)

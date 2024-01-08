@@ -7,7 +7,6 @@ import {Utils} from "../Utils.sol";
 import {IERC20} from "../../../src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 
 contract UniswapV2Dummy is UniswapV2 {
     function sell(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount) public {

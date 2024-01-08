@@ -11,7 +11,6 @@ import {Utils} from "../Utils.sol";
 import {IERC20} from "../../../src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 
 contract UniswapV3Dummy is UniswapV3, Permit2Payment {
     constructor(address uniFactory, bytes32 poolInit, address permit2, address feeRecipient, address allowanceHolder)

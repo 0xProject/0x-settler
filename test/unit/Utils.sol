@@ -2,11 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm, VmSafe} from "forge-std/Vm.sol";
-
-contract FallbackDummy {
-    fallback() external payable {}
-}
+import {Vm} from "forge-std/Vm.sol";
 
 contract RejectionFallbackDummy {
     fallback() external payable {
@@ -19,11 +15,6 @@ contract Utils {
 
     function _deterministicAddress(string memory name) internal returns (address a) {
         a = address(bytes20(keccak256(abi.encodePacked(name))));
-        _vm.label(a, name);
-    }
-
-    function _createNamedDummy(string memory name) internal returns (address a) {
-        a = address(new FallbackDummy());
         _vm.label(a, name);
     }
 
