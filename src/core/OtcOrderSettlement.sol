@@ -101,9 +101,9 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         bytes32 witness = _hashConsideration(consideration);
         // There is no taker witness (see below)
 
-        // Maker pays recipient (optional fee)
+        // Maker pays
         _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
-        // Taker pays Maker (optional fee)
+        // Taker pays Maker
         // We don't need to include a witness here. Taker is `_msgSender()`, so
         // `recipient` and the maker's details are already authenticated. We're just
         // using PERMIT2 to move tokens, not to provide authentication.

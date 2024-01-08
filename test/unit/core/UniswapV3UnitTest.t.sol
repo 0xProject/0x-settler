@@ -21,9 +21,9 @@ contract UniswapV3Dummy is UniswapV3, Permit2Payment {
 
     function sellTokenForTokenSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
         external
-        returns (uint256 buyAmount)
+        returns (uint256)
     {
-        super.sellTokenForTokenToUniswapV3(recipient, encodedPath, bips, minBuyAmount);
+        return super.sellTokenForTokenToUniswapV3(recipient, encodedPath, bips, minBuyAmount);
     }
 
     function sellTokenForToken(
@@ -34,8 +34,8 @@ contract UniswapV3Dummy is UniswapV3, Permit2Payment {
         address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
-    ) external returns (uint256 buyAmount) {
-        super.sellTokenForTokenToUniswapV3(recipient, encodedPath, sellAmount, minBuyAmount, payer, permit, sig);
+    ) external returns (uint256) {
+        return super.sellTokenForTokenToUniswapV3(recipient, encodedPath, sellAmount, minBuyAmount, payer, permit, sig);
     }
 }
 
@@ -125,7 +125,6 @@ contract UniswapV3UnitTest is Utils, Test {
     }
 
     function testUniswapV3SellPermit2() public {
-        uint256 bips = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
@@ -157,7 +156,6 @@ contract UniswapV3UnitTest is Utils, Test {
     }
 
     function testUniswapV3SellAllowanceHolder() public {
-        uint256 bips = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 

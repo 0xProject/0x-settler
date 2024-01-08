@@ -173,8 +173,6 @@ contract BasicUnitTest is Utils, Test {
     function testBasicRestrictedTarget() public {
         uint256 bips = 10_000;
         uint256 offset = 0;
-        uint256 amount = 99999;
-        uint256 value = amount;
         bytes memory data;
 
         vm.expectRevert();
@@ -187,8 +185,6 @@ contract BasicUnitTest is Utils, Test {
     function testBasicBubblesUpRevert() public {
         uint256 bips = 10_000;
         uint256 offset = 0;
-        uint256 amount = 99999;
-        uint256 value = amount;
         bytes memory data;
 
         vm.expectRevert();
