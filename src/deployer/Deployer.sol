@@ -180,17 +180,15 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         if (next == 0) {
             // assert(_featureNonce[feature] == nonce);
             _featureNonce[feature] = prev;
+            emit Transfer(
+                AddressDerivation.deriveContract(address(this), nonce),
+                prev == 0 ? address(0) : AddressDerivation.deriveContract(address(this), prev),
+                feature
+            );
         } else {
             _deploymentLists[next].prev = prev;
         }
-        if (prev == 0) {
-            emit Transfer(AddressDerivation.deriveContract(address(this), nonce), address(0), feature);
-        } else {
-            emit Transfer(
-                AddressDerivation.deriveContract(address(this), nonce),
-                AddressDerivation.deriveContract(address(this), prev),
-                feature
-            );
+        if (prev != 0) {
             _deploymentLists[prev].next = next;
         }
         delete entry.prev;
