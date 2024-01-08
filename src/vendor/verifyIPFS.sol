@@ -207,9 +207,6 @@ library verifyIPFS {
         unchecked {
             // compute byte length
             uint256 length;
-            if (x >> 32 != 0) {
-                length += 32;
-            }
             if (x >> 16 >= 1 << length) {
                 length += 16;
             }
@@ -222,10 +219,9 @@ library verifyIPFS {
             length >>= 3;
 
             // swap endianness
-            x = ((x & 0xFF00FF00FF00FF00) >> 8) | ((x & 0x00FF00FF00FF00FF) << 8); // byte
-            x = ((x & 0xFFFF0000FFFF0000) >> 16) | ((x & 0x0000FFFF0000FFFF) << 16); // word
-            x = (x >> 32) | (x << 32); // dword
-            x <<= 192; // left align
+            x = ((x & 0xFF00FF00) >> 8) | ((x & 0x00FF00FF) << 8);
+            x = (x >> 16) | (x << 16);
+            x <<= 224; // left align
 
             // format as bytes
             assembly ("memory-safe") {
