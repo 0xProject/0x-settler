@@ -127,7 +127,8 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
             string(abi.encodePacked("{\"description\": \"", description, "\", \"name\": \"0xV5\"}\n"));
         bytes32 contentHash = verifyIPFS.ipfsHash(content);
         descriptionHash[feature] = contentHash;
-        string memory ipfsURI = string(abi.encodePacked("ipfs://", verifyIPFS.base58sha256multihash(contentHash)));
+        // TODO: make `base58sha256multihash` return the URI with `ipfs://`
+        string memory ipfsURI = string(bytes.concat("ipfs://", verifyIPFS.base58sha256multihash(contentHash)));
         emit PermanentURI(ipfsURI, feature);
         return ipfsURI;
     }
@@ -268,6 +269,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         if (_featureNonce[uint128(tokenId)] == 0) {
             revert NoToken(tokenId);
         }
-        return string(abi.encodePacked("ipfs://", verifyIPFS.base58sha256multihash(descriptionHash[uint128(tokenId)])));
+        // TODO: make `base58sha256multihash` return the URI with `ipfs://`
+        return string(bytes.concat("ipfs://", verifyIPFS.base58sha256multihash(descriptionHash[uint128(tokenId)])));
     }
 }
