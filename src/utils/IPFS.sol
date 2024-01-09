@@ -4,18 +4,18 @@ pragma solidity ^0.8.21;
 import {UnsafeMath} from "./UnsafeMath.sol";
 import {Panic} from "./Panic.sol";
 
-library verifyIPFS {
+library IPFS {
     using UnsafeMath for uint256;
 
-    function ipfsHash(string memory contentString) internal view returns (bytes32 r) {
+    function ipfsDagPbUnixFsHash(string memory contentString) internal view returns (bytes32 r) {
         unchecked {
             uint256 contentLength = bytes(contentString).length;
             if (contentLength >= 0x40001) {
                 Panic.panic(Panic.OUT_OF_MEMORY);
             }
-            bytes memory len = protobufVarint(contentLength);
+            bytes memory len = _protobufVarint(contentLength);
             bytes memory len2 =
-                contentLength == 0 ? protobufVarint(4) : protobufVarint(contentLength + 4 + 2 * len.length);
+                contentLength == 0 ? _protobufVarint(4) : _protobufVarint(contentLength + 4 + 2 * len.length);
             assembly ("memory-safe") {
                 // this will be MCOPY after Dencun (EIP-5656)
                 function _memcpy(_dst, _src, _len) {
@@ -32,9 +32,7 @@ library verifyIPFS {
                 dst := add(dst, mload(len2))
                 mstore(dst, hex"080212") // TODO: remove padding
                 switch contentLength
-                case 0 {
-                    dst := add(dst, 0x02)
-                }
+                case 0 { dst := add(dst, 0x02) }
                 default {
                     dst := add(dst, 0x03)
                     _memcpy(dst, add(len, 0x20), mload(len))
@@ -54,7 +52,7 @@ library verifyIPFS {
         }
     }
 
-    function base58sha256multihash(bytes32 h) internal pure returns (bytes memory r) {
+    function base58Sha256Multihash(bytes32 h) internal pure returns (bytes memory r) {
         assembly ("memory-safe") {
             // we're going to take total control of the first 4 words of
             // memory. we will restore the free memory pointer and the zero word
@@ -214,7 +212,7 @@ library verifyIPFS {
         }
     }
 
-    function protobufVarint(uint256 x) internal pure returns (bytes memory r) {
+    function _protobufVarint(uint256 x) private pure returns (bytes memory r) {
         if (x >= 0x200000) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }

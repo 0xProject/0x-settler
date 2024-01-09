@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {IERC165, TwoStepOwnable, Ownable} from "./TwoStepOwnable.sol";
 import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
-import {verifyIPFS} from "../utils/IPFS.sol";
+import {IPFS} from "../utils/IPFS.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -126,10 +126,10 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         // TODO: put something better in the `"name"` field
         string memory content =
             string(abi.encodePacked("{\"description\": \"", description, "\", \"name\": \"0xV5\"}\n"));
-        bytes32 contentHash = verifyIPFS.ipfsHash(content);
+        bytes32 contentHash = IPFS.ipfsDagPbUnixFsHash(content);
         descriptionHash[feature] = contentHash;
         // TODO: make `base58sha256multihash` return the URI with `ipfs://`
-        string memory ipfsURI = string(bytes.concat("ipfs://", verifyIPFS.base58sha256multihash(contentHash)));
+        string memory ipfsURI = string(bytes.concat("ipfs://", IPFS.base58Sha256Multihash(contentHash)));
         emit PermanentURI(ipfsURI, feature);
         return ipfsURI;
     }
@@ -280,6 +280,6 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     function tokenURI(uint256 tokenId) external view override tokenExists(tokenId) returns (string memory) {
         // TODO: make `base58sha256multihash` return the URI with `ipfs://`
-        return string(bytes.concat("ipfs://", verifyIPFS.base58sha256multihash(descriptionHash[uint128(tokenId)])));
+        return string(bytes.concat("ipfs://", IPFS.base58Sha256Multihash(descriptionHash[uint128(tokenId)])));
     }
 }
