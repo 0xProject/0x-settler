@@ -49,4 +49,30 @@ contract IPFSTest is Test {
         string memory actual = IPFS.base58Sha256Multihash(hash);
         assertEq(keccak256(bytes(actual)), keccak256(bytes(expected)));
     }
+
+    function testHelloWorld() public {
+        bytes32 hash = IPFS.ipfsDagPbUnixFsHash("Hello, World!\n");
+        string memory expected = "ipfs://QmYAXgX8ARiriupMQsbGXtKdDyGzWry1YV3sycKw1qqmgH";
+        string memory actual = IPFS.base58Sha256Multihash(hash);
+        assertEq(keccak256(bytes(actual)), keccak256(bytes(expected)));
+    }
+
+    function testReallyLong() public {
+        string memory content; // 128 kiB of "a"
+        assembly ("memory-safe") {
+            content := mload(0x40)
+            mstore(content, 0x20000)
+            for {
+                let i := add(content, 0x20)
+                let end := add(i, mload(content))
+            } lt(i, end) { i := add(i, 0x20) } {
+                mstore(i, 0x6161616161616161616161616161616161616161616161616161616161616161)
+            }
+            mstore(0x40, add(content, 0x20020))
+        }
+        bytes32 hash = IPFS.ipfsDagPbUnixFsHash(content);
+        string memory expected = "ipfs://QmViWeVfyAUMZWJGQQsmK3xwAcuaCDLpSmPo9kXzJ9gyEc";
+        string memory actual = IPFS.base58Sha256Multihash(hash);
+        assertEq(keccak256(bytes(actual)), keccak256(bytes(expected)));
+    }
 }
