@@ -253,7 +253,23 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         }
     }
 
-    function getApproved(uint256) external pure override returns (address) {
+    error NoToken(uint256);
+
+    function _requireTokenExists(uint256 tokenId) private view {
+        if (tokenId > type(uint128).max) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (_featureNonce[uint128(tokenId)] == 0) {
+            revert NoToken(tokenId);
+        }
+    }
+
+    modifier tokenExists(uint256 tokenId) {
+        _requireTokenExists(tokenId);
+        _;
+    }
+
+    function getApproved(uint256 tokenId) external view override tokenExists(tokenId) returns (address) {
         return address(0);
     }
 
@@ -261,15 +277,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         return false;
     }
 
-    error NoToken(uint256);
-
-    function tokenURI(uint256 tokenId) external view returns (string memory) {
-        if (tokenId > type(uint128).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (_featureNonce[uint128(tokenId)] == 0) {
-            revert NoToken(tokenId);
-        }
+    function tokenURI(uint256 tokenId) external view override tokenExists(tokenId) returns (string memory) {
         // TODO: make `base58sha256multihash` return the URI with `ipfs://`
         return string(bytes.concat("ipfs://", verifyIPFS.base58sha256multihash(descriptionHash[uint128(tokenId)])));
     }
