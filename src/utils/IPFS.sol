@@ -6,7 +6,7 @@ import {Panic} from "./Panic.sol";
 library IPFS {
     /// @return r SHA256(Protobuf({1: Protobuf({1: 2, 2: contentString, 3: contentString.length})}))
     /// @param contentString File contents to be encoded and hashed
-    /// @dev if `contentString` is empty, field 2 is omitted, but field 3 is not
+    /// @dev if `contentString` is empty, field 2 is omitted, but field 3 is retained as zero
     /// @dev if `contentString` is longer than 256kiB, it exceeds an IPFS chunk and cannot be handled by this function (reverts)
     function ipfsDagPbUnixFsHash(string memory contentString) internal view returns (bytes32 r) {
         unchecked {
