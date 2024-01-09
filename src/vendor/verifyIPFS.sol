@@ -2,13 +2,18 @@
 pragma solidity ^0.8.21;
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Panic} from "../utils/Panic.sol";
 
 library verifyIPFS {
     using UnsafeMath for uint256;
 
     function ipfsHash(string memory contentString) internal view returns (bytes32 r) {
-        bytes memory len = protobufVarint(bytes(contentString).length);
-        bytes memory len2 = protobufVarint(bytes(contentString).length + 4 + 2 * len.length);
+        uint256 contentLength = bytes(contentString).length;
+        if (contentLength >= 0x40001) {
+            Panic.panic(Panic.OUT_OF_MEMORY);
+        }
+        bytes memory len = protobufVarint(contentLength);
+        bytes memory len2 = protobufVarint(contentLength + 4 + 2 * len.length);
         assembly ("memory-safe") {
             function _memcpy(_dst, _src, _len) {
                 if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
@@ -199,6 +204,9 @@ library verifyIPFS {
     }
 
     function protobufVarint(uint256 x) internal pure returns (bytes memory r) {
+        if (x >= 0x10000000) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
         unchecked {
             // compute byte length
             uint256 length;
