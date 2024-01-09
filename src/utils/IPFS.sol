@@ -7,6 +7,11 @@ import {Panic} from "./Panic.sol";
 library IPFS {
     using UnsafeMath for uint256;
 
+    /// @return r SHA256(Protobuf({1: Protobuf({1: 2, 2: contentString, 3: contentString.length})}))
+    /// @param contentString File contents to be encoded and hashed
+    /// @dev if `contentString` is empty, field 2 is omitted, but field 3 is not
+    /// @dev if `contentString` is longer than 256kiB, it exceeds an IPFS chunk
+    ///      and cannot be handled by this function (reverts)
     function ipfsDagPbUnixFsHash(string memory contentString) internal view returns (bytes32 r) {
         unchecked {
             uint256 contentLength = bytes(contentString).length;
@@ -52,6 +57,8 @@ library IPFS {
         }
     }
 
+    /// @return r Base58(0x1220 || h)
+    /// @param h The SHA256 hash value to be encoded. Must be the output of `ipfsDagPbUnixFsHash`
     function base58Sha256Multihash(bytes32 h) internal pure returns (bytes memory r) {
         assembly ("memory-safe") {
             // we're going to take total control of the first 4 words of
