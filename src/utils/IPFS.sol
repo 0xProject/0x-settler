@@ -8,38 +8,40 @@ library verifyIPFS {
     using UnsafeMath for uint256;
 
     function ipfsHash(string memory contentString) internal view returns (bytes32 r) {
-        uint256 contentLength = bytes(contentString).length;
-        if (contentLength >= 0x40001) {
-            Panic.panic(Panic.OUT_OF_MEMORY);
-        }
-        bytes memory len = protobufVarint(contentLength);
-        bytes memory len2 = protobufVarint(contentLength + 4 + 2 * len.length);
-        assembly ("memory-safe") {
-            function _memcpy(_dst, _src, _len) {
-                if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
+        unchecked {
+            uint256 contentLength = bytes(contentString).length;
+            if (contentLength >= 0x40001) {
+                Panic.panic(Panic.OUT_OF_MEMORY);
+            }
+            bytes memory len = protobufVarint(contentLength);
+            bytes memory len2 = protobufVarint(contentLength + 4 + 2 * len.length);
+            assembly ("memory-safe") {
+                function _memcpy(_dst, _src, _len) {
+                    if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
+                        invalid()
+                    }
+                }
+
+                let ptr := mload(0x40)
+                let dst := ptr
+                mstore8(ptr, 0x0a)
+                dst := add(dst, 0x01)
+                mstore(add(dst, mload(len2)), hex"080212")
+                _memcpy(dst, add(len2, 0x20), mload(len2))
+                dst := add(dst, add(0x03, mload(len2)))
+                _memcpy(dst, add(len, 0x20), mload(len))
+                dst := add(dst, mload(len))
+                _memcpy(dst, add(contentString, 0x20), mload(contentString))
+                dst := add(dst, mload(contentString))
+                mstore8(dst, 0x18)
+                dst := add(dst, 0x01)
+                _memcpy(dst, add(len, 0x20), mload(len))
+                dst := add(dst, mload(len))
+                if or(xor(returndatasize(), 0x20), iszero(staticcall(gas(), 0x02, ptr, sub(dst, ptr), ptr, 0x20))) {
                     invalid()
                 }
+                r := mload(ptr)
             }
-
-            let ptr := mload(0x40)
-            let dst := ptr
-            mstore8(ptr, 0x0a)
-            dst := add(dst, 0x01)
-            mstore(add(dst, mload(len2)), hex"080212")
-            _memcpy(dst, add(len2, 0x20), mload(len2))
-            dst := add(dst, add(0x03, mload(len2)))
-            _memcpy(dst, add(len, 0x20), mload(len))
-            dst := add(dst, mload(len))
-            _memcpy(dst, add(contentString, 0x20), mload(contentString))
-            dst := add(dst, mload(contentString))
-            mstore8(dst, 0x18)
-            dst := add(dst, 0x01)
-            _memcpy(dst, add(len, 0x20), mload(len))
-            dst := add(dst, mload(len))
-            if or(xor(returndatasize(), 0x20), iszero(staticcall(gas(), 0x02, ptr, sub(dst, ptr), ptr, 0x20))) {
-                invalid()
-            }
-            r := mload(ptr)
         }
     }
 
