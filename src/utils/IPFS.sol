@@ -53,7 +53,7 @@ library IPFS {
         }
     }
 
-    /// @return r Base58(0x1220 || h)
+    /// @return r "ipfs://" || Base58(0x1220 || h)
     /// @param h The SHA256 hash value to be encoded. Must be the output of `ipfsDagPbUnixFsHash`
     function base58Sha256Multihash(bytes32 h) internal pure returns (string memory r) {
         assembly ("memory-safe") {
@@ -61,7 +61,7 @@ library IPFS {
             // memory. we will restore the free memory pointer and the zero word
             // at the end
             r := mload(0x40)
-            let ptr := add(r, 0x4d)
+            let ptr := add(r, 0x54)
 
             // store the base58 alphabet lookup table
             mstore(0x19, 0x31323334353637383941424344454647484a4b4c4d4e50515253)
@@ -209,8 +209,10 @@ library IPFS {
             h := div(h, 0x3a)
             mstore8(ptr, mload(mod(h, 0x3a)))
 
-            mstore(r, 0x2e)
-            mstore(0x40, add(r, 0x4e))
+            mstore(r, 0x00)
+            // length plus "ipfs://"
+            mstore(add(r, 0x07), 0x35697066733a2f2f)
+            mstore(0x40, add(r, 0x55))
             mstore(0x60, 0x00)
         }
     }
