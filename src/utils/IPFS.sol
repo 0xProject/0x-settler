@@ -14,7 +14,8 @@ library verifyIPFS {
                 Panic.panic(Panic.OUT_OF_MEMORY);
             }
             bytes memory len = protobufVarint(contentLength);
-            bytes memory len2 = protobufVarint(contentLength + 4 + 2 * len.length);
+            bytes memory len2 =
+                contentLength == 0 ? protobufVarint(4) : protobufVarint(contentLength + 4 + 2 * len.length);
             assembly ("memory-safe") {
                 // this will be MCOPY after Dencun (EIP-5656)
                 function _memcpy(_dst, _src, _len) {
@@ -27,13 +28,17 @@ library verifyIPFS {
                 let dst := ptr
                 mstore8(ptr, 0x0a)
                 dst := add(dst, 0x01)
-                mstore(add(dst, mload(len2)), hex"080212")
                 _memcpy(dst, add(len2, 0x20), mload(len2))
-                dst := add(dst, add(0x03, mload(len2)))
-                _memcpy(dst, add(len, 0x20), mload(len))
-                dst := add(dst, mload(len))
-                _memcpy(dst, add(contentString, 0x20), mload(contentString))
-                dst := add(dst, mload(contentString))
+                dst := add(dst, mload(len2))
+                mstore(dst, hex"080212") // TODO: remove padding
+                dst := add(dst, 0x02)
+                if contentLength {
+                    dst := add(dst, 0x01)
+                    _memcpy(dst, add(len, 0x20), mload(len))
+                    dst := add(dst, mload(len))
+                }
+                _memcpy(dst, add(contentString, 0x20), contentLength)
+                dst := add(dst, contentLength)
                 mstore8(dst, 0x18)
                 dst := add(dst, 0x01)
                 _memcpy(dst, add(len, 0x20), mload(len))
