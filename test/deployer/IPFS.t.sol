@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {verifyIPFS} from "src/vendor/verifyIPFS.sol";
+import {verifyIPFS} from "src/utils/IPFS.sol";
 
 import "forge-std/Test.sol";
 

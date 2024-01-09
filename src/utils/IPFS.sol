@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {Panic} from "../utils/Panic.sol";
+import {UnsafeMath} from "./UnsafeMath.sol";
+import {Panic} from "./Panic.sol";
 
 library verifyIPFS {
     using UnsafeMath for uint256;
