@@ -98,7 +98,8 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     }
 
     function _requireAuthorized(uint128 feature) private view {
-        if (block.timestamp >= authorizedUntil[feature][msg.sender]) {
+        uint256 until = authorizedUntil[feature][msg.sender];
+        if (until != type(uint256).max && block.timestamp >= until) {
             revert PermissionDenied();
         }
     }
