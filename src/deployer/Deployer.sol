@@ -129,7 +129,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         bytes32 contentHash = IPFS.ipfsDagPbUnixFsHash(content);
         descriptionHash[feature] = contentHash;
         // TODO: make `base58sha256multihash` return the URI with `ipfs://`
-        string memory ipfsURI = string(bytes.concat("ipfs://", IPFS.base58Sha256Multihash(contentHash)));
+        string memory ipfsURI = string(bytes.concat("ipfs://", bytes(IPFS.base58Sha256Multihash(contentHash))));
         emit PermanentURI(ipfsURI, feature);
         return ipfsURI;
     }
@@ -280,6 +280,6 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     function tokenURI(uint256 tokenId) external view override tokenExists(tokenId) returns (string memory) {
         // TODO: make `base58sha256multihash` return the URI with `ipfs://`
-        return string(bytes.concat("ipfs://", IPFS.base58Sha256Multihash(descriptionHash[uint128(tokenId)])));
+        return string(bytes.concat("ipfs://", bytes(IPFS.base58Sha256Multihash(descriptionHash[uint128(tokenId)]))));
     }
 }

@@ -56,7 +56,7 @@ library IPFS {
 
     /// @return r Base58(0x1220 || h)
     /// @param h The SHA256 hash value to be encoded. Must be the output of `ipfsDagPbUnixFsHash`
-    function base58Sha256Multihash(bytes32 h) internal pure returns (bytes memory r) {
+    function base58Sha256Multihash(bytes32 h) internal pure returns (string memory r) {
         assembly ("memory-safe") {
             // we're going to take total control of the first 4 words of
             // memory. we will restore the free memory pointer and the zero word
