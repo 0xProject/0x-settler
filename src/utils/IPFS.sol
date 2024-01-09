@@ -31,14 +31,17 @@ library verifyIPFS {
                 _memcpy(dst, add(len2, 0x20), mload(len2))
                 dst := add(dst, mload(len2))
                 mstore(dst, hex"080212") // TODO: remove padding
-                dst := add(dst, 0x02)
-                if contentLength {
-                    dst := add(dst, 0x01)
+                switch contentLength
+                case 0 {
+                    dst := add(dst, 0x02)
+                }
+                default {
+                    dst := add(dst, 0x03)
                     _memcpy(dst, add(len, 0x20), mload(len))
                     dst := add(dst, mload(len))
+                    _memcpy(dst, add(contentString, 0x20), contentLength)
+                    dst := add(dst, contentLength)
                 }
-                _memcpy(dst, add(contentString, 0x20), contentLength)
-                dst := add(dst, contentLength)
                 mstore8(dst, 0x18)
                 dst := add(dst, 0x01)
                 _memcpy(dst, add(len, 0x20), mload(len))
