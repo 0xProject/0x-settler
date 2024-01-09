@@ -16,6 +16,7 @@ library verifyIPFS {
             bytes memory len = protobufVarint(contentLength);
             bytes memory len2 = protobufVarint(contentLength + 4 + 2 * len.length);
             assembly ("memory-safe") {
+                // this will be MCOPY after Dencun (EIP-5656)
                 function _memcpy(_dst, _src, _len) {
                     if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
                         invalid()
@@ -206,44 +207,29 @@ library verifyIPFS {
     }
 
     function protobufVarint(uint256 x) internal pure returns (bytes memory r) {
-        if (x >= 0x10000000) {
+        if (x >= 0x200000) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        unchecked {
-            // compute byte length
-            uint256 length;
-            if (x >> 14 != 0) {
-                length += 14;
-            }
-            if (x >> 7 >= 1 << length) {
-                length += 7;
-            }
-            if (x >= 1 << length) {
-                length += 7;
-            } else if (x == 0) {
-                length = 7;
-            }
-            length = length.unsafeDiv(7);
-
-            // format as bytes
-            assembly ("memory-safe") {
-                // TODO: golf this
-                r := mload(0x40)
-                mstore(r, length)
-                mstore8(add(r, 0x20), or(0x80, and(0x7f, x)))
-                x := shr(7, x)
+        assembly ("memory-safe") {
+            r := mload(0x40)
+            let length := 1
+            mstore8(add(r, 0x20), or(0x80, and(0x7f, x)))
+            x := shr(7, x)
+            if x {
                 mstore8(add(r, 0x21), or(0x80, and(0x7f, x)))
                 x := shr(7, x)
-                mstore8(add(r, 0x22), or(0x80, and(0x7f, x)))
-                x := shr(7, x)
-                mstore8(add(r, 0x23), or(0x80, and(0x7f, x)))
-                x := shr(7, x)
-
-                let last := add(r, length)
-                mstore(last, and(0xffffffff7f, mload(last)))
-
-                mstore(0x40, add(last, 0x20))
+                switch x
+                case 0 { length := 2 }
+                default {
+                    mstore8(add(r, 0x22), and(0x7f, x))
+                    length := 3
+                }
             }
+
+            mstore(r, length)
+            let last := add(r, length)
+            mstore(last, and(0xffffff7f, mload(last)))
+            mstore(0x40, add(last, 0x20))
         }
     }
 }
