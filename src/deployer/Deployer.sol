@@ -241,27 +241,19 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         return 0;
     }
 
-    function ownerOf(uint256 tokenId) external view returns (address) {
+    error NoToken(uint256);
+
+    function _requireTokenExists(uint256 tokenId) private view returns (uint64 nonce) {
         if (tokenId > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        uint64 nonce = _featureNonce[uint128(tokenId)];
-        if (nonce == 0) {
-            return address(0);
-        } else {
-            return AddressDerivation.deriveContract(address(this), nonce);
+        if ((nonce = _featureNonce[uint128(tokenId)]) == 0) {
+            revert NoToken(tokenId);
         }
     }
 
-    error NoToken(uint256);
-
-    function _requireTokenExists(uint256 tokenId) private view {
-        if (tokenId > type(uint128).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (_featureNonce[uint128(tokenId)] == 0) {
-            revert NoToken(tokenId);
-        }
+    function ownerOf(uint256 tokenId) external view override returns (address) {
+        return AddressDerivation.deriveContract(address(this), _requireTokenExists(tokenId));
     }
 
     modifier tokenExists(uint256 tokenId) {

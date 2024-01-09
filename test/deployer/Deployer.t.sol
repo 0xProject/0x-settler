@@ -129,7 +129,8 @@ contract DeployerTest is Test {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), block.timestamp + 1 days);
 
-        assertEq(deployer.ownerOf(1), address(0));
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
+        deployer.ownerOf(1);
 
         uint64 nonce = deployer.nextNonce();
         address instance = deployer.deploy(1, type(Dummy).creationCode);
@@ -140,7 +141,8 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, false, false, address(deployer));
         emit Unsafe(1, 1);
         assertTrue(deployer.setUnsafe(1, nonce));
-        assertEq(deployer.ownerOf(1), address(0), "goes to zero");
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
+        deployer.ownerOf(1);
 
         nonce = deployer.nextNonce();
         instance = deployer.deploy(1, type(Dummy).creationCode);
