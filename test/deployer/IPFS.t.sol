@@ -42,4 +42,12 @@ contract IPFSTest is Test {
         bytes memory actual = verifyIPFS.base58sha256multihash(hash);
         assertEq(keccak256(actual), keccak256(expected));
     }
+
+    function testEmpty() public {
+        string memory content = "";
+        bytes32 hash = verifyIPFS.ipfsHash(content);
+        bytes memory expected = "QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH";
+        bytes memory actual = verifyIPFS.base58sha256multihash(hash);
+        assertEq(keccak256(actual), keccak256(expected));
+    }
 }
