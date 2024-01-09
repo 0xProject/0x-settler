@@ -212,7 +212,7 @@ library verifyIPFS {
         unchecked {
             // compute byte length
             uint256 length;
-            if (x >> 14 >= 1) {
+            if (x >> 14 != 0) {
                 length += 14;
             }
             if (x >> 7 >= 1 << length) {
@@ -220,6 +220,8 @@ library verifyIPFS {
             }
             if (x >= 1 << length) {
                 length += 7;
+            } else if (x == 0) {
+                length = 7;
             }
             length = length.unsafeDiv(7);
 

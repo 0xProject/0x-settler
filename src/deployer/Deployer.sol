@@ -228,7 +228,8 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     string public constant override symbol = "0xV5";
 
     function supportsInterface(bytes4 interfaceId) public view override(IERC165, Ownable) returns (bool) {
-        return super.supportsInterface(interfaceId) || interfaceId == 0x80ac58cd || interfaceId == 0x5b5e139f;
+        return super.supportsInterface(interfaceId) || interfaceId == 0x80ac58cd // regular ERC721
+            || interfaceId == type(IERC721ViewMetadata).interfaceId;
     }
 
     function balanceOf(address owner) external view override returns (uint256) {
