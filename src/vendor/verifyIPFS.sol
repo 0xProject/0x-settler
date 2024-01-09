@@ -1,11 +1,14 @@
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
 
-/// @title verifyIPFS
-/// @author Martin Lundfall (martin.lundfall@gmail.com)
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
+
 library verifyIPFS {
+    using UnsafeMath for uint256;
+
     function ipfsHash(string memory contentString) internal view returns (bytes32 r) {
-        bytes memory len = lengthEncode(bytes(contentString).length);
-        bytes memory len2 = lengthEncode(bytes(contentString).length + 6 * len.length);
+        bytes memory len = protobufVarint(bytes(contentString).length);
+        bytes memory len2 = protobufVarint(bytes(contentString).length + 4 + 2 * len.length);
         assembly ("memory-safe") {
             function _memcpy(_dst, _src, _len) {
                 if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
@@ -195,40 +198,39 @@ library verifyIPFS {
         }
     }
 
-    function lengthEncode(uint256 length) internal pure returns (bytes memory) {
-        if (length < 128) {
-            return to_binary(length);
-        } else {
-            return bytes.concat(to_binary(length % 128 + 128), to_binary(length / 128));
-        }
-    }
-
-    function to_binary(uint256 x) internal pure returns (bytes memory r) {
+    function protobufVarint(uint256 x) internal pure returns (bytes memory r) {
         unchecked {
             // compute byte length
             uint256 length;
-            if (x >> 16 >= 1 << length) {
-                length += 16;
+            if (x >> 14 >= 1) {
+                length += 14;
             }
-            if (x >> 8 >= 1 << length) {
-                length += 8;
+            if (x >> 7 >= 1 << length) {
+                length += 7;
             }
             if (x >= 1 << length) {
-                length += 8;
+                length += 7;
             }
-            length >>= 3;
-
-            // swap endianness
-            x = ((x & 0xFF00FF00) >> 8) | ((x & 0x00FF00FF) << 8);
-            x = (x >> 16) | (x << 16);
-            x <<= 224; // left align
+            length = length.unsafeDiv(7);
 
             // format as bytes
             assembly ("memory-safe") {
+                // TODO: golf this
                 r := mload(0x40)
                 mstore(r, length)
-                mstore(add(r, 0x20), x)
-                mstore(0x40, add(add(r, 0x20), length))
+                mstore8(add(r, 0x20), or(0x80, and(0x7f, x)))
+                x := shr(7, x)
+                mstore8(add(r, 0x21), or(0x80, and(0x7f, x)))
+                x := shr(7, x)
+                mstore8(add(r, 0x22), or(0x80, and(0x7f, x)))
+                x := shr(7, x)
+                mstore8(add(r, 0x23), or(0x80, and(0x7f, x)))
+                x := shr(7, x)
+
+                let last := add(r, length)
+                mstore(last, and(0xffffffff7f, mload(last)))
+
+                mstore(0x40, add(last, 0x20))
             }
         }
     }
