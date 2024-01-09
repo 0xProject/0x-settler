@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {UnsafeMath} from "./UnsafeMath.sol";
 import {Panic} from "./Panic.sol";
 
 library IPFS {
-    using UnsafeMath for uint256;
-
     /// @return r SHA256(Protobuf({1: Protobuf({1: 2, 2: contentString, 3: contentString.length})}))
     /// @param contentString File contents to be encoded and hashed
     /// @dev if `contentString` is empty, field 2 is omitted, but field 3 is not
