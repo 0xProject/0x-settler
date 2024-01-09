@@ -81,6 +81,8 @@ library IPFS {
             h := add(h, 0x616868b6a3c45673102217be3fec84b7db78d8bb82965f94d9f33718a8074e3)
 
             // the rest is "normal"
+            // with the incoming EIP-4762 (scheduled for Pralectra hardfork) it
+            // may no longer be gas efficient to unroll this loop
             mstore8(ptr, mload(mod(h, 0x3a)))
             ptr := sub(ptr, 1)
             h := div(h, 0x3a)
