@@ -15,13 +15,11 @@ library AddressDerivation {
     error InvalidCurve(uint256 x, uint256 y);
 
     // keccak256(abi.encodePacked(ECMUL([x, y], k)))[12:]
-    // If [x, y] is not a point on the curve or the coordinates are out of
-    // range, you'll get unexpected garbage here.
     function deriveEOA(uint256 x, uint256 y, uint256 k) internal pure returns (address) {
-        if (k == 0) {
+        if (k == 0 || x == 0 || y == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
-        if (k >= _SECP256K1_N) {
+        if (k >= _SECP256K1_N || x >= _SECP256K1_P || y >= _SECP256K1_P) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
