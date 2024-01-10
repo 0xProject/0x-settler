@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {AltItoA} from "./AltItoA.sol";
-import {ItoA} from "src/deployer/ItoA.sol";
+import {ItoA} from "src/utils/ItoA.sol";
 
 import "forge-std/Test.sol";
 

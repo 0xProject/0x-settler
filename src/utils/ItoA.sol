@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
-
 library ItoA {
-    using UnsafeMath for uint256;
-
     function itoa(uint256 x) internal pure returns (string memory r) {
         assembly ("memory-safe") {
             mstore(9, 0x30313233343536373839) // lookup table [0..9]
