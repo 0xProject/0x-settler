@@ -16,16 +16,20 @@ library AddressDerivation {
 
     // keccak256(abi.encodePacked(ECMUL([x, y], k)))[12:]
     function deriveEOA(uint256 x, uint256 y, uint256 k) internal pure returns (address) {
-        if (k == 0 || x == 0 || y == 0) {
+        if (k == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
         if (k >= _SECP256K1_N || x >= _SECP256K1_P || y >= _SECP256K1_P) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
+        // +/-7 are neither square nor cube mod p, so we only have to check one
+        // coordinate against 0. if it is 0, then the other is too (the point at
+        // infinity) or the point is invalid
         if (
-            y.unsafeMulMod(y, _SECP256K1_P)
-                != x.unsafeMulMod(x, _SECP256K1_P).unsafeMulMod(x, _SECP256K1_P).unsafeAddMod(7, _SECP256K1_P)
+            x == 0
+                || y.unsafeMulMod(y, _SECP256K1_P)
+                    != x.unsafeMulMod(x, _SECP256K1_P).unsafeMulMod(x, _SECP256K1_P).unsafeAddMod(7, _SECP256K1_P)
         ) {
             revert InvalidCurve(x, y);
         }
