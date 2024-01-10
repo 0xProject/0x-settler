@@ -5,6 +5,7 @@ import {IERC165, TwoStepOwnable, Ownable} from "./TwoStepOwnable.sol";
 import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {IPFS} from "../utils/IPFS.sol";
+import {ItoA} from "../utils/ItoA.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -123,9 +124,9 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         if (descriptionHash[feature] != 0) {
             revert FeatureInitialized(feature);
         }
-        // TODO: put something better in the `"name"` field
-        string memory content =
-            string(abi.encodePacked("{\"description\": \"", description, "\", \"name\": \"0xV5\"}\n"));
+        string memory content = string.concat(
+            "{\"description\": \"", description, "\", \"name\": \"0xV5 feature ", ItoA.itoa(feature), "\"}\n"
+        );
         bytes32 contentHash = IPFS.ipfsDagPbUnixFsHash(content);
         descriptionHash[feature] = contentHash;
         string memory ipfsURI = IPFS.base58Sha256Multihash(contentHash);
