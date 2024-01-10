@@ -53,7 +53,7 @@ library IPFS {
         }
     }
 
-    /// @return r "ipfs://" || Base58(0x1220 || h)
+    /// @return r string.concat("ipfs://", Base58(bytes.concat(hex"1220", h)))
     /// @param h The SHA256 hash value to be encoded. Must be the output of `ipfsDagPbUnixFsHash`
     function base58Sha256Multihash(bytes32 h) internal pure returns (string memory r) {
         assembly ("memory-safe") {

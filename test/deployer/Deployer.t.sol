@@ -86,7 +86,7 @@ contract DeployerTest is Test {
         deployer.setFeeCollector(1, auth);
     }
 
-    event Deployed(uint128 indexed, address indexed);
+    event Deployed(uint128 indexed, uint64 indexed, address indexed);
     event Transfer(address indexed, address indexed, uint256 indexed);
 
     function testDeploy() public {
@@ -95,7 +95,7 @@ contract DeployerTest is Test {
         deployer.setFeeCollector(1, auth);
         address predicted = AddressDerivation.deriveContract(address(deployer), 1);
         vm.expectEmit(true, true, false, false, address(deployer));
-        emit Deployed(1, predicted);
+        emit Deployed(1, 1, predicted);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(address(0), predicted, 1);
         address instance = deployer.deploy(1, type(Dummy).creationCode);
@@ -123,7 +123,7 @@ contract DeployerTest is Test {
         deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
 
-    event Unsafe(uint128 indexed, uint64 indexed);
+    event Unsafe(uint128 indexed, uint64 indexed, address indexed);
 
     function testSafeDeployment() public {
         deployer.setDescription(1, "nothing to see here");
@@ -139,7 +139,7 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(AddressDerivation.deriveContract(address(deployer), 1), address(0), 1);
         vm.expectEmit(true, true, false, false, address(deployer));
-        emit Unsafe(1, 1);
+        emit Unsafe(1, 1, instance);
         assertTrue(deployer.setUnsafe(1, nonce));
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);

@@ -133,7 +133,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         return ipfsURI;
     }
 
-    event Deployed(uint128 indexed, address indexed);
+    event Deployed(uint128 indexed, uint64 indexed, address indexed);
 
     error DeployFailed();
 
@@ -146,7 +146,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         uint64 thisNonce = nextNonce++;
         predicted = AddressDerivation.deriveContract(address(this), thisNonce);
         _deploymentNonce[predicted] = thisNonce;
-        emit Deployed(feature, predicted);
+        emit Deployed(feature, thisNonce, predicted);
 
         uint64 prevNonce = _featureNonce[feature];
         _featureNonce[feature] = thisNonce;
@@ -171,7 +171,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         }
     }
 
-    event Unsafe(uint128 indexed, uint64 indexed);
+    event Unsafe(uint128 indexed, uint64 indexed, address indexed);
 
     function setUnsafe(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
         DoublyLinkedList storage entry = _deploymentLists[nonce];
@@ -179,13 +179,12 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
             revert PermissionDenied();
         }
         (uint64 prev, uint64 next) = (entry.prev, entry.next);
+        address deployment = AddressDerivation.deriveContract(address(this), nonce);
         if (next == 0) {
             // assert(_featureNonce[feature] == nonce);
             _featureNonce[feature] = prev;
             emit Transfer(
-                AddressDerivation.deriveContract(address(this), nonce),
-                prev == 0 ? address(0) : AddressDerivation.deriveContract(address(this), prev),
-                feature
+                deployment, prev == 0 ? address(0) : AddressDerivation.deriveContract(address(this), prev), feature
             );
         } else {
             _deploymentLists[next].prev = prev;
@@ -197,7 +196,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         delete entry.next;
         delete entry.feature;
 
-        emit Unsafe(feature, nonce);
+        emit Unsafe(feature, nonce, deployment);
         return true;
     }
 
@@ -228,7 +227,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     string public constant override symbol = "0xV5";
 
     function supportsInterface(bytes4 interfaceId) public view override(IERC165, Ownable) returns (bool) {
-        return super.supportsInterface(interfaceId) || interfaceId == 0x80ac58cd // regular ERC721
+        return super.supportsInterface(interfaceId) || interfaceId == 0x80ac58cd // regular IERC721
             || interfaceId == type(IERC721ViewMetadata).interfaceId;
     }
 
