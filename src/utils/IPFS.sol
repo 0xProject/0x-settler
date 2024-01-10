@@ -15,8 +15,7 @@ library IPFS {
                 Panic.panic(Panic.OUT_OF_MEMORY);
             }
             bytes memory len = _protobufVarint(contentLength);
-            bytes memory len2 =
-                contentLength == 0 ? _protobufVarint(4) : _protobufVarint(contentLength + 4 + 2 * len.length);
+            bytes memory len2 = _protobufVarint(contentLength == 0 ? 4 : contentLength + 4 + 2 * len.length);
             assembly ("memory-safe") {
                 // this will be MCOPY after Dencun (EIP-5656)
                 function _memcpy(_dst, _src, _len) {
