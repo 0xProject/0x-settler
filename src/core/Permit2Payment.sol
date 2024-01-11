@@ -5,6 +5,7 @@ import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
 import {ContextAbstract} from "../Context.sol";
 import {AllowanceHolderContext} from "../AllowanceHolderContext.sol";
 import {IAllowanceHolder} from "../IAllowanceHolder.sol";
+import {IFeeCollector} from "./IFeeCollector.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -42,7 +43,7 @@ library UnsafeArray {
     }
 }
 
-abstract contract Permit2PaymentAbstract is ContextAbstract {
+abstract contract Permit2PaymentAbstract is ContextAbstract, IFeeCollector {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
     function isRestrictedTarget(address) internal view virtual returns (bool);
@@ -136,7 +137,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
 
     /// @dev Permit2 address
     ISignatureTransfer private immutable _PERMIT2;
-    address private immutable _FEE_RECIPIENT;
+    address public immutable override feeCollector;
 
     function isRestrictedTarget(address target) internal view override returns (bool) {
         return target == address(_PERMIT2) || target == address(allowanceHolder);
@@ -146,7 +147,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         AllowanceHolderContext(allowanceHolder)
     {
         _PERMIT2 = ISignatureTransfer(permit2);
-        _FEE_RECIPIENT = feeCollector;
+        feeCollector = feeCollector;
     }
 
     error FeeTokenMismatch(address paymentToken, address feeToken);
@@ -175,7 +176,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
                 revert FeeTokenMismatch(token, permitted.token);
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
-            transferDetail.to = _FEE_RECIPIENT;
+            transferDetail.to = feeCollector;
             transferDetail.requestedAmount = permitted.amount;
         }
     }

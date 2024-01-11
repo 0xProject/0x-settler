@@ -6,6 +6,7 @@ import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {IPFS} from "../utils/IPFS.sol";
 import {ItoA} from "../utils/ItoA.sol";
+import {IFeeCollector} from "../core/IFeeCollector.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -167,7 +168,10 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
             mstore(add(ptr, initCode.length), and(0xffffffffffffffffffffffffffffffffffffffff, thisFeeCollector))
             deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
         }
-        if (deployed != predicted || deployed.code.length == 0) {
+        if (
+            deployed != predicted || deployed.code.length == 0
+                || IFeeCollector(deployed).feeCollector() != thisFeeCollector
+        ) {
             revert DeployFailed();
         }
     }

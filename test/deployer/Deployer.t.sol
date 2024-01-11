@@ -3,11 +3,12 @@ pragma solidity ^0.8.21;
 
 import {Deployer} from "src/deployer/Deployer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {IFeeCollector} from "src/core/IFeeCollector.sol";
 
 import "forge-std/Test.sol";
 
-contract Dummy {
-    address public feeCollector;
+contract Dummy is IFeeCollector {
+    address public immutable override feeCollector;
 
     constructor(address _feeCollector) {
         feeCollector = _feeCollector;
