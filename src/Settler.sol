@@ -87,10 +87,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         address uniFactory,
         bytes32 poolInitCodeHash,
         address dai,
-        address feeRecipient,
-        address trustedForwarder
+        address trustedForwarder,
+        address feeCollector
     )
-        Permit2Payment(permit2, feeRecipient, trustedForwarder)
+        Permit2Payment(permit2, trustedForwarder, feeCollector)
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)

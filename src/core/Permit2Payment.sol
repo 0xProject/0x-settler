@@ -142,11 +142,11 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         return target == address(_PERMIT2) || target == address(allowanceHolder);
     }
 
-    constructor(address permit2, address feeRecipient, address allowanceHolder)
+    constructor(address permit2, address allowanceHolder, address feeCollector)
         AllowanceHolderContext(allowanceHolder)
     {
         _PERMIT2 = ISignatureTransfer(permit2);
-        _FEE_RECIPIENT = feeRecipient;
+        _FEE_RECIPIENT = feeCollector;
     }
 
     error FeeTokenMismatch(address paymentToken, address feeToken);
