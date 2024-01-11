@@ -123,18 +123,20 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     error FeatureInitialized(uint128);
 
-    function setDescription(uint128 feature, string calldata description) public onlyOwner returns (string memory) {
+    function setDescription(uint128 feature, string calldata description)
+        public
+        onlyOwner
+        returns (string memory content)
+    {
         if (descriptionHash[feature] != 0) {
             revert FeatureInitialized(feature);
         }
-        string memory content = string.concat(
+        content = string.concat(
             "{\"description\": \"", description, "\", \"name\": \"0xV5 feature ", ItoA.itoa(feature), "\"}\n"
         );
         bytes32 contentHash = IPFS.ipfsDagPbUnixFsHash(content);
         descriptionHash[feature] = contentHash;
-        string memory ipfsURI = IPFS.base58Sha256Multihash(contentHash);
-        emit PermanentURI(ipfsURI, feature);
-        return ipfsURI;
+        emit PermanentURI(IPFS.base58Sha256Multihash(contentHash), feature);
     }
 
     event Deployed(uint128 indexed, uint64 indexed, address indexed);
