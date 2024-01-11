@@ -69,13 +69,18 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         uint128 feature;
     }
 
+    struct ExpiringAuthorization {
+        address who;
+        uint96 expiry;
+    }
+
     uint64 public nextNonce = 1;
     mapping(uint64 => DoublyLinkedList) private _deploymentLists;
     mapping(uint128 => uint64) private _featureNonce;
     mapping(address => uint64) private _deploymentNonce;
 
     mapping(uint128 => address) public feeCollector;
-    mapping(uint128 => mapping(address => uint256)) public authorizedUntil;
+    mapping(uint128 => ExpiringAuthorization) public authorized;
     mapping(uint128 => bytes32) public descriptionHash;
 
     constructor(address initialOwner) {
@@ -87,7 +92,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     error FeatureNotInitialized(uint128);
 
-    function authorize(uint128 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
+    function authorize(uint128 feature, address who, uint96 expiry) public onlyOwner returns (bool) {
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -95,13 +100,14 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
             revert FeatureNotInitialized(feature);
         }
         emit Authorized(feature, who, expiry);
-        authorizedUntil[feature][who] = expiry;
+        authorized[feature] = ExpiringAuthorization({who: who, expiry: expiry});
         return true;
     }
 
     function _requireAuthorized(uint128 feature) private view {
-        uint256 until = authorizedUntil[feature][msg.sender];
-        if (until != type(uint256).max && block.timestamp >= until) {
+        ExpiringAuthorization storage authorization = authorized[feature];
+        (address who, uint96 expiry) = (authorization.who, authorization.expiry);
+        if (msg.sender != who || (expiry != type(uint96).max && block.timestamp >= expiry)) {
             revert PermissionDenied();
         }
     }

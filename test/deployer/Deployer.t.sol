@@ -43,33 +43,39 @@ contract DeployerTest is Test {
 
     function testAuthorize() public {
         deployer.setDescription(1, "nothing to see here");
-        assertEq(deployer.authorizedUntil(1, auth), 0);
+        (address who, uint96 expiry) = deployer.authorized(1);
+        assertEq(who, address(0));
+        assertEq(expiry, 0);
         vm.expectEmit(true, true, false, true, address(deployer));
-        emit Authorized(1, auth, block.timestamp + 1 days);
-        assertTrue(deployer.authorize(1, auth, block.timestamp + 1 days));
-        assertEq(deployer.authorizedUntil(1, auth), block.timestamp + 1 days);
+        emit Authorized(1, auth, uint96(block.timestamp + 1 days));
+        assertTrue(deployer.authorize(1, auth, uint96(block.timestamp + 1 days)));
+        (who, expiry) = deployer.authorized(1);
+        assertEq(who, auth);
+        assertEq(expiry, block.timestamp + 1 days);
     }
 
     function testAuthorizeZero() public {
         deployer.setDescription(1, "nothing to see here");
         vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
-        deployer.authorize(0, auth, block.timestamp + 1 days);
+        deployer.authorize(0, auth, uint96(block.timestamp + 1 days));
     }
 
     function testUnauthorize() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, auth, block.timestamp + 1 days);
+        deployer.authorize(1, auth, uint96(block.timestamp + 1 days));
         vm.expectEmit(true, true, false, true, address(deployer));
         emit Authorized(1, auth, 0);
         assertTrue(deployer.authorize(1, auth, 0));
-        assertEq(deployer.authorizedUntil(1, auth), 0);
+        (address who, uint96 expiry) = deployer.authorized(1);
+        assertEq(who, auth);
+        assertEq(expiry, 0);
     }
 
     function testAuthorizeNotOwner() public {
         deployer.setDescription(1, "nothing to see here");
         vm.startPrank(auth);
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.authorize(1, auth, block.timestamp + 1 days);
+        deployer.authorize(1, auth, uint96(block.timestamp + 1 days));
     }
 
     event FeeCollectorChanged(uint128 indexed, address indexed);
@@ -93,7 +99,7 @@ contract DeployerTest is Test {
 
     function testDeploy() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         deployer.setFeeCollector(1, auth);
         address predicted = AddressDerivation.deriveContract(address(deployer), 1);
         vm.expectEmit(true, true, false, false, address(deployer));
@@ -113,21 +119,21 @@ contract DeployerTest is Test {
 
     function testDeployRevert() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
         deployer.deploy(1, hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
         deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
 
     function testDeployNoFee() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
         deployer.deploy(1, hex"60015ff3"); // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
     }
@@ -136,7 +142,7 @@ contract DeployerTest is Test {
 
     function testSafeDeployment() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
 
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
@@ -168,7 +174,7 @@ contract DeployerTest is Test {
 
     function testTokenURI() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         deployer.deploy(1, type(Dummy).creationCode);
         assertEq(ipfsUriHash, keccak256(bytes(deployer.tokenURI(1))));
     }
