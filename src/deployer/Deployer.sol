@@ -83,16 +83,16 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         pendingOwner = initialOwner;
     }
 
-    error FeatureInitialized(uint128);
-
     event Authorized(uint128 indexed, address indexed, uint256);
+
+    error FeatureNotInitialized(uint128);
 
     function authorize(uint128 feature, address who, uint256 expiry) public onlyOwner returns (bool) {
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         if (descriptionHash[feature] == 0) {
-            revert FeatureInitialized(feature);
+            revert FeatureNotInitialized(feature);
         }
         emit Authorized(feature, who, expiry);
         authorizedUntil[feature][who] = expiry;
@@ -120,6 +120,8 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     }
 
     event PermanentURI(string, uint256 indexed);
+
+    error FeatureInitialized(uint128);
 
     function setDescription(uint128 feature, string calldata description) public onlyOwner returns (string memory) {
         if (descriptionHash[feature] != 0) {
