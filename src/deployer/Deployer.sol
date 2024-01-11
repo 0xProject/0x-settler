@@ -7,6 +7,7 @@ import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {IPFS} from "../utils/IPFS.sol";
 import {ItoA} from "../utils/ItoA.sol";
 import {IFeeCollector} from "../core/IFeeCollector.sol";
+import {Revert} from "../utils/Revert.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -238,11 +239,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         unchecked {
             for (uint256 i; i < datas.length; i++) {
                 (bool success, bytes memory reason) = address(this).delegatecall(datas.unsafeGet(i));
-                if (!success) {
-                    assembly ("memory-safe") {
-                        revert(add(reason, 0x20), mload(reason))
-                    }
-                }
+                Revert.maybeRevert(success, reason);
                 assembly ("memory-safe") {
                     mstore(0x40, freeMemPtr)
                 }
