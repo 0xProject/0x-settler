@@ -143,6 +143,8 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     error DeployFailed();
 
+    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+
     function deploy(uint128 feature, bytes calldata initCode)
         public
         payable
@@ -165,17 +167,22 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         }
 
         address thisFeeCollector = feeCollector[feature];
-        address deployed;
+        bool success;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             calldatacopy(ptr, initCode.offset, initCode.length)
-            mstore(add(ptr, initCode.length), and(0xffffffffffffffffffffffffffffffffffffffff, thisFeeCollector))
-            deployed := create(callvalue(), ptr, add(initCode.length, 0x20))
+            mstore(add(ptr, initCode.length), and(_ADDRESS_MASK, thisFeeCollector))
+            mstore(0x00, 0xc415b95c) // selector for `feeCollector()`
+            success :=
+                and(
+                    and(gt(returndatasize(), 0x1f), eq(mload(0x00), and(_ADDRESS_MASK, thisFeeCollector))),
+                    and(
+                        staticcall(gas(), and(_ADDRESS_MASK, predicted), 0x1c, 0x04, 0x00, 0x20),
+                        eq(and(_ADDRESS_MASK, predicted), create(callvalue(), ptr, add(initCode.length, 0x20)))
+                    )
+                )
         }
-        if (
-            deployed != predicted || deployed.code.length == 0
-                || IFeeCollector(deployed).feeCollector() != thisFeeCollector
-        ) {
+        if (!success) {
             revert DeployFailed();
         }
     }

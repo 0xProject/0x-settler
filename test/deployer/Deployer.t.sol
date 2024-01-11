@@ -125,6 +125,13 @@ contract DeployerTest is Test {
         deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
 
+    function testDeployNoFee() public {
+        deployer.setDescription(1, "nothing to see here");
+        deployer.authorize(1, address(this), block.timestamp + 1 days);
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        deployer.deploy(1, hex"60015ff3"); // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
+    }
+
     event Unsafe(uint128 indexed, uint64 indexed, address indexed);
 
     function testSafeDeployment() public {
