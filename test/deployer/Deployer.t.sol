@@ -64,10 +64,10 @@ contract DeployerTest is Test {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, auth, uint96(block.timestamp + 1 days));
         vm.expectEmit(true, true, false, true, address(deployer));
-        emit Authorized(1, auth, 0);
-        assertTrue(deployer.authorize(1, auth, 0));
+        emit Authorized(1, address(0), 0);
+        assertTrue(deployer.authorize(1, address(0), 0));
         (address who, uint96 expiry) = deployer.authorized(1);
-        assertEq(who, auth);
+        assertEq(who, address(0));
         assertEq(expiry, 0);
     }
 
