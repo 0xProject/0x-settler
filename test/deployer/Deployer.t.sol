@@ -138,6 +138,27 @@ contract DeployerTest is Test {
         deployer.deploy(1, hex"60015ff3"); // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
     }
 
+    function testDeployThenEmpty() public {
+        deployer.setDescription(1, "nothing to see here");
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        assertEq(deployer.feeCollector(1), address(0));
+        // PUSH4 60205ff3 PUSH0 MSTORE PUSH1 4 PUSH1 1c RETURN; returns hex"60205ff3"
+        // PUSH1 20 PUSH0 RETURN; returns zero address (technically the whole word is zero)
+        address deployed = deployer.deploy(1, hex"6360205ff35f526004601cf3");
+        assertNotEq(deployed, address(0));
+        assertEq(IFeeCollector(deployed).feeCollector(), address(0)); // technically all selectors return zero
+    }
+
+    function testDeployThenRevert() public {
+        deployer.setDescription(1, "nothing to see here");
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        assertEq(deployer.feeCollector(1), address(0));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        // PUSH4 60205ffd PUSH0 MSTORE PUSH1 4 PUSH1 1c RETURN; returns hex"60205ffd"
+        // PUSH1 20 PUSH0 REVERT; reverts with zero word
+        deployer.deploy(1, hex"6360205ffd5f526004601cf3");
+    }
+
     event Unsafe(uint128 indexed, uint64 indexed, address indexed);
 
     function testSafeDeployment() public {
