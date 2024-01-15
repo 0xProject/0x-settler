@@ -142,9 +142,9 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         content = string.concat(
             "{\"description\": \"", description, "\", \"name\": \"0xV5 feature ", ItoA.itoa(feature), "\"}\n"
         );
-        bytes32 contentHash = IPFS.ipfsDagPbUnixFsHash(content);
+        bytes32 contentHash = IPFS.dagPbUnixFsHash(content);
         descriptionHash[feature] = contentHash;
-        emit PermanentURI(IPFS.base58Sha256Multihash(contentHash), feature);
+        emit PermanentURI(IPFS.CIDv0(contentHash), feature);
     }
 
     event Deployed(uint128 indexed, uint64 indexed, address indexed);
@@ -295,6 +295,6 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     }
 
     function tokenURI(uint256 tokenId) external view override tokenExists(tokenId) returns (string memory) {
-        return IPFS.base58Sha256Multihash(descriptionHash[uint128(tokenId)]);
+        return IPFS.CIDv0(descriptionHash[uint128(tokenId)]);
     }
 }

@@ -8,7 +8,7 @@ library IPFS {
     /// @param contentString File contents to be encoded and hashed
     /// @dev if `contentString` is empty, field 2 is omitted, but field 3 is retained as zero
     /// @dev if `contentString` is longer than 256kiB, it exceeds an IPFS chunk and cannot be handled by this function (reverts)
-    function ipfsDagPbUnixFsHash(string memory contentString) internal view returns (bytes32 r) {
+    function dagPbUnixFsHash(string memory contentString) internal view returns (bytes32 r) {
         unchecked {
             uint256 contentLength = bytes(contentString).length;
             if (contentLength >= 0x40001) {
@@ -54,7 +54,7 @@ library IPFS {
 
     /// @return r string.concat("ipfs://", Base58(bytes.concat(hex"1220", h)))
     /// @param h The SHA256 hash value to be encoded. Must be the output of `ipfsDagPbUnixFsHash`
-    function base58Sha256Multihash(bytes32 h) internal pure returns (string memory r) {
+    function CIDv0(bytes32 h) internal pure returns (string memory r) {
         assembly ("memory-safe") {
             // we're going to take total control of the first 4 words of
             // memory. we will restore the free memory pointer and the zero word
