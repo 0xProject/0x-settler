@@ -99,7 +99,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     error FeatureNotInitialized(uint128);
 
     function authorize(uint128 feature, address who, uint96 expiry) public onlyOwner returns (bool) {
-        require((who == address(0)) == (expiry == 0));
+        require((who == address(0)) == (expiry <= block.timestamp));
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
