@@ -154,7 +154,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     event Deployed(uint128 indexed, uint64 indexed, address indexed);
 
-    error DeployFailed();
+    error DeployFailed(uint64);
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
@@ -201,7 +201,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
                 )
         }
         if (!success) {
-            revert DeployFailed();
+            revert DeployFailed(thisNonce);
         }
     }
 

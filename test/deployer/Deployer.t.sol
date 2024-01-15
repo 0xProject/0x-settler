@@ -120,21 +120,21 @@ contract DeployerTest is Test {
     function testDeployRevert() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
         deployer.deploy(1, hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
         deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
 
     function testDeployNoFee() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
         deployer.deploy(1, hex"60015ff3"); // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
     }
 
@@ -153,7 +153,7 @@ contract DeployerTest is Test {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         assertEq(deployer.feeCollector(1), address(0));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed()"));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
         // PUSH4 60205ffd PUSH0 MSTORE PUSH1 4 PUSH1 1c RETURN; returns hex"60205ffd"
         // PUSH1 20 PUSH0 REVERT; reverts with zero word
         deployer.deploy(1, hex"6360205ffd5f526004601cf3");
