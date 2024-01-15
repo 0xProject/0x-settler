@@ -75,9 +75,14 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         uint96 expiry;
     }
 
+    struct ListHead {
+        uint64 head;
+        uint64 highWater;
+    }
+
     uint64 public nextNonce = 1;
     mapping(uint64 => DoublyLinkedList) private _deploymentLists;
-    mapping(uint128 => uint64) private _featureNonce;
+    mapping(uint128 => ListHead) private _featureNonce;
     mapping(address => uint64) private _deploymentNonce;
 
     mapping(uint128 => address) public feeCollector;
@@ -164,8 +169,8 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         _deploymentNonce[predicted] = thisNonce;
         emit Deployed(feature, thisNonce, predicted);
 
-        uint64 prevNonce = _featureNonce[feature];
-        _featureNonce[feature] = thisNonce;
+        uint64 prevNonce = _featureNonce[feature].head;
+        _featureNonce[feature].head = thisNonce;
         _deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
@@ -210,11 +215,14 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         (uint64 prev, uint64 next) = (entry.prev, entry.next);
         address deployment = AddressDerivation.deriveContract(address(this), nonce);
         if (next == 0) {
-            // assert(_featureNonce[feature] == nonce);
-            _featureNonce[feature] = prev;
-            emit Transfer(
-                deployment, prev == 0 ? address(0) : AddressDerivation.deriveContract(address(this), prev), feature
-            );
+            ListHead storage headEntry = _featureNonce[feature];
+            if (nonce > headEntry.highWater) {
+                // assert(headEntry.head == nonce);
+                headEntry.head = prev;
+                emit Transfer(
+                    deployment, prev == 0 ? address(0) : AddressDerivation.deriveContract(address(this), prev), feature
+                );
+            }
         } else {
             _deploymentLists[next].prev = prev;
         }
@@ -226,6 +234,20 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         delete entry.feature;
 
         emit Unsafe(feature, nonce, deployment);
+        return true;
+    }
+
+    event AllUnsafe(uint256 indexed);
+
+    function setAllUnsafe(uint128 feature) public onlyAuthorized(feature) returns (bool) {
+        ListHead storage entry = _featureNonce[feature];
+        uint64 nonce = entry.head;
+        if (nonce != 0) {
+            // assert(nonce > entry.highWater);
+            (entry.head, entry.highWater) = (0, nonce);
+            emit Transfer(AddressDerivation.deriveContract(address(this), nonce), address(0), feature);
+        }
+        emit AllUnsafe(feature);
         return true;
     }
 
@@ -272,7 +294,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         if (tokenId > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if ((nonce = _featureNonce[uint128(tokenId)]) == 0) {
+        if ((nonce = _featureNonce[uint128(tokenId)].head) == 0) {
             revert NoToken(tokenId);
         }
     }
