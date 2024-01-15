@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {IERC165, TwoStepOwnable, Ownable} from "./TwoStepOwnable.sol";
+import {IERC165, TwoStepOwnable, AbstractOwnable} from "./TwoStepOwnable.sol";
+import {ERC1967UUPSUpgradeable} from "../proxy/ERC1967UUPSUpgradeable.sol";
 import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {IPFS} from "../utils/IPFS.sol";
@@ -61,7 +62,7 @@ interface IERC721ViewMetadata is IERC721View {
     function tokenURI(uint256) external view returns (string memory);
 }
 
-contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
+contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata {
     using UnsafeArray for bytes[];
 
     struct DoublyLinkedList {
@@ -80,7 +81,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         uint64 highWater;
     }
 
-    uint64 public nextNonce = 1;
+    uint64 public nextNonce;
     mapping(uint64 => DoublyLinkedList) private _deploymentLists;
     mapping(uint128 => ListHead) private _featureNonce;
     mapping(address => uint64) private _deploymentNonce;
@@ -89,9 +90,11 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     mapping(uint128 => ExpiringAuthorization) public authorized;
     mapping(uint128 => bytes32) public descriptionHash;
 
-    constructor(address initialOwner) {
-        emit OwnershipPending(initialOwner);
-        pendingOwner = initialOwner;
+    function initialize(address initialOwner) external onlyProxy {
+        require(nextNonce == 0);
+        nextNonce = 1;
+        _setPendingOwner(initialOwner);
+        super._initialize();
     }
 
     event Authorized(uint128 indexed, address indexed, uint256);
@@ -273,14 +276,19 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
     string public constant override name = "0xV5";
     string public constant override symbol = "0xV5";
 
-    function supportsInterface(bytes4 interfaceId) public view override(IERC165, Ownable) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(IERC165, AbstractOwnable, ERC1967UUPSUpgradeable)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId) || interfaceId == 0x80ac58cd // regular IERC721
             || interfaceId == type(IERC721ViewMetadata).interfaceId;
     }
 
-    function balanceOf(address owner) external view override returns (uint256) {
-        require(owner != address(0));
-        DoublyLinkedList storage entry = _deploymentLists[_deploymentNonce[owner]];
+    function balanceOf(address instance) external view override returns (uint256) {
+        require(instance != address(0));
+        DoublyLinkedList storage entry = _deploymentLists[_deploymentNonce[instance]];
         (uint64 next, uint128 feature) = (entry.next, entry.feature);
         if (feature != 0 && next == 0) {
             return 1;
@@ -318,5 +326,15 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     function tokenURI(uint256 tokenId) external view override tokenExists(tokenId) returns (string memory) {
         return IPFS.CIDv0(descriptionHash[uint128(tokenId)]);
+    }
+
+    // solc is dumb
+
+    function owner() public view override(ERC1967UUPSUpgradeable, AbstractOwnable) returns (address) {
+        return super.owner();
+    }
+
+    function _requireOwner() internal view override(ERC1967UUPSUpgradeable, AbstractOwnable) {
+        super._requireOwner();
     }
 }

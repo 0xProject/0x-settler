@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {Deployer} from "src/deployer/Deployer.sol";
+import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {IFeeCollector} from "src/core/IFeeCollector.sol";
 
@@ -20,7 +21,10 @@ contract DeployerTest is Test {
     address public auth = address(0xc0de60d);
 
     function setUp() public {
-        deployer = new Deployer(address(this));
+        address deployerImpl = address(new Deployer());
+        vm.label(deployerImpl, "Deployer (implementation)");
+        deployer = Deployer(ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (address(this)))));
+        vm.label(address(deployer), "Deployer (proxy)");
         deployer.acceptOwnership();
     }
 
