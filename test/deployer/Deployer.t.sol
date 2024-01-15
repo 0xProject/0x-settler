@@ -193,6 +193,62 @@ contract DeployerTest is Test {
         assertEq(deployer.ownerOf(1), instance, "reverts to previous deployment");
     }
 
+    event AllUnsafe(uint256 indexed);
+
+    function testAllUnsafe() public {
+        deployer.setDescription(1, "nothing to see here");
+        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+
+        deployer.deploy(1, type(Dummy).creationCode);
+        deployer.deploy(1, type(Dummy).creationCode);
+        deployer.deploy(1, type(Dummy).creationCode);
+        address instance = deployer.deploy(1, type(Dummy).creationCode);
+        uint64 nonce = deployer.nextNonce() - 1;
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Transfer(instance, address(0), 1);
+        vm.expectEmit(true, false, false, false, address(deployer));
+        emit AllUnsafe(1);
+        deployer.setAllUnsafe(1);
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Unsafe(1, nonce, instance);
+        vm.recordLogs();
+        deployer.setUnsafe(1, nonce);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(entries.length, 1);
+
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
+        deployer.ownerOf(1);
+
+        for (uint64 i = 1; i < nonce; i++) {
+            vm.expectEmit(true, true, true, false, address(deployer));
+            emit Unsafe(1, i, AddressDerivation.deriveContract(address(deployer), i));
+            vm.recordLogs();
+            deployer.setUnsafe(1, i);
+            entries = vm.getRecordedLogs();
+            assertEq(entries.length, 1);
+        }
+
+        deployer.deploy(1, type(Dummy).creationCode);
+        instance = deployer.deploy(1, type(Dummy).creationCode);
+        nonce = deployer.nextNonce() - 1;
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Transfer(instance, AddressDerivation.deriveContract(address(deployer), nonce - 1), 1);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Unsafe(1, nonce, instance);
+        deployer.setUnsafe(1, nonce);
+
+        nonce--;
+        instance = AddressDerivation.deriveContract(address(deployer), nonce);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Transfer(instance, address(0), 1);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Unsafe(1, nonce, instance);
+        deployer.setUnsafe(1, nonce);
+    }
+
     function testTokenURI() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
