@@ -82,7 +82,7 @@ contract DeployerTest is Test {
 
     function testFeeCollector() public {
         assertEq(deployer.feeCollector(1), address(0));
-        vm.expectEmit(true, false, false, false, address(deployer));
+        vm.expectEmit(true, true, false, false, address(deployer));
         emit FeeCollectorChanged(1, address(this));
         assertTrue(deployer.setFeeCollector(1, address(this)));
         assertEq(deployer.feeCollector(1), address(this));
@@ -102,7 +102,7 @@ contract DeployerTest is Test {
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         deployer.setFeeCollector(1, auth);
         address predicted = AddressDerivation.deriveContract(address(deployer), 1);
-        vm.expectEmit(true, true, false, false, address(deployer));
+        vm.expectEmit(true, true, true, false, address(deployer));
         emit Deployed(1, 1, predicted);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(address(0), predicted, 1);
@@ -174,7 +174,7 @@ contract DeployerTest is Test {
 
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(AddressDerivation.deriveContract(address(deployer), 1), address(0), 1);
-        vm.expectEmit(true, true, false, false, address(deployer));
+        vm.expectEmit(true, true, true, false, address(deployer));
         emit Unsafe(1, 1, instance);
         assertTrue(deployer.setUnsafe(1, nonce));
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
