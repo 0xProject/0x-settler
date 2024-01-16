@@ -70,15 +70,17 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         uint128 feature;
     }
 
+    struct ListHead {
+        uint64 head;
+        uint64 highWater;
+    }
+
     struct ExpiringAuthorization {
         address who;
         uint96 expiry;
     }
 
-    struct ListHead {
-        uint64 head;
-        uint64 highWater;
-    }
+    bytes32 private _pad; // ensure that `nextNonce` starts in its own slot
 
     uint64 public nextNonce = 1;
     mapping(uint64 => DoublyLinkedList) private _deploymentLists;
