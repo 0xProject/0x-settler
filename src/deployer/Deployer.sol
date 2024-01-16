@@ -259,12 +259,13 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
     // necessary to make multiple calls to this contract.
     function multicall(bytes[] calldata datas) public {
         uint256 freeMemPtr;
+        address target = _implementation;
         assembly ("memory-safe") {
             freeMemPtr := mload(0x40)
         }
         unchecked {
             for (uint256 i; i < datas.length; i++) {
-                (bool success, bytes memory reason) = address(this).delegatecall(datas.unsafeGet(i));
+                (bool success, bytes memory reason) = target.delegatecall(datas.unsafeGet(i));
                 Revert.maybeRevert(success, reason);
                 assembly ("memory-safe") {
                     mstore(0x40, freeMemPtr)

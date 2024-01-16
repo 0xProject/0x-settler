@@ -24,7 +24,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
 
     using Revert for bytes;
 
-    address private immutable _thisCopy;
+    address internal immutable _implementation;
 
     uint256 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     uint256 private constant _ROLLBACK_SLOT = 0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143;
@@ -33,7 +33,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     uint256 private constant _ROLLBACK_IN_PROGRESS = 3;
 
     constructor() {
-        _thisCopy = address(this);
+        _implementation = address(this);
         assert(_IMPLEMENTATION_SLOT == uint256(keccak256("eip1967.proxy.implementation")) - 1);
         assert(_ROLLBACK_SLOT == uint256(keccak256("eip1967.proxy.rollback")) - 1);
     }
@@ -66,7 +66,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     }
 
     function _requireProxy() internal view {
-        if (implementation() != _thisCopy || address(this) == _thisCopy) {
+        if (implementation() != _implementation || address(this) == _implementation) {
             revert OnlyProxy();
         }
     }
@@ -128,11 +128,11 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
             address newImplementation = implementation();
             _delegateCall(
                 newImplementation,
-                abi.encodeCall(this.upgrade, (_thisCopy)),
+                abi.encodeCall(this.upgrade, (_implementation)),
                 abi.encodeWithSelector(RollbackFailed.selector)
             );
             _setRollback(false);
-            if (implementation() != _thisCopy) {
+            if (implementation() != _implementation) {
                 revert RollbackFailed();
             }
             emit Upgraded(newImplementation);
