@@ -26,6 +26,15 @@ contract DeployerTest is Test {
         deployer = Deployer(ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (address(this)))));
         vm.label(address(deployer), "Deployer (proxy)");
         deployer.acceptOwnership();
+
+        vm.expectRevert(new bytes(0));
+        deployer.initialize(address(this));
+
+        vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));
+        Deployer(deployerImpl).owner();
+
+        vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));
+        Deployer(deployerImpl).initialize(address(this));
     }
 
     bytes32 ipfsHash = 0x6a6743a7e024153ba02b7360e504a0e4600809d79e6eb2da4b6d264f0833b16a;

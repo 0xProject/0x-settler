@@ -90,7 +90,7 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
     mapping(uint128 => ExpiringAuthorization) public authorized;
     mapping(uint128 => bytes32) public descriptionHash;
 
-    function initialize(address initialOwner) external onlyProxy {
+    function initialize(address initialOwner) external {
         require(nextNonce == 0);
         nextNonce = 1;
         _setPendingOwner(initialOwner);
