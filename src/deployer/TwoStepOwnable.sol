@@ -86,8 +86,6 @@ abstract contract Ownable is AbstractOwnable {
 }
 
 abstract contract AbstractTwoStepOwnable is AbstractOwnable {
-    event OwnershipPending(address indexed);
-
     /// This function should be overridden exactly once. This provides the base
     /// implementation. Mixin classes may modify `_requirePendingOwner`.
     function _requirePendingOwnerImpl() internal view virtual;
@@ -120,6 +118,8 @@ abstract contract TwoStepOwnable is AbstractTwoStepOwnable, Ownable {
     function _pendingOwnerImpl() internal view override returns (address) {
         return _pendingOwner;
     }
+
+    event OwnershipPending(address indexed);
 
     function _setPendingOwner(address newPendingOwner) internal override {
         emit OwnershipPending(newPendingOwner);
