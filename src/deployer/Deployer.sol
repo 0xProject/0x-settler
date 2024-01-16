@@ -334,8 +334,4 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
     function owner() public view override(ERC1967UUPSUpgradeable, AbstractOwnable) returns (address) {
         return super.owner();
     }
-
-    function _requireOwner() internal view override(ERC1967UUPSUpgradeable, AbstractOwnable) {
-        super._requireOwner();
-    }
 }

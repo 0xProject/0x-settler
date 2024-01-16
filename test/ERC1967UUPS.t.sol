@@ -11,8 +11,8 @@ interface IMock is IOwnable, IERC1967Proxy {}
 
 contract Mock is IMock, ERC1967UUPSUpgradeable, Ownable {
     function initialize(address initialOwner) external {
-        ERC1967UUPSUpgradeable._initialize();
-        Ownable._setOwner(initialOwner);
+        super._initialize();
+        super._setOwner(initialOwner);
     }
 
     // ugh. Solidity inheritance
@@ -28,10 +28,6 @@ contract Mock is IMock, ERC1967UUPSUpgradeable, Ownable {
 
     function owner() public view override(IOwnable, AbstractOwnable, ERC1967UUPSUpgradeable) returns (address) {
         return super.owner();
-    }
-
-    function _requireOwner() internal view override(AbstractOwnable, ERC1967UUPSUpgradeable) {
-        super._requireOwner();
     }
 }
 

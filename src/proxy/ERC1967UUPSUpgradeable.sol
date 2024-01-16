@@ -80,10 +80,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         return super.supportsInterface(interfaceId);
     }
 
-    function _requireOwner() internal view virtual override onlyProxy {
-        super._requireOwner();
-    }
-
+    // This makes `onlyOwner` imply `onlyProxy`
     function owner() public view virtual override onlyProxy returns (address) {
         return super.owner();
     }
