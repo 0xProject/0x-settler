@@ -100,6 +100,23 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
         if (maybeERC20.checkCall(testData, 500_000, 0x20)) revert ConfusedDeputy();
     }
 
+    function _msgSender() private view returns (address sender) {
+        if (msg.sender == address(this)) {
+            assembly ("memory-safe") {
+                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+        } else {
+            sender = msg.sender;
+        }
+    }
+
+    function balanceOf(address) external pure {
+        assembly ("memory-safe") {
+            mstore8(0x00, 0x00)
+            revert(0x00, 0x01)
+        }
+    }
+
     /// @inheritdoc IAllowanceHolder
     function execute(
         address operator,
@@ -113,9 +130,11 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
         // contract that might be an ERC20.
         _rejectIfERC20(target, data);
 
+        address sender = _msgSender();
+
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
             ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            _setAllowed(operator, msg.sender, permit.token, permit.amount);
+            _setAllowed(operator, sender, permit.token, permit.amount);
         }
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
@@ -126,7 +145,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
             result := mload(0x40)
             calldatacopy(result, data.offset, data.length)
             // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
-            mstore(add(result, data.length), shl(0x60, caller()))
+            mstore(add(result, data.length), shl(0x60, sender))
             let success :=
                 call(
                     gas(),
@@ -148,7 +167,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
         }
 
         for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            _setAllowed(operator, msg.sender, permits.unsafeGet(i).token, 0);
+            _setAllowed(operator, sender, permits.unsafeGet(i).token, 0);
         }
     }
 
