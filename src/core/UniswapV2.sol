@@ -187,7 +187,7 @@ abstract contract UniswapV2 is VIPBase {
 
             // final swap
             if fromPool {
-                // perform swap at the fromPool sending bought tokens to settler
+                // perform swap at the fromPool sending bought tokens to recipient
                 mstore(add(swapCalldata, 0x44), and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
                 if iszero(call(gas(), fromPool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert(swapCalldata) }
             }
