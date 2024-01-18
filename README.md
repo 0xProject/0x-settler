@@ -353,24 +353,12 @@ For OTC we utilize 2 Permit2 Transfers, one for the `Market Maker->User` and ano
 
 Note the `permitWitnessTransferFrom`, we utilise the `Witness` functionality of Permit2 which allows arbitrary data to be attached to the Permit2 coupon. This arbitrary data is the actual OTC order itself, containing the taker/tx.origin and maker/taker amount and token fields.
 
-```solidity
-struct OtcOrder {
-    address makerToken;
-    address takerToken;
-    uint128 makerAmount;
-    uint128 takerAmount;
-    address maker;
-    address taker;
-    address txOrigin;
-}
-```
-
 A Market maker signs a slightly different Permit2 coupon than a User which contains these additional fields. The EIP712 type the Market Maker signs is as follows:
 
 ```solidity
-PermitWitnessTransferFrom(TokenPermissions permitted, address spender, uint256 nonce, uint256 deadline, OtcOrder order)
-OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)
-TokenPermissions(address token,uint256 amount)"
+PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)
+Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)
+TokenPermissions(address token,uint256 amount)
 ```
 
 We use the Permit2 guarantees of a Permit2 coupon to ensure the following:
