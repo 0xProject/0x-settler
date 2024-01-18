@@ -8,6 +8,7 @@ import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
+import {MultiCall} from "./utils/MultiCall.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();
@@ -72,7 +73,7 @@ abstract contract TransientStorageMock {
     }
 }
 
-contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
+contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, MultiCall {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
     using UnsafeMath for uint256;
