@@ -126,6 +126,8 @@ pragma solidity ^0.8.21;
 
 */
 
+import {AddressDerivation} from "../utils/AddressDerivation.sol";
+
 library ERC1967UUPSProxy {
     error CreateFailed();
     error Create2Failed();
@@ -181,29 +183,17 @@ library ERC1967UUPSProxy {
         }
     }
 
-    function predictDeterministic(address implementation, bytes memory initializer, bytes32 salt, address deployer)
+    function predict(address implementation, bytes memory initializer, bytes32 salt, address deployer)
         internal
         pure
-        returns (address result)
+        returns (address)
     {
-        return address(
-            uint160(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xff), deployer, salt, keccak256(_packArgs(payable(implementation), initializer))
-                        )
-                    )
-                )
-            )
+        return AddressDerivation.deriveDeterministicContract(
+            deployer, salt, keccak256(_packArgs(payable(implementation), initializer))
         );
     }
 
-    function predictDeterministic(address implementation, bytes memory initializer, bytes32 salt)
-        internal
-        view
-        returns (address result)
-    {
-        return predictDeterministic(implementation, initializer, salt, address(this));
+    function predict(address implementation, bytes memory initializer, bytes32 salt) internal view returns (address) {
+        return predict(implementation, initializer, salt, address(this));
     }
 }
