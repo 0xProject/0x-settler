@@ -4,12 +4,16 @@ pragma solidity ^0.8.21;
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 interface ISettlerActions {
-    /// @dev Transfer funds from msg.sender Permit2.
+    /// @dev Transfer funds from msg.sender via Permit2.
     function PERMIT2_TRANSFER_FROM(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) external;
+
+    /// @dev Transfer funds from msg.sender via AllowanceHolder.
+    function ALLOWANCE_HOLDER_TRANSFER_FROM(address recipient, ISignatureTransfer.TokenPermissions memory permit)
+        external;
 
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
     function METATXN_PERMIT2_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory) external;

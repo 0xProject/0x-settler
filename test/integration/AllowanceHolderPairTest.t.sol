@@ -68,6 +68,40 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
+    function testAllowanceHolder_uniswapV3_ah() public {
+        bytes[] memory actions = ActionDataBuilder.build(
+            // Perform a transfer into Settler via AllowanceHolder
+            abi.encodeCall(
+                ISettlerActions.ALLOWANCE_HOLDER_TRANSFER_FROM,
+                (address(settler), ISignatureTransfer.TokenPermissions(address(fromToken()), amount()))
+            ),
+            // Execute UniswapV3 from the Settler balance
+            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+        );
+
+        AllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        _warm_allowanceHolder_slots(address(fromToken()), amount());
+
+        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
+        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+
+        vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
+        snapStartName("allowanceHolder_uniswapV3_ah");
+        _cold_account_access();
+
+        _allowanceHolder.execute(
+            address(_settler),
+            permits,
+            payable(address(_settler)),
+            abi.encodeCall(
+                _settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
     function testAllowanceHolder_uniswapV3VIP() public {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(

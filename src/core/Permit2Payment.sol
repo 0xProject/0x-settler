@@ -10,6 +10,8 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
+error InvalidUsage();
+
 library UnsafeArray {
     function unsafeGet(IAllowanceHolder.TransferDetails[] memory a, uint256 i)
         internal
@@ -48,6 +50,12 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
     function isRestrictedTarget(address) internal view virtual returns (bool);
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+        internal
+        pure
+        virtual
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount);
+
+    function _permitToTransferDetails(ISignatureTransfer.TokenPermissions memory permission, address recipient)
         internal
         pure
         virtual
@@ -279,6 +287,17 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         token = permit.permitted.token;
     }
 
+    function _permitToTransferDetails(ISignatureTransfer.TokenPermissions memory permit, address recipient)
+        internal
+        pure
+        override
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
+    {
+        transferDetails.to = recipient;
+        transferDetails.requestedAmount = amount = permit.amount;
+        token = permit.token;
+    }
+
     function _formatForAllowanceHolder(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails
@@ -288,6 +307,18 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         newDetail.token = permit.permitted.token;
         newDetail.recipient = transferDetails.to;
         newDetail.amount = transferDetails.requestedAmount;
+    }
+
+    function _formatForAllowanceHolder(address recipient, ISignatureTransfer.TokenPermissions memory permission)
+        private
+        pure
+        returns (IAllowanceHolder.TransferDetails[] memory result)
+    {
+        result = new IAllowanceHolder.TransferDetails[](1);
+        IAllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(0);
+        newDetail.token = permission.token;
+        newDetail.recipient = recipient;
+        newDetail.amount = permission.amount;
     }
 
     function _transferFrom(
@@ -336,5 +367,15 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bytes memory sig
     ) internal override {
         _transferFrom(permit, transferDetails, from, sig, _isForwarded());
+    }
+
+    function _transferFrom(address recipient, ISignatureTransfer.TokenPermissions memory permission, address from)
+        internal
+    {
+        if (_isForwarded()) {
+            allowanceHolder.holderTransferFrom(from, _formatForAllowanceHolder(recipient, permission));
+        } else {
+            revert InvalidUsage();
+        }
     }
 }
