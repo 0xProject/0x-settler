@@ -13,6 +13,9 @@ import {MultiCall} from "./utils/MultiCall.sol";
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();
 
+/// @notice Thrown when a call is made after its deadline
+error Expired(uint256);
+
 library UnsafeArray {
     function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
         internal
@@ -121,9 +124,12 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
     function execute(
         address operator,
         ISignatureTransfer.TokenPermissions[] calldata permits,
+        uint256 deadline,
         address payable target,
         bytes calldata data
     ) public payable override returns (bytes memory result) {
+        if (deadline != type(uint256).max && block.timestamp > deadline) revert Expired(deadline);
+
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
         // sending arbitrary calldata (doing `target.call(data)`) to any

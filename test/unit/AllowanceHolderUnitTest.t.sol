@@ -131,7 +131,7 @@ contract AllowanceHolderUnitTest is Test {
         bytes memory data = hex"deadbeef";
 
         vm.startStateDiffRecording();
-        ah.execute{value: value}(operator, permits, payable(target), data);
+        ah.execute{value: value}(operator, permits, block.timestamp + 1 days, payable(target), data);
         VmSafe.AccountAccess[] memory calls =
             _foundry_filterAccessKind(vm.stopAndReturnStateDiff(), VmSafe.AccountAccessKind.Call);
 

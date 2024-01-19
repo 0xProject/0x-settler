@@ -22,6 +22,7 @@ interface IAllowanceHolder {
     function execute(
         address operator,
         ISignatureTransfer.TokenPermissions[] calldata permits,
+        uint256 deadline,
         address payable target,
         bytes calldata data
     ) external payable returns (bytes memory result);

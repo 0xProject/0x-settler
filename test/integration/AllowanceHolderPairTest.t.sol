@@ -59,6 +59,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         _allowanceHolder.execute(
             address(_settler),
             permits,
+            block.timestamp + 1 days,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -98,6 +99,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         _allowanceHolder.execute(
             address(_settler),
             permits,
+            block.timestamp + 1 days,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -137,6 +139,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         _allowanceHolder.execute(
             address(_settler),
             permits,
+            block.timestamp + 1 days,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
