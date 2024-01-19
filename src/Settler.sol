@@ -324,7 +324,11 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         } else if (action == ISettlerActions.ALLOWANCE_HOLDER_TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.TokenPermissions memory permission) =
                 abi.decode(data, (address, ISignatureTransfer.TokenPermissions));
-            _transferFrom(recipient, permission, msgSender);
+            ISignatureTransfer.PermitTransferFrom memory permit =
+                ISignatureTransfer.PermitTransferFrom({permitted: permission, nonce: 0, deadline: 0});
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
+                _permitToTransferDetails(permit, recipient);
+            _transferFrom(permit, transferDetails, msgSender, new bytes(0));
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
             (
                 address recipient,
