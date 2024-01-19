@@ -196,7 +196,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
                     and(
                         // call `feeCollector()` on the predicted address and check for success (succeeds with empty
                         // returnData if deployment failed, deployed to the wrong address, or produced empty bytecode)
-                        staticcall(gas(), and(_ADDRESS_MASK, predicted), 0x1c, 0x04, 0x00, 0x20),
+                        staticcall(gas(), predicted, 0x1c, 0x04, 0x00, 0x20),
                         // CREATE the new instance and check that it returns the predicted address
                         eq(and(_ADDRESS_MASK, predicted), create(callvalue(), ptr, add(initCode.length, 0x20)))
                     )
