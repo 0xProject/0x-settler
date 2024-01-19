@@ -119,10 +119,9 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         }
     }
 
-    function _checkRollback(bool rollback) private {
+    function _checkRollback(address newImplementation, bool rollback) private {
         if (!rollback) {
             _setRollback(true);
-            address newImplementation = implementation();
             _delegateCall(
                 newImplementation,
                 abi.encodeCall(this.upgrade, (_implementation)),
@@ -140,7 +139,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     function upgrade(address newImplementation) public payable virtual override onlyOwner {
         bool rollback = _isRollback();
         _setImplementation(newImplementation);
-        _checkRollback(rollback);
+        _checkRollback(newImplementation, rollback);
     }
 
     function upgradeAndCall(address newImplementation, bytes calldata data) public payable virtual override onlyOwner {
@@ -148,6 +147,6 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         _setImplementation(newImplementation);
         _delegateCall(newImplementation, data, abi.encodeWithSelector(InitializationFailed.selector));
         _checkImplementation(newImplementation, rollback);
-        _checkRollback(rollback);
+        _checkRollback(newImplementation, rollback);
     }
 }
