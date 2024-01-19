@@ -4,38 +4,43 @@ pragma solidity 0.8.21;
 import {AbstractOwnable} from "../deployer/TwoStepOwnable.sol";
 
 import {Revert} from "../utils/Revert.sol";
+import {ItoA} from "../utils/ItoA.sol";
 
 interface IERC1967Proxy {
     event Upgraded(address indexed implementation);
 
     function implementation() external view returns (address);
 
-    function upgrade(address newImplementation) external payable;
+    function version() external view returns (string memory);
 
-    function upgradeAndCall(address newImplementation, bytes calldata data) external payable;
+    function upgrade(address newImplementation) external payable returns (bool);
+
+    function upgradeAndCall(address newImplementation, bytes calldata data) external payable returns (bool);
 }
 
 abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     error OnlyProxy();
+    error AlreadyInitialized();
     error InterferedWithImplementation(address expected, address actual);
-    error InterferedWithRollback(bool expected, bool actual);
+    error InterferedWithVersion(uint256 expected, uint256 actual);
+    error DidNotIncrementVersion(uint256 current, uint256 next);
     error RollbackFailed();
     error InitializationFailed();
 
     using Revert for bytes;
 
     address internal immutable _implementation;
+    uint256 internal immutable _implVersion;
 
     uint256 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     uint256 private constant _ROLLBACK_SLOT = 0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143;
 
-    uint256 private constant _NO_ROLLBACK = 2;
-    uint256 private constant _ROLLBACK_IN_PROGRESS = 3;
-
-    constructor() {
-        _implementation = address(this);
+    constructor(uint256 newVersion) {
         assert(_IMPLEMENTATION_SLOT == uint256(keccak256("eip1967.proxy.implementation")) - 1);
         assert(_ROLLBACK_SLOT == uint256(keccak256("eip1967.proxy.rollback")) - 1);
+        _implementation = address(this);
+        require(newVersion != 0);
+        _implVersion = newVersion;
     }
 
     function implementation() public view virtual override returns (address result) {
@@ -44,29 +49,31 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         }
     }
 
+    function version() public view virtual override returns (string memory) {
+        return ItoA.itoa(_storageVersion());
+    }
+
     function _setImplementation(address newImplementation) private {
         assembly ("memory-safe") {
             sstore(_IMPLEMENTATION_SLOT, newImplementation)
         }
     }
 
-    function _isRollback() internal view returns (bool) {
-        uint256 slotValue;
+    function _storageVersion() private view returns (uint256 result) {
         assembly ("memory-safe") {
-            slotValue := sload(_ROLLBACK_SLOT)
-        }
-        return slotValue == _ROLLBACK_IN_PROGRESS;
-    }
-
-    function _setRollback(bool rollback) private {
-        uint256 slotValue = rollback ? _ROLLBACK_IN_PROGRESS : _NO_ROLLBACK;
-        assembly ("memory-safe") {
-            sstore(_ROLLBACK_SLOT, slotValue)
+            result := sload(_ROLLBACK_SLOT)
         }
     }
 
-    function _requireProxy() internal view {
-        if (implementation() != _implementation || address(this) == _implementation) {
+    function _setVersion(uint256 newVersion) private {
+        assembly ("memory-safe") {
+            sstore(_ROLLBACK_SLOT, newVersion)
+        }
+    }
+
+    function _requireProxy() private view returns (address impl) {
+        impl = _implementation;
+        if (implementation() != impl || address(this) == impl) {
             revert OnlyProxy();
         }
     }
@@ -85,8 +92,16 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         return super.owner();
     }
 
-    function _initialize() internal virtual onlyProxy {
-        _setRollback(false);
+    function _initialize() internal virtual {
+        address impl = _requireProxy();
+
+        assert(_implVersion == 1);
+
+        if (_storageVersion() >= 1) {
+            revert AlreadyInitialized();
+        }
+        _setVersion(1);
+        emit Upgraded(impl);
     }
 
     // This hook exists for schemes that append authenticated metadata to calldata
@@ -98,7 +113,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         return callData;
     }
 
-    function _delegateCall(address impl, bytes memory data, bytes memory err) internal returns (bytes memory) {
+    function _delegateCall(address impl, bytes memory data, bytes memory err) private returns (bytes memory) {
         (bool success, bytes memory returnData) = impl.delegatecall(_encodeDelegateCall(data));
         if (!success) {
             if (returnData.length > 0) {
@@ -110,43 +125,55 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         return returnData;
     }
 
-    function _checkImplementation(address newImplementation, bool rollback) internal virtual {
-        if (newImplementation != implementation()) {
-            revert InterferedWithImplementation(newImplementation, implementation());
-        }
-        if (rollback != _isRollback()) {
-            revert InterferedWithRollback(rollback, _isRollback());
-        }
-    }
-
-    function _checkRollback(address newImplementation, bool rollback) private {
-        if (!rollback) {
-            _setRollback(true);
+    function _checkRollback(address newImplementation) private {
+        if (_storageVersion() < _implVersion) {
+            _setVersion(_implVersion);
+        } else {
             _delegateCall(
                 newImplementation,
-                abi.encodeCall(this.upgrade, (_implementation)),
+                abi.encodeCall(IERC1967Proxy.upgrade, (_implementation)),
                 abi.encodeWithSelector(RollbackFailed.selector)
             );
-            _setRollback(false);
             if (implementation() != _implementation) {
                 revert RollbackFailed();
             }
-            emit Upgraded(newImplementation);
+            if (_storageVersion() <= _implVersion) {
+                revert DidNotIncrementVersion(_implVersion, _storageVersion());
+            }
             _setImplementation(newImplementation);
+            emit Upgraded(newImplementation);
         }
     }
 
-    function upgrade(address newImplementation) public payable virtual override onlyOwner {
-        bool rollback = _isRollback();
+    /// @notice attempting to upgrade to a new implementation with a version
+    ///         number that does not increase will result in infinite recursion
+    ///         and a revert
+    function upgrade(address newImplementation) public payable virtual override onlyOwner returns (bool) {
         _setImplementation(newImplementation);
-        _checkRollback(newImplementation, rollback);
+        _checkRollback(newImplementation);
+        return true;
     }
 
-    function upgradeAndCall(address newImplementation, bytes calldata data) public payable virtual override onlyOwner {
-        bool rollback = _isRollback();
+    /// @notice attempting to upgrade to a new implementation with a version
+    ///         number that does not increase will result in infinite recursion
+    ///         and a revert
+    function upgradeAndCall(address newImplementation, bytes calldata data)
+        public
+        payable
+        virtual
+        override
+        onlyOwner
+        returns (bool)
+    {
         _setImplementation(newImplementation);
         _delegateCall(newImplementation, data, abi.encodeWithSelector(InitializationFailed.selector));
-        _checkImplementation(newImplementation, rollback);
-        _checkRollback(newImplementation, rollback);
+        if (implementation() != newImplementation) {
+            revert InterferedWithImplementation(newImplementation, implementation());
+        }
+        if (_storageVersion() > _implVersion) {
+            revert InterferedWithVersion(_implVersion, _storageVersion());
+        }
+        _checkRollback(newImplementation);
+        return true;
     }
 }

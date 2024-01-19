@@ -20,14 +20,18 @@ contract DeployerTest is Test {
     Deployer public deployer;
     address public auth = address(0xc0de60d);
 
+    event Upgraded(address indexed);
+
     function setUp() public {
         address deployerImpl = address(new Deployer());
         vm.label(deployerImpl, "Deployer (implementation)");
+        vm.expectEmit(true, false, false, false, AddressDerivation.deriveContract(address(this), 2));
+        emit Upgraded(deployerImpl);
         deployer = Deployer(ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (address(this)))));
         vm.label(address(deployer), "Deployer (proxy)");
         deployer.acceptOwnership();
 
-        vm.expectRevert(new bytes(0));
+        vm.expectRevert(abi.encodeWithSignature("AlreadyInitialized()"));
         deployer.initialize(address(this));
 
         vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));

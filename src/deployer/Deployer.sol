@@ -62,7 +62,7 @@ interface IERC721ViewMetadata is IERC721View {
     function tokenURI(uint256) external view returns (string memory);
 }
 
-contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata {
+contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata {
     using UnsafeArray for bytes[];
 
     struct DoublyLinkedList {
@@ -92,8 +92,9 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
     mapping(uint128 => ExpiringAuthorization) public authorized;
     mapping(uint128 => bytes32) public descriptionHash;
 
+    constructor() ERC1967UUPSUpgradeable(1) {}
+
     function initialize(address initialOwner) external {
-        require(nextNonce == 0);
         nextNonce = 1;
         _setPendingOwner(initialOwner);
         super._initialize();

@@ -10,6 +10,8 @@ import {IERC165, AbstractOwnable, IOwnable, Ownable} from "src/deployer/TwoStepO
 interface IMock is IOwnable, IERC1967Proxy {}
 
 contract Mock is IMock, ERC1967UUPSUpgradeable, Ownable {
+    constructor(uint256 version) ERC1967UUPSUpgradeable(version) {}
+
     function initialize(address initialOwner) external {
         super._initialize();
         super._setOwner(initialOwner);
@@ -32,6 +34,8 @@ contract Mock is IMock, ERC1967UUPSUpgradeable, Ownable {
 }
 
 contract OtherMock is Mock {
+    constructor(uint256 version) Mock(version) {}
+
     event Initialized();
 
     function initialize() external {
@@ -40,18 +44,23 @@ contract OtherMock is Mock {
 }
 
 contract BrokenMock is Mock {
-    function upgrade(address) public payable override(IERC1967Proxy, ERC1967UUPSUpgradeable) onlyOwner {}
+    constructor(uint256 version) Mock(version) {}
+
+    function upgrade(address) public payable override(IERC1967Proxy, ERC1967UUPSUpgradeable) onlyOwner returns (bool) {
+        return true;
+    }
 }
 
 contract ERC1967UUPSTest is Test {
     IMock internal mock;
 
     function setUp() external virtual {
-        IMock impl = new Mock();
+        IMock impl = new Mock(1);
         vm.label(address(impl), "Implementation");
         address proxy = ERC1967UUPSProxy.create(address(impl), abi.encodeCall(Mock.initialize, (address(this))));
         vm.label(proxy, "Proxy");
         mock = IMock(proxy);
+        assertEq(mock.version(), "1");
     }
 
     function _predict(address deployer, uint8 nonce) internal pure returns (address) {
@@ -74,7 +83,7 @@ contract ERC1967UUPSTest is Test {
     event Upgraded(address indexed);
 
     function testUpgrade() external {
-        IMock newImpl = new Mock();
+        IMock newImpl = new Mock(2);
         assertEq(address(newImpl), _predict(address(this), 3));
 
         vm.prank(address(0xDEAD));
@@ -86,12 +95,13 @@ contract ERC1967UUPSTest is Test {
         mock.upgrade(address(newImpl));
 
         assertEq(mock.implementation(), address(newImpl));
+        assertEq(mock.version(), "2");
     }
 
     event Initialized();
 
     function testUpgradeAndCall() external {
-        IMock newImpl = new OtherMock();
+        IMock newImpl = new OtherMock(2);
         assertEq(address(newImpl), _predict(address(this), 3));
 
         bytes memory initializer = abi.encodeCall(OtherMock.initialize, ());
@@ -107,11 +117,31 @@ contract ERC1967UUPSTest is Test {
         mock.upgradeAndCall(address(newImpl), initializer);
 
         assertEq(mock.implementation(), address(newImpl));
+        assertEq(mock.version(), "2");
+    }
+
+    function testUpgradeSkipVersion() external {
+        IMock newImpl = new Mock(3);
+        assertEq(address(newImpl), _predict(address(this), 3));
+
+        vm.expectEmit(true, true, true, true, address(mock));
+        emit Upgraded(address(newImpl));
+        mock.upgrade(address(newImpl));
+
+        assertEq(mock.implementation(), address(newImpl));
+        assertEq(mock.version(), "3");
     }
 
     function testBrokenUpgrade() external {
-        IMock newImpl = new BrokenMock();
+        IMock newImpl = new BrokenMock(2);
         assertEq(address(newImpl), _predict(address(this), 3));
+
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed()"));
+        mock.upgrade(address(newImpl));
+    }
+
+    function testBrokenVersion() external {
+        IMock newImpl = new Mock(1);
 
         vm.expectRevert(abi.encodeWithSignature("RollbackFailed()"));
         mock.upgrade(address(newImpl));
