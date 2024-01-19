@@ -77,7 +77,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     struct ExpiringAuthorization {
         address who;
-        uint96 expiry;
+        uint96 deadline;
     }
 
     bytes32 private _pad; // ensure that `nextNonce` starts in its own slot
@@ -100,23 +100,23 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
 
     error FeatureNotInitialized(uint128);
 
-    function authorize(uint128 feature, address who, uint96 expiry) public onlyOwner returns (bool) {
-        require((who == address(0)) == (expiry <= block.timestamp));
+    function authorize(uint128 feature, address who, uint96 deadline) public onlyOwner returns (bool) {
+        require((who == address(0)) == (block.timestamp > deadline));
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         if (descriptionHash[feature] == 0) {
             revert FeatureNotInitialized(feature);
         }
-        emit Authorized(feature, who, expiry);
-        authorized[feature] = ExpiringAuthorization({who: who, expiry: expiry});
+        emit Authorized(feature, who, deadline);
+        authorized[feature] = ExpiringAuthorization({who: who, deadline: deadline});
         return true;
     }
 
     function _requireAuthorized(uint128 feature) private view {
         ExpiringAuthorization storage authorization = authorized[feature];
-        (address who, uint96 expiry) = (authorization.who, authorization.expiry);
-        if (msg.sender != who || (expiry != type(uint96).max && block.timestamp >= expiry)) {
+        (address who, uint96 deadline) = (authorization.who, authorization.deadline);
+        if (msg.sender != who || (deadline != type(uint96).max && block.timestamp > deadline)) {
             revert PermissionDenied();
         }
     }
