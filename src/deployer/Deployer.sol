@@ -71,15 +71,17 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
         uint128 feature;
     }
 
-    struct ExpiringAuthorization {
-        address who;
-        uint96 expiry;
-    }
-
     struct ListHead {
         uint64 head;
         uint64 highWater;
     }
+
+    struct ExpiringAuthorization {
+        address who;
+        uint96 deadline;
+    }
+
+    bytes32 private _pad; // ensure that `nextNonce` starts in its own slot
 
     uint64 public nextNonce;
     mapping(uint64 => DoublyLinkedList) private _deploymentLists;
@@ -101,23 +103,23 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
 
     error FeatureNotInitialized(uint128);
 
-    function authorize(uint128 feature, address who, uint96 expiry) public onlyOwner returns (bool) {
-        require((who == address(0)) == (expiry <= block.timestamp));
+    function authorize(uint128 feature, address who, uint96 deadline) public onlyOwner returns (bool) {
+        require((who == address(0)) == (block.timestamp > deadline));
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         if (descriptionHash[feature] == 0) {
             revert FeatureNotInitialized(feature);
         }
-        emit Authorized(feature, who, expiry);
-        authorized[feature] = ExpiringAuthorization({who: who, expiry: expiry});
+        emit Authorized(feature, who, deadline);
+        authorized[feature] = ExpiringAuthorization({who: who, deadline: deadline});
         return true;
     }
 
     function _requireAuthorized(uint128 feature) private view {
         ExpiringAuthorization storage authorization = authorized[feature];
-        (address who, uint96 expiry) = (authorization.who, authorization.expiry);
-        if (msg.sender != who || (expiry != type(uint96).max && block.timestamp >= expiry)) {
+        (address who, uint96 deadline) = (authorization.who, authorization.deadline);
+        if (msg.sender != who || (deadline != type(uint96).max && block.timestamp > deadline)) {
             revert PermissionDenied();
         }
     }
@@ -197,7 +199,7 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
                     and(
                         // call `feeCollector()` on the predicted address and check for success (succeeds with empty
                         // returnData if deployment failed, deployed to the wrong address, or produced empty bytecode)
-                        staticcall(gas(), and(_ADDRESS_MASK, predicted), 0x1c, 0x04, 0x00, 0x20),
+                        staticcall(gas(), predicted, 0x1c, 0x04, 0x00, 0x20),
                         // CREATE the new instance and check that it returns the predicted address
                         eq(and(_ADDRESS_MASK, predicted), create(callvalue(), ptr, add(initCode.length, 0x20)))
                     )
@@ -288,7 +290,9 @@ contract Deployer is TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata
     }
 
     function balanceOf(address instance) external view override returns (uint256) {
-        require(instance != address(0));
+        if (instance == address(0)) {
+            revert ZeroAddress();
+        }
         DoublyLinkedList storage entry = _deploymentLists[_deploymentNonce[instance]];
         (uint64 next, uint128 feature) = (entry.next, entry.feature);
         if (feature != 0 && next == 0) {
