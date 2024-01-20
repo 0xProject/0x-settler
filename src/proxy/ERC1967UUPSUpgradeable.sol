@@ -24,7 +24,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     error InterferedWithImplementation(address expected, address actual);
     error InterferedWithVersion(uint256 expected, uint256 actual);
     error DidNotIncrementVersion(uint256 current, uint256 next);
-    error RollbackFailed();
+    error RollbackFailed(address expected, address actual);
     error InitializationFailed();
 
     using Revert for bytes;
@@ -97,7 +97,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
 
         assert(_implVersion == 1);
 
-        if (_storageVersion() >= 1) {
+        if (_storageVersion() != 0) {
             revert AlreadyInitialized();
         }
         _setVersion(1);
@@ -132,10 +132,10 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
             _delegateCall(
                 newImplementation,
                 abi.encodeCall(IERC1967Proxy.upgrade, (_implementation)),
-                abi.encodeWithSelector(RollbackFailed.selector)
+                abi.encodeWithSelector(RollbackFailed.selector, _implementation, newImplementation)
             );
             if (implementation() != _implementation) {
-                revert RollbackFailed();
+                revert RollbackFailed(_implementation, implementation());
             }
             if (_storageVersion() <= _implVersion) {
                 revert DidNotIncrementVersion(_implVersion, _storageVersion());

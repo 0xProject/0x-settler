@@ -136,14 +136,14 @@ contract ERC1967UUPSTest is Test {
         IMock newImpl = new BrokenMock(2);
         assertEq(address(newImpl), _predict(address(this), 3));
 
-        vm.expectRevert(abi.encodeWithSignature("RollbackFailed()"));
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
         mock.upgrade(address(newImpl));
     }
 
     function testBrokenVersion() external {
         IMock newImpl = new Mock(1);
 
-        vm.expectRevert(abi.encodeWithSignature("RollbackFailed()"));
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
         mock.upgrade(address(newImpl));
     }
 
