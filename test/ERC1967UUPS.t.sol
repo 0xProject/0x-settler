@@ -146,4 +146,15 @@ contract ERC1967UUPSTest is Test {
         vm.expectRevert(abi.encodeWithSignature("RollbackFailed()"));
         mock.upgrade(address(newImpl));
     }
+
+    function testCode() external {
+        bytes32 expected = keccak256(
+            bytes.concat(
+                hex"365f5f375f5f365f7f",
+                bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1),
+                hex"545af43d5f5f3e6036573d5ffd5b3d5ff3"
+            )
+        );
+        assertEq(keccak256(address(mock).code), expected);
+    }
 }
