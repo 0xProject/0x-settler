@@ -74,7 +74,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
 
     function _setImplementation(address newImplementation) private {
         assembly ("memory-safe") {
-            sstore(_IMPLEMENTATION_SLOT, newImplementation)
+            sstore(_IMPLEMENTATION_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, newImplementation))
         }
     }
 
