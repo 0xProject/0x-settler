@@ -18,6 +18,25 @@ interface IERC1967Proxy {
     function upgradeAndCall(address newImplementation, bytes calldata data) external payable returns (bool);
 }
 
+/// The upgrade mechanism for this proxy is slightly more convoluted than the
+/// previously-standard rollback-checking ERC1967 UUPS proxy. The standard
+/// rollback check uses the value of the ERC1967 rollback slot to avoid infinite
+/// recursion. The old implementation's `upgrade` or `upgradeAndCall` sets the
+/// ERC1967 implementation slot to the new implementation, then calls `upgrade`
+/// on the new implementation to attempt to set the value of the implementation
+/// slot *back to the old implementation*. This is checked, and the value of the
+/// implementation slot is re-set to the new implementation.
+///
+/// This proxy abuses the ERC1967 rollback slot to store a version number which
+/// must be incremented on each upgrade. This mechanism follows the same general
+/// outline as the previously-standard version. The old implementation's
+/// `upgrade` or `upgradeAndCall` sets the ERC1967 implementation slot to the
+/// new implementation, then calls `upgrade` on the new implementation. The new
+/// implementation's `upgrade` sets the implementation slot back to the old
+/// implementation *and* advances the rollback slot to the new version
+/// number. The old implementation then checks the value of both the
+/// implementation and rollback slots before re-setting the implementation slot
+/// to the new implementation.
 abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     error OnlyProxy();
     error AlreadyInitialized();
