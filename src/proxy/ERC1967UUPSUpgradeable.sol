@@ -39,7 +39,7 @@ interface IERC1967Proxy {
 /// to the new implementation.
 abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     error OnlyProxy();
-    error AlreadyInitialized();
+    error VersionMismatch(uint256 oldVersion, uint256 newVersion);
     error InterferedWithImplementation(address expected, address actual);
     error InterferedWithVersion(uint256 expected, uint256 actual);
     error DidNotIncrementVersion(uint256 current, uint256 next);
@@ -58,7 +58,6 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         assert(_IMPLEMENTATION_SLOT == uint256(keccak256("eip1967.proxy.implementation")) - 1);
         assert(_ROLLBACK_SLOT == uint256(keccak256("eip1967.proxy.rollback")) - 1);
         _implementation = address(this);
-        require(newVersion != 0);
         _implVersion = newVersion;
     }
 
@@ -112,8 +111,8 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     }
 
     function _initialize() internal virtual onlyProxy {
-        if (_storageVersion() >= _implVersion) {
-            revert AlreadyInitialized();
+        if (_storageVersion() + 1 != _implVersion) {
+            revert VersionMismatch(_storageVersion(), _implVersion);
         }
     }
 

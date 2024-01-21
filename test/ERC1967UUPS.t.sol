@@ -40,6 +40,7 @@ contract OtherMock is Mock {
 
     function initialize() external {
         emit Initialized();
+        super._initialize();
     }
 }
 
@@ -141,6 +142,16 @@ contract ERC1967UUPSTest is Test {
 
         vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
         mock.upgrade(address(newImpl));
+    }
+
+    function testBrokenUpgradeSkipVersion() external {
+        IMock newImpl = new OtherMock(3);
+        assertEq(address(newImpl), _predict(address(this), 3));
+
+        bytes memory initializer = abi.encodeCall(OtherMock.initialize, ());
+
+        vm.expectRevert(abi.encodeWithSignature("VersionMismatch(uint256,uint256)", 1, 3));
+        mock.upgradeAndCall(address(newImpl), initializer);
     }
 
     function testBrokenVersion() external {
