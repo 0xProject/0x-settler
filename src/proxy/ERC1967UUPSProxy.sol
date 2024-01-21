@@ -12,77 +12,77 @@ pragma solidity ^0.8.21;
         /// bytes17 runtime1 = 0x545af43d5f5f3e6036573d5ffd5b3d5ff3;
 
         /// initcode
-        PC | OP | Arg | Mnemonic    | [Stack]                                           | {Memory}
-        ------------------------------------------------------------------------------------------
+        PC | OP | Arg | Mnemonic    | [Stack]                                                | {Memory}
+        -----------------------------------------------------------------------------------------------
         // put ERC1967 slot on the bottom of the stack because it's needed 2 places
-        00 | 7f | implSlot | PUSH32 | [implSlot]                                        | {}
+        00 | 7f | implSlot | PUSH32 | [implSlot]                                             | {}
 
         // load the implementation address next because it's needed 3 places
-        21 | 60 | 14 | PUSH1        | [14 implSlot]                                     | {}
-  /---< 23 | 60 | 95 | PUSH1        | [implPtr 14 implSlot]                             | {}
-  |     25 | 60 | 0c | PUSH1        | [0c implPtr 14 implSlot]                          | {}
-  |     27 | 39 |    | CODECOPY     | [implSlot]                                        | {impl}
-  |     28 | 5f |    | PUSH0        | [0 implSlot]                                      | {impl}
-  |     29 | 51 |    | MLOAD        | [impl implSlot]                                   | {impl}
+        21 | 60 | 14 | PUSH1        | [14 implSlot]                                          | {}
+  /---< 23 | 60 | 95 | PUSH1        | [implPtr 14 implSlot]                                  | {}
+  |     25 | 60 | 0c | PUSH1        | [0c implPtr 14 implSlot]                               | {}
+  |     27 | 39 |    | CODECOPY     | [implSlot]                                             | {impl}
+  |     28 | 5f |    | PUSH0        | [0 implSlot]                                           | {impl}
+  |     29 | 51 |    | MLOAD        | [impl implSlot]                                        | {impl}
   |
   |     // store impl to the ERC1967 slot
-  |     2a | 80 |    | DUP1         | [impl impl implSlot]                              | {impl}
-  |     2b | 82 |    | DUP3         | [implSlot impl impl implSlot]                     | {impl}
-  |     2c | 55 |    | SSTORE       | [impl implSlot]                                   | {impl}
-  |     2d | 80 |    | DUP1         | [impl impl implSlot]                              | {impl}
+  |     2a | 80 |    | DUP1         | [impl impl implSlot]                                   | {impl}
+  |     2b | 82 |    | DUP3         | [implSlot impl impl implSlot]                          | {impl}
+  |     2c | 55 |    | SSTORE       | [impl implSlot]                                        | {impl}
+  |     2d | 80 |    | DUP1         | [impl impl implSlot]                                   | {impl}
   |
   |     // prepare empty returndata area for initializer DELEGATECALL
-  |     2e | 5f |    | PUSH0        | [0 impl impl implSlot]                            | {impl}
-  |     2f | 5f |    | PUSH0        | [0 0 impl impl implSlot]                          | {impl}
+  |     2e | 5f |    | PUSH0        | [0 impl impl implSlot]                                 | {impl}
+  |     2f | 5f |    | PUSH0        | [0 0 impl impl implSlot]                               | {impl}
   |
   |     // copy initializer into memory; prepare calldata area for DELEGATECALL
-/-+---< 30 | 60 | a9 | PUSH1        | [initStart 0 0 impl impl implSlot]                | {impl}
-| |     32 | 80 |    | DUP1         | [initStart initStart 0 0 impl impl implSlot]      | {impl}
-| |     33 | 38 |    | CODESIZE     | [codeSize initStart initStart 0 0 impl impl implSlot] | {impl}
-| |     34 | 03 |    | SUB          | [initSize initStart 0 0 impl impl implSlot]       | {impl}
-| |     35 | 80 |    | DUP1         | [initSize initSize initStart 0 0 impl impl implSlot] | {impl}
-| |     36 | 91 |    | SWAP2        | [initStart initSize initSize 0 0 impl impl implSlot] | {impl}
+/-+---< 30 | 60 | a9 | PUSH1        | [initStart 0 0 impl impl implSlot]                     | {impl}
+| |     32 | 80 |    | DUP1         | [initStart initStart 0 0 impl impl implSlot]           | {impl}
+| |     33 | 38 |    | CODESIZE     | [codeSize initStart initStart 0 0 impl impl implSlot]  | {impl}
+| |     34 | 03 |    | SUB          | [initSize initStart 0 0 impl impl implSlot]            | {impl}
+| |     35 | 80 |    | DUP1         | [initSize initSize initStart 0 0 impl impl implSlot]   | {impl}
+| |     36 | 91 |    | SWAP2        | [initStart initSize initSize 0 0 impl impl implSlot]   | {impl}
 | |     37 | 5f |    | PUSH0        | [0 initStart initSize initSize 0 0 impl impl implSlot] | {impl}
-| |     38 | 39 |    | CODECOPY     | [initSize 0 0 impl impl implSlot]                 | {init}
-| |     39 | 5f |    | PUSH0        | [0 initSize 0 0 impl impl implSlot]               | {init}
+| |     38 | 39 |    | CODECOPY     | [initSize 0 0 impl impl implSlot]                      | {init}
+| |     39 | 5f |    | PUSH0        | [0 initSize 0 0 impl impl implSlot]                    | {init}
 | |
 | |     // do the initializer DELEGATECALL
-| |     3a | 84 |    | DUP5         | [impl 0 initSize 0 0 impl impl implSlot]          | {init}
-| |     3b | 5a |    | GAS          | [gas impl 0 initSize 0 0 impl impl implSlot]      | {init}
-| |     3c | f4 |    | DELEGATECALL | [noRevert impl impl implSlot]                     | {init}
+| |     3a | 84 |    | DUP5         | [impl 0 initSize 0 0 impl impl implSlot]               | {init}
+| |     3b | 5a |    | GAS          | [gas impl 0 initSize 0 0 impl impl implSlot]           | {init}
+| |     3c | f4 |    | DELEGATECALL | [noRevert impl impl implSlot]                          | {init}
 | |
 | |     // check for initializer revert and nonexistent implementation
-| |     3d | 90 |    | SWAP1        | [impl noRevert impl implSlot]                     | {init}
-| |     3e | 3b |    | EXTCODESIZE  | [implSize noRevert impl implSlot]                 | {init}
-| |     3f | 15 |    | ISZERO       | [emptyImpl noRevert impl implSlot]                | {init}
-| |     40 | 18 |    | XOR          | [success impl implSlot]                           | {init}
-| | /-< 41 | 60 | 47 | PUSH1        | [target success impl implSlot]                    | {init}
-| | |   43 | 57 |    | JUMPI        | [impl implSlot]                                   | {init}
+| |     3d | 90 |    | SWAP1        | [impl noRevert impl implSlot]                          | {init}
+| |     3e | 3b |    | EXTCODESIZE  | [implSize noRevert impl implSlot]                      | {init}
+| |     3f | 15 |    | ISZERO       | [emptyImpl noRevert impl implSlot]                     | {init}
+| |     40 | 18 |    | XOR          | [success impl implSlot]                                | {init}
+| | /-< 41 | 60 | 47 | PUSH1        | [target success impl implSlot]                         | {init}
+| | |   43 | 57 |    | JUMPI        | [impl implSlot]                                        | {init}
 | | |
 | | |   // initializer reverted or implementation doesn't exist; bubble up revert
-| | |   44 | 5f |    | PUSH0        | [0 impl implSlot]                                 | {init}
-| | |   45 | 5f |    | PUSH0        | [0 0 impl implSlot]                               | {init}
-| | |   46 | fd |    | REVERT       | X                                                 | X
+| | |   44 | 5f |    | PUSH0        | [0 impl implSlot]                                      | {init}
+| | |   45 | 5f |    | PUSH0        | [0 0 impl implSlot]                                    | {init}
+| | |   46 | fd |    | REVERT       | X                                                      | X
 | | |
 | | |   // `emit Upgraded(impl);`
-| | \-> 47 | 5b |    | JUMPDEST     | [implSlot]                                        | {init}
-| |     48 | 7f | event | PUSH32    | [upgradeTopic impl implSlot]                      | {init}
-| |     69 | 5f |    | PUSH0        | [0 upgradeTopic impl implSlot]                    | {init}
-| |     6a | 5f |    | PUSH0        | [0 0 upgradeTopic impl implSlot]                  | {init}
-| |     6b | a2 |    | LOG2         | [implSlot]                                        | {init}
+| | \-> 47 | 5b |    | JUMPDEST     | [implSlot]                                             | {init}
+| |     48 | 7f | event | PUSH32    | [upgradeTopic impl implSlot]                           | {init}
+| |     69 | 5f |    | PUSH0        | [0 upgradeTopic impl implSlot]                         | {init}
+| |     6a | 5f |    | PUSH0        | [0 0 upgradeTopic impl implSlot]                       | {init}
+| |     6b | a2 |    | LOG2         | [implSlot]                                             | {init}
 | |
 | |     // return the runtime
-| |     6c | 70 | runtime1 | PUSH17 | [runtime1 implSlot]                               | {init}
-| |     7e | 60 | 31 | PUSH1        | [31 runtime1 implSlot]                            | {init}
-| |     80 | 52 |    | MSTORE       | [implSlot]                                        | {.. runtime1}
-| |     81 | 68 | runtime0 | PUSH9  | [runtime0 implSlot]                               | {.. runtime1}
-| |     8b | 5f |    | PUSH0        | [0 runtime0 implSlot]                             | {.. runtime1}
-| |     8c | 52 |    | MSTORE       | [implSlot]                                        | {.. runtime0 .. runtime1}
-| |     8d | 60 | 20 | PUSH1        | [20 implSlot]                                     | {.. runtime0 .. runtime1}
-| |     8f | 52 |    | MSTORE       | []                                                | {.. runtime0 implSlot runtime1}
-| | /-< 90 | 60 | 3a | PUSH1        | [runtimeSize]                                     | {.. runtime0 implSlot runtime1}
-| | |   92 | 60 | 17 | PUSH1        | [17 runtimeSize]                                  | {.. runtime0 implSlot runtime1}
-| | |   94 | f3 |    | RETURN       | X                                                 | X
+| |     6c | 70 | runtime1 | PUSH17 | [runtime1 implSlot]                                    | {init}
+| |     7e | 60 | 31 | PUSH1        | [31 runtime1 implSlot]                                 | {init}
+| |     80 | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime1}
+| |     81 | 68 | runtime0 | PUSH9  | [runtime0 implSlot]                                    | {.. runtime1}
+| |     8b | 5f |    | PUSH0        | [0 runtime0 implSlot]                                  | {.. runtime1}
+| |     8c | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime0 .. runtime1}
+| |     8d | 60 | 20 | PUSH1        | [20 implSlot]                                          | {.. runtime0 .. runtime1}
+| |     8f | 52 |    | MSTORE       | []                                                     | {.. runtime0 implSlot runtime1}
+| | /-< 90 | 60 | 3a | PUSH1        | [runtimeSize]                                          | {.. runtime0 implSlot runtime1}
+| | |   92 | 60 | 17 | PUSH1        | [17 runtimeSize]                                       | {.. runtime0 implSlot runtime1}
+| | |   94 | f3 |    | RETURN       | X                                                      | X
 | | |
 | | |   // proxy constructor arguments; packed not abiencoded
 | \-+-> 95 | <20 bytes of implementation address>
