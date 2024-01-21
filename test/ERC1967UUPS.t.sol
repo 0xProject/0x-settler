@@ -54,9 +54,14 @@ contract BrokenMock is Mock {
 contract ERC1967UUPSTest is Test {
     IMock internal mock;
 
+    event Upgraded(address indexed);
+
     function setUp() external virtual {
         IMock impl = new Mock(1);
         vm.label(address(impl), "Implementation");
+        vm.breakpoint("a");
+        vm.expectEmit(true, true, true, true, _predict(address(this), 2));
+        emit Upgraded(address(impl));
         address proxy = ERC1967UUPSProxy.create(address(impl), abi.encodeCall(Mock.initialize, (address(this))));
         vm.label(proxy, "Proxy");
         mock = IMock(proxy);
@@ -79,8 +84,6 @@ contract ERC1967UUPSTest is Test {
     function testOwner() external {
         assertEq(mock.owner(), address(this));
     }
-
-    event Upgraded(address indexed);
 
     function testUpgrade() external {
         IMock newImpl = new Mock(2);

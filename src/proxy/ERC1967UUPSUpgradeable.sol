@@ -90,8 +90,8 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         }
     }
 
-    function _requireProxy() private view returns (address impl) {
-        impl = _implementation;
+    function _requireProxy() private view {
+        address impl = _implementation;
         if (implementation() != impl || address(this) == impl) {
             revert OnlyProxy();
         }
@@ -111,15 +111,13 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         return super.owner();
     }
 
-    function _initialize() internal virtual {
-        address impl = _requireProxy();
+    function _initialize() internal virtual onlyProxy {
         uint256 implVersion = _implVersion;
         if (_storageVersion() >= implVersion) {
             revert AlreadyInitialized();
         }
         if (implVersion == 1) {
-            _setVersion(implVersion);
-            emit Upgraded(impl);
+            _setVersion(1);
         }
     }
 
