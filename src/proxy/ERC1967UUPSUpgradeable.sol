@@ -112,12 +112,8 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     }
 
     function _initialize() internal virtual onlyProxy {
-        uint256 implVersion = _implVersion;
-        if (_storageVersion() >= implVersion) {
+        if (_storageVersion() >= _implVersion) {
             revert AlreadyInitialized();
-        }
-        if (implVersion == 1) {
-            _setVersion(1);
         }
     }
 

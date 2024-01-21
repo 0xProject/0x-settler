@@ -6,6 +6,8 @@ pragma solidity ^0.8.21;
         /// from https://eips.ethereum.org/EIPS/eip-1967
         /// bytes32 implSlot = bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1);
         /// implSlot == 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+        /// bytes32 rollSlot = bytes32(uint256(keccak256('eip1967.proxy.rollback')) - 1);
+        /// rollSlot == 0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143;
 
         /// from runtime code below
         /// bytes9 runtime0 = 0x365f5f375f5f365f7f;
@@ -19,7 +21,7 @@ pragma solidity ^0.8.21;
 
         // load the implementation address next because it's needed 3 places
         21 | 60 | 14 | PUSH1        | [14 implSlot]                                          | {}
-  /---< 23 | 60 | 95 | PUSH1        | [implPtr 14 implSlot]                                  | {}
+  /---< 23 | 60 | b9 | PUSH1        | [implPtr 14 implSlot]                                  | {}
   |     25 | 60 | 0c | PUSH1        | [0c implPtr 14 implSlot]                               | {}
   |     27 | 39 |    | CODECOPY     | [implSlot]                                             | {impl}
   |     28 | 5f |    | PUSH0        | [0 implSlot]                                           | {impl}
@@ -36,7 +38,7 @@ pragma solidity ^0.8.21;
   |     2f | 5f |    | PUSH0        | [0 0 impl impl implSlot]                               | {impl}
   |
   |     // copy initializer into memory; prepare calldata area for DELEGATECALL
-/-+---< 30 | 60 | a9 | PUSH1        | [initStart 0 0 impl impl implSlot]                     | {impl}
+/-+---< 30 | 60 | cd | PUSH1        | [initStart 0 0 impl impl implSlot]                     | {impl}
 | |     32 | 80 |    | DUP1         | [initStart initStart 0 0 impl impl implSlot]           | {impl}
 | |     33 | 38 |    | CODESIZE     | [codeSize initStart initStart 0 0 impl impl implSlot]  | {impl}
 | |     34 | 03 |    | SUB          | [initSize initStart 0 0 impl impl implSlot]            | {impl}
@@ -64,29 +66,34 @@ pragma solidity ^0.8.21;
 | | |   45 | 5f |    | PUSH0        | [0 0 impl implSlot]                                    | {init}
 | | |   46 | fd |    | REVERT       | X                                                      | X
 | | |
-| | |   // `emit Upgraded(impl);`
+| | |   // set rollback slot (version) to 1
 | | \-> 47 | 5b |    | JUMPDEST     | [implSlot]                                             | {init}
-| |     48 | 7f | event | PUSH32    | [upgradeTopic impl implSlot]                           | {init}
-| |     69 | 5f |    | PUSH0        | [0 upgradeTopic impl implSlot]                         | {init}
-| |     6a | 5f |    | PUSH0        | [0 0 upgradeTopic impl implSlot]                       | {init}
-| |     6b | a2 |    | LOG2         | [implSlot]                                             | {init}
+| |     48 | 60 | 01 | PUSH1        | [1 impl impl implSlot]                                 | {impl}
+| |     4a | 7f | rollSlot | PUSH32 | [rollSlot 1 impl impl implSlot]                        | {impl}
+| |     6b | 55 |    | SSTORE       | [impl impl implSlot]                                   | {impl}
+| |
+| |     // `emit Upgraded(impl);`
+| |     6c | 7f | event | PUSH32    | [upgradeTopic impl implSlot]                           | {init}
+| |     8d | 5f |    | PUSH0        | [0 upgradeTopic impl implSlot]                         | {init}
+| |     8e | 5f |    | PUSH0        | [0 0 upgradeTopic impl implSlot]                       | {init}
+| |     8f | a2 |    | LOG2         | [implSlot]                                             | {init}
 | |
 | |     // return the runtime
-| |     6c | 70 | runtime1 | PUSH17 | [runtime1 implSlot]                                    | {init}
-| |     7e | 60 | 31 | PUSH1        | [31 runtime1 implSlot]                                 | {init}
-| |     80 | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime1}
-| |     81 | 68 | runtime0 | PUSH9  | [runtime0 implSlot]                                    | {.. runtime1}
-| |     8b | 5f |    | PUSH0        | [0 runtime0 implSlot]                                  | {.. runtime1}
-| |     8c | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime0 .. runtime1}
-| |     8d | 60 | 20 | PUSH1        | [20 implSlot]                                          | {.. runtime0 .. runtime1}
-| |     8f | 52 |    | MSTORE       | []                                                     | {.. runtime0 implSlot runtime1}
-| | /-< 90 | 60 | 3a | PUSH1        | [runtimeSize]                                          | {.. runtime0 implSlot runtime1}
-| | |   92 | 60 | 17 | PUSH1        | [17 runtimeSize]                                       | {.. runtime0 implSlot runtime1}
-| | |   94 | f3 |    | RETURN       | X                                                      | X
+| |     90 | 70 | runtime1 | PUSH17 | [runtime1 implSlot]                                    | {init}
+| |     a2 | 60 | 31 | PUSH1        | [31 runtime1 implSlot]                                 | {init}
+| |     a4 | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime1}
+| |     a5 | 68 | runtime0 | PUSH9  | [runtime0 implSlot]                                    | {.. runtime1}
+| |     af | 5f |    | PUSH0        | [0 runtime0 implSlot]                                  | {.. runtime1}
+| |     b0 | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime0 .. runtime1}
+| |     b1 | 60 | 20 | PUSH1        | [20 implSlot]                                          | {.. runtime0 .. runtime1}
+| |     b3 | 52 |    | MSTORE       | []                                                     | {.. runtime0 implSlot runtime1}
+| | /-< b4 | 60 | 3a | PUSH1        | [runtimeSize]                                          | {.. runtime0 implSlot runtime1}
+| | |   b6 | 60 | 17 | PUSH1        | [17 runtimeSize]                                       | {.. runtime0 implSlot runtime1}
+| | |   b8 | f3 |    | RETURN       | X                                                      | X
 | | |
 | | |   // proxy constructor arguments; packed not abiencoded
-| \-+-> 95 | <20 bytes of implementation address>
-\---+-> a9 | <unlimited bytes of initializer calldata...>
+| \-+-> b9 | <20 bytes of implementation address>
+\---+-> cd | <unlimited bytes of initializer calldata...>
     |
 === | ===
     |
@@ -141,7 +148,7 @@ library ERC1967UUPSProxy {
     error BalanceTooLow(uint256 needed, uint256 possessed);
 
     bytes private constant _INITCODE =
-        hex"7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc_6014_6095_600c_39_5f_51_80_82_55_80_5f_5f_60a9_80_38_03_80_91_5f_39_5f_84_5a_f4_90_3b_15_18_6047_57_5f_5f_fd_5b_7fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b_5f_5f_a2_70545af43d5f5f3e6036573d5ffd5b3d5ff3_6031_52_68365f5f375f5f365f7f_5f_52_6020_52_603a_6017_f3"; // forgefmt: disable-line
+        hex"7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc_6014_60b9_600c_39_5f_51_80_82_55_80_5f_5f_60cd_80_38_03_80_91_5f_39_5f_84_5a_f4_90_3b_15_18_6047_57_5f_5f_fd_5b_6001_7f4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143_55_7fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b_5f_5f_a2_70545af43d5f5f3e6036573d5ffd5b3d5ff3_6031_52_68365f5f375f5f365f7f_5f_52_6020_52_603a_6017_f3"; // forgefmt: disable-line
 
     function _packArgs(address payable implementation, bytes memory initializer) private pure returns (bytes memory) {
         return abi.encodePacked(_INITCODE, implementation, initializer);
