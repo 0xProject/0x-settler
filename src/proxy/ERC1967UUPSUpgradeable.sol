@@ -113,14 +113,14 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
 
     function _initialize() internal virtual {
         address impl = _requireProxy();
-
-        assert(_implVersion == 1);
-
-        if (_storageVersion() != 0) {
+        uint256 implVersion = _implVersion;
+        if (_storageVersion() >= implVersion) {
             revert AlreadyInitialized();
         }
-        _setVersion(1);
-        emit Upgraded(impl);
+        if (implVersion == 1) {
+            _setVersion(implVersion);
+            emit Upgraded(impl);
+        }
     }
 
     // This hook exists for schemes that append authenticated metadata to calldata
@@ -144,10 +144,8 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         return returnData;
     }
 
-    function _checkRollback(address newImplementation) private {
-        if (_storageVersion() < _implVersion) {
-            _setVersion(_implVersion);
-        } else {
+    function _checkRollback(address newImplementation, uint256 oldVersion, uint256 implVersion) private {
+        if (oldVersion == implVersion) {
             _delegateCall(
                 newImplementation,
                 abi.encodeCall(IERC1967Proxy.upgrade, (_implementation)),
@@ -156,8 +154,8 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
             if (implementation() != _implementation) {
                 revert RollbackFailed(_implementation, implementation());
             }
-            if (_storageVersion() <= _implVersion) {
-                revert DidNotIncrementVersion(_implVersion, _storageVersion());
+            if (_storageVersion() <= implVersion) {
+                revert DidNotIncrementVersion(implVersion, _storageVersion());
             }
             _setImplementation(newImplementation);
             emit Upgraded(newImplementation);
@@ -168,8 +166,11 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     ///         number that does not increase will result in infinite recursion
     ///         and a revert
     function upgrade(address newImplementation) public payable virtual override onlyOwner returns (bool) {
+        uint256 oldVersion = _storageVersion();
+        uint256 implVersion = _implVersion;
         _setImplementation(newImplementation);
-        _checkRollback(newImplementation);
+        _setVersion(implVersion);
+        _checkRollback(newImplementation, oldVersion, implVersion);
         return true;
     }
 
@@ -184,15 +185,18 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         onlyOwner
         returns (bool)
     {
+        uint256 oldVersion = _storageVersion();
+        uint256 implVersion = _implVersion;
         _setImplementation(newImplementation);
         _delegateCall(newImplementation, data, abi.encodeWithSelector(InitializationFailed.selector));
         if (implementation() != newImplementation) {
             revert InterferedWithImplementation(newImplementation, implementation());
         }
-        if (_storageVersion() > _implVersion) {
-            revert InterferedWithVersion(_implVersion, _storageVersion());
+        if (_storageVersion() != oldVersion) {
+            revert InterferedWithVersion(oldVersion, _storageVersion());
         }
-        _checkRollback(newImplementation);
+        _setVersion(implVersion);
+        _checkRollback(newImplementation, oldVersion, implVersion);
         return true;
     }
 }
