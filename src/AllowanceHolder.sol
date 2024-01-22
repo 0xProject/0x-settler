@@ -174,6 +174,15 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         return true;
     }
 
+    function ephemeralAllowance(address operator, address owner, address token)
+        external
+        view
+        override
+        returns (uint256)
+    {
+        return _getAllowed(operator, owner, token);
+    }
+
     // This is here as a deploy-time check that AllowanceHolder doesn't have any
     // state. If it did, it would interfere with TransientStorageMock. This can
     // be removed once *actual* EIP-1153 is adopted.

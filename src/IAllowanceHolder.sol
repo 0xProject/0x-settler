@@ -26,4 +26,6 @@ interface IAllowanceHolder {
     function holderTransferFrom(address token, address owner, address recipient, uint256 amount)
         external
         returns (bool);
+
+    function ephemeralAllowance(address operator, address owner, address token) external view returns (uint256);
 }
