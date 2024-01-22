@@ -49,16 +49,14 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         _warm_allowanceHolder_slots(address(fromToken()), amount());
 
-        ISignatureTransfer.TokenPermissions memory permit =
-            ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
-
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3");
         _cold_account_access();
 
         _allowanceHolder.execute(
             address(_settler),
-            permit,
+            address(fromToken()),
+            amount(),
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -88,16 +86,14 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         _warm_allowanceHolder_slots(address(fromToken()), amount());
 
-        ISignatureTransfer.TokenPermissions memory permit =
-            ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
-
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP");
         _cold_account_access();
 
         _allowanceHolder.execute(
             address(_settler),
-            permit,
+            address(fromToken()),
+            amount(),
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -127,16 +123,14 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         _warm_allowanceHolder_slots(address(fromToken()), amount());
 
-        ISignatureTransfer.TokenPermissions memory permit =
-            ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
-
         vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
         _cold_account_access();
 
         _allowanceHolder.execute(
             address(_settler),
-            permit,
+            address(fromToken()),
+            amount(),
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,

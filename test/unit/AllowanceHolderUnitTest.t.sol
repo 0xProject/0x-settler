@@ -45,11 +45,9 @@ contract AllowanceHolderUnitTest is Test {
         address operator = address(this);
 
         ah.setAllowed(operator, OWNER, token, AMOUNT);
-        IAllowanceHolder.TransferDetails memory transferDetail =
-            IAllowanceHolder.TransferDetails(token, RECIPIENT, AMOUNT);
 
         assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetail));
+        assertTrue(ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT));
         assertEq(ah.getAllowed(operator, OWNER, token), 0);
     }
 
@@ -58,23 +56,19 @@ contract AllowanceHolderUnitTest is Test {
         address operator = address(this);
 
         ah.setAllowed(operator, OWNER, token, AMOUNT);
-        IAllowanceHolder.TransferDetails memory transferDetail =
-            IAllowanceHolder.TransferDetails(token, RECIPIENT, AMOUNT / 2);
 
         assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetail));
+        assertTrue(ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
         assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT / 2);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetail));
+        assertTrue(ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
         assertEq(ah.getAllowed(operator, OWNER, token), 0);
     }
 
     function testPermitUnauthorisedOperator() public {
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
-        IAllowanceHolder.TransferDetails memory transferDetail =
-            IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
 
         vm.expectRevert();
-        ah.holderTransferFrom(OWNER, transferDetail);
+        ah.holderTransferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
     function testPermitUnauthorisedAmount() public {
@@ -82,11 +76,9 @@ contract AllowanceHolderUnitTest is Test {
         address operator = address(this);
 
         ah.setAllowed(operator, OWNER, token, AMOUNT);
-        IAllowanceHolder.TransferDetails memory transferDetail =
-            IAllowanceHolder.TransferDetails({token: token, recipient: RECIPIENT, amount: AMOUNT + 1});
 
         vm.expectRevert();
-        ah.holderTransferFrom(OWNER, transferDetail);
+        ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT + 1);
     }
 
     function testPermitUnauthorisedToken() public {
@@ -94,11 +86,9 @@ contract AllowanceHolderUnitTest is Test {
         address operator = address(this);
 
         ah.setAllowed(operator, OWNER, token, AMOUNT);
-        IAllowanceHolder.TransferDetails memory transferDetail =
-            IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
 
         vm.expectRevert();
-        ah.holderTransferFrom(OWNER, transferDetail);
+        ah.holderTransferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
     function testPermitAuthorisedStorageKey() public {
@@ -126,12 +116,10 @@ contract AllowanceHolderUnitTest is Test {
         address operator = target;
         uint256 value = 999;
 
-        ISignatureTransfer.TokenPermissions memory permit =
-            ISignatureTransfer.TokenPermissions({token: token, amount: AMOUNT});
         bytes memory data = hex"deadbeef";
 
         vm.startStateDiffRecording();
-        ah.execute{value: value}(operator, permit, payable(target), data);
+        ah.execute{value: value}(operator, token, AMOUNT, payable(target), data);
         VmSafe.AccountAccess[] memory calls =
             _foundry_filterAccessKind(vm.stopAndReturnStateDiff(), VmSafe.AccountAccessKind.Call);
 

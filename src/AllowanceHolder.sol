@@ -3,7 +3,6 @@ pragma solidity ^0.8.21;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "./IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
@@ -111,12 +110,12 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     }
 
     /// @inheritdoc IAllowanceHolder
-    function execute(
-        address operator,
-        ISignatureTransfer.TokenPermissions calldata permit,
-        address payable target,
-        bytes calldata data
-    ) public payable override returns (bytes memory result) {
+    function execute(address operator, address token, uint256 amount, address payable target, bytes calldata data)
+        public
+        payable
+        override
+        returns (bytes memory result)
+    {
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
         // sending arbitrary calldata (doing `target.call(data)`) to any
@@ -124,7 +123,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         _rejectIfERC20(target, data);
 
         address sender = _msgSender();
-        _setAllowed(operator, sender, permit.token, permit.amount);
+        _setAllowed(operator, sender, token, amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
         // we're omitting the check that `address(this)` has sufficient value to
@@ -157,21 +156,21 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
 
         // EIP-3074 seems unlikely
         if (sender != tx.origin) {
-            _setAllowed(operator, sender, permit.token, 0);
+            _setAllowed(operator, sender, token, 0);
         }
     }
 
     /// @inheritdoc IAllowanceHolder
-    function holderTransferFrom(address owner, TransferDetails calldata transferDetail)
+    function holderTransferFrom(address token, address owner, address recipient, uint256 amount)
         public
         override
         returns (bool)
     {
         // msg.sender is the assumed and later validated operator
-        TransientStorage.TSlot storage allowance = _ephemeralAllowance(msg.sender, owner, transferDetail.token);
+        TransientStorage.TSlot storage allowance = _ephemeralAllowance(msg.sender, owner, token);
         // validation of the ephemeral allowance for operator, owner, token via uint underflow
-        allowance.set(allowance.get() - transferDetail.amount);
-        IERC20(transferDetail.token).safeTransferFrom(owner, transferDetail.recipient, transferDetail.amount);
+        allowance.set(allowance.get() - amount);
+        IERC20(token).safeTransferFrom(owner, recipient, amount);
         return true;
     }
 

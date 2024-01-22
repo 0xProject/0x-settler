@@ -11,16 +11,6 @@ import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 library UnsafeArray {
-    function unsafeGet(IAllowanceHolder.TransferDetails[] memory a, uint256 i)
-        internal
-        pure
-        returns (IAllowanceHolder.TransferDetails memory r)
-    {
-        assembly ("memory-safe") {
-            r := mload(add(add(a, 0x20), shl(5, i)))
-        }
-    }
-
     function unsafeGet(ISignatureTransfer.TokenPermissions[] memory a, uint256 i)
         internal
         pure
@@ -130,7 +120,6 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
 
 abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderContext {
     using UnsafeMath for uint256;
-    using UnsafeArray for IAllowanceHolder.TransferDetails[];
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
@@ -191,30 +180,6 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         token = permit.permitted.token;
     }
 
-    function _formatForAllowanceHolder(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails
-    ) private pure returns (IAllowanceHolder.TransferDetails memory result) {
-        uint256 length;
-        // TODO: allow multiple fees
-        if ((length = permit.permitted.length) != transferDetails.length || length != 1) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
-        result.token = permit.permitted.unsafeGet(0).token;
-        ISignatureTransfer.SignatureTransferDetails memory oldDetail = transferDetails.unsafeGet(0);
-        result.recipient = oldDetail.to;
-        result.amount = oldDetail.requestedAmount;
-    }
-
-    function _formatForAllowanceHolder(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails
-    ) private pure returns (IAllowanceHolder.TransferDetails memory result) {
-        result.token = permit.permitted.token;
-        result.recipient = transferDetails.to;
-        result.amount = transferDetails.requestedAmount;
-    }
-
     function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
@@ -272,7 +237,18 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     ) internal override {
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
-            allowanceHolder.holderTransferFrom(from, _formatForAllowanceHolder(permit, transferDetails));
+            {
+                uint256 length;
+                if ((length = permit.permitted.length) != transferDetails.length || length != 1) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+            }
+            allowanceHolder.holderTransferFrom(
+                permit.permitted.unsafeGet(0).token,
+                from,
+                transferDetails.unsafeGet(0).to,
+                transferDetails.unsafeGet(0).requestedAmount
+            );
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
@@ -296,7 +272,9 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     ) internal override {
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
-            allowanceHolder.holderTransferFrom(from, _formatForAllowanceHolder(permit, transferDetails));
+            allowanceHolder.holderTransferFrom(
+                permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
+            );
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
