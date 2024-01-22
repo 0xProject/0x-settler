@@ -194,33 +194,25 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     function _formatForAllowanceHolder(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails
-    ) private pure returns (IAllowanceHolder.TransferDetails[] memory result) {
+    ) private pure returns (IAllowanceHolder.TransferDetails memory result) {
         uint256 length;
         // TODO: allow multiple fees
-        if ((length = permit.permitted.length) != transferDetails.length || length > 2) {
+        if ((length = permit.permitted.length) != transferDetails.length || length != 1) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
-        result = new IAllowanceHolder.TransferDetails[](length);
-        for (uint256 i; i < length; i = i.unsafeInc()) {
-            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(i);
-            ISignatureTransfer.SignatureTransferDetails memory oldDetail = transferDetails.unsafeGet(i);
-            IAllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(i);
-
-            newDetail.token = permitted.token;
-            newDetail.recipient = oldDetail.to;
-            newDetail.amount = oldDetail.requestedAmount;
-        }
+        result.token = permit.permitted.unsafeGet(0).token;
+        ISignatureTransfer.SignatureTransferDetails memory oldDetail = transferDetails.unsafeGet(0);
+        result.recipient = oldDetail.to;
+        result.amount = oldDetail.requestedAmount;
     }
 
     function _formatForAllowanceHolder(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails
-    ) private pure returns (IAllowanceHolder.TransferDetails[] memory result) {
-        result = new IAllowanceHolder.TransferDetails[](1);
-        IAllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(0);
-        newDetail.token = permit.permitted.token;
-        newDetail.recipient = transferDetails.to;
-        newDetail.amount = transferDetails.requestedAmount;
+    ) private pure returns (IAllowanceHolder.TransferDetails memory result) {
+        result.token = permit.permitted.token;
+        result.recipient = transferDetails.to;
+        result.amount = transferDetails.requestedAmount;
     }
 
     function _transferFrom(

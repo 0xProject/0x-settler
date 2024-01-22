@@ -29,6 +29,6 @@ interface IAllowanceHolder {
     /// @notice The counterpart to `execute` which allows for the consumption of token permits later during execution
     /// @dev can only be called by the `operator` previously registered in `execute`
     /// @param owner The owner of tokens to transfer
-    /// @param transferDetails The tokens, recipient and amounts which `operator` wants to spend during this interaction
-    function holderTransferFrom(address owner, TransferDetails[] calldata transferDetails) external returns (bool);
+    /// @param transferDetail The token, recipient, and amount which `operator` wants to spend during this interaction
+    function holderTransferFrom(address owner, TransferDetails calldata transferDetail) external returns (bool);
 }

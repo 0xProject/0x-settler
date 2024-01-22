@@ -187,22 +187,16 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     }
 
     /// @inheritdoc IAllowanceHolder
-    function holderTransferFrom(address owner, TransferDetails[] calldata transferDetails)
+    function holderTransferFrom(address owner, TransferDetails calldata transferDetail)
         public
         override
         returns (bool)
     {
-        for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
-            TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            // msg.sender is the assumed and later validated operator
-            TransientStorage.TSlot storage allowance = _ephemeralAllowance(msg.sender, owner, transferDetail.token);
-            // validation of the ephemeral allowance for operator, owner, token via uint underflow
-            allowance.set(allowance.get() - transferDetail.amount);
-        }
-        for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
-            TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            IERC20(transferDetail.token).safeTransferFrom(owner, transferDetail.recipient, transferDetail.amount);
-        }
+        // msg.sender is the assumed and later validated operator
+        TransientStorage.TSlot storage allowance = _ephemeralAllowance(msg.sender, owner, transferDetail.token);
+        // validation of the ephemeral allowance for operator, owner, token via uint underflow
+        allowance.set(allowance.get() - transferDetail.amount);
+        IERC20(transferDetail.token).safeTransferFrom(owner, transferDetail.recipient, transferDetail.amount);
         return true;
     }
 
