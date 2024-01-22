@@ -16,12 +16,12 @@ interface IAllowanceHolder {
     /// a token permit
     /// @dev msg.sender is forwarded to target appended to the msg data (similar to ERC-2771)
     /// @param operator An address which is allowed to consume the token permits
-    /// @param permits A list of tokens and amounts the caller has authorised to be consumed
+    /// @param permit A token and amount the caller has authorised to be consumed
     /// @param target A contract to execute operations with `data`
     /// @param data The data to forward to `target`
     function execute(
         address operator,
-        ISignatureTransfer.TokenPermissions[] calldata permits,
+        ISignatureTransfer.TokenPermissions calldata permit,
         address payable target,
         bytes calldata data
     ) external payable returns (bytes memory result);

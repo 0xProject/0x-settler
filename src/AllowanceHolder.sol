@@ -139,7 +139,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     /// @inheritdoc IAllowanceHolder
     function execute(
         address operator,
-        ISignatureTransfer.TokenPermissions[] calldata permits,
+        ISignatureTransfer.TokenPermissions calldata permit,
         address payable target,
         bytes calldata data
     ) public payable override returns (bytes memory result) {
@@ -150,11 +150,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         _rejectIfERC20(target, data);
 
         address sender = _msgSender();
-
-        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            _setAllowed(operator, sender, permit.token, permit.amount);
-        }
+        _setAllowed(operator, sender, permit.token, permit.amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
         // we're omitting the check that `address(this)` has sufficient value to
@@ -186,9 +182,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
         }
 
         if (sender != tx.origin) {
-            for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-                _setAllowed(operator, sender, permits.unsafeGet(i).token, 0);
-            }
+            _setAllowed(operator, sender, permit.token, 0);
         }
     }
 

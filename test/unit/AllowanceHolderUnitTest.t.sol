@@ -126,12 +126,12 @@ contract AllowanceHolderUnitTest is Test {
         address operator = target;
         uint256 value = 999;
 
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: token, amount: AMOUNT});
+        ISignatureTransfer.TokenPermissions memory permit =
+            ISignatureTransfer.TokenPermissions({token: token, amount: AMOUNT});
         bytes memory data = hex"deadbeef";
 
         vm.startStateDiffRecording();
-        ah.execute{value: value}(operator, permits, payable(target), data);
+        ah.execute{value: value}(operator, permit, payable(target), data);
         VmSafe.AccountAccess[] memory calls =
             _foundry_filterAccessKind(vm.stopAndReturnStateDiff(), VmSafe.AccountAccessKind.Call);
 

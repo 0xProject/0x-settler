@@ -49,8 +49,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         _warm_allowanceHolder_slots(address(fromToken()), amount());
 
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        ISignatureTransfer.TokenPermissions memory permit =
+            ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
 
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3");
@@ -58,7 +58,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         _allowanceHolder.execute(
             address(_settler),
-            permits,
+            permit,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -88,8 +88,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         _warm_allowanceHolder_slots(address(fromToken()), amount());
 
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        ISignatureTransfer.TokenPermissions memory permit =
+            ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
 
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP");
@@ -97,7 +97,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         _allowanceHolder.execute(
             address(_settler),
-            permits,
+            permit,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -127,8 +127,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         _warm_allowanceHolder_slots(address(fromToken()), amount());
 
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        ISignatureTransfer.TokenPermissions memory permit =
+            ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
 
         vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
@@ -136,7 +136,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         _allowanceHolder.execute(
             address(_settler),
-            permits,
+            permit,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
