@@ -5,34 +5,11 @@ import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
-import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();
-
-library UnsafeArray {
-    function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
-        internal
-        pure
-        returns (ISignatureTransfer.TokenPermissions calldata r)
-    {
-        assembly ("memory-safe") {
-            r := add(a.offset, shl(6, i))
-        }
-    }
-
-    function unsafeGet(IAllowanceHolder.TransferDetails[] calldata a, uint256 i)
-        internal
-        pure
-        returns (IAllowanceHolder.TransferDetails calldata r)
-    {
-        assembly ("memory-safe") {
-            r := add(a.offset, mul(0x60, i))
-        }
-    }
-}
 
 library TransientStorage {
     struct TSlot {
@@ -95,9 +72,6 @@ abstract contract TransientStorageMock {
 contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
-    using UnsafeMath for uint256;
-    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
-    using UnsafeArray for TransferDetails[];
     using TransientStorage for TransientStorage.TSlot;
 
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
@@ -181,6 +155,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
             }
         }
 
+        // EIP-3074 seems unlikely
         if (sender != tx.origin) {
             _setAllowed(operator, sender, permit.token, 0);
         }
