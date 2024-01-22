@@ -36,19 +36,17 @@ library UnsafeArray {
 }
 
 library TransientStorage {
-    struct TSlot {
-        uint256 value;
-    }
+    type TSlot is bytes32;
 
-    function set(TSlot storage ts, uint256 nv) internal {
+    function set(TSlot ts, uint256 nv) internal {
         assembly ("memory-safe") {
-            sstore(ts.slot, nv) // will be `tstore` after Dencun (EIP-1153)
+            sstore(ts, nv) // will be `tstore` after Dencun (EIP-1153)
         }
     }
 
-    function get(TSlot storage ts) internal view returns (uint256 cv) {
+    function get(TSlot ts) internal view returns (uint256 cv) {
         assembly ("memory-safe") {
-            cv := sload(ts.slot) // will be `tload` after Dencun (EIP-1153)
+            cv := sload(ts) // will be `tload` after Dencun (EIP-1153)
         }
     }
 }
@@ -70,7 +68,7 @@ abstract contract TransientStorageMock {
     function _ephemeralAllowance(address operator, address owner, address token)
         internal
         pure
-        returns (TransientStorage.TSlot storage r)
+        returns (TransientStorage.TSlot r)
     {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
@@ -78,7 +76,7 @@ abstract contract TransientStorageMock {
             mstore(0x14, shl(0x60, owner)) // store owner at 0x14
             mstore(0x28, shl(0x60, token)) // store token at 0x28
             // allowance slot is keccak256(abi.encodePacked(operator, owner, token))
-            r.slot := keccak256(0x00, 0x3c)
+            r := keccak256(0x00, 0x3c)
             // restore dirtied free pointer
             mstore(0x40, ptr)
         }
@@ -200,7 +198,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
             // msg.sender is the assumed and later validated operator
-            TransientStorage.TSlot storage allowance = _ephemeralAllowance(msg.sender, owner, transferDetail.token);
+            TransientStorage.TSlot allowance = _ephemeralAllowance(msg.sender, owner, transferDetail.token);
             // validation of the ephemeral allowance for operator, owner, token via uint underflow
             allowance.set(allowance.get() - transferDetail.amount);
         }
