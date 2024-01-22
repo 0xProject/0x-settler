@@ -101,12 +101,11 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
     }
 
     function _msgSender() private view returns (address sender) {
-        if (msg.sender == address(this)) {
+        sender = msg.sender;
+        if (sender == address(this)) {
             assembly ("memory-safe") {
-                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
             }
-        } else {
-            sender = msg.sender;
         }
     }
 
