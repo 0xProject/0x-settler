@@ -31,7 +31,7 @@ contract DeployerTest is Test {
         vm.label(address(deployer), "Deployer (proxy)");
         deployer.acceptOwnership();
 
-        vm.expectRevert(abi.encodeWithSignature("AlreadyInitialized()"));
+        vm.expectRevert(abi.encodeWithSignature("VersionMismatch(uint256,uint256)", 1, 1));
         deployer.initialize(address(this));
 
         vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));
