@@ -35,7 +35,27 @@ library UnsafeArray {
     }
 }
 
+library TransientStorage {
+    struct TSlot {
+        uint256 value;
+    }
+
+    function set(TSlot storage ts, uint256 nv) internal {
+        assembly ("memory-safe") {
+            sstore(ts.slot, nv) // will be `tstore` after Dencun (EIP-1153)
+        }
+    }
+
+    function get(TSlot storage ts) internal view returns (uint256 cv) {
+        assembly ("memory-safe") {
+            cv := sload(ts.slot) // will be `tload` after Dencun (EIP-1153)
+        }
+    }
+}
+
 abstract contract TransientStorageMock {
+    using TransientStorage for TransientStorage.TSlot;
+
     bytes32 private _sentinel;
 
     constructor() {
@@ -47,29 +67,29 @@ abstract contract TransientStorageMock {
     }
 
     /// @dev The key for this ephemeral allowance is keccak256(abi.encodePacked(operator, owner, token)).
-    /// Later authorisation for this is validated through the presence of this key being set
-    function _getAllowed(address operator, address owner, address token) internal view returns (uint256 r) {
+    function _ephemeralAllowance(address operator, address owner, address token)
+        internal
+        pure
+        returns (TransientStorage.TSlot storage r)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, shl(0x60, operator))
             mstore(0x14, shl(0x60, owner)) // store owner at 0x14
             mstore(0x28, shl(0x60, token)) // store token at 0x28
             // allowance slot is keccak256(abi.encodePacked(operator, owner, token))
-            r := sload(keccak256(0x00, 0x3c))
+            r.slot := keccak256(0x00, 0x3c)
+            // restore dirtied free pointer
             mstore(0x40, ptr)
         }
     }
 
+    function _getAllowed(address operator, address owner, address token) internal view returns (uint256 r) {
+        return _ephemeralAllowance(operator, owner, token).get();
+    }
+
     function _setAllowed(address operator, address owner, address token, uint256 allowed) internal {
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(0x00, shl(0x60, operator))
-            mstore(0x14, shl(0x60, owner)) // store owner at 0x14
-            mstore(0x28, shl(0x60, token)) // store token at 0x28
-            // allowance slot is keccak256(abi.encodePacked(operator, owner, token))
-            sstore(keccak256(0x00, 0x3c), allowed)
-            mstore(0x40, ptr)
-        }
+        _ephemeralAllowance(operator, owner, token).set(allowed);
     }
 }
 
@@ -79,6 +99,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
     using UnsafeMath for uint256;
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for TransferDetails[];
+    using TransientStorage for TransientStorage.TSlot;
 
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
@@ -176,16 +197,12 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
         override
         returns (bool)
     {
-        // msg.sender is the assumed and later verified operator
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
+            // msg.sender is the assumed and later validated operator
+            TransientStorage.TSlot storage allowance = _ephemeralAllowance(msg.sender, owner, transferDetail.token);
             // validation of the ephemeral allowance for operator, owner, token via uint underflow
-            _setAllowed(
-                msg.sender,
-                owner,
-                transferDetail.token,
-                _getAllowed(msg.sender, owner, transferDetail.token) - transferDetail.amount
-            );
+            allowance.set(allowance.get() - transferDetail.amount);
         }
         for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
             TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
