@@ -19,22 +19,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         bool partialFillAllowed;
     }
 
-    /// @dev Emitted whenever an OTC order is filled.
-    /// @param orderHash The canonical hash of the order. Formed as an EIP712 struct hash. See below.
-    /// @param maker The maker of the order.
-    /// @param taker The taker of the order.
-    /// @param makerTokenFilledAmount How much maker token was filled.
-    /// @param takerTokenFilledAmount How much taker token was filled.
-    event OtcOrderFilled(
-        bytes32 indexed orderHash,
-        address maker,
-        address taker,
-        address makerToken,
-        address takerToken,
-        uint256 makerTokenFilledAmount,
-        uint256 takerTokenFilledAmount
-    );
-
     string internal constant CONSIDERATION_TYPE =
         "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
@@ -58,17 +42,14 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         }
     }
 
-    function _hashOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash)
-        internal
-        pure
-        returns (bytes32 result)
-    {
+    function _logOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash) private {
         assembly ("memory-safe") {
             mstore(0x00, OTC_ORDER_TYPEHASH)
             mstore(0x20, makerConsiderationHash)
             let ptr := mload(0x40)
             mstore(0x40, takerConsiderationHash)
-            result := keccak256(0x00, 0x60)
+            mstore(0x00, keccak256(0x00, 0x60))
+            log0(0x00, 0x20)
             mstore(0x40, ptr)
         }
     }
@@ -109,19 +90,11 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         // using PERMIT2 to move tokens, not to provide authentication.
         _transferFrom(takerPermit, takerTransferDetails, _msgSender(), takerSig);
 
-        emit OtcOrderFilled(
-            _hashOtcOrder(
-                witness,
-                _hashConsideration(
-                    Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
-                )
-            ),
-            maker,
-            _msgSender(),
-            buyToken,
-            consideration.token,
-            buyAmount,
-            consideration.amount
+        _logOtcOrder(
+            witness,
+            _hashConsideration(
+                Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
+            )
         );
     }
 
@@ -155,15 +128,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         _transferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
         _transferFrom(takerPermit, takerTransferDetails, taker, takerWitness, ACTIONS_AND_SLIPPAGE_WITNESS, takerSig);
 
-        emit OtcOrderFilled(
-            _hashOtcOrder(makerWitness, _hashConsideration(takerConsideration)),
-            maker,
-            taker,
-            takerConsideration.token,
-            makerConsideration.token,
-            takerConsideration.amount,
-            makerConsideration.amount
-        );
+        _logOtcOrder(makerWitness, _hashConsideration(takerConsideration));
     }
 
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
@@ -203,14 +168,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         _transferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
         takerToken.safeTransfer(maker, takerAmount);
 
-        emit OtcOrderFilled(
-            _hashOtcOrder(witness, _hashConsideration(takerConsideration)),
-            maker,
-            msgSender,
-            takerConsideration.token,
-            address(takerToken),
-            transferDetails.requestedAmount,
-            takerAmount
-        );
+        _logOtcOrder(witness, _hashConsideration(takerConsideration));
     }
 }
