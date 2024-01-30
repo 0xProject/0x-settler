@@ -5,7 +5,6 @@ import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
 import {ContextAbstract} from "../Context.sol";
 import {AllowanceHolderContext} from "../AllowanceHolderContext.sol";
 import {IAllowanceHolder} from "../IAllowanceHolder.sol";
-import {IFeeCollector} from "./IFeeCollector.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -43,7 +42,7 @@ library UnsafeArray {
     }
 }
 
-abstract contract Permit2PaymentAbstract is ContextAbstract, IFeeCollector {
+abstract contract Permit2PaymentAbstract is ContextAbstract {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
     function isRestrictedTarget(address) internal view virtual returns (bool);
@@ -137,20 +136,14 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
 
     /// @dev Permit2 address
     ISignatureTransfer private immutable _PERMIT2;
-    address public immutable override feeCollector;
 
     function isRestrictedTarget(address target) internal view override returns (bool) {
         return target == address(_PERMIT2) || target == address(allowanceHolder);
     }
 
-    constructor(address permit2, address allowanceHolder, address feeCollector)
-        AllowanceHolderContext(allowanceHolder)
-    {
+    constructor(address permit2, address allowanceHolder) AllowanceHolderContext(allowanceHolder) {
         _PERMIT2 = ISignatureTransfer(permit2);
-        feeCollector = feeCollector;
     }
-
-    error FeeTokenMismatch(address paymentToken, address feeToken);
 
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
@@ -158,8 +151,8 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         override
         returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount)
     {
-        // TODO: allow multiple fees
-        if (permit.permitted.length > 2) {
+        // TODO: fees
+        if (permit.permitted.length != 1) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         transferDetails = new ISignatureTransfer.SignatureTransferDetails[](permit.permitted.length);
@@ -169,15 +162,6 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
             ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(0);
             transferDetail.requestedAmount = amount = permitted.amount;
             token = permitted.token;
-        }
-        if (permit.permitted.length > 1) {
-            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(1);
-            if (token != permitted.token) {
-                revert FeeTokenMismatch(token, permitted.token);
-            }
-            ISignatureTransfer.SignatureTransferDetails memory transferDetail = transferDetails.unsafeGet(1);
-            transferDetail.to = feeCollector;
-            transferDetail.requestedAmount = permitted.amount;
         }
     }
 

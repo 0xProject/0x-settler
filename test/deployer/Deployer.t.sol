@@ -3,17 +3,10 @@ pragma solidity ^0.8.21;
 
 import {Deployer} from "src/deployer/Deployer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
-import {IFeeCollector} from "src/core/IFeeCollector.sol";
 
 import "forge-std/Test.sol";
 
-contract Dummy is IFeeCollector {
-    address public immutable override feeCollector;
-
-    constructor(address _feeCollector) {
-        feeCollector = _feeCollector;
-    }
-}
+contract Dummy {}
 
 contract DeployerTest is Test {
     Deployer public deployer;
@@ -78,29 +71,12 @@ contract DeployerTest is Test {
         deployer.authorize(1, auth, uint96(block.timestamp + 1 days));
     }
 
-    event FeeCollectorChanged(uint128 indexed, address indexed);
-
-    function testFeeCollector() public {
-        assertEq(deployer.feeCollector(1), address(0));
-        vm.expectEmit(true, true, false, false, address(deployer));
-        emit FeeCollectorChanged(1, address(this));
-        assertTrue(deployer.setFeeCollector(1, address(this)));
-        assertEq(deployer.feeCollector(1), address(this));
-    }
-
-    function testFeeCollectorNotOwner() public {
-        vm.startPrank(auth);
-        vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.setFeeCollector(1, auth);
-    }
-
     event Deployed(uint128 indexed, uint64 indexed, address indexed);
     event Transfer(address indexed, address indexed, uint256 indexed);
 
     function testDeploy() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        deployer.setFeeCollector(1, auth);
         address predicted = AddressDerivation.deriveContract(address(deployer), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Deployed(1, 1, predicted);
@@ -109,7 +85,6 @@ contract DeployerTest is Test {
         address instance = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(instance, predicted);
         assertEq(deployer.ownerOf(1), predicted);
-        assertEq(Dummy(instance).feeCollector(), auth);
     }
 
     function testDeployNotAuthorized() public {
@@ -131,32 +106,13 @@ contract DeployerTest is Test {
         deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
 
-    function testDeployNoFee() public {
+    function testDeployMinimal() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
-        deployer.deploy(1, hex"60015ff3"); // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
-    }
-
-    function testDeployThenEmpty() public {
-        deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        assertEq(deployer.feeCollector(1), address(0));
-        // PUSH4 60205ff3 PUSH0 MSTORE PUSH1 4 PUSH1 1c RETURN; returns hex"60205ff3"
-        // PUSH1 20 PUSH0 RETURN; returns zero address (technically the whole word is zero)
-        address deployed = deployer.deploy(1, hex"6360205ff35f526004601cf3");
+        // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
+        address deployed = deployer.deploy(1, hex"60015ff3");
         assertNotEq(deployed, address(0));
-        assertEq(IFeeCollector(deployed).feeCollector(), address(0)); // technically all selectors return zero
-    }
-
-    function testDeployThenRevert() public {
-        deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        assertEq(deployer.feeCollector(1), address(0));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
-        // PUSH4 60205ffd PUSH0 MSTORE PUSH1 4 PUSH1 1c RETURN; returns hex"60205ffd"
-        // PUSH1 20 PUSH0 REVERT; reverts with zero word
-        deployer.deploy(1, hex"6360205ffd5f526004601cf3");
+        assertNotEq(deployed.code.length, 0);
     }
 
     event Unsafe(uint128 indexed, uint64 indexed, address indexed);

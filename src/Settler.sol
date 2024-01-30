@@ -82,15 +82,8 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     receive() external payable {}
 
-    constructor(
-        address permit2,
-        address uniFactory,
-        bytes32 poolInitCodeHash,
-        address dai,
-        address trustedForwarder,
-        address feeCollector
-    )
-        Permit2Payment(permit2, trustedForwarder, feeCollector)
+    constructor(address permit2, address uniFactory, bytes32 poolInitCodeHash, address dai, address trustedForwarder)
+        Permit2Payment(permit2, trustedForwarder)
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
