@@ -12,6 +12,10 @@ contract Dummy {}
 contract AddressDerivationTest is Test {
     using UnsafeMath for uint256;
 
+    function testEOA() public {
+        testEOA(2999, 30049578511147215784808879450296031459793860218934669378072903188292682383360);
+    }
+
     function testEOA(uint256 privKey, uint256 k) public {
         privKey = boundPrivateKey(privKey);
         k = boundPrivateKey(k);
