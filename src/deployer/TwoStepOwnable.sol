@@ -53,6 +53,14 @@ abstract contract AbstractOwnable is IOwnable {
 abstract contract Ownable is AbstractOwnable {
     address private _owner;
 
+    constructor() {
+        uint256 ownerSlot;
+        assembly ("memory-safe") {
+            ownerSlot := _owner.slot
+        }
+        assert(ownerSlot == 0);
+    }
+
     function _ownerImpl() internal view override returns (address) {
         return _owner;
     }
