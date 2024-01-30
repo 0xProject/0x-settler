@@ -138,15 +138,32 @@ abstract contract Permit2BatchPaymentAbstract is ContextAbstract {
     ) internal virtual;
 }
 
-abstract contract Permit2BatchPayment is Permit2BatchPaymentAbstract, AllowanceHolderContext {
+contract Permit2PaymentBase is AllowanceHolderContext {
+    /// @dev Permit2 address
+    ISignatureTransfer internal immutable _PERMIT2;
+    address internal immutable _FEE_RECIPIENT;
+
+    constructor(address permit2, address feeRecipient, address allowanceHolder)
+        AllowanceHolderContext(allowanceHolder)
+    {
+        _PERMIT2 = ISignatureTransfer(permit2);
+        _FEE_RECIPIENT = feeRecipient;
+    }
+}
+
+abstract contract Permit2BatchPayment is Permit2PaymentBase, Permit2BatchPaymentAbstract {
     using UnsafeMath for uint256;
     using UnsafeArray for IAllowanceHolder.TransferDetails[];
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
-    /// @dev Permit2 address
-    ISignatureTransfer private immutable _PERMIT2;
-    address private immutable _FEE_RECIPIENT;
+    constructor(address permit2, address feeRecipient, address allowanceHolder)
+        Permit2PaymentBase(permit2, feeRecipient, allowanceHolder)
+    {}
+
+    function isRestrictedTarget(address target) internal view override returns (bool) {
+        return target == address(_PERMIT2) || target == address(allowanceHolder);
+    }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
@@ -247,25 +264,18 @@ abstract contract Permit2BatchPayment is Permit2BatchPaymentAbstract, AllowanceH
     }
 }
 
-abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderContext {
+abstract contract Permit2Payment is Permit2PaymentBase, Permit2PaymentAbstract {
     using UnsafeMath for uint256;
     using UnsafeArray for IAllowanceHolder.TransferDetails[];
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
-    /// @dev Permit2 address
-    ISignatureTransfer private immutable _PERMIT2;
-    address private immutable _FEE_RECIPIENT;
+    constructor(address permit2, address feeRecipient, address allowanceHolder)
+        Permit2PaymentBase(permit2, feeRecipient, allowanceHolder)
+    {}
 
     function isRestrictedTarget(address target) internal view override returns (bool) {
         return target == address(_PERMIT2) || target == address(allowanceHolder);
-    }
-
-    constructor(address permit2, address feeRecipient, address allowanceHolder)
-        AllowanceHolderContext(allowanceHolder)
-    {
-        _PERMIT2 = ISignatureTransfer(permit2);
-        _FEE_RECIPIENT = feeRecipient;
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)

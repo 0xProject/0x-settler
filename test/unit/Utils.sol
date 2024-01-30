@@ -6,7 +6,7 @@ import {Vm} from "forge-std/Vm.sol";
 
 contract RejectionFallbackDummy {
     fallback() external payable {
-        require(false, "Rejected");
+        revert("Rejected");
     }
 }
 
