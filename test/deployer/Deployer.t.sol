@@ -159,9 +159,9 @@ contract DeployerTest is Test {
         deployer.deploy(1, hex"6360205ffd5f526004601cf3");
     }
 
-    event Unsafe(uint128 indexed, uint64 indexed, address indexed);
+    event Removed(uint128 indexed, uint64 indexed, address indexed);
 
-    function testSafeDeployment() public {
+    function testRemove() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
 
@@ -175,27 +175,27 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(AddressDerivation.deriveContract(address(deployer), 1), address(0), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Unsafe(1, 1, instance);
-        assertTrue(deployer.setUnsafe(1, nonce));
+        emit Removed(1, 1, instance);
+        assertTrue(deployer.remove(1, nonce));
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
 
         nonce = deployer.nextNonce();
         instance = deployer.deploy(1, type(Dummy).creationCode);
-        assertEq(deployer.ownerOf(1), instance, "redeploy after unsafe");
+        assertEq(deployer.ownerOf(1), instance, "redeploy after remove");
 
         nonce = deployer.nextNonce();
         address newInstance = deployer.deploy(1, type(Dummy).creationCode);
         assertNotEq(newInstance, instance);
-        assertEq(deployer.ownerOf(1), newInstance, "2nd redeploy after unsafe");
+        assertEq(deployer.ownerOf(1), newInstance, "2nd redeploy after remove");
 
-        assertTrue(deployer.setUnsafe(1, nonce));
+        assertTrue(deployer.remove(1, nonce));
         assertEq(deployer.ownerOf(1), instance, "reverts to previous deployment");
     }
 
-    event AllUnsafe(uint256 indexed);
+    event RemovedAll(uint256 indexed);
 
-    function testAllUnsafe() public {
+    function testRemoveAll() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
 
@@ -208,13 +208,13 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(instance, address(0), 1);
         vm.expectEmit(true, false, false, false, address(deployer));
-        emit AllUnsafe(1);
-        deployer.setAllUnsafe(1);
+        emit RemovedAll(1);
+        deployer.removeAll(1);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Unsafe(1, nonce, instance);
+        emit Removed(1, nonce, instance);
         vm.recordLogs();
-        deployer.setUnsafe(1, nonce);
+        deployer.remove(1, nonce);
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 1);
 
@@ -223,9 +223,9 @@ contract DeployerTest is Test {
 
         for (uint64 i = 1; i < nonce; i++) {
             vm.expectEmit(true, true, true, false, address(deployer));
-            emit Unsafe(1, i, AddressDerivation.deriveContract(address(deployer), i));
+            emit Removed(1, i, AddressDerivation.deriveContract(address(deployer), i));
             vm.recordLogs();
-            deployer.setUnsafe(1, i);
+            deployer.remove(1, i);
             entries = vm.getRecordedLogs();
             assertEq(entries.length, 1);
         }
@@ -237,16 +237,16 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(instance, AddressDerivation.deriveContract(address(deployer), nonce - 1), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Unsafe(1, nonce, instance);
-        deployer.setUnsafe(1, nonce);
+        emit Removed(1, nonce, instance);
+        deployer.remove(1, nonce);
 
         nonce--;
         instance = AddressDerivation.deriveContract(address(deployer), nonce);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(instance, address(0), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Unsafe(1, nonce, instance);
-        deployer.setUnsafe(1, nonce);
+        emit Removed(1, nonce, instance);
+        deployer.remove(1, nonce);
     }
 
     function testTokenURI() public {

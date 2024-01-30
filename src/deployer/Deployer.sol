@@ -207,9 +207,9 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         }
     }
 
-    event Unsafe(uint128 indexed, uint64 indexed, address indexed);
+    event Removed(uint128 indexed, uint64 indexed, address indexed);
 
-    function setUnsafe(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
+    function remove(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
         DoublyLinkedList storage entry = _deploymentLists[nonce];
         if (entry.feature != feature) {
             revert PermissionDenied();
@@ -235,13 +235,13 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
         delete entry.next;
         delete entry.feature;
 
-        emit Unsafe(feature, nonce, deployment);
+        emit Removed(feature, nonce, deployment);
         return true;
     }
 
-    event AllUnsafe(uint256 indexed);
+    event RemovedAll(uint256 indexed);
 
-    function setAllUnsafe(uint128 feature) public onlyAuthorized(feature) returns (bool) {
+    function removeAll(uint128 feature) public onlyAuthorized(feature) returns (bool) {
         ListHead storage entry = _featureNonce[feature];
         uint64 nonce = entry.head;
         if (nonce != 0) {
@@ -249,7 +249,7 @@ contract Deployer is TwoStepOwnable, IERC721ViewMetadata {
             (entry.head, entry.highWater) = (0, nonce);
             emit Transfer(AddressDerivation.deriveContract(address(this), nonce), address(0), feature);
         }
-        emit AllUnsafe(feature);
+        emit RemovedAll(feature);
         return true;
     }
 
