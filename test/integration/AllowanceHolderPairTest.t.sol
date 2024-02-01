@@ -53,7 +53,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(fromToken()),
             amount(),
@@ -90,7 +90,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3VIP");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(fromToken()),
             amount(),
@@ -127,7 +127,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(fromToken()),
             amount(),

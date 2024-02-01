@@ -110,7 +110,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     }
 
     /// @inheritdoc IAllowanceHolder
-    function execute(address operator, address token, uint256 amount, address payable target, bytes calldata data)
+    function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         public
         payable
         override
@@ -134,16 +134,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
             calldatacopy(result, data.offset, data.length)
             // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
             mstore(add(result, data.length), shl(0x60, sender))
-            let success :=
-                call(
-                    gas(),
-                    and(0xffffffffffffffffffffffffffffffffffffffff, target),
-                    callvalue(),
-                    result,
-                    add(data.length, 0x14),
-                    0x00,
-                    0x00
-                )
+            let success := call(gas(), target, callvalue(), result, add(data.length, 0x14), 0x00, 0x00)
             let ptr := add(result, 0x20)
             returndatacopy(ptr, 0x00, returndatasize())
             switch success
@@ -161,7 +152,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder {
     }
 
     /// @inheritdoc IAllowanceHolder
-    function holderTransferFrom(address token, address owner, address recipient, uint256 amount)
+    function transferFrom(address token, address owner, address recipient, uint256 amount)
         public
         override
         returns (bool)

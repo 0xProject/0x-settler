@@ -47,7 +47,7 @@ contract AllowanceHolderUnitTest is Test {
         ah.setAllowed(operator, OWNER, token, AMOUNT);
 
         assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT));
+        assertTrue(ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT));
         assertEq(ah.getAllowed(operator, OWNER, token), 0);
     }
 
@@ -58,9 +58,9 @@ contract AllowanceHolderUnitTest is Test {
         ah.setAllowed(operator, OWNER, token, AMOUNT);
 
         assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
+        assertTrue(ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
         assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT / 2);
-        assertTrue(ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
+        assertTrue(ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
         assertEq(ah.getAllowed(operator, OWNER, token), 0);
     }
 
@@ -68,7 +68,7 @@ contract AllowanceHolderUnitTest is Test {
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
 
         vm.expectRevert();
-        ah.holderTransferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
+        ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
     function testPermitUnauthorisedAmount() public {
@@ -78,7 +78,7 @@ contract AllowanceHolderUnitTest is Test {
         ah.setAllowed(operator, OWNER, token, AMOUNT);
 
         vm.expectRevert();
-        ah.holderTransferFrom(token, OWNER, RECIPIENT, AMOUNT + 1);
+        ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT + 1);
     }
 
     function testPermitUnauthorisedToken() public {
@@ -88,7 +88,7 @@ contract AllowanceHolderUnitTest is Test {
         ah.setAllowed(operator, OWNER, token, AMOUNT);
 
         vm.expectRevert();
-        ah.holderTransferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
+        ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
     function testPermitAuthorisedStorageKey() public {
@@ -119,7 +119,7 @@ contract AllowanceHolderUnitTest is Test {
         bytes memory data = hex"deadbeef";
 
         vm.startStateDiffRecording();
-        ah.execute{value: value}(operator, token, AMOUNT, payable(target), data);
+        ah.exec{value: value}(operator, token, AMOUNT, payable(target), data);
         VmSafe.AccountAccess[] memory calls =
             _foundry_filterAccessKind(vm.stopAndReturnStateDiff(), VmSafe.AccountAccessKind.Call);
 
