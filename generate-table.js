@@ -118,6 +118,7 @@ tables.push(
         ["0x V4", "0x V4", "zeroEx_otcOrder"],
         ["Settler", "Settler", "settler_otc"],
         ["Settler", "0x V4", "settler_zeroExOtc"],
+        ["AllowanceHolder", "Settler", "allowanceHolder_otc"],
       ],
       pairs
     ),
