@@ -243,7 +243,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
                     Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
                 }
             }
-            allowanceHolder.holderTransferFrom(
+            allowanceHolder.transferFrom(
                 permit.permitted.unsafeGet(0).token,
                 from,
                 transferDetails.unsafeGet(0).to,
@@ -272,7 +272,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     ) internal override {
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
-            allowanceHolder.holderTransferFrom(
+            allowanceHolder.transferFrom(
                 permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
             );
         } else {

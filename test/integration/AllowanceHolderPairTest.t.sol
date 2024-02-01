@@ -55,7 +55,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -94,7 +94,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3VIP");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -133,7 +133,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -146,7 +146,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_otc() public {
+    function testAllowanceHolder_otc_VIP() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
@@ -182,7 +182,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_otc");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -243,7 +243,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_otc_proportionalFee_sellToken");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -304,7 +304,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_otc_fixedFee_sellToken");
         _cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
             address(_fromToken),
             _amount,

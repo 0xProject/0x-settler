@@ -33,19 +33,19 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | 0x V4 VIP           | Uniswap V3 | USDC/WETH | 124827 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138686 | 11.10% |
 | Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 134662 | 7.88%  |
-| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 128238 | 2.73%  |
+| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 128204 | 2.71%  |
 | UniswapRouter V3    | Uniswap V3 | USDC/WETH | 121137 | -2.96% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112261 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126120 | 12.35% |
 | Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 122096 | 8.76%  |
-| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 115672 | 3.04%  |
+| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 115638 | 3.01%  |
 | UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108571 | -3.29% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | USDT/WETH | 115068 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128927 | 12.04% |
 | Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 124932 | 8.57%  |
-| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 118508 | 2.99%  |
+| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 118474 | 2.96%  |
 | UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111250 | -3.32% |
 |                     |            |           |        |        |
 
@@ -53,15 +53,15 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | -------------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 246374 | 0.00%   |
 | Settler              | Uniswap V3 | USDC/WETH | 164454 | -33.25% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 158530 | -35.65% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 158496 | -35.67% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 223372 | 0.00%   |
 | Settler              | Uniswap V3 | DAI/WETH  | 147832 | -33.82% |
-| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 141908 | -36.47% |
+| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 141874 | -36.49% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230271 | 0.00%   |
 | Settler              | Uniswap V3 | USDT/WETH | 154530 | -32.89% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 148606 | -35.46% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 148572 | -35.48% |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
@@ -81,17 +81,17 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | 0x V4           | 0x V4   | USDC/WETH | 97915  | 0.00%   |
 | Settler         | Settler | USDC/WETH | 115740 | 18.20%  |
 | Settler         | 0x V4   | USDC/WETH | 205485 | 109.86% |
-| AllowanceHolder | Settler | USDC/WETH | 112335 | 14.73%  |
+| AllowanceHolder | Settler | USDC/WETH | 112301 | 14.69%  |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | DAI/WETH  | 78441  | 0.00%   |
 | Settler         | Settler | DAI/WETH  | 96266  | 22.72%  |
 | Settler         | 0x V4   | DAI/WETH  | 175575 | 123.83% |
-| AllowanceHolder | Settler | DAI/WETH  | 92861  | 18.38%  |
+| AllowanceHolder | Settler | DAI/WETH  | 92827  | 18.34%  |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | USDT/WETH | 89553  | 0.00%   |
 | Settler         | Settler | USDT/WETH | 107393 | 19.92%  |
 | Settler         | 0x V4   | USDT/WETH | 190928 | 113.20% |
-| AllowanceHolder | Settler | USDT/WETH | 103988 | 16.12%  |
+| AllowanceHolder | Settler | USDT/WETH | 103954 | 16.08%  |
 |                 |         |           |        |         |
 
 | Curve             | DEX   | Pair      | Gas    | %       |
@@ -125,32 +125,32 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | AllowanceHolder                      | DEX            | Pair      | Gas    | %       |
 | ------------------------------------ | -------------- | --------- | ------ | ------- |
-| execute                              | Uniswap V3 VIP | USDC/WETH | 128238 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDC/WETH | 139682 | 8.92%   |
-| execute                              | OTC            | USDC/WETH | 112335 | -12.40% |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 128204 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 139682 | 8.95%   |
+| execute                              | OTC            | USDC/WETH | 112301 | -12.40% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | DAI/WETH  | 115672 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128691 | 11.26%  |
-| execute                              | OTC            | DAI/WETH  | 92861  | -19.72% |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 115638 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128691 | 11.29%  |
+| execute                              | OTC            | DAI/WETH  | 92827  | -19.73% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | USDT/WETH | 118508 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDT/WETH | 135698 | 14.51%  |
-| execute                              | OTC            | USDT/WETH | 103988 | -12.25% |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 118474 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 135698 | 14.54%  |
+| execute                              | OTC            | USDT/WETH | 103954 | -12.26% |
 |                                      |                |           |        |         |
 
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
-| no fee                          | OTC | USDC/WETH | 112335 | 0.00%  |
-| proportional fee                | OTC | USDC/WETH | 162234 | 44.42% |
-| fixed fee                       | OTC | USDC/WETH | 160255 | 42.66% |
+| no fee                          | OTC | USDC/WETH | 112301 | 0.00%  |
+| proportional fee                | OTC | USDC/WETH | 162200 | 44.43% |
+| fixed fee                       | OTC | USDC/WETH | 160221 | 42.67% |
 |                                 |     |           |        |        |
-| no fee                          | OTC | DAI/WETH  | 92861  | 0.00%  |
-| proportional fee                | OTC | DAI/WETH  | 134648 | 45.00% |
-| fixed fee                       | OTC | DAI/WETH  | 133382 | 43.64% |
+| no fee                          | OTC | DAI/WETH  | 92827  | 0.00%  |
+| proportional fee                | OTC | DAI/WETH  | 134614 | 45.02% |
+| fixed fee                       | OTC | DAI/WETH  | 133348 | 43.65% |
 |                                 |     |           |        |        |
-| no fee                          | OTC | USDT/WETH | 103988 | 0.00%  |
-| proportional fee                | OTC | USDT/WETH | 151425 | 45.62% |
-| fixed fee                       | OTC | USDT/WETH | 149730 | 43.99% |
+| no fee                          | OTC | USDT/WETH | 103954 | 0.00%  |
+| proportional fee                | OTC | USDT/WETH | 151391 | 45.63% |
+| fixed fee                       | OTC | USDT/WETH | 149696 | 44.00% |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"
@@ -556,7 +556,7 @@ sequenceDiagram
     Settler->>UniswapV3: swap
     WETH-->>Settler: transfer
     UniswapV3->>Settler: uniswapV3Callback
-    Settler->>AllowanceHolder: holderTransferFrom 
+    Settler->>AllowanceHolder: transferFrom 
     rect rgba(255, 148, 112, 0.5)
         USDC-->>UniswapV3: transferFrom(User, UniswapV3, amt)
     end
