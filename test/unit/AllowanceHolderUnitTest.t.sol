@@ -19,12 +19,18 @@ contract AllowanceHolderDummy is AllowanceHolder {
     }
 }
 
+interface IAllowanceHolderDummy is IAllowanceHolder {
+    function getAllowed(address operator, address owner, address token) external view returns (uint256 r);
+
+    function setAllowed(address operator, address owner, address token, uint256 allowed) external;
+}
+
 contract FallbackDummy {
     fallback() external payable {}
 }
 
 contract AllowanceHolderUnitTest is Test {
-    AllowanceHolderDummy ah;
+    IAllowanceHolderDummy ah;
     address OPERATOR = address(0x01);
     address TOKEN = address(0x02);
     address OWNER = address(this);
@@ -32,7 +38,7 @@ contract AllowanceHolderUnitTest is Test {
     uint256 AMOUNT = 123456;
 
     function setUp() public {
-        ah = new AllowanceHolderDummy();
+        ah = IAllowanceHolderDummy(address(new AllowanceHolderDummy()));
     }
 
     function testPermitSetGet() public {
