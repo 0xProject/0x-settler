@@ -173,6 +173,18 @@ tables.push(
       [
         ["execute", "Uniswap V3 VIP", "allowanceHolder_uniswapV3VIP"],
         ["Settler - external move then execute", "Uniswap V3", "settler_externalMoveExecute_uniswapV3"],
+        ["execute", "OTC", "allowanceHolder_otc"],
+      ],
+      pairs
+    ),
+    { stringLength: stringWidth }
+  ),
+  // Allowance Holder OTC fees
+  markdownTable(
+    generateTable(
+      "AllowanceHolder",
+      [
+        ["no fee", "OTC", "allowanceHolder_otc"],
       ],
       pairs
     ),

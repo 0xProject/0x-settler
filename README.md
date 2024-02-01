@@ -120,17 +120,29 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler        | Curve      | USDT/WETH | 433152 | 156.89% |
 |                |            |           |        |         |
 
-| AllowanceHolder                      | DEX            | Pair      | Gas    | %      |
-| ------------------------------------ | -------------- | --------- | ------ | ------ |
-| execute                              | Uniswap V3 VIP | USDC/WETH | 128238 | 0.00%  |
-| Settler - external move then execute | Uniswap V3     | USDC/WETH | 139682 | 8.92%  |
-|                                      |                |           |        |        |
-| execute                              | Uniswap V3 VIP | DAI/WETH  | 115672 | 0.00%  |
-| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128691 | 11.26% |
-|                                      |                |           |        |        |
-| execute                              | Uniswap V3 VIP | USDT/WETH | 118493 | 0.00%  |
-| Settler - external move then execute | Uniswap V3     | USDT/WETH | 135683 | 14.51% |
-|                                      |                |           |        |        |
+| AllowanceHolder                      | DEX            | Pair      | Gas    | %       |
+| ------------------------------------ | -------------- | --------- | ------ | ------- |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 128238 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 139682 | 8.92%   |
+| execute                              | OTC            | USDC/WETH | 114695 | -10.56% |
+|                                      |                |           |        |         |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 115672 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128691 | 11.26%  |
+| execute                              | OTC            | DAI/WETH  | 95221  | -17.68% |
+|                                      |                |           |        |         |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 118493 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 135683 | 14.51%  |
+| execute                              | OTC            | USDT/WETH | 106348 | -10.25% |
+|                                      |                |           |        |         |
+
+| AllowanceHolder | DEX | Pair      | Gas    | %     |
+| --------------- | --- | --------- | ------ | ----- |
+| no fee          | OTC | USDC/WETH | 114695 | 0.00% |
+|                 |     |           |        |       |
+| no fee          | OTC | DAI/WETH  | 95221  | 0.00% |
+|                 |     |           |        |       |
+| no fee          | OTC | USDT/WETH | 106348 | 0.00% |
+|                 |     |           |        |       |
 
 [//]: # "END TABLES"
 

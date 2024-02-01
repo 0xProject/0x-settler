@@ -140,6 +140,55 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
+    function testAllowanceHolder_otc() public {
+        ISignatureTransfer.PermitTransferFrom memory makerPermit =
+            defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+            token: address(fromToken()),
+            amount: amount(),
+            counterparty: FROM,
+            partialFillAllowed: false
+        });
+
+        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
+        bytes memory makerSig = getPermitWitnessTransferSignature(
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+        );
+
+        bytes memory takerSig = new bytes(0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig)
+            )
+        );
+
+        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
+        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+
+        AllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        _warm_allowanceHolder_slots(address(fromToken()), amount());
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_otc");
+        _cold_account_access();
+
+        _allowanceHolder.execute(
+            address(_settler),
+            permits,
+            payable(address(_settler)),
+            abi.encodeCall(
+                _settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
     /// @dev With a future deployment with EIP1153 these storage slots will be transient
     /// and therefor cost the same as if they were already warm
     /// TODO should we keep this on of have it as a flag if we deploy prior to EIP1153

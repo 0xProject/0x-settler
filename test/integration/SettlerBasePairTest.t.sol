@@ -38,6 +38,12 @@ abstract contract SettlerBasePairTest is BasePairTest {
         );
     }
 
+    bytes32 internal constant CONSIDERATION_TYPEHASH =
+        keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)");
+    bytes32 internal constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TokenPermissions(address token,uint256 amount)"
+    );
+
     function _getDefaultFromPermit2Action() internal returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), permit, sig));
