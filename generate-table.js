@@ -182,9 +182,11 @@ tables.push(
   // Allowance Holder OTC fees
   markdownTable(
     generateTable(
-      "AllowanceHolder",
+      "AllowanceHolder sell token fees",
       [
         ["no fee", "OTC", "allowanceHolder_otc"],
+        ["proportional fee", "OTC", "allowanceHolder_otc_proportionalFee_sellToken"],
+        ["fixed fee", "OTC", "allowanceHolder_otc_fixedFee_sellToken"],
       ],
       pairs
     ),
