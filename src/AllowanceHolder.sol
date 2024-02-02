@@ -154,7 +154,6 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(0x00))
         }
-        bytes memory result;
         if (selector == uint32(IAllowanceHolder.transferFrom.selector)) {
             address token;
             address owner;
@@ -200,7 +199,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 data.offset := add(0x20, data.offset)
             }
 
-            result = exec(operator, token, amount, target, data);
+            bytes memory result = exec(operator, token, amount, target, data);
 
             // return result;
             assembly ("memory-safe") {
