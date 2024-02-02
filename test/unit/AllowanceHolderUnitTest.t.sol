@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
-import {IAllowanceHolder} from "../../src/IAllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
+import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
@@ -31,11 +31,15 @@ contract FallbackDummy {
 
 contract AllowanceHolderUnitTest is Test {
     IAllowanceHolderDummy ah;
-    address OPERATOR = address(0x01);
-    address TOKEN = address(0x02);
-    address OWNER = address(this);
-    address RECIPIENT = address(0);
-    uint256 AMOUNT = 123456;
+    address constant OPERATOR = address(0x01);
+    address constant TOKEN = address(0x02);
+    address immutable OWNER;
+    address constant RECIPIENT = address(0);
+    uint256 constant AMOUNT = 123456;
+
+    constructor() {
+        OWNER = address(this);
+    }
 
     function setUp() public {
         ah = IAllowanceHolderDummy(address(new AllowanceHolderDummy()));

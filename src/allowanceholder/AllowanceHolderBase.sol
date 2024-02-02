@@ -1,77 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
-import {IERC20} from "./IERC20.sol";
-import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
-import {CheckCall} from "./utils/CheckCall.sol";
-import {FreeMemory} from "./utils/FreeMemory.sol";
+import {IERC20} from "../IERC20.sol";
+import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {CheckCall} from "../utils/CheckCall.sol";
+import {FreeMemory} from "../utils/FreeMemory.sol";
+import {TransientStorageLayout} from "./TransientStorageLayout.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();
 
-library TransientStorage {
-    struct TSlot {
-        uint256 value;
-    }
-
-    function set(TSlot storage ts, uint256 nv) internal {
-        assembly ("memory-safe") {
-            sstore(ts.slot, nv) // will be `tstore` after Dencun (EIP-1153)
-        }
-    }
-
-    function get(TSlot storage ts) internal view returns (uint256 cv) {
-        assembly ("memory-safe") {
-            cv := sload(ts.slot) // will be `tload` after Dencun (EIP-1153)
-        }
-    }
-}
-
-abstract contract TransientStorageMock {
-    using TransientStorage for TransientStorage.TSlot;
-
-    bytes32 private _sentinel;
-
-    constructor() {
-        uint256 _sentinelSlot;
-        assembly ("memory-safe") {
-            _sentinelSlot := _sentinel.slot
-        }
-        assert(_sentinelSlot == 0);
-    }
-
-    /// @dev The key for this ephemeral allowance is keccak256(abi.encodePacked(operator, owner, token)).
-    function _ephemeralAllowance(address operator, address owner, address token)
-        internal
-        pure
-        returns (TransientStorage.TSlot storage r)
-    {
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(0x00, shl(0x60, operator))
-            mstore(0x14, shl(0x60, owner)) // store owner at 0x14
-            mstore(0x28, shl(0x60, token)) // store token at 0x28
-            // allowance slot is keccak256(abi.encodePacked(operator, owner, token))
-            r.slot := keccak256(0x00, 0x3c)
-            // restore dirtied free pointer
-            mstore(0x40, ptr)
-        }
-    }
-
-    function _getAllowed(address operator, address owner, address token) internal view returns (uint256 r) {
-        return _ephemeralAllowance(operator, owner, token).get();
-    }
-
-    function _setAllowed(address operator, address owner, address token, uint256 allowed) internal {
-        _ephemeralAllowance(operator, owner, token).set(allowed);
-    }
-}
-
-contract AllowanceHolder is TransientStorageMock, FreeMemory {
+abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
-    using TransientStorage for TransientStorage.TSlot;
 
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
@@ -104,7 +46,12 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
 
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
-        returns (bytes memory result)
+        virtual
+        returns (bytes memory);
+
+    function _exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
+        internal
+        returns (bytes memory result, address sender)
     {
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
@@ -112,7 +59,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
         // contract that might be an ERC20.
         _rejectIfERC20(target, data);
 
-        address sender = _msgSender();
+        sender = _msgSender();
         _setAllowed(operator, sender, token, amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
@@ -134,28 +81,22 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 mstore(0x40, add(ptr, returndatasize()))
             }
         }
-
-        // EIP-3074 seems unlikely
-        if (sender != tx.origin) {
-            _setAllowed(operator, sender, token, 0);
-        }
     }
 
     function transferFrom(address token, address owner, address recipient, uint256 amount) internal {
         // msg.sender is the assumed and later validated operator
-        TransientStorage.TSlot storage allowance = _ephemeralAllowance(msg.sender, owner, token);
+        TSlot allowance = _ephemeralAllowance(msg.sender, owner, token);
         // validation of the ephemeral allowance for operator, owner, token via uint underflow
-        allowance.set(allowance.get() - amount);
+        _set(allowance, _get(allowance) - amount);
         IERC20(token).safeTransferFrom(owner, recipient, amount);
     }
 
     fallback() external payable {
-        uint32 selector;
+        uint256 selector;
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(0x00))
         }
-        bytes memory result;
-        if (selector == uint32(IAllowanceHolder.transferFrom.selector)) {
+        if (selector == uint256(uint32(IAllowanceHolder.transferFrom.selector))) {
             address token;
             address owner;
             address recipient;
@@ -179,7 +120,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 mstore(0x00, 0x01)
                 return(0x00, 0x20)
             }
-        } else if (selector == uint32(IAllowanceHolder.exec.selector)) {
+        } else if (selector == uint256(uint32(IAllowanceHolder.exec.selector))) {
             address operator;
             address token;
             uint256 amount;
@@ -200,7 +141,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 data.offset := add(0x20, data.offset)
             }
 
-            result = exec(operator, token, amount, target, data);
+            bytes memory result = exec(operator, token, amount, target, data);
 
             // return result;
             assembly ("memory-safe") {
@@ -208,7 +149,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 mstore(returndata, 0x20)
                 return(returndata, add(0x40, mload(result)))
             }
-        } else if (selector == uint32(IERC20.balanceOf.selector)) {
+        } else if (selector == uint256(uint32(IERC20.balanceOf.selector))) {
             // balanceOf(address) reverts with a single byte of returndata,
             // making it more gas efficient to pass the `_rejectERC20` check
             assembly ("memory-safe") {
@@ -220,18 +161,5 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 revert(0x00, 0x00)
             }
         }
-    }
-
-    // This is here as a deploy-time check that AllowanceHolder doesn't have any
-    // state. If it did, it would interfere with TransientStorageMock. This can
-    // be removed once *actual* EIP-1153 is adopted.
-    bytes32 private _sentinel;
-
-    constructor() {
-        uint256 _sentinelSlot;
-        assembly ("memory-safe") {
-            _sentinelSlot := _sentinel.slot
-        }
-        assert(_sentinelSlot == 1);
     }
 }

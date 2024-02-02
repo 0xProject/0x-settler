@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {VIPBase} from "./VIPBase.sol";
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
@@ -248,10 +248,6 @@ abstract contract UniswapV3 is SettlerAbstract, VIPBase {
         bool isForwarded
     ) private view {
         assembly ("memory-safe") {
-            function _memcpy(dst, src, len) {
-                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
-            }
-
             {
                 let permitted := mload(permit)
                 mstore(add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET), mload(permitted))
@@ -264,7 +260,7 @@ abstract contract UniswapV3 is SettlerAbstract, VIPBase {
                 add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x20)),
                 and(isForwarded, 1)
             )
-            _memcpy(
+            mcopy(
                 add(
                     swapCallbackData,
                     add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), WITNESS_AND_ISFORWARDED_DATA_SIZE)

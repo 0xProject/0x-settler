@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
@@ -11,8 +11,8 @@ import {IERC20} from "../../src/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
-import {IAllowanceHolder} from "../../src/IAllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
+import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 
 abstract contract SettlerBasePairTest is BasePairTest {

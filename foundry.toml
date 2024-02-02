@@ -1,5 +1,5 @@
 [profile.default]
-solc = "0.8.21"
+solc = "0.8.24"
 bytecode_hash = "none"
 optimizer = true
 via_ir = true
@@ -9,9 +9,8 @@ fuzz_runs = 10000
 # needed for marktoda/forge-gas-snapshot
 ffi = true
 fs_permissions = [{ access = "read-write", path = ".forge-snapshots/"}]
-evm_version = "shanghai"
+evm_version = "cancun"
 
 [profile.integration]
 no_match_path = ""
 match_path = "*/integration/*"
-evm_version = "shanghai"

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
-import {Context} from "./Context.sol";
+import {Context} from "../Context.sol";
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 
 abstract contract AllowanceHolderContext is Context {
