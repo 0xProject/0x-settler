@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
