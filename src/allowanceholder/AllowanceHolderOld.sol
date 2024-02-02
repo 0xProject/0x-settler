@@ -5,9 +5,17 @@ import {AllowanceHolderBase} from "./AllowanceHolderBase.sol";
 import {TransientStorageMock} from "./TransientStorageMock.sol";
 
 contract AllowanceHolder is TransientStorageMock, AllowanceHolderBase {
+    function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
+        internal
+        override
+        returns (bytes memory result)
+    {
+        result = super.exec(operator, token, amount, target, data);
+        _setAllowed(operator, sender, token, 0);
+    }
+
     // This is here as a deploy-time check that AllowanceHolder doesn't have any
-    // state. If it did, it would interfere with TransientStorageMock. This can
-    // be removed once *actual* EIP-1153 is adopted.
+    // state. If it did, it would interfere with TransientStorageMock.
     bytes32 private _sentinel;
 
     constructor() {

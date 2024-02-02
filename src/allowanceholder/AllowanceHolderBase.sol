@@ -46,6 +46,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
 
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
+        virtual
         returns (bytes memory result)
     {
         // This contract has no special privileges, except for the allowances it
@@ -75,11 +76,6 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
                 mstore(result, returndatasize())
                 mstore(0x40, add(ptr, returndatasize()))
             }
-        }
-
-        // EIP-3074 seems unlikely
-        if (sender != tx.origin) {
-            _setAllowed(operator, sender, token, 0);
         }
     }
 
