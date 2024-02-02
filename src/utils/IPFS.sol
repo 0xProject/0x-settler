@@ -17,13 +17,6 @@ library IPFS {
             bytes memory len = _protobufVarint(contentLength);
             bytes memory len2 = _protobufVarint(contentLength == 0 ? 4 : contentLength + 4 + 2 * len.length);
             assembly ("memory-safe") {
-                // this will be MCOPY after Dencun (EIP-5656)
-                function mcopy(_dst, _src, _len) {
-                    if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
-                        invalid()
-                    }
-                }
-
                 let ptr := mload(0x40)
                 let dst := ptr
                 mstore8(ptr, 0x0a)

@@ -3,8 +3,6 @@ pragma solidity ^0.8.24;
 
 import {TransientStorageBase} from "./TransientStorageBase.sol";
 
-// EVM version is set to shanghai which does not support TLOAD/TSTORE
-/*
 abstract contract TransientStorage is TransientStorageBase {
     function _get(TSlot s) internal view override returns (uint256 r) {
         assembly ("memory-safe") {
@@ -18,4 +16,3 @@ abstract contract TransientStorage is TransientStorageBase {
         }
     }
 }
-*/
