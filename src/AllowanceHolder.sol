@@ -150,11 +150,11 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
     }
 
     fallback() external payable {
-        uint32 selector;
+        uint256 selector;
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(0x00))
         }
-        if (selector == uint32(IAllowanceHolder.transferFrom.selector)) {
+        if (selector == uint256(uint32(IAllowanceHolder.transferFrom.selector))) {
             address token;
             address owner;
             address recipient;
@@ -178,7 +178,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 mstore(0x00, 0x01)
                 return(0x00, 0x20)
             }
-        } else if (selector == uint32(IAllowanceHolder.exec.selector)) {
+        } else if (selector == uint256(uint32(IAllowanceHolder.exec.selector))) {
             address operator;
             address token;
             uint256 amount;
@@ -207,7 +207,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
                 mstore(returndata, 0x20)
                 return(returndata, add(0x40, mload(result)))
             }
-        } else if (selector == uint32(IERC20.balanceOf.selector)) {
+        } else if (selector == uint256(uint32(IERC20.balanceOf.selector))) {
             // balanceOf(address) reverts with a single byte of returndata,
             // making it more gas efficient to pass the `_rejectERC20` check
             assembly ("memory-safe") {
