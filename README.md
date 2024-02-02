@@ -83,7 +83,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler | 0x V4   | USDC/WETH | 205497 | 82.59% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | DAI/WETH  | 93071  | 0.00%  |
-| Settler | Settler | DAI/WETH  | 96279  | 3.45%  |
+| Settler | Settler | DAI/WETH  | 96282  | 3.45%  |
 | Settler | 0x V4   | DAI/WETH  | 175587 | 88.66% |
 |         |         |           |        |        |
 | 0x V4   | 0x V4   | USDT/WETH | 104183 | 0.00%  |
