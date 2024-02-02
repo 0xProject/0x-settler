@@ -10,7 +10,8 @@ contract AllowanceHolder is TransientStorageMock, AllowanceHolderBase {
         override
         returns (bytes memory result)
     {
-        result = super.exec(operator, token, amount, target, data);
+        address sender;
+        (result, sender) = _exec(operator, token, amount, target, data);
         _setAllowed(operator, sender, token, 0);
     }
 

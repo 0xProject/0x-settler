@@ -35,19 +35,14 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         if (maybeERC20.checkCall(testData, 500_000, 0x20)) revert ConfusedDeputy();
     }
 
-    function _msgSender() private view returns (address sender) {
-        sender = msg.sender;
-        if (sender == address(this)) {
-            assembly ("memory-safe") {
-                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
-            }
-        }
-    }
-
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
         virtual
-        returns (bytes memory result)
+        returns (bytes memory);
+
+    function _exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
+        internal
+        returns (bytes memory result, address sender)
     {
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
@@ -55,7 +50,12 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         // contract that might be an ERC20.
         _rejectIfERC20(target, data);
 
-        address sender = _msgSender();
+        sender = msg.sender;
+        if (sender == address(this)) {
+            assembly ("memory-safe") {
+                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
+            }
+        }
         _setAllowed(operator, sender, token, amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,

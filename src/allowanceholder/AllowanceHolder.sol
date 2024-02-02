@@ -13,7 +13,8 @@ contract AllowanceHolder is TransientStorage, AllowanceHolderBase {
         override
         returns (bytes memory result)
     {
-        result = super.exec(operator, token, amount, target, data);
+        address sender;
+        (result, sender) = _exec(operator, token, amount, target, data);
         // EIP-3074 seems unlikely
         if (sender != tx.origin) {
             _setAllowed(operator, sender, token, 0);
