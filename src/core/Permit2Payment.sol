@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
 import {ContextAbstract} from "../Context.sol";

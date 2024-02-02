@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "../IERC20.sol";
