@@ -8,11 +8,11 @@ contract AllowanceHolder is TransientStorageMock, AllowanceHolderBase {
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
         override
-        returns (bytes memory result)
+        returns (bytes memory)
     {
-        address sender;
-        (result, sender) = _exec(operator, token, amount, target, data);
+        (bytes memory result, address sender) = _exec(operator, token, amount, target, data);
         _setAllowed(operator, sender, token, 0);
+        return result;
     }
 
     // This is here as a deploy-time check that AllowanceHolder doesn't have any
