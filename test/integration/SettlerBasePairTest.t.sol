@@ -11,7 +11,7 @@ import {IERC20} from "../../src/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 

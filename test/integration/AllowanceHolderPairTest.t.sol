@@ -47,11 +47,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
-        _warm_allowanceHolder_slots(address(fromToken()), amount());
+        //_warm_allowanceHolder_slots(address(fromToken()), amount());
 
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3");
-        _cold_account_access();
+        //_cold_account_access();
 
         _allowanceHolder.exec(
             address(_settler),
@@ -84,11 +84,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
-        _warm_allowanceHolder_slots(address(fromToken()), amount());
+        //_warm_allowanceHolder_slots(address(fromToken()), amount());
 
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP");
-        _cold_account_access();
+        //_cold_account_access();
 
         _allowanceHolder.exec(
             address(_settler),
@@ -121,11 +121,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
-        _warm_allowanceHolder_slots(address(fromToken()), amount());
+        //_warm_allowanceHolder_slots(address(fromToken()), amount());
 
         vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
-        _cold_account_access();
+        //_cold_account_access();
 
         _allowanceHolder.exec(
             address(_settler),
