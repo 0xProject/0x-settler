@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {AltItoA} from "./AltItoA.sol";
 import {ItoA} from "src/utils/ItoA.sol";

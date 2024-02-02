@@ -1,26 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
 import {ContextAbstract} from "../Context.sol";
-import {AllowanceHolderContext} from "../AllowanceHolderContext.sol";
-import {IAllowanceHolder} from "../IAllowanceHolder.sol";
+import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
+import {IAllowanceHolder} from "../allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 library UnsafeArray {
-    function unsafeGet(IAllowanceHolder.TransferDetails[] memory a, uint256 i)
-        internal
-        pure
-        returns (IAllowanceHolder.TransferDetails memory r)
-    {
-        assembly ("memory-safe") {
-            r := mload(add(add(a, 0x20), shl(5, i)))
-        }
-    }
-
     function unsafeGet(ISignatureTransfer.TokenPermissions[] memory a, uint256 i)
         internal
         pure
@@ -130,7 +120,6 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
 
 abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderContext {
     using UnsafeMath for uint256;
-    using UnsafeArray for IAllowanceHolder.TransferDetails[];
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
@@ -176,38 +165,6 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         token = permit.permitted.token;
     }
 
-    function _formatForAllowanceHolder(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails
-    ) private pure returns (IAllowanceHolder.TransferDetails[] memory result) {
-        uint256 length;
-        // TODO: allow multiple fees
-        if ((length = permit.permitted.length) != transferDetails.length || length > 2) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
-        result = new IAllowanceHolder.TransferDetails[](length);
-        for (uint256 i; i < length; i = i.unsafeInc()) {
-            ISignatureTransfer.TokenPermissions memory permitted = permit.permitted.unsafeGet(i);
-            ISignatureTransfer.SignatureTransferDetails memory oldDetail = transferDetails.unsafeGet(i);
-            IAllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(i);
-
-            newDetail.token = permitted.token;
-            newDetail.recipient = oldDetail.to;
-            newDetail.amount = oldDetail.requestedAmount;
-        }
-    }
-
-    function _formatForAllowanceHolder(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails
-    ) private pure returns (IAllowanceHolder.TransferDetails[] memory result) {
-        result = new IAllowanceHolder.TransferDetails[](1);
-        IAllowanceHolder.TransferDetails memory newDetail = result.unsafeGet(0);
-        newDetail.token = permit.permitted.token;
-        newDetail.recipient = transferDetails.to;
-        newDetail.amount = transferDetails.requestedAmount;
-    }
-
     function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
@@ -265,7 +222,18 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     ) internal override {
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
-            allowanceHolder.holderTransferFrom(from, _formatForAllowanceHolder(permit, transferDetails));
+            {
+                uint256 length;
+                if ((length = permit.permitted.length) != transferDetails.length || length != 1) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+            }
+            allowanceHolder.transferFrom(
+                permit.permitted.unsafeGet(0).token,
+                from,
+                transferDetails.unsafeGet(0).to,
+                transferDetails.unsafeGet(0).requestedAmount
+            );
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }
@@ -289,7 +257,9 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     ) internal override {
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
-            allowanceHolder.holderTransferFrom(from, _formatForAllowanceHolder(permit, transferDetails));
+            allowanceHolder.transferFrom(
+                permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
+            );
         } else {
             _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
         }

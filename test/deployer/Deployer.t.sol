@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {Deployer} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";

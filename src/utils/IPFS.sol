@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {Panic} from "./Panic.sol";
 
@@ -18,7 +18,7 @@ library IPFS {
             bytes memory len2 = _protobufVarint(contentLength == 0 ? 4 : contentLength + 4 + 2 * len.length);
             assembly ("memory-safe") {
                 // this will be MCOPY after Dencun (EIP-5656)
-                function _memcpy(_dst, _src, _len) {
+                function mcopy(_dst, _src, _len) {
                     if or(xor(returndatasize(), _len), iszero(staticcall(gas(), 0x04, _src, _len, _dst, _len))) {
                         invalid()
                     }
@@ -28,21 +28,21 @@ library IPFS {
                 let dst := ptr
                 mstore8(ptr, 0x0a)
                 dst := add(dst, 0x01)
-                _memcpy(dst, add(len2, 0x20), mload(len2))
+                mcopy(dst, add(len2, 0x20), mload(len2))
                 dst := add(dst, mload(len2))
                 mstore(dst, hex"080212") // TODO: remove padding
                 switch contentLength
                 case 0 { dst := add(dst, 0x02) }
                 default {
                     dst := add(dst, 0x03)
-                    _memcpy(dst, add(len, 0x20), mload(len))
+                    mcopy(dst, add(len, 0x20), mload(len))
                     dst := add(dst, mload(len))
-                    _memcpy(dst, add(contentString, 0x20), contentLength)
+                    mcopy(dst, add(contentString, 0x20), contentLength)
                     dst := add(dst, contentLength)
                 }
                 mstore8(dst, 0x18)
                 dst := add(dst, 0x01)
-                _memcpy(dst, add(len, 0x20), mload(len))
+                mcopy(dst, add(len, 0x20), mload(len))
                 dst := add(dst, mload(len))
                 if or(xor(returndatasize(), 0x20), iszero(staticcall(gas(), 0x02, ptr, sub(dst, ptr), ptr, 0x20))) {
                     invalid()

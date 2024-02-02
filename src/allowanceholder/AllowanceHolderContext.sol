@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
-import {Context} from "./Context.sol";
+import {Context} from "../Context.sol";
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 
 abstract contract AllowanceHolderContext is Context {
@@ -12,39 +12,23 @@ abstract contract AllowanceHolderContext is Context {
     }
 
     function _isForwarded() internal view virtual override returns (bool) {
-        return msg.sender == address(allowanceHolder) || super._isForwarded();
+        return super._isForwarded() || super._msgSender() == address(allowanceHolder);
     }
 
     function _msgSender() internal view virtual override returns (address sender) {
-        if (msg.sender == address(allowanceHolder)) {
+        sender = super._msgSender();
+        if (sender == address(allowanceHolder)) {
             // ERC-2771 like usage where the _trusted_ `AllowanceHolder` has appended the appropriate
             // msg.sender to the msg data
             assembly ("memory-safe") {
-                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
             }
-        } else {
-            sender = super._msgSender();
         }
     }
 
     // this is here to avoid foot-guns and make it very explicit that we intend
     // to pass the confused deputy check in AllowanceHolder
     function balanceOf(address) external pure {
-        assembly ("memory-safe") {
-            mstore8(0x00, 0x00)
-            revert(0x00, 0x01)
-        }
-    }
-
-    // We're definitely not an ERC20. Understand!?!?
-    function transfer(address, uint256) external pure {
-        assembly ("memory-safe") {
-            mstore8(0x00, 0x00)
-            revert(0x00, 0x01)
-        }
-    }
-
-    function transferFrom(address, address, uint256) external pure {
         assembly ("memory-safe") {
             mstore8(0x00, 0x00)
             revert(0x00, 0x01)

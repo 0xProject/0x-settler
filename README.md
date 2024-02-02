@@ -30,20 +30,20 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | VIP                 | DEX        | Pair      | Gas    | %      |
 | ------------------- | ---------- | --------- | ------ | ------ |
-| 0x V4 VIP           | Uniswap V3 | USDC/WETH | 125117 | 0.00%  |
-| 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138686 | 10.85% |
-| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 134945 | 7.86%  |
+| 0x V4 VIP           | Uniswap V3 | USDC/WETH | 125118 | 0.00%  |
+| 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138686 | 10.84% |
+| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 134945 | 7.85%  |
 | AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 130782 | 4.53%  |
 | UniswapRouter V3    | Uniswap V3 | USDC/WETH | 121137 | -3.18% |
 |                     |            |           |        |        |
-| 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112551 | 0.00%  |
-| 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126120 | 12.06% |
+| 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112552 | 0.00%  |
+| 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126115 | 12.05% |
 | Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 122379 | 8.73%  |
 | AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 118195 | 5.01%  |
 | UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108571 | -3.54% |
 |                     |            |           |        |        |
-| 0x V4 VIP           | Uniswap V3 | USDT/WETH | 115358 | 0.00%  |
-| 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128927 | 11.76% |
+| 0x V4 VIP           | Uniswap V3 | USDT/WETH | 115359 | 0.00%  |
+| 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128922 | 11.76% |
 | Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 125200 | 8.53%  |
 | AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 121016 | 4.90%  |
 | UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111250 | -3.56% |
@@ -59,9 +59,9 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler              | Uniswap V3 | DAI/WETH  | 148076 | -33.71% |
 | AllowanceHolder      | Uniswap V3 | DAI/WETH  | 144379 | -35.36% |
 |                      |            |           |        |         |
-| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230271 | 0.00%   |
-| Settler              | Uniswap V3 | USDT/WETH | 154753 | -32.80% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 151056 | -34.40% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230197 | 0.00%   |
+| Settler              | Uniswap V3 | USDT/WETH | 154753 | -32.77% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 151056 | -34.38% |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |

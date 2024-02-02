@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.24;
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
@@ -11,7 +11,8 @@ import {IERC20} from "../../src/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol";
+import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 
 abstract contract SettlerBasePairTest is BasePairTest {
@@ -22,12 +23,12 @@ abstract contract SettlerBasePairTest is BasePairTest {
     uint256 internal PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
-    AllowanceHolder internal allowanceHolder;
+    IAllowanceHolder internal allowanceHolder;
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
     function setUp() public virtual override {
         super.setUp();
-        allowanceHolder = new AllowanceHolder();
+        allowanceHolder = IAllowanceHolder(address(new AllowanceHolder()));
         settler = new Settler(
             address(PERMIT2),
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
