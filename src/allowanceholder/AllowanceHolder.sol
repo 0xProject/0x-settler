@@ -2,10 +2,10 @@
 pragma solidity ^0.8.21;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
-import {IERC20} from "./IERC20.sol";
-import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
-import {CheckCall} from "./utils/CheckCall.sol";
-import {FreeMemory} from "./utils/FreeMemory.sol";
+import {IERC20} from "../IERC20.sol";
+import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
+import {CheckCall} from "../utils/CheckCall.sol";
+import {FreeMemory} from "../utils/FreeMemory.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();

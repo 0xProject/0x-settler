@@ -3,7 +3,7 @@ pragma solidity ^0.8.21;
 
 import {Test} from "forge-std/Test.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "../../src/ISettlerActions.sol";

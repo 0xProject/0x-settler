@@ -3,8 +3,8 @@ pragma solidity ^0.8.21;
 
 import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
 import {ContextAbstract} from "../Context.sol";
-import {AllowanceHolderContext} from "../AllowanceHolderContext.sol";
-import {IAllowanceHolder} from "../IAllowanceHolder.sol";
+import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
+import {IAllowanceHolder} from "../allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";

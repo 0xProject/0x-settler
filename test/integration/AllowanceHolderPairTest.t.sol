@@ -13,7 +13,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
 
-import {IAllowanceHolder} from "../../src/IAllowanceHolder.sol";
+import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 import {ISettlerActions} from "../../src/ISettlerActions.sol";
 import {OtcOrderSettlement} from "../../src/core/OtcOrderSettlement.sol";
