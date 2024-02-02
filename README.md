@@ -67,7 +67,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
 | ---------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 253459 | 0.00%   |
-| Settler          | Uniswap V3 | USDC/WETH | 170543 | -32.71% |
+| Settler          | Uniswap V3 | USDC/WETH | 170542 | -32.71% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 240893 | 0.00%   |
 | Settler          | Uniswap V3 | DAI/WETH  | 153920 | -36.10% |
