@@ -248,10 +248,6 @@ abstract contract UniswapV3 is SettlerAbstract, VIPBase {
         bool isForwarded
     ) private view {
         assembly ("memory-safe") {
-            function mcopy(dst, src, len) {
-                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
-            }
-
             {
                 let permitted := mload(permit)
                 mstore(add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET), mload(permitted))
