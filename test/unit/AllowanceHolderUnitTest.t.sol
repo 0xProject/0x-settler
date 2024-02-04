@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
@@ -11,11 +11,13 @@ import {VmSafe} from "forge-std/Vm.sol";
 
 contract AllowanceHolderDummy is AllowanceHolder {
     function getAllowed(address operator, address owner, address token) external view returns (uint256 r) {
-        return _getAllowed(operator, owner, token);
+        TSlot allowance = _ephemeralAllowance(operator, owner, token);
+        return _get(allowance);
     }
 
     function setAllowed(address operator, address owner, address token, uint256 allowed) external {
-        return _setAllowed(operator, owner, token, allowed);
+        TSlot allowance = _ephemeralAllowance(operator, owner, token);
+        _set(allowance, allowed);
     }
 }
 
