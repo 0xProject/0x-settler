@@ -51,7 +51,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
 
     function _exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
-        returns (bytes memory result, address sender)
+        returns (bytes memory result, address sender, TSlot allowance)
     {
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
@@ -60,12 +60,14 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         _rejectIfERC20(target, data);
 
         sender = _msgSender();
-        _setAllowed(operator, sender, token, amount);
+        allowance = _ephemeralAllowance(operator, sender, token);
+        _set(allowance, amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
         // we're omitting the check that `address(this)` has sufficient value to
-        // send (we know it does), and we're omitting the check that `target`
-        // contains code (we already checked in `_rejectIfERC20`).
+        // send (we know it does; makes us more ERC-4337 friendly), and we're
+        // omitting the check that `target` contains code (we already checked in
+        // `_rejectIfERC20`).
         assembly ("memory-safe") {
             result := mload(0x40)
             calldatacopy(result, data.offset, data.length)

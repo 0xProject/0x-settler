@@ -11,11 +11,13 @@ import {VmSafe} from "forge-std/Vm.sol";
 
 contract AllowanceHolderDummy is AllowanceHolder {
     function getAllowed(address operator, address owner, address token) external view returns (uint256 r) {
-        return _getAllowed(operator, owner, token);
+        TSlot allowance = _ephemeralAllowance(operator, owner, token);
+        return _get(allowance);
     }
 
     function setAllowed(address operator, address owner, address token, uint256 allowed) external {
-        return _setAllowed(operator, owner, token, allowed);
+        TSlot allowance = _ephemeralAllowance(operator, owner, token);
+        _set(allowance, allowed);
     }
 }
 

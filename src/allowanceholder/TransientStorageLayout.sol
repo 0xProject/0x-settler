@@ -17,12 +17,4 @@ abstract contract TransientStorageLayout is TransientStorageBase {
             mstore(0x40, ptr)
         }
     }
-
-    function _getAllowed(address operator, address owner, address token) internal view returns (uint256) {
-        return _get(_ephemeralAllowance(operator, owner, token));
-    }
-
-    function _setAllowed(address operator, address owner, address token, uint256 allowed) internal {
-        _set(_ephemeralAllowance(operator, owner, token), allowed);
-    }
 }
