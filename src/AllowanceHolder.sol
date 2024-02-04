@@ -56,14 +56,6 @@ abstract contract TransientStorageMock {
             mstore(0x40, ptr)
         }
     }
-
-    function _getAllowed(address operator, address owner, address token) internal view returns (uint256 r) {
-        return _ephemeralAllowance(operator, owner, token).get();
-    }
-
-    function _setAllowed(address operator, address owner, address token, uint256 allowed) internal {
-        _ephemeralAllowance(operator, owner, token).set(allowed);
-    }
 }
 
 contract AllowanceHolder is TransientStorageMock, FreeMemory {
@@ -111,12 +103,14 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
         _rejectIfERC20(target, data);
 
         address sender = _msgSender();
-        _setAllowed(operator, sender, token, amount);
+        TransientStorage.TSlot allowance = _ephemeralAllowance(operator, sender, token);
+        allowance.set(amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
         // we're omitting the check that `address(this)` has sufficient value to
-        // send (we know it does), and we're omitting the check that `target`
-        // contains code (we already checked in `_rejectIfERC20`).
+        // send (we know it does; makes us more ERC-4337 friendly), and we're
+        // omitting the check that `target` contains code (we already checked in
+        // `_rejectIfERC20`).
         assembly ("memory-safe") {
             result := mload(0x40)
             calldatacopy(result, data.offset, data.length)
@@ -133,9 +127,9 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
             }
         }
 
-        // EIP-3074 seems unlikely
+        // EIP-3074 seems unlikely; ERC-4337 unfriendly
         if (sender != tx.origin) {
-            _setAllowed(operator, sender, token, 0);
+            allowance.set(0);
         }
     }
 
