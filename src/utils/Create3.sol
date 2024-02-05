@@ -60,6 +60,9 @@ library Create3 {
         internal
         returns (address deployed)
     {
+        if (initCode.length == 0) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
         assembly ("memory-safe") {
             mstore(0x11, 0xf080601f575f5ffd5b5f5260205ff35bfe)
             mstore(0x00, 0x60288060095f395ff33660065732ff5b5f5460265760015f55365f5f37365f34)
@@ -79,6 +82,9 @@ library Create3 {
     }
 
     function createFromMemory(bytes32 salt, bytes memory initCode, uint256 value) internal returns (address deployed) {
+        if (initCode.length == 0) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
         assembly ("memory-safe") {
             mstore(0x11, 0xf080601f575f5ffd5b5f5260205ff35bfe)
             mstore(0x00, 0x60288060095f395ff33660065732ff5b5f5460265760015f55365f5f37365f34)
