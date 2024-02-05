@@ -136,7 +136,7 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
 
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
-        view
+        pure
         override
         returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount)
     {
