@@ -2,53 +2,57 @@
 pragma solidity ^0.8.24;
 
 import {AddressDerivation} from "./AddressDerivation.sol";
+import {Panic} from "./Panic.sol";
 
 /*
-00 6028 push1 28
-02 80 dup1
-03 6009 push1 09
-05 5f push0
-06 39 codecopy
-07 5f push0
-08 f3 return
-09
 
-00 36 calldatasize
-01 6006 push1 06
-03 57 jumpi
-04 32 origin
-05 ff selfdestruct
-06 5b jumpdest
-07 5f push0
-08 54 sload
-09 6026 push1 26
-0b 57 jumpi
-0c 6001 push1 01
-0e 5f push0
-0f 55 sstore
-10 36 calldatasize
-11 5f push0
-12 5f push0
-13 37 calldatacopy
-14 36 calldatasize
-15 5f push0
-16 34 callvalue
-17 f0 create
-18 80 dup1
-19 601f push1 1f
-1b 57 jumpi
-1c 5f push0
-1d 5f push0
-1e fd revert
-1f 5b jumpdest
-20 5f push0
-21 52 mstore
-22 6020 push1 20
-24 5f push0
-25 f3 return
-26 5b jumpdest
-27 fe invalid
-28
+| Address | Bytecode | Mnemonic | Argument | Stack
+| 00 | 6028 | push1 28 | [runtimeLen]
+| 02 | 80 | dup1 | [runtimeLen runtimeLen]
+| 03 | 6009 | push1 09 | [runtimeStart runtimeLen runtimeLen]
+| 05 | 5f | push0 | [0 runtimeStart runtimeLen runtimeLen]
+| 06 | 39 | codecopy | [runtimeLen]
+| 07 | 5f | push0 | [0 runtimeLen]
+| 08 | f3 | return | X
+| 09 |
+
+| Address | Bytecode | Mnemonic | Argument | Stack | Memory
+| 00 | 36   | calldatasize | [cds] | {}
+| 01 | 6006 | push1 0x06   | [target cds] | {}
+| 03 | 57   | jumpi        | [] | {}
+| 04 | 32   | origin       | [tx.origin] | {}
+| 05 | ff   | selfdestruct | X | X
+| 06 | 5b   | jumpdest     | [] | {}
+| 07 | 5f   | push0        | [0] | {}
+| 08 | 54   | sload        | [initialized] | {}
+| 09 | 6026 | push1 0x26   | [target initialized] | {}
+| 0b | 57   | jumpi        | [] | {}
+| 0c | 6001 | push1 0x01   | [1] | {}
+| 0e | 5f   | push0        | [0 1] | {}
+| 0f | 55   | sstore       | [] | {}
+| 10 | 36   | calldatasize | [cds] | {}
+| 11 | 5f   | push0        | [0 cds] | {}
+| 12 | 5f   | push0        | [0 0 cds] | {}
+| 13 | 37   | calldatacopy | [] | {initCode}
+| 14 | 36   | calldatasize | [cds] | {initCode}
+| 15 | 5f   | push0        | [0 cds] | {initCode}
+| 16 | 34   | callvalue    | [msg.value 0 cds] | {initCode}
+| 17 | f0   | create       | [deplyed] | {initCode}
+| 18 | 80   | dup1         | [deployed deployed] | {initCode}
+| 19 | 601f | push1 0x1f   | [target deployed deployed] | {initCode}
+| 1b | 57   | jumpi        | [deployed] | {initCode}
+| 1c | 5f   | push0        | [0 deployed] | {initCode}
+| 1d | 5f   | push0        | [0 0 deployed] | {initCode}
+| 1e | fd   | revert       | X | X
+| 1f | 5b   | jumpdest     | [deployed] | {initCode}
+| 20 | 5f   | push0        | [0 deployed] | {initCode}
+| 21 | 52   | mstore       | [] | {deployed ...}
+| 22 | 6020 | push1 0x20   | [32] | {deployed ...}
+| 24 | 5f   | push0        | [0 32] | {deployed ...}
+| 25 | f3   | return       | X | X
+| 26 | 5b   | jumpdest     | [] | {}
+| 27 | fe   | invalid      | X | X
+| 28 |
 */
 
 library Create3 {
