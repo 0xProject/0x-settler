@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Deployer} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {Create3} from "src/utils/Create3.sol";
 
 import "forge-std/Test.sol";
 
@@ -94,7 +95,8 @@ contract DeployerTest is Test {
     function testDeploy() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        address predicted = AddressDerivation.deriveContract(address(deployer), 1);
+        address predicted =
+            Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Deployed(1, 1, predicted);
         vm.expectEmit(true, true, true, false, address(deployer));
@@ -112,7 +114,7 @@ contract DeployerTest is Test {
     function testDeployRevert() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
+        vm.expectRevert(new bytes(0));
         deployer.deploy(1, hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
@@ -141,23 +143,25 @@ contract DeployerTest is Test {
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
 
-        uint64 nonce = deployer.nextNonce();
+        uint64 nonce = deployer.nextNonce(1);
         address instance = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(deployer.ownerOf(1), instance);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Transfer(AddressDerivation.deriveContract(address(deployer), 1), address(0), 1);
+        emit Transfer(
+            Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer)), address(0), 1
+        );
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Removed(1, 1, instance);
         assertTrue(deployer.remove(1, nonce));
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
 
-        nonce = deployer.nextNonce();
+        nonce = deployer.nextNonce(1);
         instance = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(deployer.ownerOf(1), instance, "redeploy after remove");
 
-        nonce = deployer.nextNonce();
+        nonce = deployer.nextNonce(1);
         address newInstance = deployer.deploy(1, type(Dummy).creationCode);
         assertNotEq(newInstance, instance);
         assertEq(deployer.ownerOf(1), newInstance, "2nd redeploy after remove");
@@ -176,7 +180,7 @@ contract DeployerTest is Test {
         deployer.deploy(1, type(Dummy).creationCode);
         deployer.deploy(1, type(Dummy).creationCode);
         address instance = deployer.deploy(1, type(Dummy).creationCode);
-        uint64 nonce = deployer.nextNonce() - 1;
+        uint64 nonce = deployer.nextNonce(1) - 1;
 
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(instance, address(0), 1);
@@ -196,7 +200,9 @@ contract DeployerTest is Test {
 
         for (uint64 i = 1; i < nonce; i++) {
             vm.expectEmit(true, true, true, false, address(deployer));
-            emit Removed(1, i, AddressDerivation.deriveContract(address(deployer), i));
+            emit Removed(
+                1, i, Create3.predict(bytes32(340282366920938463463374607431768211456 + uint256(i)), address(deployer))
+            );
             vm.recordLogs();
             deployer.remove(1, i);
             entries = vm.getRecordedLogs();
@@ -205,16 +211,20 @@ contract DeployerTest is Test {
 
         deployer.deploy(1, type(Dummy).creationCode);
         instance = deployer.deploy(1, type(Dummy).creationCode);
-        nonce = deployer.nextNonce() - 1;
+        nonce = deployer.nextNonce(1) - 1;
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Transfer(instance, AddressDerivation.deriveContract(address(deployer), nonce - 1), 1);
+        emit Transfer(
+            instance,
+            Create3.predict(bytes32(uint256(nonce) + 340282366920938463463374607431768211455), address(deployer)),
+            1
+        );
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Removed(1, nonce, instance);
         deployer.remove(1, nonce);
 
         nonce--;
-        instance = AddressDerivation.deriveContract(address(deployer), nonce);
+        instance = Create3.predict(bytes32(uint256(nonce) + 340282366920938463463374607431768211456), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(instance, address(0), 1);
         vm.expectEmit(true, true, true, false, address(deployer));

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC165, TwoStepOwnable, AbstractOwnable} from "./TwoStepOwnable.sol";
 import {ERC1967UUPSUpgradeable} from "../proxy/ERC1967UUPSUpgradeable.sol";
 import {Panic} from "../utils/Panic.sol";
-import {AddressDerivation} from "../utils/AddressDerivation.sol";
+import {Create3} from "../utils/Create3.sol";
 import {IPFS} from "../utils/IPFS.sol";
 import {ItoA} from "../utils/ItoA.sol";
 import {Revert} from "../utils/Revert.sol";
@@ -73,6 +73,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     struct ListHead {
         uint64 head;
         uint64 highWater;
+        uint64 prevNonce;
     }
 
     struct ExpiringAuthorization {
@@ -80,9 +81,6 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         uint96 deadline;
     }
 
-    bytes32 private _pad; // ensure that `nextNonce` starts in its own slot
-
-    uint64 public nextNonce;
     mapping(uint64 => DoublyLinkedList) private _deploymentLists;
     mapping(uint128 => ListHead) private _featureNonce;
     mapping(address => uint64) private _deploymentNonce;
@@ -93,9 +91,12 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     constructor() ERC1967UUPSUpgradeable(1) {}
 
     function initialize(address initialOwner) external {
-        nextNonce = 1;
         _setPendingOwner(initialOwner);
         super._initialize();
+    }
+
+    function nextNonce(uint128 feature) external view returns (uint64) {
+        return _featureNonce[feature].prevNonce + 1;
     }
 
     event Authorized(uint128 indexed, address indexed, uint256);
@@ -160,35 +161,28 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         onlyAuthorized(feature)
         returns (address predicted)
     {
-        uint64 thisNonce = nextNonce++;
-        predicted = AddressDerivation.deriveContract(address(this), thisNonce);
+        uint64 prevNonce;
+        uint64 thisNonce;
+        {
+            ListHead storage head = _featureNonce[feature];
+            (prevNonce, thisNonce) = (head.head, head.prevNonce);
+            thisNonce++;
+            (head.head, head.prevNonce) = (thisNonce, thisNonce);
+        }
+        bytes32 salt = bytes32(uint256(feature) << 128 | uint256(thisNonce));
+        predicted = Create3.predict(salt);
         _deploymentNonce[predicted] = thisNonce;
         emit Deployed(feature, thisNonce, predicted);
 
-        uint64 prevNonce = _featureNonce[feature].head;
-        _featureNonce[feature].head = thisNonce;
         _deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
         } else {
-            emit Transfer(AddressDerivation.deriveContract(address(this), prevNonce), predicted, feature);
+            emit Transfer(Create3.predict(bytes32(uint256(feature) << 128 | uint256(prevNonce))), predicted, feature);
             _deploymentLists[prevNonce].next = thisNonce;
         }
 
-        bool success;
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            calldatacopy(ptr, initCode.offset, initCode.length)
-            // Yul evaluation order is right-to-left
-            success :=
-                and(
-                    // check that the deployed address contains code
-                    iszero(iszero(extcodesize(predicted))),
-                    // CREATE the new instance and check that it returns the predicted address
-                    eq(and(_ADDRESS_MASK, predicted), create(callvalue(), ptr, initCode.length))
-                )
-        }
-        if (!success) {
+        if (Create3.createFromCalldata(salt, initCode) != predicted || predicted.code.length == 0) {
             revert DeployFailed(thisNonce);
         }
     }
@@ -201,14 +195,16 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
             revert PermissionDenied();
         }
         (uint64 prev, uint64 next) = (entry.prev, entry.next);
-        address deployment = AddressDerivation.deriveContract(address(this), nonce);
+        address deployment = Create3.predict(bytes32(uint256(feature) << 128 | uint256(nonce)));
         if (next == 0) {
             ListHead storage headEntry = _featureNonce[feature];
             if (nonce > headEntry.highWater) {
                 // assert(headEntry.head == nonce);
                 headEntry.head = prev;
                 emit Transfer(
-                    deployment, prev == 0 ? address(0) : AddressDerivation.deriveContract(address(this), prev), feature
+                    deployment,
+                    prev == 0 ? address(0) : Create3.predict(bytes32(uint256(feature) << 128 | uint256(prev))),
+                    feature
                 );
             }
         } else {
@@ -233,7 +229,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         if (nonce != 0) {
             // assert(nonce > entry.highWater);
             (entry.head, entry.highWater) = (0, nonce);
-            emit Transfer(AddressDerivation.deriveContract(address(this), nonce), address(0), feature);
+            emit Transfer(Create3.predict(bytes32(uint256(feature) << 128 | uint256(nonce))), address(0), feature);
         }
         emit RemovedAll(feature);
         return true;
@@ -296,7 +292,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     }
 
     function ownerOf(uint256 tokenId) external view override returns (address) {
-        return AddressDerivation.deriveContract(address(this), _requireTokenExists(tokenId));
+        return Create3.predict(bytes32(tokenId << 128 | uint256(_requireTokenExists(tokenId))));
     }
 
     modifier tokenExists(uint256 tokenId) {
