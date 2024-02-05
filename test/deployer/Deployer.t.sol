@@ -101,7 +101,7 @@ contract DeployerTest is Test {
         emit Deployed(1, 1, predicted);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(address(0), predicted, 1);
-        address instance = deployer.deploy(1, type(Dummy).creationCode);
+        (address instance,) = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(instance, predicted);
         assertEq(deployer.ownerOf(1), predicted);
     }
@@ -129,7 +129,7 @@ contract DeployerTest is Test {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
         // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
-        address deployed = deployer.deploy(1, hex"60015ff3");
+        (address deployed,) = deployer.deploy(1, hex"60015ff3");
         assertNotEq(deployed, address(0));
         assertNotEq(deployed.code.length, 0);
     }
@@ -143,8 +143,7 @@ contract DeployerTest is Test {
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
 
-        uint64 nonce = deployer.nextNonce(1);
-        address instance = deployer.deploy(1, type(Dummy).creationCode);
+        (address instance, uint64 nonce) = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(deployer.ownerOf(1), instance);
 
         vm.expectEmit(true, true, true, false, address(deployer));
@@ -157,12 +156,11 @@ contract DeployerTest is Test {
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
 
-        nonce = deployer.nextNonce(1);
-        instance = deployer.deploy(1, type(Dummy).creationCode);
+        (instance, nonce) = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(deployer.ownerOf(1), instance, "redeploy after remove");
 
-        nonce = deployer.nextNonce(1);
-        address newInstance = deployer.deploy(1, type(Dummy).creationCode);
+        address newInstance;
+        (newInstance, nonce) = deployer.deploy(1, type(Dummy).creationCode);
         assertNotEq(newInstance, instance);
         assertEq(deployer.ownerOf(1), newInstance, "2nd redeploy after remove");
 
@@ -179,8 +177,7 @@ contract DeployerTest is Test {
         deployer.deploy(1, type(Dummy).creationCode);
         deployer.deploy(1, type(Dummy).creationCode);
         deployer.deploy(1, type(Dummy).creationCode);
-        address instance = deployer.deploy(1, type(Dummy).creationCode);
-        uint64 nonce = deployer.nextNonce(1) - 1;
+        (address instance, uint64 nonce) = deployer.deploy(1, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(instance, address(0), 1);
@@ -210,8 +207,7 @@ contract DeployerTest is Test {
         }
 
         deployer.deploy(1, type(Dummy).creationCode);
-        instance = deployer.deploy(1, type(Dummy).creationCode);
-        nonce = deployer.nextNonce(1) - 1;
+        (instance, nonce) = deployer.deploy(1, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Transfer(

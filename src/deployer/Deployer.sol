@@ -95,8 +95,12 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         super._initialize();
     }
 
-    function nextNonce(uint128 feature) external view returns (uint64) {
-        return _featureNonce[feature].prevNonce + 1;
+    function _salt(uint128 feature, uint64 nonce) internal pure returns (bytes32) {
+        return bytes32(uint256(feature) << 128 | uint256(nonce));
+    }
+
+    function next(uint128 feature) external view returns (address) {
+        return Create3.predict(_salt(feature, _featureNonce[feature].prevNonce + 1));
     }
 
     event Authorized(uint128 indexed, address indexed, uint256);
@@ -159,17 +163,16 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         public
         payable
         onlyAuthorized(feature)
-        returns (address predicted)
+        returns (address predicted, uint64 thisNonce)
     {
         uint64 prevNonce;
-        uint64 thisNonce;
         {
             ListHead storage head = _featureNonce[feature];
             (prevNonce, thisNonce) = (head.head, head.prevNonce);
             thisNonce++;
             (head.head, head.prevNonce) = (thisNonce, thisNonce);
         }
-        bytes32 salt = bytes32(uint256(feature) << 128 | uint256(thisNonce));
+        bytes32 salt = _salt(feature, thisNonce);
         predicted = Create3.predict(salt);
         _deploymentNonce[predicted] = thisNonce;
         emit Deployed(feature, thisNonce, predicted);
@@ -178,7 +181,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
         } else {
-            emit Transfer(Create3.predict(bytes32(uint256(feature) << 128 | uint256(prevNonce))), predicted, feature);
+            emit Transfer(Create3.predict(_salt(feature, prevNonce)), predicted, feature);
             _deploymentLists[prevNonce].next = thisNonce;
         }
 
@@ -194,24 +197,22 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         if (entry.feature != feature) {
             revert PermissionDenied();
         }
-        (uint64 prev, uint64 next) = (entry.prev, entry.next);
-        address deployment = Create3.predict(bytes32(uint256(feature) << 128 | uint256(nonce)));
-        if (next == 0) {
+        (uint64 prevNonce, uint64 nextNonce) = (entry.prev, entry.next);
+        address deployment = Create3.predict(_salt(feature, nonce));
+        if (nextNonce == 0) {
             ListHead storage headEntry = _featureNonce[feature];
             if (nonce > headEntry.highWater) {
                 // assert(headEntry.head == nonce);
-                headEntry.head = prev;
+                headEntry.head = prevNonce;
                 emit Transfer(
-                    deployment,
-                    prev == 0 ? address(0) : Create3.predict(bytes32(uint256(feature) << 128 | uint256(prev))),
-                    feature
+                    deployment, prevNonce == 0 ? address(0) : Create3.predict(_salt(feature, prevNonce)), feature
                 );
             }
         } else {
-            _deploymentLists[next].prev = prev;
+            _deploymentLists[nextNonce].prev = prevNonce;
         }
-        if (prev != 0) {
-            _deploymentLists[prev].next = next;
+        if (prevNonce != 0) {
+            _deploymentLists[prevNonce].next = nextNonce;
         }
         delete entry.prev;
         delete entry.next;
@@ -229,7 +230,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         if (nonce != 0) {
             // assert(nonce > entry.highWater);
             (entry.head, entry.highWater) = (0, nonce);
-            emit Transfer(Create3.predict(bytes32(uint256(feature) << 128 | uint256(nonce))), address(0), feature);
+            emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), feature);
         }
         emit RemovedAll(feature);
         return true;
@@ -273,8 +274,8 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
             revert ZeroAddress();
         }
         DoublyLinkedList storage entry = _deploymentLists[_deploymentNonce[instance]];
-        (uint64 next, uint128 feature) = (entry.next, entry.feature);
-        if (feature != 0 && next == 0) {
+        (uint64 nextNonce, uint128 feature) = (entry.next, entry.feature);
+        if (feature != 0 && nextNonce == 0) {
             return 1;
         }
         return 0;
@@ -292,7 +293,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     }
 
     function ownerOf(uint256 tokenId) external view override returns (address) {
-        return Create3.predict(bytes32(tokenId << 128 | uint256(_requireTokenExists(tokenId))));
+        return Create3.predict(_salt(uint128(tokenId), _requireTokenExists(tokenId)));
     }
 
     modifier tokenExists(uint256 tokenId) {
