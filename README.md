@@ -59,9 +59,9 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler              | Uniswap V3 | DAI/WETH  | 147883 | -33.80% |
 | AllowanceHolder      | Uniswap V3 | DAI/WETH  | 141159 | -36.81% |
 |                      |            |           |        |         |
-| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230271 | 0.00%   |
-| Settler              | Uniswap V3 | USDT/WETH | 154560 | -32.88% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 147836 | -35.80% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230197 | 0.00%   |
+| Settler              | Uniswap V3 | USDT/WETH | 154560 | -32.86% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 147836 | -35.78% |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
