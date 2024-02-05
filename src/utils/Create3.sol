@@ -61,6 +61,8 @@ import {Panic} from "./Panic.sol";
 library Create3 {
     uint256 private constant _SHIM0 = 0x60288060095f395ff33660065732ff5b5f5460265760015f55365f5f37365f34;
     uint136 private constant _SHIM1 = 0xf080601f575f5ffd5b5f5260205ff35bfe;
+    uint8 private constant _SHIM1_LENGTH = 0x11;
+    bytes32 private constant _SHIM_INITHASH = 0xc979a27a67b280ded6080b47b000684d2de0189c7a6a768711e1f69e87da0609;
 
     function createFromCalldata(bytes32 salt, bytes calldata initCode, uint256 value)
         internal
@@ -70,7 +72,7 @@ library Create3 {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
-            mstore(0x11, _SHIM1)
+            mstore(_SHIM1_LENGTH, _SHIM1)
             mstore(0x00, _SHIM0)
             let shim := create2(0x00, 0x00, 0x31, salt)
             if iszero(shim) { revert(0x00, 0x00) }
@@ -92,7 +94,7 @@ library Create3 {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
-            mstore(0x11, _SHIM1)
+            mstore(_SHIM1_LENGTH, _SHIM1)
             mstore(0x00, _SHIM0)
             let shim := create2(0x00, 0x00, 0x31, salt)
             if iszero(shim) { revert(0x00, 0x00) }
@@ -109,10 +111,7 @@ library Create3 {
 
     function predict(bytes32 salt, address deployer) internal pure returns (address r) {
         return AddressDerivation.deriveContract(
-            AddressDerivation.deriveDeterministicContract(
-                deployer, salt, 0xc979a27a67b280ded6080b47b000684d2de0189c7a6a768711e1f69e87da0609
-            ),
-            1
+            AddressDerivation.deriveDeterministicContract(deployer, salt, _SHIM_INITHASH), 1
         );
     }
 
