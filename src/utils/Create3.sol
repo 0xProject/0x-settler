@@ -6,7 +6,8 @@ import {Panic} from "./Panic.sol";
 
 /*
         // constructor
-        | Address | Bytecode | Mnemonic | Argument | Stack                  | Memory
+        | Address | Bytecode | Mnemonic | Stack                             | Memory
+        ----------------------------------------------------------------------------
 /-----< | 00 | 6028 | push1 0x28   | [runtimeLen]                           | {}
 |       | 02 | 80   | dup1         | [runtimeLen runtimeLen]                | {}
 |   /-< | 03 | 6009 | push1 0x09   | [runtimeStart runtimeLen runtimeLen]   | {}
@@ -17,7 +18,8 @@ import {Panic} from "./Panic.sol";
 |   \-> | 09 |
 |
 |       // runtime
-|       | Address | Bytecode | Mnemonic | Argument | Stack                  | Memory
+|       | Address | Bytecode | Mnemonic | Stack                             | Memory
+|       ----------------------------------------------------------------------------
 |       | 00 | 36   | calldatasize | [cds]                                  | {}
 |   /-< | 01 | 6006 | push1 0x06   | [target cds]                           | {}
 |   |   | 03 | 57   | jumpi        | []                                     | {}
