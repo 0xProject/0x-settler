@@ -57,6 +57,9 @@ import {Panic} from "./Panic.sol";
 */
 
 library Create3 {
+    uint256 private constant _SHIM0 = 0x60288060095f395ff33660065732ff5b5f5460265760015f55365f5f37365f34;
+    uint136 private constant _SHIM1 = 0xf080601f575f5ffd5b5f5260205ff35bfe;
+
     function createFromCalldata(bytes32 salt, bytes calldata initCode, uint256 value)
         internal
         returns (address deployed)
@@ -65,8 +68,8 @@ library Create3 {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
-            mstore(0x11, 0xf080601f575f5ffd5b5f5260205ff35bfe)
-            mstore(0x00, 0x60288060095f395ff33660065732ff5b5f5460265760015f55365f5f37365f34)
+            mstore(0x11, _SHIM1)
+            mstore(0x00, _SHIM0)
             let shim := create2(0x00, 0x00, 0x31, salt)
             if iszero(shim) { revert(0x00, 0x00) }
             let ptr := mload(0x40)
@@ -87,8 +90,8 @@ library Create3 {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
-            mstore(0x11, 0xf080601f575f5ffd5b5f5260205ff35bfe)
-            mstore(0x00, 0x60288060095f395ff33660065732ff5b5f5460265760015f55365f5f37365f34)
+            mstore(0x11, _SHIM1)
+            mstore(0x00, _SHIM0)
             let shim := create2(0x00, 0x00, 0x31, salt)
             if iszero(shim) { revert(0x00, 0x00) }
             let success := call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)
