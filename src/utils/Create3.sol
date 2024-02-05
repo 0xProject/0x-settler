@@ -7,13 +7,13 @@ import {Panic} from "./Panic.sol";
 /*
         // constructor
         | Address | Bytecode | Mnemonic | Argument | Stack | Memory
-/-----< | 00 | 6028 | push1 28 | [runtimeLen] | {}
-|       | 02 | 80 | dup1 | [runtimeLen runtimeLen] | {}
-|   /-< | 03 | 6009 | push1 09 | [runtimeStart runtimeLen runtimeLen] | {}
-|   |   | 05 | 5f | push0 | [0 runtimeStart runtimeLen runtimeLen] | {}
-|   |   | 06 | 39 | codecopy | [runtimeLen] | {runtime}
-|   |   | 07 | 5f | push0 | [0 runtimeLen] | {runtime}
-|   |   | 08 | f3 | return | X | X
+/-----< | 00 | 6028 | push1 0x28   | [runtimeLen] | {}
+|       | 02 | 80   | dup1         | [runtimeLen runtimeLen] | {}
+|   /-< | 03 | 6009 | push1 0x09   | [runtimeStart runtimeLen runtimeLen] | {}
+|   |   | 05 | 5f   | push0        | [0 runtimeStart runtimeLen runtimeLen] | {}
+|   |   | 06 | 39   | codecopy     | [runtimeLen] | {runtime}
+|   |   | 07 | 5f   | push0        | [0 runtimeLen] | {runtime}
+|   |   | 08 | f3   | return       | X | X
 |   \-> | 09 |
 |
 |       // runtime
