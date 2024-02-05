@@ -246,7 +246,7 @@ abstract contract UniswapV3 is SettlerAbstract, VIPBase {
         bytes32 witness,
         bytes memory sig,
         bool isForwarded
-    ) private view {
+    ) private pure {
         assembly ("memory-safe") {
             {
                 let permitted := mload(permit)
