@@ -317,6 +317,22 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
+    function testAllowanceHolder_empty() public {
+        bytes[] memory actions = new bytes[](0);
+        bytes memory call = abi.encodeCall(
+            settler.execute,
+            (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+        );
+
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_empty");
+        _allowanceHolder.exec(address(0), address(0), 0, payable(address(_settler)), call);
+        snapEnd();
+    }
+
     /// @dev With a future deployment with EIP1153 these storage slots will be transient
     /// and therefor cost the same as if they were already warm
     /// TODO should we keep this on of have it as a flag if we deploy prior to EIP1153
