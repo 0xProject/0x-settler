@@ -73,8 +73,7 @@ library Create3 {
             if iszero(shim) { revert(0x00, 0x00) }
             let ptr := mload(0x40)
             calldatacopy(ptr, initCode.offset, initCode.length)
-            let success := call(gas(), shim, value, ptr, initCode.length, 0x00, 0x20)
-            if iszero(success) { revert(0x00, 0x00) }
+            if iszero(call(gas(), shim, value, ptr, initCode.length, 0x00, 0x20)) { revert(0x00, 0x00) }
             deployed := mload(0x00)
             pop(call(gas(), shim, 0x00, 0x00, 0x00, 0x00, 0x00))
         }
@@ -93,8 +92,7 @@ library Create3 {
             mstore(0x00, _SHIM0)
             let shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
             if iszero(shim) { revert(0x00, 0x00) }
-            let success := call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)
-            if iszero(success) { revert(0x00, 0x00) }
+            if iszero(call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)) { revert(0x00, 0x00) }
             deployed := mload(0x00)
             pop(call(gas(), shim, 0x00, 0x00, 0x00, 0x00, 0x00))
         }
