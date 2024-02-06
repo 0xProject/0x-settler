@@ -53,6 +53,14 @@ abstract contract AbstractOwnable is IOwnable {
 abstract contract Ownable is AbstractOwnable {
     address private _owner;
 
+    // We deliberately do not conform to ERC1967 or ERC7201 here. We want to put
+    // the `owner` in slot 0 to make it easily distinguishable between
+    // upgrades. We do not adopt the ERC1967 "admin" slot because this address
+    // may be used both for upgrades and for other privileged actions. We do not
+    // adopt a ERC7201 slot because the owner may be shared across multiple
+    // implementations. The deploy-time check below ensures that this slot is
+    // consistent.
+
     constructor() {
         uint256 ownerSlot;
         assembly ("memory-safe") {

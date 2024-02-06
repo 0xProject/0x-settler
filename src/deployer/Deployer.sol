@@ -81,14 +81,38 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         uint96 deadline;
     }
 
-    mapping(uint64 => DoublyLinkedList) private _deploymentLists;
-    mapping(uint128 => ListHead) private _featureNonce;
-    mapping(address => uint64) private _deploymentNonce;
+    // @custom:storage-location erc7201:0xV5Deployer.1
+    struct ZeroExV5DeployerStorage {
+        mapping(uint64 => DoublyLinkedList) deploymentLists;
+        mapping(uint128 => ListHead) featureNonce;
+        mapping(address => uint64) deploymentNonce;
+        mapping(uint128 => ExpiringAuthorization) authorized;
+        mapping(uint128 => bytes32) descriptionHash;
+    }
 
-    mapping(uint128 => ExpiringAuthorization) public authorized;
-    mapping(uint128 => bytes32) public descriptionHash;
+    function _stor() private pure returns (ZeroExV5DeployerStorage storage r) {
+        assembly ("memory-safe") {
+            r.slot := 0x6fc90c2fe4d07a554a5baba07c2807f581f77bd906c5068b416617fdd1427800
+        }
+    }
 
-    constructor() ERC1967UUPSUpgradeable(1) {}
+    function authorized(uint128 feature) external view returns (address who, uint96 deadline) {
+        ExpiringAuthorization storage result = _stor().authorized[feature];
+        (who, deadline) = (result.who, result.deadline);
+    }
+
+    function descriptionHash(uint128 feature) external view returns (bytes32) {
+        return _stor().descriptionHash[feature];
+    }
+
+    constructor() ERC1967UUPSUpgradeable(1) {
+        ZeroExV5DeployerStorage storage stor = _stor();
+        bytes32 slot;
+        assembly ("memory-safe") {
+            slot := stor.slot
+        }
+        assert(slot == keccak256(abi.encodePacked(uint256(keccak256("0xV5Deployer.1")) - 1)) & ~bytes32(uint256(0xff)));
+    }
 
     function initialize(address initialOwner) external {
         _setPendingOwner(initialOwner);
@@ -100,7 +124,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     }
 
     function next(uint128 feature) external view returns (address) {
-        return Create3.predict(_salt(feature, _featureNonce[feature].prevNonce + 1));
+        return Create3.predict(_salt(feature, _stor().featureNonce[feature].prevNonce + 1));
     }
 
     event Authorized(uint128 indexed, address indexed, uint256);
@@ -112,16 +136,17 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if (descriptionHash[feature] == 0) {
+        ZeroExV5DeployerStorage storage stor = _stor();
+        if (stor.descriptionHash[feature] == 0) {
             revert FeatureNotInitialized(feature);
         }
         emit Authorized(feature, who, deadline);
-        authorized[feature] = ExpiringAuthorization({who: who, deadline: deadline});
+        stor.authorized[feature] = ExpiringAuthorization({who: who, deadline: deadline});
         return true;
     }
 
     function _requireAuthorized(uint128 feature) private view {
-        ExpiringAuthorization storage authorization = authorized[feature];
+        ExpiringAuthorization storage authorization = _stor().authorized[feature];
         (address who, uint96 deadline) = (authorization.who, authorization.deadline);
         if (msg.sender != who || (deadline != type(uint96).max && block.timestamp > deadline)) {
             revert PermissionDenied();
@@ -142,14 +167,15 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         onlyOwner
         returns (string memory content)
     {
-        if (descriptionHash[feature] != 0) {
+        ZeroExV5DeployerStorage storage stor = _stor();
+        if (stor.descriptionHash[feature] != 0) {
             revert FeatureInitialized(feature);
         }
         content = string.concat(
             "{\"description\": \"", description, "\", \"name\": \"0xV5 feature ", ItoA.itoa(feature), "\"}\n"
         );
         bytes32 contentHash = IPFS.dagPbUnixFsHash(content);
-        descriptionHash[feature] = contentHash;
+        stor.descriptionHash[feature] = contentHash;
         emit PermanentURI(IPFS.CIDv0(contentHash), feature);
     }
 
@@ -165,24 +191,25 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         onlyAuthorized(feature)
         returns (address predicted, uint64 thisNonce)
     {
+        ZeroExV5DeployerStorage storage stor = _stor();
         uint64 prevNonce;
         {
-            ListHead storage head = _featureNonce[feature];
+            ListHead storage head = stor.featureNonce[feature];
             (prevNonce, thisNonce) = (head.head, head.prevNonce);
             thisNonce++;
             (head.head, head.prevNonce) = (thisNonce, thisNonce);
         }
         bytes32 salt = _salt(feature, thisNonce);
         predicted = Create3.predict(salt);
-        _deploymentNonce[predicted] = thisNonce;
+        stor.deploymentNonce[predicted] = thisNonce;
         emit Deployed(feature, thisNonce, predicted);
 
-        _deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
+        stor.deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
         } else {
             emit Transfer(Create3.predict(_salt(feature, prevNonce)), predicted, feature);
-            _deploymentLists[prevNonce].next = thisNonce;
+            stor.deploymentLists[prevNonce].next = thisNonce;
         }
 
         if (Create3.createFromCalldata(salt, initCode) != predicted || predicted.code.length == 0) {
@@ -193,14 +220,15 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     event Removed(uint128 indexed, uint64 indexed, address indexed);
 
     function remove(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
-        DoublyLinkedList storage entry = _deploymentLists[nonce];
+        ZeroExV5DeployerStorage storage stor = _stor();
+        DoublyLinkedList storage entry = stor.deploymentLists[nonce];
         if (entry.feature != feature) {
             revert PermissionDenied();
         }
         (uint64 prevNonce, uint64 nextNonce) = (entry.prev, entry.next);
         address deployment = Create3.predict(_salt(feature, nonce));
         if (nextNonce == 0) {
-            ListHead storage headEntry = _featureNonce[feature];
+            ListHead storage headEntry = stor.featureNonce[feature];
             if (nonce > headEntry.highWater) {
                 // assert(headEntry.head == nonce);
                 headEntry.head = prevNonce;
@@ -209,10 +237,10 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
                 );
             }
         } else {
-            _deploymentLists[nextNonce].prev = prevNonce;
+            stor.deploymentLists[nextNonce].prev = prevNonce;
         }
         if (prevNonce != 0) {
-            _deploymentLists[prevNonce].next = nextNonce;
+            stor.deploymentLists[prevNonce].next = nextNonce;
         }
         delete entry.prev;
         delete entry.next;
@@ -225,7 +253,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     event RemovedAll(uint256 indexed);
 
     function removeAll(uint128 feature) public onlyAuthorized(feature) returns (bool) {
-        ListHead storage entry = _featureNonce[feature];
+        ListHead storage entry = _stor().featureNonce[feature];
         uint64 nonce = entry.head;
         if (nonce != 0) {
             // assert(nonce > entry.highWater);
@@ -273,7 +301,8 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         if (instance == address(0)) {
             revert ZeroAddress();
         }
-        DoublyLinkedList storage entry = _deploymentLists[_deploymentNonce[instance]];
+        ZeroExV5DeployerStorage storage stor = _stor();
+        DoublyLinkedList storage entry = stor.deploymentLists[stor.deploymentNonce[instance]];
         (uint64 nextNonce, uint128 feature) = (entry.next, entry.feature);
         if (feature != 0 && nextNonce == 0) {
             return 1;
@@ -287,7 +316,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
         if (tokenId > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if ((nonce = _featureNonce[uint128(tokenId)].head) == 0) {
+        if ((nonce = _stor().featureNonce[uint128(tokenId)].head) == 0) {
             revert NoToken(tokenId);
         }
     }
@@ -310,7 +339,7 @@ contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata
     }
 
     function tokenURI(uint256 tokenId) external view override tokenExists(tokenId) returns (string memory) {
-        return IPFS.CIDv0(descriptionHash[uint128(tokenId)]);
+        return IPFS.CIDv0(_stor().descriptionHash[uint128(tokenId)]);
     }
 
     // solc is dumb
