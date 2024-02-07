@@ -186,8 +186,6 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     error DeployFailed(uint64);
 
-    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-
     function deploy(uint128 feature, bytes calldata initCode)
         public
         payable
