@@ -29,7 +29,7 @@ abstract contract AbstractOwnable is IOwnable {
     /// implementation. Mixin classes may modify `owner`.
     function _ownerImpl() internal view virtual returns (address);
 
-    function owner() public view virtual returns (address) {
+    function owner() public view virtual override returns (address) {
         return _ownerImpl();
     }
 
