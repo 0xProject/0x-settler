@@ -87,7 +87,7 @@ abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable {
         return _get(_ownerSlot());
     }
 
-    function _setOwner(address newOwner) internal override {
+    function _setOwner(address newOwner) internal virtual override {
         emit OwnershipTransferred(_ownerImpl(), newOwner);
         _set(_ownerSlot(), newOwner);
     }

@@ -214,7 +214,14 @@ abstract contract ERC1967OwnableStorage is OwnableStorageBase {
     }
 }
 
-contract ERC1967Ownable is OwnableImpl, ERC1967OwnableStorage {}
+contract ERC1967Ownable is OwnableImpl, ERC1967OwnableStorage {
+    event AdminChanged(address indexed prev, address indexed curr);
+
+    function _setOwner(address newOwner) internal override {
+        emit AdminChanged(_ownerImpl(), newOwner);
+        super._setOwner(newOwner);
+    }
+}
 
 abstract contract ERC1967TwoStepOwnableStorage is ERC1967OwnableStorage, TwoStepOwnableStorageBase {
     // This slot is nonstandard, but follows a similar pattern to ERC1967
