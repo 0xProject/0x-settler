@@ -10,10 +10,10 @@ import {AddressDerivation} from "./AddressDerivation.sol";
         | 00 | 7f.. | push32       | [runtime]
         | 21 | 5f   | push0        | [0 runtime]
         | 22 | 52   | mstore       | []
-/-----< | 23 | 6020 | push1 0x20   | [32]
-|       | 25 | 5f   | push0        | [0 32]
-|       | 26 | f3   | return       | X
-|       | 27 |
+/-----< | 23 | 59   | msize        | [32]
+|       | 24 | 5f   | push0        | [0 32]
+|       | 25 | f3   | return       | X
+|       | 26 |
 |
 |       // runtime
 |       | Address | Bytecode | Mnemonic | Stack                             | Memory
@@ -52,10 +52,10 @@ import {AddressDerivation} from "./AddressDerivation.sol";
 
 library Create3 {
     uint256 private constant _SHIM0 = 0x7f36585f54601d575f555f5f37365f34f05f816017575ffd5b5260205ff35b32;
-    uint56 private constant _SHIM1 = 0xff5f5260205ff3;
-    uint8 private constant _SHIM1_LENGTH = 0x07;
-    uint8 private constant _SHIM_LENGTH = 0x27;
-    bytes32 private constant _SHIM_INITHASH = 0xab5f52ddeb364baf53b27f90e25292a65324058ab21406a1ca8006f2cd863a0f;
+    uint48 private constant _SHIM1 = 0xff5f52595ff3;
+    uint8 private constant _SHIM1_LENGTH = 0x06;
+    uint8 private constant _SHIM_LENGTH = 0x26;
+    bytes32 private constant _SHIM_INITHASH = 0x7f4c9937fac0c603a260ab2af708b245282214b67bb8ddd9e1f21db5c564b472;
 
     function createFromCalldata(bytes32 salt, bytes calldata initCode, uint256 value)
         internal
