@@ -90,9 +90,11 @@ contract Deployer is ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable, IERC721ViewM
         mapping(uint128 => bytes32) descriptionHash;
     }
 
+    uint256 private constant _BASE_SLOT = 0x6fc90c2fe4d07a554a5baba07c2807f581f77bd906c5068b416617fdd1427800;
+
     function _stor() private pure returns (ZeroExV5DeployerStorage storage r) {
         assembly ("memory-safe") {
-            r.slot := 0x6fc90c2fe4d07a554a5baba07c2807f581f77bd906c5068b416617fdd1427800
+            r.slot := _BASE_SLOT
         }
     }
 
