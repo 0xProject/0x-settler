@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
-import {ContextAbstract} from "../Context.sol";
+import {AbstractContext} from "../Context.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 import {IAllowanceHolder} from "../allowanceholder/IAllowanceHolder.sol";
 
@@ -32,7 +32,7 @@ library UnsafeArray {
     }
 }
 
-abstract contract Permit2PaymentAbstract is ContextAbstract {
+abstract contract Permit2PaymentAbstract is AbstractContext {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
     function isRestrictedTarget(address) internal view virtual returns (bool);

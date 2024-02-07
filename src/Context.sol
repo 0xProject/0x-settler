@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-abstract contract ContextAbstract {
+abstract contract AbstractContext {
     function _msgSender() internal view virtual returns (address);
 
     function _msgData() internal view virtual returns (bytes calldata);
@@ -9,7 +9,7 @@ abstract contract ContextAbstract {
     function _isForwarded() internal view virtual returns (bool);
 }
 
-abstract contract Context is ContextAbstract {
+abstract contract Context is AbstractContext {
     function _msgSender() internal view virtual override returns (address) {
         return msg.sender;
     }

@@ -6,10 +6,11 @@ import "forge-std/Test.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {ERC1967UUPSUpgradeable, IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
 import {IERC165, AbstractOwnable, IOwnable, Ownable} from "src/deployer/TwoStepOwnable.sol";
+import {Context} from "src/Context.sol";
 
 interface IMock is IOwnable, IERC1967Proxy {}
 
-contract Mock is IMock, ERC1967UUPSUpgradeable, Ownable {
+contract Mock is IMock, ERC1967UUPSUpgradeable, Context, Ownable {
     constructor(uint256 version) ERC1967UUPSUpgradeable(version) {}
 
     function initialize(address initialOwner) external {

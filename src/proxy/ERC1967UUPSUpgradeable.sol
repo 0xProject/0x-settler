@@ -214,7 +214,7 @@ abstract contract ERC1967OwnableStorage is OwnableStorageBase {
     }
 }
 
-contract ERC1967Ownable is OwnableImpl, ERC1967OwnableStorage {
+abstract contract ERC1967Ownable is OwnableImpl, ERC1967OwnableStorage {
     event AdminChanged(address indexed prev, address indexed curr);
 
     function _setOwner(address newOwner) internal override {
@@ -240,4 +240,4 @@ abstract contract ERC1967TwoStepOwnableStorage is ERC1967OwnableStorage, TwoStep
     }
 }
 
-contract ERC1967TwoStepOwnable is TwoStepOwnableImpl, ERC1967TwoStepOwnableStorage {}
+abstract contract ERC1967TwoStepOwnable is TwoStepOwnableImpl, ERC1967TwoStepOwnableStorage {}

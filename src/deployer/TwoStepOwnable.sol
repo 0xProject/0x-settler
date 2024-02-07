@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Context} from "../Context.sol";
+import {AbstractContext} from "../Context.sol";
 
 interface IERC165 {
     function supportsInterface(bytes4) external view returns (bool);
@@ -84,7 +84,7 @@ abstract contract OwnableStorage is OwnableStorageBase {
     }
 }
 
-abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable, Context {
+abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable, AbstractContext {
     function _ownerImpl() internal view override returns (address) {
         return _get(_ownerSlot());
     }
@@ -117,7 +117,7 @@ abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable, Context {
     }
 }
 
-contract Ownable is OwnableStorage, OwnableImpl {}
+abstract contract Ownable is OwnableStorage, OwnableImpl {}
 
 abstract contract AbstractTwoStepOwnable is AbstractOwnable {
     /// This function should be overridden exactly once. This provides the base
@@ -209,4 +209,4 @@ abstract contract TwoStepOwnableImpl is AbstractTwoStepOwnable, TwoStepOwnableSt
     }
 }
 
-contract TwoStepOwnable is TwoStepOwnableStorage, TwoStepOwnableImpl {}
+abstract contract TwoStepOwnable is TwoStepOwnableStorage, TwoStepOwnableImpl {}
