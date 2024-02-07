@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {AbstractOwnable} from "../deployer/TwoStepOwnable.sol";
+import {
+    AbstractOwnable,
+    OwnableImpl,
+    OwnableStorageBase,
+    TwoStepOwnableImpl,
+    TwoStepOwnableStorageBase
+} from "../deployer/TwoStepOwnable.sol";
 
 import {Revert} from "../utils/Revert.sol";
 import {ItoA} from "../utils/ItoA.sol";
@@ -193,3 +199,38 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         return true;
     }
 }
+
+abstract contract ERC1967OwnableStorage is OwnableStorageBase {
+    uint256 private constant _ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
+
+    function _ownerSlot() internal pure override returns (AddressSlot r) {
+        assembly ("memory-safe") {
+            r := _ADMIN_SLOT
+        }
+    }
+
+    constructor() {
+        assert(AddressSlot.unwrap(_ownerSlot()) == bytes32(uint256(keccak256("eip1967.proxy.admin")) - 1));
+    }
+}
+
+contract ERC1967Ownable is OwnableImpl, ERC1967OwnableStorage {}
+
+abstract contract ERC1967TwoStepOwnableStorage is ERC1967OwnableStorage, TwoStepOwnableStorageBase {
+    // This slot is nonstandard, but follows a similar pattern to ERC1967
+    uint256 private constant _PENDING_ADMIN_SLOT = 0x6ed8ad4e485c433a46d43a225e2ebe6a14259468c9e0ee3a0c38eefca7d49f56;
+
+    function _pendingOwnerSlot() internal pure override returns (AddressSlot r) {
+        assembly ("memory-safe") {
+            r := _PENDING_ADMIN_SLOT
+        }
+    }
+
+    constructor() {
+        assert(
+            AddressSlot.unwrap(_pendingOwnerSlot()) == bytes32(uint256(keccak256("eip1967.proxy.admin.pending")) - 1)
+        );
+    }
+}
+
+contract ERC1967TwoStepOwnable is TwoStepOwnableImpl, ERC1967TwoStepOwnableStorage {}

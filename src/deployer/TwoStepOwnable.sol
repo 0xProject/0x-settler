@@ -50,32 +50,46 @@ abstract contract AbstractOwnable is IOwnable {
     }
 }
 
-abstract contract Ownable is AbstractOwnable {
-    address private _owner;
+abstract contract OwnableStorageBase {
+    type AddressSlot is bytes32;
 
-    // We deliberately do not conform to ERC1967 or ERC7201 here. We want to put
-    // the `owner` in slot 0 to make it easily distinguishable between
-    // upgrades. We do not adopt the ERC1967 "admin" slot because this address
-    // may be used both for upgrades and for other privileged actions. We do not
-    // adopt a ERC7201 slot because the owner may be shared across multiple
-    // implementations. The deploy-time check below ensures that this slot is
-    // consistent.
+    function _ownerSlot() internal pure virtual returns (AddressSlot);
 
-    constructor() {
-        uint256 ownerSlot;
+    function _get(AddressSlot s) internal view returns (address r) {
         assembly ("memory-safe") {
-            ownerSlot := _owner.slot
+            r := sload(s)
         }
-        assert(ownerSlot == 0);
     }
 
+    function _set(AddressSlot s, address v) internal {
+        assembly ("memory-safe") {
+            sstore(s, v)
+        }
+    }
+}
+
+abstract contract OwnableStorage is OwnableStorageBase {
+    address private _owner;
+
+    function _ownerSlot() internal pure override returns (AddressSlot r) {
+        assembly ("memory-safe") {
+            r := _owner.slot
+        }
+    }
+
+    constructor() {
+        assert(AddressSlot.unwrap(_ownerSlot()) == bytes32(0));
+    }
+}
+
+abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable {
     function _ownerImpl() internal view override returns (address) {
-        return _owner;
+        return _get(_ownerSlot());
     }
 
     function _setOwner(address newOwner) internal override {
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
+        emit OwnershipTransferred(_ownerImpl(), newOwner);
+        _set(_ownerSlot(), newOwner);
     }
 
     error PermissionDenied();
@@ -100,6 +114,8 @@ abstract contract Ownable is AbstractOwnable {
         return true;
     }
 }
+
+contract Ownable is OwnableStorage, OwnableImpl {}
 
 abstract contract AbstractTwoStepOwnable is AbstractOwnable {
     /// This function should be overridden exactly once. This provides the base
@@ -128,18 +144,34 @@ abstract contract AbstractTwoStepOwnable is AbstractOwnable {
     }
 }
 
-abstract contract TwoStepOwnable is AbstractTwoStepOwnable, Ownable {
+abstract contract TwoStepOwnableStorageBase is OwnableStorageBase {
+    function _pendingOwnerSlot() internal pure virtual returns (AddressSlot);
+}
+
+abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase, OwnableStorage {
     address private _pendingOwner;
 
+    function _pendingOwnerSlot() internal pure override returns (AddressSlot r) {
+        assembly ("memory-safe") {
+            r := _pendingOwner.slot
+        }
+    }
+
+    constructor() {
+        assert(AddressSlot.unwrap(_pendingOwnerSlot()) == bytes32(uint256(1)));
+    }
+}
+
+abstract contract TwoStepOwnableImpl is AbstractTwoStepOwnable, TwoStepOwnableStorageBase, OwnableImpl {
     function _pendingOwnerImpl() internal view override returns (address) {
-        return _pendingOwner;
+        return _get(_pendingOwnerSlot());
     }
 
     event OwnershipPending(address indexed);
 
     function _setPendingOwner(address newPendingOwner) internal override {
         emit OwnershipPending(newPendingOwner);
-        _pendingOwner = newPendingOwner;
+        _set(_pendingOwnerSlot(), newPendingOwner);
     }
 
     function renounceOwnership() public override returns (bool) {
@@ -149,7 +181,7 @@ abstract contract TwoStepOwnable is AbstractTwoStepOwnable, Ownable {
         return super.renounceOwnership();
     }
 
-    function transferOwnership(address newOwner) public override(IOwnable, Ownable) onlyOwner returns (bool) {
+    function transferOwnership(address newOwner) public override(IOwnable, OwnableImpl) onlyOwner returns (bool) {
         if (newOwner == address(0)) {
             revert ZeroAddress();
         }
@@ -174,3 +206,5 @@ abstract contract TwoStepOwnable is AbstractTwoStepOwnable, Ownable {
         return true;
     }
 }
+
+contract TwoStepOwnable is TwoStepOwnableStorage, TwoStepOwnableImpl {}

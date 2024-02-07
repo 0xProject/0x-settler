@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IERC165, TwoStepOwnable, AbstractOwnable} from "./TwoStepOwnable.sol";
-import {ERC1967UUPSUpgradeable} from "../proxy/ERC1967UUPSUpgradeable.sol";
+import {IERC165, AbstractOwnable} from "./TwoStepOwnable.sol";
+import {ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable} from "../proxy/ERC1967UUPSUpgradeable.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Create3} from "../utils/Create3.sol";
 import {IPFS} from "../utils/IPFS.sol";
@@ -61,7 +61,7 @@ interface IERC721ViewMetadata is IERC721View {
     function tokenURI(uint256) external view returns (string memory);
 }
 
-contract Deployer is ERC1967UUPSUpgradeable, TwoStepOwnable, IERC721ViewMetadata {
+contract Deployer is ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable, IERC721ViewMetadata {
     using UnsafeArray for bytes[];
 
     struct DoublyLinkedList {
