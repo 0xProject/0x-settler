@@ -150,7 +150,7 @@ contract Deployer is ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable, IERC721ViewM
     function _requireAuthorized(uint128 feature) private view {
         ExpiringAuthorization storage authorization = _stor().authorized[feature];
         (address who, uint96 deadline) = (authorization.who, authorization.deadline);
-        if (msg.sender != who || (deadline != type(uint96).max && block.timestamp > deadline)) {
+        if (_msgSender() != who || (deadline != type(uint96).max && block.timestamp > deadline)) {
             revert PermissionDenied();
         }
     }

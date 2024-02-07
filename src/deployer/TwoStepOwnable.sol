@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {Context} from "../Context.sol";
+
 interface IERC165 {
     function supportsInterface(bytes4) external view returns (bool);
 }
@@ -82,7 +84,7 @@ abstract contract OwnableStorage is OwnableStorageBase {
     }
 }
 
-abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable {
+abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable, Context {
     function _ownerImpl() internal view override returns (address) {
         return _get(_ownerSlot());
     }
@@ -96,7 +98,7 @@ abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable {
     error ZeroAddress();
 
     function _requireOwnerImpl() internal view override {
-        if (msg.sender != owner()) {
+        if (_msgSender() != owner()) {
             revert PermissionDenied();
         }
     }
@@ -190,13 +192,13 @@ abstract contract TwoStepOwnableImpl is AbstractTwoStepOwnable, TwoStepOwnableSt
     }
 
     function _requirePendingOwnerImpl() internal view override {
-        if (msg.sender != pendingOwner()) {
+        if (_msgSender() != pendingOwner()) {
             revert PermissionDenied();
         }
     }
 
     function acceptOwnership() public onlyPendingOwner returns (bool) {
-        _setOwner(msg.sender);
+        _setOwner(_msgSender());
         _setPendingOwner(address(0));
         return true;
     }
