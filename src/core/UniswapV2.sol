@@ -18,15 +18,19 @@ abstract contract UniswapV2 is VIPBase {
     // bytes4(keccak256("balanceOf(address)"))
     uint256 private constant ERC20_BALANCEOF_CALL_SELECTOR = 0x70a08231;
 
-
     /// @dev Sell a token for another token using UniswapV2.
-    function sellToUniswapV2(address recipient, address sellToken, address buyToken, address pool, uint256 bips, uint256 minBuyAmount)
-        internal
-    {
+    function sellToUniswapV2(
+        address recipient,
+        address sellToken,
+        address buyToken,
+        address pool,
+        uint256 bips,
+        uint256 minBuyAmount
+    ) internal {
         // TODO ensure pool isn't Permit2 or AH
         // TODO replace buyToken with zeroForOne + FoT indicator?
-            //  | uint8(info) |
-            // where first bit of `info` is `sellTokenHasFee` and the rest is zeroForOne
+        //  | uint8(info) |
+        // where first bit of `info` is `sellTokenHasFee` and the rest is zeroForOne
         bool feeOnTransfer = false;
 
         // If bips is zero we assume there is no balance, so we skip the update to sellAmount
@@ -58,8 +62,7 @@ abstract contract UniswapV2 is VIPBase {
                 mstore(add(ptr, 0x20), pool)
                 mstore(add(ptr, 0x40), sellAmount)
                 if iszero(call(gas(), sellToken, 0, add(ptr, 0x1c), 0x44, ptr, 0x20)) { bubbleRevert(swapCalldata) }
-                if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(ptr), 1))))
-                {
+                if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(ptr), 1)))) {
                     revert(0, 0)
                 }
             }
@@ -81,16 +84,14 @@ abstract contract UniswapV2 is VIPBase {
             }
 
             // TODO handle FoT
-                // if the sellToken has a fee on transfer, determine the real sellAmount
+            // if the sellToken has a fee on transfer, determine the real sellAmount
 
             // If the current balance is 0 we assume the funds are in the pool already
             if or(iszero(sellAmount), feeOnTransfer) {
                 // retrieve the sellToken balance of the pool
                 mstore(ptr, ERC20_BALANCEOF_CALL_SELECTOR)
                 mstore(add(ptr, 0x20), pool)
-                if iszero(staticcall(gas(), sellToken, add(ptr, 0x1c), 0x24, ptr, 0x20)) {
-                    bubbleRevert(swapCalldata)
-                }
+                if iszero(staticcall(gas(), sellToken, add(ptr, 0x1c), 0x24, ptr, 0x20)) { bubbleRevert(swapCalldata) }
                 if lt(returndatasize(), 0x20) { revert(0, 0) }
                 let bal := mload(ptr)
 

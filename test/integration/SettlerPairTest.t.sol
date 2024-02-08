@@ -264,7 +264,10 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV2() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), address(toToken()), uniswapV2Pool(), 10_000, 0))
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2_SWAP,
+                (FROM, address(fromToken()), address(toToken()), uniswapV2Pool(), 10_000, 0)
+            )
         );
 
         Settler _settler = settler;
@@ -280,13 +283,17 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
-        bytes memory permit2Action = abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
+        bytes memory permit2Action =
+            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
 
         IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
         bytes[] memory actions = ActionDataBuilder.build(
             permit2Action,
-            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (nextPool, address(fromToken()), address(toToken()), uniswapV2Pool(), 0, 0)),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2_SWAP,
+                (nextPool, address(fromToken()), address(toToken()), uniswapV2Pool(), 0, 0)
+            ),
             abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(toToken()), address(wBTC), nextPool, 0, 0))
         );
 
@@ -308,7 +315,10 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (nextPool, address(fromToken()), address(toToken()), uniswapV2Pool(), 10_000, 0)),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2_SWAP,
+                (nextPool, address(fromToken()), address(toToken()), uniswapV2Pool(), 10_000, 0)
+            ),
             abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(toToken()), address(wBTC), nextPool, 0, 0))
         );
 

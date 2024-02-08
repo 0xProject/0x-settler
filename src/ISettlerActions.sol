@@ -76,7 +76,14 @@ interface ISettlerActions {
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
-    function UNISWAPV2_SWAP(address recipient, address sellToken, address buyToken, address pool, uint256 bips, uint256 amountOutMin) external;
+    function UNISWAPV2_SWAP(
+        address recipient,
+        address sellToken,
+        address buyToken,
+        address pool,
+        uint256 bips,
+        uint256 amountOutMin
+    ) external;
 
     function POSITIVE_SLIPPAGE(address recipient, address token, uint256 expectedAmount) external;
 
