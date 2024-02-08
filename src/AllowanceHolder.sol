@@ -3,37 +3,12 @@ pragma solidity ^0.8.21;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "./IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
-import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {CheckCall} from "./utils/CheckCall.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
-import {MultiCall} from "./utils/MultiCall.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();
-
-library UnsafeArray {
-    function unsafeGet(ISignatureTransfer.TokenPermissions[] calldata a, uint256 i)
-        internal
-        pure
-        returns (ISignatureTransfer.TokenPermissions calldata r)
-    {
-        assembly ("memory-safe") {
-            r := add(a.offset, shl(6, i))
-        }
-    }
-
-    function unsafeGet(IAllowanceHolder.TransferDetails[] calldata a, uint256 i)
-        internal
-        pure
-        returns (IAllowanceHolder.TransferDetails calldata r)
-    {
-        assembly ("memory-safe") {
-            r := add(a.offset, mul(0x60, i))
-        }
-    }
-}
 
 library TransientStorage {
     type TSlot is bytes32;
@@ -91,12 +66,9 @@ abstract contract TransientStorageMock {
     }
 }
 
-contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, MultiCall {
+contract AllowanceHolder is TransientStorageMock, FreeMemory {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
-    using UnsafeMath for uint256;
-    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
-    using UnsafeArray for TransferDetails[];
     using TransientStorage for TransientStorage.TSlot;
 
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
@@ -128,20 +100,10 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
         }
     }
 
-    function balanceOf(address) external pure {
-        assembly ("memory-safe") {
-            mstore8(0x00, 0x00)
-            revert(0x00, 0x01)
-        }
-    }
-
-    /// @inheritdoc IAllowanceHolder
-    function execute(
-        address operator,
-        ISignatureTransfer.TokenPermissions[] calldata permits,
-        address payable target,
-        bytes calldata data
-    ) public payable override returns (bytes memory result) {
+    function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
+        internal
+        returns (bytes memory result)
+    {
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
         // sending arbitrary calldata (doing `target.call(data)`) to any
@@ -149,11 +111,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
         _rejectIfERC20(target, data);
 
         address sender = _msgSender();
-
-        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            ISignatureTransfer.TokenPermissions calldata permit = permits.unsafeGet(i);
-            _setAllowed(operator, sender, permit.token, permit.amount);
-        }
+        _setAllowed(operator, sender, token, amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
         // we're omitting the check that `address(this)` has sufficient value to
@@ -164,16 +122,7 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
             calldatacopy(result, data.offset, data.length)
             // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
             mstore(add(result, data.length), shl(0x60, sender))
-            let success :=
-                call(
-                    gas(),
-                    and(0xffffffffffffffffffffffffffffffffffffffff, target),
-                    callvalue(),
-                    result,
-                    add(data.length, 0x14),
-                    0x00,
-                    0x00
-                )
+            let success := call(gas(), target, callvalue(), result, add(data.length, 0x14), 0x00, 0x00)
             let ptr := add(result, 0x20)
             returndatacopy(ptr, 0x00, returndatasize())
             switch success
@@ -184,29 +133,90 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory, IAllowanceHolder, 
             }
         }
 
-        for (uint256 i; i < permits.length; i = i.unsafeInc()) {
-            _setAllowed(operator, sender, permits.unsafeGet(i).token, 0);
+        // EIP-3074 seems unlikely
+        if (sender != tx.origin) {
+            _setAllowed(operator, sender, token, 0);
         }
     }
 
-    /// @inheritdoc IAllowanceHolder
-    function holderTransferFrom(address owner, TransferDetails[] calldata transferDetails)
-        public
-        override
-        returns (bool)
-    {
-        for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
-            TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            // msg.sender is the assumed and later validated operator
-            TransientStorage.TSlot allowance = _ephemeralAllowance(msg.sender, owner, transferDetail.token);
-            // validation of the ephemeral allowance for operator, owner, token via uint underflow
-            allowance.set(allowance.get() - transferDetail.amount);
+    function transferFrom(address token, address owner, address recipient, uint256 amount) internal {
+        // msg.sender is the assumed and later validated operator
+        TransientStorage.TSlot allowance = _ephemeralAllowance(msg.sender, owner, token);
+        // validation of the ephemeral allowance for operator, owner, token via uint underflow
+        allowance.set(allowance.get() - amount);
+        IERC20(token).safeTransferFrom(owner, recipient, amount);
+    }
+
+    fallback() external payable {
+        uint256 selector;
+        assembly ("memory-safe") {
+            selector := shr(0xe0, calldataload(0x00))
         }
-        for (uint256 i; i < transferDetails.length; i = i.unsafeInc()) {
-            TransferDetails calldata transferDetail = transferDetails.unsafeGet(i);
-            IERC20(transferDetail.token).safeTransferFrom(owner, transferDetail.recipient, transferDetail.amount);
+        if (selector == uint256(uint32(IAllowanceHolder.transferFrom.selector))) {
+            address token;
+            address owner;
+            address recipient;
+            uint256 amount;
+            assembly ("memory-safe") {
+                let err := callvalue()
+                token := calldataload(0x04)
+                err := or(err, shr(0xa0, token))
+                owner := calldataload(0x24)
+                err := or(err, shr(0xa0, owner))
+                recipient := calldataload(0x44)
+                err := or(err, shr(0xa0, recipient))
+                if err { revert(0x00, 0x00) }
+                amount := calldataload(0x64)
+            }
+
+            transferFrom(token, owner, recipient, amount);
+
+            // return true;
+            assembly ("memory-safe") {
+                mstore(0x00, 0x01)
+                return(0x00, 0x20)
+            }
+        } else if (selector == uint256(uint32(IAllowanceHolder.exec.selector))) {
+            address operator;
+            address token;
+            uint256 amount;
+            address payable target;
+            bytes calldata data;
+            assembly ("memory-safe") {
+                operator := calldataload(0x04)
+                let err := shr(0xa0, operator)
+                token := calldataload(0x24)
+                err := or(err, shr(0xa0, token))
+                amount := calldataload(0x44)
+                target := calldataload(0x64)
+                err := or(err, shr(0xa0, target))
+                if err { revert(0x00, 0x00) }
+                // we perform no validation that `data` is reasonable
+                data.offset := add(0x04, calldataload(0x84))
+                data.length := calldataload(data.offset)
+                data.offset := add(0x20, data.offset)
+            }
+
+            bytes memory result = exec(operator, token, amount, target, data);
+
+            // return result;
+            assembly ("memory-safe") {
+                let returndata := sub(result, 0x20)
+                mstore(returndata, 0x20)
+                return(returndata, add(0x40, mload(result)))
+            }
+        } else if (selector == uint256(uint32(IERC20.balanceOf.selector))) {
+            // balanceOf(address) reverts with a single byte of returndata,
+            // making it more gas efficient to pass the `_rejectERC20` check
+            assembly ("memory-safe") {
+                revert(0x00, 0x01)
+            }
+        } else {
+            // emulate standard Solidity behavior
+            assembly ("memory-safe") {
+                revert(0x00, 0x00)
+            }
         }
-        return true;
     }
 
     // This is here as a deploy-time check that AllowanceHolder doesn't have any
