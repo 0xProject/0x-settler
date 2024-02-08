@@ -79,8 +79,8 @@ interface ISettlerActions {
     function UNISWAPV2_SWAP(
         address recipient,
         address sellToken,
-        address buyToken,
         address pool,
+        uint8 swapInfo,
         uint256 bips,
         uint256 amountOutMin
     ) external;

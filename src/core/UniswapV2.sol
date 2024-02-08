@@ -22,16 +22,16 @@ abstract contract UniswapV2 is VIPBase {
     function sellToUniswapV2(
         address recipient,
         address sellToken,
-        address buyToken,
         address pool,
+        uint8 swapInfo,
         uint256 bips,
         uint256 minBuyAmount
     ) internal {
         // TODO ensure pool isn't Permit2 or AH
-        // TODO replace buyToken with zeroForOne + FoT indicator?
-        //  | uint8(info) |
-        // where first bit of `info` is `sellTokenHasFee` and the rest is zeroForOne
-        bool feeOnTransfer = false;
+        // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
+        // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
+        bool zeroForOne = (swapInfo & 1) == 1; // Extract the least significant bit (bit 0)
+        bool sellTokenHasFee = (swapInfo & 2) >> 1 == 1; // Extract the second least significant bit (bit 1) and shift it right
 
         // If bips is zero we assume there is no balance, so we skip the update to sellAmount
         // this case can occur if the pool is being chained, in which the balance exists in the pool
@@ -54,7 +54,6 @@ abstract contract UniswapV2 is VIPBase {
 
             // 28b padding, 4b selector, 32b amount0Out, 32b amount1Out, 32b to, 64b data
             ptr := add(ptr, 0xc0)
-            let zeroForOne := lt(sellToken, buyToken)
 
             // transfer sellAmount (a non zero amount) of sellToken to the pool
             if not(iszero(sellAmount)) {
@@ -87,7 +86,7 @@ abstract contract UniswapV2 is VIPBase {
             // if the sellToken has a fee on transfer, determine the real sellAmount
 
             // If the current balance is 0 we assume the funds are in the pool already
-            if or(iszero(sellAmount), feeOnTransfer) {
+            if or(iszero(sellAmount), sellTokenHasFee) {
                 // retrieve the sellToken balance of the pool
                 mstore(ptr, ERC20_BALANCEOF_CALL_SELECTOR)
                 mstore(add(ptr, 0x20), pool)
@@ -131,7 +130,7 @@ abstract contract UniswapV2 is VIPBase {
         }
         // sellAmount is the amount sent from the final hop
         if (sellAmount < minBuyAmount) {
-            revert TooMuchSlippage(buyToken, minBuyAmount, sellAmount);
+            revert TooMuchSlippage(address(0), minBuyAmount, sellAmount);
         }
     }
 }
