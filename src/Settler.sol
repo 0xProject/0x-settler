@@ -186,9 +186,9 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
-        // This function deliberate does no bounds checking on `actions` for gas
-        // efficiency. We assume that `actions` will get used elsewhere in this
-        // context and any OOB or other malformed calldata will result in a
+        // This function deliberately does no bounds checking on `actions` for
+        // gas efficiency. We assume that `actions` will get used elsewhere in
+        // this context and any OOB or other malformed calldata will result in a
         // revert later.
         assembly ("memory-safe") {
             let ptr := mload(0x40)
