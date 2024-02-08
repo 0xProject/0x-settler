@@ -73,7 +73,9 @@ contract AllowanceHolder is TransientStorageMock, FreeMemory {
         if (data.length > 0x10) {
             target = address(uint160(bytes20(data[0x10:])));
         }
-        if (target == address(0)) {
+        // EIP-1352 (not adopted) specifies 0xffff as the maximum precompile
+        if (target <= address(0xffff)) {
+            // 0xdead is a conventional burn address; we assume that it is not treated specially
             target = address(0xdead);
         }
         bytes memory testData = abi.encodeCall(IERC20(maybeERC20).balanceOf, target);
