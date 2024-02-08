@@ -4,7 +4,6 @@ pragma solidity ^0.8.21;
 import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
 import {ContextAbstract} from "../Context.sol";
 import {AllowanceHolderContext} from "../AllowanceHolderContext.sol";
-import {IAllowanceHolder} from "../IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -37,12 +36,6 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
 
     function isRestrictedTarget(address) internal view virtual returns (bool);
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
-        internal
-        view
-        virtual
-        returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount);
-
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure
@@ -50,25 +43,6 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount);
 
     function _transferFrom(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
-        address from,
-        bytes32 witness,
-        string memory witnessTypeString,
-        bytes memory sig,
-        bool isForwarded
-    ) internal virtual;
-
-    function _transferFrom(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
-        address from,
-        bytes32 witness,
-        string memory witnessTypeString,
-        bytes memory sig
-    ) internal virtual;
-
-    function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -84,21 +58,6 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
         address from,
         bytes32 witness,
         string memory witnessTypeString,
-        bytes memory sig
-    ) internal virtual;
-
-    function _transferFrom(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
-        address from,
-        bytes memory sig,
-        bool isForwarded
-    ) internal virtual;
-
-    function _transferFrom(
-        ISignatureTransfer.PermitBatchTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
-        address from,
         bytes memory sig
     ) internal virtual;
 
@@ -118,18 +77,60 @@ abstract contract Permit2PaymentAbstract is ContextAbstract {
     ) internal virtual;
 }
 
-abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderContext {
-    using UnsafeMath for uint256;
-    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
-    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
+/// @dev Batch support for Permit2 payments
+/// === WARNING: UNUSED ===
+abstract contract Permit2BatchPaymentAbstract is ContextAbstract {
+    string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
+    error FeeTokenMismatch(address paymentToken, address feeToken);
+
+    function isRestrictedTarget(address) internal view virtual returns (bool);
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
+        internal
+        view
+        virtual
+        returns (ISignatureTransfer.SignatureTransferDetails[] memory transferDetails, address token, uint256 amount);
+
+    function _transferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig,
+        bool isForwarded
+    ) internal virtual;
+
+    function _transferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal virtual;
+
+    function _transferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes memory sig,
+        bool isForwarded
+    ) internal virtual;
+
+    function _transferFrom(
+        ISignatureTransfer.PermitBatchTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
+        address from,
+        bytes memory sig
+    ) internal virtual;
+}
+
+contract Permit2PaymentBase is AllowanceHolderContext {
     /// @dev Permit2 address
-    ISignatureTransfer private immutable _PERMIT2;
-    address private immutable _FEE_RECIPIENT;
-
-    function isRestrictedTarget(address target) internal view override returns (bool) {
-        return target == address(_PERMIT2) || target == address(allowanceHolder);
-    }
+    ISignatureTransfer internal immutable _PERMIT2;
+    address internal immutable _FEE_RECIPIENT;
 
     constructor(address permit2, address feeRecipient, address allowanceHolder)
         AllowanceHolderContext(allowanceHolder)
@@ -137,8 +138,22 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         _PERMIT2 = ISignatureTransfer(permit2);
         _FEE_RECIPIENT = feeRecipient;
     }
+}
 
-    error FeeTokenMismatch(address paymentToken, address feeToken);
+/// @dev Batch support for Permit2 payments
+/// === WARNING: UNUSED ===
+abstract contract Permit2BatchPayment is Permit2PaymentBase, Permit2BatchPaymentAbstract {
+    using UnsafeMath for uint256;
+    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
+    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
+
+    constructor(address permit2, address feeRecipient, address allowanceHolder)
+        Permit2PaymentBase(permit2, feeRecipient, allowanceHolder)
+    {}
+
+    function isRestrictedTarget(address target) internal view override returns (bool) {
+        return target == address(_PERMIT2) || target == address(allowanceHolder);
+    }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitBatchTransferFrom memory permit, address recipient)
         internal
@@ -169,17 +184,6 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         }
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
-        internal
-        pure
-        override
-        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
-    {
-        transferDetails.to = recipient;
-        transferDetails.requestedAmount = amount = permit.permitted.amount;
-        token = permit.permitted.token;
-    }
-
     function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
@@ -196,30 +200,6 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
     function _transferFrom(
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
-        address from,
-        bytes32 witness,
-        string memory witnessTypeString,
-        bytes memory sig
-    ) internal override {
-        _transferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
-    }
-
-    function _transferFrom(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        address from,
-        bytes32 witness,
-        string memory witnessTypeString,
-        bytes memory sig,
-        bool isForwarded
-    ) internal override {
-        if (isForwarded) revert ForwarderNotAllowed();
-        _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
-    }
-
-    function _transferFrom(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
         bytes32 witness,
         string memory witnessTypeString,
@@ -261,6 +241,55 @@ abstract contract Permit2Payment is Permit2PaymentAbstract, AllowanceHolderConte
         bytes memory sig
     ) internal override {
         _transferFrom(permit, transferDetails, from, sig, _isForwarded());
+    }
+}
+
+abstract contract Permit2Payment is Permit2PaymentBase, Permit2PaymentAbstract {
+    using UnsafeMath for uint256;
+    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
+    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
+
+    constructor(address permit2, address feeRecipient, address allowanceHolder)
+        Permit2PaymentBase(permit2, feeRecipient, allowanceHolder)
+    {}
+
+    function isRestrictedTarget(address target) internal view override returns (bool) {
+        return target == address(_PERMIT2) || target == address(allowanceHolder);
+    }
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+        internal
+        pure
+        override
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
+    {
+        transferDetails.to = recipient;
+        transferDetails.requestedAmount = amount = permit.permitted.amount;
+        token = permit.permitted.token;
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig,
+        bool isForwarded
+    ) internal override {
+        if (isForwarded) revert ForwarderNotAllowed();
+        _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal override {
+        _transferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
     }
 
     function _transferFrom(

@@ -70,7 +70,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler          | Uniswap V3 | USDC/WETH | 170534 | -18.44% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 196513 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 153892 | -21.69% |
+| Settler          | Uniswap V3 | DAI/WETH  | 153891 | -21.69% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 199320 | 0.00%   |
 | Settler          | Uniswap V3 | USDT/WETH | 160568 | -19.44% |
