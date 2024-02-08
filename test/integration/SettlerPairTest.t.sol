@@ -60,7 +60,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
-    function uniswapV2Path() internal virtual returns (bytes memory);
+    function uniswapV2Pool() internal virtual returns (address);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     function testSettler_zeroExOtcOrder() public {
@@ -264,7 +264,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV2() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, 10_000, 0, uniswapV2Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), address(toToken()), uniswapV2Pool(), 10_000, 0))
         );
 
         Settler _settler = settler;
@@ -276,14 +276,40 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
+    function testSettler_uniswapV2_multihop_single_chain() public {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+        bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
+        bytes memory permit2Action = abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
+
+        IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+        address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
+        bytes[] memory actions = ActionDataBuilder.build(
+            permit2Action,
+            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (nextPool, address(fromToken()), address(toToken()), uniswapV2Pool(), 0, 0)),
+            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(toToken()), address(wBTC), nextPool, 0, 0))
+        );
+
+        uint256 balanceBefore = wBTC.balanceOf(FROM);
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV2_multihop_single_chain");
+        _settler.execute(
+            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+        );
+        snapEnd();
+
+        assertGt(wBTC.balanceOf(FROM), balanceBefore);
+    }
+
     function testSettler_uniswapV2_multihop() public {
         IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+        address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2_SWAP,
-                (FROM, 10_000, 0, bytes.concat(uniswapV2Path(), bytes1(0x00), bytes20(uint160(address(wBTC)))))
-            )
+            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (nextPool, address(fromToken()), address(toToken()), uniswapV2Pool(), 10_000, 0)),
+            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(toToken()), address(wBTC), nextPool, 0, 0))
         );
 
         uint256 balanceBefore = wBTC.balanceOf(FROM);

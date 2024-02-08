@@ -338,10 +338,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
             sellTokenForTokenToUniswapV3(recipient, path, bips, amountOutMin);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
-            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
-                abi.decode(data, (address, uint256, uint256, bytes));
+            (address recipient, address sellToken, address buyToken, address pool, uint256 bips, uint256 amountOutMin) =
+                abi.decode(data, (address, address, address, address, uint256, uint256));
 
-            sellToUniswapV2(recipient, path, bips, amountOutMin);
+            sellToUniswapV2(recipient, sellToken, buyToken, pool, bips, amountOutMin);
         } else if (action == ISettlerActions.MAKER_PSM_SELL_GEM.selector) {
             (address recipient, uint256 bips, IPSM psm, IERC20Meta gemToken) =
                 abi.decode(data, (address, uint256, IPSM, IERC20Meta));
