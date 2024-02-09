@@ -8,7 +8,7 @@ import {VIPBase} from "./VIPBase.sol";
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 import {ConfusedDeputy} from "./SettlerErrors.sol";
 
-abstract contract UniswapV2 is Permit2PaymentAbstract , VIPBase {
+abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
     using UnsafeMath for uint256;
 
     // bytes4(keccak256("getReserves()"))
@@ -67,12 +67,12 @@ abstract contract UniswapV2 is Permit2PaymentAbstract , VIPBase {
             ptr := add(ptr, 0xc0)
 
             // transfer sellAmount (a non zero amount) of sellToken to the pool
-            if not(iszero(sellAmount)) {
+            if sellAmount {
                 mstore(ptr, ERC20_TRANSFER_CALL_SELECTOR)
                 mstore(add(ptr, 0x20), pool)
                 mstore(add(ptr, 0x40), sellAmount)
-                if iszero(call(gas(), sellToken, 0, add(ptr, 0x1c), 0x44, ptr, 0x20)) { bubbleRevert(swapCalldata) }
-                if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(ptr), 1)))) {
+                if iszero(call(gas(), sellToken, 0, add(ptr, 0x1c), 0x44, 0x00, 0x20)) { bubbleRevert(swapCalldata) }
+                if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(0x00), 1)))) {
                     revert(0, 0)
                 }
             }
@@ -80,17 +80,13 @@ abstract contract UniswapV2 is Permit2PaymentAbstract , VIPBase {
             // get pool reserves
             let sellReserve
             let buyReserve
-            mstore(ptr, UNI_PAIR_RESERVES_CALL_SELECTOR)
-            if iszero(staticcall(gas(), pool, add(ptr, 0x1c), 0x04, ptr, 0x40)) { bubbleRevert(swapCalldata) }
+            mstore(0x00, UNI_PAIR_RESERVES_CALL_SELECTOR)
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) { bubbleRevert(swapCalldata) }
             if lt(returndatasize(), 0x40) { revert(0, 0) }
-            switch zeroForOne
-            case 0 {
-                sellReserve := mload(add(ptr, 32))
-                buyReserve := mload(ptr)
-            }
-            default {
-                sellReserve := mload(ptr)
-                buyReserve := mload(add(ptr, 32))
+            {
+                let r := shl(5, zeroForOne)
+                buyReserve := mload(r)
+                sellReserve := mload(xor(0x20, r))
             }
 
             // TODO handle FoT
@@ -101,9 +97,9 @@ abstract contract UniswapV2 is Permit2PaymentAbstract , VIPBase {
                 // retrieve the sellToken balance of the pool
                 mstore(ptr, ERC20_BALANCEOF_CALL_SELECTOR)
                 mstore(add(ptr, 0x20), pool)
-                if iszero(staticcall(gas(), sellToken, add(ptr, 0x1c), 0x24, ptr, 0x20)) { bubbleRevert(swapCalldata) }
+                if iszero(staticcall(gas(), sellToken, add(ptr, 0x1c), 0x24, 0x00, 0x20)) { bubbleRevert(swapCalldata) }
                 if lt(returndatasize(), 0x20) { revert(0, 0) }
-                let bal := mload(ptr)
+                let bal := mload(0x00)
 
                 // determine real sellAmount by comparing pool's sellToken balance to reserve amount
                 if lt(bal, sellReserve) {
@@ -119,14 +115,11 @@ abstract contract UniswapV2 is Permit2PaymentAbstract , VIPBase {
             let buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 1000)))
 
             // set amount0Out and amount1Out
-            switch zeroForOne
-            case 0 {
-                mstore(add(swapCalldata, 0x04), buyAmount)
-                mstore(add(swapCalldata, 0x24), 0)
-            }
-            default {
-                mstore(add(swapCalldata, 0x04), 0)
-                mstore(add(swapCalldata, 0x24), buyAmount)
+            {
+                // If `zeroForOne`, offset is 0x24, else 0x04
+                let offset := add(0x04, mul(zeroForOne, 0x20))
+                mstore(add(swapCalldata, offset), buyAmount)
+                mstore(add(swapCalldata, xor(0x20, offset)), 0)
             }
 
             // perform swap at the pool sending bought tokens to the recipient
