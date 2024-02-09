@@ -5,8 +5,6 @@ import {IERC20} from "../IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {VIPBase} from "./VIPBase.sol";
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
-import {ConfusedDeputy} from "./SettlerErrors.sol";
 
 interface IUniV2Pair {
     function token0() external view returns (address);
@@ -15,7 +13,7 @@ interface IUniV2Pair {
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
-abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
+abstract contract UniswapV2 is VIPBase {
     using UnsafeMath for uint256;
 
     // bytes4(keccak256("getReserves()"))
@@ -36,44 +34,35 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
         uint256 bips,
         uint256 minBuyAmount
     ) internal {
-        // ensure pool isn't Permit2 or AH
-        if (isRestrictedTarget(pool)) {
-            revert ConfusedDeputy();
-        }
+        // Preventing calls to Permit2 or AH is not explicity required as neither of these contracts implement the `swap` nor `transfer` selector
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool zeroForOne = (swapInfo & 1) == 1; // Extract the least significant bit (bit 0)
         bool sellTokenHasFee = (swapInfo & 2) >> 1 == 1; // Extract the second least significant bit (bit 1) and shift it right
 
-        // If bips is zero we assume there is no balance, so we skip the update to sellAmount
-        // this case can occur if the pool is being chained, in which the balance exists in the pool
-        // already
         uint256 sellAmount;
+        uint256 buyAmount;
+        // If bips is zero we assume there are no funds within this contract, skip the updating sellAmount.
+        // This case occurs if the pool is being chained, in which the funds have been sent directly to the pool
         if (bips != 0) {
             // We don't care about phantom overflow here because reserves are
             // limited to 112 bits. Any token balance that would overflow here would
             // also break UniV2.
-            sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bips).unsafeDiv(10_000);
+            unchecked {
+                sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bips).unsafeDiv(10_000);
+            }
         }
-        uint256 buyAmount;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            let swapCalldata := add(ptr, 0x1c)
-
-            // set up swap call selector and empty callback data
-            mstore(ptr, UNI_PAIR_SWAP_SELECTOR)
-            mstore(add(ptr, 0x80), 0x80) // offset to length of data
-            mstore(add(ptr, 0xa0), 0) // length of data
 
             // transfer sellAmount (a non zero amount) of sellToken to the pool
             if sellAmount {
-                // 28b padding, 4b selector, 32b amount0Out, 32b amount1Out, 32b to, 64b data
-                ptr := add(ptr, 0xc0)
                 mstore(ptr, ERC20_TRANSFER_SELECTOR)
                 mstore(add(ptr, 0x20), pool)
                 mstore(add(ptr, 0x40), sellAmount)
-                if iszero(call(gas(), sellToken, 0, add(ptr, 0x1c), 0x44, 0x00, 0x20)) { bubbleRevert(swapCalldata) }
+                // ...||ERC20_TRANSFER_SELECTOR|pool|sellAmount|
+                if iszero(call(gas(), sellToken, 0, add(ptr, 0x1c), 0x44, 0x00, 0x20)) { bubbleRevert(ptr) }
                 if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(0x00), 1)))) {
                     revert(0, 0)
                 }
@@ -83,7 +72,8 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
             let sellReserve
             let buyReserve
             mstore(0x00, UNI_PAIR_RESERVES_SELECTOR)
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) { bubbleRevert(swapCalldata) }
+            // ||UNI_PAIR_RESERVES_SELECTOR|
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) { bubbleRevert(ptr) }
             if lt(returndatasize(), 0x40) { revert(0, 0) }
             {
                 let r := shl(5, zeroForOne)
@@ -91,15 +81,15 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
                 sellReserve := mload(xor(0x20, r))
             }
 
-            // TODO handle FoT
-            // if the sellToken has a fee on transfer, determine the real sellAmount
-
-            // If the current balance is 0 we assume the funds are in the pool already
+            // Update the sell amount in the following cases:
+            //   the funds are in the pool already (flagged by sellAmount being 0)
+            //   the sell token has a fee (flagged by sellTokenHasFee)
             if or(iszero(sellAmount), sellTokenHasFee) {
                 // retrieve the sellToken balance of the pool
                 mstore(0x00, ERC20_BALANCEOF_SELECTOR)
                 mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, pool))
-                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x00, 0x20)) { bubbleRevert(swapCalldata) }
+                // ||ERC20_BALANCEOF_SELECTOR|pool|
+                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x00, 0x20)) { bubbleRevert(ptr) }
                 if lt(returndatasize(), 0x20) { revert(0, 0) }
                 let bal := mload(0x00)
 
@@ -115,6 +105,11 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
             // compute buyAmount based on sellAmount and reserves
             let sellAmountWithFee := mul(sellAmount, 997)
             buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 1000)))
+            let swapCalldata := add(ptr, 0x1c)
+            // set up swap call selector and empty callback data
+            mstore(ptr, UNI_PAIR_SWAP_SELECTOR)
+            mstore(add(ptr, 0x80), 0x80) // offset to length of data
+            mstore(add(ptr, 0xa0), 0) // length of data
 
             // set amount0Out and amount1Out
             {
@@ -124,8 +119,10 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
                 mstore(add(swapCalldata, xor(0x20, offset)), 0)
             }
 
-            // perform swap at the pool sending bought tokens to the recipient
             mstore(add(swapCalldata, 0x44), and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
+            // ...||UNI_PAIR_SWAP_SELECTOR|amount0Out|amount1Out|recipient|data|
+
+            // perform swap at the pool sending bought tokens to the recipient
             if iszero(call(gas(), pool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert(swapCalldata) }
 
             // revert with the return data from the most recent call
