@@ -5,9 +5,11 @@ import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
 import {IAllowanceHolder} from "../../src/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "../../src/IERC20.sol";
+
+import {Utils} from "./Utils.sol";
 
 import {Test} from "forge-std/Test.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 
 contract AllowanceHolderDummy is AllowanceHolder {
     function getAllowed(address operator, address owner, address token) external view returns (uint256 r) {
@@ -19,16 +21,12 @@ contract AllowanceHolderDummy is AllowanceHolder {
     }
 }
 
-contract FallbackDummy {
-    fallback() external payable {}
-}
-
-contract AllowanceHolderUnitTest is Test {
+contract AllowanceHolderUnitTest is Utils, Test {
     AllowanceHolderDummy ah;
-    address OPERATOR = address(0x01);
-    address TOKEN = address(0x02);
+    address OPERATOR = _createNamedRejectionDummy("OPERATOR");
+    address TOKEN = _createNamedRejectionDummy("TOKEN");
     address OWNER = address(this);
-    address RECIPIENT = address(0);
+    address RECIPIENT = _createNamedRejectionDummy("RECIPIENT");
     uint256 AMOUNT = 123456;
 
     function setUp() public {
@@ -41,62 +39,76 @@ contract AllowanceHolderUnitTest is Test {
     }
 
     function testPermitAuthorised() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
-
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails(token, RECIPIENT, AMOUNT);
-
-        assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
-        assertEq(ah.getAllowed(operator, OWNER, token), 0);
-    }
-
-    function testPermitAuthorisedMultipleConsumption() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
-
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails(token, RECIPIENT, AMOUNT / 2);
-
-        assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
-        assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT / 2);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
-        assertEq(ah.getAllowed(operator, OWNER, token), 0);
-    }
-
-    function testPermitUnauthorisedOperator() public {
-        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
         IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
         transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
 
+        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT);
+
+        _mockExpectCall(
+            TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, AMOUNT), new bytes(0)
+        );
+        vm.prank(OPERATOR);
+        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
+
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), 0);
+    }
+
+    function testPermitAuthorisedMultipleConsumption() public {
+        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
+
+        // Note: we use amount / 2 (+ / - 1) to register multiple mocks
+        transferDetails[0] =
+            IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: (AMOUNT / 2) + 1});
+
+        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT);
+        _mockExpectCall(
+            TOKEN,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, (AMOUNT / 2) + 1),
+            new bytes(0)
+        );
+        vm.prank(OPERATOR);
+        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), (AMOUNT / 2) - 1);
+
+        _mockExpectCall(
+            TOKEN,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, (AMOUNT / 2) - 1),
+            new bytes(0)
+        );
+        transferDetails[0] =
+            IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: (AMOUNT / 2) - 1});
+        vm.prank(OPERATOR);
+        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
+
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), 0);
+    }
+
+    function testPermitUnauthorisedOperator() public {
+        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
+        transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
+
+        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
         vm.expectRevert();
         ah.holderTransferFrom(OWNER, transferDetails);
     }
 
     function testPermitUnauthorisedAmount() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
-
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
         IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails({token: token, recipient: RECIPIENT, amount: AMOUNT + 1});
+        transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT + 1});
 
+        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
         vm.expectRevert();
+        vm.prank(OPERATOR);
         ah.holderTransferFrom(OWNER, transferDetails);
     }
 
     function testPermitUnauthorisedToken() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
-
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
         IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
         transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
 
+        ah.setAllowed(OPERATOR, OWNER, address(0xdead), AMOUNT);
         vm.expectRevert();
         ah.holderTransferFrom(OWNER, transferDetails);
     }
@@ -121,47 +133,15 @@ contract AllowanceHolderUnitTest is Test {
     }
 
     function testPermitExecute() public {
-        address token = address(new FallbackDummy());
-        address target = address(new FallbackDummy());
+        address target = _createNamedRejectionDummy("TARGET");
         address operator = target;
         uint256 value = 999;
 
         ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: token, amount: AMOUNT});
+        permits[0] = ISignatureTransfer.TokenPermissions({token: TOKEN, amount: AMOUNT});
         bytes memory data = hex"deadbeef";
 
-        vm.startStateDiffRecording();
+        _mockExpectCall(address(target), abi.encodePacked(data, address(this)), abi.encode(true));
         ah.execute{value: value}(operator, permits, payable(target), data);
-        VmSafe.AccountAccess[] memory calls =
-            _foundry_filterAccessKind(vm.stopAndReturnStateDiff(), VmSafe.AccountAccessKind.Call);
-
-        // First Call is to AllowanceHolder with the `execute` calldata
-        // Second Call is to the Target with the `data`
-        // We test that the msg.sender is passed along appended to `data`
-        assertEq(calls[1].account, target);
-        assertEq(calls[1].data, abi.encodePacked(data, address(this)));
-        assertEq(calls[1].value, value);
-    }
-
-    /// @dev Utility to filter the AccountAccess[] to just the particular kind we want
-    function _foundry_filterAccessKind(VmSafe.AccountAccess[] memory accesses, VmSafe.AccountAccessKind kind)
-        public
-        pure
-        returns (VmSafe.AccountAccess[] memory filtered)
-    {
-        filtered = new VmSafe.AccountAccess[](accesses.length);
-        uint256 count = 0;
-
-        for (uint256 i = 0; i < accesses.length; i++) {
-            if (accesses[i].kind == kind) {
-                filtered[count] = accesses[i];
-                count++;
-            }
-        }
-
-        assembly {
-            // Resize the array
-            mstore(filtered, count)
-        }
     }
 }

@@ -19,12 +19,12 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         bool partialFillAllowed;
     }
 
-    /// @dev Emitted whenever an OTC order is filled.
+    /// @dev Emitted whenever an Otc order is filled.
     /// @param orderHash The canonical hash of the order. Formed as an EIP712 struct hash. See below.
     /// @param maker The maker of the order.
     /// @param taker The taker of the order.
-    /// @param makerTokenFilledAmount How much maker token was filled.
-    /// @param takerTokenFilledAmount How much taker token was filled.
+    /// @param makerTokenFilledAmount Amount of maker token filled.
+    /// @param takerTokenFilledAmount Amount of taker token filled.
     event OtcOrderFilled(
         bytes32 indexed orderHash,
         address maker,
@@ -79,9 +79,8 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
-    /// the counterparties. Two Permit2 signatures are consumed, with the maker Permit2 containing
-    /// a witness of the OtcOrder.
-    /// This variant also includes a fee where the taker or maker pays the fee recipient
+    /// the counterparties. Either two Permit2 signatures are consumed, with the maker Permit2 containing
+    /// a witness of the OtcOrder, or AllowanceHolder is supported for the taker payment.
     function fillOtcOrder(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -101,12 +100,12 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         bytes32 witness = _hashConsideration(consideration);
         // There is no taker witness (see below)
 
-        // Maker pays recipient (optional fee)
+        // Maker pays recipient
         _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
-        // Taker pays Maker (optional fee)
+        // Taker pays Maker
         // We don't need to include a witness here. Taker is `_msgSender()`, so
         // `recipient` and the maker's details are already authenticated. We're just
-        // using PERMIT2 to move tokens, not to provide authentication.
+        // using Permit2 or AllowanceHolder to move tokens, not to provide authentication.
         _transferFrom(takerPermit, takerTransferDetails, _msgSender(), takerSig);
 
         emit OtcOrderFilled(
@@ -128,6 +127,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
+    /// @dev `takerWitness` is not calculated nor verified here as caller is trusted
     function fillOtcOrderMetaTxn(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -151,6 +151,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         makerConsideration.counterparty = taker;
 
         bytes32 makerWitness = _hashConsideration(makerConsideration);
+        // Note: takerWitness is not calculated here, but in the caller code
 
         _transferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
         _transferFrom(takerPermit, takerTransferDetails, taker, takerWitness, ACTIONS_AND_SLIPPAGE_WITNESS, takerSig);
@@ -169,7 +170,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
     /// @dev pre-condition: msgSender has been authenticated against the requestor
     /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
-    // In this variant, Maker pays Settler and Settler pays Maker
+    // In this variant, Maker pays recipient and Settler pays Maker
     function fillOtcOrderSelfFunded(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
