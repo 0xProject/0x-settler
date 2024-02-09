@@ -354,10 +354,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool sellTokenHasFee = false;
-        uint8 swapInfo =
-            (uint160(address(fromToken())) < uint160(address(toToken())) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
-        uint8 swapInfo2 =
-            (uint160(address(toToken())) < uint160(address(wBTC)) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+        uint8 swapInfo = (address(fromToken()) < address(toToken()) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+        uint8 swapInfo2 = (address(toToken()) < address(wBTC) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),

@@ -20,11 +20,6 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
     // bytes4(keccak256("balanceOf(address)"))
     uint256 private constant ERC20_BALANCEOF_CALL_SELECTOR = 0x70a08231;
 
-    /// @dev Permit2 address for restricting access
-    address private immutable _PERMIT2;
-    /// @dev AH address for restricting access
-    address private immutable _ALLOWANCE_HOLDER;
-
     /// @dev Sell a token for another token using UniswapV2.
     function sellToUniswapV2(
         address recipient,
