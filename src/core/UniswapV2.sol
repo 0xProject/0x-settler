@@ -5,8 +5,10 @@ import {IERC20} from "../IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {VIPBase} from "./VIPBase.sol";
+import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {ConfusedDeputy} from "./SettlerErrors.sol";
 
-abstract contract UniswapV2 is VIPBase {
+abstract contract UniswapV2 is Permit2PaymentAbstract , VIPBase {
     using UnsafeMath for uint256;
 
     // bytes4(keccak256("getReserves()"))
@@ -18,6 +20,11 @@ abstract contract UniswapV2 is VIPBase {
     // bytes4(keccak256("balanceOf(address)"))
     uint256 private constant ERC20_BALANCEOF_CALL_SELECTOR = 0x70a08231;
 
+    /// @dev Permit2 address for restricting access
+    address private immutable _PERMIT2;
+    /// @dev AH address for restricting access
+    address private immutable _ALLOWANCE_HOLDER;
+
     /// @dev Sell a token for another token using UniswapV2.
     function sellToUniswapV2(
         address recipient,
@@ -27,7 +34,11 @@ abstract contract UniswapV2 is VIPBase {
         uint256 bips,
         uint256 minBuyAmount
     ) internal {
-        // TODO ensure pool isn't Permit2 or AH
+        // ensure pool isn't Permit2 or AH
+        if (isRestrictedTarget(pool)) {
+            revert ConfusedDeputy();
+        }
+
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool zeroForOne = (swapInfo & 1) == 1; // Extract the least significant bit (bit 0)
