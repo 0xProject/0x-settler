@@ -37,7 +37,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | UniswapRouter V3    | Uniswap V3 | USDC/WETH | 121137 | -3.18% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112551 | 0.00%  |
-| 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126117 | 12.05% |
+| 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126126 | 12.06% |
 | Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 122291 | 8.65%  |
 | AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 118107 | 4.94%  |
 | UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108571 | -3.54% |
@@ -73,7 +73,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler          | Uniswap V3 | DAI/WETH  | 153979 | -36.08% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 243700 | 0.00%   |
-| Settler          | Uniswap V3 | USDT/WETH | 160677 | -34.07% |
+| Settler          | Uniswap V3 | USDT/WETH | 160678 | -34.07% |
 |                  |            |           |        |         |
 
 | OTC     | DEX     | Pair      | Gas    | %      |

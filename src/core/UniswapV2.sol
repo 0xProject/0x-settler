@@ -47,13 +47,14 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
         // If bips is zero we assume there is no balance, so we skip the update to sellAmount
         // this case can occur if the pool is being chained, in which the balance exists in the pool
         // already
-        uint256 sellAmount = 0;
+        uint256 sellAmount;
         if (bips != 0) {
             // We don't care about phantom overflow here because reserves are
             // limited to 112 bits. Any token balance that would overflow here would
             // also break UniV2.
             sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bips).unsafeDiv(10_000);
         }
+        uint256 buyAmount;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let swapCalldata := add(ptr, 0x1c)
@@ -111,7 +112,7 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
 
             // compute buyAmount based on sellAmount and reserves
             let sellAmountWithFee := mul(sellAmount, 997)
-            let buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 1000)))
+            buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 1000)))
 
             // set amount0Out and amount1Out
             {
@@ -131,8 +132,7 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
                 revert(p, returndatasize())
             }
         }
-        // sellAmount is the amount sent from the final hop
-        if (sellAmount < minBuyAmount) {
+        if (buyAmount < minBuyAmount) {
             revert TooMuchSlippage(address(0), minBuyAmount, sellAmount);
         }
     }
