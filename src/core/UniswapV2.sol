@@ -63,11 +63,10 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
             mstore(add(ptr, 0x80), 0x80) // offset to length of data
             mstore(add(ptr, 0xa0), 0) // length of data
 
-            // 28b padding, 4b selector, 32b amount0Out, 32b amount1Out, 32b to, 64b data
-            ptr := add(ptr, 0xc0)
-
             // transfer sellAmount (a non zero amount) of sellToken to the pool
             if sellAmount {
+                // 28b padding, 4b selector, 32b amount0Out, 32b amount1Out, 32b to, 64b data
+                ptr := add(ptr, 0xc0)
                 mstore(ptr, ERC20_TRANSFER_CALL_SELECTOR)
                 mstore(add(ptr, 0x20), pool)
                 mstore(add(ptr, 0x40), sellAmount)
@@ -95,9 +94,9 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
             // If the current balance is 0 we assume the funds are in the pool already
             if or(iszero(sellAmount), sellTokenHasFee) {
                 // retrieve the sellToken balance of the pool
-                mstore(ptr, ERC20_BALANCEOF_CALL_SELECTOR)
-                mstore(add(ptr, 0x20), pool)
-                if iszero(staticcall(gas(), sellToken, add(ptr, 0x1c), 0x24, 0x00, 0x20)) { bubbleRevert(swapCalldata) }
+                mstore(0x00, ERC20_BALANCEOF_CALL_SELECTOR)
+                mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, pool))
+                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x00, 0x20)) { bubbleRevert(swapCalldata) }
                 if lt(returndatasize(), 0x20) { revert(0, 0) }
                 let bal := mload(0x00)
 
@@ -117,7 +116,7 @@ abstract contract UniswapV2 is Permit2PaymentAbstract, VIPBase {
             // set amount0Out and amount1Out
             {
                 // If `zeroForOne`, offset is 0x24, else 0x04
-                let offset := add(0x04, mul(zeroForOne, 0x20))
+                let offset := add(0x04, shl(5, zeroForOne))
                 mstore(add(swapCalldata, offset), buyAmount)
                 mstore(add(swapCalldata, xor(0x20, offset)), 0)
             }

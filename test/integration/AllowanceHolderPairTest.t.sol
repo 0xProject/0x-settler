@@ -29,6 +29,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
+    function uniswapV2Pool() internal virtual returns (address);
 
     function testAllowanceHolder_uniswapV3() public {
         bytes[] memory actions = ActionDataBuilder.build(
@@ -133,6 +134,49 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
         _cold_account_access();
+
+        _allowanceHolder.execute(
+            address(_settler),
+            permits,
+            payable(address(_settler)),
+            abi.encodeCall(
+                _settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
+    function testAllowanceHolder_uniswapV2_single_chain() public {
+        // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
+        // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
+        bool sellTokenHasFee = false;
+        uint8 swapInfo = (address(fromToken()) < address(toToken()) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.PERMIT2_TRANSFER_FROM,
+                (
+                    uniswapV2Pool(),
+                    defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
+                    new bytes(0) /* sig (empty) */
+                )
+            ),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0)
+            )
+        );
+
+        AllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        _warm_allowanceHolder_slots(address(fromToken()), amount());
+
+        vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
+        snapStartName("allowanceHolder_uniswapV2_single_chain");
+        _cold_account_access();
+
+        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
+        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
 
         _allowanceHolder.execute(
             address(_settler),

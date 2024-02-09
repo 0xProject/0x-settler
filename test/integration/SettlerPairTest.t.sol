@@ -265,8 +265,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool sellTokenHasFee = false;
-        uint8 swapInfo =
-            (uint160(address(fromToken())) < uint160(address(toToken())) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+        uint8 swapInfo = (address(fromToken()) < address(toToken()) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
@@ -295,10 +294,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool sellTokenHasFee = false;
-        uint8 swapInfo =
-            (uint160(address(fromToken())) < uint160(address(toToken())) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
-        uint8 swapInfo2 =
-            (uint160(address(toToken())) < uint160(address(wBTC)) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+        uint8 swapInfo = (address(fromToken()) < address(toToken()) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+        uint8 swapInfo2 = (address(toToken()) < address(wBTC) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
 
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
         bytes[] memory actions = ActionDataBuilder.build(
@@ -320,6 +317,34 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
 
         assertGt(wBTC.balanceOf(FROM), balanceBefore);
+    }
+
+    function testSettler_uniswapV2_single_chain() public {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+        bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
+        bytes memory permit2Action =
+            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
+
+        // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
+        // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
+        bool sellTokenHasFee = false;
+        uint8 swapInfo = (address(fromToken()) < address(toToken()) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            permit2Action,
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0)
+            )
+        );
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV2_single_chain");
+        _settler.execute(
+            actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+        );
+        snapEnd();
     }
 
     function testSettler_uniswapV2_multihop() public {
