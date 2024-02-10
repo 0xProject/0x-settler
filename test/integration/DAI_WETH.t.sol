@@ -59,8 +59,8 @@ contract DAIWETHTest is
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 
-    function uniswapV2Path() internal pure override(SettlerPairTest) returns (bytes memory) {
-        return abi.encodePacked(fromToken(), uint8(1), toToken());
+    function uniswapV2Pool() internal pure override(SettlerPairTest, AllowanceHolderPairTest) returns (address) {
+        return 0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f; // Sushiswap DAI/WETH
     }
 
     function getCurveV2PoolData()

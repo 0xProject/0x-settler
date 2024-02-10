@@ -11,7 +11,7 @@ contract AllowanceHolder is TransientStorageMock, AllowanceHolderBase {
         returns (bytes memory)
     {
         (bytes memory result, address sender) = _exec(operator, token, amount, target, data);
-        _setAllowed(operator, sender, token, 0);
+        _set(_ephemeralAllowance(operator, sender, token), 0);
         return result;
     }
 
