@@ -1,16 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {UniswapV2} from "../../../src/core/UniswapV2.sol";
+import {UniswapV2} from "src/core/UniswapV2.sol";
+import {Permit2Payment} from "src/core/Permit2Payment.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "../../../src/IERC20.sol";
+import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV2Dummy is UniswapV2 {
-    function sell(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount) public {
-        super.sellToUniswapV2(recipient, encodedPath, bips, minBuyAmount);
+contract UniswapV2Dummy is Permit2Payment, UniswapV2 {
+    constructor() Permit2Payment(address(0xdead), address(0xdead), address(0xdead)) {}
+
+    function sell(
+        address recipient,
+        address sellToken,
+        address pool,
+        uint8 swapInfo,
+        uint256 bips,
+        uint256 minBuyAmount
+    ) public {
+        super.sellToUniswapV2(recipient, sellToken, pool, swapInfo, bips, minBuyAmount);
     }
 }
 
@@ -44,7 +54,7 @@ contract UniswapV2UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, uint8(1), TOKEN1), bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
     }
 
     function testUniswapV2SellSlippageCheck() public {
@@ -65,7 +75,7 @@ contract UniswapV2UnitTest is Utils, Test {
         );
 
         vm.expectRevert();
-        uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, uint8(1), TOKEN1), bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
     }
 
     function testUniswapV2LowerAmount() public {
@@ -85,7 +95,7 @@ contract UniswapV2UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, uint8(1), TOKEN1), bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
     }
 
     function testUniswapV2GreaterAmount() public {
@@ -105,7 +115,7 @@ contract UniswapV2UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, uint8(1), TOKEN1), bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
     }
 
     function testUniswapV2SellTokenFee() public {
@@ -113,8 +123,6 @@ contract UniswapV2UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = 1;
 
-        // Sell token fee branch is selected if the hopInfo param has the first bit flipped to 1
-        uint8 hopInfo = uint8(1) | 0x80;
         // We emulate a token which has a 50% fee when transferring to the Uniswap pool
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, POOL), abi.encode(amount / 2));
 
@@ -131,13 +139,13 @@ contract UniswapV2UnitTest is Utils, Test {
         );
         // the pool is responsible for transferring to receipient, since the pool is a dummy, this transfer is not mocked
 
-        uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, hopInfo, TOKEN1), bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 3 : 2, bips, minBuyAmount);
     }
 
     function testUniswapV2Multihop() public {
         uint256 bips = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = 4869;
+        uint256 minBuyAmount = 9521;
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount * 2));
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.transfer.selector, POOL, amount * 2), new bytes(0));
@@ -150,14 +158,16 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodePacked(bytes4(0x022c0d9f), abi.encode(uint256(9521), 0, POOL2, new bytes(0))), new bytes(0)
         );
         _mockExpectCall(POOL2, abi.encodePacked(bytes4(0x0902f1ac)), abi.encode(uint256(9999), uint256(9999)));
+        _mockExpectCall(TOKEN1, abi.encodeCall(IERC20.balanceOf, (POOL2)), abi.encode(amount * 2 + 9999));
         // UniswapV2Pool.swap
         //   POOL2 specifies RECIPIENT as recipient
         _mockExpectCall(
             POOL2,
-            abi.encodePacked(bytes4(0x022c0d9f), abi.encode(uint256(0), uint256(4869), RECIPIENT, new bytes(0))),
+            abi.encodePacked(bytes4(0x022c0d9f), abi.encode(uint256(0), uint256(9521), RECIPIENT, new bytes(0))),
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, uint8(1), TOKEN1, uint8(1), TOKEN2), bips, minBuyAmount);
+        uni.sell(POOL2, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, 0);
+        uni.sell(RECIPIENT, TOKEN1, POOL2, TOKEN1 < TOKEN2 ? 1 : 0, 0, minBuyAmount);
     }
 }

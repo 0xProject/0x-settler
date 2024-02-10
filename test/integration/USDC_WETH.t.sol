@@ -62,8 +62,8 @@ contract USDCWETHTest is
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 
-    function uniswapV2Path() internal pure override(SettlerPairTest) returns (bytes memory) {
-        return abi.encodePacked(fromToken(), uint8(0), toToken());
+    function uniswapV2Pool() internal pure override(SettlerPairTest, AllowanceHolderPairTest) returns (address) {
+        return 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc;
     }
 
     function getCurveV2PoolData()
