@@ -213,7 +213,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
             stor.deploymentLists[prevNonce].next = thisNonce;
         }
 
-        if (Create3.createFromCalldata(salt, initCode) != predicted || predicted.code.length == 0) {
+        if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted || predicted.code.length == 0) {
             revert DeployFailed(thisNonce);
         }
     }
