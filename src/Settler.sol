@@ -17,6 +17,7 @@ import {FullMath} from "./vendor/FullMath.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
+import {TooMuchSlippage} from "./core/SettlerErrors.sol";
 
 /// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency, but still includes checks against `calldatasize()` for safety.
 library CalldataDecoder {

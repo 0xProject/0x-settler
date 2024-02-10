@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {VIPBase} from "./VIPBase.sol";
 import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 import {InvalidSender} from "./SettlerErrors.sol";
 
@@ -11,8 +10,9 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
-import {VIPBase} from "./VIPBase.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
+
+import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -35,7 +35,7 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
-abstract contract UniswapV3 is SettlerAbstract, VIPBase {
+abstract contract UniswapV3 is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 

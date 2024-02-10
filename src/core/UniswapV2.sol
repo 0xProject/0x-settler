@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20} from "../IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
-import {VIPBase} from "./VIPBase.sol";
+import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniV2Pair {
     function token0() external view returns (address);
@@ -13,7 +13,7 @@ interface IUniV2Pair {
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
-abstract contract UniswapV2 is VIPBase {
+abstract contract UniswapV2 {
     using UnsafeMath for uint256;
 
     // bytes4(keccak256("getReserves()"))
