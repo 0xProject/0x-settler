@@ -6,7 +6,7 @@ import {InvalidOffset, ConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol"
 
 import {IERC20} from "../IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../utils/FullMath.sol";
+import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
 

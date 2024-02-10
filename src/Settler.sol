@@ -13,7 +13,7 @@ import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
-import {FullMath} from "./utils/FullMath.sol";
+import {FullMath} from "./vendor/FullMath.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";

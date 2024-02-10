@@ -6,7 +6,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../utils/FullMath.sol";
+import {FullMath} from "../vendor/FullMath.sol";
 
 abstract contract OtcOrderSettlement is SettlerAbstract {
     using SafeTransferLib for IERC20;
