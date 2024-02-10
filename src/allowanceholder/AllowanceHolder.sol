@@ -13,7 +13,7 @@ contract AllowanceHolder is TransientStorage, AllowanceHolderBase {
         (bytes memory result, address sender) = _exec(operator, token, amount, target, data);
         // EIP-3074 seems unlikely
         if (sender != tx.origin) {
-            _setAllowed(operator, sender, token, 0);
+            _set(_ephemeralAllowance(operator, sender, token), 0);
         }
         return result;
     }

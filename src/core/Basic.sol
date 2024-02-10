@@ -26,12 +26,14 @@ abstract contract Basic is Permit2PaymentAbstract {
             revert ConfusedDeputy();
         }
 
+        bool success;
+        bytes memory returnData;
         uint256 value;
         if (sellToken == IERC20(ETH_ADDRESS)) {
             value = address(this).balance.mulDiv(bips, 10_000);
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
-                (bool success, bytes memory returnData) = payable(pool).call{value: value}("");
+                (success, returnData) = payable(pool).call{value: value}("");
                 success.maybeRevert(returnData);
                 return;
             } else {
@@ -56,7 +58,7 @@ abstract contract Basic is Permit2PaymentAbstract {
                 sellToken.safeApproveIfBelow(pool, amount);
             }
         }
-        (bool success, bytes memory returnData) = payable(pool).call{value: value}(data);
+        (success, returnData) = payable(pool).call{value: value}(data);
         success.maybeRevert(returnData);
         // forbid sending data to EOAs
         if (returnData.length == 0 && pool.code.length == 0) revert InvalidTarget();

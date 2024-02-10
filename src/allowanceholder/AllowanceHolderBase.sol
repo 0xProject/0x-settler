@@ -25,7 +25,9 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         if (data.length > 0x10) {
             target = address(uint160(bytes20(data[0x10:])));
         }
-        if (target == address(0)) {
+        // EIP-1352 (not adopted) specifies 0xffff as the maximum precompile
+        if (target <= address(0xffff)) {
+            // 0xdead is a conventional burn address; we assume that it is not treated specially
             target = address(0xdead);
         }
         bytes memory testData = abi.encodeCall(IERC20(maybeERC20).balanceOf, target);
@@ -60,12 +62,13 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         _rejectIfERC20(target, data);
 
         sender = _msgSender();
-        _setAllowed(operator, sender, token, amount);
+        _set(_ephemeralAllowance(operator, sender, token), amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
         // we're omitting the check that `address(this)` has sufficient value to
-        // send (we know it does), and we're omitting the check that `target`
-        // contains code (we already checked in `_rejectIfERC20`).
+        // send (we know it does; makes us more ERC-4337 friendly), and we're
+        // omitting the check that `target` contains code (we already checked in
+        // `_rejectIfERC20`).
         assembly ("memory-safe") {
             result := mload(0x40)
             calldatacopy(result, data.offset, data.length)

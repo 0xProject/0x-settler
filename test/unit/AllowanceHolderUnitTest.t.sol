@@ -5,17 +5,19 @@ import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol"
 import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "../../src/IERC20.sol";
+
+import {Utils} from "./Utils.sol";
 
 import {Test} from "forge-std/Test.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 
 contract AllowanceHolderDummy is AllowanceHolder {
-    function getAllowed(address operator, address owner, address token) external view returns (uint256 r) {
-        return _getAllowed(operator, owner, token);
+    function getAllowed(address operator, address owner, address token) external view returns (uint256) {
+        return _get(_ephemeralAllowance(operator, owner, token));
     }
 
     function setAllowed(address operator, address owner, address token, uint256 allowed) external {
-        return _setAllowed(operator, owner, token, allowed);
+        _set(_ephemeralAllowance(operator, owner, token), allowed);
     }
 }
 
@@ -25,21 +27,13 @@ interface IAllowanceHolderDummy is IAllowanceHolder {
     function setAllowed(address operator, address owner, address token, uint256 allowed) external;
 }
 
-contract FallbackDummy {
-    fallback() external payable {}
-}
-
-contract AllowanceHolderUnitTest is Test {
+contract AllowanceHolderUnitTest is Utils, Test {
     IAllowanceHolderDummy ah;
-    address constant OPERATOR = address(0x01);
-    address constant TOKEN = address(0x02);
-    address immutable OWNER;
-    address constant RECIPIENT = address(0);
-    uint256 constant AMOUNT = 123456;
-
-    constructor() {
-        OWNER = address(this);
-    }
+    address OPERATOR = _createNamedRejectionDummy("OPERATOR");
+    address TOKEN = _createNamedRejectionDummy("TOKEN");
+    address OWNER = address(this);
+    address RECIPIENT = _createNamedRejectionDummy("RECIPIENT");
+    uint256 AMOUNT = 123456;
 
     function setUp() public {
         ah = IAllowanceHolderDummy(address(new AllowanceHolderDummy()));
@@ -51,53 +45,52 @@ contract AllowanceHolderUnitTest is Test {
     }
 
     function testPermitAuthorised() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
+        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
 
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
-
-        assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT));
-        assertEq(ah.getAllowed(operator, OWNER, token), 0);
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT);
+        _mockExpectCall(
+            TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, AMOUNT), new bytes(0)
+        );
+        vm.prank(OPERATOR, address(this));
+        assertTrue(ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT));
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), 0);
     }
 
     function testPermitAuthorisedMultipleConsumption() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
+        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
 
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
-
-        assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT);
-        assertTrue(ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
-        assertEq(ah.getAllowed(operator, OWNER, token), AMOUNT / 2);
-        assertTrue(ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT / 2));
-        assertEq(ah.getAllowed(operator, OWNER, token), 0);
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT);
+        _mockExpectCall(
+            TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, AMOUNT / 2 + 1), new bytes(0)
+        );
+        vm.prank(OPERATOR, address(this));
+        assertTrue(ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT / 2 + 1));
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT / 2 - 1);
+        _mockExpectCall(
+            TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, AMOUNT / 2 - 1), new bytes(0)
+        );
+        vm.prank(OPERATOR, address(this));
+        assertTrue(ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT / 2 - 1));
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), 0);
     }
 
     function testPermitUnauthorisedOperator() public {
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
-
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
         ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
     function testPermitUnauthorisedAmount() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
-
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
-
-        vm.expectRevert();
-        ah.transferFrom(token, OWNER, RECIPIENT, AMOUNT + 1);
+        ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
+        vm.prank(OPERATOR, address(this));
+        ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT + 1);
     }
 
     function testPermitUnauthorisedToken() public {
-        address token = address(new FallbackDummy());
-        address operator = address(this);
-
-        ah.setAllowed(operator, OWNER, token, AMOUNT);
-
-        vm.expectRevert();
+        ah.setAllowed(OPERATOR, OWNER, address(0xdead), AMOUNT);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
+        vm.prank(OPERATOR, address(this));
         ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
@@ -121,45 +114,13 @@ contract AllowanceHolderUnitTest is Test {
     }
 
     function testPermitExecute() public {
-        address token = address(new FallbackDummy());
-        address target = address(new FallbackDummy());
+        address target = _createNamedRejectionDummy("TARGET");
         address operator = target;
         uint256 value = 999;
 
         bytes memory data = hex"deadbeef";
 
-        vm.startStateDiffRecording();
-        ah.exec{value: value}(operator, token, AMOUNT, payable(target), data);
-        VmSafe.AccountAccess[] memory calls =
-            _foundry_filterAccessKind(vm.stopAndReturnStateDiff(), VmSafe.AccountAccessKind.Call);
-
-        // First Call is to AllowanceHolder with the `execute` calldata
-        // Second Call is to the Target with the `data`
-        // We test that the msg.sender is passed along appended to `data`
-        assertEq(calls[1].account, target);
-        assertEq(calls[1].data, abi.encodePacked(data, address(this)));
-        assertEq(calls[1].value, value);
-    }
-
-    /// @dev Utility to filter the AccountAccess[] to just the particular kind we want
-    function _foundry_filterAccessKind(VmSafe.AccountAccess[] memory accesses, VmSafe.AccountAccessKind kind)
-        public
-        pure
-        returns (VmSafe.AccountAccess[] memory filtered)
-    {
-        filtered = new VmSafe.AccountAccess[](accesses.length);
-        uint256 count = 0;
-
-        for (uint256 i = 0; i < accesses.length; i++) {
-            if (accesses[i].kind == kind) {
-                filtered[count] = accesses[i];
-                count++;
-            }
-        }
-
-        assembly {
-            // Resize the array
-            mstore(filtered, count)
-        }
+        _mockExpectCall(address(target), abi.encodePacked(data, address(this)), abi.encode(true));
+        ah.exec{value: value}(operator, TOKEN, AMOUNT, payable(target), data);
     }
 }
