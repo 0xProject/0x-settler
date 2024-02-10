@@ -93,17 +93,18 @@ contract UniswapV3UnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        bool zeroForOne = TOKEN0 < TOKEN1;
         _mockExpectCall(
             POOL,
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
                 RECIPIENT,
-                false,
+                zeroForOne,
                 amount,
-                1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN1, uint24(500), TOKEN0, address(uni)) /* token1 and token0 swapped due to univ3 ordering */
+                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
+                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
             ),
-            abi.encode(-int256(amount), 0)
+            abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
         );
 
         uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
@@ -117,20 +118,23 @@ contract UniswapV3UnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        bool zeroForOne = TOKEN0 < TOKEN1;
         _mockExpectCall(
             POOL,
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
                 RECIPIENT,
-                false,
+                zeroForOne,
                 amount,
-                1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN1, uint24(500), TOKEN0, address(uni)) /* token1 and token0 swapped due to univ3 ordering */
+                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
+                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
             ),
-            abi.encode(-int256(amount), 0)
+            abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
         );
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
+        );
         uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
     }
 

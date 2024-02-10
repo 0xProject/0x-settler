@@ -10,8 +10,8 @@ contract AllowanceHolder is TransientStorageMock, AllowanceHolderBase {
         override
         returns (bytes memory)
     {
-        (bytes memory result, address sender) = _exec(operator, token, amount, target, data);
-        _set(_ephemeralAllowance(operator, sender, token), 0);
+        (bytes memory result,, TSlot allowance) = _exec(operator, token, amount, target, data);
+        _set(allowance, 0);
         return result;
     }
 

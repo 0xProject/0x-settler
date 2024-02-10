@@ -10,10 +10,10 @@ contract AllowanceHolder is TransientStorage, AllowanceHolderBase {
         override
         returns (bytes memory)
     {
-        (bytes memory result, address sender) = _exec(operator, token, amount, target, data);
-        // EIP-3074 seems unlikely
+        (bytes memory result, address sender, TSlot allowance) = _exec(operator, token, amount, target, data);
+        // EIP-3074 seems unlikely; ERC-4337 unfriendly
         if (sender != tx.origin) {
-            _set(_ephemeralAllowance(operator, sender, token), 0);
+            _set(allowance, 0);
         }
         return result;
     }
