@@ -2,13 +2,15 @@
 pragma solidity ^0.8.24;
 
 import {IERC165, AbstractOwnable} from "./TwoStepOwnable.sol";
-import {ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable} from "../proxy/ERC1967UUPSUpgradeable.sol";
+import {
+    ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable, AbstractUUPSUpgradeable
+} from "../proxy/ERC1967UUPSUpgradeable.sol";
 import {Context} from "../Context.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Create3} from "../utils/Create3.sol";
 import {IPFS} from "../utils/IPFS.sol";
 import {ItoA} from "../utils/ItoA.sol";
-import {MultiCall} from "../utils/MultiCall.sol";
+import {ProxyMultiCall} from "../utils/ProxyMultiCall.sol";
 
 interface IERC721View is IERC165 {
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
@@ -25,7 +27,7 @@ interface IERC721ViewMetadata is IERC721View {
     function tokenURI(uint256) external view returns (string memory);
 }
 
-contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, MultiCall {
+contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, ProxyMultiCall {
     struct DoublyLinkedList {
         uint64 prev;
         uint64 next;
@@ -288,5 +290,9 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     function owner() public view override(ERC1967UUPSUpgradeable, AbstractOwnable) returns (address) {
         return super.owner();
+    }
+
+    function implementation() public view override(AbstractUUPSUpgradeable, ERC1967UUPSUpgradeable) returns (address) {
+        return super.implementation();
     }
 }

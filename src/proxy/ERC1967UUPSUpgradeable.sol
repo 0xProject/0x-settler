@@ -24,6 +24,32 @@ interface IERC1967Proxy {
     function upgradeAndCall(address newImplementation, bytes calldata data) external payable returns (bool);
 }
 
+abstract contract AbstractUUPSUpgradeable {
+    address internal immutable _implementation;
+    uint256 internal immutable _implVersion;
+
+    constructor(uint256 newVersion) {
+        _implementation = address(this);
+        _implVersion = newVersion;
+    }
+
+    error OnlyProxy();
+
+    function _requireProxy() private view {
+        address impl = _implementation;
+        if (implementation() != impl || address(this) == impl) {
+            revert OnlyProxy();
+        }
+    }
+
+    modifier onlyProxy() {
+        _requireProxy();
+        _;
+    }
+
+    function implementation() public view virtual returns (address);
+}
+
 /// The upgrade mechanism for this proxy is slightly more convoluted than the
 /// previously-standard rollback-checking ERC1967 UUPS proxy. The standard
 /// rollback check uses the value of the ERC1967 rollback slot to avoid infinite
@@ -43,8 +69,9 @@ interface IERC1967Proxy {
 /// number. The old implementation then checks the value of both the
 /// implementation and rollback slots before re-setting the implementation slot
 /// to the new implementation.
-abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
-    error OnlyProxy();
+abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, AbstractUUPSUpgradeable {
+    using Revert for bytes;
+
     error VersionMismatch(uint256 oldVersion, uint256 newVersion);
     error InterferedWithImplementation(address expected, address actual);
     error InterferedWithVersion(uint256 expected, uint256 actual);
@@ -52,22 +79,21 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
     error RollbackFailed(address expected, address actual);
     error InitializationFailed();
 
-    using Revert for bytes;
-
-    address internal immutable _implementation;
-    uint256 internal immutable _implVersion;
-
     uint256 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     uint256 private constant _ROLLBACK_SLOT = 0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143;
 
-    constructor(uint256 newVersion) {
+    constructor(uint256 newVersion) AbstractUUPSUpgradeable(newVersion) {
         assert(_IMPLEMENTATION_SLOT == uint256(keccak256("eip1967.proxy.implementation")) - 1);
         assert(_ROLLBACK_SLOT == uint256(keccak256("eip1967.proxy.rollback")) - 1);
-        _implementation = address(this);
-        _implVersion = newVersion;
     }
 
-    function implementation() public view virtual override returns (address result) {
+    function implementation()
+        public
+        view
+        virtual
+        override(IERC1967Proxy, AbstractUUPSUpgradeable)
+        returns (address result)
+    {
         assembly ("memory-safe") {
             result := sload(_IMPLEMENTATION_SLOT)
         }
@@ -93,18 +119,6 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy {
         assembly ("memory-safe") {
             sstore(_ROLLBACK_SLOT, newVersion)
         }
-    }
-
-    function _requireProxy() private view {
-        address impl = _implementation;
-        if (implementation() != impl || address(this) == impl) {
-            revert OnlyProxy();
-        }
-    }
-
-    modifier onlyProxy() {
-        _requireProxy();
-        _;
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override onlyProxy returns (bool) {

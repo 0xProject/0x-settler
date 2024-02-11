@@ -40,22 +40,32 @@ library UnsafeArray {
     }
 }
 
-abstract contract MultiCall {
+interface IMultiCall {
+    function multicall(bytes[] calldata datas) external;
+}
+
+abstract contract MultiCallBase is IMultiCall {
     using UnsafeArray for bytes[];
 
-    function multicall(bytes[] calldata datas) external {
+    function _multicall(address target, bytes[] calldata datas) internal {
         uint256 freeMemPtr;
         assembly ("memory-safe") {
             freeMemPtr := mload(0x40)
         }
         unchecked {
             for (uint256 i; i < datas.length; i++) {
-                (bool success, bytes memory reason) = address(this).delegatecall(datas.unsafeGet(i));
+                (bool success, bytes memory reason) = target.delegatecall(datas.unsafeGet(i));
                 Revert.maybeRevert(success, reason);
                 assembly ("memory-safe") {
                     mstore(0x40, freeMemPtr)
                 }
             }
         }
+    }
+}
+
+abstract contract MultiCall is MultiCallBase {
+    function multicall(bytes[] calldata datas) external override {
+        _multicall(address(this), datas);
     }
 }

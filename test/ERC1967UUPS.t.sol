@@ -32,6 +32,10 @@ contract Mock is IMock, ERC1967UUPSUpgradeable, Context, Ownable {
     function owner() public view override(IOwnable, AbstractOwnable, ERC1967UUPSUpgradeable) returns (address) {
         return super.owner();
     }
+
+    function implementation() public view override(IERC1967Proxy, ERC1967UUPSUpgradeable) returns (address) {
+        return super.implementation();
+    }
 }
 
 contract OtherMock is Mock {
