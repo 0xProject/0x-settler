@@ -127,6 +127,16 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         return Create3.predict(_salt(feature, _stor1().featureInfo[feature].list.lastNonce.incr()));
     }
 
+    error NotDeployed(address);
+
+    function deployInfo(address instance) public view returns (Feature feature, Nonce nonce) {
+        DeployInfo storage info = _stor1().deployInfo[instance];
+        (feature, nonce) = (info.feature, info.nonce);
+        if (feature.isNull() || nonce.isNull()) {
+            revert NotDeployed(instance);
+        }
+    }
+
     error FeatureNotInitialized(Feature);
 
     event Authorized(Feature indexed, address indexed, uint40);
@@ -178,9 +188,9 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         emit PermanentURI(IPFS.CIDv0(contentHash), Feature.unwrap(feature));
     }
 
-    event Deployed(Feature indexed, Nonce indexed, address indexed);
+    error DeployFailed(Feature, Nonce, address);
 
-    error DeployFailed(Nonce);
+    event Deployed(Feature indexed, Nonce indexed, address indexed);
 
     function deploy(Feature feature, bytes calldata initCode)
         public
@@ -210,7 +220,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
 
         if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted || predicted.code.length == 0) {
-            revert DeployFailed(thisNonce);
+            revert DeployFailed(feature, thisNonce, predicted);
         }
     }
 
@@ -248,6 +258,11 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
         emit Removed(feature, nonce, deployment);
         return true;
+    }
+
+    function remove(address instance) external returns (bool) {
+        (Feature feature, Nonce nonce) = deployInfo(instance);
+        return remove(feature, nonce);
     }
 
     event RemovedAll(Feature indexed);

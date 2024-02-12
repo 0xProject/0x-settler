@@ -115,7 +115,9 @@ contract DeployerTest is Test {
     function testDeployEmpty() public {
         deployer.setDescription(wrap(1), "nothing to see here");
         deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint32)", 1));
+        address predicted =
+            Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint128,uint32,address)", 1, 1, predicted));
         deployer.deploy(wrap(1), hex"00"); // STOP; succeeds with empty returnData
     }
 
