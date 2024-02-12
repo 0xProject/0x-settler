@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Deployer, IERC721View} from "src/deployer/Deployer.sol";
+import {Deployer, IERC721View, Nonce, zero} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
@@ -92,7 +92,7 @@ contract DeployerTest is Test {
         address predicted =
             Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Deployer.Deployed(1, 1, predicted);
+        emit Deployer.Deployed(1, Nonce.wrap(1), predicted);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(address(0), predicted, 1);
         (address instance,) = deployer.deploy(1, type(Dummy).creationCode);
@@ -115,7 +115,7 @@ contract DeployerTest is Test {
     function testDeployEmpty() public {
         deployer.setDescription(1, "nothing to see here");
         deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint32)", 1));
         deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
 
@@ -135,7 +135,7 @@ contract DeployerTest is Test {
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
 
-        (address instance, uint64 nonce) = deployer.deploy(1, type(Dummy).creationCode);
+        (address instance, Nonce nonce) = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(deployer.ownerOf(1), instance);
 
         vm.expectEmit(true, true, true, false, address(deployer));
@@ -143,7 +143,7 @@ contract DeployerTest is Test {
             Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer)), address(0), 1
         );
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Deployer.Removed(1, 1, instance);
+        emit Deployer.Removed(1, Nonce.wrap(1), instance);
         assertTrue(deployer.remove(1, nonce));
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
@@ -167,7 +167,7 @@ contract DeployerTest is Test {
         deployer.deploy(1, type(Dummy).creationCode);
         deployer.deploy(1, type(Dummy).creationCode);
         deployer.deploy(1, type(Dummy).creationCode);
-        (address instance, uint64 nonce) = deployer.deploy(1, type(Dummy).creationCode);
+        (address instance, Nonce nonce) = deployer.deploy(1, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(instance, address(0), 1);
@@ -185,10 +185,14 @@ contract DeployerTest is Test {
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
 
-        for (uint64 i = 1; i < nonce; i++) {
+        for (Nonce i = zero.incr(); nonce > i; i = i.incr()) {
             vm.expectEmit(true, true, true, false, address(deployer));
             emit Deployer.Removed(
-                1, i, Create3.predict(bytes32(340282366920938463463374607431768211456 + uint256(i)), address(deployer))
+                1,
+                i,
+                Create3.predict(
+                    bytes32(340282366920938463463374607431768211456 + uint256(Nonce.unwrap(i))), address(deployer)
+                )
             );
             vm.recordLogs();
             deployer.remove(1, i);
@@ -202,15 +206,19 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(
             instance,
-            Create3.predict(bytes32(uint256(nonce) + 340282366920938463463374607431768211455), address(deployer)),
+            Create3.predict(
+                bytes32(uint256(Nonce.unwrap(nonce)) + 340282366920938463463374607431768211455), address(deployer)
+            ),
             1
         );
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Deployer.Removed(1, nonce, instance);
         deployer.remove(1, nonce);
 
-        nonce--;
-        instance = Create3.predict(bytes32(uint256(nonce) + 340282366920938463463374607431768211456), address(deployer));
+        nonce = Nonce.wrap(Nonce.unwrap(nonce) - 1);
+        instance = Create3.predict(
+            bytes32(uint256(Nonce.unwrap(nonce)) + 340282366920938463463374607431768211456), address(deployer)
+        );
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(instance, address(0), 1);
         vm.expectEmit(true, true, true, false, address(deployer));

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/Script.sol";
 import {Vm} from "forge-std/Vm.sol";
 
-import {IERC721View, Deployer} from "src/deployer/Deployer.sol";
+import {IERC721View, Deployer, Nonce} from "src/deployer/Deployer.sol";
 
 contract Deploy is Script {
     Deployer internal constant deployer = Deployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
@@ -21,13 +21,13 @@ contract Deploy is Script {
         vm.recordLogs();
         vm.startBroadcast(authorized);
 
-        (address deployed, uint64 nonce) = deployer.deploy(feature, initCode);
+        (address deployed, Nonce nonce) = deployer.deploy(feature, initCode);
 
         vm.stopBroadcast();
 
         assert(predicted == deployed);
 
-        console.log("Feature-specific deployment nonce", nonce);
+        console.log("Feature-specific deployment nonce", Nonce.unwrap(nonce));
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         require(logs.length >= 2, "Wrong logs");
@@ -38,7 +38,7 @@ contract Deploy is Script {
                 assert(log.data.length == 0);
                 if (log.topics[0] == Deployer.Deployed.selector) {
                     assert(abi.decode(bytes.concat(log.topics[1]), (uint128)) == feature);
-                    assert(abi.decode(bytes.concat(log.topics[2]), (uint64)) == nonce);
+                    assert(Nonce.unwrap(abi.decode(bytes.concat(log.topics[2]), (Nonce))) == Nonce.unwrap(nonce));
                     assert(abi.decode(bytes.concat(log.topics[3]), (address)) == predicted);
                 } else if (log.topics[0] == IERC721View.Transfer.selector) {
                     console.log("Old deployment", abi.decode(bytes.concat(log.topics[1]), (address)));

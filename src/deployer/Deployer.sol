@@ -25,21 +25,49 @@ interface IERC721ViewMetadata is IERC721View {
     function tokenURI(uint256) external view returns (string memory);
 }
 
-contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, MultiCall {
-    struct DoublyLinkedListElem {
-        uint64 prev;
-        uint64 next;
+type Nonce is uint32;
+
+function incr(Nonce a) pure returns (Nonce) {
+    return Nonce.wrap(Nonce.unwrap(a) + 1);
+}
+
+function gt(Nonce a, Nonce b) pure returns (bool) {
+    return Nonce.unwrap(a) > Nonce.unwrap(b);
+}
+
+function isNull(Nonce a) pure returns (bool) {
+    return Nonce.unwrap(a) == 0;
+}
+
+using {gt as >, incr, isNull} for Nonce global;
+
+Nonce constant zero = Nonce.wrap(0);
+
+library NonceList {
+    struct ListElem {
+        Nonce prev;
+        Nonce next;
     }
 
-    struct DoublyLinkedList {
-        mapping(uint64 => DoublyLinkedListElem) links;
-        uint64 head;
-        uint64 highWater;
-        uint64 lastNonce;
+    struct List {
+        ListElem[4294967296] links;
+        Nonce head;
+        Nonce highWater;
+        Nonce lastNonce;
     }
+
+    function get(ListElem[4294967296] storage links, Nonce i) internal pure returns (ListElem storage r) {
+        assembly ("memory-safe") {
+            r.slot := add(links.slot, and(0xffffffff, i))
+        }
+    }
+}
+
+contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, MultiCall {
+    using NonceList for NonceList.ListElem[4294967296];
 
     struct FeatureInfo {
-        DoublyLinkedList list;
+        NonceList.List list;
         address auth;
         uint40 deadline;
         bytes32 descriptionHash;
@@ -47,7 +75,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     struct DeployInfo {
         uint128 feature;
-        uint64 nonce;
+        Nonce nonce;
     }
 
     /// @custom:storage-location erc7201:0xV5Deployer.1
@@ -75,11 +103,29 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     constructor() ERC1967UUPSUpgradeable(1) {
         ZeroExV5DeployerStorage1 storage stor1 = _stor1();
-        bytes32 slot;
-        assembly ("memory-safe") {
-            slot := stor1.slot
+        // storage starts at the slot defined by ERC7201
+        {
+            bytes32 slot;
+            assembly ("memory-safe") {
+                slot := stor1.slot
+            }
+            assert(
+                slot == keccak256(abi.encodePacked(uint256(keccak256("0xV5Deployer.1")) - 1)) & ~bytes32(uint256(0xff))
+            );
         }
-        assert(slot == keccak256(abi.encodePacked(uint256(keccak256("0xV5Deployer.1")) - 1)) & ~bytes32(uint256(0xff)));
+
+        // `ListElem` does not pack because it is a struct
+        {
+            NonceList.ListElem storage linkZero = stor1.featureInfo[0].list.links[0];
+            NonceList.ListElem storage linkOne = stor1.featureInfo[0].list.links[1];
+            uint256 slotZero;
+            uint256 slotOne;
+            assembly ("memory-safe") {
+                slotZero := linkZero.slot
+                slotOne := linkOne.slot
+            }
+            assert(slotZero + 1 == slotOne);
+        }
     }
 
     function initialize(address initialOwner) external {
@@ -87,12 +133,12 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         super._initialize();
     }
 
-    function _salt(uint128 feature, uint64 nonce) internal pure returns (bytes32) {
-        return bytes32(uint256(feature) << 128 | uint256(nonce));
+    function _salt(uint128 feature, Nonce nonce) internal pure returns (bytes32) {
+        return bytes32(uint256(feature) << 128 | uint256(Nonce.unwrap(nonce)));
     }
 
     function next(uint128 feature) external view returns (address) {
-        return Create3.predict(_salt(feature, _stor1().featureInfo[feature].list.lastNonce + 1));
+        return Create3.predict(_salt(feature, _stor1().featureInfo[feature].list.lastNonce.incr()));
     }
 
     error FeatureNotInitialized(uint128);
@@ -142,20 +188,19 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         emit PermanentURI(IPFS.CIDv0(contentHash), feature);
     }
 
-    event Deployed(uint128 indexed, uint64 indexed, address indexed);
+    event Deployed(uint128 indexed, Nonce indexed, address indexed);
 
-    error DeployFailed(uint64);
+    error DeployFailed(Nonce);
 
     function deploy(uint128 feature, bytes calldata initCode)
         public
         payable
-        returns (address predicted, uint64 thisNonce)
+        returns (address predicted, Nonce thisNonce)
     {
         FeatureInfo storage featureInfo = _requireAuthorized(feature);
-        DoublyLinkedList storage featureList = featureInfo.list;
-        uint64 prevNonce;
-        (prevNonce, thisNonce) = (featureList.head, featureList.lastNonce);
-        thisNonce++;
+        NonceList.List storage featureList = featureInfo.list;
+        Nonce prevNonce;
+        (prevNonce, thisNonce) = (featureList.head, featureList.lastNonce.incr());
         (featureList.head, featureList.lastNonce) = (thisNonce, thisNonce);
 
         bytes32 salt = _salt(feature, thisNonce);
@@ -163,12 +208,15 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         _stor1().deployInfo[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
 
-        featureList.links[thisNonce] = DoublyLinkedListElem({prev: prevNonce, next: 0});
-        if (prevNonce == 0) {
+        {
+            NonceList.ListElem storage dst = featureList.links.get(thisNonce);
+            (dst.prev, dst.next) = (prevNonce, zero);
+        }
+        if (prevNonce.isNull()) {
             emit Transfer(address(0), predicted, feature);
         } else {
             emit Transfer(Create3.predict(_salt(feature, prevNonce)), predicted, feature);
-            featureList.links[prevNonce].next = thisNonce;
+            featureList.links.get(prevNonce).next = thisNonce;
         }
 
         if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted || predicted.code.length == 0) {
@@ -176,36 +224,35 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
-    error FutureDeployment(uint64);
+    error FutureDeployment(Nonce);
 
-    event Removed(uint128 indexed, uint64 indexed, address indexed);
+    event Removed(uint128 indexed, Nonce indexed, address indexed);
 
-    function remove(uint128 feature, uint64 nonce) public returns (bool) {
+    function remove(uint128 feature, Nonce nonce) public returns (bool) {
         FeatureInfo storage featureInfo = _requireAuthorized(feature);
-        DoublyLinkedList storage featureList = featureInfo.list;
+        NonceList.List storage featureList = featureInfo.list;
         if (nonce > featureList.lastNonce) {
             revert FutureDeployment(nonce);
         }
-        DoublyLinkedListElem storage entry = featureList.links[nonce];
+        NonceList.ListElem storage entry = featureList.links.get(nonce);
 
-        (uint64 prevNonce, uint64 nextNonce) = (entry.prev, entry.next);
+        (Nonce prevNonce, Nonce nextNonce) = (entry.prev, entry.next);
         address deployment = Create3.predict(_salt(feature, nonce));
-        if (nextNonce == 0) {
+        if (nextNonce.isNull()) {
             if (nonce > featureList.highWater) {
                 // assert(head.head == nonce);
                 featureList.head = prevNonce;
                 emit Transfer(
-                    deployment, prevNonce == 0 ? address(0) : Create3.predict(_salt(feature, prevNonce)), feature
+                    deployment, prevNonce.isNull() ? address(0) : Create3.predict(_salt(feature, prevNonce)), feature
                 );
             }
         } else {
-            featureList.links[nextNonce].prev = prevNonce;
+            featureList.links.get(nextNonce).prev = prevNonce;
         }
-        if (prevNonce != 0) {
-            featureList.links[prevNonce].next = nextNonce;
+        if (!prevNonce.isNull()) {
+            featureList.links.get(prevNonce).next = nextNonce;
         }
-        delete entry.prev;
-        delete entry.next;
+        (entry.prev, entry.next) = (zero, zero);
 
         emit Removed(feature, nonce, deployment);
         return true;
@@ -214,10 +261,10 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     event RemovedAll(uint128 indexed);
 
     function removeAll(uint128 feature) public returns (bool) {
-        DoublyLinkedList storage featureList = _requireAuthorized(feature).list;
-        uint64 nonce;
-        (nonce, featureList.head, featureList.highWater) = (featureList.head, 0, featureList.lastNonce);
-        if (nonce != 0) {
+        NonceList.List storage featureList = _requireAuthorized(feature).list;
+        Nonce nonce;
+        (nonce, featureList.head, featureList.highWater) = (featureList.head, zero, featureList.lastNonce);
+        if (!nonce.isNull()) {
             emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), feature);
         }
         emit RemovedAll(feature);
@@ -243,12 +290,12 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
         ZeroExV5DeployerStorage1 storage stor1 = _stor1();
         DeployInfo storage info = stor1.deployInfo[instance];
-        (uint128 feature, uint64 nonce) = (info.feature, info.nonce);
+        (uint128 feature, Nonce nonce) = (info.feature, info.nonce);
         if (feature == 0) {
             return 0;
         }
-        DoublyLinkedList storage featureList = stor1.featureInfo[feature].list;
-        if (nonce > featureList.highWater && featureList.links[nonce].next == 0) {
+        NonceList.List storage featureList = stor1.featureInfo[feature].list;
+        if (nonce > featureList.highWater && featureList.links.get(nonce).next.isNull()) {
             return 1;
         }
         return 0;
@@ -256,11 +303,11 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     error NoToken(uint256);
 
-    function _requireTokenExists(uint256 tokenId) private view returns (uint64 nonce) {
+    function _requireTokenExists(uint256 tokenId) private view returns (Nonce nonce) {
         if (tokenId > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if ((nonce = _stor1().featureInfo[uint128(tokenId)].list.head) == 0) {
+        if ((nonce = _stor1().featureInfo[uint128(tokenId)].list.head).isNull()) {
             revert NoToken(tokenId);
         }
     }
