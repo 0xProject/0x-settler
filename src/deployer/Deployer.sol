@@ -224,10 +224,9 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     function removeAll(uint128 feature) public onlyAuthorized(feature) returns (bool) {
         ListHead storage entry = _stor().featureNonce[feature];
-        uint64 nonce = entry.head;
+        uint64 nonce;
+        (nonce, entry.head, entry.highWater) = (entry.head, 0, entry.lastNonce);
         if (nonce != 0) {
-            // assert(nonce > entry.highWater);
-            (entry.head, entry.highWater) = (0, nonce);
             emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), feature);
         }
         emit RemovedAll(feature);
