@@ -38,6 +38,11 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         uint64 prevNonce;
     }
 
+    struct DeployInfo {
+        uint128 feature;
+        uint64 nonce;
+    }
+
     struct ExpiringAuthorization {
         address who;
         uint96 deadline;
@@ -45,9 +50,9 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     /// @custom:storage-location erc7201:0xV5Deployer.1
     struct ZeroExV5DeployerStorage {
-        mapping(uint64 => DoublyLinkedList) deploymentLists;
+        mapping(uint128 => mapping(uint64 => DoublyLinkedList)) deploymentLists;
         mapping(uint128 => ListHead) featureNonce;
-        mapping(address => uint64) deploymentNonce;
+        mapping(address => DeployInfo) deploymentNonce;
         mapping(uint128 => ExpiringAuthorization) authorized;
         mapping(uint128 => bytes32) descriptionHash;
     }
@@ -163,15 +168,16 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
         bytes32 salt = _salt(feature, thisNonce);
         predicted = Create3.predict(salt);
-        stor.deploymentNonce[predicted] = thisNonce;
+        stor.deploymentNonce[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
 
-        stor.deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
+        mapping(uint64 => DoublyLinkedList) storage featureList = stor.deploymentLists[feature];
+        featureList[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
         } else {
             emit Transfer(Create3.predict(_salt(feature, prevNonce)), predicted, feature);
-            stor.deploymentLists[prevNonce].next = thisNonce;
+            featureList[prevNonce].next = thisNonce;
         }
 
         if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted || predicted.code.length == 0) {
@@ -179,30 +185,38 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
+    error FutureDeployment(uint64);
+
     event Removed(uint128 indexed, uint64 indexed, address indexed);
 
     function remove(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
         ZeroExV5DeployerStorage storage stor = _stor();
-        DoublyLinkedList storage entry = stor.deploymentLists[nonce];
-        if (entry.feature != feature) {
-            revert PermissionDenied();
+        ListHead storage head = stor.featureNonce[feature];
+        if (nonce > head.prevNonce) {
+            revert FutureDeployment(nonce);
         }
+        mapping(uint64 => DoublyLinkedList) storage featureList = stor.deploymentLists[feature];
+        DoublyLinkedList storage entry = featureList[nonce];
+        if (entry.feature == 0) {
+            // removing an already-removed deployment is a no-op
+            return true;
+        }
+
         (uint64 prevNonce, uint64 nextNonce) = (entry.prev, entry.next);
         address deployment = Create3.predict(_salt(feature, nonce));
         if (nextNonce == 0) {
-            ListHead storage headEntry = stor.featureNonce[feature];
-            if (nonce > headEntry.highWater) {
-                // assert(headEntry.head == nonce);
-                headEntry.head = prevNonce;
+            if (nonce > head.highWater) {
+                // assert(head.head == nonce);
+                head.head = prevNonce;
                 emit Transfer(
                     deployment, prevNonce == 0 ? address(0) : Create3.predict(_salt(feature, prevNonce)), feature
                 );
             }
         } else {
-            stor.deploymentLists[nextNonce].prev = prevNonce;
+            featureList[nextNonce].prev = prevNonce;
         }
         if (prevNonce != 0) {
-            stor.deploymentLists[prevNonce].next = nextNonce;
+            featureList[prevNonce].next = nextNonce;
         }
         delete entry.prev;
         delete entry.next;
@@ -244,9 +258,11 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
             revert ZeroAddress();
         }
         ZeroExV5DeployerStorage storage stor = _stor();
-        DoublyLinkedList storage entry = stor.deploymentLists[stor.deploymentNonce[instance]];
-        (uint64 nextNonce, uint128 feature) = (entry.next, entry.feature);
-        if (feature != 0 && nextNonce == 0) {
+        DeployInfo storage info = stor.deploymentNonce[instance];
+        (uint128 feature, uint64 nonce) = (info.feature, info.nonce);
+        DoublyLinkedList storage entry = stor.deploymentLists[feature][nonce];
+        (uint64 nextNonce, uint128 entryFeature) = (entry.next, entry.feature);
+        if (feature != 0 && entryFeature == feature && nextNonce == 0) {
             return 1;
         }
         return 0;
