@@ -37,17 +37,13 @@ contract Deploy is Script {
                 assert(log.topics.length == 4);
                 assert(log.data.length == 0);
                 if (log.topics[0] == Deployer.Deployed.selector) {
-                    assert(
-                        Feature.unwrap(abi.decode(bytes.concat(log.topics[1]), (Feature))) == Feature.unwrap(feature)
-                    );
-                    assert(Nonce.unwrap(abi.decode(bytes.concat(log.topics[2]), (Nonce))) == Nonce.unwrap(nonce));
+                    assert(abi.decode(bytes.concat(log.topics[1]), (Feature)) == feature);
+                    assert(abi.decode(bytes.concat(log.topics[2]), (Nonce)) == nonce);
                     assert(abi.decode(bytes.concat(log.topics[3]), (address)) == predicted);
                 } else if (log.topics[0] == IERC721View.Transfer.selector) {
                     console.log("Old deployment", abi.decode(bytes.concat(log.topics[1]), (address)));
                     assert(abi.decode(bytes.concat(log.topics[2]), (address)) == predicted);
-                    assert(
-                        Feature.unwrap(abi.decode(bytes.concat(log.topics[3]), (Feature))) == Feature.unwrap(feature)
-                    );
+                    assert(abi.decode(bytes.concat(log.topics[3]), (Feature)) == feature);
                 } else {
                     revert("Unknown event");
                 }
