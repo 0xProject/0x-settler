@@ -51,7 +51,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     struct ZeroExV5DeployerStorage1 {
         mapping(uint128 => mapping(uint64 => DoublyLinkedList)) deploymentLists;
         mapping(uint128 => ListHead) featureNonce;
-        mapping(address => DeployInfo) deploymentNonce;
+        mapping(address => DeployInfo) deployInfo;
         mapping(uint128 => ExpiringAuthorization) authorized;
         mapping(uint128 => bytes32) descriptionHash;
     }
@@ -167,7 +167,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
         bytes32 salt = _salt(feature, thisNonce);
         predicted = Create3.predict(salt);
-        stor1.deploymentNonce[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
+        stor1.deployInfo[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
 
         mapping(uint64 => DoublyLinkedList) storage featureList = stor1.deploymentLists[feature];
@@ -251,7 +251,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
             revert ZeroAddress();
         }
         ZeroExV5DeployerStorage1 storage stor1 = _stor1();
-        DeployInfo storage info = stor1.deploymentNonce[instance];
+        DeployInfo storage info = stor1.deployInfo[instance];
         (uint128 feature, uint64 nonce) = (info.feature, info.nonce);
         if (
             feature == 0 || nonce <= stor1.featureNonce[feature].highWater
