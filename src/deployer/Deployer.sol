@@ -31,25 +31,29 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     struct DoublyLinkedList {
         uint64 prev;
         uint64 next;
-        uint128 feature;
     }
 
     struct ListHead {
         uint64 head;
         uint64 highWater;
-        uint64 prevNonce;
+        uint64 lastNonce;
+    }
+
+    struct DeployInfo {
+        uint128 feature;
+        uint64 nonce;
     }
 
     struct ExpiringAuthorization {
         address who;
-        uint96 deadline;
+        uint40 deadline;
     }
 
-    // @custom:storage-location erc7201:0xV5Deployer.1
+    /// @custom:storage-location erc7201:0xV5Deployer.1
     struct ZeroExV5DeployerStorage {
-        mapping(uint64 => DoublyLinkedList) deploymentLists;
+        mapping(uint128 => mapping(uint64 => DoublyLinkedList)) deploymentLists;
         mapping(uint128 => ListHead) featureNonce;
-        mapping(address => uint64) deploymentNonce;
+        mapping(address => DeployInfo) deploymentNonce;
         mapping(uint128 => ExpiringAuthorization) authorized;
         mapping(uint128 => bytes32) descriptionHash;
     }
@@ -62,7 +66,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
-    function authorized(uint128 feature) external view returns (address who, uint96 deadline) {
+    function authorized(uint128 feature) external view returns (address who, uint40 deadline) {
         ExpiringAuthorization storage result = _stor().authorized[feature];
         (who, deadline) = (result.who, result.deadline);
     }
@@ -90,14 +94,14 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     }
 
     function next(uint128 feature) external view returns (address) {
-        return Create3.predict(_salt(feature, _stor().featureNonce[feature].prevNonce + 1));
+        return Create3.predict(_salt(feature, _stor().featureNonce[feature].lastNonce + 1));
     }
-
-    event Authorized(uint128 indexed, address indexed, uint256);
 
     error FeatureNotInitialized(uint128);
 
-    function authorize(uint128 feature, address who, uint96 deadline) public onlyOwner returns (bool) {
+    event Authorized(uint128 indexed, address indexed, uint40);
+
+    function authorize(uint128 feature, address who, uint40 deadline) public onlyOwner returns (bool) {
         require((who == address(0)) == (block.timestamp > deadline));
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -113,8 +117,8 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     function _requireAuthorized(uint128 feature) private view {
         ExpiringAuthorization storage authorization = _stor().authorized[feature];
-        (address who, uint96 deadline) = (authorization.who, authorization.deadline);
-        if (_msgSender() != who || (deadline != type(uint96).max && block.timestamp > deadline)) {
+        (address who, uint40 deadline) = (authorization.who, authorization.deadline);
+        if (_msgSender() != who || (deadline != type(uint40).max && block.timestamp > deadline)) {
             revert PermissionDenied();
         }
     }
@@ -159,21 +163,22 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         uint64 prevNonce;
         {
             ListHead storage head = stor.featureNonce[feature];
-            (prevNonce, thisNonce) = (head.head, head.prevNonce);
+            (prevNonce, thisNonce) = (head.head, head.lastNonce);
             thisNonce++;
-            (head.head, head.prevNonce) = (thisNonce, thisNonce);
+            (head.head, head.lastNonce) = (thisNonce, thisNonce);
         }
         bytes32 salt = _salt(feature, thisNonce);
         predicted = Create3.predict(salt);
-        stor.deploymentNonce[predicted] = thisNonce;
+        stor.deploymentNonce[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
 
-        stor.deploymentLists[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
+        mapping(uint64 => DoublyLinkedList) storage featureList = stor.deploymentLists[feature];
+        featureList[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0});
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
         } else {
             emit Transfer(Create3.predict(_salt(feature, prevNonce)), predicted, feature);
-            stor.deploymentLists[prevNonce].next = thisNonce;
+            featureList[prevNonce].next = thisNonce;
         }
 
         if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted || predicted.code.length == 0) {
@@ -181,47 +186,49 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
+    error FutureDeployment(uint64);
+
     event Removed(uint128 indexed, uint64 indexed, address indexed);
 
     function remove(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
         ZeroExV5DeployerStorage storage stor = _stor();
-        DoublyLinkedList storage entry = stor.deploymentLists[nonce];
-        if (entry.feature != feature) {
-            revert PermissionDenied();
+        ListHead storage head = stor.featureNonce[feature];
+        if (nonce > head.lastNonce) {
+            revert FutureDeployment(nonce);
         }
+        mapping(uint64 => DoublyLinkedList) storage featureList = stor.deploymentLists[feature];
+        DoublyLinkedList storage entry = featureList[nonce];
+
         (uint64 prevNonce, uint64 nextNonce) = (entry.prev, entry.next);
         address deployment = Create3.predict(_salt(feature, nonce));
         if (nextNonce == 0) {
-            ListHead storage headEntry = stor.featureNonce[feature];
-            if (nonce > headEntry.highWater) {
-                // assert(headEntry.head == nonce);
-                headEntry.head = prevNonce;
+            if (nonce > head.highWater) {
+                // assert(head.head == nonce);
+                head.head = prevNonce;
                 emit Transfer(
                     deployment, prevNonce == 0 ? address(0) : Create3.predict(_salt(feature, prevNonce)), feature
                 );
             }
         } else {
-            stor.deploymentLists[nextNonce].prev = prevNonce;
+            featureList[nextNonce].prev = prevNonce;
         }
         if (prevNonce != 0) {
-            stor.deploymentLists[prevNonce].next = nextNonce;
+            featureList[prevNonce].next = nextNonce;
         }
         delete entry.prev;
         delete entry.next;
-        delete entry.feature;
 
         emit Removed(feature, nonce, deployment);
         return true;
     }
 
-    event RemovedAll(uint256 indexed);
+    event RemovedAll(uint128 indexed);
 
     function removeAll(uint128 feature) public onlyAuthorized(feature) returns (bool) {
         ListHead storage entry = _stor().featureNonce[feature];
-        uint64 nonce = entry.head;
+        uint64 nonce;
+        (nonce, entry.head, entry.highWater) = (entry.head, 0, entry.lastNonce);
         if (nonce != 0) {
-            // assert(nonce > entry.highWater);
-            (entry.head, entry.highWater) = (0, nonce);
             emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), feature);
         }
         emit RemovedAll(feature);
@@ -246,12 +253,15 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
             revert ZeroAddress();
         }
         ZeroExV5DeployerStorage storage stor = _stor();
-        DoublyLinkedList storage entry = stor.deploymentLists[stor.deploymentNonce[instance]];
-        (uint64 nextNonce, uint128 feature) = (entry.next, entry.feature);
-        if (feature != 0 && nextNonce == 0) {
-            return 1;
+        DeployInfo storage info = stor.deploymentNonce[instance];
+        (uint128 feature, uint64 nonce) = (info.feature, info.nonce);
+        if (
+            feature == 0 || nonce <= stor.featureNonce[feature].highWater
+                || stor.deploymentLists[feature][nonce].next != 0
+        ) {
+            return 0;
         }
-        return 0;
+        return 1;
     }
 
     error NoToken(uint256);

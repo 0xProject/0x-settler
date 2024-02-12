@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Deployer} from "src/deployer/Deployer.sol";
+import {Deployer, IERC721View} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
+import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
 
 import "forge-std/Test.sol";
 
@@ -14,13 +15,11 @@ contract DeployerTest is Test {
     Deployer public deployer;
     address public auth = address(0xc0de60d);
 
-    event Upgraded(address indexed);
-
     function setUp() public {
         address deployerImpl = address(new Deployer());
         vm.label(deployerImpl, "Deployer (implementation)");
         vm.expectEmit(true, false, false, false, AddressDerivation.deriveContract(address(this), 2));
-        emit Upgraded(deployerImpl);
+        emit IERC1967Proxy.Upgraded(deployerImpl);
         deployer = Deployer(ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (address(this)))));
         vm.label(address(deployer), "Deployer (proxy)");
         deployer.acceptOwnership();
@@ -50,16 +49,14 @@ contract DeployerTest is Test {
         deployer.setDescription(1, "nothing to see here");
     }
 
-    event Authorized(uint128 indexed, address indexed, uint256);
-
     function testAuthorize() public {
         deployer.setDescription(1, "nothing to see here");
-        (address who, uint96 expiry) = deployer.authorized(1);
+        (address who, uint40 expiry) = deployer.authorized(1);
         assertEq(who, address(0));
         assertEq(expiry, 0);
         vm.expectEmit(true, true, false, true, address(deployer));
-        emit Authorized(1, auth, uint96(block.timestamp + 1 days));
-        assertTrue(deployer.authorize(1, auth, uint96(block.timestamp + 1 days)));
+        emit Deployer.Authorized(1, auth, uint40(block.timestamp + 1 days));
+        assertTrue(deployer.authorize(1, auth, uint40(block.timestamp + 1 days)));
         (who, expiry) = deployer.authorized(1);
         assertEq(who, auth);
         assertEq(expiry, block.timestamp + 1 days);
@@ -68,16 +65,16 @@ contract DeployerTest is Test {
     function testAuthorizeZero() public {
         deployer.setDescription(1, "nothing to see here");
         vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
-        deployer.authorize(0, auth, uint96(block.timestamp + 1 days));
+        deployer.authorize(0, auth, uint40(block.timestamp + 1 days));
     }
 
     function testUnauthorize() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, auth, uint96(block.timestamp + 1 days));
+        deployer.authorize(1, auth, uint40(block.timestamp + 1 days));
         vm.expectEmit(true, true, false, true, address(deployer));
-        emit Authorized(1, address(0), 0);
+        emit Deployer.Authorized(1, address(0), 0);
         assertTrue(deployer.authorize(1, address(0), 0));
-        (address who, uint96 expiry) = deployer.authorized(1);
+        (address who, uint40 expiry) = deployer.authorized(1);
         assertEq(who, address(0));
         assertEq(expiry, 0);
     }
@@ -86,21 +83,18 @@ contract DeployerTest is Test {
         deployer.setDescription(1, "nothing to see here");
         vm.startPrank(auth);
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.authorize(1, auth, uint96(block.timestamp + 1 days));
+        deployer.authorize(1, auth, uint40(block.timestamp + 1 days));
     }
-
-    event Deployed(uint128 indexed, uint64 indexed, address indexed);
-    event Transfer(address indexed, address indexed, uint256 indexed);
 
     function testDeploy() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
         address predicted =
             Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Deployed(1, 1, predicted);
+        emit Deployer.Deployed(1, 1, predicted);
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Transfer(address(0), predicted, 1);
+        emit IERC721View.Transfer(address(0), predicted, 1);
         (address instance,) = deployer.deploy(1, type(Dummy).creationCode);
         assertEq(instance, predicted);
         assertEq(deployer.ownerOf(1), predicted);
@@ -113,32 +107,30 @@ contract DeployerTest is Test {
 
     function testDeployRevert() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
         vm.expectRevert(new bytes(0));
         deployer.deploy(1, hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
         vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint64)", 1));
         deployer.deploy(1, hex"00"); // STOP; succeeds with empty returnData
     }
 
     function testDeployMinimal() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
         // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
         (address deployed,) = deployer.deploy(1, hex"60015ff3");
         assertNotEq(deployed, address(0));
         assertNotEq(deployed.code.length, 0);
     }
 
-    event Removed(uint128 indexed, uint64 indexed, address indexed);
-
     function testRemove() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
 
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
@@ -147,11 +139,11 @@ contract DeployerTest is Test {
         assertEq(deployer.ownerOf(1), instance);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Transfer(
+        emit IERC721View.Transfer(
             Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer)), address(0), 1
         );
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Removed(1, 1, instance);
+        emit Deployer.Removed(1, 1, instance);
         assertTrue(deployer.remove(1, nonce));
         vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
         deployer.ownerOf(1);
@@ -168,11 +160,9 @@ contract DeployerTest is Test {
         assertEq(deployer.ownerOf(1), instance, "reverts to previous deployment");
     }
 
-    event RemovedAll(uint256 indexed);
-
     function testRemoveAll() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
 
         deployer.deploy(1, type(Dummy).creationCode);
         deployer.deploy(1, type(Dummy).creationCode);
@@ -180,13 +170,13 @@ contract DeployerTest is Test {
         (address instance, uint64 nonce) = deployer.deploy(1, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Transfer(instance, address(0), 1);
+        emit IERC721View.Transfer(instance, address(0), 1);
         vm.expectEmit(true, false, false, false, address(deployer));
-        emit RemovedAll(1);
+        emit Deployer.RemovedAll(1);
         deployer.removeAll(1);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Removed(1, nonce, instance);
+        emit Deployer.Removed(1, nonce, instance);
         vm.recordLogs();
         deployer.remove(1, nonce);
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -197,7 +187,7 @@ contract DeployerTest is Test {
 
         for (uint64 i = 1; i < nonce; i++) {
             vm.expectEmit(true, true, true, false, address(deployer));
-            emit Removed(
+            emit Deployer.Removed(
                 1, i, Create3.predict(bytes32(340282366920938463463374607431768211456 + uint256(i)), address(deployer))
             );
             vm.recordLogs();
@@ -210,27 +200,27 @@ contract DeployerTest is Test {
         (instance, nonce) = deployer.deploy(1, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Transfer(
+        emit IERC721View.Transfer(
             instance,
             Create3.predict(bytes32(uint256(nonce) + 340282366920938463463374607431768211455), address(deployer)),
             1
         );
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Removed(1, nonce, instance);
+        emit Deployer.Removed(1, nonce, instance);
         deployer.remove(1, nonce);
 
         nonce--;
         instance = Create3.predict(bytes32(uint256(nonce) + 340282366920938463463374607431768211456), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Transfer(instance, address(0), 1);
+        emit IERC721View.Transfer(instance, address(0), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Removed(1, nonce, instance);
+        emit Deployer.Removed(1, nonce, instance);
         deployer.remove(1, nonce);
     }
 
     function testTokenURI() public {
         deployer.setDescription(1, "nothing to see here");
-        deployer.authorize(1, address(this), uint96(block.timestamp + 1 days));
+        deployer.authorize(1, address(this), uint40(block.timestamp + 1 days));
         deployer.deploy(1, type(Dummy).creationCode);
         assertEq(ipfsUriHash, keccak256(bytes(deployer.tokenURI(1))));
     }
