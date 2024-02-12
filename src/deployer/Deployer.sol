@@ -37,6 +37,7 @@ library NonceList {
         Nonce head;
         Nonce highWater;
         Nonce lastNonce;
+        /// @dev if you update this, you also have to update the size of `Nonce` in Nonce.sol
         ListElem[4294967296] links;
     }
 
@@ -90,10 +91,10 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     using NonceList for NonceList.List;
 
     struct FeatureInfo {
+        bytes32 descriptionHash;
         address auth;
         uint40 deadline;
         NonceList.List list;
-        bytes32 descriptionHash;
     }
 
     struct DeployInfo {
