@@ -40,7 +40,7 @@ library NonceList {
         Nonce lastNonce;
     }
 
-    function _get(ListElem[4294967296] storage links, Nonce i) private pure returns (ListElem storage r) {
+    function _idx(ListElem[4294967296] storage links, Nonce i) private pure returns (ListElem storage r) {
         assembly ("memory-safe") {
             r.slot := add(links.slot, and(0xffffffff, i))
         }
@@ -51,9 +51,9 @@ library NonceList {
         // update the head
         (list.head, list.lastNonce) = (thisNonce, thisNonce);
         // update the links
-        _get(list.links, thisNonce).prev = prevNonce;
+        _idx(list.links, thisNonce).prev = prevNonce;
         if (!prevNonce.isNull()) {
-            _get(list.links, prevNonce).next = thisNonce;
+            _idx(list.links, prevNonce).next = thisNonce;
         }
     }
 
@@ -64,7 +64,7 @@ library NonceList {
             revert FutureNonce(thisNonce);
         }
 
-        ListElem storage entry = _get(list.links, thisNonce);
+        ListElem storage entry = _idx(list.links, thisNonce);
         Nonce nextNonce;
         (newHead, nextNonce) = (entry.prev, entry.next);
         if (nextNonce.isNull()) {
@@ -73,10 +73,10 @@ library NonceList {
                 list.head = newHead;
             }
         } else {
-            _get(list.links, nextNonce).prev = newHead;
+            _idx(list.links, nextNonce).prev = newHead;
         }
         if (!newHead.isNull()) {
-            _get(list.links, newHead).next = nextNonce;
+            _idx(list.links, newHead).next = nextNonce;
         }
         (entry.prev, entry.next) = (zero, zero);
     }
