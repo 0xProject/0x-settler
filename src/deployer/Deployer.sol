@@ -43,7 +43,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         uint96 deadline;
     }
 
-    // @custom:storage-location erc7201:0xV5Deployer.1
+    /// @custom:storage-location erc7201:0xV5Deployer.1
     struct ZeroExV5DeployerStorage {
         mapping(uint64 => DoublyLinkedList) deploymentLists;
         mapping(uint128 => ListHead) featureNonce;
