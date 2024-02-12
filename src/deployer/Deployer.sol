@@ -171,7 +171,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     function deployInfo(address instance) public view returns (Feature feature, Nonce nonce) {
         DeployInfo storage info = _stor1().deployInfo[instance];
         (feature, nonce) = (info.feature, info.nonce);
-        if (feature.isNull() || nonce.isNull()) {
+        if (feature.isNull()) {
             revert NotDeployed(instance);
         }
     }
@@ -310,8 +310,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         if (feature.isNull()) {
             return 0;
         }
-        NonceList.List storage featureList = stor1.featureInfo[feature].list;
-        if (nonce == featureList.head) {
+        if (nonce == stor1.featureInfo[feature].list.head) {
             return 1;
         }
         return 0;
