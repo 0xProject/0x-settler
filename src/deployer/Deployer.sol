@@ -254,12 +254,13 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         ZeroExV5DeployerStorage storage stor = _stor();
         DeployInfo storage info = stor.deploymentNonce[instance];
         (uint128 feature, uint64 nonce) = (info.feature, info.nonce);
-        DoublyLinkedList storage entry = stor.deploymentLists[feature][nonce];
-        (uint64 nextNonce, uint128 entryFeature) = (entry.next, entry.feature);
-        if (feature != 0 && entryFeature == feature && nextNonce == 0) {
-            return 1;
+        if (
+            feature == 0 || nonce <= stor.featureNonce[feature].highWater
+                || stor.deploymentLists[feature][nonce].next != 0
+        ) {
+            return 0;
         }
-        return 0;
+        return 1;
     }
 
     error NoToken(uint256);
