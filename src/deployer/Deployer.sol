@@ -40,7 +40,7 @@ library NonceList {
         Nonce lastNonce;
     }
 
-    function get(ListElem[4294967296] storage links, Nonce i) internal pure returns (ListElem storage r) {
+    function _get(ListElem[4294967296] storage links, Nonce i) private pure returns (ListElem storage r) {
         assembly ("memory-safe") {
             r.slot := add(links.slot, and(0xffffffff, i))
         }
@@ -51,9 +51,9 @@ library NonceList {
         // update the head
         (list.head, list.lastNonce) = (thisNonce, thisNonce);
         // update the links
-        get(list.links, thisNonce).prev = prevNonce;
+        _get(list.links, thisNonce).prev = prevNonce;
         if (!prevNonce.isNull()) {
-            get(list.links, prevNonce).next = thisNonce;
+            _get(list.links, prevNonce).next = thisNonce;
         }
     }
 
@@ -64,7 +64,7 @@ library NonceList {
             revert FutureNonce(thisNonce);
         }
 
-        ListElem storage entry = get(list.links, thisNonce);
+        ListElem storage entry = _get(list.links, thisNonce);
         Nonce nextNonce;
         (newHead, nextNonce) = (entry.prev, entry.next);
         if (nextNonce.isNull()) {
@@ -73,10 +73,10 @@ library NonceList {
                 list.head = newHead;
             }
         } else {
-            get(list.links, nextNonce).prev = newHead;
+            _get(list.links, nextNonce).prev = newHead;
         }
         if (!newHead.isNull()) {
-            get(list.links, newHead).next = nextNonce;
+            _get(list.links, newHead).next = nextNonce;
         }
         (entry.prev, entry.next) = (zero, zero);
     }
@@ -87,7 +87,6 @@ library NonceList {
 }
 
 contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, MultiCall {
-    using NonceList for NonceList.ListElem[4294967296];
     using NonceList for NonceList.List;
 
     struct FeatureInfo {
@@ -312,7 +311,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
             return 0;
         }
         NonceList.List storage featureList = stor1.featureInfo[feature].list;
-        if (nonce > featureList.highWater && featureList.links.get(nonce).next.isNull()) {
+        if (nonce == featureList.head) {
             return 1;
         }
         return 0;

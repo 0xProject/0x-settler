@@ -11,10 +11,14 @@ function gt(Nonce a, Nonce b) pure returns (bool) {
     return Nonce.unwrap(a) > Nonce.unwrap(b);
 }
 
+function eq(Nonce a, Nonce b) pure returns (bool) {
+    return Nonce.unwrap(a) == Nonce.unwrap(b);
+}
+
 function isNull(Nonce a) pure returns (bool) {
     return Nonce.unwrap(a) == 0;
 }
 
-using {gt as >, incr, isNull} for Nonce global;
+using {incr, gt as >, eq as ==, isNull} for Nonce global;
 
 Nonce constant zero = Nonce.wrap(0);
