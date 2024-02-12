@@ -180,7 +180,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     event Authorized(Feature indexed, address indexed, uint40);
 
-    function authorize(Feature feature, address auth, uint40 deadline) public onlyOwner returns (bool) {
+    function authorize(Feature feature, address auth, uint40 deadline) external onlyOwner returns (bool) {
         require((auth == address(0)) == (block.timestamp > deadline));
         if (feature.isNull()) {
             Panic.panic(Panic.ENUM_CAST);
@@ -194,7 +194,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         return true;
     }
 
-    function _requireAuthorized(Feature feature) internal view returns (FeatureInfo storage featureInfo) {
+    function _requireAuthorized(Feature feature) private view returns (FeatureInfo storage featureInfo) {
         featureInfo = _stor1().featureInfo[feature];
         (address auth, uint40 deadline) = (featureInfo.auth, featureInfo.deadline);
         if (_msgSender() != auth || (deadline != type(uint40).max && block.timestamp > deadline)) {
@@ -207,7 +207,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     error FeatureInitialized(Feature);
 
     function setDescription(Feature feature, string calldata description)
-        public
+        external
         onlyOwner
         returns (string memory content)
     {
@@ -232,7 +232,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     event Deployed(Feature indexed, Nonce indexed, address indexed);
 
     function deploy(Feature feature, bytes calldata initCode)
-        public
+        external
         payable
         returns (address predicted, Nonce thisNonce)
     {
@@ -278,7 +278,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     event RemovedAll(Feature indexed);
 
-    function removeAll(Feature feature) public returns (bool) {
+    function removeAll(Feature feature) external returns (bool) {
         Nonce nonce = _requireAuthorized(feature).list.clear();
         if (!nonce.isNull()) {
             emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), Feature.unwrap(feature));
