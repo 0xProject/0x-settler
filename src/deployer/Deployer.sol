@@ -35,7 +35,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     struct ListHead {
         uint64 head;
         uint64 highWater;
-        uint64 prevNonce;
+        uint64 lastNonce;
     }
 
     struct DeployInfo {
@@ -93,7 +93,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     }
 
     function next(uint128 feature) external view returns (address) {
-        return Create3.predict(_salt(feature, _stor().featureNonce[feature].prevNonce + 1));
+        return Create3.predict(_salt(feature, _stor().featureNonce[feature].lastNonce + 1));
     }
 
     event Authorized(uint128 indexed, address indexed, uint256);
@@ -162,9 +162,9 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         uint64 prevNonce;
         {
             ListHead storage head = stor.featureNonce[feature];
-            (prevNonce, thisNonce) = (head.head, head.prevNonce);
+            (prevNonce, thisNonce) = (head.head, head.lastNonce);
             thisNonce++;
-            (head.head, head.prevNonce) = (thisNonce, thisNonce);
+            (head.head, head.lastNonce) = (thisNonce, thisNonce);
         }
         bytes32 salt = _salt(feature, thisNonce);
         predicted = Create3.predict(salt);
@@ -192,7 +192,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     function remove(uint128 feature, uint64 nonce) public onlyAuthorized(feature) returns (bool) {
         ZeroExV5DeployerStorage storage stor = _stor();
         ListHead storage head = stor.featureNonce[feature];
-        if (nonce > head.prevNonce) {
+        if (nonce > head.lastNonce) {
             revert FutureDeployment(nonce);
         }
         mapping(uint64 => DoublyLinkedList) storage featureList = stor.deploymentLists[feature];
