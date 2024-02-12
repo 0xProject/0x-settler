@@ -45,10 +45,50 @@ library NonceList {
             r.slot := add(links.slot, and(0xffffffff, i))
         }
     }
+
+    function push(List storage list) internal returns (Nonce prevNonce, Nonce thisNonce) {
+        (prevNonce, thisNonce) = (list.head, list.lastNonce.incr());
+        // update the head
+        (list.head, list.lastNonce) = (thisNonce, thisNonce);
+        // update the links
+        get(list.links, thisNonce).prev = prevNonce;
+        if (!prevNonce.isNull()) {
+            get(list.links, prevNonce).next = thisNonce;
+        }
+    }
+
+    error FutureNonce(Nonce);
+
+    function remove(List storage list, Nonce thisNonce) internal returns (Nonce newHead, bool updatedHead) {
+        if (thisNonce > list.lastNonce) {
+            revert FutureNonce(thisNonce);
+        }
+
+        ListElem storage entry = get(list.links, thisNonce);
+        Nonce nextNonce;
+        (newHead, nextNonce) = (entry.prev, entry.next);
+        if (nextNonce.isNull()) {
+            if (thisNonce > list.highWater) {
+                updatedHead = true;
+                list.head = newHead;
+            }
+        } else {
+            get(list.links, nextNonce).prev = newHead;
+        }
+        if (!newHead.isNull()) {
+            get(list.links, newHead).next = nextNonce;
+        }
+        (entry.prev, entry.next) = (zero, zero);
+    }
+
+    function clear(List storage list) internal returns (Nonce oldHead) {
+        (oldHead, list.head, list.highWater) = (list.head, zero, list.lastNonce);
+    }
 }
 
 contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, MultiCall {
     using NonceList for NonceList.ListElem[4294967296];
+    using NonceList for NonceList.List;
 
     struct FeatureInfo {
         NonceList.List list;
@@ -197,65 +237,37 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         payable
         returns (address predicted, Nonce thisNonce)
     {
-        FeatureInfo storage featureInfo = _requireAuthorized(feature);
-        NonceList.List storage featureList = featureInfo.list;
         Nonce prevNonce;
-        (prevNonce, thisNonce) = (featureList.head, featureList.lastNonce.incr());
-        (featureList.head, featureList.lastNonce) = (thisNonce, thisNonce);
+        (prevNonce, thisNonce) = _requireAuthorized(feature).list.push();
 
         bytes32 salt = _salt(feature, thisNonce);
         predicted = Create3.predict(salt);
+        emit Transfer(
+            prevNonce.isNull() ? address(0) : Create3.predict(_salt(feature, prevNonce)),
+            predicted,
+            Feature.unwrap(feature)
+        );
+
         _stor1().deployInfo[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
-
-        {
-            NonceList.ListElem storage dst = featureList.links.get(thisNonce);
-            (dst.prev, dst.next) = (prevNonce, zero);
-        }
-        if (prevNonce.isNull()) {
-            emit Transfer(address(0), predicted, Feature.unwrap(feature));
-        } else {
-            emit Transfer(Create3.predict(_salt(feature, prevNonce)), predicted, Feature.unwrap(feature));
-            featureList.links.get(prevNonce).next = thisNonce;
-        }
 
         if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted || predicted.code.length == 0) {
             revert DeployFailed(feature, thisNonce, predicted);
         }
     }
 
-    error FutureDeployment(Nonce);
-
     event Removed(Feature indexed, Nonce indexed, address indexed);
 
     function remove(Feature feature, Nonce nonce) public returns (bool) {
-        FeatureInfo storage featureInfo = _requireAuthorized(feature);
-        NonceList.List storage featureList = featureInfo.list;
-        if (nonce > featureList.lastNonce) {
-            revert FutureDeployment(nonce);
-        }
-        NonceList.ListElem storage entry = featureList.links.get(nonce);
-
-        (Nonce prevNonce, Nonce nextNonce) = (entry.prev, entry.next);
+        (Nonce newHead, bool updatedHead) = _requireAuthorized(feature).list.remove(nonce);
         address deployment = Create3.predict(_salt(feature, nonce));
-        if (nextNonce.isNull()) {
-            if (nonce > featureList.highWater) {
-                // assert(head.head == nonce);
-                featureList.head = prevNonce;
-                emit Transfer(
-                    deployment,
-                    prevNonce.isNull() ? address(0) : Create3.predict(_salt(feature, prevNonce)),
-                    Feature.unwrap(feature)
-                );
-            }
-        } else {
-            featureList.links.get(nextNonce).prev = prevNonce;
+        if (updatedHead) {
+            emit Transfer(
+                deployment,
+                newHead.isNull() ? address(0) : Create3.predict(_salt(feature, newHead)),
+                Feature.unwrap(feature)
+            );
         }
-        if (!prevNonce.isNull()) {
-            featureList.links.get(prevNonce).next = nextNonce;
-        }
-        (entry.prev, entry.next) = (zero, zero);
-
         emit Removed(feature, nonce, deployment);
         return true;
     }
@@ -268,9 +280,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     event RemovedAll(Feature indexed);
 
     function removeAll(Feature feature) public returns (bool) {
-        NonceList.List storage featureList = _requireAuthorized(feature).list;
-        Nonce nonce;
-        (nonce, featureList.head, featureList.highWater) = (featureList.head, zero, featureList.lastNonce);
+        Nonce nonce = _requireAuthorized(feature).list.clear();
         if (!nonce.isNull()) {
             emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), Feature.unwrap(feature));
         }

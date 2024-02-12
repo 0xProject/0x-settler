@@ -92,9 +92,9 @@ contract DeployerTest is Test {
         address predicted =
             Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit Deployer.Deployed(wrap(1), Nonce.wrap(1), predicted);
-        vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(address(0), predicted, 1);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit Deployer.Deployed(wrap(1), Nonce.wrap(1), predicted);
         (address instance,) = deployer.deploy(wrap(1), type(Dummy).creationCode);
         assertEq(instance, predicted);
         assertEq(deployer.ownerOf(1), predicted);
