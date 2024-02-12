@@ -29,7 +29,6 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     struct DoublyLinkedList {
         uint64 prev;
         uint64 next;
-        uint128 feature;
     }
 
     struct ListHead {
@@ -45,7 +44,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     struct ExpiringAuthorization {
         address who;
-        uint96 deadline;
+        uint40 deadline;
     }
 
     /// @custom:storage-location erc7201:0xV5Deployer.1
@@ -65,7 +64,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
-    function authorized(uint128 feature) external view returns (address who, uint96 deadline) {
+    function authorized(uint128 feature) external view returns (address who, uint40 deadline) {
         ExpiringAuthorization storage result = _stor().authorized[feature];
         (who, deadline) = (result.who, result.deadline);
     }
@@ -96,11 +95,11 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         return Create3.predict(_salt(feature, _stor().featureNonce[feature].lastNonce + 1));
     }
 
-    event Authorized(uint128 indexed, address indexed, uint256);
-
     error FeatureNotInitialized(uint128);
 
-    function authorize(uint128 feature, address who, uint96 deadline) public onlyOwner returns (bool) {
+    event Authorized(uint128 indexed, address indexed, uint40);
+
+    function authorize(uint128 feature, address who, uint40 deadline) public onlyOwner returns (bool) {
         require((who == address(0)) == (block.timestamp > deadline));
         if (feature == 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -116,8 +115,8 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     function _requireAuthorized(uint128 feature) private view {
         ExpiringAuthorization storage authorization = _stor().authorized[feature];
-        (address who, uint96 deadline) = (authorization.who, authorization.deadline);
-        if (_msgSender() != who || (deadline != type(uint96).max && block.timestamp > deadline)) {
+        (address who, uint40 deadline) = (authorization.who, authorization.deadline);
+        if (_msgSender() != who || (deadline != type(uint40).max && block.timestamp > deadline)) {
             revert PermissionDenied();
         }
     }
@@ -172,7 +171,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         emit Deployed(feature, thisNonce, predicted);
 
         mapping(uint64 => DoublyLinkedList) storage featureList = stor.deploymentLists[feature];
-        featureList[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0, feature: feature});
+        featureList[thisNonce] = DoublyLinkedList({prev: prevNonce, next: 0});
         if (prevNonce == 0) {
             emit Transfer(address(0), predicted, feature);
         } else {
@@ -197,10 +196,6 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
         mapping(uint64 => DoublyLinkedList) storage featureList = stor.deploymentLists[feature];
         DoublyLinkedList storage entry = featureList[nonce];
-        if (entry.feature == 0) {
-            // removing an already-removed deployment is a no-op
-            return true;
-        }
 
         (uint64 prevNonce, uint64 nextNonce) = (entry.prev, entry.next);
         address deployment = Create3.predict(_salt(feature, nonce));
@@ -220,13 +215,12 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
         delete entry.prev;
         delete entry.next;
-        delete entry.feature;
 
         emit Removed(feature, nonce, deployment);
         return true;
     }
 
-    event RemovedAll(uint256 indexed);
+    event RemovedAll(uint128 indexed);
 
     function removeAll(uint128 feature) public onlyAuthorized(feature) returns (bool) {
         ListHead storage entry = _stor().featureNonce[feature];
