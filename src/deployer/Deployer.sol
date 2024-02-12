@@ -34,10 +34,10 @@ library NonceList {
     }
 
     struct List {
-        ListElem[4294967296] links;
         Nonce head;
         Nonce highWater;
         Nonce lastNonce;
+        ListElem[4294967296] links;
     }
 
     function _idx(ListElem[4294967296] storage links, Nonce i) private pure returns (ListElem storage r) {
@@ -90,9 +90,9 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     using NonceList for NonceList.List;
 
     struct FeatureInfo {
-        NonceList.List list;
         address auth;
         uint40 deadline;
+        NonceList.List list;
         bytes32 descriptionHash;
     }
 
