@@ -36,13 +36,14 @@ library NonceList {
     }
 
     struct List {
-        ListElem[4294967296] links;
         Nonce head;
         Nonce highWater;
         Nonce lastNonce;
+        /// @dev if you update this, you also have to update the size of `Nonce` in Nonce.sol
+        ListElem[4294967296] links;
     }
 
-    function _get(ListElem[4294967296] storage links, Nonce i) private pure returns (ListElem storage r) {
+    function _idx(ListElem[4294967296] storage links, Nonce i) private pure returns (ListElem storage r) {
         assembly ("memory-safe") {
             r.slot := add(links.slot, and(0xffffffff, i))
         }
@@ -53,9 +54,9 @@ library NonceList {
         // update the head
         (list.head, list.lastNonce) = (thisNonce, thisNonce);
         // update the links
-        _get(list.links, thisNonce).prev = prevNonce;
+        _idx(list.links, thisNonce).prev = prevNonce;
         if (!prevNonce.isNull()) {
-            _get(list.links, prevNonce).next = thisNonce;
+            _idx(list.links, prevNonce).next = thisNonce;
         }
     }
 
@@ -66,7 +67,7 @@ library NonceList {
             revert FutureNonce(thisNonce);
         }
 
-        ListElem storage entry = _get(list.links, thisNonce);
+        ListElem storage entry = _idx(list.links, thisNonce);
         Nonce nextNonce;
         (newHead, nextNonce) = (entry.prev, entry.next);
         if (nextNonce.isNull()) {
@@ -75,10 +76,10 @@ library NonceList {
                 list.head = newHead;
             }
         } else {
-            _get(list.links, nextNonce).prev = newHead;
+            _idx(list.links, nextNonce).prev = newHead;
         }
         if (!newHead.isNull()) {
-            _get(list.links, newHead).next = nextNonce;
+            _idx(list.links, newHead).next = nextNonce;
         }
         (entry.prev, entry.next) = (zero, zero);
     }
@@ -92,10 +93,10 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     using NonceList for NonceList.List;
 
     struct FeatureInfo {
-        NonceList.List list;
+        bytes32 descriptionHash;
         address auth;
         uint40 deadline;
-        bytes32 descriptionHash;
+        NonceList.List list;
     }
 
     struct DeployInfo {
@@ -182,7 +183,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     event Authorized(Feature indexed, address indexed, uint40);
 
-    function authorize(Feature feature, address auth, uint40 deadline) public onlyOwner returns (bool) {
+    function authorize(Feature feature, address auth, uint40 deadline) external onlyOwner returns (bool) {
         require((auth == address(0)) == (block.timestamp > deadline));
         if (feature.isNull()) {
             Panic.panic(Panic.ENUM_CAST);
@@ -196,7 +197,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         return true;
     }
 
-    function _requireAuthorized(Feature feature) internal view returns (FeatureInfo storage featureInfo) {
+    function _requireAuthorized(Feature feature) private view returns (FeatureInfo storage featureInfo) {
         featureInfo = _stor1().featureInfo[feature];
         (address auth, uint40 deadline) = (featureInfo.auth, featureInfo.deadline);
         if (_msgSender() != auth || (deadline != type(uint40).max && block.timestamp > deadline)) {
@@ -209,7 +210,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     error FeatureInitialized(Feature);
 
     function setDescription(Feature feature, string calldata description)
-        public
+        external
         onlyOwner
         returns (string memory content)
     {
@@ -234,7 +235,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     event Deployed(Feature indexed, Nonce indexed, address indexed);
 
     function deploy(Feature feature, bytes calldata initCode)
-        public
+        external
         payable
         returns (address predicted, Nonce thisNonce)
     {
@@ -280,7 +281,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     event RemovedAll(Feature indexed);
 
-    function removeAll(Feature feature) public returns (bool) {
+    function removeAll(Feature feature) external returns (bool) {
         Nonce nonce = _requireAuthorized(feature).list.clear();
         if (!nonce.isNull()) {
             emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), Feature.unwrap(feature));
