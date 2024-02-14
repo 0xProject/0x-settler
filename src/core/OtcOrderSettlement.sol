@@ -42,16 +42,18 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         }
     }
 
-    function _logOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash, address taker) private {
+    function _logOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash, uint128 makerFilledAmount)
+        private
+    {
         assembly ("memory-safe") {
             mstore(0x00, OTC_ORDER_TYPEHASH)
             mstore(0x20, makerConsiderationHash)
             let ptr := mload(0x40)
             mstore(0x40, takerConsiderationHash)
             let orderHash := keccak256(0x00, 0x60)
-            mstore(0x14, taker)
+            mstore(0x10, makerFilledAmount)
             mstore(0x00, orderHash)
-            log0(0x00, 0x34)
+            log0(0x00, 0x30)
             mstore(0x40, ptr)
         }
     }
@@ -98,7 +100,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
             _hashConsideration(
                 Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
             ),
-            taker
+            uint128(buyAmount)
         );
     }
 
@@ -117,8 +119,9 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
-        (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
-            _permitToTransferDetails(makerPermit, recipient);
+        uint256 buyAmount;
+        (makerTransferDetails, takerConsideration.token, buyAmount) = _permitToTransferDetails(makerPermit, recipient);
+        takerConsideration.amount = buyAmount;
         takerConsideration.counterparty = maker;
 
         ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
@@ -132,7 +135,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         _transferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
         _transferFrom(takerPermit, takerTransferDetails, taker, takerWitness, ACTIONS_AND_SLIPPAGE_WITNESS, takerSig);
 
-        _logOtcOrder(makerWitness, _hashConsideration(takerConsideration), taker);
+        _logOtcOrder(makerWitness, _hashConsideration(takerConsideration), uint128(buyAmount));
     }
 
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
@@ -151,8 +154,9 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails;
         Consideration memory takerConsideration;
         takerConsideration.partialFillAllowed = true;
-        (transferDetails, takerConsideration.token, takerConsideration.amount) =
-            _permitToTransferDetails(permit, recipient);
+        uint256 buyAmount;
+        (transferDetails, takerConsideration.token, buyAmount) = _permitToTransferDetails(permit, recipient);
+        takerConsideration.amount = buyAmount;
         takerConsideration.counterparty = maker;
 
         Consideration memory makerConsideration = Consideration({
@@ -172,6 +176,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         _transferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
         takerToken.safeTransfer(maker, takerAmount);
 
-        _logOtcOrder(witness, _hashConsideration(takerConsideration), msgSender);
+        _logOtcOrder(witness, _hashConsideration(takerConsideration), uint128(buyAmount));
     }
 }
