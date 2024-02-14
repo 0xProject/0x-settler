@@ -19,22 +19,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         bool partialFillAllowed;
     }
 
-    /// @dev Emitted whenever an Otc order is filled.
-    /// @param orderHash The canonical hash of the order. Formed as an EIP712 struct hash. See below.
-    /// @param maker The maker of the order.
-    /// @param taker The taker of the order.
-    /// @param makerTokenFilledAmount Amount of maker token filled.
-    /// @param takerTokenFilledAmount Amount of taker token filled.
-    event OtcOrderFilled(
-        bytes32 indexed orderHash,
-        address maker,
-        address taker,
-        address makerToken,
-        address takerToken,
-        uint256 makerTokenFilledAmount,
-        uint256 takerTokenFilledAmount
-    );
-
     string internal constant CONSIDERATION_TYPE =
         "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)";
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
@@ -58,17 +42,18 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         }
     }
 
-    function _hashOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash)
-        internal
-        pure
-        returns (bytes32 result)
+    function _logOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash, uint128 makerFilledAmount)
+        private
     {
         assembly ("memory-safe") {
             mstore(0x00, OTC_ORDER_TYPEHASH)
             mstore(0x20, makerConsiderationHash)
             let ptr := mload(0x40)
             mstore(0x40, takerConsiderationHash)
-            result := keccak256(0x00, 0x60)
+            let orderHash := keccak256(0x00, 0x60)
+            mstore(0x10, makerFilledAmount)
+            mstore(0x00, orderHash)
+            log0(0x00, 0x30)
             mstore(0x40, ptr)
         }
     }
@@ -92,10 +77,11 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, address buyToken, uint256 buyAmount) =
             _permitToTransferDetails(makerPermit, recipient);
 
+        address taker = _msgSender();
         ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
         Consideration memory consideration;
         (takerTransferDetails, consideration.token, consideration.amount) = _permitToTransferDetails(takerPermit, maker);
-        consideration.counterparty = _msgSender();
+        consideration.counterparty = taker;
 
         bytes32 witness = _hashConsideration(consideration);
         // There is no taker witness (see below)
@@ -106,21 +92,14 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         // We don't need to include a witness here. Taker is `_msgSender()`, so
         // `recipient` and the maker's details are already authenticated. We're just
         // using Permit2 or AllowanceHolder to move tokens, not to provide authentication.
-        _transferFrom(takerPermit, takerTransferDetails, _msgSender(), takerSig);
+        _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
 
-        emit OtcOrderFilled(
-            _hashOtcOrder(
-                witness,
-                _hashConsideration(
-                    Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
-                )
+        _logOtcOrder(
+            witness,
+            _hashConsideration(
+                Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
             ),
-            maker,
-            _msgSender(),
-            buyToken,
-            consideration.token,
-            buyAmount,
-            consideration.amount
+            uint128(buyAmount)
         );
     }
 
@@ -140,8 +119,9 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     ) internal {
         ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
         Consideration memory takerConsideration;
-        (makerTransferDetails, takerConsideration.token, takerConsideration.amount) =
-            _permitToTransferDetails(makerPermit, recipient);
+        uint256 buyAmount;
+        (makerTransferDetails, takerConsideration.token, buyAmount) = _permitToTransferDetails(makerPermit, recipient);
+        takerConsideration.amount = buyAmount;
         takerConsideration.counterparty = maker;
 
         ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
@@ -156,15 +136,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         _transferFrom(makerPermit, makerTransferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
         _transferFrom(takerPermit, takerTransferDetails, taker, takerWitness, ACTIONS_AND_SLIPPAGE_WITNESS, takerSig);
 
-        emit OtcOrderFilled(
-            _hashOtcOrder(makerWitness, _hashConsideration(takerConsideration)),
-            maker,
-            taker,
-            takerConsideration.token,
-            makerConsideration.token,
-            takerConsideration.amount,
-            makerConsideration.amount
-        );
+        _logOtcOrder(makerWitness, _hashConsideration(takerConsideration), uint128(buyAmount));
     }
 
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
@@ -183,8 +155,9 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails;
         Consideration memory takerConsideration;
         takerConsideration.partialFillAllowed = true;
-        (transferDetails, takerConsideration.token, takerConsideration.amount) =
-            _permitToTransferDetails(permit, recipient);
+        uint256 buyAmount;
+        (transferDetails, takerConsideration.token, buyAmount) = _permitToTransferDetails(permit, recipient);
+        takerConsideration.amount = buyAmount;
         takerConsideration.counterparty = maker;
 
         Consideration memory makerConsideration = Consideration({
@@ -204,14 +177,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         _transferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
         takerToken.safeTransfer(maker, takerAmount);
 
-        emit OtcOrderFilled(
-            _hashOtcOrder(witness, _hashConsideration(takerConsideration)),
-            maker,
-            msgSender,
-            takerConsideration.token,
-            address(takerToken),
-            transferDetails.requestedAmount,
-            takerAmount
-        );
+        _logOtcOrder(witness, _hashConsideration(takerConsideration), uint128(buyAmount));
     }
 }
