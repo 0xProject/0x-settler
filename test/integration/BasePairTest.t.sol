@@ -18,6 +18,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     address internal FROM = vm.addr(FROM_PRIVATE_KEY);
     uint256 internal constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
     address internal MAKER = vm.addr(MAKER_PRIVATE_KEY);
+    uint256 internal constant OTHER_MAKER_PRIVATE_KEY = 0x0cacacac;
+    address internal OTHER_MAKER = vm.addr(OTHER_MAKER_PRIVATE_KEY);
 
     address internal constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 
@@ -78,8 +80,20 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     function warmZeroExOtcNonce(address who) internal {
         // mapping(address => mapping(uint64 => uint128)) txOriginNonces;
         //        tx.origin          bucket    min nonce
-        // OtcOrders is 8th in LibStorage Enum
+        // OtcOrders is LibStorage[8] Enum https://github.com/0xProject/protocol/blob/master/contracts/zero-ex/contracts/src/storage/LibStorage.sol#L26
         bytes32 slotId = keccak256(abi.encode(uint256(0), keccak256(abi.encode(who, (uint256(8) + 1) << 128))));
+        vm.store(address(ZERO_EX_ADDRESS), slotId, bytes32(uint256(1)));
+    }
+
+    /// @dev Manually set a registered signer in 0xV4 Native Orders
+    /// note: we attempt to avoid touching storage by the usual means to side
+    /// step gas metering
+    function allowRegisteredSigner(address maker, address signer) internal {
+        // mapping(address => mapping(address => bool)) orderSignerRegistry;
+        //         maker              signer     allowed
+        // NativeOrders is LibStorage[7] Enum https://github.com/0xProject/protocol/blob/master/contracts/zero-ex/contracts/src/storage/LibStorage.sol#L26
+        // orderSignerRegistry is Storage[4] in the Storage struct https://github.com/0xProject/protocol/blob/master/contracts/zero-ex/contracts/src/storage/LibNativeOrdersStorage.sol#L38
+        bytes32 slotId = keccak256(abi.encode(signer, keccak256(abi.encode(maker, ((uint256(7) + 1) << 128) + 4))));
         vm.store(address(ZERO_EX_ADDRESS), slotId, bytes32(uint256(1)));
     }
 

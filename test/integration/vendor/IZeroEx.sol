@@ -198,6 +198,7 @@ interface IZeroEx {
 
     function getOtcOrderHash(IZeroEx.OtcOrder memory order) external view returns (bytes32 orderHash);
     function lastOtcTxOriginNonce(address txOrigin, uint64 nonceBucket) external view returns (uint128 lastNonce);
+    function registerAllowedOrderSigner(address signer, bool allowed) external;
 
     function getMetaTransactionV2Hash(IMetaTransactionsFeatureV2.MetaTransactionDataV2 calldata mtx)
         external
