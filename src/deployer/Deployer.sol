@@ -160,9 +160,13 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     }
 
     uint8 private constant _FEATURE_SHIFT = 128;
+    uint8 private constant _CHAIN_SHIFT = 64;
 
-    function _salt(Feature feature, Nonce nonce) internal pure returns (bytes32) {
-        return bytes32(uint256(Feature.unwrap(feature)) << _FEATURE_SHIFT | uint256(Nonce.unwrap(nonce)));
+    function _salt(Feature feature, Nonce nonce) internal view returns (bytes32) {
+        return bytes32(
+            uint256(Feature.unwrap(feature)) << _FEATURE_SHIFT | uint256(block.chainid) << _CHAIN_SHIFT
+                | uint256(Nonce.unwrap(nonce))
+        );
     }
 
     function next(Feature feature) external view returns (address) {

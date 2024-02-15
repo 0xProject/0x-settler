@@ -86,11 +86,14 @@ contract DeployerTest is Test {
         deployer.authorize(wrap(1), auth, uint40(block.timestamp + 1 days));
     }
 
+    function _salt(uint128 feature, uint32 nonce) internal view returns (bytes32) {
+        return bytes32(uint256(feature) << 128 | uint256(block.chainid) << 64 | uint256(nonce));
+    }
+
     function testDeploy() public {
         deployer.setDescription(wrap(1), "nothing to see here");
         deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
-        address predicted =
-            Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer));
+        address predicted = Create3.predict(_salt(1, 1), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(address(0), predicted, 1);
         vm.expectEmit(true, true, true, false, address(deployer));
@@ -115,8 +118,7 @@ contract DeployerTest is Test {
     function testDeployEmpty() public {
         deployer.setDescription(wrap(1), "nothing to see here");
         deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
-        address predicted =
-            Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer));
+        address predicted = Create3.predict(_salt(1, 1), address(deployer));
         vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint128,uint32,address)", 1, 1, predicted));
         deployer.deploy(wrap(1), hex"00"); // STOP; succeeds with empty returnData
     }
@@ -141,9 +143,7 @@ contract DeployerTest is Test {
         assertEq(deployer.ownerOf(1), instance);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(
-            Create3.predict(bytes32(uint256(340282366920938463463374607431768211457)), address(deployer)), address(0), 1
-        );
+        emit IERC721View.Transfer(Create3.predict(_salt(1, 1), address(deployer)), address(0), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Deployer.Removed(wrap(1), Nonce.wrap(1), instance);
         assertTrue(deployer.remove(wrap(1), nonce));
@@ -189,13 +189,7 @@ contract DeployerTest is Test {
 
         for (Nonce i = zero.incr(); nonce > i; i = i.incr()) {
             vm.expectEmit(true, true, true, false, address(deployer));
-            emit Deployer.Removed(
-                wrap(1),
-                i,
-                Create3.predict(
-                    bytes32(340282366920938463463374607431768211456 + uint256(Nonce.unwrap(i))), address(deployer)
-                )
-            );
+            emit Deployer.Removed(wrap(1), i, Create3.predict(_salt(1, Nonce.unwrap(i)), address(deployer)));
             vm.recordLogs();
             deployer.remove(wrap(1), i);
             entries = vm.getRecordedLogs();
@@ -206,21 +200,12 @@ contract DeployerTest is Test {
         (instance, nonce) = deployer.deploy(wrap(1), type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(
-            instance,
-            Create3.predict(
-                bytes32(uint256(Nonce.unwrap(nonce)) + 340282366920938463463374607431768211455), address(deployer)
-            ),
-            1
-        );
+        emit IERC721View.Transfer(instance, Create3.predict(_salt(1, Nonce.unwrap(nonce) - 1), address(deployer)), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit Deployer.Removed(wrap(1), nonce, instance);
         deployer.remove(wrap(1), nonce);
 
-        nonce = Nonce.wrap(Nonce.unwrap(nonce) - 1);
-        instance = Create3.predict(
-            bytes32(uint256(Nonce.unwrap(nonce)) + 340282366920938463463374607431768211456), address(deployer)
-        );
+        instance = Create3.predict(_salt(1, Nonce.unwrap(nonce)), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(instance, address(0), 1);
         vm.expectEmit(true, true, true, false, address(deployer));
