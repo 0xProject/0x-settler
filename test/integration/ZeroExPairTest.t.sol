@@ -54,6 +54,11 @@ abstract contract ZeroExPairTest is BasePairTest {
         otcOrder.maker = MAKER;
         otcOrderHash = ZERO_EX.getOtcOrderHash(otcOrder);
 
+        // Set up MAKER to also allow signatures from OTHER_MAKER
+        //     vm.startPrank(MAKER);
+        //     ZERO_EX.registerAllowedOrderSigner(OTHER_MAKER, true);
+        allowRegisteredSigner(MAKER, OTHER_MAKER);
+
         // MetaTransactionV2
         IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](1);
         calls[0] = IZeroEx.BatchSellSubcall({
@@ -82,10 +87,21 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_otcOrder() public {
+        IZeroEx.OtcOrder memory _otcOrder = otcOrder;
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
         vm.startPrank(FROM, FROM);
         snapStartName("zeroEx_otcOrder");
-        ZERO_EX.fillOtcOrder(otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), uint128(amount()));
+        ZERO_EX.fillOtcOrder(_otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), uint128(amount()));
+        snapEnd();
+    }
+
+    function testZeroEx_otcOrder_allowedSigner() public {
+        IZeroEx.OtcOrder memory _otcOrder = otcOrder;
+        // MAKER has already registered OTHER_MAKER as a signer
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OTHER_MAKER_PRIVATE_KEY, otcOrderHash);
+        vm.startPrank(FROM, FROM);
+        snapStartName("zeroEx_otcOrder_allowedSigner");
+        ZERO_EX.fillOtcOrder(_otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), uint128(amount()));
         snapEnd();
     }
 
