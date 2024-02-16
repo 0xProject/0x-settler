@@ -379,11 +379,13 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     address internal immutable _DECOMPRESSOR = 0x8C5CF0a201C1F0C1517a23699BE48070724e7a70;
 
     fallback(bytes calldata) external payable returns (bytes memory) {
+        bytes calldata compressed = _msgData();
+        require(bytes1(compressed) == bytes1(0x0c));
         // TODO: using `call` here is probably unsafe. This should be
         // `staticcall`, but some operations in the decompressor require the
         // ability to write to storage. Figure out how to disable that during
         // compression then switch this.
-        (bool success, bytes memory data) = _DECOMPRESSOR.call(_msgData());
+        (bool success, bytes memory data) = _DECOMPRESSOR.call(compressed);
         success.maybeRevert(data);
         (success, data) = address(this).delegatecall(_encodeDelegateCall(data));
         success.maybeRevert(data);
