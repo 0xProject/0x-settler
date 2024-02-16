@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import {AbstractContext} from "../Context.sol";
 import {
     AbstractOwnable,
     OwnableImpl,
@@ -69,7 +70,7 @@ abstract contract AbstractUUPSUpgradeable {
 /// number. The old implementation then checks the value of both the
 /// implementation and rollback slots before re-setting the implementation slot
 /// to the new implementation.
-abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, AbstractUUPSUpgradeable {
+abstract contract ERC1967UUPSUpgradeable is AbstractContext, AbstractOwnable, IERC1967Proxy, AbstractUUPSUpgradeable {
     using Revert for bytes;
 
     error VersionMismatch(uint256 oldVersion, uint256 newVersion);
@@ -134,15 +135,6 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
         if (_storageVersion() + 1 != _implVersion) {
             revert VersionMismatch(_storageVersion(), _implVersion);
         }
-    }
-
-    // This hook exists for schemes that append authenticated metadata to calldata
-    // (e.g. ERC2771). If msg.sender during the upgrade call is the authenticator,
-    // the metadata must be copied from the outer calldata into the delegatecall
-    // calldata to ensure that any logic in the new implementation that inspects
-    // msg.sender and decodes the authenticated metadata gets the correct result.
-    function _encodeDelegateCall(bytes memory callData) internal view virtual returns (bytes memory) {
-        return callData;
     }
 
     function _delegateCall(address impl, bytes memory data, bytes memory err) private returns (bytes memory) {

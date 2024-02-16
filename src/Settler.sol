@@ -15,6 +15,7 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {FullMath} from "./vendor/FullMath.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
+import {Revert} from "./utils/Revert.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {TooMuchSlippage} from "./core/SettlerErrors.sol";
@@ -78,6 +79,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using CalldataDecoder for bytes[];
+    using Revert for bool;
 
     error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
@@ -371,5 +373,20 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         } else {
             revert ActionInvalid({i: i, action: action, data: data});
         }
+    }
+
+    // TODO: make this a constructor argument
+    address internal immutable _DECOMPRESSOR = 0x8C5CF0a201C1F0C1517a23699BE48070724e7a70;
+
+    fallback(bytes calldata) external payable returns (bytes memory) {
+        // TODO: using `call` here is probably unsafe. This should be
+        // `staticcall`, but some operations in the decompressor require the
+        // ability to write to storage. Figure out how to disable that during
+        // compression then switch this.
+        (bool success, bytes memory data) = _DECOMPRESSOR.call(_msgData());
+        success.maybeRevert(data);
+        (success, data) = address(this).delegatecall(_encodeDelegateCall(data));
+        success.maybeRevert(data);
+        return data;
     }
 }

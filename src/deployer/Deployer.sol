@@ -89,7 +89,7 @@ library NonceList {
     }
 }
 
-contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, ProxyMultiCall {
+contract Deployer is Context, ERC1967TwoStepOwnable, ERC1967UUPSUpgradeable, IERC721ViewMetadata, ProxyMultiCall {
     using NonceList for NonceList.List;
 
     struct FeatureInfo {

@@ -26,6 +26,18 @@ abstract contract AllowanceHolderContext is Context {
         }
     }
 
+    function _encodeDelegateCall(bytes memory callData) internal view virtual override returns (bytes memory) {
+        callData = super._encodeDelegateCall(callData);
+        if (super._msgSender() == address(allowanceHolder)) {
+            address forwardedSender;
+            assembly ("memory-safe") {
+                forwardedSender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
+            }
+            return abi.encodePacked(callData, forwardedSender);
+        }
+        return callData;
+    }
+
     // this is here to avoid foot-guns and make it very explicit that we intend
     // to pass the confused deputy check in AllowanceHolder
     function balanceOf(address) external pure {

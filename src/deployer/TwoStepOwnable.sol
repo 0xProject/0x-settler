@@ -84,7 +84,7 @@ abstract contract OwnableStorage is OwnableStorageBase {
     }
 }
 
-abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable, AbstractContext {
+abstract contract OwnableImpl is AbstractContext, AbstractOwnable, OwnableStorageBase {
     function _ownerImpl() internal view override returns (address) {
         return _get(_ownerSlot());
     }
