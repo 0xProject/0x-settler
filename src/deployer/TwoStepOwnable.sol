@@ -200,7 +200,7 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
     }
 }
 
-abstract contract TwoStepOwnable is TwoStepOwnableStorage, TwoStepOwnableImpl, OwnableStorage, OwnableImpl {
+abstract contract TwoStepOwnable is OwnableStorage, OwnableImpl, TwoStepOwnableStorage, TwoStepOwnableImpl {
     function renounceOwnership() public override(OwnableImpl, TwoStepOwnableImpl) returns (bool) {
         return TwoStepOwnableImpl.renounceOwnership();
     }

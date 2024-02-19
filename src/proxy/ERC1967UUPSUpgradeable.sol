@@ -237,7 +237,7 @@ abstract contract ERC1967OwnableImpl is OwnableImpl {
     }
 }
 
-abstract contract ERC1967Ownable is ERC1967OwnableImpl, ERC1967OwnableStorage {}
+abstract contract ERC1967Ownable is ERC1967OwnableStorage, ERC1967OwnableImpl {}
 
 abstract contract ERC1967TwoStepOwnableStorage is TwoStepOwnableStorageBase {
     // This slot is nonstandard, but follows a similar pattern to ERC1967
@@ -257,10 +257,10 @@ abstract contract ERC1967TwoStepOwnableStorage is TwoStepOwnableStorageBase {
 }
 
 abstract contract ERC1967TwoStepOwnable is
-    ERC1967TwoStepOwnableStorage,
-    TwoStepOwnableImpl,
     ERC1967OwnableStorage,
-    ERC1967OwnableImpl
+    ERC1967OwnableImpl,
+    ERC1967TwoStepOwnableStorage,
+    TwoStepOwnableImpl
 {
     function renounceOwnership() public override(OwnableImpl, TwoStepOwnableImpl) returns (bool) {
         return TwoStepOwnableImpl.renounceOwnership();
