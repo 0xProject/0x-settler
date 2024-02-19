@@ -17,8 +17,8 @@ interface IAllowanceHolder {
         payable
         returns (bytes memory result);
 
-    /// @notice The counterpart to `execute` which allows for the consumption of token permits later during execution
-    /// @dev can only be called by the `operator` previously registered in `execute`
+    /// @notice The counterpart to `exec` which allows for the consumption of token permits later during execution
+    /// @dev can only be called by the `operator` previously registered in `exec`
     /// @param token The ERC20 token to transfer
     /// @param owner The owner of tokens to transfer
     /// @param recipient The destination/beneficiary of the ERC20 `transferFrom`

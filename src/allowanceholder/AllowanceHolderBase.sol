@@ -38,8 +38,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     }
 
     function _msgSender() private view returns (address sender) {
-        sender = msg.sender;
-        if (sender == address(this)) {
+        if ((sender = msg.sender) == address(this)) {
             assembly ("memory-safe") {
                 sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
             }
