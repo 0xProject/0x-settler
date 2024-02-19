@@ -232,7 +232,7 @@ abstract contract ERC1967OwnableImpl is OwnableImpl {
     event AdminChanged(address indexed prev, address indexed curr);
 
     function _setOwner(address newOwner) internal override {
-        emit AdminChanged(_ownerImpl(), newOwner);
+        emit AdminChanged(owner(), newOwner);
         super._setOwner(newOwner);
     }
 }

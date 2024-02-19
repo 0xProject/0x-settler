@@ -19,13 +19,7 @@ abstract contract AbstractOwnable is IOwnable {
     // This looks stupid (and it is), but this is required due to the glaring
     // deficiencies in Solidity's inheritance system.
 
-    /// This function should be overridden exactly once. This provides the base
-    /// implementation. Mixin classes may modify `_requireOwner`.
-    function _requireOwnerImpl() internal view virtual;
-
-    function _requireOwner() internal view virtual {
-        _requireOwnerImpl();
-    }
+    function _requireOwner() internal view virtual;
 
     /// This function should be overridden exactly once. This provides the base
     /// implementation. Mixin classes may modify `owner`.
@@ -99,11 +93,11 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
     }
 
     function _setOwner(address newOwner) internal virtual override {
-        emit OwnershipTransferred(_ownerImpl(), newOwner);
+        emit OwnershipTransferred(owner(), newOwner);
         _set(_ownerSlot(), newOwner);
     }
 
-    function _requireOwnerImpl() internal view override {
+    function _requireOwner() internal view override {
         if (_msgSender() != owner()) {
             revert PermissionDenied();
         }
@@ -126,21 +120,9 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
 abstract contract Ownable is OwnableStorage, OwnableImpl {}
 
 abstract contract AbstractTwoStepOwnable is AbstractOwnable {
-    /// This function should be overridden exactly once. This provides the base
-    /// implementation. Mixin classes may modify `_requirePendingOwner`.
-    function _requirePendingOwnerImpl() internal view virtual;
+    function _requirePendingOwner() internal view virtual;
 
-    function _requirePendingOwner() internal view virtual {
-        return _requirePendingOwnerImpl();
-    }
-
-    /// This function should be overridden exactly once. This provides the base
-    /// implementation. Mixin classes may modify `pendingOwner`.
-    function _pendingOwnerImpl() internal view virtual returns (address);
-
-    function pendingOwner() public view returns (address) {
-        return _pendingOwnerImpl();
-    }
+    function pendingOwner() public view virtual returns (address);
 
     function _setPendingOwner(address) internal virtual;
 
@@ -150,6 +132,8 @@ abstract contract AbstractTwoStepOwnable is AbstractOwnable {
         _requirePendingOwner();
         _;
     }
+
+    event OwnershipPending(address indexed);
 }
 
 abstract contract TwoStepOwnableStorageBase is AddressSlotStorage {
@@ -173,11 +157,9 @@ abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase {
 abstract contract TwoStepOwnableBase is OwnableBase, AbstractTwoStepOwnable {}
 
 abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnableBase {
-    function _pendingOwnerImpl() internal view override returns (address) {
+    function pendingOwner() public view override returns (address) {
         return _get(_pendingOwnerSlot());
     }
-
-    event OwnershipPending(address indexed);
 
     function _setPendingOwner(address newPendingOwner) internal override {
         emit OwnershipPending(newPendingOwner);
@@ -200,7 +182,7 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
         return true;
     }
 
-    function _requirePendingOwnerImpl() internal view override {
+    function _requirePendingOwner() internal view override {
         if (_msgSender() != pendingOwner()) {
             revert PermissionDenied();
         }
