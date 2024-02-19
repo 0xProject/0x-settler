@@ -228,7 +228,7 @@ abstract contract ERC1967OwnableStorage is OwnableStorageBase {
     }
 }
 
-abstract contract ERC1967Ownable is OwnableImpl, ERC1967OwnableStorage {
+abstract contract ERC1967OwnableImpl is OwnableImpl {
     event AdminChanged(address indexed prev, address indexed curr);
 
     function _setOwner(address newOwner) internal override {
@@ -237,7 +237,9 @@ abstract contract ERC1967Ownable is OwnableImpl, ERC1967OwnableStorage {
     }
 }
 
-abstract contract ERC1967TwoStepOwnableStorage is ERC1967OwnableStorage, TwoStepOwnableStorageBase {
+abstract contract ERC1967Ownable is ERC1967OwnableImpl, ERC1967OwnableStorage {}
+
+abstract contract ERC1967TwoStepOwnableStorage is TwoStepOwnableStorageBase {
     // This slot is nonstandard, but follows a similar pattern to ERC1967
     uint256 private constant _PENDING_ADMIN_SLOT = 0x6ed8ad4e485c433a46d43a225e2ebe6a14259468c9e0ee3a0c38eefca7d49f56;
 
@@ -254,4 +256,17 @@ abstract contract ERC1967TwoStepOwnableStorage is ERC1967OwnableStorage, TwoStep
     }
 }
 
-abstract contract ERC1967TwoStepOwnable is TwoStepOwnableImpl, ERC1967TwoStepOwnableStorage {}
+abstract contract ERC1967TwoStepOwnable is
+    ERC1967TwoStepOwnableStorage,
+    TwoStepOwnableImpl,
+    ERC1967OwnableStorage,
+    ERC1967OwnableImpl
+{
+    function renounceOwnership() public override(OwnableImpl, TwoStepOwnableImpl) returns (bool) {
+        return TwoStepOwnableImpl.renounceOwnership();
+    }
+
+    function transferOwnership(address newOwner) public override(OwnableImpl, TwoStepOwnableImpl) returns (bool) {
+        return TwoStepOwnableImpl.transferOwnership(newOwner);
+    }
+}
