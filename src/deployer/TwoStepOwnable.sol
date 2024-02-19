@@ -24,7 +24,7 @@ abstract contract AbstractOwnable is IOwnable {
     function _requireOwnerImpl() internal view virtual;
 
     function _requireOwner() internal view virtual {
-        return _requireOwnerImpl();
+        _requireOwnerImpl();
     }
 
     /// This function should be overridden exactly once. This provides the base
@@ -90,14 +90,7 @@ abstract contract OwnableStorage is OwnableStorageBase {
 }
 
 abstract contract OwnableBase is AbstractContext, AbstractOwnable {
-    /// This function should be overridden exactly once. This provides the base
-    /// implementation. Mixin classes may modify `renounceOwnership`.
-    function _renounceOwnershipImpl() internal virtual;
-
-    function renounceOwnership() public virtual onlyOwner returns (bool) {
-        _renounceOwnershipImpl();
-        return true;
-    }
+    function renounceOwnership() public virtual returns (bool);
 }
 
 abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
@@ -116,8 +109,9 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
         }
     }
 
-    function _renounceOwnershipImpl() internal override {
+    function renounceOwnership() public virtual override onlyOwner returns (bool) {
         _setOwner(address(0));
+        return true;
     }
 
     function transferOwnership(address newOwner) public virtual override onlyOwner returns (bool) {
@@ -176,14 +170,7 @@ abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase {
     }
 }
 
-abstract contract TwoStepOwnableBase is OwnableBase, AbstractTwoStepOwnable {
-    function renounceOwnership() public virtual override returns (bool) {
-        if (pendingOwner() != address(0)) {
-            _setPendingOwner(address(0));
-        }
-        return super.renounceOwnership();
-    }
-}
+abstract contract TwoStepOwnableBase is OwnableBase, AbstractTwoStepOwnable {}
 
 abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnableBase {
     function _pendingOwnerImpl() internal view override returns (address) {
@@ -197,7 +184,15 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
         _set(_pendingOwnerSlot(), newPendingOwner);
     }
 
-    function transferOwnership(address newOwner) public override onlyOwner returns (bool) {
+    function renounceOwnership() public virtual override onlyOwner returns (bool) {
+        if (pendingOwner() != address(0)) {
+            _setPendingOwner(address(0));
+        }
+        _setOwner(address(0));
+        return true;
+    }
+
+    function transferOwnership(address newOwner) public virtual override onlyOwner returns (bool) {
         if (newOwner == address(0)) {
             revert ZeroAddress();
         }
@@ -223,4 +218,12 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
     }
 }
 
-abstract contract TwoStepOwnable is TwoStepOwnableStorage, TwoStepOwnableImpl {}
+abstract contract TwoStepOwnable is TwoStepOwnableStorage, TwoStepOwnableImpl, OwnableStorage, OwnableImpl {
+    function renounceOwnership() public override(OwnableImpl, TwoStepOwnableImpl) returns (bool) {
+        return TwoStepOwnableImpl.renounceOwnership();
+    }
+
+    function transferOwnership(address newOwner) public override(OwnableImpl, TwoStepOwnableImpl) returns (bool) {
+        return TwoStepOwnableImpl.transferOwnership(newOwner);
+    }
+}
