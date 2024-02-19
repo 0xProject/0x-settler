@@ -55,7 +55,7 @@ abstract contract AbstractOwnable is IOwnable {
     error ZeroAddress();
 }
 
-abstract contract AbstractOwnableStorage {
+abstract contract AddressSlotStorage {
     type AddressSlot is bytes32;
 
     function _get(AddressSlot s) internal view returns (address r) {
@@ -71,7 +71,7 @@ abstract contract AbstractOwnableStorage {
     }
 }
 
-abstract contract OwnableStorageBase is AbstractOwnableStorage {
+abstract contract OwnableStorageBase is AddressSlotStorage {
     function _ownerSlot() internal pure virtual returns (AddressSlot);
 }
 
@@ -152,7 +152,7 @@ abstract contract AbstractTwoStepOwnable is AbstractOwnable {
     }
 }
 
-abstract contract TwoStepOwnableStorageBase is AbstractOwnableStorage {
+abstract contract TwoStepOwnableStorageBase is AddressSlotStorage {
     function _pendingOwnerSlot() internal pure virtual returns (AddressSlot);
 }
 
