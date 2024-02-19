@@ -50,12 +50,13 @@ abstract contract AbstractOwnable is IOwnable {
         _requireOwner();
         _;
     }
+
+    error PermissionDenied();
+    error ZeroAddress();
 }
 
-abstract contract OwnableStorageBase {
+abstract contract AbstractOwnableStorage {
     type AddressSlot is bytes32;
-
-    function _ownerSlot() internal pure virtual returns (AddressSlot);
 
     function _get(AddressSlot s) internal view returns (address r) {
         assembly ("memory-safe") {
@@ -68,6 +69,10 @@ abstract contract OwnableStorageBase {
             sstore(s, v)
         }
     }
+}
+
+abstract contract OwnableStorageBase is AbstractOwnableStorage {
+    function _ownerSlot() internal pure virtual returns (AddressSlot);
 }
 
 abstract contract OwnableStorage is OwnableStorageBase {
@@ -84,7 +89,18 @@ abstract contract OwnableStorage is OwnableStorageBase {
     }
 }
 
-abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable, AbstractContext {
+abstract contract OwnableBase is AbstractContext, AbstractOwnable {
+    /// This function should be overridden exactly once. This provides the base
+    /// implementation. Mixin classes may modify `renounceOwnership`.
+    function _renounceOwnershipImpl() internal virtual;
+
+    function renounceOwnership() public virtual onlyOwner returns (bool) {
+        _renounceOwnershipImpl();
+        return true;
+    }
+}
+
+abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
     function _ownerImpl() internal view override returns (address) {
         return _get(_ownerSlot());
     }
@@ -94,18 +110,14 @@ abstract contract OwnableImpl is OwnableStorageBase, AbstractOwnable, AbstractCo
         _set(_ownerSlot(), newOwner);
     }
 
-    error PermissionDenied();
-    error ZeroAddress();
-
     function _requireOwnerImpl() internal view override {
         if (_msgSender() != owner()) {
             revert PermissionDenied();
         }
     }
 
-    function renounceOwnership() public virtual onlyOwner returns (bool) {
+    function _renounceOwnershipImpl() internal override {
         _setOwner(address(0));
-        return true;
     }
 
     function transferOwnership(address newOwner) public virtual override onlyOwner returns (bool) {
@@ -146,11 +158,11 @@ abstract contract AbstractTwoStepOwnable is AbstractOwnable {
     }
 }
 
-abstract contract TwoStepOwnableStorageBase is OwnableStorageBase {
+abstract contract TwoStepOwnableStorageBase is AbstractOwnableStorage {
     function _pendingOwnerSlot() internal pure virtual returns (AddressSlot);
 }
 
-abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase, OwnableStorage {
+abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase {
     address private _pendingOwner;
 
     function _pendingOwnerSlot() internal pure override returns (AddressSlot r) {
@@ -164,7 +176,16 @@ abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase, OwnableSto
     }
 }
 
-abstract contract TwoStepOwnableImpl is AbstractTwoStepOwnable, TwoStepOwnableStorageBase, OwnableImpl {
+abstract contract TwoStepOwnableBase is OwnableBase, AbstractTwoStepOwnable {
+    function renounceOwnership() public virtual override returns (bool) {
+        if (pendingOwner() != address(0)) {
+            _setPendingOwner(address(0));
+        }
+        return super.renounceOwnership();
+    }
+}
+
+abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnableBase {
     function _pendingOwnerImpl() internal view override returns (address) {
         return _get(_pendingOwnerSlot());
     }
@@ -176,14 +197,7 @@ abstract contract TwoStepOwnableImpl is AbstractTwoStepOwnable, TwoStepOwnableSt
         _set(_pendingOwnerSlot(), newPendingOwner);
     }
 
-    function renounceOwnership() public override returns (bool) {
-        if (pendingOwner() != address(0)) {
-            _setPendingOwner(address(0));
-        }
-        return super.renounceOwnership();
-    }
-
-    function transferOwnership(address newOwner) public override(IOwnable, OwnableImpl) onlyOwner returns (bool) {
+    function transferOwnership(address newOwner) public override onlyOwner returns (bool) {
         if (newOwner == address(0)) {
             revert ZeroAddress();
         }
