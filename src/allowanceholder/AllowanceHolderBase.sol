@@ -30,7 +30,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             // 0xdead is a conventional burn address; we assume that it is not treated specially
             target = address(0xdead);
         }
-        bytes memory testData = abi.encodeCall(IERC20(maybeERC20).balanceOf, target);
+        bytes memory testData = abi.encodeCall(IERC20.balanceOf, target);
         // 500k gas seems like a pretty healthy upper bound for the amount of
         // gas that `balanceOf` could reasonably consume in a well-behaved
         // ERC20.
@@ -105,7 +105,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             address recipient;
             uint256 amount;
             assembly ("memory-safe") {
-                let err := callvalue()
+                let err := or(lt(calldatasize(), 0x84), callvalue())
                 token := calldataload(0x04)
                 err := or(err, shr(0xa0, token))
                 owner := calldataload(0x24)
@@ -130,8 +130,9 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             address payable target;
             bytes calldata data;
             assembly ("memory-safe") {
+                let err := lt(calldatasize(), 0xc4)
                 operator := calldataload(0x04)
-                let err := shr(0xa0, operator)
+                err := or(err, shr(0xa0, operator))
                 token := calldataload(0x24)
                 err := or(err, shr(0xa0, token))
                 amount := calldataload(0x44)
