@@ -12,7 +12,8 @@ interface ISettlerActions {
     ) external;
 
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
-    function METATXN_PERMIT2_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory) external;
+    function METATXN_PERMIT2_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit)
+        external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
