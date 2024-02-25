@@ -21,3 +21,6 @@ error InvalidSignatureLen();
 
 /// @notice Thrown when a slippage limit is exceeded
 error TooMuchSlippage(address token, uint256 expected, uint256 actual);
+
+/// @notice Thrown when an AllowanceHolder permit has an expired deadline
+error SignatureExpired(uint256 signatureDeadline);

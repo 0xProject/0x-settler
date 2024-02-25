@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
+import {ForwarderNotAllowed, InvalidSignatureLen, SignatureExpired} from "./SettlerErrors.sol";
 import {AbstractContext} from "../Context.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 
@@ -221,6 +221,9 @@ abstract contract Permit2BatchPayment is Permit2BatchPaymentBase {
                     Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
                 }
             }
+            if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
+            // we don't check `requestedAmount` because it's copied in `_permitToTransferDetails`
             allowanceHolder.transferFrom(
                 permit.permitted.unsafeGet(0).token,
                 from,
@@ -293,6 +296,9 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     ) internal override {
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
+            if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
+            // we don't check `requestedAmount` because it's copied in `_permitToTransferDetails`
             allowanceHolder.transferFrom(
                 permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
             );
