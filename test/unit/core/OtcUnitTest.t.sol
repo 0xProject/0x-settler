@@ -146,12 +146,12 @@ contract OtcUnitTest is Utils, Test {
         ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}),
             nonce: 0,
-            deadline: 0
+            deadline: block.timestamp
         });
         ISignatureTransfer.PermitTransferFrom memory takerPermit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}),
             nonce: 0,
-            deadline: 0
+            deadline: block.timestamp
         });
 
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
