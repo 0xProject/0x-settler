@@ -70,7 +70,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler          | Uniswap V3 | USDC/WETH | 170523 | -18.44% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 196513 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 153902 | -21.68% |
+| Settler          | Uniswap V3 | DAI/WETH  | 153901 | -21.68% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 199320 | 0.00%   |
 | Settler          | Uniswap V3 | USDT/WETH | 160578 | -19.44% |
@@ -197,7 +197,7 @@ We've continued on with the terminology of VIPs. Recall from 0xV4 that VIPs are 
 
 This settlement path is optimized by performing the Permit2 in the `uniswapV3SwapCallback` function performing a `permit2TransferFrom` and avoiding an additional `transfer`. This is further benefitted from tokens being sent to a pool with an already initialized balance, rathan than to 0xSettler as a temporary intermediary.
 
-The action `UNISWAPV3_PERMIT2_SWAP_EXACT_IN` exposes this behaviour and it should not be used with any other `PERMIT2` action (e.g `PERMIT2_TRANSFER_FROM`).
+The action `UNISWAPV3_VIP` exposes this behaviour and it should not be used with any other `PERMIT2` action (e.g `TRANSFER_FROM`).
 
 # Risk
 

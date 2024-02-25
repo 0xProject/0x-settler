@@ -101,7 +101,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
-        // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
+        // ISettlerActions.BASIC could interaction with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
         (address buyToken, address recipient, uint256 minAmountOut) =
@@ -162,9 +162,9 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
-            if (action == ISettlerActions.SETTLER_OTC_PERMIT2.selector) {
+            if (action == ISettlerActions.OTC_VIP.selector) {
                 _otcVIP(data);
-            } else if (action == ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
+            } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
                 _uniV3VIP(data);
             } else {
                 _dispatch(0, action, data, _msgSender());
@@ -286,11 +286,11 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             // authorized. `msgSender` is the signer of the metatransaction.
             bytes32 witness = _hashActionsAndSlippage(actions, slippage);
 
-            if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
+            if (action == ISettlerActions.METATXN_OTC_VIP.selector) {
                 _metaTxnOtcVIP(data, witness, msgSender, sig);
-            } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
+            } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
                 _metaTxnTransferFrom(data, witness, msgSender, sig);
-            } else if (action == ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
+            } else if (action == ISettlerActions.METATXN_UNISWAPV3_VIP.selector) {
                 _metaTxnUniV3VIP(data, witness, msgSender, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
@@ -309,13 +309,13 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         internal
         DANGEROUS_freeMemory
     {
-        if (action == ISettlerActions.PERMIT2_TRANSFER_FROM.selector) {
+        if (action == ISettlerActions.TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, msgSender, sig);
-        } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
+        } else if (action == ISettlerActions.OTC.selector) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -326,27 +326,27 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
 
             fillOtcOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
-        } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
+        } else if (action == ISettlerActions.UNISWAPV3.selector) {
             (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
             sellTokenForTokenToUniswapV3(recipient, path, bips, amountOutMin);
-        } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
+        } else if (action == ISettlerActions.UNISWAPV2.selector) {
             (address recipient, address sellToken, address pool, uint8 swapInfo, uint256 bips, uint256 amountOutMin) =
                 abi.decode(data, (address, address, address, uint8, uint256, uint256));
 
             sellToUniswapV2(recipient, sellToken, pool, swapInfo, bips, amountOutMin);
-        } else if (action == ISettlerActions.MAKER_PSM_SELL_GEM.selector) {
+        } else if (action == ISettlerActions.MAKERPSM_SELL.selector) {
             (address recipient, uint256 bips, IPSM psm, IERC20Meta gemToken) =
                 abi.decode(data, (address, uint256, IPSM, IERC20Meta));
 
             makerPsmSellGem(recipient, bips, psm, gemToken);
-        } else if (action == ISettlerActions.MAKER_PSM_BUY_GEM.selector) {
+        } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
             (address recipient, uint256 bips, IPSM psm, IERC20Meta gemToken) =
                 abi.decode(data, (address, uint256, IPSM, IERC20Meta));
 
             makerPsmBuyGem(recipient, bips, psm, gemToken);
-        } else if (action == ISettlerActions.BASIC_SELL.selector) {
+        } else if (action == ISettlerActions.BASIC.selector) {
             (address pool, IERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, IERC20, uint256, uint256, bytes));
 
