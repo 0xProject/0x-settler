@@ -55,7 +55,8 @@ contract OtcOrderSettlementDummy is OtcOrderSettlement, Permit2Payment {
         bytes memory takerSig,
         bytes32 takerWitness
     ) external {
-        super.fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, taker, takerSig, takerWitness);
+        _setWitness(takerWitness);
+        super.fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, taker, takerSig);
     }
 }
 

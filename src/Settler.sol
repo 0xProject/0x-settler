@@ -156,7 +156,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             bytes memory sig
         ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-        sellTokenForTokenToUniswapV3(recipient, path, amountIn, amountOutMin, _msgSender(), permit, sig);
+        sellTokenForTokenToUniswapV3VIP(recipient, path, amountIn, amountOutMin, permit, sig);
     }
 
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
@@ -223,10 +223,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         }
     }
 
-    function _metaTxnOtcVIP(bytes calldata data, bytes32 witness, address msgSender, bytes calldata sig)
-        internal
-        DANGEROUS_freeMemory
-    {
+    function _metaTxnOtcVIP(bytes calldata data, address msgSender, bytes calldata sig) internal DANGEROUS_freeMemory {
         // An optimized path involving a maker/taker in a single trade
         // The OTC order is signed by both maker and taker, validation is
         // performed inside the OtcOrderSettlement so there is no need to
@@ -241,10 +238,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             data,
             (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
         );
-        fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig, witness);
+        fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
     }
 
-    function _metaTxnTransferFrom(bytes calldata data, bytes32 witness, address msgSender, bytes calldata sig)
+    function _metaTxnTransferFrom(bytes calldata data, address msgSender, bytes calldata sig)
         internal
         DANGEROUS_freeMemory
     {
@@ -255,10 +252,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
         // metatransaction.
-        _transferFrom(permit, transferDetails, msgSender, witness, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
+        _transferFrom(permit, transferDetails, msgSender, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
     }
 
-    function _metaTxnUniV3VIP(bytes calldata data, bytes32 witness, address msgSender, bytes calldata sig)
+    function _metaTxnUniV3VIP(bytes calldata data, address msgSender, bytes calldata sig)
         internal
         DANGEROUS_freeMemory
     {
@@ -269,7 +266,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             bytes memory path,
             ISignatureTransfer.PermitTransferFrom memory permit
         ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellTokenForTokenToUniswapV3(recipient, path, amountIn, amountOutMin, msgSender, permit, sig, witness);
+        sellTokenForTokenToUniswapV3MetaTxn(recipient, path, amountIn, amountOutMin, msgSender, permit, sig);
     }
 
     function executeMetaTxn(
@@ -284,14 +281,14 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
-            bytes32 witness = _hashActionsAndSlippage(actions, slippage);
+            _setWitness(_hashActionsAndSlippage(actions, slippage));
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
-                _metaTxnOtcVIP(data, witness, msgSender, sig);
+                _metaTxnOtcVIP(data, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM.selector) {
-                _metaTxnTransferFrom(data, witness, msgSender, sig);
+                _metaTxnTransferFrom(data, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN.selector) {
-                _metaTxnUniV3VIP(data, witness, msgSender, sig);
+                _metaTxnUniV3VIP(data, msgSender, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }

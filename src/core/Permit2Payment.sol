@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ForwarderNotAllowed, InvalidSignatureLen} from "./SettlerErrors.sol";
+import {ForwarderNotAllowed, InvalidSignatureLen, ConfusedDeputy} from "./SettlerErrors.sol";
 import {AbstractContext} from "../Context.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Revert} from "../utils/Revert.sol";
 
 library UnsafeArray {
     function unsafeGet(ISignatureTransfer.TokenPermissions[] memory a, uint256 i)
@@ -31,7 +32,41 @@ library UnsafeArray {
     }
 }
 
+library TransientStorage {
+    // uint256(keccak256("witness slot")) - 1
+    bytes32 private constant _WITNESS_SLOT = 0x1643bf8e9fdaef48c4abf5a998de359be44a235ac7aebfbc05485e093720deaa;
+
+    function setWitness(bytes32 witness) internal {
+        assembly ("memory-safe") {
+            tstore(_WITNESS_SLOT, witness)
+        }
+    }
+
+    function getWitness() internal view returns (bytes32 r) {
+        assembly ("memory-safe") {
+            r := tload(_WITNESS_SLOT)
+        }
+    }
+
+    // uint256(keccak("caller slot")) - 1
+    bytes32 private constant _CALLER_SLOT = 0x48863d5af89028b2b08cbb0bf68bc2278662bcc3aa64362c1df5ec7580c28d65;
+
+    function setCaller(address contractWithCallback) internal {
+        assembly ("memory-safe") {
+            tstore(_CALLER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, contractWithCallback))
+        }
+    }
+
+    function getCaller() internal view returns (address r) {
+        assembly ("memory-safe") {
+            r := tload(_CALLER_SLOT)
+        }
+    }
+}
+
 abstract contract Permit2PaymentAbstract is AbstractContext {
+    using Revert for bool;
+
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
     function isRestrictedTarget(address) internal view virtual returns (bool);
@@ -46,7 +81,6 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig,
         bool isForwarded
@@ -56,7 +90,6 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
     ) internal virtual;
@@ -75,6 +108,24 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         address from,
         bytes memory sig
     ) internal virtual;
+
+    function _allowCallback(address payable target, uint256 value, bytes memory data) internal returns (bytes memory) {
+        TransientStorage.setCaller(target);
+        (bool success, bytes memory returndata) = target.call{value: value}(data);
+        success.maybeRevert(returndata);
+        if (TransientStorage.getCaller() != address(0)) {
+            revert ConfusedDeputy();
+        }
+        return returndata;
+    }
+
+    function _allowCallback(address target, bytes memory data) internal returns (bytes memory) {
+        return _allowCallback(payable(target), 0, data);
+    }
+
+    function _setWitness(bytes32 witness) internal {
+        TransientStorage.setWitness(witness);
+    }
 }
 
 /// @dev Batch support for Permit2 payments
@@ -96,7 +147,6 @@ abstract contract Permit2BatchPaymentAbstract is AbstractContext {
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig,
         bool isForwarded
@@ -106,7 +156,6 @@ abstract contract Permit2BatchPaymentAbstract is AbstractContext {
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
     ) internal virtual;
@@ -186,12 +235,13 @@ abstract contract Permit2BatchPayment is Permit2BatchPaymentBase {
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig,
         bool isForwarded
     ) internal override {
         if (isForwarded) revert ForwarderNotAllowed();
+        bytes32 witness = TransientStorage.getWitness();
+        TransientStorage.setWitness(0);
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
@@ -199,11 +249,10 @@ abstract contract Permit2BatchPayment is Permit2BatchPaymentBase {
         ISignatureTransfer.PermitBatchTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
     ) internal override {
-        _transferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
+        _transferFrom(permit, transferDetails, from, witnessTypeString, sig, _isForwarded());
     }
 
     function _transferFrom(
@@ -213,6 +262,12 @@ abstract contract Permit2BatchPayment is Permit2BatchPaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
+        if (from != _msgSender()) {
+            if (msg.sender != TransientStorage.getCaller()) {
+                revert ConfusedDeputy();
+            }
+            TransientStorage.setCaller(address(0));
+        }
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
             {
@@ -264,12 +319,13 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig,
         bool isForwarded
     ) internal override {
         if (isForwarded) revert ForwarderNotAllowed();
+        bytes32 witness = TransientStorage.getWitness();
+        TransientStorage.setWitness(0);
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
@@ -277,11 +333,10 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
-        bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
     ) internal override {
-        _transferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
+        _transferFrom(permit, transferDetails, from, witnessTypeString, sig, _isForwarded());
     }
 
     function _transferFrom(
@@ -291,6 +346,12 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
+        if (from != _msgSender()) {
+            if (msg.sender != TransientStorage.getCaller()) {
+                revert ConfusedDeputy();
+            }
+            TransientStorage.setCaller(address(0));
+        }
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
             allowanceHolder.transferFrom(
