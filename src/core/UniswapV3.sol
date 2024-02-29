@@ -90,7 +90,8 @@ abstract contract UniswapV3 is SettlerAbstract {
             (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bips).unsafeDiv(10_000),
             minBuyAmount,
             address(this), // payer
-            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
+            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE),
+            false
         );
     }
 
@@ -114,7 +115,7 @@ abstract contract UniswapV3 is SettlerAbstract {
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded(), false);
 
-        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, _msgSender(), swapCallbackData);
+        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, _msgSender(), swapCallbackData, false);
     }
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
@@ -139,7 +140,7 @@ abstract contract UniswapV3 is SettlerAbstract {
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, false, true);
 
-        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, payer, swapCallbackData);
+        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, payer, swapCallbackData, true);
     }
 
     // Executes successive swaps along an encoded uniswap path.
@@ -149,7 +150,8 @@ abstract contract UniswapV3 is SettlerAbstract {
         uint256 sellAmount,
         uint256 minBuyAmount,
         address payer,
-        bytes memory swapCallbackData
+        bytes memory swapCallbackData,
+        bool isMetaTx
     ) private returns (uint256 buyAmount) {
         if (sellAmount > uint256(type(int256).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -172,7 +174,16 @@ abstract contract UniswapV3 is SettlerAbstract {
 
             int256 amount0;
             int256 amount1;
-            if (payer != address(this)) {
+            if (payer == address(this) || isMetaTx) {
+                (amount0, amount1) = pool.swap(
+                    // Intermediate tokens go to this contract.
+                    isPathMultiHop ? address(this) : recipient,
+                    zeroForOne,
+                    int256(sellAmount),
+                    zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                    swapCallbackData
+                );
+            } else {
                 (amount0, amount1) = abi.decode(
                     _allowCallback(
                         address(pool),
@@ -189,15 +200,6 @@ abstract contract UniswapV3 is SettlerAbstract {
                         )
                     ),
                     (int256, int256)
-                );
-            } else {
-                (amount0, amount1) = pool.swap(
-                    // Intermediate tokens go to this contract.
-                    isPathMultiHop ? address(this) : recipient,
-                    zeroForOne,
-                    int256(sellAmount),
-                    zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                    swapCallbackData
                 );
             }
 
