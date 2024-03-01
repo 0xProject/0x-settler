@@ -31,14 +31,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             target = address(0xdead);
         }
         bytes memory testData = abi.encodeCall(IERC20.balanceOf, target);
-        // 500k gas seems like a pretty healthy upper bound for the amount of
-        // gas that `balanceOf` could reasonably consume in a well-behaved
-        // ERC20.
-        // 4 contexts of indirection seems like a pretty healthy upper bound on
-        // how many proxies we must navigate before executing application code.
-        // 20k gas seems like a pretty healthy upper bound for the amount of gas
-        // one layer of indirection might cost.
-        if (maybeERC20.checkCall4Deep(testData, 500_000, 0x20, 20_000)) revert ConfusedDeputy();
+        if (maybeERC20.checkCall(testData, 0x20)) revert ConfusedDeputy();
     }
 
     function _msgSender() private view returns (address sender) {
