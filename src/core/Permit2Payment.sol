@@ -99,6 +99,9 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
+    // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
+    // contract/file should reference it. The *ONLY* approved way to make a transfer using this
+    // witness string is by setting the witness with `_setWitness`
     string private constant ACTIONS_AND_SLIPPAGE_WITNESS = string(
         abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
