@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {InvalidOffset, ConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
 
 import {IERC20} from "../IERC20.sol";
@@ -10,7 +10,7 @@ import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
 
-abstract contract Basic is Permit2PaymentAbstract {
+abstract contract Basic is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using FullMath for uint256;
     using Revert for bool;

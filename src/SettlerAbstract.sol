@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Permit2PaymentAbstract} from "./core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 
 abstract contract SettlerAbstract is Permit2PaymentAbstract {
     // Permit2 Witness for meta transactions

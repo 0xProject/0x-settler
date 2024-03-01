@@ -92,8 +92,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         // using Permit2 or AllowanceHolder to move tokens, not to provide authentication.
         _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
         // Maker pays recipient
-        _setWitness(witness);
-        _transferFrom(makerPermit, makerTransferDetails, maker, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
 
         _logOtcOrder(
             witness,
@@ -130,14 +129,13 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
             _permitToTransferDetails(takerPermit, maker);
         makerConsideration.counterparty = taker;
 
-        bytes32 makerWitness = _hashConsideration(makerConsideration);
-        // Note: takerWitness is not calculated here, but in the caller code
+        bytes32 witness = _hashConsideration(makerConsideration);
+        // Note: taker's witness is not calculated here, but in the caller code
 
-        _transferFrom(takerPermit, takerTransferDetails, taker, ACTIONS_AND_SLIPPAGE_WITNESS, takerSig);
-        _setWitness(makerWitness);
-        _transferFrom(makerPermit, makerTransferDetails, maker, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
+        _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
 
-        _logOtcOrder(makerWitness, _hashConsideration(takerConsideration), uint128(buyAmount));
+        _logOtcOrder(witness, _hashConsideration(takerConsideration), uint128(buyAmount));
     }
 
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
@@ -176,8 +174,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
         takerToken.safeTransfer(maker, takerAmount);
-        _setWitness(witness);
-        _transferFrom(permit, transferDetails, maker, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
 
         _logOtcOrder(witness, _hashConsideration(takerConsideration), uint128(buyAmount));
     }

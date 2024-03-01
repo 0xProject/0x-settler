@@ -275,6 +275,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         address msgSender,
         bytes calldata sig
     ) public {
+        require(msgSender != _msgSender());
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
 

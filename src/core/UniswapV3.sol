@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 import {InvalidSender} from "./SettlerErrors.sol";
 
 import {IERC20} from "../IERC20.sol";
