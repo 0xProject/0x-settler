@@ -104,12 +104,12 @@ library CheckCall {
 
             // 2nd iteration
             uint256 callOverheadGas = perCallOverheadGas;
-            callOverheadGas += (callGas + callOverheadGas).unsafeDiv(63) - rule;
             callGas += rule;
             rule = callGas.unsafeDiv(63);
             remainingGas += rule;
 
             // 3rd iteration
+            callOverheadGas += (callGas + callOverheadGas).unsafeDiv(63) - rule;
             callOverheadGas += perCallOverheadGas;
             callGas += rule;
             rule = callGas.unsafeDiv(63);
@@ -128,24 +128,28 @@ library CheckCall {
     ) internal view returns (bool) {
         unchecked {
             // 1 iteration of the "all but one 64th" rule
-            uint256 remainingGas = callGas.unsafeDiv(63);
+            uint256 rule = callGas.unsafeDiv(63);
+            uint256 remainingGas = rule;
 
             // 2nd iteration
             uint256 callOverheadGas = perCallOverheadGas;
-            callGas += callGas.unsafeDiv(63);
-            remainingGas += callGas.unsafeDiv(63);
+            callGas += rule;
+            rule = callGas.unsafeDiv(63);
+            remainingGas += rule;
 
             // 3rd iteration
-            callOverheadGas += (callGas + callOverheadGas).unsafeDiv(63) - callGas.unsafeDiv(63);
+            callOverheadGas += (callGas + callOverheadGas).unsafeDiv(63) - rule;
             callOverheadGas += perCallOverheadGas;
-            callGas += callGas.unsafeDiv(63);
-            remainingGas += callGas.unsafeDiv(63);
+            callGas += rule;
+            rule = callGas.unsafeDiv(63);
+            remainingGas += rule;
 
             // 4th iteration
-            callOverheadGas += (callGas + callOverheadGas).unsafeDiv(63) - callGas.unsafeDiv(63);
+            callOverheadGas += (callGas + callOverheadGas).unsafeDiv(63) - rule;
             callOverheadGas += perCallOverheadGas;
-            callGas += callGas.unsafeDiv(63);
-            remainingGas += callGas.unsafeDiv(63);
+            callGas += rule;
+            rule = callGas.unsafeDiv(63);
+            remainingGas += rule;
 
             return checkCall3Deep(target, data, callGas + callOverheadGas, minReturnBytes, remainingGas);
         }
