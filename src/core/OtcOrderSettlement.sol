@@ -74,33 +74,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, address buyToken, uint256 buyAmount) =
-            _permitToTransferDetails(makerPermit, recipient);
-
-        address taker = _msgSender();
-        ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
-        Consideration memory consideration;
-        (takerTransferDetails, consideration.token, consideration.amount) = _permitToTransferDetails(takerPermit, maker);
-        consideration.counterparty = taker;
-
-        bytes32 witness = _hashConsideration(consideration);
-        // There is no taker witness (see below)
-
-        // Taker pays Maker
-        // We don't need to include a witness here. Taker is `_msgSender()`, so
-        // `recipient` and the maker's details are already authenticated. We're just
-        // using Permit2 or AllowanceHolder to move tokens, not to provide authentication.
-        _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
-        // Maker pays recipient
-        _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
-
-        _logOtcOrder(
-            witness,
-            _hashConsideration(
-                Consideration({token: buyToken, amount: buyAmount, counterparty: maker, partialFillAllowed: false})
-            ),
-            uint128(buyAmount)
-        );
+        return fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, _msgSender(), takerSig);
     }
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
@@ -130,7 +104,6 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         makerConsideration.counterparty = taker;
 
         bytes32 witness = _hashConsideration(makerConsideration);
-        // Note: taker's witness is not calculated here, but in the caller code
 
         _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
         _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
