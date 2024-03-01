@@ -53,7 +53,7 @@ abstract contract UniswapV3 is SettlerAbstract {
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x5f;
     uint256 private constant PERMIT_DATA_SIZE = 0x80;
-    uint256 private constant ISFORWARDED_DATA_SIZE = 0x40;
+    uint256 private constant ISFORWARDED_DATA_SIZE = 0x20;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -112,7 +112,7 @@ abstract contract UniswapV3 is SettlerAbstract {
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
-        _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded(), false);
+        _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
         buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, _msgSender(), swapCallbackData, false);
     }
@@ -137,7 +137,7 @@ abstract contract UniswapV3 is SettlerAbstract {
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
-        _encodePermit2Data(swapCallbackData, permit, sig, false, true);
+        _encodePermit2Data(swapCallbackData, permit, sig, false);
 
         buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, payer, swapCallbackData, true);
     }
@@ -265,8 +265,7 @@ abstract contract UniswapV3 is SettlerAbstract {
         bytes memory swapCallbackData,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
-        bool isForwarded,
-        bool hasWitness
+        bool isForwarded
     ) private pure {
         assembly ("memory-safe") {
             {
@@ -277,10 +276,6 @@ abstract contract UniswapV3 is SettlerAbstract {
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40)), mload(add(permit, 0x20)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x60)), mload(add(permit, 0x40)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE)), and(isForwarded, 1))
-            mstore(
-                add(swapCallbackData, add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), 0x20)),
-                and(hasWitness, 1)
-            )
             mcopy(
                 add(
                     swapCallbackData,
@@ -375,16 +370,12 @@ abstract contract UniswapV3 is SettlerAbstract {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
-            (ISignatureTransfer.PermitTransferFrom memory permit, bool isForwarded, bool hasWitness) =
-                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bool, bool));
+            (ISignatureTransfer.PermitTransferFrom memory permit, bool isForwarded) =
+                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bool));
             bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE:];
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
-            if (hasWitness) {
-                _transferFrom(permit, transferDetails, payer, ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded);
-            } else {
-                _transferFrom(permit, transferDetails, payer, sig, isForwarded);
-            }
+            _transferFrom(permit, transferDetails, payer, sig, isForwarded);
         }
     }
 }

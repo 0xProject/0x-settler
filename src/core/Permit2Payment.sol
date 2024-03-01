@@ -98,7 +98,14 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     using UnsafeArray for ISignatureTransfer.TokenPermissions[];
     using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
 
-    constructor(address permit2, address allowanceHolder) Permit2PaymentBase(permit2, allowanceHolder) {}
+    // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
+    string private constant ACTIONS_AND_SLIPPAGE_WITNESS = string(
+        abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
+    );
+
+    constructor(address permit2, address allowanceHolder) Permit2PaymentBase(permit2, allowanceHolder) {
+        assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
+    }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
@@ -151,7 +158,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
                 }
             } else {
                 return _transferFrom(
-                    permit, transferDetails, from, bytes32(permitAuth), ACTIONS_AND_SLIPPAGE_WITNESS, isForwarded
+                    permit, transferDetails, from, bytes32(permitAuth), ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
                 );
             }
         }

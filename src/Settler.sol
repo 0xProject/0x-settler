@@ -252,7 +252,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
         // We simultaneously transfer-in the taker's tokens and authenticate the
         // metatransaction.
-        _transferFrom(permit, transferDetails, msgSender, ACTIONS_AND_SLIPPAGE_WITNESS, sig);
+        _transferFrom(permit, transferDetails, msgSender, sig);
     }
 
     function _metaTxnUniV3VIP(bytes calldata data, address msgSender, bytes calldata sig)

@@ -19,7 +19,11 @@ contract OtcOrderSettlementDummy is OtcOrderSettlement, Permit2Payment {
     }
 
     function actionsAndSlippageWitnessType() external pure returns (string memory) {
-        return ACTIONS_AND_SLIPPAGE_WITNESS;
+        return string(
+            abi.encodePacked(
+                "ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE
+            )
+        );
     }
 
     function fillOtcOrderDirectCounterparties(

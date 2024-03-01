@@ -59,4 +59,3 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
 
     function _setWitness(bytes32 witness) internal virtual;
 }
-
