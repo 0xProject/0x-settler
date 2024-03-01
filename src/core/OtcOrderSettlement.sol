@@ -80,7 +80,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
-    /// @dev `takerWitness` is not calculated nor verified here as caller is trusted
+    /// @dev the taker's witness is not calculated nor verified here as calling function is trusted
     function fillOtcOrderMetaTxn(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -90,25 +90,30 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         address taker,
         bytes memory takerSig
     ) internal {
-        ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails;
-        Consideration memory takerConsideration;
-        uint256 buyAmount;
-        (makerTransferDetails, takerConsideration.token, buyAmount) = _permitToTransferDetails(makerPermit, recipient);
-        takerConsideration.amount = buyAmount;
-        takerConsideration.counterparty = maker;
+        (
+            ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails,
+            address makerToken,
+            uint256 makerAmount
+        ) = _permitToTransferDetails(makerPermit, recipient);
+        (
+            ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails,
+            address takerToken,
+            uint256 takerAmount
+        ) = _permitToTransferDetails(takerPermit, maker);
 
-        ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails;
-        Consideration memory makerConsideration;
-        (takerTransferDetails, makerConsideration.token, makerConsideration.amount) =
-            _permitToTransferDetails(takerPermit, maker);
-        makerConsideration.counterparty = taker;
-
-        bytes32 witness = _hashConsideration(makerConsideration);
-
+        bytes32 witness = _hashConsideration(
+            Consideration({token: takerToken, amount: takerAmount, counterparty: taker, partialFillAllowed: false})
+        );
         _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
         _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
 
-        _logOtcOrder(witness, _hashConsideration(takerConsideration), uint128(buyAmount));
+        _logOtcOrder(
+            witness,
+            _hashConsideration(
+                Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: false})
+            ),
+            uint128(makerAmount)
+        );
     }
 
     /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
