@@ -102,13 +102,11 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
     // contract/file should reference it. The *ONLY* approved way to make a transfer using this
     // witness string is by setting the witness with `_setWitness`
-    string private constant ACTIONS_AND_SLIPPAGE_WITNESS = string(
+    string private constant _ACTIONS_AND_SLIPPAGE_WITNESS = string(
         abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
 
-    constructor(address permit2, address allowanceHolder) Permit2PaymentBase(permit2, allowanceHolder) {
-        assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
-    }
+    constructor(address permit2, address allowanceHolder) Permit2PaymentBase(permit2, allowanceHolder) {}
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
@@ -121,6 +119,9 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         token = permit.permitted.token;
     }
 
+    // This function is provided *EXCLUSIVELY* for use here and in OtcOrderSettlement. Any other use
+    // of this function is forbidden. You must use the overload that does *NOT* take a `witness`
+    // argument.
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
@@ -134,6 +135,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
+    // See comment in above overload
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
@@ -161,7 +163,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
                 }
             } else {
                 return _transferFrom(
-                    permit, transferDetails, from, bytes32(permitAuth), ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
+                    permit, transferDetails, from, bytes32(permitAuth), _ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
                 );
             }
         }

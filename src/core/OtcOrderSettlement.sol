@@ -51,10 +51,10 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
             let ptr := mload(0x40)
             mstore(0x40, takerConsiderationHash)
             let orderHash := keccak256(0x00, 0x60)
+            mstore(0x40, ptr)
             mstore(0x10, makerFilledAmount)
             mstore(0x00, orderHash)
             log0(0x00, 0x30)
-            mstore(0x40, ptr)
         }
     }
 

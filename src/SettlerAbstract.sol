@@ -9,4 +9,8 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
         "ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)";
     bytes32 internal constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
         0x7d6b6ac05bf0d3f905c044bcb7baf6b20670f84c2275870747ac3b8fa8c43e12;
+
+    constructor() {
+        assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
+    }
 }
