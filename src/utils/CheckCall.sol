@@ -42,28 +42,41 @@ library CheckCall {
             // if the opcodes are repriced.
             let afterGas := gas()
 
-            if iszero(or(success, returndatasize())) {
-                // https://eips.ethereum.org/EIPS/eip-150
-                // https://ronan.eth.limo/blog/ethereum-gas-dangers/
-                // We apply the "all but one 64th" rule twice because `target` could plausibly be a
-                // proxy. We apply it only twice because we assume only a single level of
-                // indirection.
-                let remainingGas := shr(6, beforeGas)
-                remainingGas := add(remainingGas, shr(6, sub(beforeGas, remainingGas)))
-                if iszero(lt(remainingGas, afterGas)) {
-                    // The call failed due to not enough gas left. We deliberately consume all
-                    // remaining gas with `invalid` (instead of `revert`) to make this failure
-                    // distinguishable to our caller.
-                    invalid()
+            switch returndatasize()
+            case 0 {
+                // The absence of returndata means that it's possible that either we called an
+                // address without code or that the call reverted due to out-of-gas. We must check.
+                switch success
+                case 0 {
+                    // Check whether we reverted due to out-of-gas.
+                    // https://eips.ethereum.org/EIPS/eip-150
+                    // https://ronan.eth.limo/blog/ethereum-gas-dangers/
+                    // We apply the "all but one 64th" rule twice because `target` could plausibly be a
+                    // proxy. We apply it only twice because we assume only a single level of
+                    // indirection.
+                    let remainingGas := shr(6, beforeGas)
+                    remainingGas := add(remainingGas, shr(6, sub(beforeGas, remainingGas)))
+                    if iszero(lt(remainingGas, afterGas)) {
+                        // The call failed due to not enough gas left. We deliberately consume all
+                        // remaining gas with `invalid` (instead of `revert`) to make this failure
+                        // distinguishable to our caller.
+                        invalid()
+                    }
+                    // `success` is false because we reverted
+                }
+                default {
+                    // Check whether we called an address with no code (gas expensive).
+                    if iszero(extcodesize(target)) { revert(0x00, 0x00) }
+                    // We called a contract which returned no data; this is only a success if we
+                    // were expecting no data.
+                    success := iszero(minReturnBytes)
                 }
             }
-
-            if success {
-                // addresses without code can't revert, so we only need this check in the
-                // non-reverting path. the presence of returndata indicates that code was executed.
-                if iszero(returndatasize()) { if iszero(extcodesize(target)) { revert(0x00, 0x00) } }
-                // the actual core check of this function
-                success := iszero(lt(returndatasize(), minReturnBytes))
+            default {
+                // The presence of returndata indicates that we definitely executed code. It also
+                // means that the call didn't revert due to out-of-gas, if it reverted. We can omit
+                // a bunch of checks.
+                success := and(success, iszero(lt(returndatasize(), minReturnBytes)))
             }
         }
     }
