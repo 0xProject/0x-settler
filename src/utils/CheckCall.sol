@@ -40,18 +40,29 @@ library CheckCall {
             // access). All this makes the check below slightly too conservative. However, we do not
             // correct this because the correction would become outdated (possibly too permissive)
             // if the opcodes are repriced.
+            let afterGas := gas()
 
-            // https://eips.ethereum.org/EIPS/eip-150
-            // https://ronan.eth.limo/blog/ethereum-gas-dangers/
-            if iszero(or(success, or(returndatasize(), lt(shr(6, beforeGas), gas())))) {
-                // The call failed due to not enough gas left. We deliberately consume
-                // all remaining gas with `invalid` (instead of `revert`) to make this
-                // failure distinguishable to our caller.
-                invalid()
+            if iszero(or(success, returndatasize())) {
+                // https://eips.ethereum.org/EIPS/eip-150
+                // https://ronan.eth.limo/blog/ethereum-gas-dangers/
+                // We apply the "all but one 64th" rule twice because `target` could plausibly be a
+                // proxy. We apply it only twice because we assume only a single level of
+                // indirection.
+                let remainingGas := shr(6, beforeGas)
+                remainingGas := add(remainingGas, shr(6, sub(beforeGas, remainingGas)))
+                if iszero(lt(remainingGas, afterGas)) {
+                    // The call failed due to not enough gas left. We deliberately consume all
+                    // remaining gas with `invalid` (instead of `revert`) to make this failure
+                    // distinguishable to our caller.
+                    invalid()
+                }
             }
 
             if success {
+                // addresses without code can't revert, so we only need this check in the
+                // non-reverting path. the presence of returndata indicates that code was executed.
                 if iszero(returndatasize()) { if iszero(extcodesize(target)) { revert(0x00, 0x00) } }
+                // the actual core check of this function
                 success := iszero(lt(returndatasize(), minReturnBytes))
             }
         }
