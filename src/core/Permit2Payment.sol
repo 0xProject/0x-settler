@@ -74,9 +74,11 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         TransientStorage.set(target);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
+        /*
         if (TransientStorage.get() != 0) {
             revert ConfusedDeputy();
         }
+        */
         return returndata;
     }
 
