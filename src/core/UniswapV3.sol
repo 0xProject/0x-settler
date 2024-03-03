@@ -352,8 +352,6 @@ abstract contract UniswapV3 is SettlerAbstract {
             token1 := calldataload(add(data.offset, 0xb))
             payer := calldataload(add(data.offset, 0x1f))
         }
-        // Only a valid pool contract can call this function.
-        if (msg.sender != address(_toPool(token0, fee, token1))) revert InvalidSender();
 
         bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
         // Pay the amount owed to the pool.
