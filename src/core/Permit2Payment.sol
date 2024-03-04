@@ -2,36 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {ForwarderNotAllowed, InvalidSignatureLen, ConfusedDeputy} from "./SettlerErrors.sol";
-import {AbstractContext} from "../Context.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {Panic} from "../utils/Panic.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Revert} from "../utils/Revert.sol";
-
-library UnsafeArray {
-    function unsafeGet(ISignatureTransfer.TokenPermissions[] memory a, uint256 i)
-        internal
-        pure
-        returns (ISignatureTransfer.TokenPermissions memory r)
-    {
-        assembly ("memory-safe") {
-            r := mload(add(add(a, 0x20), shl(5, i)))
-        }
-    }
-
-    function unsafeGet(ISignatureTransfer.SignatureTransferDetails[] memory a, uint256 i)
-        internal
-        pure
-        returns (ISignatureTransfer.SignatureTransferDetails memory r)
-    {
-        assembly ("memory-safe") {
-            r := mload(add(add(a, 0x20), shl(5, i)))
-        }
-    }
-}
 
 library TransientStorage {
     // uint256(keccak256("permit auth slot")) - 1
@@ -96,10 +71,6 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
-    using UnsafeMath for uint256;
-    using UnsafeArray for ISignatureTransfer.TokenPermissions[];
-    using UnsafeArray for ISignatureTransfer.SignatureTransferDetails[];
-
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
     // contract/file should reference it. The *ONLY* approved way to make a transfer using this
