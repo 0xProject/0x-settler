@@ -3,19 +3,15 @@ pragma solidity ^0.8.24;
 
 library CheckCall {
     /**
-     * @notice `staticcall` another contract. Check the length of the return
-     *         without reading it.
-     * @dev contains protections against EIP-150-induced insufficient gas
-     *      griefing
-     * @dev reverts iff the target is not a contract or we encounter an
-     *      out-of-gas
+     * @notice `staticcall` another contract. Check the length of the return without reading it.
+     * @dev contains protections against EIP-150-induced insufficient gas griefing
+     * @dev reverts iff the target is not a contract or we encounter an out-of-gas
      * @return success true iff the call succeded and returned at least `minReturnBytes` of return
      *                 data
-     * @param target the contract (reverts if non-contract) on which to make the
-     *               `staticcall`
+     * @param target the contract (reverts if non-contract) on which to make the `staticcall`
      * @param data the calldata to pass
-     * @param minReturnBytes `success` is false if the call doesn't return at
-     *                       least this much return data
+     * @param minReturnBytes `success` is false if the call doesn't return at least this much return
+     *                       data
      */
     function checkCall(address target, bytes memory data, uint256 minReturnBytes)
         internal
@@ -51,8 +47,8 @@ library CheckCall {
                     // Check whether we reverted due to out-of-gas.
                     // https://eips.ethereum.org/EIPS/eip-150
                     // https://ronan.eth.limo/blog/ethereum-gas-dangers/
-                    // We apply the "all but one 64th" rule twice because `target` could plausibly be a
-                    // proxy. We apply it only twice because we assume only a single level of
+                    // We apply the "all but one 64th" rule twice because `target` could plausibly
+                    // be a proxy. We apply it only twice because we assume only a single level of
                     // indirection.
                     let remainingGas := shr(6, beforeGas)
                     remainingGas := add(remainingGas, shr(6, sub(beforeGas, remainingGas)))
@@ -62,7 +58,7 @@ library CheckCall {
                         // distinguishable to our caller.
                         invalid()
                     }
-                    // `success` is false because we reverted
+                    // `success` is false because the call reverted
                 }
                 default {
                     // Check whether we called an address with no code (gas expensive).
