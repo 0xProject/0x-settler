@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {InvalidSender} from "./SettlerErrors.sol";
-
 import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
