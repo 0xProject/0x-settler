@@ -72,7 +72,7 @@ library CheckCall {
                 // The presence of returndata indicates that we definitely executed code. It also
                 // means that the call didn't revert due to out-of-gas, if it reverted. We can omit
                 // a bunch of checks.
-                success := and(success, iszero(lt(returndatasize(), minReturnBytes)))
+                success := gt(success, lt(returndatasize(), minReturnBytes))
             }
         }
     }
