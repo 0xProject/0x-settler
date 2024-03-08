@@ -1,6 +1,6 @@
 # 0x Settler
 
-Proof of concept settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
+Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
 
 ### Custody
 
@@ -9,7 +9,7 @@ Custody, not like the delicious custardy, is when the token(s) being traded are 
 - In the middle of a Multihop trade
 - To distribute positive slippage from an AMM
 - To pay fees to a fee recipient in the buy token from an AMM
-- Trading against an ineffeciant AMM that only supports `transferFrom(msg.sender)` (e.g Curve)
+- Trading against an inefficient AMM that only supports `transferFrom(msg.sender)` (e.g Curve)
 
 For the above reasons, there are settlement paths in Settler which allow for custody of the sell token or the buy token. You will see the usage of `custody` to represent this. Sell token or Buy token or both custody is represented by `custody`.
 
@@ -202,7 +202,7 @@ To make gas comparisons fair we will use the following methodology:
 
 ## Permit2 Based Flows
 
-We utilise `Permit2` transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transgers and `PermitBatchTransferFrom` for batch transfers.
+We utilise `Permit2` transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transfers and `PermitBatchTransferFrom` for batch transfers.
 
 `Permit2` provides the following guarantees:
 
@@ -296,7 +296,7 @@ sequenceDiagram
 
 ## Basic Flow
 
-This is the most basic flow and a flow that a number of dexes support. Essentially it is the "call function on DEX, DEX takes tokens from us, DEX gives us tokens". It has ineffeciences as `transferFrom` is more gas expensive than `transfer` and we are required to check/set allowances to the DEX. Typically this DEX also does not support a `recipient` field, introducing yet another needless `transfer` in simple swaps.
+This is the most basic flow and a flow that a number of dexes support. Essentially it is the "call function on DEX, DEX takes tokens from us, DEX gives us tokens". It has inefficiencies as `transferFrom` is more gas expensive than `transfer` and we are required to check/set allowances to the DEX. Typically this DEX also does not support a `recipient` field, introducing yet another needless `transfer` in simple swaps.
 
 ```mermaid
 sequenceDiagram
@@ -426,8 +426,6 @@ sequenceDiagram
 
 It is possible to collect fees via Permit2, which is typically in the token that the Permit2 is offloading (e.g the sell token for that counterparty). To perform this we use the Permit2 batch functionality where the second item in the batch is the fee.
 
-Note: This is still not entirely finalised and may change.
-
 ### OTC fees via Permit2
 
 ```mermaid
@@ -471,7 +469,7 @@ sequenceDiagram
 
 It is possible to collect sell token fees via Permit2 with the UniswapV3 VIP as well, using the Permit2 batch functionality. This flow is similar to the OTC fees.
 
-This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UnuswapV3 with sell token fees.
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UniswapV3 with sell token fees.
 
 ### Uniswap buy token fees via Permit2
 
