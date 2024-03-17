@@ -11,6 +11,7 @@ import {
 
 import {Revert} from "../utils/Revert.sol";
 import {ItoA} from "../utils/ItoA.sol";
+import {Panic} from "../utils/Panic.sol";
 
 interface IERC1967Proxy {
     event Upgraded(address indexed implementation);
@@ -76,15 +77,20 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
     error InterferedWithImplementation(address expected, address actual);
     error InterferedWithVersion(uint256 expected, uint256 actual);
     error DidNotIncrementVersion(uint256 current, uint256 next);
+    error IncrementedVersionTooMuch(uint256 current, uint256 next);
     error RollbackFailed(address expected, address actual);
     error InitializationFailed();
 
     uint256 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     uint256 private constant _ROLLBACK_SLOT = 0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143;
+    uint256 private constant _MAX_VERSION_INCREASE = type(uint64).max;
 
     constructor(uint256 newVersion) AbstractUUPSUpgradeable(newVersion) {
         assert(_IMPLEMENTATION_SLOT == uint256(keccak256("eip1967.proxy.implementation")) - 1);
         assert(_ROLLBACK_SLOT == uint256(keccak256("eip1967.proxy.rollback")) - 1);
+        if (newVersion >= type(uint256).max - _MAX_VERSION_INCREASE) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
     }
 
     function implementation()
@@ -158,7 +164,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
     }
 
     function _checkRollback(address newImplementation, uint256 oldVersion, uint256 implVersion) private {
-        if (oldVersion == implVersion) {
+        if (oldVersion >= implVersion) {
             _delegateCall(
                 newImplementation,
                 abi.encodeCall(IERC1967Proxy.upgrade, (_implementation)),
@@ -167,8 +173,14 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
             if (implementation() != _implementation) {
                 revert RollbackFailed(_implementation, implementation());
             }
-            if (_storageVersion() <= implVersion) {
-                revert DidNotIncrementVersion(implVersion, _storageVersion());
+            uint256 storageVersion = _storageVersion();
+            if (storageVersion <= implVersion) {
+                revert DidNotIncrementVersion(implVersion, storageVersion);
+            }
+            unchecked {
+                if (storageVersion - implVersion > _MAX_VERSION_INCREASE) {
+                    revert IncrementedVersionTooMuch(implVersion, storageVersion);
+                }
             }
             _setImplementation(newImplementation);
             emit Upgraded(newImplementation);
