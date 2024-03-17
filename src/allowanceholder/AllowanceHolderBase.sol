@@ -86,8 +86,12 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     function transferFrom(address token, address owner, address recipient, uint256 amount) internal {
         // msg.sender is the assumed and later validated operator
         TSlot allowance = _ephemeralAllowance(msg.sender, owner, token);
-        // validation of the ephemeral allowance for operator, owner, token via uint underflow
+        // validation of the ephemeral allowance for operator, owner, token via
+        // uint underflow
         _set(allowance, _get(allowance) - amount);
+        // `safeTransferFrom` does not check that `token` actually contains
+        // code. It is the responsibility of integrating code to check for that
+        // if vacuous success is a security concern.
         IERC20(token).safeTransferFrom(owner, recipient, amount);
     }
 

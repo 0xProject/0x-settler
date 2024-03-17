@@ -83,6 +83,11 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
 
     uint256 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     uint256 private constant _ROLLBACK_SLOT = 0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143;
+
+    // `_initialize` checks that the version number exactly increments, but
+    // `upgrade` checks only that the version number increases by at least 1 and
+    // no more than `_MAX_VERSION_INCREASE`. This preserves `upgrade` as an
+    // escape hatch against botched upgrades.
     uint256 private constant _MAX_VERSION_INCREASE = type(uint64).max;
 
     constructor(uint256 newVersion) AbstractUUPSUpgradeable(newVersion) {
@@ -137,6 +142,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
     }
 
     function _initialize() internal virtual onlyProxy {
+        // There is a separate, more lax version of this check in `_checkRollback`.
         if (_storageVersion() + 1 != _implVersion) {
             revert VersionMismatch(_storageVersion(), _implVersion);
         }
@@ -178,6 +184,9 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
                 revert DidNotIncrementVersion(implVersion, storageVersion);
             }
             unchecked {
+                // There is a separate, stricter version of this check in
+                // `_initialize`. This preserves `upgrade` as an escape hatch
+                // against botched upgrades.
                 if (storageVersion - implVersion > _MAX_VERSION_INCREASE) {
                     revert IncrementedVersionTooMuch(implVersion, storageVersion);
                 }

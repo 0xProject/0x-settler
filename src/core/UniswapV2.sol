@@ -49,6 +49,10 @@ abstract contract UniswapV2 {
             // We don't care about phantom overflow here because reserves are
             // limited to 112 bits. Any token balance that would overflow here would
             // also break UniV2.
+            // It is *possible* to set `bips` above the basis and therefore
+            // cause an overflow on this multiplication. However, `bips` is
+            // passed as authenticated calldata, so this is a GIGO error that we
+            // do not attempt to fix.
             unchecked {
                 sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bips).unsafeDiv(10_000);
             }
