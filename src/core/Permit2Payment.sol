@@ -35,10 +35,10 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     using Revert for bool;
 
     /// @dev Permit2 address
-    ISignatureTransfer internal immutable _PERMIT2;
+    ISignatureTransfer internal constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
     function isRestrictedTarget(address target) internal view override returns (bool) {
-        return target == address(_PERMIT2) || target == address(allowanceHolder);
+        return target == address(_PERMIT2) || target == address(_ALLOWANCE_HOLDER);
     }
 
     function _allowCallback(address payable target, uint256 value, bytes memory data)
@@ -64,10 +64,6 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     function _setWitness(bytes32 witness) internal override {
         TransientStorage.set(witness);
     }
-
-    constructor(address permit2, address allowanceHolder) AllowanceHolderContext(allowanceHolder) {
-        _PERMIT2 = ISignatureTransfer(permit2);
-    }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
@@ -78,8 +74,6 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     string private constant _ACTIONS_AND_SLIPPAGE_WITNESS = string(
         abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
-
-    constructor(address permit2, address allowanceHolder) Permit2PaymentBase(permit2, allowanceHolder) {}
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
@@ -142,7 +136,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         }
         if (isForwarded) {
             if (sig.length != 0) revert InvalidSignatureLen();
-            allowanceHolder.transferFrom(
+            _ALLOWANCE_HOLDER.transferFrom(
                 permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
             );
         } else {

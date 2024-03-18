@@ -5,19 +5,15 @@ import {Context} from "../Context.sol";
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 
 abstract contract AllowanceHolderContext is Context {
-    IAllowanceHolder public immutable allowanceHolder;
-
-    constructor(address _allowanceHolder) {
-        allowanceHolder = IAllowanceHolder(_allowanceHolder);
-    }
+    IAllowanceHolder internal constant _ALLOWANCE_HOLDER = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
 
     function _isForwarded() internal view virtual override returns (bool) {
-        return super._isForwarded() || super._msgSender() == address(allowanceHolder);
+        return super._isForwarded() || super._msgSender() == address(_ALLOWANCE_HOLDER);
     }
 
     function _msgSender() internal view virtual override returns (address sender) {
         sender = super._msgSender();
-        if (sender == address(allowanceHolder)) {
+        if (sender == address(_ALLOWANCE_HOLDER)) {
             // ERC-2771 like usage where the _trusted_ `AllowanceHolder` has appended the appropriate
             // msg.sender to the msg data
             assembly ("memory-safe") {
