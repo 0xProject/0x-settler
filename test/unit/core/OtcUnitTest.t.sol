@@ -272,6 +272,8 @@ contract OtcUnitTest is Utils, Test {
     }
 
     function testOtcMetaTxn() public {
+        address taker = address(0xc0de60d);
+
         uint256 amount = 9999;
         ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}),
@@ -284,7 +286,6 @@ contract OtcUnitTest is Utils, Test {
             deadline: 0
         });
 
-        // Maker payment via Permit2
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
             ISignatureTransfer.SignatureTransferDetails({to: RECIPIENT, requestedAmount: amount});
         bytes32 witness = keccak256(
@@ -292,23 +293,13 @@ contract OtcUnitTest is Utils, Test {
                 keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"),
                 TOKEN0,
                 amount,
-                address(this),
+                taker,
                 false
             )
         );
-        _mockExpectCall(
-            PERMIT2,
-            abi.encodeWithSelector(
-                bytes4(0x137c29fe),
-                makerPermit,
-                transferDetails,
-                MAKER,
-                witness,
-                otc.considerationWitnessType(),
-                hex"dead"
-            ),
-            new bytes(0)
-        );
+
+        string memory actionsAndSlippageWitnessType = otc.actionsAndSlippageWitnessType();
+        string memory considerationWitnessType = otc.considerationWitnessType();
 
         // Taker payment via Permit2
         _mockExpectCall(
@@ -317,10 +308,19 @@ contract OtcUnitTest is Utils, Test {
                 bytes4(0x137c29fe),
                 takerPermit,
                 ISignatureTransfer.SignatureTransferDetails({to: MAKER, requestedAmount: amount}),
-                address(this), /* taker */
-                bytes32(0x0000000000000000000000000000000000000000000000000000000000000000), /* witness */
-                otc.actionsAndSlippageWitnessType(),
+                taker,
+                bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff), /* witness */
+                actionsAndSlippageWitnessType,
                 hex"beef"
+            ),
+            new bytes(0)
+        );
+
+        // Maker payment via Permit2
+        _mockExpectCall(
+            PERMIT2,
+            abi.encodeWithSelector(
+                bytes4(0x137c29fe), makerPermit, transferDetails, MAKER, witness, considerationWitnessType, hex"dead"
             ),
             new bytes(0)
         );
@@ -331,7 +331,7 @@ contract OtcUnitTest is Utils, Test {
         // emit OtcOrderSettlement.OtcOrderFilled(
         //     bytes32(0xbee0e2de3e64ecfe06fe7118215a033ac40a8d6a508d60b81cd9ac6addd6e11e),
         //     MAKER,
-        //     address(this),
+        //     taker,
         //     TOKEN1,
         //     TOKEN0,
         //     amount,
@@ -339,7 +339,14 @@ contract OtcUnitTest is Utils, Test {
         // );
 
         otc.fillOtcOrderMeta(
-            RECIPIENT, makerPermit, MAKER, hex"dead", takerPermit, address(this), hex"beef", bytes32(0x00)
+            RECIPIENT,
+            makerPermit,
+            MAKER,
+            hex"dead",
+            takerPermit,
+            taker,
+            hex"beef",
+            bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
         );
     }
 }
