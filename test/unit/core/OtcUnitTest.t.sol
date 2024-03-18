@@ -12,8 +12,6 @@ import {IERC20} from "../../../src/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract OtcOrderSettlementDummy is OtcOrderSettlement, Permit2Payment {
-    constructor(address permit2, address allowanceHolder) Permit2Payment(permit2, allowanceHolder) {}
-
     function considerationWitnessType() external pure returns (string memory) {
         return CONSIDERATION_WITNESS;
     }
@@ -66,8 +64,8 @@ contract OtcOrderSettlementDummy is OtcOrderSettlement, Permit2Payment {
 
 contract OtcUnitTest is Utils, Test {
     OtcOrderSettlementDummy otc;
-    address PERMIT2 = _createNamedRejectionDummy("PERMIT2");
-    address ALLOWANCE_HOLDER = _createNamedRejectionDummy("ALLOWANCE_HOLDER");
+    address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
     address TOKEN1 = _createNamedRejectionDummy("TOKEN1");
@@ -75,7 +73,7 @@ contract OtcUnitTest is Utils, Test {
     address MAKER = _createNamedRejectionDummy("MAKER");
 
     function setUp() public {
-        otc = new OtcOrderSettlementDummy(PERMIT2, ALLOWANCE_HOLDER);
+        otc = new OtcOrderSettlementDummy();
     }
 
     function testOtcDirectCounterparties() public {

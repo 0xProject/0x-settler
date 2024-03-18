@@ -14,10 +14,7 @@ import {IERC20} from "src/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract UniswapV3Dummy is Permit2Payment, UniswapV3 {
-    constructor(address uniFactory, bytes32 poolInit, address permit2, address allowanceHolder)
-        UniswapV3(uniFactory, poolInit)
-        Permit2Payment(permit2, allowanceHolder)
-    {}
+    constructor(address uniFactory, bytes32 poolInit) UniswapV3(uniFactory, poolInit) Permit2Payment() {}
 
     function sellTokenForTokenSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
         external
@@ -57,8 +54,8 @@ contract UniswapV3PoolDummy {
 contract UniswapV3UnitTest is Utils, Test {
     UniswapV3Dummy uni;
     address UNI_FACTORY = _createNamedRejectionDummy("UNI_FACTORY");
-    address PERMIT2 = _createNamedRejectionDummy("PERMIT2");
-    address ALLOWANCE_HOLDER = _createNamedRejectionDummy("ALLOWANCE_HOLDER");
+    address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
     address TOKEN1 = _createNamedRejectionDummy("TOKEN1");
@@ -81,7 +78,7 @@ contract UniswapV3UnitTest is Utils, Test {
     }
 
     function setUp() public {
-        uni = new UniswapV3Dummy(UNI_FACTORY, keccak256(abi.encodePacked("POOL_INIT")), PERMIT2, ALLOWANCE_HOLDER);
+        uni = new UniswapV3Dummy(UNI_FACTORY, keccak256(abi.encodePacked("POOL_INIT")));
     }
 
     function testUniswapV3SellSelfFunded() public {

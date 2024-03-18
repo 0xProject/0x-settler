@@ -19,13 +19,10 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.label(address(this), "FoundryTest");
         vm.label(address(_weth), "WETH");
 
-        AllowanceHolder trustedForwarder = new AllowanceHolder();
         _settler = new Settler(
-            0x000000000022D473030F116dDEE9F6B43aC78BA3, // Permit2
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
-            0x6B175474E89094C44Da98b954EedeAC495271d0F, // DAI
-            address(trustedForwarder)
+            0x6B175474E89094C44Da98b954EedeAC495271d0F // DAI
         );
         vm.label(address(_settler), "Settler");
     }

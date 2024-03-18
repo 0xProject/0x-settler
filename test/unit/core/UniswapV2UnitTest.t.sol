@@ -10,8 +10,6 @@ import {IERC20} from "src/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract UniswapV2Dummy is Permit2Payment, UniswapV2 {
-    constructor() Permit2Payment(address(0xdead), address(0xdead)) {}
-
     function sell(
         address recipient,
         address sellToken,

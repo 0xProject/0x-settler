@@ -10,8 +10,6 @@ import {Utils} from "../Utils.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract BasicDummy is Basic, Permit2Payment {
-    constructor(address permit2, address allowanceHolder) Permit2Payment(permit2, allowanceHolder) {}
-
     function sellToPool(address pool, IERC20 sellToken, uint256 bips, uint256 offset, bytes memory data) public {
         super.basicSellToPool(pool, sellToken, bips, offset, data);
     }
@@ -19,13 +17,13 @@ contract BasicDummy is Basic, Permit2Payment {
 
 contract BasicUnitTest is Utils, Test {
     BasicDummy basic;
-    address PERMIT2 = _deterministicAddress("PERMIT2");
-    address ALLOWANCE_HOLDER = _deterministicAddress("ALLOWANCE_HOLDER");
+    address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
     address POOL = _createNamedRejectionDummy("POOL");
     IERC20 TOKEN = IERC20(_createNamedRejectionDummy("TOKEN"));
 
     function setUp() public {
-        basic = new BasicDummy(PERMIT2, ALLOWANCE_HOLDER);
+        basic = new BasicDummy();
     }
 
     function testBasicSell() public {
