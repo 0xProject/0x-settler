@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @dev if you update this, you also have to update the length of the array `NonceList.List.links` in Deployer.sol
+/// @dev if you update this, you also have to update the type in `ZeroExSettlerDeployerSafeModule.removeByNonceSelector` in SafeModule.sol
 type Nonce is uint32;
 
 function incr(Nonce a) pure returns (Nonce) {

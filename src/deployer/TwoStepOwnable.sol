@@ -13,6 +13,9 @@ interface IOwnable is IERC165 {
     function owner() external view returns (address);
 
     function transferOwnership(address) external returns (bool);
+
+    error PermissionDenied();
+    error ZeroAddress();
 }
 
 abstract contract AbstractOwnable is IOwnable {
@@ -44,9 +47,6 @@ abstract contract AbstractOwnable is IOwnable {
         _requireOwner();
         _;
     }
-
-    error PermissionDenied();
-    error ZeroAddress();
 }
 
 abstract contract AddressSlotStorage {

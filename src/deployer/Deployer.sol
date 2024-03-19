@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IERC165, AbstractOwnable} from "./TwoStepOwnable.sol";
+import {IERC165, IOwnable, AbstractOwnable} from "./TwoStepOwnable.sol";
 import {
     ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable, AbstractUUPSUpgradeable
 } from "../proxy/ERC1967UUPSUpgradeable.sol";
@@ -13,21 +13,7 @@ import {ItoA} from "../utils/ItoA.sol";
 import {ProxyMultiCall} from "../utils/ProxyMultiCall.sol";
 import {Feature, wrap, isNull} from "./Feature.sol";
 import {Nonce, zero, isNull} from "./Nonce.sol";
-
-interface IERC721View is IERC165 {
-    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-
-    function balanceOf(address) external view returns (uint256);
-    function ownerOf(uint256 tokenId) external view returns (address);
-    function getApproved(uint256 tokenId) external view returns (address);
-    function isApprovedForAll(address owner, address operator) external view returns (bool);
-}
-
-interface IERC721ViewMetadata is IERC721View {
-    function name() external view returns (string memory);
-    function symbol() external view returns (string memory);
-    function tokenURI(uint256) external view returns (string memory);
-}
+import {IDeployer, IERC721ViewMetadata} from "./IDeployer.sol";
 
 library NonceList {
     struct ListElem {
@@ -60,11 +46,9 @@ library NonceList {
         }
     }
 
-    error FutureNonce(Nonce);
-
     function remove(List storage list, Nonce thisNonce) internal returns (Nonce newHead, bool updatedHead) {
         if (thisNonce > list.lastNonce) {
-            revert FutureNonce(thisNonce);
+            revert IDeployer.FutureNonce(thisNonce);
         }
 
         ListElem storage entry = _idx(list.links, thisNonce);
@@ -89,7 +73,7 @@ library NonceList {
     }
 }
 
-contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, ProxyMultiCall {
+contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, ProxyMultiCall {
     using NonceList for NonceList.List;
 
     struct FeatureInfo {
@@ -118,12 +102,12 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
-    function authorized(Feature feature) external view returns (address auth, uint40 deadline) {
+    function authorized(Feature feature) external view override returns (address auth, uint40 deadline) {
         FeatureInfo storage result = _stor1().featureInfo[feature];
         (auth, deadline) = (result.auth, result.deadline);
     }
 
-    function descriptionHash(Feature feature) external view returns (bytes32) {
+    function descriptionHash(Feature feature) external view override returns (bytes32) {
         return _stor1().featureInfo[feature].descriptionHash;
     }
 
@@ -170,13 +154,11 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         );
     }
 
-    function next(Feature feature) external view returns (address) {
+    function next(Feature feature) external view override returns (address) {
         return Create3.predict(_salt(feature, _stor1().featureInfo[feature].list.lastNonce.incr()));
     }
 
-    error NotDeployed(address);
-
-    function deployInfo(address instance) public view returns (Feature feature, Nonce nonce) {
+    function deployInfo(address instance) public view override returns (Feature feature, Nonce nonce) {
         DeployInfo storage info = _stor1().deployInfo[instance];
         (feature, nonce) = (info.feature, info.nonce);
         if (feature.isNull()) {
@@ -184,11 +166,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
-    error FeatureNotInitialized(Feature);
-
-    event Authorized(Feature indexed, address indexed, uint40);
-
-    function authorize(Feature feature, address auth, uint40 deadline) external onlyOwner returns (bool) {
+    function authorize(Feature feature, address auth, uint40 deadline) external override onlyOwner returns (bool) {
         require((auth == address(0)) == (block.timestamp > deadline));
         if (feature.isNull()) {
             Panic.panic(Panic.ENUM_CAST);
@@ -210,12 +188,9 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
-    event PermanentURI(string, uint256 indexed);
-
-    error FeatureInitialized(Feature);
-
     function setDescription(Feature feature, string calldata description)
         external
+        override
         onlyOwner
         returns (string memory content)
     {
@@ -235,13 +210,10 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         emit PermanentURI(IPFS.CIDv0(contentHash), Feature.unwrap(feature));
     }
 
-    error DeployFailed(Feature, Nonce, address);
-
-    event Deployed(Feature indexed, Nonce indexed, address indexed);
-
     function deploy(Feature feature, bytes calldata initCode)
         external
         payable
+        override
         returns (address predicted, Nonce thisNonce)
     {
         Nonce prevNonce;
@@ -263,9 +235,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         }
     }
 
-    event Removed(Feature indexed, Nonce indexed, address indexed);
-
-    function remove(Feature feature, Nonce nonce) public returns (bool) {
+    function remove(Feature feature, Nonce nonce) public override returns (bool) {
         (Nonce newHead, bool updatedHead) = _requireAuthorized(feature).list.remove(nonce);
         address deployment = Create3.predict(_salt(feature, nonce));
         if (updatedHead) {
@@ -279,14 +249,12 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         return true;
     }
 
-    function remove(address instance) external returns (bool) {
+    function remove(address instance) external override returns (bool) {
         (Feature feature, Nonce nonce) = deployInfo(instance);
         return remove(feature, nonce);
     }
 
-    event RemovedAll(Feature indexed);
-
-    function removeAll(Feature feature) external returns (bool) {
+    function removeAll(Feature feature) external override returns (bool) {
         Nonce nonce = _requireAuthorized(feature).list.clear();
         if (!nonce.isNull()) {
             emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), Feature.unwrap(feature));
@@ -324,8 +292,6 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         return 0;
     }
 
-    error NoToken(uint256);
-
     function _requireTokenExists(Feature feature) private view returns (Nonce nonce) {
         if ((nonce = _stor1().featureInfo[feature].list.head).isNull()) {
             revert NoToken(Feature.unwrap(feature));
@@ -362,7 +328,7 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
 
     // solc is dumb
 
-    function owner() public view override(ERC1967UUPSUpgradeable, AbstractOwnable) returns (address) {
+    function owner() public view override(IOwnable, AbstractOwnable, ERC1967UUPSUpgradeable) returns (address) {
         return super.owner();
     }
 
