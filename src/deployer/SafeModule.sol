@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IDeployer} from "./IDeployer.sol";
+import {IDeployer, IDeployerRemove} from "./IDeployer.sol";
 import {Feature} from "./Feature.sol";
 import {Nonce} from "./Nonce.sol";
 import {Revert} from "../utils/Revert.sol";
@@ -19,7 +19,7 @@ interface ISafeMinimal {
     function isOwner(address) external view returns (bool);
 }
 
-contract ZeroExSettlerDeployerSafeModule {
+contract ZeroExSettlerDeployerSafeModule is IDeployerRemove {
     using Revert for bool;
 
     ISafeMinimal public immutable safe;
@@ -34,29 +34,23 @@ contract ZeroExSettlerDeployerSafeModule {
         _;
     }
 
-    function remove(Feature feature, Nonce nonce) external onlyOwner returns (bool) {
-        (bool success, bytes memory returnData) = safe.execTransactionFromModuleReturnData(
-            address(deployer),
-            0,
-            abi.encodeWithSignature("remove(uint128,uint32)", feature, nonce),
-            ISafeMinimal.Operation.Call
-        );
+    function remove(Feature, Nonce) external override onlyOwner returns (bool) {
+        (bool success, bytes memory returnData) =
+            safe.execTransactionFromModuleReturnData(address(deployer), 0, msg.data, ISafeMinimal.Operation.Call);
         success.maybeRevert(returnData);
         return abi.decode(returnData, (bool));
     }
 
-    function remove(address instance) external onlyOwner returns (bool) {
-        (bool success, bytes memory returnData) = safe.execTransactionFromModuleReturnData(
-            address(deployer), 0, abi.encodeWithSignature("remove(address)", (instance)), ISafeMinimal.Operation.Call
-        );
+    function remove(address) external override onlyOwner returns (bool) {
+        (bool success, bytes memory returnData) =
+            safe.execTransactionFromModuleReturnData(address(deployer), 0, msg.data, ISafeMinimal.Operation.Call);
         success.maybeRevert(returnData);
         return abi.decode(returnData, (bool));
     }
 
-    function removeAll(Feature feature) external onlyOwner returns (bool) {
-        (bool success, bytes memory returnData) = safe.execTransactionFromModuleReturnData(
-            address(deployer), 0, abi.encodeCall(deployer.removeAll, (feature)), ISafeMinimal.Operation.Call
-        );
+    function removeAll(Feature) external override onlyOwner returns (bool) {
+        (bool success, bytes memory returnData) =
+            safe.execTransactionFromModuleReturnData(address(deployer), 0, msg.data, ISafeMinimal.Operation.Call);
         success.maybeRevert(returnData);
         return abi.decode(returnData, (bool));
     }

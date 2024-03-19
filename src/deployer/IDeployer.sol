@@ -23,7 +23,13 @@ interface IERC721ViewMetadata is IERC721View {
     function tokenURI(uint256) external view returns (string memory);
 }
 
-interface IDeployer is IOwnable, IERC721ViewMetadata, IMultiCall {
+interface IDeployerRemove {
+    function remove(Feature, Nonce) external returns (bool);
+    function remove(address) external returns (bool);
+    function removeAll(Feature) external returns (bool);
+}
+
+interface IDeployer is IOwnable, IERC721ViewMetadata, IMultiCall, IDeployerRemove {
     function authorized(Feature) external view returns (address, uint40);
     function descriptionHash(Feature) external view returns (bytes32);
     function next(Feature) external view returns (address);
@@ -31,9 +37,6 @@ interface IDeployer is IOwnable, IERC721ViewMetadata, IMultiCall {
     function authorize(Feature, address, uint40) external returns (bool);
     function setDescription(Feature, string calldata) external returns (string memory);
     function deploy(Feature, bytes calldata) external payable returns (address, Nonce);
-    function remove(Feature, Nonce) external returns (bool);
-    function remove(address) external returns (bool);
-    function removeAll(Feature) external returns (bool);
 
     error NotDeployed(address);
     error FeatureNotInitialized(Feature);

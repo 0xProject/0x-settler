@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {Panic} from "../utils/Panic.sol";
 
-/// @dev if you update this, you also have to update the type in `ZeroExSettlerDeployerSafeModule.remove` in SafeModule.sol
 type Feature is uint128;
 
 function eq(Feature a, Feature b) pure returns (bool) {
