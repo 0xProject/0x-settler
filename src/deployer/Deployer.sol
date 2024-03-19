@@ -88,15 +88,15 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         Nonce nonce;
     }
 
-    /// @custom:storage-location erc7201:0xV5Deployer.1
-    struct ZeroExV5DeployerStorage1 {
+    /// @custom:storage-location erc7201:ZeroExSettlerDeployer.1
+    struct ZeroExSettlerDeployerStorage1 {
         mapping(Feature => FeatureInfo) featureInfo;
         mapping(address => DeployInfo) deployInfo;
     }
 
-    uint256 private constant _BASE_SLOT = 0x6fc90c2fe4d07a554a5baba07c2807f581f77bd906c5068b416617fdd1427800;
+    uint256 private constant _BASE_SLOT = 0xb48ce68a610ebca40b9e7586fb84b5d8b0b030b71733a8d4a75a983d5f78e800;
 
-    function _stor1() private pure returns (ZeroExV5DeployerStorage1 storage r) {
+    function _stor1() private pure returns (ZeroExSettlerDeployerStorage1 storage r) {
         assembly ("memory-safe") {
             r.slot := _BASE_SLOT
         }
@@ -112,7 +112,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
     }
 
     constructor() ERC1967UUPSUpgradeable(1) {
-        ZeroExV5DeployerStorage1 storage stor1 = _stor1();
+        ZeroExSettlerDeployerStorage1 storage stor1 = _stor1();
         // storage starts at the slot defined by ERC7201
         {
             bytes32 slot;
@@ -120,7 +120,9 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
                 slot := stor1.slot
             }
             assert(
-                slot == keccak256(abi.encodePacked(uint256(keccak256("0xV5Deployer.1")) - 1)) & ~bytes32(uint256(0xff))
+                slot
+                    == keccak256(abi.encodePacked(uint256(keccak256("ZeroExSettlerDeployer.1")) - 1))
+                        & ~bytes32(uint256(0xff))
             );
         }
 
@@ -201,7 +203,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         content = string.concat(
             "{\"description\": \"",
             description,
-            "\", \"name\": \"0xV5 feature ",
+            "\", \"name\": \"0x Settler feature ",
             ItoA.itoa(Feature.unwrap(feature)),
             "\"}\n"
         );
@@ -263,8 +265,8 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         return true;
     }
 
-    string public constant override name = "0xV5";
-    string public constant override symbol = "0xV5";
+    string public constant override name = "0x Settler";
+    string public constant override symbol = "0x Settler";
 
     function supportsInterface(bytes4 interfaceId)
         public
@@ -280,7 +282,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         if (instance == address(0)) {
             revert ZeroAddress();
         }
-        ZeroExV5DeployerStorage1 storage stor1 = _stor1();
+        ZeroExSettlerDeployerStorage1 storage stor1 = _stor1();
         DeployInfo storage info = stor1.deployInfo[instance];
         (Feature feature, Nonce nonce) = (info.feature, info.nonce);
         if (feature.isNull()) {
