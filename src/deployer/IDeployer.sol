@@ -9,7 +9,7 @@ import {Nonce} from "./Nonce.sol";
 
 interface IERC721View is IERC165 {
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-    event PermanentURI(string, uint256 indexed);
+    event PermanentURI(string, uint256 indexed); // not technically part of the standard
 
     function balanceOf(address) external view returns (uint256);
     function ownerOf(uint256 tokenId) external view returns (address);
