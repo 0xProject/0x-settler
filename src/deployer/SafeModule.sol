@@ -34,24 +34,22 @@ contract ZeroExSettlerDeployerSafeModule is IDeployerRemove {
         _;
     }
 
-    function remove(Feature, Nonce) external override onlyOwner returns (bool) {
+    function _callSafeReturnBool() internal onlyOwner returns (bool) {
         (bool success, bytes memory returnData) =
             safe.execTransactionFromModuleReturnData(address(deployer), 0, msg.data, ISafeMinimal.Operation.Call);
         success.maybeRevert(returnData);
         return abi.decode(returnData, (bool));
     }
 
-    function remove(address) external override onlyOwner returns (bool) {
-        (bool success, bytes memory returnData) =
-            safe.execTransactionFromModuleReturnData(address(deployer), 0, msg.data, ISafeMinimal.Operation.Call);
-        success.maybeRevert(returnData);
-        return abi.decode(returnData, (bool));
+    function remove(Feature, Nonce) external override returns (bool) {
+        return _callSafeReturnBool();
     }
 
-    function removeAll(Feature) external override onlyOwner returns (bool) {
-        (bool success, bytes memory returnData) =
-            safe.execTransactionFromModuleReturnData(address(deployer), 0, msg.data, ISafeMinimal.Operation.Call);
-        success.maybeRevert(returnData);
-        return abi.decode(returnData, (bool));
+    function remove(address) external override returns (bool) {
+        return _callSafeReturnBool();
+    }
+
+    function removeAll(Feature) external override returns (bool) {
+        return _callSafeReturnBool();
     }
 }
