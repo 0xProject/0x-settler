@@ -15,7 +15,7 @@ contract AllowanceHolder is TransientStorage, AllowanceHolderBase {
         returns (bytes memory)
     {
         (bytes memory result, address sender, TSlot allowance) = _exec(operator, token, amount, target, data);
-        // EIP-3074 seems unlikely; ERC-4337 unfriendly
+        // EIP-3074 seems unlikely
         if (sender != tx.origin) {
             _set(allowance, 0);
         }
