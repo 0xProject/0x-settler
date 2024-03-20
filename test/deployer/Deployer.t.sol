@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.25;
 
 import {Deployer, Nonce, zero, Feature, wrap} from "src/deployer/Deployer.sol";
 import {IERC721View, IDeployer} from "src/deployer/IDeployer.sol";

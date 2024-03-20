@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.25;
 
 import {IERC165, IOwnable} from "./TwoStepOwnable.sol";
 import {IERC1967Proxy} from "../proxy/ERC1967UUPSUpgradeable.sol";

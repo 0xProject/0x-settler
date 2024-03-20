@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.25;
 
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Panic} from "src/utils/Panic.sol";

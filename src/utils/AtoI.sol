@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 library AtoI {
     function atoi(string memory x) internal pure returns (uint256 r) {
