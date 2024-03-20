@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {Basic} from "../../../src/core/Basic.sol";
 import {Permit2Payment} from "../../../src/core/Permit2Payment.sol";

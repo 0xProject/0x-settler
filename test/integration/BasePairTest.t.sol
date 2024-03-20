@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
@@ -64,7 +64,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         //         msg.sender         wordPos    bitmap
         // as of writing, nonceBitmap begins at slot 0
         // keccak256(uint256(wordPos) . keccak256(uint256(msg.sender) . uint256(slot0)))
-        // https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html
+        // https://docs.soliditylang.org/en/v0.8.25/internals/layout_in_storage.html
         bytes32 slotId = keccak256(abi.encode(uint256(0), keccak256(abi.encode(who, uint256(0)))));
         bytes32 beforeValue = vm.load(address(PERMIT2), slotId);
         if (uint256(beforeValue) == 0) {

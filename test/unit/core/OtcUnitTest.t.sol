@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {OtcOrderSettlement} from "src/core/OtcOrderSettlement.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";
@@ -72,6 +72,14 @@ contract OtcUnitTest is Utils, Test {
     address RECIPIENT = _createNamedRejectionDummy("RECIPIENT");
     address MAKER = _createNamedRejectionDummy("MAKER");
 
+    function _emitOtcOrder(bytes32 orderHash, uint128 fillAmount) internal {
+        assembly ("memory-safe") {
+            mstore(0x00, orderHash)
+            mstore(0x20, shl(0x80, fillAmount))
+            log0(0x00, 0x30)
+        }
+    }
+
     function setUp() public {
         otc = new OtcOrderSettlementDummy();
     }
@@ -128,17 +136,29 @@ contract OtcUnitTest is Utils, Test {
             new bytes(0)
         );
 
-        // Broken usage of OtcOrderSettlement.OtcOrderFilled in 0.8.21
-        //      https://github.com/foundry-rs/foundry/issues/6206
+        //// https://github.com/foundry-rs/foundry/issues/7457
         // vm.expectEmit(address(otc));
-        // emit OtcOrderSettlement.OtcOrderFilled(
-        //     bytes32(0xbee0e2de3e64ecfe06fe7118215a033ac40a8d6a508d60b81cd9ac6addd6e11e),
-        //     MAKER,
-        //     address(this),
-        //     TOKEN1,
-        //     TOKEN0,
-        //     amount,
-        //     amount
+        // _emitOtcOrder(
+        //     keccak256(
+        //         abi.encode(
+        //             keccak256(
+        //                 "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //             ),
+        //             witness,
+        //             keccak256(
+        //                 abi.encode(
+        //                     keccak256(
+        //                         "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //                     ),
+        //                     TOKEN1,
+        //                     amount,
+        //                     MAKER,
+        //                     false
+        //                 )
+        //             )
+        //         )
+        //     ),
+        //     uint128(amount)
         // );
 
         otc.fillOtcOrderDirectCounterparties(RECIPIENT, makerPermit, MAKER, hex"dead", takerPermit, hex"beef");
@@ -188,17 +208,29 @@ contract OtcUnitTest is Utils, Test {
             abi.encode(true)
         );
 
-        // Broken usage of OtcOrderSettlement.OtcOrderFilled in 0.8.21
-        //      https://github.com/foundry-rs/foundry/issues/6206
+        //// https://github.com/foundry-rs/foundry/issues/7457
         // vm.expectEmit(address(otc));
-        // emit OtcOrderSettlement.OtcOrderFilled(
-        //     bytes32(0xbee0e2de3e64ecfe06fe7118215a033ac40a8d6a508d60b81cd9ac6addd6e11e),
-        //     MAKER,
-        //     address(this),
-        //     TOKEN1,
-        //     TOKEN0,
-        //     amount,
-        //     amount
+        // _emitOtcOrder(
+        //     keccak256(
+        //         abi.encode(
+        //             keccak256(
+        //                 "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //             ),
+        //             witness,
+        //             keccak256(
+        //                 abi.encode(
+        //                     keccak256(
+        //                         "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //                     ),
+        //                     TOKEN1,
+        //                     amount,
+        //                     MAKER,
+        //                     false
+        //                 )
+        //             )
+        //         )
+        //     ),
+        //     uint128(amount)
         // );
 
         vm.prank(ALLOWANCE_HOLDER);
@@ -255,17 +287,29 @@ contract OtcUnitTest is Utils, Test {
             address(TOKEN0), abi.encodeWithSelector(IERC20.transfer.selector, MAKER, amount), abi.encode(true)
         );
 
-        // Broken usage of OtcOrderSettlement.OtcOrderFilled in 0.8.21
-        //      https://github.com/foundry-rs/foundry/issues/6206
+        //// https://github.com/foundry-rs/foundry/issues/7457
         // vm.expectEmit(address(otc));
-        // emit OtcOrderSettlement.OtcOrderFilled(
-        //     bytes32(0x33d473fdc5cd07e2f752b882bb4f51ccc88c742aa085ebdcbd4af689aba7ffd4),
-        //     MAKER,
-        //     address(this),
-        //     TOKEN1,
-        //     TOKEN0,
-        //     amount,
-        //     amount
+        // _emitOtcOrder(
+        //     keccak256(
+        //         abi.encode(
+        //             keccak256(
+        //                 "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //             ),
+        //             witness,
+        //             keccak256(
+        //                 abi.encode(
+        //                     keccak256(
+        //                         "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //                     ),
+        //                     TOKEN1,
+        //                     amount,
+        //                     MAKER,
+        //                     true
+        //                 )
+        //             )
+        //         )
+        //     ),
+        //     uint128(amount)
         // );
 
         otc.fillOtcOrderSelf(RECIPIENT, makerPermit, MAKER, hex"dead", TOKEN0, amount, address(this));
@@ -325,17 +369,29 @@ contract OtcUnitTest is Utils, Test {
             new bytes(0)
         );
 
-        // Broken usage of OtcOrderSettlement.OtcOrderFilled in 0.8.21
-        //      https://github.com/foundry-rs/foundry/issues/6206
+        //// https://github.com/foundry-rs/foundry/issues/7457
         // vm.expectEmit(address(otc));
-        // emit OtcOrderSettlement.OtcOrderFilled(
-        //     bytes32(0xbee0e2de3e64ecfe06fe7118215a033ac40a8d6a508d60b81cd9ac6addd6e11e),
-        //     MAKER,
-        //     taker,
-        //     TOKEN1,
-        //     TOKEN0,
-        //     amount,
-        //     amount
+        // _emitOtcOrder(
+        //     keccak256(
+        //         abi.encode(
+        //             keccak256(
+        //                 "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //             ),
+        //             witness,
+        //             keccak256(
+        //                 abi.encode(
+        //                     keccak256(
+        //                         "Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)"
+        //                     ),
+        //                     TOKEN1,
+        //                     amount,
+        //                     MAKER,
+        //                     false
+        //                 )
+        //             )
+        //         )
+        //     ),
+        //     uint128(amount)
         // );
 
         otc.fillOtcOrderMeta(

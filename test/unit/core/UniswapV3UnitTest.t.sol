@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {UniswapV3, IUniswapV3Pool} from "src/core/UniswapV3.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";

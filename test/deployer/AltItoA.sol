@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity 0.8.25;
 
 library AltItoA {
     function altItoa(uint256 value) internal pure returns (string memory) {
