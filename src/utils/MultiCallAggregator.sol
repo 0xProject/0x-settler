@@ -195,8 +195,9 @@ contract MultiCallAggregator {
         bytes32 selector = bytes32(IMultiCallAggregator.multicall.selector);
         Call[] calldata calls;
         assembly ("memory-safe") {
+            let err := callvalue()
             // Check the selector.
-            let err := xor(selector, calldataload(0x00))
+            err := or(err, xor(selector, calldataload(0x00)))
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
             calls.offset := add(0x20, calls.offset) // Can't overflow without clobbering selector.
