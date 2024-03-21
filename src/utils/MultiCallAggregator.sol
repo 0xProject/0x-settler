@@ -19,7 +19,7 @@ struct Result {
 }
 
 interface IMultiCallAggregator {
-    function multicall(Call[] calldata) external returns (Result[] memory);
+    function multicall(Call[] calldata, uint256 contextdepth) external returns (Result[] memory);
 }
 
 ////////////////////// ABANDON ALL HOPE YE WHO ENTER HERE //////////////////////
@@ -208,7 +208,7 @@ contract MultiCallAggregator {
         assert(address(this) == 0x000000000000175a8b9bC6d539B3708EEd92EA6c || block.chainid == 31337);
     }
 
-    function multicall(Call[] calldata calls) internal returns (Result[] memory result) {
+    function multicall(Call[] calldata calls, uint256 contextdepth) internal returns (Result[] memory result) {
         result = new Result[](calls.length);
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
             (address target, bytes calldata data, RevertDisposition revertDisposition) = calls.unsafeGet(i);
@@ -227,7 +227,7 @@ contract MultiCallAggregator {
                     require(target.code.length != 0);
                 }
             } else {
-                (success, returndata) = target.safeCall(data, 4; // I chose 4 arbitrarily
+                (success, returndata) = target.safeCall(data, contextdepth);
             }
             result.unsafeSet(i, success, returndata);
             if (!success && revertDisposition == RevertDisposition.STOP) {
@@ -243,12 +243,15 @@ contract MultiCallAggregator {
     fallback() external payable {
         bytes32 selector = bytes32(IMultiCallAggregator.multicall.selector);
         Call[] calldata calls;
+        uint256 contextdepth;
         assembly ("memory-safe") {
             let err := callvalue() // `nonpayable`
             err := or(err, xor(selector, calldataload(0x00))) // Check the selector.
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
             calls.offset := add(0x20, calls.offset) // Can't overflow without clobbering selector.
+            // Check that `calls.offset` doesn't alias `contextdepth`.
+            err := or(err, lt(calls.offset, 0x44))
             // Check that `calls.offset` is in-bounds.
             err := or(err, iszero(lt(calls.offset, calldatasize())))
             // Check that `calls.length` doesn't overflow.
@@ -259,10 +262,11 @@ contract MultiCallAggregator {
                 err := or(err, lt(end, calls.offset)) // Check for overflow.
                 err := or(err, gt(end, calldatasize())) // Check that it's in-bounds.
             }
+            contextdepth := calldataload(0x24)
 
             if err { revert(0x00, 0x00) }
         }
 
-        multicall(calls).unsafeReturn();
+        multicall(calls, contextdepth).unsafeReturn();
     }
 }
