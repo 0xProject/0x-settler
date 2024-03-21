@@ -105,7 +105,7 @@ library UnsafeArray {
             err := or(err, iszero(lt(data.offset, calldatasize())))
             // `data.offset` now points to the length field 32 bytes before the start of the actual array.
 
-            // Now we load `data.length` and set `data.offset` to the start of calls.
+            // Now we load `data.length` and set `data.offset` to the start of the actual array.
             data.length := calldataload(data.offset)
             data.offset := add(0x20, data.offset) // Can't overflow; calldata can't be that long.
             {
