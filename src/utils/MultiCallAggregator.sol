@@ -82,25 +82,25 @@ library UnsafeArray {
                     )
                 )
             // Because the offset stored in `calls` is arbitrary, we have to check it.
-            let err := lt(data.offset, add(calls.offset, shl(0x05, calls.length)))
-            err := or(err, iszero(lt(data.offset, calldatasize())))
+            let err := lt(data.offset, add(calls.offset, shl(0x05, calls.length))) // Must not alias `calls`; checks for overflow.
+            // Check that the whole `Call` struct is in-bounds.
+            err := or(err, lt(add(0x40, data.offset), data.offset)) // Check for overflow.
+            err := or(err, gt(add(0x40, data.offset), calldatasize())) // Check that the `Call` struct is in-bounds.
             // `data.offset` now points to `target`; load it.
             target := calldataload(data.offset)
+            // Check for dirty bits in `target`.
+            err := or(err, shr(0xa0, target))
 
-            {
-                // Indirect `data.offset` again to get the `bytes` payload.
-                let tmp :=
-                    add(
-                        data.offset,
-                        calldataload(
-                            // Can't overflow; `data.offset` is in-bounds of `calldata`.
-                            add(0x20, data.offset)
-                        )
+            // Indirect `data.offset` again to get the `bytes` payload.
+            data.offset :=
+                add(
+                    // We allow the offset stored in the `Call` struct to be negative.
+                    data.offset,
+                    calldataload(
+                        // Can't overflow; `data.offset` is in-bounds of `calldata`.
+                        add(0x20, data.offset)
                     )
-                // Check that `tmp` (the new `data.offset`) didn't overflow.
-                err := or(err, lt(tmp, data.offset))
-                data.offset := tmp
-            }
+                )
             // Check that `data.offset` is in-bounds.
             err := or(err, iszero(lt(data.offset, calldatasize())))
             // `data.offset` now points to the length field 32 bytes before the start of the actual array.
