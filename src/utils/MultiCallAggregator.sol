@@ -197,9 +197,9 @@ contract MultiCallAggregator {
         assembly ("memory-safe") {
             // Check the selector.
             let err := xor(selector, calldataload(0x00))
-            calls.offset := add(0x04, calldataload(0x04)) // can't overflow without clobbering selector
+            calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
-            calls.offset := add(0x20, calls.offset) // can't overflow without clobbering selector
+            calls.offset := add(0x20, calls.offset) // Can't overflow without clobbering selector.
             // Check that `calls.offset` is in-bounds.
             err := or(err, iszero(lt(calls.offset, calldatasize())))
             // Check that `calls.length` doesn't overflow.
