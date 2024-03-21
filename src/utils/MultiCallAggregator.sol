@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 struct Call {
     address target;
@@ -14,6 +14,10 @@ struct Result {
 interface IMultiCallAggregator {
     function multicall(Call[] calldata) external returns (Result[] memory);
 }
+
+////////////////////// ABANDON ALL HOPE YE WHO ENTER HERE //////////////////////
+// But seriously, everything that comes after this is a pile of gas golfing. All
+// you need to know is the interface above.
 
 library SafeCall {
     function safeCall(address target, bytes calldata data, uint256 calldepth)
@@ -65,10 +69,11 @@ library SafeCall {
 }
 
 library UnsafeArray {
+    /// This is equivalent to `(target, data) = (calls[i].target, calls[i].data)`
     function unsafeGet(Call[] calldata calls, uint256 i) internal pure returns (address target, bytes calldata data) {
         assembly ("memory-safe") {
-            // Initially, we set `data.offset` to the pointer to the length. This is 32 bytes before
-            // the actual start of data.
+            // Initially, we set `data.offset` to point at the `Call` struct. This is 32 bytes
+            // before the offset to the actual `data` array length.
             data.offset :=
                 add(
                     calls.offset,
@@ -76,7 +81,7 @@ library UnsafeArray {
                         add(shl(5, i), calls.offset) // Can't overflow; we assume `i` is in-bounds.
                     )
                 )
-            // Because the offset to `data` stored in `calls` is arbitrary, we have to check it.
+            // Because the offset stored in `calls` is arbitrary, we have to check it.
             let err := lt(data.offset, add(calls.offset, shl(5, calls.length)))
             err := or(err, iszero(lt(data.offset, calldatasize())))
             // `data.offset` now points to `target`; load it.
@@ -98,6 +103,7 @@ library UnsafeArray {
             }
             // Check that `data.offset` is in-bounds.
             err := or(err, iszero(lt(data.offset, calldatasize())))
+            // `data.offset` now points to the length field 32 bytes before the start of the actual array.
 
             // Now we load `data.length` and set `data.offset` to the start of calls.
             data.length := calldataload(data.offset)
@@ -131,20 +137,27 @@ library UnsafeMath {
 library UnsafeReturn {
     /// This is equivalent to `return(abi.encode(r))`
     function unsafeReturn(Result[] memory r) internal pure {
+        // We assume (and our use in this file obeys) that all these objects in memory are laid out
+        // contiguously and in a sensible order.
         assembly ("memory-safe") {
-            let returndatastart := sub(r, 0x20) // this is not technically memory safe
+            // This is not technically memory safe, but manual verification of the emitted bytecode
+            // demonstrates that this does not clobber any compiler-generated temporaries.
+            let returndatastart := sub(r, 0x20)
             mstore(returndatastart, 0x20)
+
             let returndataend
 
             {
+                // `end` points *to* the last element of `r`. We need to do a little extra work for
+                // the last element, so we stop one short.
                 let end := add(r, shl(5, mload(r)))
                 let base := add(0x20, r)
                 for { let i := base } lt(i, end) { i := add(0x20, i) } {
-                    let ri := mload(i)
-                    mstore(i, sub(ri, base))
-                    let j := add(0x20, ri)
-                    let rj := mload(j)
-                    mstore(j, sub(rj, ri))
+                    let ri := mload(i) // Load the pointer to the `Result` object.
+                    mstore(i, sub(ri, base)) // Replace the pointer with an offset.
+                    let j := add(0x20, ri) // Point at the pointer the pointer to the `bytes data`.
+                    let rj := mload(j) // Load the pointer to the `bytes data`.
+                    mstore(j, sub(rj, ri)) // Replace the pointer with an offset.
                 }
 
                 {
@@ -153,6 +166,8 @@ library UnsafeReturn {
                     let j := add(0x20, ri)
                     let rj := mload(j)
                     mstore(j, sub(rj, ri))
+                    // We assume (and our use in this file obeys) that the end of the `bytes data`
+                    // for the final element is the last object in memory.
                     returndataend := add(0x20, add(mload(rj), rj))
                 }
             }
