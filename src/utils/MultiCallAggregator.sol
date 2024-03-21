@@ -20,7 +20,7 @@ interface IMultiCallAggregator {
 // you need to know is the interface above.
 
 library SafeCall {
-    function safeCall(address target, bytes calldata data, uint256 calldepth)
+    function safeCall(address target, bytes calldata data, uint256 contextdepth)
         internal
         returns (bool success, bytes memory returndata)
     {
@@ -45,10 +45,10 @@ library SafeCall {
                 // address without code or that the call reverted due to out-of-gas. We must check.
                 switch success
                 case 0 {
-                    // Apply the "all but one 64th" rule `calldepth + 1` times.
-                    let remainingGas := shr(6, beforeGas)
-                    for {} calldepth { calldepth := sub(calldepth, 1) } {
-                        remainingGas := add(remainingGas, shr(6, sub(beforeGas, remainingGas)))
+                    // Apply the "all but one 64th" rule `contextdepth + 1` times.
+                    let remainingGas := shr(0x06, beforeGas)
+                    for {} contextdepth { contextdepth := sub(contextdepth, 1) } {
+                        remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
                     }
                     // Check that the revert was not due to OOG.
                     if iszero(lt(remainingGas, afterGas)) { invalid() }
