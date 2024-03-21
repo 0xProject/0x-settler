@@ -168,8 +168,14 @@ contract MultiCallAggregatorTest is Test {
         call_.revertDisposition = RevertDisposition.CONTINUE;
         call_.data = "";
 
-        vm.expectRevert(new bytes(0));
-        multicall.multicall(calls, contextdepth);
+        // Can't use `vm.expectRevert` here. It does weird things with gas.
+        bytes memory data = abi.encodeCall(multicall.multicall, (calls, contextdepth));
+        uint256 gasBefore = gasleft();
+        (bool success, bytes memory returndata) = address(multicall).call(data);
+        uint256 gasAfter = gasleft();
+        assertFalse(success);
+        assertEq(returndata.length, 0);
+        assertLe(gasAfter, gasBefore >> 6);
     }
 
     function testOOGReverse() external {
@@ -183,8 +189,14 @@ contract MultiCallAggregatorTest is Test {
         call_.revertDisposition = RevertDisposition.REVERT;
         call_.data = "Hello, World!";
 
-        vm.expectRevert(new bytes(0));
-        multicall.multicall(calls, contextdepth);
+        // Can't use `vm.expectRevert` here. It does weird things with gas.
+        bytes memory data = abi.encodeCall(multicall.multicall, (calls, contextdepth));
+        uint256 gasBefore = gasleft();
+        (bool success, bytes memory returndata) = address(multicall).call(data);
+        uint256 gasAfter = gasleft();
+        assertFalse(success);
+        assertEq(returndata.length, 0);
+        assertLe(gasAfter, gasBefore >> 6);
     }
 
     function testMany() external {
