@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-enum RevertDisposition {
+enum RevertPolicy {
     REVERT,
     STOP,
     CONTINUE
@@ -9,7 +9,7 @@ enum RevertDisposition {
 
 struct Call {
     address target;
-    RevertDisposition revertDisposition;
+    RevertPolicy revertPolicy;
     bytes data;
 }
 
@@ -95,12 +95,12 @@ library UnsafeArray {
     /// This is equivalent to:
     /// ```
     ///  Call calldata call_ = calls[i];
-    /// (target, data, revertDisposition) = (call_.target, call_.data, call_.revertDisposition);
+    /// (target, data, revertPolicy) = (call_.target, call_.data, call_.revertPolicy);
     /// ```
     function unsafeGet(Call[] calldata calls, uint256 i)
         internal
         pure
-        returns (address target, bytes calldata data, RevertDisposition revertDisposition)
+        returns (address target, bytes calldata data, RevertPolicy revertPolicy)
     {
         assembly ("memory-safe") {
             // Initially, we set `data.offset` to point at the `Call` struct. This is 32 bytes
@@ -121,10 +121,10 @@ library UnsafeArray {
             target := calldataload(data.offset)
             // Check for dirty bits in `target`.
             err := or(err, shr(0xa0, target))
-            // And load `revertDisposition`.
-            revertDisposition := calldataload(add(0x20, data.offset))
+            // And load `revertPolicy`.
+            revertPolicy := calldataload(add(0x20, data.offset))
             // And check it for dirty bits too.
-            err := or(err, gt(revertDisposition, 0x02))
+            err := or(err, gt(revertPolicy, 0x02))
 
             // Indirect `data.offset` again to get the `bytes` payload.
             data.offset :=
@@ -233,16 +233,16 @@ contract MultiCallAggregator {
     function multicall(Call[] calldata calls, uint256 contextdepth) internal returns (Result[] memory result) {
         result = new Result[](calls.length);
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
-            (address target, bytes calldata data, RevertDisposition revertDisposition) = calls.unsafeGet(i);
+            (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.unsafeGet(i);
             bool success;
             bytes memory returndata;
-            if (revertDisposition == RevertDisposition.REVERT) {
+            if (revertPolicy == RevertPolicy.REVERT) {
                 // We don't need to use the OOG-protected `safeCall` here because an OOG will result
                 // in a bubbled revert anyways.
                 (success, returndata) = target.safeCall(data);
             } else {
                 (success, returndata) = target.safeCall(data, contextdepth);
-                if (!success && revertDisposition == RevertDisposition.STOP) {
+                if (!success && revertPolicy == RevertPolicy.STOP) {
                     result.unsafeSet(i, success, returndata);
                     result.unsafeTruncate(i.unsafeInc()); // This results in `returndata` with gaps.
                     break;

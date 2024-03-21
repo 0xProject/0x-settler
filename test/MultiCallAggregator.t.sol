@@ -4,11 +4,7 @@ pragma solidity ^0.8.25;
 import {Test} from "forge-std/Test.sol";
 
 import {
-    MultiCallAggregator,
-    IMultiCallAggregator,
-    RevertDisposition,
-    Call,
-    Result
+    MultiCallAggregator, IMultiCallAggregator, RevertPolicy, Call, Result
 } from "src/utils/MultiCallAggregator.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
@@ -55,11 +51,11 @@ contract MultiCallAggregatorTest is Test {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
         call_.target = address(echo);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = address(reject);
-        call_.revertDisposition = RevertDisposition.CONTINUE;
+        call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "Go away!";
 
         Result[] memory result = multicall.multicall(calls, contextdepth);
@@ -74,11 +70,11 @@ contract MultiCallAggregatorTest is Test {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
         call_.target = address(echo);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = address(reject);
-        call_.revertDisposition = RevertDisposition.CONTINUE;
+        call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "Go away!";
 
         bytes memory data = abi.encodeCall(multicall.multicall, (calls, contextdepth));
@@ -93,14 +89,14 @@ contract MultiCallAggregatorTest is Test {
         Call memory call_ = calls[0];
         call_.target = address(echo);
         call_.data = "Hello, World!";
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_ = calls[1];
         call_.target = address(reject);
-        call_.revertDisposition = RevertDisposition.CONTINUE;
+        call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "Go away!";
         call_ = calls[2];
         call_.target = address(echo);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
         Result[] memory result = multicall.multicall(calls, contextdepth);
@@ -118,14 +114,14 @@ contract MultiCallAggregatorTest is Test {
         Call memory call_ = calls[0];
         call_.target = address(echo);
         call_.data = "Hello, World!";
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_ = calls[1];
         call_.target = address(reject);
-        call_.revertDisposition = RevertDisposition.STOP;
+        call_.revertPolicy = RevertPolicy.STOP;
         call_.data = "Go away!";
         call_ = calls[2];
         call_.target = address(echo);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
         Result[] memory result = multicall.multicall(calls, contextdepth);
@@ -141,14 +137,14 @@ contract MultiCallAggregatorTest is Test {
         Call memory call_ = calls[0];
         call_.target = address(echo);
         call_.data = "Hello, World!";
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_ = calls[1];
         call_.target = address(reject);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Go away!";
         call_ = calls[2];
         call_.target = address(echo);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
         bytes memory data = abi.encodeCall(multicall.multicall, (calls, contextdepth));
@@ -161,11 +157,11 @@ contract MultiCallAggregatorTest is Test {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
         call_.target = address(echo);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = address(oog);
-        call_.revertDisposition = RevertDisposition.CONTINUE;
+        call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "";
 
         // Can't use `vm.expectRevert` here. It does weird things with gas.
@@ -182,11 +178,11 @@ contract MultiCallAggregatorTest is Test {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
         call_.target = address(oog);
-        call_.revertDisposition = RevertDisposition.CONTINUE;
+        call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "";
         call_ = calls[1];
         call_.target = address(echo);
-        call_.revertDisposition = RevertDisposition.REVERT;
+        call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
 
         // Can't use `vm.expectRevert` here. It does weird things with gas.
@@ -204,7 +200,7 @@ contract MultiCallAggregatorTest is Test {
         for (uint256 i; i < 256; i++) {
             Call memory call_ = calls[i];
             call_.target = address(echo);
-            call_.revertDisposition = RevertDisposition.REVERT;
+            call_.revertPolicy = RevertPolicy.REVERT;
             call_.data = bytes(ItoA.itoa(i));
         }
         Result[] memory result = multicall.multicall(calls, contextdepth);
