@@ -125,23 +125,34 @@ library UnsafeMath {
 }
 
 library UnsafeReturn {
+    /// This is equivalent to `return(abi.encode(r))`
     function unsafeReturn(Result[] memory r) internal pure {
         assembly ("memory-safe") {
             let returndatastart := sub(r, 0x20) // this is not technically memory safe
             mstore(returndatastart, 0x20)
-            let base := add(0x20, r)
             let returndataend
-            for {
-                let i := base
-                let end := add(i, shl(5, mload(r)))
-            } lt(i, end) { i := add(0x20, i) } {
-                let ri := mload(i)
-                mstore(i, sub(ri, base))
-                let j := add(0x20, ri)
-                let rj := mload(j)
-                mstore(j, sub(rj, ri))
-                returndataend := add(0x20, add(mload(rj), rj)) // TODO: lift
+
+            {
+                let end := add(r, shl(5, mload(r)))
+                let base := add(0x20, r)
+                for { let i := base } lt(i, end) { i := add(0x20, i) } {
+                    let ri := mload(i)
+                    mstore(i, sub(ri, base))
+                    let j := add(0x20, ri)
+                    let rj := mload(j)
+                    mstore(j, sub(rj, ri))
+                }
+
+                {
+                    let ri := mload(end)
+                    mstore(end, sub(ri, base))
+                    let j := add(0x20, ri)
+                    let rj := mload(j)
+                    mstore(j, sub(rj, ri))
+                    returndataend := add(0x20, add(mload(rj), rj))
+                }
             }
+
             return(returndatastart, sub(returndataend, returndatastart))
         }
     }
