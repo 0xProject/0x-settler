@@ -63,16 +63,6 @@ library SafeCall {
 library UnsafeArray {
     function unsafeGet(Call[] calldata calls, uint256 i) internal pure returns (address target, bytes calldata data) {
         assembly ("memory-safe") {
-            // helper functions
-            function overflow() {
-                mstore(0x00, 0x4e487b71) // keccak256("Panic(uint256)")[:4]
-                mstore(0x20, 0x11) // 0x11 -> arithmetic under-/over- flow
-                revert(0x1c, 0x24)
-            }
-            function bad_calldata() {
-                revert(0x00, 0x00) // empty reason for malformed calldata
-            }
-
             // Initially, we set `data.offset` to the pointer to the length. This is 32 bytes before
             // the actual start of data.
             data.offset :=
@@ -83,8 +73,8 @@ library UnsafeArray {
                     )
                 )
             // Because the offset to `data` stored in `calls` is arbitrary, we have to check it.
-            if lt(data.offset, add(calls.offset, shl(5, calls.length))) { overflow() }
-            if iszero(lt(data.offset, calldatasize())) { bad_calldata() }
+            let err := lt(data.offset, add(calls.offset, shl(5, calls.length)))
+            err := or(err, iszero(lt(data.offset, calldatasize())))
             // `data.offset` now points to `target`; load it.
             target := calldataload(data.offset)
 
@@ -99,11 +89,11 @@ library UnsafeArray {
                         )
                     )
                 // Check that `tmp` (the new `data.offset`) didn't overflow.
-                if lt(tmp, data.offset) { overflow() }
+                err := or(err, lt(tmp, data.offset))
                 data.offset := tmp
             }
             // Check that `data.offset` is in-bounds.
-            if iszero(lt(data.offset, calldatasize())) { bad_calldata() }
+            err := or(err, iszero(lt(data.offset, calldatasize())))
 
             // Now we load `data.length` and set `data.offset` to the start of calls.
             data.length := calldataload(data.offset)
@@ -111,9 +101,11 @@ library UnsafeArray {
             {
                 // Check that the end of `data` is in-bounds.
                 let end := add(data.offset, data.length)
-                if lt(end, data.offset) { overflow() }
-                if gt(end, calldatasize()) { bad_calldata() }
+                err := or(err, lt(end, data.offset))
+                err := or(err, gt(end, calldatasize()))
             }
+
+            if err { revert(0x00, 0x00) }
         }
     }
 
