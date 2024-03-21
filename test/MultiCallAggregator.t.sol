@@ -53,6 +53,7 @@ contract MultiCallAggregatorTest is Test {
         call_.data = "Go away!";
 
         Result[] memory result = multicall.multicall(calls);
+        assertEq(result.length, calls.length);
         assertTrue(result[0].success);
         assertEq(result[0].data, "Hello, World!");
         assertFalse(result[1].success);
@@ -88,6 +89,7 @@ contract MultiCallAggregatorTest is Test {
         call_.data = "Hello, Again!";
 
         Result[] memory result = multicall.multicall(calls);
+        assertEq(result.length, calls.length);
         assertTrue(result[0].success);
         assertEq(result[0].data, "Hello, World!");
         assertFalse(result[1].success);
@@ -130,6 +132,7 @@ contract MultiCallAggregatorTest is Test {
             call_.data = bytes(ItoA.itoa(i));
         }
         Result[] memory result = multicall.multicall(calls);
+        assertEq(result.length, calls.length);
         for (uint256 i; i < 256; i++) {
             Result memory r = result[i];
             assertTrue(r.success);
