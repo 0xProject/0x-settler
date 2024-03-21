@@ -160,6 +160,12 @@ library UnsafeArray {
             mstore(add(0x20, dst), data)
         }
     }
+
+    function unsafeTruncate(Result[] memory a, uint256 newLength) internal pure {
+        assembly ("memory-safe") {
+            mstore(a, newLength)
+        }
+    }
 }
 
 library UnsafeMath {
@@ -234,15 +240,13 @@ contract MultiCallAggregator {
                 (success, returndata) = target.safeCall(data);
             } else {
                 (success, returndata) = target.safeCall(data, contextdepth);
+                if (!success && revertDisposition == RevertDisposition.STOP) {
+                    result.unsafeSet(i, success, returndata);
+                    result.unsafeTruncate(i.unsafeInc()); // This results in `returndata` with gaps.
+                    break;
+                }
             }
             result.unsafeSet(i, success, returndata);
-            if (!success && revertDisposition == RevertDisposition.STOP) {
-                assembly ("memory-safe") {
-                    // Truncate `result` even though it will cause our returndata to have some gaps.
-                    mstore(result, add(0x01, i))
-                }
-                break;
-            }
         }
     }
 
