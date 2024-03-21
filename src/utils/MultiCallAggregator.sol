@@ -182,25 +182,23 @@ contract MultiCallAggregator {
         bytes32 selector = bytes32(IMultiCallAggregator.multicall.selector);
         Call[] calldata calls;
         assembly ("memory-safe") {
-            if iszero(eq(selector, calldataload(0x00))) { revert(0x00, 0x00) }
+            // Check the selector.
+            let err := xor(selector, calldataload(0x00))
             calls.offset := add(0x04, calldataload(0x04)) // can't overflow without clobbering selector
             calls.length := calldataload(calls.offset)
             calls.offset := add(0x20, calls.offset) // can't overflow without clobbering selector
-            // check that `calls.offset` is in-bounds
-            if iszero(lt(calls.offset, calldatasize())) { revert(0x00, 0x00) }
-            // check that `calls.length` doesn't overflow
+            // Check that `calls.offset` is in-bounds.
+            err := or(err, iszero(lt(calls.offset, calldatasize())))
+            // Check that `calls.length` doesn't overflow.
+            err := or(err, shr(0xfb, calls.length))
             let end := add(calls.offset, shl(0x05, calls.length))
-            // TODO: combine error checking
-            if or(shr(0xfb, calls.length), lt(end, calls.offset)) {
-                mstore(0x00, 0x4e487b71) // keccak256("Panic(uint256)")[:4]
-                mstore(0x20, 0x11) // 0x11 -> arithmetic under-/over- flow
-                revert(0x1c, 0x24)
-            }
+            // Check that `end` doesn't overflow.
+            err := or(err, lt(end, calls.offset))
             // Check that all of `calls` is in-bounds.
-            if gt(end, calldatasize()) { revert(0x00, 0x00) }
+            err := or(err, gt(end, calldatasize()))
+            if err { revert(0x00, 0x00) }
         }
 
-        Result[] memory result = multicall(calls);
-        result.unsafeReturn();
+        multicall(calls).unsafeReturn();
     }
 }
