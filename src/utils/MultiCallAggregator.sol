@@ -122,7 +122,7 @@ library UnsafeArray {
     /// This is equivalent to `(a[i].success, a[i].data) = (success, data)`
     function unsafeSet(Result[] memory a, uint256 i, bool success, bytes memory data) internal pure {
         assembly ("memory-safe") {
-            let dst := mload(add(add(0x20, shl(5, i)), a))
+            let dst := mload(add(add(0x20, shl(0x05, i)), a))
             mstore(dst, and(0x01, success))
             mstore(add(0x20, dst), data)
         }
