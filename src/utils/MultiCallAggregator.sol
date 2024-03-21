@@ -119,9 +119,11 @@ library UnsafeArray {
         }
     }
 
-    function unsafeGet(Result[] memory a, uint256 i) internal pure returns (Result memory r) {
+    function unsafeSet(Result[] memory a, uint256 i, bool success, bytes memory data) internal pure {
         assembly ("memory-safe") {
-            r := mload(add(add(0x20, shl(5, i)), a))
+            let dst := mload(add(add(0x20, shl(5, i)), a))
+            mstore(dst, and(0x01, success))
+            mstore(add(0x20, dst), data)
         }
     }
 }
@@ -188,8 +190,8 @@ contract MultiCallAggregator {
         result = new Result[](calls.length);
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
             (address target, bytes calldata data) = calls.unsafeGet(i);
-            Result memory r = result.unsafeGet(i);
-            (r.success, r.data) = target.safeCall(data, 4); // I chose 4 arbitrarily
+            (bool success, bytes memory returndata) = target.safeCall(data, 4); // I chose 4 arbitrarily
+            result.unsafeSet(i, success, returndata);
         }
     }
 
