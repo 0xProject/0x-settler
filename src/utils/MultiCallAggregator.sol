@@ -156,6 +156,9 @@ library UnsafeReturn {
             let returndatastart := sub(r, 0x20)
             mstore(returndatastart, 0x20)
 
+            // Because *all* the structs/tuples involved here are dynamic types according to the ABI
+            // specification, the layout in memory is identical to the layout in returndata except
+            // that memory uses pointers and returndata uses offsets. Convert pointers to offsets.
             for {
                 let base := add(0x20, r)
                 let i := base
@@ -195,9 +198,8 @@ contract MultiCallAggregator {
         bytes32 selector = bytes32(IMultiCallAggregator.multicall.selector);
         Call[] calldata calls;
         assembly ("memory-safe") {
-            let err := callvalue()
-            // Check the selector.
-            err := or(err, xor(selector, calldataload(0x00)))
+            let err := callvalue() // `nonpayable`
+            err := or(err, xor(selector, calldataload(0x00))) // Check the selector.
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
             calls.offset := add(0x20, calls.offset) // Can't overflow without clobbering selector.
@@ -205,11 +207,12 @@ contract MultiCallAggregator {
             err := or(err, iszero(lt(calls.offset, calldatasize())))
             // Check that `calls.length` doesn't overflow.
             err := or(err, shr(0xfb, calls.length))
-            let end := add(calls.offset, shl(0x05, calls.length))
-            // Check that `end` doesn't overflow.
-            err := or(err, lt(end, calls.offset))
-            // Check that all of `calls` is in-bounds.
-            err := or(err, gt(end, calldatasize()))
+            // Check that the end of `calls` is in-bounds.
+            {
+                let end := add(calls.offset, shl(0x05, calls.length))
+                err := or(err, lt(end, calls.offset)) // Check for overflow.
+                err := or(err, gt(end, calldatasize())) // Check that it's in-bounds.
+            }
 
             if err { revert(0x00, 0x00) }
         }
