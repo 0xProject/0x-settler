@@ -137,7 +137,15 @@ library UnsafeMath {
 }
 
 library UnsafeReturn {
-    /// This is equivalent to `return(abi.encode(r))`
+    /// @notice This is *ROUGHLY* equivalent to `return(abi.encode(r))`.
+    /// @dev This *DOES NOT* produce the so-called "Strict Encoding Mode" specified by the formal
+    ///      ABI encoding specification
+    ///      https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode . However,
+    ///      it is compatible with the non-strict ABI *decoder* employed by Solidity. In particular,
+    ///      it does not pad the encoding of each value to a multiple of 32 bytes, and it does not
+    ///      contiguously encode all values reachable from some tuple/struct before moving on to
+    ///      another tuple/struct. (e.g. the encoding of an array of 2 `Result`s first encodes each
+    ///      `Result` then encodes each `bytes data`)
     function unsafeReturn(Result[] memory r) internal pure {
         // We assume (and our use in this file obeys) that all these objects in memory are laid out
         // contiguously and in a sensible order.
@@ -147,34 +155,21 @@ library UnsafeReturn {
             let returndatastart := sub(r, 0x20)
             mstore(returndatastart, 0x20)
 
-            let returndataend
-
-            {
-                // `end` points *to* the last element of `r`. We need to do a little extra work for
-                // the last element, so we stop one short.
-                let end := add(r, shl(5, mload(r)))
+            for {
                 let base := add(0x20, r)
-                for { let i := base } lt(i, end) { i := add(0x20, i) } {
-                    let ri := mload(i) // Load the pointer to the `Result` object.
-                    mstore(i, sub(ri, base)) // Replace the pointer with an offset.
-                    let j := add(0x20, ri) // Point at the pointer the pointer to the `bytes data`.
-                    let rj := mload(j) // Load the pointer to the `bytes data`.
-                    mstore(j, sub(rj, ri)) // Replace the pointer with an offset.
-                }
-
-                {
-                    let ri := mload(end)
-                    mstore(end, sub(ri, base))
-                    let j := add(0x20, ri)
-                    let rj := mload(j)
-                    mstore(j, sub(rj, ri))
-                    // We assume (and our use in this file obeys) that the end of the `bytes data`
-                    // for the final element is the last object in memory.
-                    returndataend := add(0x20, add(mload(rj), rj))
-                }
+                let i := base
+                let end := add(base, shl(0x05, mload(r)))
+            } lt(i, end) { i := add(0x20, i) } {
+                let ri := mload(i) // Load the pointer to the `Result` object.
+                mstore(i, sub(ri, base)) // Replace the pointer with an offset.
+                let j := add(0x20, ri) // Point at the pointer the pointer to the `bytes data`.
+                let rj := mload(j) // Load the pointer to the `bytes data`.
+                mstore(j, sub(rj, ri)) // Replace the pointer with an offset.
             }
 
-            return(returndatastart, sub(returndataend, returndatastart))
+            // We assume (and our use in this file obeys) that there aren't any other objects in
+            // memory after the end of `r` (and all the objects it references, recursively)
+            return(returndatastart, sub(mload(0x40), returndatastart))
         }
     }
 }

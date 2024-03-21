@@ -59,6 +59,22 @@ contract MultiCallAggregatorTest is Test {
         assertEq(result[1].data, "Go away!");
     }
 
+    function testFailAbiEncoding() external {
+        Call[] memory calls = new Call[](2);
+        Call memory call_ = calls[0];
+        call_.target = address(echo);
+        call_.data = "Hello, World!";
+        call_ = calls[1];
+        call_.target = address(reject);
+        call_.data = "Go away!";
+
+        bytes memory data = abi.encodeCall(multicall.multicall, (calls));
+        bool success;
+        (success, data) = address(multicall).call(data);
+        assertTrue(success);
+        assertEq(abi.encode(abi.decode(data, (Result[]))), data);
+    }
+
     function testContinue() external {
         Call[] memory calls = new Call[](3);
         Call memory call_ = calls[0];
