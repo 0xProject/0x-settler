@@ -78,11 +78,11 @@ library UnsafeArray {
                 add(
                     calls.offset,
                     calldataload(
-                        add(shl(5, i), calls.offset) // Can't overflow; we assume `i` is in-bounds.
+                        add(shl(0x05, i), calls.offset) // Can't overflow; we assume `i` is in-bounds.
                     )
                 )
             // Because the offset stored in `calls` is arbitrary, we have to check it.
-            let err := lt(data.offset, add(calls.offset, shl(5, calls.length)))
+            let err := lt(data.offset, add(calls.offset, shl(0x05, calls.length)))
             err := or(err, iszero(lt(data.offset, calldatasize())))
             // `data.offset` now points to `target`; load it.
             target := calldataload(data.offset)
