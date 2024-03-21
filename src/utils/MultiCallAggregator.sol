@@ -185,6 +185,10 @@ contract MultiCallAggregator {
     using UnsafeMath for uint256;
     using UnsafeReturn for Result[];
 
+    constructor() {
+        assert(address(this) == 0x000000000000175a8b9bC6d539B3708EEd92EA6c || block.chainid == 31337);
+    }
+
     function multicall(Call[] calldata calls) internal returns (Result[] memory result) {
         result = new Result[](calls.length);
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
