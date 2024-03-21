@@ -380,7 +380,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     fallback(bytes calldata) external payable returns (bytes memory) {
         bytes calldata compressed = _msgData();
-        require(bytes1(compressed) == bytes1(0x0c));
+        require(bytes1(compressed) == bytes1(0x0d));
         // TODO: using `call` here is probably unsafe. This should be
         // `staticcall`, but some operations in the decompressor require the
         // ability to write to storage. Figure out how to disable that during
