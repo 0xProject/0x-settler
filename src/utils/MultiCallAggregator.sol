@@ -11,6 +11,10 @@ struct Result {
     bytes data;
 }
 
+interface IMultiCallAggregator {
+    function multicall(Call[] calldata) external returns (Result[] memory);
+}
+
 library SafeCall {
     function safeCall(address target, bytes calldata data, uint256 calldepth)
         internal
@@ -158,10 +162,6 @@ library UnsafeReturn {
     }
 }
 
-interface IMultiCallAggregator {
-    function multicall(Call[] calldata) external returns (Result[] memory);
-}
-
 contract MultiCallAggregator {
     using SafeCall for address;
     using UnsafeArray for Call[];
@@ -196,6 +196,7 @@ contract MultiCallAggregator {
             err := or(err, lt(end, calls.offset))
             // Check that all of `calls` is in-bounds.
             err := or(err, gt(end, calldatasize()))
+
             if err { revert(0x00, 0x00) }
         }
 
