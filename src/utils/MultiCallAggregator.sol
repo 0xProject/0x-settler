@@ -35,7 +35,7 @@ library SafeCall {
             returndata := mload(0x40)
             calldatacopy(returndata, data.offset, data.length)
             let beforeGas := gas()
-            success := call(gas(), target, 0, returndata, data.length, 0, 0)
+            success := call(gas(), target, 0x00, returndata, data.length, 0x00, 0x00)
             // `verbatim` can't work in inline assembly. Assignment of a value to a variable costs
             // gas (although how much is unpredictable because it depends on the Yul/IR optimizer),
             // as does the `GAS` opcode itself. Therefore, the `gas()` below returns less than the
@@ -71,6 +71,20 @@ library SafeCall {
             mstore(returndata, returndatasize())
             returndatacopy(add(0x20, returndata), 0x00, returndatasize())
             mstore(0x40, add(0x20, add(returndatasize(), returndata)))
+        }
+    }
+
+    function safeCall(address target, bytes calldata data) internal returns (bool success, bytes memory returndata) {
+        assembly ("memory-safe") {
+            returndata := mload(0x40)
+            calldatacopy(returndata, data.offset, data.length)
+            success := call(gas(), target, 0x00, returndata, data.length, 0x00, 0x00)
+            let dst := add(0x20, returndata)
+            returndatacopy(dst, 0x00, returndatasize())
+            if iszero(success) { revert(dst, returndatasize()) }
+            if iszero(returndatasize()) { if iszero(extcodesize(target)) { revert(0x00, 0x00) } }
+            mstore(returndata, returndatasize())
+            mstore(0x40, add(returndatasize(), dst))
         }
     }
 }
@@ -215,17 +229,9 @@ contract MultiCallAggregator {
             bool success;
             bytes memory returndata;
             if (revertDisposition == RevertDisposition.REVERT) {
-                // We don't need to use `safeCall` here because an OOG will result in a bubbled
-                // revert anyways.
-                (success, returndata) = target.call(data);
-                if (!success) {
-                    assembly ("memory-safe") {
-                        // Bubble up the revert reason.
-                        revert(add(0x20, returndata), mload(returndata))
-                    }
-                } else if (returndata.length == 0) {
-                    require(target.code.length != 0);
-                }
+                // We don't need to use the OOG-protected `safeCall` here because an OOG will result
+                // in a bubbled revert anyways.
+                (success, returndata) = target.safeCall(data);
             } else {
                 (success, returndata) = target.safeCall(data, contextdepth);
             }
