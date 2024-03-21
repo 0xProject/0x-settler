@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
+enum RevertDisposition {
+    REVERT,
+    STOP,
+    CONTINUE
+}
+
 struct Call {
     address target;
+    RevertDisposition revertDisposition;
     bytes data;
 }
 
@@ -69,8 +76,16 @@ library SafeCall {
 }
 
 library UnsafeArray {
-    /// This is equivalent to `(target, data) = (calls[i].target, calls[i].data)`
-    function unsafeGet(Call[] calldata calls, uint256 i) internal pure returns (address target, bytes calldata data) {
+    /// This is equivalent to:
+    /// ```
+    ///  Call calldata call_ = calls[i];
+    /// (target, data, revertDisposition) = (call_.target, call_.data, call_.revertDisposition);
+    /// ```
+    function unsafeGet(Call[] calldata calls, uint256 i)
+        internal
+        pure
+        returns (address target, bytes calldata data, RevertDisposition revertDisposition)
+    {
         assembly ("memory-safe") {
             // Initially, we set `data.offset` to point at the `Call` struct. This is 32 bytes
             // before the offset to the actual `data` array length.
@@ -84,12 +99,16 @@ library UnsafeArray {
             // Because the offset stored in `calls` is arbitrary, we have to check it.
             let err := lt(data.offset, add(calls.offset, shl(0x05, calls.length))) // Must not alias `calls`; checks for overflow.
             // Check that the whole `Call` struct is in-bounds.
-            err := or(err, lt(add(0x40, data.offset), data.offset)) // Check for overflow.
-            err := or(err, gt(add(0x40, data.offset), calldatasize())) // Check that the `Call` struct is in-bounds.
+            err := or(err, lt(add(0x60, data.offset), data.offset)) // Check for overflow.
+            err := or(err, gt(add(0x60, data.offset), calldatasize())) // Check that the `Call` struct is in-bounds.
             // `data.offset` now points to `target`; load it.
             target := calldataload(data.offset)
             // Check for dirty bits in `target`.
             err := or(err, shr(0xa0, target))
+            // And load `revertDisposition`.
+            revertDisposition := calldataload(add(0x20, data.offset))
+            // And check it for dirty bits too.
+            err := or(err, gt(revertDisposition, 0x02))
 
             // Indirect `data.offset` again to get the `bytes` payload.
             data.offset :=
@@ -98,7 +117,7 @@ library UnsafeArray {
                     data.offset,
                     calldataload(
                         // Can't overflow; `data.offset` is in-bounds of `calldata`.
-                        add(0x20, data.offset)
+                        add(0x40, data.offset)
                     )
                 )
             // Check that `data.offset` is in-bounds.
@@ -192,9 +211,32 @@ contract MultiCallAggregator {
     function multicall(Call[] calldata calls) internal returns (Result[] memory result) {
         result = new Result[](calls.length);
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
-            (address target, bytes calldata data) = calls.unsafeGet(i);
-            (bool success, bytes memory returndata) = target.safeCall(data, 4); // I chose 4 arbitrarily
+            (address target, bytes calldata data, RevertDisposition revertDisposition) = calls.unsafeGet(i);
+            bool success;
+            bytes memory returndata;
+            if (revertDisposition == RevertDisposition.REVERT) {
+                // We don't need to use `safeCall` here because an OOG will result in a bubbled
+                // revert anyways.
+                (success, returndata) = target.call(data);
+                if (!success) {
+                    assembly ("memory-safe") {
+                        // Bubble up the revert reason.
+                        revert(add(0x20, returndata), mload(returndata))
+                    }
+                } else if (returndata.length == 0) {
+                    require(target.code.length != 0);
+                }
+            } else {
+                (success, returndata) = target.safeCall(data, 4; // I chose 4 arbitrarily
+            }
             result.unsafeSet(i, success, returndata);
+            if (!success && revertDisposition == RevertDisposition.STOP) {
+                assembly ("memory-safe") {
+                    // Truncate `result` even though it will cause our returndata to have some gaps.
+                    mstore(result, add(0x01, i))
+                }
+                break;
+            }
         }
     }
 
