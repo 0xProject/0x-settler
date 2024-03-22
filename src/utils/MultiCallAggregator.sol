@@ -22,7 +22,7 @@ interface IMultiCallAggregator {
     function multicall(Call[] calldata, uint256 contextdepth) external returns (Result[] memory);
 }
 
-////////////////////// ABANDON ALL HOPE YE WHO ENTER HERE //////////////////////
+///////////////////// ABANDON ALL HOPE, YE WHO ENTER HERE //////////////////////
 // But seriously, everything that comes after this is a pile of gas golfing. All
 // you need to know is the interface above.
 
@@ -94,7 +94,7 @@ library SafeCall {
 library UnsafeArray {
     /// This is equivalent to:
     /// ```
-    ///  Call calldata call_ = calls[i];
+    /// Call calldata call_ = calls[i];
     /// (target, data, revertPolicy) = (call_.target, call_.data, call_.revertPolicy);
     /// ```
     function unsafeGet(Call[] calldata calls, uint256 i)
