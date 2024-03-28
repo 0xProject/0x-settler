@@ -58,6 +58,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
 
     /// @dev This is the majority of the implementation of IAllowanceHolder.exec
     ///      . The arguments have the same meaning as documented there.
+    /// @return result
     /// @return sender The (possibly forwarded) message sender that is
     ///                requesting the allowance be set. Provided to avoid
     ///                duplicated computation in customized `exec`
