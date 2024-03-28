@@ -63,7 +63,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));
     }
 
-    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
+    /// @dev Settle an OtcOrder between maker and taker transferring funds directly between
     /// the counterparties. Either two Permit2 signatures are consumed, with the maker Permit2 containing
     /// a witness of the OtcOrder, or AllowanceHolder is supported for the taker payment.
     function fillOtcOrder(

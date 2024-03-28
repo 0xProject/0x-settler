@@ -482,7 +482,7 @@ sequenceDiagram
     end
 ```
 
-Using the Batch functionality we can one or more transfers from either the User or the Market Maker. Allowing us to take either a buy token feel or a sell token fee, or both, during OTC order settlement.
+Using the Batch functionality we can do one or more transfers from either the User or the Market Maker. Allowing us to take either a buy token fee or a sell token fee, or both, during OTC order settlement.
 
 This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill OTC orders with fees.
 

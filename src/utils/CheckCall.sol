@@ -9,7 +9,7 @@ library CheckCall {
      *      griefing
      * @dev reverts iff the target is not a contract or we encounter an
      *      out-of-gas
-     * @return success true iff the call succeded and returned at least
+     * @return success true iff the call succeeded and returned at least
      *                 `minReturnBytes` of return data
      * @param target the contract (reverts if non-contract) on which to make the
      *               `staticcall`
