@@ -200,7 +200,10 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
     function _requireAuthorized(Feature feature) private view returns (FeatureInfo storage featureInfo) {
         featureInfo = _stor1().featureInfo[feature];
         (address auth, uint40 deadline) = (featureInfo.auth, featureInfo.deadline);
-        if (_msgSender() != auth || (deadline != type(uint40).max && block.timestamp > deadline)) {
+        if (_msgSender() != auth) {
+            revert PermissionDenied();
+        }
+        if (deadline != type(uint40).max && block.timestamp > deadline) {
             revert PermissionDenied();
         }
     }
@@ -253,7 +256,10 @@ contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IER
         _stor1().deployInfo[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
 
-        if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted || predicted.code.length == 0) {
+        if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted) {
+            revert DeployFailed(feature, thisNonce, predicted);
+        }
+        if (predicted.code.length == 0) {
             revert DeployFailed(feature, thisNonce, predicted);
         }
     }

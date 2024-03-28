@@ -217,7 +217,10 @@ abstract contract Permit2BatchPayment is Permit2BatchPaymentBase {
             if (sig.length != 0) revert InvalidSignatureLen();
             {
                 uint256 length;
-                if ((length = permit.permitted.length) != transferDetails.length || length != 1) {
+                if ((length = permit.permitted.length) != transferDetails.length) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+                if (length != 1) {
                     Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
                 }
             }
