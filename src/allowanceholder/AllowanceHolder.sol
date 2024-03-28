@@ -5,6 +5,7 @@ import {AllowanceHolderBase} from "./AllowanceHolderBase.sol";
 import {TransientStorage} from "./TransientStorage.sol";
 
 contract AllowanceHolder is TransientStorage, AllowanceHolderBase {
+    /// @inheritdoc AllowanceHolderBase
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
         override
