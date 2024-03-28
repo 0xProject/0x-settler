@@ -46,11 +46,24 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         }
     }
 
+    /// @dev This virtual function provides the implementation for the function
+    ///      of the same name in IAllowanceHolder. It is unimplemented in this
+    ///      base class to accommodate the customization required to support
+    ///      both chains that have EIP-1153 (transient storage) and those that
+    ///      don't.
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
         virtual
-        returns (bytes memory);
+        returns (bytes memory result);
 
+    /// @dev This is the majority of the implementation of IAllowanceHolder.exec
+    ///      . The arguments have the same meaning as documented there.
+    /// @return sender The (possibly forwarded) message sender that is
+    ///                requesting the allowance be set. Provided to avoid
+    ///                duplicated computation in customized `exec`
+    /// @return allowance The slot where the ephemeral allowance is
+    ///                   stored. Provided to avoid duplicated computation in
+    ///                   customized `exec`
     function _exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
         returns (bytes memory result, address sender, TSlot allowance)
