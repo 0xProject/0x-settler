@@ -47,8 +47,8 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     }
 
     /// @dev This virtual function provides the implementation for the function
-    ///      of the same name in IAllowanceHolder. It is unimplemented in this
-    ///      base class to accommodate the customization required to support
+    ///      of the same name in `IAllowanceHolder`. It is unimplemented in this
+    ///      base contract to accommodate the customization required to support
     ///      both chains that have EIP-1153 (transient storage) and those that
     ///      don't.
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
@@ -100,6 +100,8 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         }
     }
 
+    /// @dev This provides the implementation of the function of the same name
+    ///      in `IAllowanceHolder`.
     function transferFrom(address token, address owner, address recipient, uint256 amount) internal {
         // msg.sender is the assumed and later validated operator
         TSlot allowance = _ephemeralAllowance(msg.sender, owner, token);
