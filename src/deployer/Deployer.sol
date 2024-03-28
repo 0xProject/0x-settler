@@ -89,6 +89,7 @@ library NonceList {
     }
 }
 
+/// @custom:security-contact security@0x.org
 contract Deployer is ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, IERC721ViewMetadata, ProxyMultiCall {
     using NonceList for NonceList.List;
 
