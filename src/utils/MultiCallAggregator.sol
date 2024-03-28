@@ -103,7 +103,7 @@ library UnsafeArray {
         returns (address target, bytes calldata data, RevertPolicy revertPolicy)
     {
         assembly ("memory-safe") {
-            // Initially, we set `data.offset` to point at the `Call` struct. This is 32 bytes
+            // Initially, we set `data.offset` to point at the `Call` struct. This is 64 bytes
             // before the offset to the actual `data` array length.
             data.offset :=
                 add(
@@ -242,6 +242,9 @@ contract MultiCallAggregator {
                 (success, returndata) = target.safeCall(data);
             } else {
                 (success, returndata) = target.safeCall(data, contextdepth);
+                // This could be implemented in assembly as (equivalently) `(revertPolicy ==
+                // RevertPolicy.STOP) > success`, but that only optimizes the `success == false`
+                // condition and significantly compromises readability.
                 if (!success && revertPolicy == RevertPolicy.STOP) {
                     result.unsafeSet(i, success, returndata);
                     result.unsafeTruncate(i.unsafeInc()); // This results in `returndata` with gaps.
