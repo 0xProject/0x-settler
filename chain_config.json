@@ -6,7 +6,14 @@
     "safeFallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
     "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
     "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-    "etherscanApi": "https://api-sepolia.etherscan.io/api"
+    "etherscanApi": "https://api-sepolia.etherscan.io/api",
+    "uniV3": {
+      "factory": "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6"
+    }
   },
   "mainnet": {
     "chainId": 1,
@@ -15,6 +22,13 @@
     "safeFallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
     "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
     "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-    "etherscanApi": "https://api.etherscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/api",
+    "uniV3": {
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    }
   }
 }
