@@ -122,7 +122,9 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             address recipient;
             uint256 amount;
             assembly ("memory-safe") {
-                let err := or(lt(calldatasize(), 0x84), callvalue())
+                // We do not validate `calldatasize()`. If the calldata is short
+                // enough that `amount` is null, this call is a harmless no-op.
+                let err := callvalue()
                 token := calldataload(0x04)
                 err := or(err, shr(0xa0, token))
                 owner := calldataload(0x24)
@@ -147,16 +149,22 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             address payable target;
             bytes calldata data;
             assembly ("memory-safe") {
-                let err := lt(calldatasize(), 0xc4)
+                // We do not validate `calldatasize()`. If the calldata is short
+                // enough that `data` is null, it will alias `operator`. this
+                // results in either an OOG (because `operator` encodes a
+                // too-long `bytes`) or is a harmless no-op (because `operator`
+                // encodes a valid length, but not an address capable of making
+                // calls). If the calldata is _so_ sort that `target` is null,
+                // we will revert because it contains no code.
                 operator := calldataload(0x04)
-                err := or(err, shr(0xa0, operator))
+                let err := shr(0xa0, operator)
                 token := calldataload(0x24)
                 err := or(err, shr(0xa0, token))
                 amount := calldataload(0x44)
                 target := calldataload(0x64)
                 err := or(err, shr(0xa0, target))
                 if err { revert(0x00, 0x00) }
-                // we perform no validation that `data` is reasonable
+                // We perform no validation that `data` is reasonable.
                 data.offset := add(0x04, calldataload(0x84))
                 data.length := calldataload(data.offset)
                 data.offset := add(0x20, data.offset)
