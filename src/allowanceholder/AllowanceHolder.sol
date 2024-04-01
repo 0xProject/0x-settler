@@ -9,6 +9,7 @@ contract AllowanceHolder is TransientStorage, AllowanceHolderBase {
         require(address(this) == 0x0000000000001fF3684f28c67538d4D072C22734 || block.chainid == 31337);
     }
 
+    /// @inheritdoc AllowanceHolderBase
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
         internal
         override
