@@ -16,8 +16,8 @@ interface ISafeFactory {
 
 interface ISafeSetup {
     function setup(
-        address[] calldata _owners,
-        uint256 _threshold,
+        address[] calldata owners,
+        uint256 threshold,
         address to,
         bytes calldata data,
         address fallbackHandler,
