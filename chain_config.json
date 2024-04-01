@@ -30,5 +30,40 @@
     "makerPsm": {
       "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F"
     }
+  },
+  "polygon": {
+    "chainId": 137,
+    "etherscanApi": "https://api.polygonscan.com/api"
+  },
+  "base": {
+    "chainId": 8453,
+    "safeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+    "safeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+    "safeFallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+    "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+    "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+    "etherscanApi": "https://api.basescan.org/api",
+    "uniV3": {
+      "factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+    }
+  },
+  "optimism": {
+    "chainId": 10,
+    "safeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+    "safeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+    "safeFallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+    "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+    "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+    "etherscanApi": "https://api-optimistic.etherscan.io/api"
+  },
+  "arbitrum": {
+    "chainId": 42161,
+    "safeSingleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
+    "safeFactory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+    "safeFallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
+    "etherscanApi": "https://api.arbiscan.io/api"
   }
 }
