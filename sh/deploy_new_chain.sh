@@ -185,42 +185,60 @@ function get_chain_config {
     jq -r -M ."$chain_name"."$1" < ./chain_config.json
 }
 
-declare -r deployer="$(get_secret iceColdCoffee deployer)"
-declare -r deployed_address="$(get_secret iceColdCoffee address)"
+declare -r module_deployer="$(get_secret iceColdCoffee deployer)"
+declare -r proxy_deployer="$(get_secret deployer deployer)"
 declare -r -i chainid="$(get_chain_config chainId)"
 declare -r rpc_url="$(get_api_secret rpcUrl)"
 
-#createProxyWithNonce(address _singleton,bytes initializer,uint256 saltNonce)
-
-# used to compute deployer safe
+# safe constants
 declare -r safe_factory="$(get_chain_config safeFactory)"
 declare -r safe_singleton="$(get_chain_config safeSingleton)"
 declare -r safe_creation_sig='proxyCreationCode()(bytes)'
 declare -r safe_initcode="$(cast abi-decode "$safe_creation_sig" "$(cast call --rpc-url "$rpc_url" "$safe_factory" "$(cast calldata "$safe_creation_sig")")")"
 declare -r safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
 declare -r safe_fallback="$(get_chain_config safeFallback)"
-declare -r initializer="$(cast calldata       \
-                         'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
-                         '['"$deployer"']'    \
-                         1                    \
-                         $(cast address-zero) \
-                         0x                   \
-                         "$safe_fallback"     \
-                         $(cast address-zero) \
-                         0                    \
-                         $(cast address-zero)
-                        )"
-declare -r safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
-declare safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$safe_salt" "$safe_inithash")")"
-declare -r safe="$(cast to-check-sum-address "0x${safe:26:40}")"
+
+# compute deployment safe
+declare -r deployment_safe_initializer="$(
+    cast calldata            \
+    'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
+    '['"$module_deployer"']' \
+    1                        \
+    $(cast address-zero)     \
+    0x                       \
+    "$safe_fallback"         \
+    $(cast address-zero)     \
+    0                        \
+    $(cast address-zero)
+)"
+declare -r deployment_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$deployment_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
+declare deployment_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$deployment_safe_salt" "$safe_inithash")")"
+declare -r deployment_safe="$(cast to-check-sum-address "0x${deployment_safe:26:40}")"
+
+# compute ugprade safe
+declare -r upgrade_safe_initializer="$(
+    cast calldata           \
+    'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
+    '['"$proxy_deployer"']' \
+    1                       \
+    $(cast address-zero)    \
+    0x                      \
+    "$safe_fallback"        \
+    $(cast address-zero)    \
+    0                       \
+    $(cast address-zero)
+)"
+declare -r upgrade_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$upgrade_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
+declare upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_safe_salt" "$safe_inithash")")"
+declare -r upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
 
 declare -a maybe_broadcast=()
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
 
-ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" forge script --slow --no-storage-caching --chain $chainid --rpc-url "$rpc_url" -vvvvv "${maybe_broadcast[@]}" --sig 'run(address,address,address,address)' script/DeploySafes.s.sol:DeploySafes "$safe" "$safe_factory" "$safe_singleton" "$safe_fallback"
+ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" forge script --slow --no-storage-caching --chain $chainid --rpc-url "$rpc_url" -vvvvv "${maybe_broadcast[@]}" --sig 'run(address,address,address,address,address)' script/DeploySafes.s.sol:DeploySafes "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback"
 
-if [[ "${BROADCAST-no}" = [Yy]es || 1 == 1 ]] ; then
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$deployed_address" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$(get_secret iceColdCoffee address)" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 fi
