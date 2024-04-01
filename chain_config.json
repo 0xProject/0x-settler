@@ -4,6 +4,8 @@
     "safeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
     "safeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
     "safeFallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+    "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+    "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
     "etherscanApi": "https://api-sepolia.etherscan.io/api"
   },
   "mainnet": {
@@ -11,6 +13,8 @@
     "safeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
     "safeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
     "safeFallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+    "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+    "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
     "etherscanApi": "https://api.etherscan.io/api"
   }
 }

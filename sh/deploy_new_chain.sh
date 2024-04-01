@@ -265,8 +265,29 @@ if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
 
-ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" forge script --slow --no-storage-caching --chain $chainid --rpc-url "$rpc_url" -vvvvv "${maybe_broadcast[@]}" --sig 'run(address,address,address,address,address)' script/DeploySafes.s.sol:DeploySafes "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback"
+ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
+    forge script                                         \
+    --slow                                               \
+    --no-storage-caching                                 \
+    --chain $chainid                                     \
+    --rpc-url "$rpc_url"                                 \
+    -vvvvv                                               \
+    "${maybe_broadcast[@]}"                              \
+    --sig 'run(address,address,address,address,address)' \
+    script/DeploySafes.s.sol:DeploySafes                 \
+    "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback"
 
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$(get_secret iceColdCoffee address)" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    declare -a common_args=()
+    common_args+=(
+        --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)"
+    )
+    declare -r -a common_args
+    forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$(get_secret iceColdCoffee address)" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    forge verify-contract "${common_args[@]}" "$(get_secret deployer address)" src/deployer/Deployer.sol:Deployer
 fi
+
+echo 'Deployment is complete' >&2
+echo 'Add the following to your chain_config.json' >&2
+echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
+echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
