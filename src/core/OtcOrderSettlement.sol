@@ -146,7 +146,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         bytes32 witness = _hashConsideration(makerConsideration);
 
         uint256 takerAmount = takerToken.balanceOf(address(this));
-        if (takerAmount >= maxTakerAmount) {
+        if (takerAmount > maxTakerAmount) {
             takerAmount = maxTakerAmount;
         }
         transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
