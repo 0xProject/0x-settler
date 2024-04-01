@@ -120,7 +120,7 @@ contract DeploySafes is Script {
         vm.startBroadcast(moduleDeployerKey);
 
         // first, we deploy the module to get the correct address
-        address deployed = address(new ZeroExSettlerDeployerSafeModule(deploymentSafe));
+        address deployedModule = address(new ZeroExSettlerDeployerSafeModule(deploymentSafe));
         // next, we deploy the implementation we're going to need when we take ownership of the proxy
         address deployerImpl = address(new Deployer());
         // now we deploy the safe that's responsible *ONLY* for deploying new instances
@@ -180,7 +180,7 @@ contract DeploySafes is Script {
 
         vm.stopBroadcast();
 
-        require(deployed == iceColdCoffee, "deployment/prediction mismatch");
+        require(deployedModule == iceColdCoffee, "deployment/prediction mismatch");
         require(deployedDeploymentSafe == deploymentSafe, "deployed safe/predicted safe mismatch");
         require(deployedUpgradeSafe == upgradeSafe, "upgrade deployed safe/predicted safe mismatch");
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer not owned by upgrade safe");
