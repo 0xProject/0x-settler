@@ -170,11 +170,7 @@ if [[ $(jq -r -M ."$chain_name" < api_secrets.json) == 'null' ]] ; then
 fi
 
 function get_secret {
-    declare instance="$1"
-    shift
-    declare key="$1"
-    shift
-    jq -r -M ."$instance"."$key" < ./secrets.json
+    jq -r -M ."$1"."$2" < ./secrets.json
 }
 
 function get_api_secret {
@@ -185,21 +181,42 @@ function get_chain_config {
     jq -r -M ."$chain_name"."$1" < ./chain_config.json
 }
 
-declare -r module_deployer="$(get_secret iceColdCoffee deployer)"
-declare -r proxy_deployer="$(get_secret deployer deployer)"
-declare -r -i chainid="$(get_chain_config chainId)"
-declare -r rpc_url="$(get_api_secret rpcUrl)"
+declare module_deployer
+module_deployer="$(get_secret iceColdCoffee deployer)"
+declare -r module_deployer
+declare proxy_deployer
+proxy_deployer="$(get_secret deployer deployer)"
+declare -r proxy_deployer
+declare -i chainid
+chainid="$(get_chain_config chainId)"
+declare -r -i chainid
+declare rpc_url
+rpc_url="$(get_api_secret rpcUrl)"
+declare -r rpc_url
 
 # safe constants
-declare -r safe_factory="$(get_chain_config safeFactory)"
-declare -r safe_singleton="$(get_chain_config safeSingleton)"
-declare -r safe_creation_sig='proxyCreationCode()(bytes)'
-declare -r safe_initcode="$(cast abi-decode "$safe_creation_sig" "$(cast call --rpc-url "$rpc_url" "$safe_factory" "$(cast calldata "$safe_creation_sig")")")"
-declare -r safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
-declare -r safe_fallback="$(get_chain_config safeFallback)"
+declare safe_factory
+safe_factory="$(get_chain_config safeFactory)"
+declare -r safe_factory
+declare safe_singleton
+safe_singleton="$(get_chain_config safeSingleton)"
+declare -r safe_singleton
+declare safe_creation_sig
+safe_creation_sig='proxyCreationCode()(bytes)'
+declare -r safe_creation_sig
+declare safe_initcode
+safe_initcode="$(cast abi-decode "$safe_creation_sig" "$(cast call --rpc-url "$rpc_url" "$safe_factory" "$(cast calldata "$safe_creation_sig")")")"
+declare -r safe_initcode
+declare safe_inithash
+safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
+declare -r safe_inithash
+declare safe_fallback
+safe_fallback="$(get_chain_config safeFallback)"
+declare -r safe_fallback
 
 # compute deployment safe
-declare -r deployment_safe_initializer="$(
+declare deployment_safe_initializer
+deployment_safe_initializer="$(
     cast calldata            \
     'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
     '['"$module_deployer"']' \
@@ -211,12 +228,18 @@ declare -r deployment_safe_initializer="$(
     0                        \
     $(cast address-zero)
 )"
-declare -r deployment_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$deployment_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
-declare deployment_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$deployment_safe_salt" "$safe_inithash")")"
-declare -r deployment_safe="$(cast to-check-sum-address "0x${deployment_safe:26:40}")"
+declare -r deployment_safe_initializer
+declare deployment_safe_salt
+deployment_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$deployment_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
+declare -r deployment_safe_salt
+declare deployment_safe
+deployment_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$deployment_safe_salt" "$safe_inithash")")"
+deployment_safe="$(cast to-check-sum-address "0x${deployment_safe:26:40}")"
+declare -r deployment_safe
 
 # compute ugprade safe
-declare -r upgrade_safe_initializer="$(
+declare upgrade_safe_initializer
+upgrade_safe_initializer="$(
     cast calldata           \
     'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
     '['"$proxy_deployer"']' \
@@ -228,9 +251,14 @@ declare -r upgrade_safe_initializer="$(
     0                       \
     $(cast address-zero)
 )"
-declare -r upgrade_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$upgrade_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
-declare upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_safe_salt" "$safe_inithash")")"
-declare -r upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
+declare -r upgrade_safe_initializer
+declare upgrade_safe_salt
+upgrade_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$upgrade_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
+declare -r upgrade_safe_salt
+declare upgrade_safe
+upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_safe_salt" "$safe_inithash")")"
+upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
+declare -r upgrade_safe
 
 declare -a maybe_broadcast=()
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
