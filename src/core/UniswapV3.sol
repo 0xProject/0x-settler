@@ -226,7 +226,7 @@ abstract contract UniswapV3 is SettlerAbstract {
     }
 
     // Return whether or not an encoded uniswap path contains more than one hop.
-    function _isPathMultiHop(bytes memory encodedPath) private pure returns (bool isMultiHop) {
+    function _isPathMultiHop(bytes memory encodedPath) private pure returns (bool) {
         return encodedPath.length > SINGLE_HOP_PATH_SIZE;
     }
 
