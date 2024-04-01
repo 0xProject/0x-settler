@@ -4,7 +4,8 @@ pragma solidity ^0.8.25;
 import "forge-std/Script.sol";
 import {Vm} from "forge-std/Vm.sol";
 
-import {IERC721View, Deployer, Nonce, Feature} from "src/deployer/Deployer.sol";
+import {Deployer, Nonce, Feature} from "src/deployer/Deployer.sol";
+import {IDeployer, IERC721View} from "src/deployer/IDeployer.sol";
 
 contract Deploy is Script {
     Deployer internal constant deployer = Deployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
@@ -36,7 +37,7 @@ contract Deploy is Script {
             if (log.emitter == address(deployer)) {
                 assert(log.topics.length == 4);
                 assert(log.data.length == 0);
-                if (log.topics[0] == Deployer.Deployed.selector) {
+                if (log.topics[0] == IDeployer.Deployed.selector) {
                     assert(abi.decode(bytes.concat(log.topics[1]), (Feature)) == feature);
                     assert(abi.decode(bytes.concat(log.topics[2]), (Nonce)) == nonce);
                     assert(abi.decode(bytes.concat(log.topics[3]), (address)) == predicted);
