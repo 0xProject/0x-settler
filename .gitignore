@@ -24,3 +24,4 @@ node_modules
 
 # secrets
 /secrets.json
+/api_secrets.json
