@@ -84,6 +84,8 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     receive() external payable {}
 
+    // When you change this, you must make corresponding changes to
+    // `sh/deploy_new_chain.sh` to set `constructor_args`.
     constructor(address uniFactory, bytes32 poolInitCodeHash, address dai)
         Permit2Payment()
         Basic()

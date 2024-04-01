@@ -6,6 +6,7 @@ import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
 import {Deployer, Feature} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
+import {Settler} from "src/Settler.sol";
 
 import {console} from "forge-std/console.sol";
 
@@ -64,7 +65,8 @@ contract DeploySafes is Script {
         address safeSingleton,
         address safeFallback,
         Feature feature,
-        string calldata initialDescription
+        string calldata initialDescription,
+        bytes calldata constructorArgs
     ) public {
         uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
         uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
@@ -117,6 +119,8 @@ contract DeploySafes is Script {
         bytes memory setDescriptionCall = abi.encodeCall(Deployer.setDescription, (feature, initialDescription));
         bytes memory authorizeCall =
             abi.encodeCall(Deployer.authorize, (feature, deploymentSafe, uint40(block.timestamp + 365 days)));
+        bytes memory deployCall =
+            abi.encodeCall(Deployer.deploy, (feature, abi.encodePacked(type(Settler).creationCode, constructorArgs)));
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
@@ -147,7 +151,8 @@ contract DeploySafes is Script {
         vm.startBroadcast(proxyDeployerKey);
 
         // first we deploy the proxy for the deployer to get the correct address
-        ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
+        address deployedDeployerProxy =
+            ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
         // then we deploy the safe that's going to own the proxy
         address deployedUpgradeSafe = safeFactory.createProxyWithNonce(safeSingleton, upgradeInitializer, 0);
         // then the safe takes ownership of the proxy
@@ -192,9 +197,27 @@ contract DeploySafes is Script {
 
         vm.stopBroadcast();
 
+        vm.startBroadcast(moduleDeployerKey);
+
+        ISafeExecute(deploymentSafe).execTransaction(
+            deployerProxy,
+            0,
+            deployCall,
+            ISafeExecute.Operation.Call,
+            0,
+            0,
+            0,
+            address(0),
+            address(0),
+            deploymentSignature
+        );
+
+        vm.stopBroadcast();
+
         require(deployedModule == iceColdCoffee, "deployment/prediction mismatch");
         require(deployedDeploymentSafe == deploymentSafe, "deployed safe/predicted safe mismatch");
         require(deployedUpgradeSafe == upgradeSafe, "upgrade deployed safe/predicted safe mismatch");
+        require(deployedDeployerProxy == deployerProxy, "deployer proxy predicted mismatch");
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer not owned by upgrade safe");
     }
 }

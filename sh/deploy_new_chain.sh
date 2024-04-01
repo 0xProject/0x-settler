@@ -270,6 +270,11 @@ upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_sa
 upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
 declare -r upgrade_safe
 
+# encode constructor arguments for Settler
+declare constructor_args
+constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_chain_config uniV3.factory)" "$(get_chain_config uniV3.initHash)" "$(get_chain_config makerPsm.dai)")"
+declare -r constructor_args
+
 declare -a maybe_broadcast=()
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
@@ -283,9 +288,9 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,uint128,string)' \
+    --sig 'run(address,address,address,address,address,uint128,string,bytes)' \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$feature" "$description"
+    "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$feature" "$description" "$constructor_args"
 
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     declare -a common_args=()
@@ -294,7 +299,18 @@ if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     )
     declare -r -a common_args
     forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$(get_secret iceColdCoffee address)" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
-    forge verify-contract "${common_args[@]}" "$(get_secret deployer address)" src/deployer/Deployer.sol:Deployer
+
+    declare deployer_proxy
+    deployer_proxy="$(get_secret deployer address)"
+    declare -r deployer_proxy
+
+    forge verify-contract "${common_args[@]}" "$deployer_proxy" src/deployer/Deployer.sol:Deployer
+
+    declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
+    declare settler
+    settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_proxy" "$(cast calldata "$erc721_ownerof_sig" "$feature")")")"
+    declare -r settler
+    forge verify-contract "${common_args[@]}" --constructor-args "$constructor_args" "$settler" src/Settler.sol:Settler
 fi
 
 echo 'Deployment is complete' >&2
