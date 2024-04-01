@@ -161,6 +161,11 @@ if ! sha256sum -c <<<'24290900be9575d1fb6349098b1c11615a2eac8091bc486bec6cf67239
     exit 1
 fi
 
+if [[ ! -f sh/initial_description.md ]] ; then
+    echo './sh/initial_description.md is missing' >&2
+    exit 1
+fi
+
 declare -r chain_name="$1"
 shift
 
@@ -193,6 +198,11 @@ declare -r -i chainid
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
+declare -r feature=1
+declare description
+description="$(jq -MRs < ./sh/initial_description.md)"
+description="${description:1:$((${#description} - 2))}"
+declare -r description
 
 # safe constants
 declare safe_factory
@@ -273,9 +283,9 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address)' \
+    --sig 'run(address,address,address,address,address,uint128,string)' \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback"
+    "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$feature" "$description"
 
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     declare -a common_args=()

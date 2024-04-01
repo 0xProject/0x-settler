@@ -62,7 +62,9 @@ contract DeploySafes is Script {
         address upgradeSafe,
         ISafeFactory safeFactory,
         address safeSingleton,
-        address safeFallback
+        address safeFallback,
+        Feature feature,
+        string calldata initialDescription
     ) public {
         uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
         uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
@@ -112,8 +114,9 @@ contract DeploySafes is Script {
         // after everything is deployed, we're going to need to set up permissions; these are those calls
         bytes memory addModuleCall = abi.encodeCall(ISafeModule.enableModule, (iceColdCoffee));
         bytes memory acceptOwnershipCall = abi.encodeWithSignature("acceptOwnership()");
+        bytes memory setDescriptionCall = abi.encodeCall(Deployer.setDescription, (feature, initialDescription));
         bytes memory authorizeCall =
-            abi.encodeCall(Deployer.authorize, (Feature.wrap(1), deploymentSafe, uint40(block.timestamp + 365 days)));
+            abi.encodeCall(Deployer.authorize, (feature, deploymentSafe, uint40(block.timestamp + 365 days)));
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
@@ -161,9 +164,19 @@ contract DeploySafes is Script {
             upgradeSignature
         );
 
-        // TODO: set the description
-        /*
         // give the deployment safe permission to deploy instances (for 1 year)
+        ISafeExecute(upgradeSafe).execTransaction(
+            deployerProxy,
+            0,
+            setDescriptionCall,
+            ISafeExecute.Operation.Call,
+            0,
+            0,
+            0,
+            address(0),
+            address(0),
+            upgradeSignature
+        );
         ISafeExecute(upgradeSafe).execTransaction(
             deployerProxy,
             0,
@@ -176,7 +189,6 @@ contract DeploySafes is Script {
             address(0),
             upgradeSignature
         );
-        */
 
         vm.stopBroadcast();
 
