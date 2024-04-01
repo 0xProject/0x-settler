@@ -301,3 +301,5 @@ echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
+echo '	"deployer": "'"$(get_secret iceColdCoffee address)"'",' >&2
+echo '	"pause": "'"$(get_secret deployer address)"'",' >&2
