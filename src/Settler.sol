@@ -102,7 +102,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
     function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
-        // ISettlerActions.BASIC_SELL could interaction with an intents-based settlement
+        // ISettlerActions.BASIC_SELL could interact with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
         (address buyToken, address recipient, uint256 minAmountOut) =

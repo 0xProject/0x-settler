@@ -6,7 +6,7 @@ library CheckCall {
      * @notice `staticcall` another contract. Check the length of the return without reading it.
      * @dev contains protections against EIP-150-induced insufficient gas griefing
      * @dev reverts iff the target is not a contract or we encounter an out-of-gas
-     * @return success true iff the call succeded and returned at least `minReturnBytes` of return
+     * @return success true iff the call succeeded and returned at least `minReturnBytes` of return
      *                 data
      * @param target the contract (reverts if non-contract) on which to make the `staticcall`
      * @param data the calldata to pass
