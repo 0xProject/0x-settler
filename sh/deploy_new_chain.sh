@@ -114,35 +114,113 @@ _canonicalize() {
 
 set -Eeufo pipefail -o posix
 
-declare SCRIPT_DIR
-SCRIPT_DIR="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
-declare -r SCRIPT_DIR
-cd "$SCRIPT_DIR"
+declare project_root
+project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
+declare -r project_root
+cd "$project_root"
+
+if ! hash forge &>/dev/null ; then
+    echo 'foundry is not installed' >&2
+    exit 1
+fi
 
 if ! hash jq &>/dev/null ; then
-    echo "jq isn't installed" >&2
+    echo 'jq is not installed' >&2
     exit 1
 fi
 
 if ! hash sha256sum &>/dev/null ; then
-    echo "sha256sum isn't installed" >&2
+    echo 'sha256sum is not installed' >&2
     exit 1
 fi
 
-if [ ! -f secrets.json ] ; then
-    echo "secrets.json is missing" >&2
+if [ ! -f ./secrets.json ] ; then
+    echo 'secrets.json is missing' >&2
     exit 1
 fi
 
-if [[ $(stat -L -c "%a" secrets.json) != "600" ]] ; then
-    echo "secrets.json permissions too lax" >&2
-    echo "run: chmod 600 secrets.json" >&2
+if [ ! -f ./api_secrets.json ] ; then
+    echo 'api_secrets.json is missing' >&2
     exit 1
 fi
 
-if ! sha256sum -c <<<"24290900be9575d1fb6349098b1c11615a2eac8091bc486bec6cf67239b7846a  secrets.json" >/dev/null ; then
-    echo "Secrets are wrong" >&2
+if [[ $(stat -L -c '%a' --cached=never secrets.json) != '600' ]] ; then
+    echo 'secrets.json permissions too lax' >&2
+    echo 'run: chmod 600 secrets.json' >&2
     exit 1
 fi
 
-echo "begin script"
+if [[ $(stat -L -c '%a' --cached=never api_secrets.json) != '600' ]] ; then
+    echo 'api_secrets.json permissions too lax' >&2
+    echo 'run: chmod 600 api_secrets.json' >&2
+    exit 1
+fi
+
+if ! sha256sum -c <<<'24290900be9575d1fb6349098b1c11615a2eac8091bc486bec6cf67239b7846a  secrets.json' >/dev/null ; then
+    echo 'Secrets are wrong' >&2
+    exit 1
+fi
+
+declare -r chain_name="$1"
+shift
+
+if [[ $(jq -r -M ."$chain_name" < api_secrets.json) == 'null' ]] ; then
+    echo "$chain_name"' is missing from api_secrets.json' >&2
+    exit 1
+fi
+
+function get_secret {
+    declare instance="$1"
+    shift
+    declare key="$1"
+    shift
+    jq -r -M ."$instance"."$key" < ./secrets.json
+}
+
+function get_api_secret {
+    jq -r -M ."$chain_name"."$1" < ./api_secrets.json
+}
+
+function get_chain_config {
+    jq -r -M ."$chain_name"."$1" < ./chain_config.json
+}
+
+declare -r deployer="$(get_secret iceColdCoffee deployer)"
+declare -r deployed_address="$(get_secret iceColdCoffee address)"
+declare -r -i chainid="$(get_chain_config chainId)"
+declare -r rpc_url="$(get_api_secret rpcUrl)"
+
+#createProxyWithNonce(address _singleton,bytes initializer,uint256 saltNonce)
+
+# used to compute deployer safe
+declare -r safe_factory="$(get_chain_config safeFactory)"
+declare -r safe_singleton="$(get_chain_config safeSingleton)"
+declare -r safe_creation_sig='proxyCreationCode()(bytes)'
+declare -r safe_initcode="$(cast abi-decode "$safe_creation_sig" "$(cast call --rpc-url "$rpc_url" "$safe_factory" "$(cast calldata "$safe_creation_sig")")")"
+declare -r safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
+declare -r safe_fallback="$(get_chain_config safeFallback)"
+declare -r initializer="$(cast calldata       \
+                         'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
+                         '['"$deployer"']'    \
+                         1                    \
+                         $(cast address-zero) \
+                         0x                   \
+                         "$safe_fallback"     \
+                         $(cast address-zero) \
+                         0                    \
+                         $(cast address-zero)
+                        )"
+declare -r safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
+declare safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$safe_salt" "$safe_inithash")")"
+declare -r safe="$(cast to-check-sum-address "0x${safe:26:40}")"
+
+declare -a maybe_broadcast=()
+if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
+    maybe_broadcast+=(--broadcast)
+fi
+
+ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" forge script --slow --no-storage-caching --chain $chainid --rpc-url "$rpc_url" -vvvvv "${maybe_broadcast[@]}" --sig 'run(address,address,address,address)' script/DeploySafes.s.sol:DeploySafes "$safe" "$safe_factory" "$safe_singleton" "$safe_fallback"
+
+if [[ "${BROADCAST-no}" = [Yy]es || 1 == 1 ]] ; then
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$deployed_address" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+fi
