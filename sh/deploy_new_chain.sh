@@ -199,6 +199,10 @@ declare -r deployer_proxy
 declare ice_cold_coffee
 ice_cold_coffee="$(get_secret iceColdCoffee address)"
 declare -r ice_cold_coffee
+declare deployer_impl
+deployer_impl="$(cast keccak "$(cast to-rlp '["0x6d4197897b4e776C96c04309cF1CA47179C2B543", "0x01"]')")"
+deployer_impl="$(cast to-check-sum-address "0x${deployer_impl:26:40}")"
+declare -r deployer_impl
 
 # not quite so secret-s
 declare -i chainid
@@ -309,9 +313,9 @@ if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
         --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)"
     )
     declare -r -a common_args
-    forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
-    forge verify-contract "${common_args[@]}" "$deployer_proxy" src/deployer/Deployer.sol:Deployer
+    forge verify-contract "${common_args[@]}" "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
     declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
     declare settler
