@@ -121,7 +121,7 @@ contract DeploySafes is Script {
         bytes memory authorizeCall =
             abi.encodeCall(Deployer.authorize, (feature, deploymentSafe, uint40(block.timestamp + 365 days)));
         bytes memory deployCall =
-            abi.encodeCall(Deployer.deploy, (feature, abi.encodePacked(type(Settler).creationCode, constructorArgs)));
+            abi.encodeCall(Deployer.deploy, (feature, bytes.concat(type(Settler).creationCode, constructorArgs)));
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
