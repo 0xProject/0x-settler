@@ -215,10 +215,10 @@ declare -r description
 
 # safe constants
 declare safe_factory
-safe_factory="$(get_config safeFactory)"
+safe_factory="$(get_config safe.factory)"
 declare -r safe_factory
 declare safe_singleton
-safe_singleton="$(get_config safeSingleton)"
+safe_singleton="$(get_config safe.singleton)"
 declare -r safe_singleton
 declare safe_creation_sig
 safe_creation_sig='proxyCreationCode()(bytes)'
@@ -230,7 +230,7 @@ declare safe_inithash
 safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
 declare -r safe_inithash
 declare safe_fallback
-safe_fallback="$(get_config safeFallback)"
+safe_fallback="$(get_config safe.fallback)"
 declare -r safe_fallback
 
 # compute deployment safe
@@ -320,7 +320,9 @@ fi
 
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
+echo '"governance": {' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
 echo '	"deployer": "'"$deployer_proxy"'",' >&2
 echo '	"pause": "'"$ice_cold_coffee"'",' >&2
+echo '}' >&2
