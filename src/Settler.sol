@@ -9,7 +9,6 @@ import {Basic} from "./core/Basic.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
-import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
@@ -73,7 +72,7 @@ library CalldataDecoder {
 }
 
 /// @custom:security-contact security@0x.org
-contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, MakerPSM, FreeMemory {
+contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, FreeMemory {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -86,13 +85,12 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
     // When you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` to set `constructor_args`.
-    constructor(address uniFactory, bytes32 poolInitCodeHash, address dai)
+    constructor(address uniFactory, bytes32 poolInitCodeHash, address)
         Permit2Payment()
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
         UniswapV2()
-        MakerPSM(dai)
     {}
 
     struct AllowedSlippage {
@@ -338,15 +336,9 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
 
             sellToUniswapV2(recipient, sellToken, pool, swapInfo, bips, amountOutMin);
         } else if (action == ISettlerActions.MAKER_PSM_SELL_GEM.selector) {
-            (address recipient, uint256 bips, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
-
-            makerPsmSellGem(recipient, bips, psm, gemToken);
+            revert("Unimplemented");
         } else if (action == ISettlerActions.MAKER_PSM_BUY_GEM.selector) {
-            (address recipient, uint256 bips, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
-
-            makerPsmBuyGem(recipient, bips, psm, gemToken);
+            revert("Unimplemented");
         } else if (action == ISettlerActions.BASIC_SELL.selector) {
             (address pool, IERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, IERC20, uint256, uint256, bytes));
