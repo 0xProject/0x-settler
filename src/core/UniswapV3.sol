@@ -9,7 +9,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {TooMuchSlippage, ConfusedDeputy} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -347,6 +347,9 @@ abstract contract UniswapV3 is SettlerAbstract {
             }
             token1 := calldataload(add(data.offset, 0xb))
             payer := calldataload(add(data.offset, 0x1f))
+        }
+        if (msg.sender != address(_toPool(token0, fee, token1))) {
+            revert ConfusedDeputy();
         }
 
         bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
