@@ -9,12 +9,30 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {Revert} from "../utils/Revert.sol";
 
 library TransientStorage {
-    // uint256(keccak256("operator slot")) - 1
+    // bytes32(uint256(keccak256("operator slot")) - 1)
     bytes32 private constant _OPERATOR_SLOT = 0x009355806b743562f351db2e3726091207f49fa1cdccd5c65a7d4860ce3abbe9;
-    // uint256(keccak256("witness slot")) - 1
+    // bytes32(uint256(keccak256("witness slot")) - 1)
     bytes32 private constant _WITNESS_SLOT = 0x1643bf8e9fdaef48c4abf5a998de359be44a235ac7aebfbc05485e093720deaa;
+    // bytes32(uint256(keccak256("metatx signer slot")) - 1)
+    bytes32 private constant _METATX_SIGNER_SLOT = 0xfc7be34027b4062d13b31d75182f37b703b5ad960f0e73236593535549bb277d;
+
+    error ReentrantCallback(address oldOperator);
 
     function setOperator(address operator) internal {
+        address currentSigner;
+        assembly ("memory-safe") {
+            currentSigner := tload(_METATX_SIGNER_SLOT)
+        }
+        if (operator == currentSigner) {
+            revert ConfusedDeputy();
+        }
+        address currentOperator;
+        assembly ("memory-safe") {
+            currentOperator := tload(_OPERATOR_SLOT)
+        }
+        if (currentOperator != address(0) && msg.sender != currentOperator) {
+            revert ReentrantCallback(currentOperator);
+        }
         assembly ("memory-safe") {
             tstore(_OPERATOR_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
         }
@@ -35,13 +53,13 @@ library TransientStorage {
     function getAndClearOperator() internal returns (address operator) {
         assembly ("memory-safe") {
             operator := tload(_OPERATOR_SLOT)
-            tstore(_OPERATOR_SLOT, 0)
+            if operator { tstore(_OPERATOR_SLOT, 0) }
         }
     }
 
     error ReentrantMetatransaction(bytes32 oldWitness);
 
-    function setWitness(bytes32 newWitness) internal {
+    function setWitness(bytes32 newWitness, address signer) internal {
         bytes32 currentWitness;
         assembly ("memory-safe") {
             currentWitness := tload(_WITNESS_SLOT)
@@ -51,6 +69,7 @@ library TransientStorage {
         }
         assembly ("memory-safe") {
             tstore(_WITNESS_SLOT, newWitness)
+            tstore(_METATX_SIGNER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, signer))
         }
     }
 
@@ -66,10 +85,14 @@ library TransientStorage {
         }
     }
 
-    function getAndClearWitness() internal returns (bytes32 witness) {
+    function getAndClearWitness() internal returns (bytes32 witness, address signer) {
         assembly ("memory-safe") {
             witness := tload(_WITNESS_SLOT)
-            tstore(_WITNESS_SLOT, 0)
+            if witness {
+                signer := tload(_METATX_SIGNER_SLOT)
+                tstore(_METATX_SIGNER_SLOT, 0)
+                tstore(_WITNESS_SLOT, 0)
+            }
         }
     }
 }
@@ -89,6 +112,13 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         override
         returns (bytes memory)
     {
+        address operator = TransientStorage.getAndClearOperator();
+        if (operator != address(0)) {
+            address msgSender = _msgSender();
+            if (_msgSender() != operator) {
+                revert ConfusedDeputy();
+            }
+        }
         TransientStorage.setOperator(target);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
@@ -101,10 +131,8 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     }
 
     modifier metaTx(address msgSender, bytes32 witness) override {
-        address operator = _msgSender();
-        require(msgSender != operator);
-        TransientStorage.setOperator(operator);
-        TransientStorage.setWitness(witness);
+        TransientStorage.setWitness(witness, msgSender);
+        TransientStorage.setOperator(_msgSender());
         _;
         TransientStorage.checkSpentOperator();
         TransientStorage.checkSpentWitness();
@@ -170,8 +198,11 @@ abstract contract Permit2Payment is Permit2PaymentBase {
             revert ConfusedDeputy();
         }
         {
-            bytes32 witness = TransientStorage.getAndClearWitness();
+            (bytes32 witness, address signer) = TransientStorage.getAndClearWitness();
             if (witness != bytes32(0)) {
+                if (from != signer) {
+                    revert ConfusedDeputy();
+                }
                 return _transferFrom(
                     permit, transferDetails, from, witness, _ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
                 );
