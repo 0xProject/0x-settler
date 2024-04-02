@@ -204,6 +204,12 @@ deployer_impl="$(cast keccak "$(cast to-rlp '["0x6d4197897b4e776C96c04309cF1CA47
 deployer_impl="$(cast to-check-sum-address "0x${deployer_impl:26:40}")"
 declare -r deployer_impl
 
+declare -r -i feature=1
+declare description
+description="$(jq -MRs < ./sh/initial_description.md)"
+description="${description:1:$((${#description} - 2))}"
+declare -r description
+
 # not quite so secret-s
 declare -i chainid
 chainid="$(get_config chainId)"
@@ -211,11 +217,6 @@ declare -r -i chainid
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
-declare -r feature=1
-declare description
-description="$(jq -MRs < ./sh/initial_description.md)"
-description="${description:1:$((${#description} - 2))}"
-declare -r description
 
 # safe constants
 declare safe_factory

@@ -189,9 +189,11 @@ function get_config {
 declare deployer_proxy
 deployer_proxy="$(get_secret deployer address)"
 declare -r deployer_proxy
-declare module_deployer
-module_deployer="$(get_secret iceColdCoffee deployer)"
-declare -r module_deployer
+declare deployment_safe
+deployment_safe="$(get_config governance.deploymentSafe)"
+declare -r deployment_safe
+
+declare -r -i feature=1
 
 # not quite so secret-s
 declare -i chainid
@@ -200,51 +202,6 @@ declare -r -i chainid
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
-declare -r feature=1
-
-# safe constants
-declare safe_factory
-safe_factory="$(get_config safe.factory)"
-declare -r safe_factory
-declare safe_singleton
-safe_singleton="$(get_config safe.singleton)"
-declare -r safe_singleton
-declare safe_creation_sig
-safe_creation_sig='proxyCreationCode()(bytes)'
-declare -r safe_creation_sig
-declare safe_initcode
-safe_initcode="$(cast abi-decode "$safe_creation_sig" "$(cast call --rpc-url "$rpc_url" "$safe_factory" "$(cast calldata "$safe_creation_sig")")")"
-declare -r safe_initcode
-declare safe_inithash
-safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
-declare -r safe_inithash
-declare safe_fallback
-safe_fallback="$(get_config safe.fallback)"
-declare -r safe_fallback
-
-# compute deployment safe
-declare -r setup_signature='setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)'
-declare deployment_safe_initializer
-deployment_safe_initializer="$(
-    cast calldata            \
-    "$setup_signature"       \
-    '['"$module_deployer"']' \
-    1                        \
-    $(cast address-zero)     \
-    0x                       \
-    "$safe_fallback"         \
-    $(cast address-zero)     \
-    0                        \
-    $(cast address-zero)
-)"
-declare -r deployment_safe_initializer
-declare deployment_safe_salt
-deployment_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$deployment_safe_initializer")" "$(cast hash-zero)")")"
-declare -r deployment_safe_salt
-declare deployment_safe
-deployment_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$deployment_safe_salt" "$safe_inithash")")"
-deployment_safe="$(cast to-check-sum-address "0x${deployment_safe:26:40}")"
-declare -r deployment_safe
 
 # encode constructor arguments for Settler
 declare constructor_args
