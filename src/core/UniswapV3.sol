@@ -264,7 +264,7 @@ abstract contract UniswapV3 is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         bool isForwarded
-    ) private pure {
+    ) private view {
         assembly ("memory-safe") {
             {
                 let permitted := mload(permit)
@@ -274,6 +274,9 @@ abstract contract UniswapV3 is SettlerAbstract {
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40)), mload(add(permit, 0x20)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x60)), mload(add(permit, 0x40)))
             mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE)), and(isForwarded, 1))
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
             mcopy(
                 add(
                     swapCallbackData,

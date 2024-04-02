@@ -14,19 +14,19 @@ library TransientStorage {
 
     function set(bytes32 witness) internal {
         assembly ("memory-safe") {
-            tstore(_SLOT, witness)
+            sstore(_SLOT, witness)
         }
     }
 
     function set(address addr) internal {
         assembly ("memory-safe") {
-            tstore(_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, addr))
+            sstore(_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, addr))
         }
     }
 
     function get() internal view returns (uint256 r) {
         assembly ("memory-safe") {
-            r := tload(_SLOT)
+            r := sload(_SLOT)
         }
     }
 }
