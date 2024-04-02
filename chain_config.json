@@ -53,6 +53,12 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804"
     },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
     "etherscanApi": "https://api.polygonscan.com/api",
     "uniV3": {
       "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
@@ -116,6 +122,12 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804"
     },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
     "etherscanApi": "https://api.arbiscan.io/api",
     "uniV3": {
       "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
@@ -133,6 +145,12 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804"
     },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
     "etherscanApi": "https://api.bscscan.com/api",
     "uniV3": {
       "factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
@@ -149,6 +167,12 @@
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "etherscanApi": "https://api.snowtrace.io/api",
     "uniV3": {
