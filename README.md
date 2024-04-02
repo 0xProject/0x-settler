@@ -540,9 +540,9 @@ Where `actions` is added and contains the encoded actions the to perform.
 
 
 ## AllowanceHolder
-As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x V5 and acts as transparently as possible. 0x V5 has a one way trust relationship to `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0x V5 in a similar way to [ERC-2771](https://eips.ethereum.org/EIPS/eip-2771). `Permit2` is not used in conjunction with `AllowanceHolder`
+As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x Settler and acts as transparently as possible. 0x Settler has a one way trust relationship to `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0x Settler in a similar way to [ERC-2771](https://eips.ethereum.org/EIPS/eip-2771). `Permit2` is not used in conjunction with `AllowanceHolder`
 
-`execute`: An EOA or a Contract can utilise this function to perform a swap via 0x V5. Tokens are transferred efficiently and on-demand as the swap executes 
+`execute`: An EOA or a Contract can utilise this function to perform a swap via 0x Settler. Tokens are transferred efficiently and on-demand as the swap executes 
 
 Highlighted in orange is the standard token transfer operations. Note: these are not the most effiecient swaps available, just enough to demonstrate the point.
 
