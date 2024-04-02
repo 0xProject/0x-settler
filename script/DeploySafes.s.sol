@@ -55,10 +55,11 @@ interface ISafeModule {
 }
 
 contract DeploySafes is Script {
-    address internal constant iceColdCoffee = 0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30;
-    address internal constant deployerProxy = 0x00000000000004533Fe15556B1E086BB1A72cEae;
-
     function run(
+        address moduleDeployer,
+        address proxyDeployer,
+        address iceColdCoffee,
+        address deployerProxy,
         address deploymentSafe,
         address upgradeSafe,
         ISafeFactory safeFactory,
@@ -70,16 +71,16 @@ contract DeploySafes is Script {
     ) public {
         uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
         uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
-        address moduleDeployer = vm.addr(moduleDeployerKey);
-        address proxyDeployer = vm.addr(proxyDeployerKey);
+        require(vm.addr(moduleDeployerKey) == moduleDeployer, "module deployer key/address mismatch");
+        require(vm.addr(proxyDeployerKey) == proxyDeployer, "proxy deployer key/address mismatch");
 
         require(
             AddressDerivation.deriveContract(moduleDeployer, 0) == iceColdCoffee,
-            "module -- private key/deployed address mismatch"
+            "module -- key/deployed address mismatch"
         );
         require(
             AddressDerivation.deriveContract(proxyDeployer, 0) == deployerProxy,
-            "deployer proxy -- private key/deployed address mismatch"
+            "deployer proxy -- key/deployed address mismatch"
         );
         require(vm.getNonce(moduleDeployer) == 0, "module -- deployer already has transactions");
         require(vm.getNonce(proxyDeployer) == 0, "deployer proxy -- deployer already has transactions");

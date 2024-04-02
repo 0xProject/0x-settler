@@ -192,6 +192,15 @@ declare -r module_deployer
 declare proxy_deployer
 proxy_deployer="$(get_secret deployer deployer)"
 declare -r proxy_deployer
+# we can't do key derivation in Bash, so we rely on the Foundry script to check that these are correct
+declare deployer_proxy
+deployer_proxy="$(get_secret deployer address)"
+declare -r deployer_proxy
+declare ice_cold_coffee
+ice_cold_coffee="$(get_secret iceColdCoffee address)"
+declare -r ice_cold_coffee
+
+# not quite so secret-s
 declare -i chainid
 chainid="$(get_chain_config chainId)"
 declare -r -i chainid
@@ -288,9 +297,9 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,uint128,string,bytes)' \
+    --sig 'run(address,address,address,address,address,address,address,address,address,uint128,string,bytes)' \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$feature" "$description" "$constructor_args"
+    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$feature" "$description" "$constructor_args"
 
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     declare -a common_args=()
@@ -298,11 +307,7 @@ if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
         --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)"
     )
     declare -r -a common_args
-    forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$(get_secret iceColdCoffee address)" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
-
-    declare deployer_proxy
-    deployer_proxy="$(get_secret deployer address)"
-    declare -r deployer_proxy
+    forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
     forge verify-contract "${common_args[@]}" "$deployer_proxy" src/deployer/Deployer.sol:Deployer
 
@@ -317,5 +322,5 @@ echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
-echo '	"deployer": "'"$(get_secret iceColdCoffee address)"'",' >&2
-echo '	"pause": "'"$(get_secret deployer address)"'",' >&2
+echo '	"deployer": "'"$deployer_proxy"'",' >&2
+echo '	"pause": "'"$ice_cold_coffee"'",' >&2
