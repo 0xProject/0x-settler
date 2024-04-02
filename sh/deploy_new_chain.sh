@@ -234,10 +234,11 @@ safe_fallback="$(get_config safe.fallback)"
 declare -r safe_fallback
 
 # compute deployment safe
+declare -r setup_signature='setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)'
 declare deployment_safe_initializer
 deployment_safe_initializer="$(
     cast calldata            \
-    'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
+    "$setup_signature"       \
     '['"$module_deployer"']' \
     1                        \
     $(cast address-zero)     \
@@ -249,7 +250,7 @@ deployment_safe_initializer="$(
 )"
 declare -r deployment_safe_initializer
 declare deployment_safe_salt
-deployment_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$deployment_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
+deployment_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$deployment_safe_initializer")" "$(cast hash-zero)")")"
 declare -r deployment_safe_salt
 declare deployment_safe
 deployment_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$deployment_safe_salt" "$safe_inithash")")"
@@ -260,7 +261,7 @@ declare -r deployment_safe
 declare upgrade_safe_initializer
 upgrade_safe_initializer="$(
     cast calldata           \
-    'setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)' \
+    "$setup_signature"      \
     '['"$proxy_deployer"']' \
     1                       \
     $(cast address-zero)    \
@@ -272,7 +273,7 @@ upgrade_safe_initializer="$(
 )"
 declare -r upgrade_safe_initializer
 declare upgrade_safe_salt
-upgrade_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$upgrade_safe_initializer")" 0x0000000000000000000000000000000000000000000000000000000000000000)")"
+upgrade_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$upgrade_safe_initializer")" "$(cast hash-zero)")")"
 declare -r upgrade_safe_salt
 declare upgrade_safe
 upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_safe_salt" "$safe_inithash")")"
