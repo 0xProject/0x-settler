@@ -299,6 +299,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
     --sig 'run(address,address,address,address,address,address,address,address,address,uint128,string,bytes)' \
+    $(get_config extraFlags)                             \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$feature" "$description" "$constructor_args"
 

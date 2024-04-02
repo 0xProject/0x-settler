@@ -1,6 +1,7 @@
 {
   "sepolia": {
     "chainId": 11155111,
+    "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -23,6 +24,7 @@
   },
   "mainnet": {
     "chainId": 1,
+    "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -45,6 +47,7 @@
   },
   "polygon": {
     "chainId": 137,
+    "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -61,6 +64,7 @@
   },
   "base": {
     "chainId": 8453,
+    "extraFlags": "--legacy",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -83,6 +87,7 @@
   },
   "optimism": {
     "chainId": 10,
+    "extraFlags": "--legacy",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -105,6 +110,7 @@
   },
   "arbitrum": {
     "chainId": 42161,
+    "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -121,6 +127,7 @@
   },
   "bnb": {
     "chainId": 56,
+    "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -137,6 +144,7 @@
   },
   "avalanche": {
     "chainId": 43114,
+    "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
