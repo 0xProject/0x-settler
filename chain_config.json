@@ -125,5 +125,20 @@
     },
     "makerPsm": {
     }
+  },
+  "avalanche": {
+    "chainId": 43114,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804"
+    },
+    "etherscanApi": "https://api.snowtrace.io/api",
+    "uniV3": {
+      "factory": "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+    }
   }
 }
