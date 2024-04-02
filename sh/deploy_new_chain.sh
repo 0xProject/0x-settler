@@ -182,7 +182,7 @@ function get_api_secret {
     jq -r -M ."$chain_name"."$1" < ./api_secrets.json
 }
 
-function get_chain_config {
+function get_config {
     jq -r -M ."$chain_name"."$1" < ./chain_config.json
 }
 
@@ -202,7 +202,7 @@ declare -r ice_cold_coffee
 
 # not quite so secret-s
 declare -i chainid
-chainid="$(get_chain_config chainId)"
+chainid="$(get_config chainId)"
 declare -r -i chainid
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
@@ -215,10 +215,10 @@ declare -r description
 
 # safe constants
 declare safe_factory
-safe_factory="$(get_chain_config safeFactory)"
+safe_factory="$(get_config safeFactory)"
 declare -r safe_factory
 declare safe_singleton
-safe_singleton="$(get_chain_config safeSingleton)"
+safe_singleton="$(get_config safeSingleton)"
 declare -r safe_singleton
 declare safe_creation_sig
 safe_creation_sig='proxyCreationCode()(bytes)'
@@ -230,7 +230,7 @@ declare safe_inithash
 safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
 declare -r safe_inithash
 declare safe_fallback
-safe_fallback="$(get_chain_config safeFallback)"
+safe_fallback="$(get_config safeFallback)"
 declare -r safe_fallback
 
 # compute deployment safe
@@ -281,7 +281,7 @@ declare -r upgrade_safe
 
 # encode constructor arguments for Settler
 declare constructor_args
-constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_chain_config uniV3.factory)" "$(get_chain_config uniV3.initHash)" "$(get_chain_config makerPsm.dai)")"
+constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_config uniV3.factory)" "$(get_config uniV3.initHash)" "$(get_config makerPsm.dai)")"
 declare -r constructor_args
 
 declare -a maybe_broadcast=()
@@ -304,7 +304,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     declare -a common_args=()
     common_args+=(
-        --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)"
+        --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)"
     )
     declare -r -a common_args
     forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
