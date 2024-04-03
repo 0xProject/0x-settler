@@ -177,8 +177,12 @@ function get_api_secret {
     jq -r -M ."$chain_name"."$1" < ./api_secrets.json
 }
 
-function get_chain_config {
-    jq -r -M ."$chain_name"."$1" < ./chain_config.json
+function get_config {
+    jq -r -M ."$chain_name"."$1" < ./config.json
 }
 
-forge create-contract --private-key "$(get_secret allowanceHolder key)" --chain "$(get_chain_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_chain_config etherscanApi)" --verify src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+if [[ $(get_config isCancun) = [Tt]rue ]] ; then
+    forge create-contract --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+else
+    forge create-contract --private-key "$(get_secret allowanceHolderOld key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+fi

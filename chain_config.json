@@ -1,6 +1,7 @@
 {
   "sepolia": {
     "chainId": 11155111,
+    "isCancun": true,
     "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -24,6 +25,7 @@
   },
   "mainnet": {
     "chainId": 1,
+    "isCancun": true,
     "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -47,6 +49,7 @@
   },
   "polygon": {
     "chainId": 137,
+    "isCancun": true,
     "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -70,6 +73,7 @@
   },
   "base": {
     "chainId": 8453,
+    "isCancun": true,
     "extraFlags": "--legacy",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -93,6 +97,7 @@
   },
   "base_sepolia": {
     "chainId": 84532,
+    "isCancun": false,
     "extraFlags": "--legacy",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -116,6 +121,7 @@
   },
   "optimism": {
     "chainId": 10,
+    "isCancun": true,
     "extraFlags": "--legacy",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -139,6 +145,7 @@
   },
   "arbitrum": {
     "chainId": 42161,
+    "isCancun": true,
     "extraFlags": "--legacy",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -162,6 +169,7 @@
   },
   "bnb": {
     "chainId": 56,
+    "isCancun": false,
     "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -185,6 +193,7 @@
   },
   "avalanche": {
     "chainId": 43114,
+    "isCancun": false,
     "extraFlags": "",
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
