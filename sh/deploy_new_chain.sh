@@ -242,6 +242,9 @@ declare -r safe_inithash
 declare safe_fallback
 safe_fallback="$(get_config safe.fallback)"
 declare -r safe_fallback
+declare safe_multicall
+safe_multicall="$(get_config safe.multiCall)"
+declare -r safe_multicall
 
 # compute deployment safe
 declare -r setup_signature='setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)'
@@ -309,10 +312,10 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,address,address,address,address,uint128,string,bytes)' \
+    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,string,bytes)' \
     $(get_config extraFlags)                             \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$feature" "$description" "$constructor_args"
+    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$feature" "$description" "$constructor_args"
 
 if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
     declare -a common_args=()
