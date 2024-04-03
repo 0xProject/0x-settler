@@ -277,15 +277,13 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         AllowedSlippage calldata slippage,
         address msgSender,
         bytes calldata sig
-    ) public {
-        require(msgSender != _msgSender());
+    ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
 
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
-            _setWitness(_hashActionsAndSlippage(actions, slippage));
 
             if (action == ISettlerActions.METATXN_SETTLER_OTC_PERMIT2.selector) {
                 _metaTxnOtcVIP(data, msgSender, sig);
