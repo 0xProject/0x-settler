@@ -26,6 +26,8 @@ library SafeConfig {
         revert(string.concat("Unrecognized chainid ", ItoA.itoa(block.chainid)));
     }
 
+    uint256 internal constant upgradeSafeThreshold = 3;
+
     function getUpgradeSafeSigners() internal view returns (address[] memory) {
         address[] memory result = new address[](6);
         result[0] = 0x257619B7155d247e43c8B6d90C8c17278Ae481F0; // Will
@@ -42,6 +44,8 @@ library SafeConfig {
         }
         return result;
     }
+
+    uint256 internal constant deploymentSafeThreshold = 2;
 
     function getDeploymentSafeSigners() internal view returns (address[] memory) {
         address[] memory result = new address[](7);

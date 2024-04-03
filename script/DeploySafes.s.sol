@@ -211,9 +211,11 @@ contract DeploySafes is Script {
             abi.encodeCall(Deployer.deploy, (feature, bytes.concat(type(Settler).creationCode, constructorArgs)));
 
         address[] memory deployerOwners = SafeConfig.getDeploymentSafeSigners();
-        bytes memory deploymentChangeOwnersCall = _encodeChangeOwners(deploymentSafe, 2, moduleDeployer, deployerOwners);
+        bytes memory deploymentChangeOwnersCall =
+            _encodeChangeOwners(deploymentSafe, SafeConfig.deploymentSafeThreshold, moduleDeployer, deployerOwners);
         address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
-        bytes memory upgradeChangeOwnersCall = _encodeChangeOwners(upgradeSafe, 3, proxyDeployer, upgradeOwners);
+        bytes memory upgradeChangeOwnersCall =
+            _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
 
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
