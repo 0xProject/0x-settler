@@ -8,6 +8,7 @@ import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
 import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
+import {UniswapV2} from "./core/UniswapV2.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
@@ -71,7 +72,7 @@ library CalldataDecoder {
 }
 
 /// @custom:security-contact security@0x.org
-contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, FreeMemory {
+contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, FreeMemory {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -89,6 +90,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, FreeMe
         Basic()
         OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
+        UniswapV2()
     {}
 
     struct AllowedSlippage {
@@ -327,7 +329,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, FreeMe
 
             sellTokenForTokenToUniswapV3(recipient, path, bips, amountOutMin);
         } else if (action == ISettlerActions.UNISWAPV2_SWAP.selector) {
-            revert("Unimplemented");
+            (address recipient, address sellToken, address pool, uint8 swapInfo, uint256 bips, uint256 amountOutMin) =
+                abi.decode(data, (address, address, address, uint8, uint256, uint256));
+
+            sellToUniswapV2(recipient, sellToken, pool, swapInfo, bips, amountOutMin);
         } else if (action == ISettlerActions.MAKER_PSM_SELL_GEM.selector) {
             revert("Unimplemented");
         } else if (action == ISettlerActions.MAKER_PSM_BUY_GEM.selector) {
