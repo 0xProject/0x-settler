@@ -335,6 +335,8 @@ echo 'Add the following to your chain_config.json' >&2
 echo '"governance": {' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
-echo '	"deployer": "'"$deployer_proxy"'",' >&2
 echo '	"pause": "'"$ice_cold_coffee"'",' >&2
+echo '},' >&2
+echo '"deployment": {' >&2
+echo '	"deployer": "'"$deployer_proxy"'",' >&2
 echo '}' >&2
