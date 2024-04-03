@@ -212,6 +212,8 @@ contract DeploySafes is Script {
 
         address[] memory deployerOwners = SafeConfig.getDeploymentSafeSigners();
         bytes memory deploymentChangeOwnersCall = _encodeChangeOwners(deploymentSafe, 2, moduleDeployer, deployerOwners);
+        address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
+        bytes memory upgradeChangeOwnersCall = _encodeChangeOwners(upgradeSafe, 3, proxyDeployer, upgradeOwners);
 
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
@@ -261,7 +263,7 @@ contract DeploySafes is Script {
             upgradeSignature
         );
 
-        // give the deployment safe permission to deploy instances (for 1 year)
+        // set the description for the initial feature NFT
         ISafeExecute(upgradeSafe).execTransaction(
             deployerProxy,
             0,
@@ -274,11 +276,25 @@ contract DeploySafes is Script {
             address(0),
             upgradeSignature
         );
+        // give the deployment safe permission to deploy instances (for 1 year)
         ISafeExecute(upgradeSafe).execTransaction(
             deployerProxy,
             0,
             authorizeCall,
             ISafeExecute.Operation.Call,
+            0,
+            0,
+            0,
+            address(0),
+            address(0),
+            upgradeSignature
+        );
+        // set the initial owners from the config and remove the deployer
+        ISafeExecute(upgradeSafe).execTransaction(
+            safeMulticall,
+            0,
+            upgradeChangeOwnersCall,
+            ISafeExecute.Operation.DelegateCall,
             0,
             0,
             0,
@@ -329,6 +345,11 @@ contract DeploySafes is Script {
             keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
                 == keccak256(abi.encodePacked(deployerOwners)),
             "deployment safe owners mismatch"
+        );
+        require(
+            keccak256(abi.encodePacked(ISafeOwners(upgradeSafe).getOwners()))
+                == keccak256(abi.encodePacked(upgradeOwners)),
+            "upgrade safe owners mismatch"
         );
     }
 }
