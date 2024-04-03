@@ -182,7 +182,7 @@ function get_config {
 }
 
 if [[ $(get_config isCancun) = [Tt]rue ]] ; then
-    forge create --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+    forge create --no-cache --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 else
-    forge create --private-key "$(get_secret allowanceHolderOld key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+    forge create --no-cache --private-key "$(get_secret allowanceHolderOld key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 fi
