@@ -149,7 +149,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             bytes calldata data;
             assembly ("memory-safe") {
                 // We do not validate `calldatasize()`. If the calldata is short
-                // enough that `data` is null, it will alias `operator`. this
+                // enough that `data` is null, it will alias `operator`. This
                 // results in either an OOG (because `operator` encodes a
                 // too-long `bytes`) or is a harmless no-op (because `operator`
                 // encodes a valid length, but not an address capable of making
