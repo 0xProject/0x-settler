@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
+import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
@@ -70,7 +71,7 @@ library CalldataDecoder {
 }
 
 /// @custom:security-contact security@0x.org
-contract Settler is Permit2Payment, Basic, UniswapV3, FreeMemory {
+contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, FreeMemory {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -86,6 +87,7 @@ contract Settler is Permit2Payment, Basic, UniswapV3, FreeMemory {
     constructor(address uniFactory, bytes32 poolInitCodeHash, address)
         Permit2Payment()
         Basic()
+        OtcOrderSettlement()
         UniswapV3(uniFactory, poolInitCodeHash)
     {}
 
@@ -120,8 +122,27 @@ contract Settler is Permit2Payment, Basic, UniswapV3, FreeMemory {
         }
     }
 
-    function _otcVIP(bytes calldata) internal DANGEROUS_freeMemory {
-        revert("Unimplemented");
+    function _otcVIP(bytes calldata data) internal DANGEROUS_freeMemory {
+        (
+            address recipient,
+            ISignatureTransfer.PermitTransferFrom memory makerPermit,
+            address maker,
+            bytes memory makerSig,
+            ISignatureTransfer.PermitTransferFrom memory takerPermit,
+            bytes memory takerSig
+        ) = abi.decode(
+            data,
+            (
+                address,
+                ISignatureTransfer.PermitTransferFrom,
+                address,
+                bytes,
+                ISignatureTransfer.PermitTransferFrom,
+                bytes
+            )
+        );
+
+        fillOtcOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
     function _uniV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
@@ -201,8 +222,22 @@ contract Settler is Permit2Payment, Basic, UniswapV3, FreeMemory {
         }
     }
 
-    function _metaTxnOtcVIP(bytes calldata, address, bytes calldata) internal DANGEROUS_freeMemory {
-        revert("Unimplemented");
+    function _metaTxnOtcVIP(bytes calldata data, address msgSender, bytes calldata sig) internal DANGEROUS_freeMemory {
+        // An optimized path involving a maker/taker in a single trade
+        // The OTC order is signed by both maker and taker, validation is
+        // performed inside the OtcOrderSettlement so there is no need to
+        // validate `sig` against `actions` here
+        (
+            address recipient,
+            ISignatureTransfer.PermitTransferFrom memory makerPermit,
+            address maker,
+            bytes memory makerSig,
+            ISignatureTransfer.PermitTransferFrom memory takerPermit
+        ) = abi.decode(
+            data,
+            (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
+        );
+        fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
     }
 
     function _metaTxnTransferFrom(bytes calldata data, address msgSender, bytes calldata sig)
@@ -276,7 +311,16 @@ contract Settler is Permit2Payment, Basic, UniswapV3, FreeMemory {
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, msgSender, sig);
         } else if (action == ISettlerActions.SETTLER_OTC_SELF_FUNDED.selector) {
-            revert("Unimplemented");
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                address maker,
+                bytes memory makerSig,
+                IERC20 takerToken,
+                uint256 maxTakerAmount
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
+
+            fillOtcOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.UNISWAPV3_SWAP_EXACT_IN.selector) {
             (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
