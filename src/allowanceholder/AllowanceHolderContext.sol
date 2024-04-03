@@ -5,7 +5,7 @@ import {Context} from "../Context.sol";
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 
 abstract contract AllowanceHolderContext is Context {
-    IAllowanceHolder internal constant _ALLOWANCE_HOLDER = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
+    IAllowanceHolder internal constant _ALLOWANCE_HOLDER = IAllowanceHolder(0x0000000000005E88410CcDFaDe4a5EfaE4b49562);
 
     function _isForwarded() internal view virtual override returns (bool) {
         return super._isForwarded() || super._msgSender() == address(_ALLOWANCE_HOLDER);
