@@ -181,8 +181,9 @@ function get_config {
     jq -r -M ."$chain_name"."$1" < ./chain_config.json
 }
 
-if [[ $(get_config isCancun) = [Tt]rue ]] ; then
-    forge create --no-cache --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-else
-    forge create --no-cache --private-key "$(get_secret allowanceHolderOld key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+if [[ $(get_config isCancun) != [Tt]rue ]] ; then
+    echo 'You are on the wrong branch' >&2
+    exit 1
 fi
+
+forge create --no-cache --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolder.sol:AllowanceHolder

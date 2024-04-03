@@ -186,6 +186,11 @@ function get_config {
     jq -r -M ."$chain_name"."$1" < ./chain_config.json
 }
 
+if [[ $(get_config isCancun) != [Tt]rue ]] ; then
+    echo 'You are on the wrong branch' >&2
+    exit 1
+fi
+
 declare deployer_proxy
 deployer_proxy="$(get_secret deployer address)"
 declare -r deployer_proxy
