@@ -77,6 +77,11 @@ interface ISafeMulticall {
 }
 
 contract DeploySafes is Script {
+    bytes32 internal constant singletonHash = 0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f;
+    bytes32 internal constant factoryHash = 0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
+    bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
+    bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
+
     function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
         // The Gnosis multicall contract uses a very obnoxious packed encoding
         // that is very similar to, but not exactly the same as
@@ -84,7 +89,6 @@ contract DeploySafes is Script {
         assembly ("memory-safe") {
             result := mload(0x40)
             mstore(add(0x04, result), 0x8d80ff0a) // selector for `multiSend(bytes)`
-            mstore(result, 0x00)
             mstore(add(0x24, result), 0x20)
             let bytes_length_ptr := add(0x44, result)
             mstore(bytes_length_ptr, 0x00)
@@ -156,6 +160,11 @@ contract DeploySafes is Script {
         string calldata initialDescription,
         bytes calldata constructorArgs
     ) public {
+        require(address(safeFactory).codehash == factoryHash, "Safe factory codehash");
+        require(safeSingleton.codehash == singletonHash, "Safe singleton codehash");
+        require(safeFallback.codehash == fallbackHash, "Safe fallback codehash");
+        require(safeMulticall.codehash == multicallHash, "Safe multicall codehash");
+
         uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
         uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
         require(vm.addr(moduleDeployerKey) == moduleDeployer, "module deployer key/address mismatch");
