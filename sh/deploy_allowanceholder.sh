@@ -178,7 +178,7 @@ function get_api_secret {
 }
 
 function get_config {
-    jq -r -M ."$chain_name"."$1" < ./config.json
+    jq -r -M ."$chain_name"."$1" < ./chain_config.json
 }
 
 if [[ $(get_config isCancun) = [Tt]rue ]] ; then
