@@ -103,7 +103,7 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     /// @dev Permit2 address
     ISignatureTransfer internal constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
-    function isRestrictedTarget(address target) internal view override returns (bool) {
+    function isRestrictedTarget(address target) internal pure override returns (bool) {
         return target == address(_PERMIT2) || target == address(_ALLOWANCE_HOLDER);
     }
 
@@ -112,13 +112,6 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         override
         returns (bytes memory)
     {
-        address operator = TransientStorage.getAndClearOperator();
-        if (operator != address(0)) {
-            address msgSender = _msgSender();
-            if (_msgSender() != operator) {
-                revert ConfusedDeputy();
-            }
-        }
         TransientStorage.setOperator(target);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
