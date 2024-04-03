@@ -9,24 +9,90 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {Revert} from "../utils/Revert.sol";
 
 library TransientStorage {
-    // uint256(keccak256("permit auth slot")) - 1
-    bytes32 private constant _SLOT = 0xba3245f446772a2c27ba34a24b77f4068853bc993b7dde3ca1b2bcb6ca68ce6e;
+    // bytes32(uint256(keccak256("operator slot")) - 1)
+    bytes32 private constant _OPERATOR_SLOT = 0x009355806b743562f351db2e3726091207f49fa1cdccd5c65a7d4860ce3abbe9;
+    // bytes32(uint256(keccak256("witness slot")) - 1)
+    bytes32 private constant _WITNESS_SLOT = 0x1643bf8e9fdaef48c4abf5a998de359be44a235ac7aebfbc05485e093720deaa;
+    // bytes32(uint256(keccak256("metatx signer slot")) - 1)
+    bytes32 private constant _METATX_SIGNER_SLOT = 0xfc7be34027b4062d13b31d75182f37b703b5ad960f0e73236593535549bb277d;
 
-    function set(bytes32 witness) internal {
+    error ReentrantCallback(address oldOperator);
+
+    function setOperator(address operator) internal {
+        address currentSigner;
         assembly ("memory-safe") {
-            sstore(_SLOT, witness)
+            currentSigner := sload(_METATX_SIGNER_SLOT)
+        }
+        if (operator == currentSigner) {
+            revert ConfusedDeputy();
+        }
+        address currentOperator;
+        assembly ("memory-safe") {
+            currentOperator := sload(_OPERATOR_SLOT)
+        }
+        if (currentOperator != address(0) && msg.sender != currentOperator) {
+            revert ReentrantCallback(currentOperator);
+        }
+        assembly ("memory-safe") {
+            sstore(_OPERATOR_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
         }
     }
 
-    function set(address addr) internal {
+    error OperatorNotSpent(address oldOperator);
+
+    function checkSpentOperator() internal view {
+        address currentOperator;
         assembly ("memory-safe") {
-            sstore(_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, addr))
+            currentOperator := sload(_OPERATOR_SLOT)
+        }
+        if (currentOperator != address(0)) {
+            revert OperatorNotSpent(currentOperator);
         }
     }
 
-    function get() internal view returns (uint256 r) {
+    function getAndClearOperator() internal returns (address operator) {
         assembly ("memory-safe") {
-            r := sload(_SLOT)
+            operator := sload(_OPERATOR_SLOT)
+            if operator { sstore(_OPERATOR_SLOT, 0) }
+        }
+    }
+
+    error ReentrantMetatransaction(bytes32 oldWitness);
+
+    function setWitness(bytes32 newWitness, address signer) internal {
+        bytes32 currentWitness;
+        assembly ("memory-safe") {
+            currentWitness := sload(_WITNESS_SLOT)
+        }
+        if (currentWitness != bytes32(0)) {
+            revert ReentrantMetatransaction(currentWitness);
+        }
+        assembly ("memory-safe") {
+            sstore(_WITNESS_SLOT, newWitness)
+            sstore(_METATX_SIGNER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, signer))
+        }
+    }
+
+    error WitnessNotSpent(bytes32 oldWitness);
+
+    function checkSpentWitness() internal view {
+        bytes32 currentWitness;
+        assembly ("memory-safe") {
+            currentWitness := sload(_WITNESS_SLOT)
+        }
+        if (currentWitness != bytes32(0)) {
+            revert WitnessNotSpent(currentWitness);
+        }
+    }
+
+    function getAndClearWitness() internal returns (bytes32 witness, address signer) {
+        assembly ("memory-safe") {
+            witness := sload(_WITNESS_SLOT)
+            if witness {
+                signer := sload(_METATX_SIGNER_SLOT)
+                sstore(_METATX_SIGNER_SLOT, 0)
+                sstore(_WITNESS_SLOT, 0)
+            }
         }
     }
 }
@@ -41,28 +107,28 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         return target == address(_PERMIT2) || target == address(_ALLOWANCE_HOLDER);
     }
 
-    function _allowCallback(address payable target, uint256 value, bytes memory data)
+    function _setOperatorAndCall(address payable target, uint256 value, bytes memory data)
         internal
         override
         returns (bytes memory)
     {
-        TransientStorage.set(target);
+        TransientStorage.setOperator(target);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
-        /*
-        if (TransientStorage.get() != 0) {
-            revert ConfusedDeputy();
-        }
-        */
+        TransientStorage.checkSpentOperator();
         return returndata;
     }
 
-    function _allowCallback(address target, bytes memory data) internal override returns (bytes memory) {
-        return _allowCallback(payable(target), 0, data);
+    function _setOperatorAndCall(address target, bytes memory data) internal override returns (bytes memory) {
+        return _setOperatorAndCall(payable(target), 0, data);
     }
 
-    function _setWitness(bytes32 witness) internal override {
-        TransientStorage.set(witness);
+    modifier metaTx(address msgSender, bytes32 witness) override {
+        TransientStorage.setWitness(witness, msgSender);
+        TransientStorage.setOperator(_msgSender());
+        _;
+        TransientStorage.checkSpentOperator();
+        TransientStorage.checkSpentWitness();
     }
 }
 
@@ -121,16 +187,17 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        if (from != _msgSender()) {
-            uint256 permitAuth = TransientStorage.get();
-            TransientStorage.set(bytes32(0));
-            if (permitAuth >> 160 == 0) {
-                if (msg.sender != address(uint160(permitAuth))) {
+        if (from != _msgSender() && msg.sender != TransientStorage.getAndClearOperator()) {
+            revert ConfusedDeputy();
+        }
+        {
+            (bytes32 witness, address signer) = TransientStorage.getAndClearWitness();
+            if (witness != bytes32(0)) {
+                if (from != signer) {
                     revert ConfusedDeputy();
                 }
-            } else {
                 return _transferFrom(
-                    permit, transferDetails, from, bytes32(permitAuth), _ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
+                    permit, transferDetails, from, witness, _ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
                 );
             }
         }
