@@ -7,8 +7,7 @@ import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
 import {Deployer, Feature} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {Settler} from "src/Settler.sol";
-
-import {console} from "forge-std/console.sol";
+import {SafeConfig} from "./SafeConfig.sol";
 
 interface ISafeFactory {
     function createProxyWithNonce(address singleton, bytes calldata initializer, uint256 saltNonce)
@@ -50,11 +49,98 @@ interface ISafeExecute {
     ) external payable returns (bool);
 }
 
+interface ISafeOwners {
+    function addOwnerWithThreshold(address owner, uint256 _threshold) external;
+    function removeOwner(address prevOwner, address owner, uint256 _threshold) external;
+    function changeThreshold(uint256 _threshold) external;
+    function getOwners() external view returns (address[] memory);
+}
+
 interface ISafeModule {
     function enableModule(address module) external;
 }
 
+interface ISafeMulticall {
+    /// @dev Sends multiple transactions and reverts all if one fails.
+    /// @param transactions Encoded transactions. Each transaction is encoded as a packed bytes of
+    ///                     operation has to be uint8(0) in this version (=> 1 byte),
+    ///                     to as a address (=> 20 bytes),
+    ///                     value as a uint256 (=> 32 bytes),
+    ///                     data length as a uint256 (=> 32 bytes),
+    ///                     data as bytes.
+    ///                     see abi.encodePacked for more information on packed encoding
+    /// @notice The code is for most part the same as the normal MultiSend (to keep compatibility),
+    ///         but reverts if a transaction tries to use a delegatecall.
+    /// @notice This method is payable as delegatecalls keep the msg.value from the previous call
+    ///         If the calling method (e.g. execTransaction) received ETH this would revert otherwise
+    function multiSend(bytes memory transactions) external payable;
+}
+
 contract DeploySafes is Script {
+    function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
+        // The Gnosis multicall contract uses a very obnoxious packed encoding
+        // that is very similar to, but not exactly the same as
+        // `abi.encodePacked`
+        assembly ("memory-safe") {
+            result := mload(0x40)
+            mstore(add(0x04, result), 0x8d80ff0a) // selector for `multiSend(bytes)`
+            mstore(result, 0x00)
+            mstore(add(0x24, result), 0x20)
+            let bytes_length_ptr := add(0x44, result)
+            mstore(bytes_length_ptr, 0x00)
+            for {
+                let i := add(0x20, calls)
+                let end := add(i, shl(0x05, mload(calls)))
+                let dst := add(0x20, bytes_length_ptr)
+            } lt(i, end) { i := add(0x20, i) } {
+                let src := mload(i)
+                let len := mload(src)
+                src := add(0x20, src)
+
+                // We're using the old identity precompile version instead of
+                // the MCOPY opcode version because I don't want to have to deal
+                // with maintaining two versions of this
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+
+                dst := add(dst, len)
+                mstore(bytes_length_ptr, add(len, mload(bytes_length_ptr)))
+            }
+            mstore(result, add(0x44, mload(bytes_length_ptr)))
+            mstore(0x40, add(0x20, add(mload(result), result)))
+        }
+    }
+
+    function _encodeChangeOwners(address safe, uint256 threshold, address oldOwner, address[] memory newOwners)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes[] memory subCalls = new bytes[](newOwners.length + 1);
+        for (uint256 i; i < newOwners.length; i++) {
+            bytes memory data =
+                abi.encodeCall(ISafeOwners.addOwnerWithThreshold, (newOwners[newOwners.length - i - 1], 1));
+            subCalls[i] = abi.encodePacked(
+                uint8(ISafeExecute.Operation.Call),
+                safe,
+                uint256(0), // value
+                data.length,
+                data
+            );
+        }
+        {
+            bytes memory data =
+                abi.encodeCall(ISafeOwners.removeOwner, (newOwners[newOwners.length - 1], oldOwner, threshold));
+            subCalls[newOwners.length] = abi.encodePacked(
+                uint8(ISafeExecute.Operation.Call),
+                safe,
+                uint256(0), // value
+                data.length,
+                data
+            );
+        }
+        return _encodeMultisend(subCalls);
+    }
+
     function run(
         address moduleDeployer,
         address proxyDeployer,
@@ -65,6 +151,7 @@ contract DeploySafes is Script {
         ISafeFactory safeFactory,
         address safeSingleton,
         address safeFallback,
+        address safeMulticall,
         Feature feature,
         string calldata initialDescription,
         bytes calldata constructorArgs
@@ -122,6 +209,10 @@ contract DeploySafes is Script {
             abi.encodeCall(Deployer.authorize, (feature, deploymentSafe, uint40(block.timestamp + 365 days)));
         bytes memory deployCall =
             abi.encodeCall(Deployer.deploy, (feature, bytes.concat(type(Settler).creationCode, constructorArgs)));
+
+        address[] memory deployerOwners = SafeConfig.getDeploymentSafeSigners();
+        bytes memory deploymentChangeOwnersCall = _encodeChangeOwners(deploymentSafe, 2, moduleDeployer, deployerOwners);
+
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
@@ -200,11 +291,25 @@ contract DeploySafes is Script {
 
         vm.startBroadcast(moduleDeployerKey);
 
+        // deploy a Settler
         ISafeExecute(deploymentSafe).execTransaction(
             deployerProxy,
             0,
             deployCall,
             ISafeExecute.Operation.Call,
+            0,
+            0,
+            0,
+            address(0),
+            address(0),
+            deploymentSignature
+        );
+        // set the initial owners from the config and remove the deployer
+        ISafeExecute(deploymentSafe).execTransaction(
+            safeMulticall,
+            0,
+            deploymentChangeOwnersCall,
+            ISafeExecute.Operation.DelegateCall,
             0,
             0,
             0,
@@ -220,5 +325,10 @@ contract DeploySafes is Script {
         require(deployedUpgradeSafe == upgradeSafe, "upgrade deployed safe/predicted safe mismatch");
         require(deployedDeployerProxy == deployerProxy, "deployer proxy predicted mismatch");
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer not owned by upgrade safe");
+        require(
+            keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
+                == keccak256(abi.encodePacked(deployerOwners)),
+            "deployment safe owners mismatch"
+        );
     }
 }
