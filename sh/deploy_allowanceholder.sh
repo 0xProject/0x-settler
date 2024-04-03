@@ -187,3 +187,9 @@ if [[ $(get_config isCancun) != [Ff]alse ]] ; then
 fi
 
 forge create --no-cache --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+
+echo 'Deployment is complete' >&2
+echo 'Add the following to your chain_config.json' >&2
+echo '"deployment": {' >&2
+echo '	"allowanceHolder": "'"$(get_secret allowanceHolder address)"'"' >&2
+echo '}' >&2
