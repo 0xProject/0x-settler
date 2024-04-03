@@ -186,6 +186,11 @@ function get_config {
     jq -r -M ."$chain_name"."$1" < ./chain_config.json
 }
 
+if [[ $(get_config isCancun) != [Ff]alse ]] ; then
+    echo 'You are on the wrong branch' >&2
+    exit 1
+fi
+
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
 declare -r module_deployer
