@@ -312,11 +312,15 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
 
+# we have to set a massive multiplier on the gas estimate to avoid OOG on Arbitrum
+# 5x is the limit before we start to hit the block gas limit on mainnet
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
     --no-storage-caching                                 \
     --no-cache                                           \
+    --gas-estimate-multiplier 500                        \
+    --gas-price "$gas_price"                             \
     --chain $chainid                                     \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
