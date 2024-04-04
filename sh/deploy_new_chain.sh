@@ -298,16 +298,30 @@ declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_config uniV3.factory)" "$(get_config uniV3.initHash)" "$(get_config makerPsm.dai)")"
 declare -r constructor_args
 
+# set minimum gas price to 10gwei (Arbitrum gets weird if you go lower)
+declare -i gas_price
+gas_price="$(cast gas-price --rpc-url "$rpc_url")"
+if (( gas_price < 10000000000 )) ; then
+    echo 'Setting gas price to minimum of 10 gwei' >&2
+    gas_price=10000000000
+fi
+declare -r -i gas_price
+
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
 
+# we have to set a massive multiplier on the gas estimate to avoid OOG on Arbitrum
+# 5x is the limit before we start to hit the block gas limit on mainnet
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
     --no-cache                                           \
     --no-storage-caching                                 \
+    --no-cache                                           \
+    --gas-estimate-multiplier 500                        \
+    --gas-price "$gas_price"                             \
     --chain $chainid                                     \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
@@ -339,8 +353,8 @@ echo 'Add the following to your chain_config.json' >&2
 echo '"governance": {' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
-echo '	"pause": "'"$ice_cold_coffee"'",' >&2
+echo '	"pause": "'"$ice_cold_coffee"'"' >&2
 echo '},' >&2
 echo '"deployment": {' >&2
-echo '	"deployer": "'"$deployer_proxy"'",' >&2
+echo '	"deployer": "'"$deployer_proxy"'"' >&2
 echo '}' >&2
