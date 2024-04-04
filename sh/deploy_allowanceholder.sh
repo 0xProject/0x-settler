@@ -186,7 +186,20 @@ if [[ $(get_config isCancun) != [Tt]rue ]] ; then
     exit 1
 fi
 
-forge create --no-cache --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$(get_api_secret rpcUrl)" --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+declare rpc_url
+rpc_url="$(get_api_secret rpcUrl)"
+declare -r rpc_url
+
+# set minimum gas price to 10gwei (Arbitrum gets weird if you go lower)
+declare -i gas_price
+gas_price="$(cast gas-price --rpc-url "$rpc_url")"
+if (( gas_price < 10000000000 )) ; then
+    echo 'Setting gas price to minimum of 10 gwei' >&2
+    gas_price=10000000000
+fi
+declare -r -i gas_price
+
+forge create --no-cache --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
