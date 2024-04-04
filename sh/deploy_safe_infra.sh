@@ -237,3 +237,5 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
         cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked $(get_config extraFlags) 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$multicall_init"
     fi
 fi
+
+echo 'Done!' >&2
