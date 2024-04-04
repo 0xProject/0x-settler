@@ -214,7 +214,7 @@ constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(ge
 declare -r constructor_args
 
 declare -a maybe_broadcast=()
-if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
+if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
 
@@ -232,7 +232,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" \
     script/DeploySettlerSingle.s.sol:DeploySettlerSingle \
     "$deployer_proxy" "$deployment_safe" "$feature" "$constructor_args"
 
-if [[ "${BROADCAST-no}" = [Yy]es ]] ; then
+if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -a common_args=()
     common_args+=(
         --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)"
