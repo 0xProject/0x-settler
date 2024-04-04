@@ -317,11 +317,10 @@ fi
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
-    --no-cache                                           \
     --no-storage-caching                                 \
     --no-cache                                           \
     --gas-estimate-multiplier 500                        \
-    --gas-price "$gas_price"                             \
+    --with-gas-price "$gas_price"                        \
     --chain $chainid                                     \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
