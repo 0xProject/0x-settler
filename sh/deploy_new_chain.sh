@@ -316,6 +316,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     forge script                                         \
     --slow                                               \
     --no-storage-caching                                 \
+    --no-cache                                           \
     --chain $chainid                                     \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
