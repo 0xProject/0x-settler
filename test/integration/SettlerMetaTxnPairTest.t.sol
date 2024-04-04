@@ -61,9 +61,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig)
-            )
+            abi.encodeCall(ISettlerActions.OTC_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
         );
 
         Settler _settler = settler;
@@ -86,8 +84,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_PERMIT2_TRANSFER_FROM, (address(settler), permit)),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settler), permit)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -119,9 +117,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN, (FROM, amount(), 0, uniswapV3Path(), permit)
-            )
+            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, amount(), 0, uniswapV3Path(), permit))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -166,9 +162,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.METATXN_SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit)
-            )
+            abi.encodeCall(ISettlerActions.METATXN_OTC_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit))
         );
         bytes32[] memory actionHashes = new bytes32[](actions.length);
         for (uint256 i; i < actionHashes.length; i++) {
@@ -225,11 +219,10 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
-                (address(settler), makerPermit, MAKER, makerSig, address(fromToken()), amount())
+                ISettlerActions.OTC, (address(settler), makerPermit, MAKER, makerSig, address(fromToken()), amount())
             ),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(toToken()),
                     address(toToken()),

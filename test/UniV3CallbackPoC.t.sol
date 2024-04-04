@@ -152,7 +152,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         // Set up actions.
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                ISettlerActions.METATXN_UNISWAPV3_VIP,
                 (
                     address(settler), // recipient
                     amount, // amountIn
@@ -219,7 +219,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         );
         actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     pool, // pool
                     address(0), // sellToken

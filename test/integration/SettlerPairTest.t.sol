@@ -69,7 +69,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(ZERO_EX),
                     address(fromToken()),
@@ -100,7 +100,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(ZERO_EX),
                     address(fromToken()),
@@ -112,7 +112,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                 )
             ),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(fromToken()),
                     address(fromToken()),
@@ -138,9 +138,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3VIP() public {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN, (FROM, amount(), 0, uniswapV3Path(), permit, sig)
-            )
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, amount(), 0, uniswapV3Path(), permit, sig))
         );
 
         Settler _settler = settler;
@@ -155,8 +153,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3_multiplex2() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 5_000, 0, uniswapV3Path())),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 5_000, 0, uniswapV3Path())),
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
         Settler _settler = settler;
@@ -171,7 +169,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
         Settler _settler = settler;
@@ -186,9 +184,9 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3_buyToken_fee_full_custody() public {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (address(settler), 10_000, 0, uniswapV3Path())),
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (address(settler), 10_000, 0, uniswapV3Path())),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(toToken()),
                     address(toToken()),
@@ -211,12 +209,9 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3_buyToken_fee_single_custody() public {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), amount(), 0, uniswapV3Path(), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
-                (address(settler), amount(), 0, uniswapV3Path(), permit, sig)
-            ),
-            abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(toToken()),
                     address(toToken()),
@@ -240,7 +235,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(fromToken()),
                     address(fromToken()),
@@ -249,7 +244,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
                 )
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
         Settler _settler = settler;
@@ -270,7 +265,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 10_000, 0)
+                ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 10_000, 0)
             )
         );
 
@@ -287,8 +282,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
-        bytes memory permit2Action =
-            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
+        bytes memory permit2Action = abi.encodeCall(ISettlerActions.TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
         IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
@@ -300,10 +294,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
         bytes[] memory actions = ActionDataBuilder.build(
             permit2Action,
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2_SWAP, (nextPool, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0)
-            ),
-            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(toToken()), nextPool, swapInfo2, 0, 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (nextPool, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0)),
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), nextPool, swapInfo2, 0, 0))
         );
 
         uint256 balanceBefore = wBTC.balanceOf(FROM);
@@ -323,8 +315,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
-        bytes memory permit2Action =
-            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
+        bytes memory permit2Action = abi.encodeCall(ISettlerActions.TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
@@ -333,9 +324,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             permit2Action,
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0)
-            )
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0))
         );
 
         Settler _settler = settler;
@@ -360,9 +349,9 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.UNISWAPV2_SWAP, (nextPool, address(fromToken()), uniswapV2Pool(), swapInfo, 10_000, 0)
+                ISettlerActions.UNISWAPV2, (nextPool, address(fromToken()), uniswapV2Pool(), swapInfo, 10_000, 0)
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV2_SWAP, (FROM, address(toToken()), nextPool, swapInfo2, 0, 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), nextPool, swapInfo2, 0, 0))
         );
 
         uint256 balanceBefore = wBTC.balanceOf(FROM);
@@ -384,7 +373,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     poolData.pool,
                     address(fromToken()),
@@ -394,7 +383,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                 )
             ),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(toToken()),
                     address(toToken()),
@@ -420,7 +409,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     poolData.pool,
                     address(fromToken()),
@@ -443,9 +432,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     }
 
     function testSettler_externalMoveExecute_uniswapV3() public {
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
-        );
+        bytes[] memory actions =
+            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path())));
 
         Settler _settler = settler;
 
