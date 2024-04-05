@@ -119,77 +119,13 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
-if ! hash forge &>/dev/null ; then
-    echo 'foundry is not installed' >&2
+if [[ ! -f "$project_root"/sh/initial_description.md ]] ; then
+    echo 'sh/initial_description.md is missing' >&2
     exit 1
 fi
 
-if ! hash jq &>/dev/null ; then
-    echo 'jq is not installed' >&2
-    exit 1
-fi
-
-if ! hash sha256sum &>/dev/null ; then
-    echo 'sha256sum is not installed' >&2
-    exit 1
-fi
-
-if [ ! -f ./secrets.json ] ; then
-    echo 'secrets.json is missing' >&2
-    exit 1
-fi
-
-if [ ! -f ./api_secrets.json ] ; then
-    echo 'api_secrets.json is missing' >&2
-    exit 1
-fi
-
-if [[ $(stat -L -c '%a' --cached=never secrets.json) != '600' ]] ; then
-    echo 'secrets.json permissions too lax' >&2
-    echo 'run: chmod 600 secrets.json' >&2
-    exit 1
-fi
-
-if [[ $(stat -L -c '%a' --cached=never api_secrets.json) != '600' ]] ; then
-    echo 'api_secrets.json permissions too lax' >&2
-    echo 'run: chmod 600 api_secrets.json' >&2
-    exit 1
-fi
-
-if ! sha256sum -c <<<'24290900be9575d1fb6349098b1c11615a2eac8091bc486bec6cf67239b7846a  secrets.json' >/dev/null ; then
-    echo 'Secrets are wrong' >&2
-    exit 1
-fi
-
-if [[ ! -f sh/initial_description.md ]] ; then
-    echo './sh/initial_description.md is missing' >&2
-    exit 1
-fi
-
-declare -r chain_name="$1"
-shift
-
-if [[ $(jq -r -M ."$chain_name" < api_secrets.json) == 'null' ]] ; then
-    echo "$chain_name"' is missing from api_secrets.json' >&2
-    exit 1
-fi
-
-function get_secret {
-    jq -r -M ."$1"."$2" < ./secrets.json
-}
-
-function get_api_secret {
-    jq -r -M ."$chain_name"."$1" < ./api_secrets.json
-}
-
-function get_config {
-    jq -r -M ."$chain_name"."$1" < ./chain_config.json
-}
-
-if [[ $(get_config isCancun) != [Ff]alse ]] ; then
-    echo 'You are on the wrong branch' >&2
-    exit 1
-fi
+. "$project_root"/sh/common.sh
+. "$project_root"/sh/common_secrets.sh
 
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
@@ -211,7 +147,7 @@ declare -r deployer_impl
 
 declare -r -i feature=1
 declare description
-description="$(jq -MRs < ./sh/initial_description.md)"
+description="$(jq -MRs < "$project_root"/sh/initial_description.md)"
 description="${description:1:$((${#description} - 2))}"
 declare -r description
 
@@ -298,29 +234,36 @@ declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_config uniV3.factory)" "$(get_config uniV3.initHash)" "$(get_config makerPsm.dai)")"
 declare -r constructor_args
 
-# set minimum gas price to 10gwei (Arbitrum gets weird if you go lower)
+# set minimum gas price to (mostly for Arbitrum and BNB)
+declare -i min_gas_price
+min_gas_price="$(get_config minGasPriceGwei)"
+min_gas_price=$((min_gas_price * 1000000000))
+declare -r -i min_gas_price
 declare -i gas_price
 gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < 10000000000 )) ; then
-    echo 'Setting gas price to minimum of 10 gwei' >&2
-    gas_price=10000000000
+if (( gas_price < min_gas_price )) ; then
+    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
+    gas_price=$min_gas_price
 fi
 declare -r -i gas_price
+
+# set gas multiplier/headroom (again mostly for Arbitrum)
+declare -i gas_estimate_multiplier
+gas_estimate_multiplier="$(get_config gasMultiplier)"
+declare -r -i gas_estimate_multiplier
 
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
 
-# we have to set a massive multiplier on the gas estimate to avoid OOG on Arbitrum
-# 5x is the limit before we start to hit the block gas limit on mainnet
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
     --no-storage-caching                                 \
     --no-cache                                           \
-    --gas-estimate-multiplier 500                        \
-    --with-gas-price "$gas_price"                        \
+    --gas-estimate-multiplier $gas_estimate_multiplier   \
+    --with-gas-price $gas_price                          \
     --chain $chainid                                     \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \

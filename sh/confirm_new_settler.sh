@@ -120,25 +120,42 @@ declare -r project_root
 cd "$project_root"
 
 . "$project_root"/sh/common.sh
-. "$project_root"/sh/common_secrets.sh
+. "$project_root"/sh/common_deploy_settler.sh
 
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-
-# set minimum gas price to 10gwei (Arbitrum gets weird if you go lower)
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < 10000000000 )) ; then
-    echo 'Setting gas price to minimum of 10 gwei' >&2
-    gas_price=10000000000
+if [[ $wallet_type = 'unlocked' ]] ; then
+    echo 'Cannot confirm Settler with unlocked wallet' >&2
+    echo 'https://github.com/foundry-rs/foundry/issues/5600' >&2
+    exit 1
 fi
-declare -r -i gas_price
 
-forge create --no-cache --private-key "$(get_secret allowanceHolderOld key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+# sign the message
+declare signature
+signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$eip712_data")"
+declare -r signature
 
-echo 'Deployment is complete' >&2
-echo 'Add the following to your chain_config.json' >&2
-echo '"deployment": {' >&2
-echo '	"allowanceHolder": "'"$(get_secret allowanceHolderOld address)"'"' >&2
-echo '}' >&2
+# encode the Safe Transaction Service API call
+declare safe_multisig_transaction
+safe_multisig_transaction="$(
+    jq -c \
+    "$eip712_message_json_template"',
+        "contractTransactionHash": $eip712Hash,
+        "sender": $sender,
+        "signature": $signature,
+        "origin": "0xSettlerCLI"
+    }
+    ' \
+    --arg to "$deployer_address" \
+    --arg data "$deploy_calldata" \
+    --arg nonce "$nonce" \
+    --arg eip712Hash "$eip712_hash" \
+    --arg sender "$signer" \
+    --arg signature "$signature" \
+    --arg safe_address "$safe_address" \
+    <<<'{}'
+)"
+declare -r safe_multisig_transaction
+
+# call the API
+curl -s "$(get_config safe.apiUrl)"'/api/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+
+echo 'Signature submitted' >&2
