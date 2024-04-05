@@ -298,29 +298,36 @@ declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_config uniV3.factory)" "$(get_config uniV3.initHash)" "$(get_config makerPsm.dai)")"
 declare -r constructor_args
 
-# set minimum gas price to 10gwei (Arbitrum gets weird if you go lower)
+# set minimum gas price to (mostly for Arbitrum and BNB)
+declare -i min_gas_price
+min_gas_price="$(get_config minGasPriceGwei)"
+min_gas_price=$((min_gas_price * 1000000000))
+declare -r -i min_gas_price
 declare -i gas_price
 gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < 10000000000 )) ; then
-    echo 'Setting gas price to minimum of 10 gwei' >&2
-    gas_price=10000000000
+if (( gas_price < min_gas_price )) ; then
+    echo 'Setting gas price to minimum of '$((min_gas_price / 10000000000))' gwei' >&2
+    gas_price=$min_gas_price
 fi
 declare -r -i gas_price
+
+# set gas multiplier/headroom (again mostly for Arbitrum)
+declare -i gas_estimate_multiplier
+gas_estimate_multiplier="$(get_config gasMultiplier)"
+declare -r -i gas_estimate_multiplier
 
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
 
-# we have to set a massive multiplier on the gas estimate to avoid OOG on Arbitrum
-# 5x is the limit before we start to hit the block gas limit on mainnet
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
     --no-storage-caching                                 \
     --no-cache                                           \
-    --gas-estimate-multiplier 500                        \
-    --with-gas-price "$gas_price"                        \
+    --gas-estimate-multiplier $gas_estimate_multiplier   \
+    --with-gas-price $gas_price                          \
     --chain $chainid                                     \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \

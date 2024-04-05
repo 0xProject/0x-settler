@@ -3,6 +3,8 @@
     "chainId": 11155111,
     "isCancun": true,
     "extraFlags": "",
+    "gasMultiplier": 200,
+    "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -31,6 +33,8 @@
     "chainId": 1,
     "isCancun": true,
     "extraFlags": "",
+    "gasMultiplier": 130,
+    "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -59,6 +63,8 @@
     "chainId": 137,
     "isCancun": true,
     "extraFlags": "",
+    "gasMultiplier": 200,
+    "minGasPriceGwei": 200,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -87,6 +93,8 @@
     "chainId": 8453,
     "isCancun": true,
     "extraFlags": "--legacy",
+    "gasMultiplier": 200,
+    "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -115,6 +123,8 @@
     "chainId": 84532,
     "isCancun": false,
     "extraFlags": "--legacy",
+    "gasMultiplier": 200,
+    "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -143,6 +153,8 @@
     "chainId": 10,
     "isCancun": true,
     "extraFlags": "--legacy",
+    "gasMultiplier": 200,
+    "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -171,6 +183,8 @@
     "chainId": 11155420,
     "isCancun": true,
     "extraFlags": "--legacy",
+    "gasMultiplier": 200,
+    "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -199,6 +213,8 @@
     "chainId": 42161,
     "isCancun": true,
     "extraFlags": "--legacy",
+    "gasMultiplier": 500,
+    "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -227,6 +243,8 @@
     "chainId": 421614,
     "isCancun": true,
     "extraFlags": "--legacy",
+    "gasMultiplier": 500,
+    "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -255,6 +273,8 @@
     "chainId": 56,
     "isCancun": false,
     "extraFlags": "",
+    "gasMultiplier": 130,
+    "minGasPriceGwei": 3,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -283,6 +303,8 @@
     "chainId": 43114,
     "isCancun": false,
     "extraFlags": "",
+    "gasMultiplier": 200,
+    "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
