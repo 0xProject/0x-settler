@@ -10,7 +10,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-sepolia.safe.global"
+      "apiUrl": "https://safe-transaction-sepolia.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -41,7 +41,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-mainnet.safe.global"
+      "apiUrl": "https://safe-transaction-mainnet.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -72,7 +72,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-polygon.safe.global"
+      "apiUrl": "https://safe-transaction-polygon.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -103,7 +103,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-base.safe.global"
+      "apiUrl": "https://safe-transaction-base.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -134,7 +134,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-base-sepolia.safe.global"
+      "apiUrl": "https://safe-transaction-base-sepolia.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -165,7 +165,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-optimism.safe.global"
+      "apiUrl": "https://safe-transaction-optimism.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -227,7 +227,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-arbitrum.safe.global"
+      "apiUrl": "https://safe-transaction-arbitrum.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -289,7 +289,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-bsc.safe.global"
+      "apiUrl": "https://safe-transaction-bsc.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -320,7 +320,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-avalanche.safe.global"
+      "apiUrl": "https://safe-transaction-avalanche.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",

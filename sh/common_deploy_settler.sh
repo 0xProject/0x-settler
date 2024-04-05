@@ -1,6 +1,6 @@
 forge build
 
-if [ ! -f out/Settler.sol/Settler.json ] ; then
+if [ ! -f "$project_root"/out/Settler.sol/Settler.json ] ; then
     echo 'Cannot find Settler.json' >&2
     exit 1
 fi
