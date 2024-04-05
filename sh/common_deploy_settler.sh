@@ -167,12 +167,12 @@ eip712_data="$(
       "message": '"$eip712_message_json_template"'
       }
     }
-    ' \
+    '                                       \
     --arg verifyingContract "$safe_address" \
-    --arg chainId "$chainid" \
-    --arg to "$deployer_address" \
-    --arg data "$deploy_calldata" \
-    --arg nonce "$nonce" \
+    --arg chainId "$chainid"                \
+    --arg to "$deployer_address"            \
+    --arg data "$deploy_calldata"           \
+    --arg nonce "$nonce"                    \
     <<<'{}'
 )"
 declare -r eip712_data

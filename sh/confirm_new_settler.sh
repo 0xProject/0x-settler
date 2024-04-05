@@ -143,13 +143,13 @@ safe_multisig_transaction="$(
         "signature": $signature,
         "origin": "0xSettlerCLI"
     }
-    ' \
-    --arg to "$deployer_address" \
-    --arg data "$deploy_calldata" \
-    --arg nonce "$nonce" \
-    --arg eip712Hash "$eip712_hash" \
-    --arg sender "$signer" \
-    --arg signature "$signature" \
+    '                                  \
+    --arg to "$deployer_address"       \
+    --arg data "$deploy_calldata"      \
+    --arg nonce "$nonce"               \
+    --arg eip712Hash "$eip712_hash"    \
+    --arg sender "$signer"             \
+    --arg signature "$signature"       \
     --arg safe_address "$safe_address" \
     <<<'{}'
 )"
