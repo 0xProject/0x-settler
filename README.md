@@ -625,6 +625,10 @@ update this document.
 
 ## How to deploy a new `Settler` to a chain that is already set up
 
+Populate `api_secrets.json` by copying
+[`api_secrets.json.template`](api_secrets.json.template) and adding your own
+block explorer API key and RPC.
+
 You need 2 signers to do this. The first person runs
 [`./sh/confirm_new_settler.sh`](sh/confirm_new_settler.sh). This is incompatible
 with the "unlocked" type of wallet. You must use a Ledger, Trezor, or hot
@@ -646,7 +650,9 @@ Zeroth, verify the configuration for your chain in
 [`script/SafeConfig.sol`](script/SafeConfig.sol).
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
-this, give up.
+this, give up. Also populate `api_secrets.json` by copying
+[`api_secrets.json.template`](api_secrets.json.template) and adding your own
+block explorer API key and RPC.
 
 Second, you need have enough native asset in each of the deployer addresses
 listed in [`secrets.json.template`](secrets.json.template) to perform the
