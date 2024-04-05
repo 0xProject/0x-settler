@@ -582,28 +582,28 @@ update this document.
 
 1. Click on the "Contract" tab.
 
-![Click on "Contract"](https://github.com/0xProject/0x-settler/blob/master/img/pause0.png?raw=true)
+![Click on "Contract"](img/pause0.png?raw=true)
 
 2. Click on the "Write Contract" tab.
 
-![Click on "Write Contract"](https://github.com/0xProject/0x-settler/blob/master/img/pause1.png?raw=true)
+![Click on "Write Contract"](img/pause1.png?raw=true)
 
 3. Click on "remove", the first one.
 
-![Click on the first "remove"](https://github.com/0xProject/0x-settler/blob/master/img/pause2.png?raw=true)
+![Click on the first "remove"](img/pause2.png?raw=true)
 
 4. Click on "Connect to Web3" and allow your wallet to connect. You must connect
    with the address that you use to deploy.
 
-![Click on "Connect to Web3"](https://github.com/0xProject/0x-settler/blob/master/img/pause3.png?raw=true)
+![Click on "Connect to Web3"](img/pause3.png?raw=true)
 
 5. Paste the address of the buggy `Settler` instance.
 
-![Paste the bad Settler address in the box](https://github.com/0xProject/0x-settler/blob/master/img/pause4.png?raw=true)
+![Paste the bad Settler address in the box](img/pause4.png?raw=true)
 
 6. Click "Write" and confirm the transaction in your wallet. You have successfully ruined everybody's day :+1:
 
-![Click on "Write"](https://github.com/0xProject/0x-settler/blob/master/img/pause5.png?raw=true)
+![Click on "Write"](img/pause5.png?raw=true)
 
 7. This is the step to take if you want to completely shut down the
    protocol. You really hate that everybody is having a nice day. Instead of
@@ -612,16 +612,16 @@ update this document.
 8. Click on "Connect to Web3" and allow your wallet to connect. You must connect
    with the address that you use to deploy.
 
-![Click on "Connect to Web3"](https://github.com/0xProject/0x-settler/blob/master/img/pause6.png?raw=true)
+![Click on "Connect to Web3"](img/pause6.png?raw=true)
 
 9. Enter the "feature" number in the text box. This is probably 1 unless
    something major has changed and nobody bothered to update this document.
 
-![Enter the "feature" number (1) in the text box](https://github.com/0xProject/0x-settler/blob/master/img/pause7.png?raw=true)
+![Enter the "feature" number (1) in the text box](img/pause7.png?raw=true)
 
 10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
 
-![Click on "Write"](https://github.com/0xProject/0x-settler/blob/master/img/pause8.png?raw=true)
+![Click on "Write"](img/pause8.png?raw=true)
 
 ## How to deploy a new `Settler` to a chain that is already set up
 
