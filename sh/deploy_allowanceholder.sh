@@ -204,5 +204,5 @@ forge create --no-cache --private-key "$(get_secret allowanceHolderOld key)" --c
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
 echo '"deployment": {' >&2
-echo '	"allowanceHolder": "'"$(get_secret allowanceHolder address)"'"' >&2
+echo '	"allowanceHolder": "'"$(get_secret allowanceHolderOld address)"'"' >&2
 echo '}' >&2
