@@ -3,14 +3,14 @@
     "chainId": 11155111,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplier": 200,
-    "minGasPriceGwei": 10,
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-sepolia.safe.global"
+      "apiUrl": "https://safe-transaction-sepolia.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -34,14 +34,14 @@
     "chainId": 1,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplier": 130,
+    "gasMultiplierPercent": 130,
     "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-mainnet.safe.global"
+      "apiUrl": "https://safe-transaction-mainnet.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -65,14 +65,14 @@
     "chainId": 137,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplier": 200,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 200,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-polygon.safe.global"
+      "apiUrl": "https://safe-transaction-polygon.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -96,14 +96,14 @@
     "chainId": 8453,
     "isCancun": true,
     "extraFlags": "--legacy",
-    "gasMultiplier": 200,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-base.safe.global"
+      "apiUrl": "https://safe-transaction-base.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -127,14 +127,14 @@
     "chainId": 84532,
     "isCancun": false,
     "extraFlags": "--legacy",
-    "gasMultiplier": 200,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-base-sepolia.safe.global"
+      "apiUrl": "https://safe-transaction-base-sepolia.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -158,14 +158,14 @@
     "chainId": 10,
     "isCancun": true,
     "extraFlags": "--legacy",
-    "gasMultiplier": 200,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-optimism.safe.global"
+      "apiUrl": "https://safe-transaction-optimism.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -189,7 +189,7 @@
     "chainId": 11155420,
     "isCancun": true,
     "extraFlags": "--legacy",
-    "gasMultiplier": 200,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -220,14 +220,14 @@
     "chainId": 42161,
     "isCancun": true,
     "extraFlags": "--legacy",
-    "gasMultiplier": 500,
+    "gasMultiplierPercent": 500,
     "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-arbitrum.safe.global"
+      "apiUrl": "https://safe-transaction-arbitrum.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -251,7 +251,7 @@
     "chainId": 421614,
     "isCancun": true,
     "extraFlags": "--legacy",
-    "gasMultiplier": 500,
+    "gasMultiplierPercent": 500,
     "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -282,14 +282,14 @@
     "chainId": 56,
     "isCancun": false,
     "extraFlags": "",
-    "gasMultiplier": 130,
+    "gasMultiplierPercent": 130,
     "minGasPriceGwei": 3,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-bsc.safe.global"
+      "apiUrl": "https://safe-transaction-bsc.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -313,14 +313,14 @@
     "chainId": 43114,
     "isCancun": false,
     "extraFlags": "",
-    "gasMultiplier": 200,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-avalanche.safe.global"
+      "apiUrl": "https://safe-transaction-avalanche.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",

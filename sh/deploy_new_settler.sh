@@ -123,7 +123,7 @@ cd "$project_root"
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare signatures
-signatures="$(curl -s "$(get_config safe.apiUrl)"'/api/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
+signatures="$(curl -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
 declare -r signatures
 
 if (( $(jq -r -M .count <<<"$signatures") != 1 )) ; then
@@ -180,7 +180,7 @@ declare -r -a args=(
 
 # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
 declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplier)"
+gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 declare -i gas_limit
 gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --chain $chainid "${args[@]}")"
@@ -188,9 +188,9 @@ gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
 if [[ $wallet_type = 'unlocked' ]] ; then
-    cast send --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+    cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 else
-    cast send --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+    cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 fi
 
 declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
