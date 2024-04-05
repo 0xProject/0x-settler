@@ -556,9 +556,128 @@ sequenceDiagram
     Settler->>UniswapV3: swap
     WETH-->>Settler: transfer
     UniswapV3->>Settler: uniswapV3Callback
-    Settler->>AllowanceHolder: holderTransferFrom 
+    Settler->>AllowanceHolder: holderTransferFrom
     rect rgba(255, 148, 112, 0.5)
         USDC-->>UniswapV3: transferFrom(User, UniswapV3, amt)
     end
     WETH-->>User: transfer
 ```
+
+# How to deploy
+
+## How to pause the contracts
+
+First, decide how much of everyone's day you're going to ruin. Is the bug
+contained to a single `Settler` instance? Or is the bug pervasive? If the bug is
+pervasive, you're going to completely ruin everybody's day. Skip steps 3 through
+6 below.
+
+You need to be an approved deployer. The "pause" operation is 1-of-n, not 2-of-n
+like deploying a new `Settler`. `0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30`
+(ice cold coffees) is the address of the pauser contract. It's at the same
+address on all chains unless somebody screwed up the vanity addresses and didn't
+update this document.
+
+0. Go to that address on the relevant block explorer.
+
+1. Click on the "Contract" tab.
+
+![Click on "Contract"](https://github.com/0xProject/0x-settler/blob/master/img/pause0.png?raw=true)
+
+2. Click on the "Write Contract" tab.
+
+![Click on "Write Contract"](https://github.com/0xProject/0x-settler/blob/master/img/pause1.png?raw=true)
+
+3. Click on "remove", the first one.
+
+![Click on the first "remove"](https://github.com/0xProject/0x-settler/blob/master/img/pause2.png?raw=true)
+
+4. Click on "Connect to Web3" and allow your wallet to connect. You must connect
+   with the address that you use to deploy.
+
+![Click on "Connect to Web3"](https://github.com/0xProject/0x-settler/blob/master/img/pause3.png?raw=true)
+
+5. Paste the address of the buggy `Settler` instance.
+
+![Paste the bad Settler address in the box](https://github.com/0xProject/0x-settler/blob/master/img/pause4.png?raw=true)
+
+6. Click "Write" and confirm the transaction in your wallet. You have successfully ruined everybody's day :+1:
+
+![Click on "Write"](https://github.com/0xProject/0x-settler/blob/master/img/pause5.png?raw=true)
+
+7. This is the step to take if you want to completely shut down the
+   protocol. You really hate that everybody is having a nice day. Instead of
+   clicking on "remove"; click on "removeAll".
+
+8. Click on "Connect to Web3" and allow your wallet to connect. You must connect
+   with the address that you use to deploy.
+
+![Click on "Connect to Web3"](https://github.com/0xProject/0x-settler/blob/master/img/pause6.png?raw=true)
+
+9. Enter the "feature" number in the text box. This is probably 1 unless
+   something major has changed and nobody bothered to update this document.
+
+![Enter the "feature" number (1) in the text box](https://github.com/0xProject/0x-settler/blob/master/img/pause7.png?raw=true)
+
+10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
+
+![Click on "Write"](https://github.com/0xProject/0x-settler/blob/master/img/pause8.png?raw=true)
+
+## How to deploy a new `Settler` to a chain that is already set up
+
+You need 2 signers to do this. The first person runs
+[`./sh/confirm_new_settler.sh'](sh/confirm_new_settler.sh). This is incompatible
+with the "unlocked" type of wallet. You must use a Ledger, Trezor, or hot
+wallet. Following the prompts, this will sign the Safe transaction required to
+submit the deployment.
+
+The second person then runs
+[`./sh/deploy_new_settler.sh'](sh/deploy_new_settler.sh). This doesn't need an
+extra signature (thanks Safe!). Your wallet will ask you to confirm transaction
+submission. Assuming nothing goes wrong (if it does, file a bug report), you
+should have a brand-new `Settler`. It also should submit the contract for
+verification on the relevant explorer ([unless you're on
+Arbitrum](https://twitter.com/duncancmt/status/1775893476342964464)).
+
+## How to deploy to a new chain
+
+Zeroth, verify the configuration for your chain in
+[`chain_config.json`](chain_config.json) and
+[`script/SafeConfig.sol`](script/SafeConfig.sol).
+
+First, you need somebody to give you a copy of `secrets.json`. If you don't have
+this, give up.
+
+Second, you need have enough native asset in each of the deployer addresses
+listed in [`secrets.json.template`](secrets.json.template) to perform the
+deployment. If how much isn't obvious to you, you can run the main deployment
+script with `BROADCAST=no` to simulate. This can be a little wonky on L2s, so
+beware and overprovision the amount of native asset.
+
+Third, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Cancun-supporting chain, you don't need to fund the deployer for the old
+`AllowanceHolder` (and vice versa). Run [`./sh/deploy_allowanceholder.sh
+<CHAIN_NAME>`](sh/deploy_allowanceholder.sh).
+
+Fourth, check that the Safe deployment on the new chain is complete. You can
+check this by running the main deployment script with `BROADCAST=no`. If it
+completes without reverting, you don't need to do anything. If the Safe
+deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
+<CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
+
+Fifth, make _damn_ sure that you've got the correct configuration in
+[`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
+vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
+<CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
+testnet. Simulate each individual transaction in
+[Tenderly](https://dashboard.tenderly.co/).
+
+Finally, run `BROADCAST=yes ./sh/deploy_new_chain.sh <CHAIN_NAME>`. Cross your
+fingers. If something goes wrong (most commonly, the second-to-last transaction
+runs out of gas; this is only a minor problem), you'll need to edit either
+`sh/deploy_new_chain.sh` or
+[`script/DeploySafes.s.sol`](script/DeploySafes.s.sol) to skip the parts of the
+deployment you've already done. Tweak `gasMultiplierPercent` and
+`minGasPriceGwei` in `chain_config.json`.
+
+Congratulations, `Settler` is deployed on a new chain! :tada:
