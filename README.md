@@ -626,13 +626,13 @@ update this document.
 ## How to deploy a new `Settler` to a chain that is already set up
 
 You need 2 signers to do this. The first person runs
-[`./sh/confirm_new_settler.sh'](sh/confirm_new_settler.sh). This is incompatible
+[`./sh/confirm_new_settler.sh`](sh/confirm_new_settler.sh). This is incompatible
 with the "unlocked" type of wallet. You must use a Ledger, Trezor, or hot
 wallet. Following the prompts, this will sign the Safe transaction required to
 submit the deployment.
 
 The second person then runs
-[`./sh/deploy_new_settler.sh'](sh/deploy_new_settler.sh). This doesn't need an
+[`./sh/deploy_new_settler.sh`](sh/deploy_new_settler.sh). This doesn't need an
 extra signature (thanks Safe!). Your wallet will ask you to confirm transaction
 submission. Assuming nothing goes wrong (if it does, file a bug report), you
 should have a brand-new `Settler`. It also should submit the contract for
