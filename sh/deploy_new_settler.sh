@@ -123,7 +123,7 @@ cd "$project_root"
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare signatures
-signatures="$(curl "$(get_config safe.apiUrl)"'/api/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
+signatures="$(curl -s "$(get_config safe.apiUrl)"'/api/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
 declare -r signatures
 
 if (( $(jq -r -M .count <<<"$signatures") != 1 )) ; then
@@ -164,7 +164,7 @@ declare -r -i min_gas_price
 declare -i gas_price
 gas_price="$(cast gas-price --rpc-url "$rpc_url")"
 if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 10000000000))' gwei' >&2
+    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
     gas_price=$min_gas_price
 fi
 declare -r -i gas_price
@@ -172,8 +172,6 @@ declare -r -i gas_price
 
 # configure gas limit
 declare -r exec_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
-#cast calldata "$exec_sig" "$deployer_address" 0 "$deploy_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
-#exit 1
 declare -r -a args=(
     "$safe_address" "$exec_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
@@ -190,13 +188,13 @@ gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
 if [[ $wallet_type = 'unlocked' ]] ; then
-    cast send --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
-else
     cast send --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+else
+    cast send --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 fi
 
 declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
 declare settler
 settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" "$feature")")")"
 declare -r settler
-forge verify-contract "${common_args[@]}" --constructor-args "$constructor_args" "$settler" src/Settler.sol:Settler
+forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$settler" src/Settler.sol:Settler

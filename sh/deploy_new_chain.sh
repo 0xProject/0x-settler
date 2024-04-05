@@ -242,7 +242,7 @@ declare -r -i min_gas_price
 declare -i gas_price
 gas_price="$(cast gas-price --rpc-url "$rpc_url")"
 if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 10000000000))' gwei' >&2
+    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
     gas_price=$min_gas_price
 fi
 declare -r -i gas_price

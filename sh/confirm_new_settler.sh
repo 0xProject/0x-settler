@@ -156,7 +156,6 @@ safe_multisig_transaction="$(
 declare -r safe_multisig_transaction
 
 # call the API
-curl "$(get_config safe.apiUrl)"'/api/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+curl -s "$(get_config safe.apiUrl)"'/api/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
 
-
-#GET /v1/multisig-transactions/{safe_tx_hash}/?executed=false
+echo 'Signature submitted' >&2
