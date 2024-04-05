@@ -2,6 +2,22 @@
 
 Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
 
+## How do I find the most recent deployment?
+
+The deployer/registry contract is deployed to
+`0x00000000000004533Fe15556B1E086BB1A72cEae` across all chains (unless somebody
+screwed up the vanity address and didn't update this document). The
+deployer/registry is an ERC1967 UUPS upgradeable contract that implements an
+ERC721-compatible NFT. To find the address of the most recent deployment, call
+`ownerOf(uint256)(address)` with the `tokenId` set to the number of the feature
+that you wish to query. The feature number is probably 1 unless something major
+changed and nobody updated this document. A reverting response indicates that
+`Settler` is paused and you should not interact. Do not hardcode any address
+other than `0x00000000000004533Fe15556B1E086BB1A72cEae` in your
+integration. _**ALWAYS**_ query the deployer/registry for the address of the
+most recent contract before building or signing a transaction, metatransaction,
+or order.
+
 ### Custody
 
 Custody, not like the delicious custardy, is when the token(s) being traded are temporarily owned by the Settler contract. This sometimes implies an additional, non-optimal transfer. There are multiple reasons that Settler takes custody of the token, here are a few:
