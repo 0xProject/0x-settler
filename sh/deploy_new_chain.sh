@@ -119,77 +119,13 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
-if ! hash forge &>/dev/null ; then
-    echo 'foundry is not installed' >&2
-    exit 1
-fi
-
-if ! hash jq &>/dev/null ; then
-    echo 'jq is not installed' >&2
-    exit 1
-fi
-
-if ! hash sha256sum &>/dev/null ; then
-    echo 'sha256sum is not installed' >&2
-    exit 1
-fi
-
-if [ ! -f "$project_root"/secrets.json ] ; then
-    echo 'secrets.json is missing' >&2
-    exit 1
-fi
-
-if [ ! -f "$project_root"/api_secrets.json ] ; then
-    echo 'api_secrets.json is missing' >&2
-    exit 1
-fi
-
-if [[ $(ls -l "$project_root"/secrets.json | cut -d' ' -f1) != '-rw-------' ]] ; then
-    echo 'secrets.json permissions too lax' >&2
-    echo 'run: chmod 600 secrets.json' >&2
-    exit 1
-fi
-
-if [[ $(ls -l "$project_root"/api_secrets.json | cut -d' ' -f1) != '-rw-------' ]] ; then
-    echo 'api_secrets.json permissions too lax' >&2
-    echo 'run: chmod 600 api_secrets.json' >&2
-    exit 1
-fi
-
-if ! sha256sum -c <<<'24290900be9575d1fb6349098b1c11615a2eac8091bc486bec6cf67239b7846a  secrets.json' >/dev/null ; then
-    echo 'Secrets are wrong' >&2
-    exit 1
-fi
-
 if [[ ! -f "$project_root"/sh/initial_description.md ]] ; then
     echo 'sh/initial_description.md is missing' >&2
     exit 1
 fi
 
-declare -r chain_name="$1"
-shift
-
-if [[ $(jq -r -M ."$chain_name" < api_secrets.json) == 'null' ]] ; then
-    echo "$chain_name"' is missing from api_secrets.json' >&2
-    exit 1
-fi
-
-function get_secret {
-    jq -r -M ."$1"."$2" < "$project_root"/secrets.json
-}
-
-function get_api_secret {
-    jq -r -M ."$chain_name"."$1" < "$project_root"/api_secrets.json
-}
-
-function get_config {
-    jq -r -M ."$chain_name"."$1" < "$project_root"/chain_config.json
-}
-
-if [[ $(get_config isCancun) != [Tt]rue ]] ; then
-    echo 'You are on the wrong branch' >&2
-    exit 1
-fi
+. "$project_root"/sh/common.sh
+. "$project_root"/sh/common_secrets.sh
 
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
