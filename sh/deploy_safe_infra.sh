@@ -134,12 +134,12 @@ if ! hash jq &>/dev/null ; then
     exit 1
 fi
 
-if [ ! -f ./api_secrets.json ] ; then
+if [ ! -f "$project_root"/api_secrets.json ] ; then
     echo 'api_secrets.json is missing' >&2
     exit 1
 fi
 
-if [[ $(stat -L -c '%a' --cached=never api_secrets.json) != '600' ]] ; then
+if [[ $(ls -l api_secrets.json | cut -d' ' -f1) != '-rw-------' ]] ; then
     echo 'api_secrets.json permissions too lax' >&2
     echo 'run: chmod 600 api_secrets.json' >&2
     exit 1
@@ -154,11 +154,11 @@ if [[ $(jq -r -M ."$chain_name" < api_secrets.json) == 'null' ]] ; then
 fi
 
 function get_api_secret {
-    jq -r -M ."$chain_name"."$1" < ./api_secrets.json
+    jq -r -M ."$chain_name"."$1" < "$project_root"/api_secrets.json
 }
 
 function get_config {
-    jq -r -M ."$chain_name"."$1" < ./chain_config.json
+    jq -r -M ."$chain_name"."$1" < "$project_root"/chain_config.json
 }
 
 if [[ $(get_config isCancun) != [Tt]rue ]] ; then
