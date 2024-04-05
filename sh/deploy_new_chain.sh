@@ -249,7 +249,7 @@ declare -r -i gas_price
 
 # set gas multiplier/headroom (again mostly for Arbitrum)
 declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplier)"
+gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 
 declare -a maybe_broadcast=()
