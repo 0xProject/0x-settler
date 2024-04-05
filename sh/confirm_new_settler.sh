@@ -370,9 +370,10 @@ declare safe_multisig_transaction
 safe_multisig_transaction="$(
     jq -c \
     "$eip712_message_json_template"',
-    "contractTransactionHash": $eip712Hash,
-    "sender": $sender,
-    "signature": $signature
+        "contractTransactionHash": $eip712Hash,
+        "sender": $sender,
+        "signature": $signature,
+        "origin": "0xSettlerCLI"
     }
     ' \
     --arg to "$deployer_address" \
@@ -387,7 +388,7 @@ safe_multisig_transaction="$(
 declare -r safe_multisig_transaction
 
 # call the API
-curl 'https://safe-transaction-mainnet.safe.global/api/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+curl "$(get_config safe.apiUrl)"'/api/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
 
 
 #GET /v1/multisig-transactions/{safe_tx_hash}/?executed=false
