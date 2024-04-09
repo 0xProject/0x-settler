@@ -34,7 +34,7 @@ abstract contract UniswapV2 {
         uint256 bips,
         uint256 minBuyAmount
     ) internal {
-        // Preventing calls to Permit2 or AH is not explicity required as neither of these contracts implement the `swap` nor `transfer` selector
+        // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
