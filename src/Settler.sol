@@ -72,6 +72,7 @@ library CalldataDecoder {
     }
 }
 
+/// @custom:security-contact security@0x.org
 contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, MakerPSM, FreeMemory {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;

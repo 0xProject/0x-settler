@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {AllowanceHolderBase} from "./AllowanceHolderBase.sol";
 import {TransientStorage} from "./TransientStorage.sol";
 
+/// @custom:security-contact security@0x.org
 contract AllowanceHolder is TransientStorage, AllowanceHolderBase {
     /// @inheritdoc AllowanceHolderBase
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
