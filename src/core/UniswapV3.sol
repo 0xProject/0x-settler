@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Permit2PaymentAbstract} from "./Permit2Payment.sol";
 import {InvalidSender} from "./SettlerErrors.sol";
 
 import {IERC20} from "../IERC20.sol";
@@ -208,7 +207,7 @@ abstract contract UniswapV3 is SettlerAbstract {
     }
 
     // Return whether or not an encoded uniswap path contains more than one hop.
-    function _isPathMultiHop(bytes memory encodedPath) private pure returns (bool isMultiHop) {
+    function _isPathMultiHop(bytes memory encodedPath) private pure returns (bool) {
         return encodedPath.length > SINGLE_HOP_PATH_SIZE;
     }
 
