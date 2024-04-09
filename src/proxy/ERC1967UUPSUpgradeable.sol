@@ -37,7 +37,10 @@ abstract contract AbstractUUPSUpgradeable {
 
     function _requireProxy() private view {
         address impl = _implementation;
-        if (implementation() != impl || address(this) == impl) {
+        if (implementation() != impl) {
+            revert OnlyProxy();
+        }
+        if (address(this) == impl) {
             revert OnlyProxy();
         }
     }
