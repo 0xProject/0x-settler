@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
-import {UniswapV3, IUniswapV3Pool} from "../../../src/core/UniswapV3.sol";
-import {Permit2Payment} from "../../../src/core/Permit2Payment.sol";
+import {UniswapV3, IUniswapV3Pool} from "src/core/UniswapV3.sol";
+import {Permit2Payment} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
-import {IAllowanceHolder} from "../../../src/IAllowanceHolder.sol";
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "../../../src/IERC20.sol";
+import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV3Dummy is UniswapV3, Permit2Payment {
-    constructor(address uniFactory, bytes32 poolInit, address permit2, address feeRecipient, address allowanceHolder)
-        UniswapV3(uniFactory, poolInit)
-        Permit2Payment(permit2, feeRecipient, allowanceHolder)
-    {}
+contract UniswapV3Dummy is Permit2Payment, UniswapV3 {
+    constructor(address uniFactory, bytes32 poolInit) UniswapV3(uniFactory, poolInit) Permit2Payment() {}
 
     function sellTokenForTokenSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
         external
@@ -30,11 +28,10 @@ contract UniswapV3Dummy is UniswapV3, Permit2Payment {
         bytes memory encodedPath,
         uint256 sellAmount,
         uint256 minBuyAmount,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) external returns (uint256) {
-        return super.sellTokenForTokenToUniswapV3(recipient, encodedPath, sellAmount, minBuyAmount, payer, permit, sig);
+        return super.sellTokenForTokenToUniswapV3VIP(recipient, encodedPath, sellAmount, minBuyAmount, permit, sig);
     }
 }
 
@@ -57,21 +54,31 @@ contract UniswapV3PoolDummy {
 contract UniswapV3UnitTest is Utils, Test {
     UniswapV3Dummy uni;
     address UNI_FACTORY = _createNamedRejectionDummy("UNI_FACTORY");
-    address PERMIT2 = _createNamedRejectionDummy("PERMIT2");
-    address FEE_RECIPIENT = _createNamedRejectionDummy("FEE_RECIPIENT");
-    address ALLOWANCE_HOLDER = _createNamedRejectionDummy("ALLOWANCE_HOLDER");
+    address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
     address TOKEN1 = _createNamedRejectionDummy("TOKEN1");
     address TOKEN2 = _createNamedRejectionDummy("TOKEN2");
     address RECIPIENT = _createNamedRejectionDummy("RECIPIENT");
 
-    address POOL = _etchNamedRejectionDummy("POOL", 0x33da22E66cE9c37747B80804c14dCE4a5aBD33a5); // created from TOKEN0/TOKEN1 combo
+    address POOL;
+
+    constructor() {
+        address token0 = TOKEN0;
+        address token1 = TOKEN1;
+        (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
+        uint24 fee = 500;
+        POOL = _etchNamedRejectionDummy(
+            "POOL",
+            AddressDerivation.deriveDeterministicContract(
+                UNI_FACTORY, keccak256(abi.encode(token0, token1, fee)), keccak256(abi.encodePacked("POOL_INIT"))
+            )
+        );
+    }
 
     function setUp() public {
-        uni = new UniswapV3Dummy(
-            UNI_FACTORY, keccak256(abi.encodePacked("POOL_INIT")), PERMIT2, FEE_RECIPIENT, ALLOWANCE_HOLDER
-        );
+        uni = new UniswapV3Dummy(UNI_FACTORY, keccak256(abi.encodePacked("POOL_INIT")));
     }
 
     function testUniswapV3SellSelfFunded() public {
@@ -82,17 +89,18 @@ contract UniswapV3UnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        bool zeroForOne = TOKEN0 < TOKEN1;
         _mockExpectCall(
             POOL,
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
                 RECIPIENT,
-                false,
+                zeroForOne,
                 amount,
-                1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN1, uint24(500), TOKEN0, address(uni)) /* token1 and token0 swapped due to univ3 ordering */
+                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
+                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
             ),
-            abi.encode(-int256(amount), 0)
+            abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
         );
 
         uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
@@ -106,20 +114,23 @@ contract UniswapV3UnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        bool zeroForOne = TOKEN0 < TOKEN1;
         _mockExpectCall(
             POOL,
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
                 RECIPIENT,
-                false,
+                zeroForOne,
                 amount,
-                1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN1, uint24(500), TOKEN0, address(uni)) /* token1 and token0 swapped due to univ3 ordering */
+                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
+                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
             ),
-            abi.encode(-int256(amount), 0)
+            abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
         );
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
+        );
         uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
     }
 
@@ -151,7 +162,7 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, address(this), permitTransfer, hex"deadbeef");
+        uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"deadbeef");
     }
 
     function testUniswapV3SellAllowanceHolder() public {
@@ -173,24 +184,19 @@ contract UniswapV3UnitTest is Utils, Test {
             deadline: 0
         });
 
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN0, recipient: POOL, amount: amount});
-
         _mockExpectCall(
             ALLOWANCE_HOLDER,
-            abi.encodeCall(IAllowanceHolder.holderTransferFrom, (address(this), transferDetails)),
+            abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, amount)),
             abi.encode(true)
         );
 
         vm.prank(ALLOWANCE_HOLDER);
         address(uni).call(
             abi.encodePacked(
-                abi.encodeCall(
-                    uni.sellTokenForToken, (RECIPIENT, data, amount, minBuyAmount, address(this), permitTransfer, hex"")
-                ),
+                abi.encodeCall(uni.sellTokenForToken, (RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"")),
                 address(this)
             ) // Forward on true msg.sender
         );
-        // uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, address(this), permitTransfer, hex"");
+        // uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"");
     }
 }

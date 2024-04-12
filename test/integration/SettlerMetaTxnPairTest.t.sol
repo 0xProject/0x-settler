@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {IERC20} from "../../src/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
@@ -11,9 +11,9 @@ import {IZeroEx} from "./vendor/IZeroEx.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
-import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 import {ISettlerActions} from "../../src/ISettlerActions.sol";
 import {OtcOrderSettlement} from "../../src/core/OtcOrderSettlement.sol";
@@ -36,17 +36,6 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
-
-    bytes32 private constant CONSIDERATION_TYPEHASH =
-        keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)");
-    bytes32 private constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TokenPermissions(address token,uint256 amount)"
-    );
-    /*
-    bytes32 private constant OTC_PERMIT2_BATCH_WITNESS_TYPEHASH = keccak256(
-        "PermitBatchWitnessTransferFrom(TokenPermissions[] permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty)TokenPermissions(address token,uint256 amount)"
-    );
-    */
 
     /// @dev Performs an direct OTC trade between MAKER and FROM
     // Funds are transferred MAKER->FROM and FROM->MAKER

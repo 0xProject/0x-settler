@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 /// @notice Thrown when an offset is not the expected value
 error InvalidOffset();
@@ -18,3 +18,6 @@ error ForwarderNotAllowed();
 
 /// @notice Thrown when a signature length is not the expected length
 error InvalidSignatureLen();
+
+/// @notice Thrown when a slippage limit is exceeded
+error TooMuchSlippage(address token, uint256 expected, uint256 actual);

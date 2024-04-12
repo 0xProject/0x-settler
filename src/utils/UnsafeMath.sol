@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.21;
+pragma solidity ^0.8.25;
 
 library UnsafeMath {
     function unsafeInc(uint256 x) internal pure returns (uint256) {
@@ -41,6 +41,18 @@ library UnsafeMath {
     function unsafeMod(int256 numerator, int256 denominator) internal pure returns (int256 remainder) {
         assembly ("memory-safe") {
             remainder := smod(numerator, denominator)
+        }
+    }
+
+    function unsafeMulMod(uint256 a, uint256 b, uint256 m) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mulmod(a, b, m)
+        }
+    }
+
+    function unsafeAddMod(uint256 a, uint256 b, uint256 m) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := addmod(a, b, m)
         }
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
@@ -9,10 +9,17 @@ import {IZeroEx} from "./vendor/IZeroEx.sol";
 
 import {IERC20} from "../../src/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
-import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
+import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
+
+contract Shim {
+    function chainId() external returns (uint256) {
+        return block.chainid;
+    }
+}
 
 abstract contract SettlerBasePairTest is BasePairTest {
     using SafeTransferLib for IERC20;
@@ -22,21 +29,29 @@ abstract contract SettlerBasePairTest is BasePairTest {
     uint256 internal PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
-    AllowanceHolder internal allowanceHolder;
+    IAllowanceHolder internal allowanceHolder;
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
     function setUp() public virtual override {
         super.setUp();
-        allowanceHolder = new AllowanceHolder();
+        allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
         settler = new Settler(
-            address(PERMIT2),
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
             0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
-            0x6B175474E89094C44Da98b954EedeAC495271d0F, // DAI
-            0x2222222222222222222222222222222222222222, // fee recipient
-            address(allowanceHolder) // allowance holder
+            0x6B175474E89094C44Da98b954EedeAC495271d0F // DAI
         );
+
+        uint256 forkChainId = (new Shim()).chainId();
+        vm.chainId(31337);
+        vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
+        vm.chainId(forkChainId);
     }
+
+    bytes32 internal constant CONSIDERATION_TYPEHASH =
+        keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)");
+    bytes32 internal constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TokenPermissions(address token,uint256 amount)"
+    );
 
     function _getDefaultFromPermit2Action() internal returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();

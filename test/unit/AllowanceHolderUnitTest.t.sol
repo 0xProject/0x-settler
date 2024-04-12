@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
-import {IAllowanceHolder} from "../../src/IAllowanceHolder.sol";
+import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol";
+import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IERC20} from "../../src/IERC20.sol";
@@ -13,16 +13,24 @@ import {Test} from "forge-std/Test.sol";
 
 contract AllowanceHolderDummy is AllowanceHolder {
     function getAllowed(address operator, address owner, address token) external view returns (uint256 r) {
-        return _getAllowed(operator, owner, token);
+        TSlot allowance = _ephemeralAllowance(operator, owner, token);
+        return _get(allowance);
     }
 
     function setAllowed(address operator, address owner, address token, uint256 allowed) external {
-        return _setAllowed(operator, owner, token, allowed);
+        TSlot allowance = _ephemeralAllowance(operator, owner, token);
+        _set(allowance, allowed);
     }
 }
 
+interface IAllowanceHolderDummy is IAllowanceHolder {
+    function getAllowed(address operator, address owner, address token) external view returns (uint256 r);
+
+    function setAllowed(address operator, address owner, address token, uint256 allowed) external;
+}
+
 contract AllowanceHolderUnitTest is Utils, Test {
-    AllowanceHolderDummy ah;
+    IAllowanceHolderDummy ah;
     address OPERATOR = _createNamedRejectionDummy("OPERATOR");
     address TOKEN = _createNamedRejectionDummy("TOKEN");
     address OWNER = address(this);
@@ -30,7 +38,7 @@ contract AllowanceHolderUnitTest is Utils, Test {
     uint256 AMOUNT = 123456;
 
     function setUp() public {
-        ah = new AllowanceHolderDummy();
+        ah = IAllowanceHolderDummy(address(new AllowanceHolderDummy()));
     }
 
     function testPermitSetGet() public {
@@ -39,78 +47,53 @@ contract AllowanceHolderUnitTest is Utils, Test {
     }
 
     function testPermitAuthorised() public {
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
-
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
-        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT);
 
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT);
         _mockExpectCall(
             TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, AMOUNT), new bytes(0)
         );
-        vm.prank(OPERATOR);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
-
+        vm.prank(OPERATOR, address(this));
+        assertTrue(ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT));
         assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), 0);
     }
 
     function testPermitAuthorisedMultipleConsumption() public {
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-
-        // Note: we use amount / 2 (+ / - 1) to register multiple mocks
-        transferDetails[0] =
-            IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: (AMOUNT / 2) + 1});
-
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
+
         assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT);
         _mockExpectCall(
-            TOKEN,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, (AMOUNT / 2) + 1),
-            new bytes(0)
+            TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, AMOUNT / 2 + 1), new bytes(0)
         );
-        vm.prank(OPERATOR);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
-        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), (AMOUNT / 2) - 1);
-
+        vm.prank(OPERATOR, address(this));
+        assertTrue(ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT / 2 + 1));
+        assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), AMOUNT / 2 - 1);
         _mockExpectCall(
-            TOKEN,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, (AMOUNT / 2) - 1),
-            new bytes(0)
+            TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, OWNER, RECIPIENT, AMOUNT / 2 - 1), new bytes(0)
         );
-        transferDetails[0] =
-            IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: (AMOUNT / 2) - 1});
-        vm.prank(OPERATOR);
-        assertTrue(ah.holderTransferFrom(OWNER, transferDetails));
-
+        vm.prank(OPERATOR, address(this));
+        assertTrue(ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT / 2 - 1));
         assertEq(ah.getAllowed(OPERATOR, OWNER, TOKEN), 0);
     }
 
     function testPermitUnauthorisedOperator() public {
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
-
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
-        vm.expectRevert();
-        ah.holderTransferFrom(OWNER, transferDetails);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
+        ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
     function testPermitUnauthorisedAmount() public {
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT + 1});
-
         ah.setAllowed(OPERATOR, OWNER, TOKEN, AMOUNT);
-        vm.expectRevert();
-        vm.prank(OPERATOR);
-        ah.holderTransferFrom(OWNER, transferDetails);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
+        vm.prank(OPERATOR, address(this));
+        ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT + 1);
     }
 
     function testPermitUnauthorisedToken() public {
-        IAllowanceHolder.TransferDetails[] memory transferDetails = new IAllowanceHolder.TransferDetails[](1);
-        transferDetails[0] = IAllowanceHolder.TransferDetails({token: TOKEN, recipient: RECIPIENT, amount: AMOUNT});
-
         ah.setAllowed(OPERATOR, OWNER, address(0xdead), AMOUNT);
-        vm.expectRevert();
-        ah.holderTransferFrom(OWNER, transferDetails);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
+        vm.prank(OPERATOR, address(this));
+        ah.transferFrom(TOKEN, OWNER, RECIPIENT, AMOUNT);
     }
 
     function testPermitAuthorisedStorageKey() public {
@@ -137,11 +120,9 @@ contract AllowanceHolderUnitTest is Utils, Test {
         address operator = target;
         uint256 value = 999;
 
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: TOKEN, amount: AMOUNT});
         bytes memory data = hex"deadbeef";
 
         _mockExpectCall(address(target), abi.encodePacked(data, address(this)), abi.encode(true));
-        ah.execute{value: value}(operator, permits, payable(target), data);
+        ah.exec{value: value}(operator, TOKEN, AMOUNT, payable(target), data);
     }
 }

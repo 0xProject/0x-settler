@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {IERC20} from "../IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
-import {VIPBase} from "./VIPBase.sol";
+import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniV2Pair {
     function token0() external view returns (address);
@@ -13,7 +13,7 @@ interface IUniV2Pair {
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
-abstract contract UniswapV2 is VIPBase {
+abstract contract UniswapV2 {
     using UnsafeMath for uint256;
 
     // bytes4(keccak256("getReserves()"))
@@ -34,7 +34,7 @@ abstract contract UniswapV2 is VIPBase {
         uint256 bips,
         uint256 minBuyAmount
     ) internal {
-        // Preventing calls to Permit2 or AH is not explicity required as neither of these contracts implement the `swap` nor `transfer` selector
+        // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
@@ -49,6 +49,10 @@ abstract contract UniswapV2 is VIPBase {
             // We don't care about phantom overflow here because reserves are
             // limited to 112 bits. Any token balance that would overflow here would
             // also break UniV2.
+            // It is *possible* to set `bips` above the basis and therefore
+            // cause an overflow on this multiplication. However, `bips` is
+            // passed as authenticated calldata, so this is a GIGO error that we
+            // do not attempt to fix.
             unchecked {
                 sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bips).unsafeDiv(10_000);
             }

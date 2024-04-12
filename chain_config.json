@@ -1,0 +1,357 @@
+{
+  "sepolia": {
+    "chainId": 11155111,
+    "isCancun": true,
+    "extraFlags": "",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-sepolia.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
+    "etherscanApi": "https://api-sepolia.etherscan.io/api",
+    "uniV3": {
+      "factory": "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6"
+    }
+  },
+  "mainnet": {
+    "chainId": 1,
+    "isCancun": true,
+    "extraFlags": "",
+    "gasMultiplierPercent": 130,
+    "minGasPriceGwei": 10,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-mainnet.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
+    "etherscanApi": "https://api.etherscan.io/api",
+    "uniV3": {
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    }
+  },
+  "polygon": {
+    "chainId": 137,
+    "isCancun": true,
+    "extraFlags": "",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 200,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-polygon.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
+    "etherscanApi": "https://api.polygonscan.com/api",
+    "uniV3": {
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "base": {
+    "chainId": 8453,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-base.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
+    "etherscanApi": "https://api.basescan.org/api",
+    "uniV3": {
+      "factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "base_sepolia": {
+    "chainId": 84532,
+    "isCancun": false,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-base-sepolia.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
+    },
+    "etherscanApi": "https://api-sepolia.basescan.org/api",
+    "uniV3": {
+      "factory": "0x0000000000000000000000000000000000000000",
+      "initHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "optimism": {
+    "chainId": 10,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-optimism.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
+    "etherscanApi": "https://api-optimistic.etherscan.io/api",
+    "uniV3": {
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "optimism_sepolia": {
+    "chainId": 11155420,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
+    "etherscanApi": "https://api-sepolia-optimism.etherscan.io/api",
+    "uniV3": {
+      "factory": "0x0000000000000000000000000000000000000000",
+      "initHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "arbitrum": {
+    "chainId": 42161,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 500,
+    "minGasPriceGwei": 10,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-arbitrum.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
+    "etherscanApi": "https://api.arbiscan.io/api",
+    "uniV3": {
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "arbitrum_sepolia": {
+    "chainId": 421614,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 500,
+    "minGasPriceGwei": 10,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
+    },
+    "etherscanApi": "https://api-sepolia.arbiscan.io/api",
+    "uniV3": {
+      "factory": "0x0000000000000000000000000000000000000000",
+      "initHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "bnb": {
+    "chainId": 56,
+    "isCancun": false,
+    "extraFlags": "",
+    "gasMultiplierPercent": 130,
+    "minGasPriceGwei": 3,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-bsc.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
+    },
+    "etherscanApi": "https://api.bscscan.com/api",
+    "uniV3": {
+      "factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "avalanche": {
+    "chainId": 43114,
+    "isCancun": false,
+    "extraFlags": "",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 10,
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-avalanche.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
+    },
+    "etherscanApi": "https://api.snowtrace.io/api",
+    "uniV3": {
+      "factory": "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD",
+      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+    },
+    "makerPsm": {
+      "dai": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "blast": {
+    "chainId": 81457,
+    "extraFlags": "--legacy",
+    "safe": {
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "etherscanApi": "https://api.blastscan.io/api",
+    "uniV3": {},
+    "makerPsm": {}
+  }
+}

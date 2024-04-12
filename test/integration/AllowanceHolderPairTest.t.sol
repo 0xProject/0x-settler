@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {IERC20} from "../../src/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
@@ -11,9 +11,9 @@ import {IZeroEx} from "./vendor/IZeroEx.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
-import {SafeTransferLib} from "../../src/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "../../src/AllowanceHolder.sol";
+import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "../../src/Settler.sol";
 import {ISettlerActions} from "../../src/ISettlerActions.sol";
 import {OtcOrderSettlement} from "../../src/core/OtcOrderSettlement.sol";
@@ -46,20 +46,20 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
-        AllowanceHolder _allowanceHolder = allowanceHolder;
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
-        _warm_allowanceHolder_slots(address(fromToken()), amount());
-
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        //_warm_allowanceHolder_slots(address(fromToken()), amount());
 
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3");
-        _cold_account_access();
+        //_cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
-            permits,
+            address(_fromToken),
+            _amount,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -85,20 +85,20 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             )
         );
 
-        AllowanceHolder _allowanceHolder = allowanceHolder;
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
-        _warm_allowanceHolder_slots(address(fromToken()), amount());
-
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        //_warm_allowanceHolder_slots(address(fromToken()), amount());
 
         vm.startPrank(FROM, FROM); // prank both msg.sender and tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP");
-        _cold_account_access();
+        //_cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
-            permits,
+            address(_fromToken),
+            _amount,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -124,20 +124,191 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             )
         );
 
-        AllowanceHolder _allowanceHolder = allowanceHolder;
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
-        _warm_allowanceHolder_slots(address(fromToken()), amount());
-
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        //_warm_allowanceHolder_slots(address(fromToken()), amount());
 
         vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
-        _cold_account_access();
+        //_cold_account_access();
 
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
-            permits,
+            address(_fromToken),
+            _amount,
+            payable(address(_settler)),
+            abi.encodeCall(
+                _settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
+    function testAllowanceHolder_otc_VIP() public {
+        ISignatureTransfer.PermitTransferFrom memory makerPermit =
+            defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+            token: address(fromToken()),
+            amount: amount(),
+            counterparty: FROM,
+            partialFillAllowed: false
+        });
+
+        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
+        bytes memory makerSig = getPermitWitnessTransferSignature(
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+        );
+
+        bytes memory takerSig = new bytes(0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig)
+            )
+        );
+
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        //_warm_allowanceHolder_slots(address(_fromToken), _amount);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_otc");
+        //_cold_account_access();
+
+        _allowanceHolder.exec(
+            address(_settler),
+            address(_fromToken),
+            _amount,
+            payable(address(_settler)),
+            abi.encodeCall(
+                _settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
+    function testAllowanceHolder_otc_proportionalFee() public {
+        ISignatureTransfer.PermitTransferFrom memory makerPermit =
+            defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+            token: address(fromToken()),
+            amount: amount(),
+            counterparty: FROM,
+            partialFillAllowed: true
+        });
+
+        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
+        bytes memory makerSig = getPermitWitnessTransferSignature(
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+        );
+
+        bytes memory takerSig = new bytes(0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(fromToken()),
+                    address(fromToken()),
+                    1_000,
+                    0x24,
+                    abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
+                )
+            ),
+            abi.encodeCall(
+                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
+                (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount())
+            )
+        );
+
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        //_warm_allowanceHolder_slots(address(_fromToken), _amount);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_otc_proportionalFee_sellToken");
+        //_cold_account_access();
+
+        _allowanceHolder.exec(
+            address(_settler),
+            address(_fromToken),
+            _amount,
+            payable(address(_settler)),
+            abi.encodeCall(
+                _settler.execute,
+                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            )
+        );
+        snapEnd();
+    }
+
+    function testAllowanceHolder_otc_fixedFee() public {
+        ISignatureTransfer.PermitTransferFrom memory makerPermit =
+            defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+            token: address(fromToken()),
+            amount: amount(),
+            counterparty: FROM,
+            partialFillAllowed: true
+        });
+
+        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
+        bytes memory makerSig = getPermitWitnessTransferSignature(
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+        );
+
+        bytes memory takerSig = new bytes(0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
+            abi.encodeCall(
+                ISettlerActions.BASIC_SELL,
+                (
+                    address(fromToken()),
+                    address(0),
+                    0,
+                    0x00,
+                    abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, amount() * 1_000 / 10_000))
+                )
+            ),
+            abi.encodeCall(
+                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
+                (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount())
+            )
+        );
+
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        //_warm_allowanceHolder_slots(address(_fromToken), _amount);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_otc_fixedFee_sellToken");
+        //_cold_account_access();
+
+        _allowanceHolder.exec(
+            address(_settler),
+            address(_fromToken),
+            _amount,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
@@ -167,26 +338,42 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             )
         );
 
-        AllowanceHolder _allowanceHolder = allowanceHolder;
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
         _warm_allowanceHolder_slots(address(fromToken()), amount());
 
         vm.startPrank(FROM); // Do not prank tx.origin, msg.sender != tx.origin
         snapStartName("allowanceHolder_uniswapV2_single_chain");
         _cold_account_access();
 
-        ISignatureTransfer.TokenPermissions[] memory permits = new ISignatureTransfer.TokenPermissions[](1);
-        permits[0] = ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()});
-
-        _allowanceHolder.execute(
+        _allowanceHolder.exec(
             address(_settler),
-            permits,
+            address(_fromToken),
+            _amount,
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
                 (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
             )
         );
+        snapEnd();
+    }
+
+    function testAllowanceHolder_empty() public {
+        bytes[] memory actions = new bytes[](0);
+        bytes memory call = abi.encodeCall(
+            settler.execute,
+            (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+        );
+
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_empty");
+        _allowanceHolder.exec(address(0), address(0), 0, payable(address(_settler)), call);
         snapEnd();
     }
 

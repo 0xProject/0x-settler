@@ -1,17 +1,29 @@
 [profile.default]
-solc = "0.8.21"
+solc = "0.8.25"
+
+# https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
 bytecode_hash = "none"
+auto_detect_remappings = false
+cbor_metadata = false
+sparse_mode = false
+
 optimizer = true
 via_ir = true
 optimizer_runs = 1000000
+evm_version = "cancun"
 no_match_path = "*/integration/*"
-fuzz_runs = 10000
 # needed for marktoda/forge-gas-snapshot
 ffi = true
-fs_permissions = [{ access = "read-write", path = ".forge-snapshots/"},{ access = "read", path = "out"}]
-evm_version = "shanghai"
+fs_permissions = [{ access = "read-write", path = ".forge-snapshots/" }, { access = "read", path = "out" }]
+
+# https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
+[profile.default.optimizer_details]
+constantOptimizer = true
+yul = true
 
 [profile.integration]
 no_match_path = ""
 match_path = "*/integration/*"
-evm_version = "shanghai"
+
+[fuzz]
+runs = 100_000
