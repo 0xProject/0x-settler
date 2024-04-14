@@ -125,8 +125,11 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     }
 
     modifier metaTx(address msgSender, bytes32 witness) override {
+        if (_isForwarded()) {
+            revert ConfusedDeputy();
+        }
         TransientStorage.setWitness(witness, msgSender);
-        TransientStorage.setOperator(_msgSender());
+        TransientStorage.setOperator(msg.sender);
         _;
         TransientStorage.checkSpentOperator();
         TransientStorage.checkSpentWitness();
