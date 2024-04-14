@@ -67,13 +67,13 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
 | ---------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 208070 | 0.00%   |
-| Settler          | Uniswap V3 | USDC/WETH | 170170 | -18.22% |
+| Settler          | Uniswap V3 | USDC/WETH | 170092 | -18.25% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 195504 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 153548 | -21.46% |
+| Settler          | Uniswap V3 | DAI/WETH  | 153470 | -21.50% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 198311 | 0.00%   |
-| Settler          | Uniswap V3 | USDT/WETH | 160222 | -19.21% |
+| Settler          | Uniswap V3 | USDT/WETH | 160144 | -19.25% |
 |                  |            |           |        |         |
 
 | OTC             | DEX     | Pair      | Gas    | %       |
@@ -141,16 +141,16 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
 | no fee                          | OTC | USDC/WETH | 105681 | 0.00%  |
-| proportional fee                | OTC | USDC/WETH | 153572 | 45.32% |
-| fixed fee                       | OTC | USDC/WETH | 151600 | 43.45% |
+| proportional fee                | OTC | USDC/WETH | 153437 | 45.19% |
+| fixed fee                       | OTC | USDC/WETH | 151465 | 43.32% |
 |                                 |     |           |        |        |
 | no fee                          | OTC | DAI/WETH  | 86207  | 0.00%  |
-| proportional fee                | OTC | DAI/WETH  | 125986 | 46.14% |
-| fixed fee                       | OTC | DAI/WETH  | 124727 | 44.68% |
+| proportional fee                | OTC | DAI/WETH  | 125851 | 45.99% |
+| fixed fee                       | OTC | DAI/WETH  | 124592 | 44.53% |
 |                                 |     |           |        |        |
 | no fee                          | OTC | USDT/WETH | 97319  | 0.00%  |
-| proportional fee                | OTC | USDT/WETH | 142736 | 46.67% |
-| fixed fee                       | OTC | USDT/WETH | 141048 | 44.93% |
+| proportional fee                | OTC | USDT/WETH | 142601 | 46.53% |
+| fixed fee                       | OTC | USDT/WETH | 140913 | 44.79% |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"

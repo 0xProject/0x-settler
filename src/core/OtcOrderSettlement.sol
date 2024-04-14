@@ -129,31 +129,35 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         uint256 maxTakerAmount,
         address msgSender
     ) internal {
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails;
-        Consideration memory takerConsideration;
-        takerConsideration.partialFillAllowed = true;
-        uint256 buyAmount;
-        (transferDetails, takerConsideration.token, buyAmount) = _permitToTransferDetails(permit, recipient);
-        takerConsideration.amount = buyAmount;
-        takerConsideration.counterparty = maker;
+        // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
+        // later to adjust for the actual settled amount, which may be modified by encountered
+        // slippage.
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address makerToken, uint256 makerAmount) =
+            _permitToTransferDetails(permit, recipient);
+        bytes32 takerWitness = _hashConsideration(
+            Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: true})
+        );
+        bytes32 makerWitness = _hashConsideration(
+            Consideration({
+                token: address(takerToken),
+                amount: maxTakerAmount,
+                counterparty: msgSender,
+                partialFillAllowed: true
+            })
+        );
 
-        Consideration memory makerConsideration = Consideration({
-            token: address(takerToken),
-            amount: maxTakerAmount,
-            counterparty: msgSender,
-            partialFillAllowed: true
-        });
-        bytes32 witness = _hashConsideration(makerConsideration);
-
+        // Now we adjust the transfer amounts to compensate for encountered slippage. Rounding is
+        // performed in the maker's favor.
         uint256 takerAmount = takerToken.balanceOf(address(this));
         if (takerAmount > maxTakerAmount) {
             takerAmount = maxTakerAmount;
         }
         transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
+        // Now that we have all the relevant information, make the transfers and log the order.
         takerToken.safeTransfer(maker, takerAmount);
-        _transferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFrom(permit, transferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
 
-        _logOtcOrder(witness, _hashConsideration(takerConsideration), uint128(buyAmount));
+        _logOtcOrder(makerWitness, takerWitness, uint128(makerAmount));
     }
 }
