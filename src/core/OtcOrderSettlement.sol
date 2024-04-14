@@ -152,7 +152,7 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         if (takerAmount > maxTakerAmount) {
             takerAmount = maxTakerAmount;
         }
-        transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
+        transferDetails.requestedAmount = makerAmount = makerAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
         // Now that we have all the relevant information, make the transfers and log the order.
         takerToken.safeTransfer(maker, takerAmount);

@@ -141,16 +141,16 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
 | no fee                          | OTC | USDC/WETH | 105681 | 0.00%  |
-| proportional fee                | OTC | USDC/WETH | 153437 | 45.19% |
-| fixed fee                       | OTC | USDC/WETH | 151465 | 43.32% |
+| proportional fee                | OTC | USDC/WETH | 153431 | 45.18% |
+| fixed fee                       | OTC | USDC/WETH | 151459 | 43.32% |
 |                                 |     |           |        |        |
 | no fee                          | OTC | DAI/WETH  | 86207  | 0.00%  |
-| proportional fee                | OTC | DAI/WETH  | 125851 | 45.99% |
-| fixed fee                       | OTC | DAI/WETH  | 124592 | 44.53% |
+| proportional fee                | OTC | DAI/WETH  | 125845 | 45.98% |
+| fixed fee                       | OTC | DAI/WETH  | 124586 | 44.52% |
 |                                 |     |           |        |        |
 | no fee                          | OTC | USDT/WETH | 97319  | 0.00%  |
-| proportional fee                | OTC | USDT/WETH | 142601 | 46.53% |
-| fixed fee                       | OTC | USDT/WETH | 140913 | 44.79% |
+| proportional fee                | OTC | USDT/WETH | 142595 | 46.52% |
+| fixed fee                       | OTC | USDT/WETH | 140907 | 44.79% |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"
