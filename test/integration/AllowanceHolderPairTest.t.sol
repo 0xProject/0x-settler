@@ -35,7 +35,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             // Perform a transfer into Settler via AllowanceHolder
             abi.encodeCall(
-                ISettlerActions.PERMIT2_TRANSFER_FROM,
+                ISettlerActions.TRANSFER_FROM,
                 (
                     address(settler),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
@@ -43,7 +43,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 )
             ),
             // Execute UniswapV3 from the Settler balance
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -73,7 +73,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
                     amount(),
@@ -112,7 +112,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
                     amount(),
@@ -168,9 +168,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig)
-            )
+            abi.encodeCall(ISettlerActions.OTC_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -217,9 +215,9 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(fromToken()),
                     address(fromToken()),
@@ -228,10 +226,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
                 )
             ),
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
-                (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount())
-            )
+            abi.encodeCall(ISettlerActions.OTC, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -278,9 +273,9 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(fromToken()),
                     address(0),
@@ -289,10 +284,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, amount() * 1_000 / 10_000))
                 )
             ),
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
-                (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount())
-            )
+            abi.encodeCall(ISettlerActions.OTC, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -326,16 +318,14 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.PERMIT2_TRANSFER_FROM,
+                ISettlerActions.TRANSFER_FROM,
                 (
                     uniswapV2Pool(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
                     new bytes(0) /* sig (empty) */
                 )
             ),
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0)
-            )
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;

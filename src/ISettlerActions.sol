@@ -5,18 +5,15 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 
 interface ISettlerActions {
     /// @dev Transfer funds from msg.sender Permit2.
-    function PERMIT2_TRANSFER_FROM(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) external;
+    function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
+        external;
 
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
-    function METATXN_PERMIT2_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory) external;
+    function METATXN_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
-    function SETTLER_OTC_PERMIT2(
+    function OTC_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
@@ -26,7 +23,7 @@ interface ISettlerActions {
     ) external;
 
     /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
-    function METATXN_SETTLER_OTC_PERMIT2(
+    function METATXN_OTC_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
@@ -38,7 +35,7 @@ interface ISettlerActions {
     /// Retaining funds in the settler contract.
     // Pre-req: Funded
     // Post-req: Payout
-    function SETTLER_OTC_SELF_FUNDED(
+    function OTC(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,
@@ -50,11 +47,10 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
-    function UNISWAPV3_SWAP_EXACT_IN(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path)
-        external;
+    function UNISWAPV3(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
 
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
-    function UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
+    function UNISWAPV3_VIP(
         address recipient,
         uint256 amountIn,
         uint256 amountOutMin,
@@ -63,11 +59,11 @@ interface ISettlerActions {
         bytes memory sig
     ) external;
 
-    function MAKER_PSM_SELL_GEM(address recipient, uint256 bips, address psm, address gemToken) external;
-    function MAKER_PSM_BUY_GEM(address recipient, uint256 bips, address psm, address gemToken) external;
+    function MAKERPSM_SELL(address recipient, uint256 bips, address psm, address gemToken) external;
+    function MAKERPSM_BUY(address recipient, uint256 bips, address psm, address gemToken) external;
 
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
-    function METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN(
+    function METATXN_UNISWAPV3_VIP(
         address recipient,
         uint256 amountIn,
         uint256 amountOutMin,
@@ -76,7 +72,7 @@ interface ISettlerActions {
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
-    function UNISWAPV2_SWAP(
+    function UNISWAPV2(
         address recipient,
         address sellToken,
         address pool,
@@ -90,5 +86,5 @@ interface ISettlerActions {
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
-    function BASIC_SELL(address pool, address sellToken, uint256 bips, uint256 offset, bytes calldata data) external;
+    function BASIC(address pool, address sellToken, uint256 bips, uint256 offset, bytes calldata data) external;
 }

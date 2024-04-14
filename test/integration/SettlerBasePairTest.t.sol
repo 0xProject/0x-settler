@@ -55,7 +55,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
 
     function _getDefaultFromPermit2Action() internal returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
-        return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), permit, sig));
+        return abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig));
     }
 
     function _getDefaultFromPermit2() internal returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {

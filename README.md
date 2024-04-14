@@ -1,22 +1,6 @@
 # 0x Settler
 
-Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
-
-## How do I find the most recent deployment?
-
-The deployer/registry contract is deployed to
-`0x00000000000004533Fe15556B1E086BB1A72cEae` across all chains (unless somebody
-screwed up the vanity address and didn't update this document). The
-deployer/registry is an ERC1967 UUPS upgradeable contract that implements an
-ERC721-compatible NFT. To find the address of the most recent deployment, call
-`ownerOf(uint256)(address)` with the `tokenId` set to the number of the feature
-that you wish to query. The feature number is probably 1 unless something major
-changed and nobody updated this document. A reverting response indicates that
-`Settler` is paused and you should not interact. Do not hardcode any address
-other than `0x00000000000004533Fe15556B1E086BB1A72cEae` in your
-integration. _**ALWAYS**_ query the deployer/registry for the address of the
-most recent contract before building or signing a transaction, metatransaction,
-or order.
+Proof of concept settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
 
 ### Custody
 
@@ -25,7 +9,7 @@ Custody, not like the delicious custardy, is when the token(s) being traded are 
 - In the middle of a Multihop trade
 - To distribute positive slippage from an AMM
 - To pay fees to a fee recipient in the buy token from an AMM
-- Trading against an inefficient AMM that only supports `transferFrom(msg.sender)` (e.g Curve)
+- Trading against an ineffeciant AMM that only supports `transferFrom(msg.sender)` (e.g Curve)
 
 For the above reasons, there are settlement paths in Settler which allow for custody of the sell token or the buy token. You will see the usage of `custody` to represent this. Sell token or Buy token or both custody is represented by `custody`.
 
@@ -48,66 +32,66 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | ------------------- | ---------- | --------- | ------ | ------ |
 | 0x V4 VIP           | Uniswap V3 | USDC/WETH | 124663 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138516 | 11.11% |
-| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 133912 | 7.42%  |
-| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 125759 | 0.88%  |
+| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 133906 | 7.41%  |
+| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 125813 | 0.92%  |
 | UniswapRouter V3    | Uniswap V3 | USDC/WETH | 120972 | -2.96% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112097 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 125950 | 12.36% |
-| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 121346 | 8.25%  |
-| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 113193 | 0.98%  |
+| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 121340 | 8.25%  |
+| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 113247 | 1.03%  |
 | UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108406 | -3.29% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | USDT/WETH | 114904 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128757 | 12.06% |
-| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 124164 | 8.06%  |
-| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 116011 | 0.96%  |
+| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 124158 | 8.05%  |
+| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 116065 | 1.01%  |
 | UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111085 | -3.32% |
 |                     |            |           |        |        |
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 244597 | 0.00%   |
-| Settler              | Uniswap V3 | USDC/WETH | 163111 | -33.31% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 155108 | -36.59% |
+| Settler              | Uniswap V3 | USDC/WETH | 163105 | -33.32% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 155162 | -36.56% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 221595 | 0.00%   |
-| Settler              | Uniswap V3 | DAI/WETH  | 146489 | -33.89% |
-| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 138486 | -37.50% |
+| Settler              | Uniswap V3 | DAI/WETH  | 146483 | -33.90% |
+| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 138540 | -37.48% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 228494 | 0.00%   |
-| Settler              | Uniswap V3 | USDT/WETH | 153163 | -32.97% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 145160 | -36.47% |
+| Settler              | Uniswap V3 | USDT/WETH | 153157 | -32.97% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 145214 | -36.45% |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
 | ---------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 208070 | 0.00%   |
-| Settler          | Uniswap V3 | USDC/WETH | 170182 | -18.21% |
+| Settler          | Uniswap V3 | USDC/WETH | 170170 | -18.22% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 195504 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 153560 | -21.45% |
+| Settler          | Uniswap V3 | DAI/WETH  | 153548 | -21.46% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 198311 | 0.00%   |
-| Settler          | Uniswap V3 | USDT/WETH | 160235 | -19.20% |
+| Settler          | Uniswap V3 | USDT/WETH | 160222 | -19.21% |
 |                  |            |           |        |         |
 
 | OTC             | DEX     | Pair      | Gas    | %       |
 | --------------- | ------- | --------- | ------ | ------- |
 | 0x V4           | 0x V4   | USDC/WETH | 97915  | 0.00%   |
-| Settler         | Settler | USDC/WETH | 111107 | 13.47%  |
-| Settler         | 0x V4   | USDC/WETH | 203376 | 107.71% |
-| AllowanceHolder | Settler | USDC/WETH | 105627 | 7.88%   |
+| Settler         | Settler | USDC/WETH | 111101 | 13.47%  |
+| Settler         | 0x V4   | USDC/WETH | 203370 | 107.70% |
+| AllowanceHolder | Settler | USDC/WETH | 105681 | 7.93%   |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | DAI/WETH  | 78441  | 0.00%   |
-| Settler         | Settler | DAI/WETH  | 91633  | 16.82%  |
-| Settler         | 0x V4   | DAI/WETH  | 173466 | 121.14% |
-| AllowanceHolder | Settler | DAI/WETH  | 86153  | 9.83%   |
+| Settler         | Settler | DAI/WETH  | 91627  | 16.81%  |
+| Settler         | 0x V4   | DAI/WETH  | 173460 | 121.13% |
+| AllowanceHolder | Settler | DAI/WETH  | 86207  | 9.90%   |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | USDT/WETH | 89553  | 0.00%   |
-| Settler         | Settler | USDT/WETH | 102745 | 14.73%  |
-| Settler         | 0x V4   | USDT/WETH | 188798 | 110.82% |
-| AllowanceHolder | Settler | USDT/WETH | 97265  | 8.61%   |
+| Settler         | Settler | USDT/WETH | 102739 | 14.72%  |
+| Settler         | 0x V4   | USDT/WETH | 188792 | 110.82% |
+| AllowanceHolder | Settler | USDT/WETH | 97319  | 8.67%   |
 |                 |         |           |        |         |
 
 | Curve             | DEX   | Pair      | Gas    | %       |
@@ -115,58 +99,58 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 |                   |       |           |        |         |
 |                   |       |           |        |         |
 | 0x V4             | Curve | USDT/WETH | 452666 | 0.00%   |
-| Settler           | Curve | USDT/WETH | 415095 | -8.30%  |
+| Settler           | Curve | USDT/WETH | 415089 | -8.30%  |
 | Curve             | Curve | USDT/WETH | 341755 | -24.50% |
 | Curve Swap Router | Curve | USDT/WETH | 412035 | -8.98%  |
 |                   |       |           |        |         |
 
 | Buy token fee     | DEX        | Pair      | Gas    | %     |
 | ----------------- | ---------- | --------- | ------ | ----- |
-| Settler - custody | Uniswap V3 | USDC/WETH | 171813 | 0.00% |
+| Settler - custody | Uniswap V3 | USDC/WETH | 171807 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | DAI/WETH  | 159247 | 0.00% |
+| Settler - custody | Uniswap V3 | DAI/WETH  | 159241 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | USDT/WETH | 162065 | 0.00% |
+| Settler - custody | Uniswap V3 | USDT/WETH | 162059 | 0.00% |
 |                   |            |           |        |       |
 
 | Sell token fee | DEX        | Pair      | Gas    | %       |
 | -------------- | ---------- | --------- | ------ | ------- |
-| Settler        | Uniswap V3 | USDC/WETH | 178809 | 0.00%   |
+| Settler        | Uniswap V3 | USDC/WETH | 178803 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | DAI/WETH  | 158131 | 0.00%   |
+| Settler        | Uniswap V3 | DAI/WETH  | 158125 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | USDT/WETH | 166587 | 0.00%   |
-| Settler        | Curve      | USDT/WETH | 430921 | 158.68% |
+| Settler        | Uniswap V3 | USDT/WETH | 166581 | 0.00%   |
+| Settler        | Curve      | USDT/WETH | 430915 | 158.68% |
 |                |            |           |        |         |
 
 | AllowanceHolder                      | DEX            | Pair      | Gas    | %       |
 | ------------------------------------ | -------------- | --------- | ------ | ------- |
-| execute                              | Uniswap V3 VIP | USDC/WETH | 125759 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDC/WETH | 139067 | 10.58%  |
-| execute                              | OTC            | USDC/WETH | 105627 | -16.01% |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 125813 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 139067 | 10.53%  |
+| execute                              | OTC            | USDC/WETH | 105681 | -16.00% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | DAI/WETH  | 113193 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128076 | 13.15%  |
-| execute                              | OTC            | DAI/WETH  | 86153  | -23.89% |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 113247 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128076 | 13.09%  |
+| execute                              | OTC            | DAI/WETH  | 86207  | -23.88% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | USDT/WETH | 116011 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDT/WETH | 135065 | 16.42%  |
-| execute                              | OTC            | USDT/WETH | 97265  | -16.16% |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 116065 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 135065 | 16.37%  |
+| execute                              | OTC            | USDT/WETH | 97319  | -16.15% |
 |                                      |                |           |        |         |
 
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
-| no fee                          | OTC | USDC/WETH | 105627 | 0.00%  |
-| proportional fee                | OTC | USDC/WETH | 153518 | 45.34% |
-| fixed fee                       | OTC | USDC/WETH | 151546 | 43.47% |
+| no fee                          | OTC | USDC/WETH | 105681 | 0.00%  |
+| proportional fee                | OTC | USDC/WETH | 153572 | 45.32% |
+| fixed fee                       | OTC | USDC/WETH | 151600 | 43.45% |
 |                                 |     |           |        |        |
-| no fee                          | OTC | DAI/WETH  | 86153  | 0.00%  |
-| proportional fee                | OTC | DAI/WETH  | 125932 | 46.17% |
-| fixed fee                       | OTC | DAI/WETH  | 124673 | 44.71% |
+| no fee                          | OTC | DAI/WETH  | 86207  | 0.00%  |
+| proportional fee                | OTC | DAI/WETH  | 125986 | 46.14% |
+| fixed fee                       | OTC | DAI/WETH  | 124727 | 44.68% |
 |                                 |     |           |        |        |
-| no fee                          | OTC | USDT/WETH | 97265  | 0.00%  |
-| proportional fee                | OTC | USDT/WETH | 142682 | 46.69% |
-| fixed fee                       | OTC | USDT/WETH | 140994 | 44.96% |
+| no fee                          | OTC | USDT/WETH | 97319  | 0.00%  |
+| proportional fee                | OTC | USDT/WETH | 142736 | 46.67% |
+| fixed fee                       | OTC | USDT/WETH | 141048 | 44.93% |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"
@@ -239,7 +223,7 @@ To make gas comparisons fair we will use the following methodology:
 
 ## Permit2 Based Flows
 
-We utilise `Permit2` transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transfers and `PermitBatchTransferFrom` for batch transfers.
+We utilise `Permit2` transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transgers and `PermitBatchTransferFrom` for batch transfers.
 
 `Permit2` provides the following guarantees:
 
@@ -333,7 +317,7 @@ sequenceDiagram
 
 ## Basic Flow
 
-This is the most basic flow and a flow that a number of dexes support. Essentially it is the "call function on DEX, DEX takes tokens from us, DEX gives us tokens". It has inefficiencies as `transferFrom` is more gas expensive than `transfer` and we are required to check/set allowances to the DEX. Typically this DEX also does not support a `recipient` field, introducing yet another needless `transfer` in simple swaps.
+This is the most basic flow and a flow that a number of dexes support. Essentially it is the "call function on DEX, DEX takes tokens from us, DEX gives us tokens". It has ineffeciences as `transferFrom` is more gas expensive than `transfer` and we are required to check/set allowances to the DEX. Typically this DEX also does not support a `recipient` field, introducing yet another needless `transfer` in simple swaps.
 
 ```mermaid
 sequenceDiagram
@@ -475,6 +459,8 @@ sequenceDiagram
 
 It is possible to collect fees via Permit2, which is typically in the token that the Permit2 is offloading (e.g the sell token for that counterparty). To perform this we use the Permit2 batch functionality where the second item in the batch is the fee.
 
+Note: This is still not entirely finalised and may change.
+
 ### OTC fees via Permit2
 
 ```mermaid
@@ -518,7 +504,7 @@ sequenceDiagram
 
 It is possible to collect sell token fees via Permit2 with the UniswapV3 VIP as well, using the Permit2 batch functionality. This flow is similar to the OTC fees.
 
-This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UniswapV3 with sell token fees.
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UnuswapV3 with sell token fees.
 
 ### Uniswap buy token fees via Permit2
 
@@ -570,134 +556,9 @@ sequenceDiagram
     Settler->>UniswapV3: swap
     WETH-->>Settler: transfer
     UniswapV3->>Settler: uniswapV3Callback
-    Settler->>AllowanceHolder: holderTransferFrom
+    Settler->>AllowanceHolder: holderTransferFrom 
     rect rgba(255, 148, 112, 0.5)
         USDC-->>UniswapV3: transferFrom(User, UniswapV3, amt)
     end
     WETH-->>User: transfer
 ```
-
-# How to deploy
-
-## How to pause the contracts
-
-First, decide how much of everyone's day you're going to ruin. Is the bug
-contained to a single `Settler` instance? Or is the bug pervasive? If the bug is
-pervasive, you're going to completely ruin everybody's day. Skip steps 3 through
-6 below.
-
-You need to be an approved deployer. The "pause" operation is 1-of-n, not 2-of-n
-like deploying a new `Settler`. `0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30`
-(ice cold coffees) is the address of the pauser contract. It's at the same
-address on all chains unless somebody screwed up the vanity addresses and didn't
-update this document.
-
-0. Go to that address on the relevant block explorer.
-
-1. Click on the "Contract" tab.
-
-![Click on "Contract"](img/pause0.png?raw=true)
-
-2. Click on the "Write Contract" tab.
-
-![Click on "Write Contract"](img/pause1.png?raw=true)
-
-3. Click on "remove", the first one.
-
-![Click on the first "remove"](img/pause2.png?raw=true)
-
-4. Click on "Connect to Web3" and allow your wallet to connect. You must connect
-   with the address that you use to deploy.
-
-![Click on "Connect to Web3"](img/pause3.png?raw=true)
-
-5. Paste the address of the buggy `Settler` instance.
-
-![Paste the bad Settler address in the box](img/pause4.png?raw=true)
-
-6. Click "Write" and confirm the transaction in your wallet. You have successfully ruined everybody's day :+1:
-
-![Click on "Write"](img/pause5.png?raw=true)
-
-7. This is the step to take if you want to completely shut down the
-   protocol. You really hate that everybody is having a nice day. Instead of
-   clicking on "remove"; click on "removeAll".
-
-8. Click on "Connect to Web3" and allow your wallet to connect. You must connect
-   with the address that you use to deploy.
-
-![Click on "Connect to Web3"](img/pause6.png?raw=true)
-
-9. Enter the "feature" number in the text box. This is probably 1 unless
-   something major has changed and nobody bothered to update this document.
-
-![Enter the "feature" number (1) in the text box](img/pause7.png?raw=true)
-
-10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
-
-![Click on "Write"](img/pause8.png?raw=true)
-
-## How to deploy a new `Settler` to a chain that is already set up
-
-Populate `api_secrets.json` by copying
-[`api_secrets.json.template`](api_secrets.json.template) and adding your own
-block explorer API key and RPC.
-
-You need 2 signers to do this. The first person runs
-[`./sh/confirm_new_settler.sh`](sh/confirm_new_settler.sh). This is incompatible
-with the "unlocked" type of wallet. You must use a Ledger, Trezor, or hot
-wallet. Following the prompts, this will sign the Safe transaction required to
-submit the deployment.
-
-The second person then runs
-[`./sh/deploy_new_settler.sh`](sh/deploy_new_settler.sh). This doesn't need an
-extra signature (thanks Safe!). Your wallet will ask you to confirm transaction
-submission. Assuming nothing goes wrong (if it does, file a bug report), you
-should have a brand-new `Settler`. It also should submit the contract for
-verification on the relevant explorer ([unless you're on
-Arbitrum](https://twitter.com/duncancmt/status/1775893476342964464)).
-
-## How to deploy to a new chain
-
-Zeroth, verify the configuration for your chain in
-[`chain_config.json`](chain_config.json) and
-[`script/SafeConfig.sol`](script/SafeConfig.sol).
-
-First, you need somebody to give you a copy of `secrets.json`. If you don't have
-this, give up. Also populate `api_secrets.json` by copying
-[`api_secrets.json.template`](api_secrets.json.template) and adding your own
-block explorer API key and RPC.
-
-Second, you need have enough native asset in each of the deployer addresses
-listed in [`secrets.json.template`](secrets.json.template) to perform the
-deployment. If how much isn't obvious to you, you can run the main deployment
-script with `BROADCAST=no` to simulate. This can be a little wonky on L2s, so
-beware and overprovision the amount of native asset.
-
-Third, deploy `AllowanceHolder`. Obviously, if you're deploying to a
-Cancun-supporting chain, you don't need to fund the deployer for the old
-`AllowanceHolder` (and vice versa). Run [`./sh/deploy_allowanceholder.sh
-<CHAIN_NAME>`](sh/deploy_allowanceholder.sh).
-
-Fourth, check that the Safe deployment on the new chain is complete. You can
-check this by running the main deployment script with `BROADCAST=no`. If it
-completes without reverting, you don't need to do anything. If the Safe
-deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
-<CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
-
-Fifth, make _damn_ sure that you've got the correct configuration in
-[`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
-vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
-<CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
-testnet. Simulate each individual transaction in
-[Tenderly](https://dashboard.tenderly.co/).
-
-Finally, run `BROADCAST=yes ./sh/deploy_new_chain.sh <CHAIN_NAME>`. Cross your
-fingers. If something goes wrong (most commonly, the second-to-last transaction
-runs out of gas; this is only a minor problem), you'll need to edit either
-`sh/deploy_new_chain.sh` or
-[`script/DeploySafes.s.sol`](script/DeploySafes.s.sol) to skip the parts of the
-deployment you've already done. Tweak `gasMultiplierPercent` and
-`minGasPriceGwei` in `chain_config.json`.
-
-Congratulations, `Settler` is deployed on a new chain! :tada:

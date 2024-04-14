@@ -181,7 +181,7 @@ contract UniswapV3UnitTest is Utils, Test {
         ISignatureTransfer.PermitTransferFrom memory permitTransfer = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}),
             nonce: 0,
-            deadline: 0
+            deadline: block.timestamp
         });
 
         _mockExpectCall(
