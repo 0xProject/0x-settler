@@ -108,6 +108,11 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         return target == address(_PERMIT2) || target == address(_ALLOWANCE_HOLDER);
     }
 
+    /// @dev You must ensure that `!isRestrictedTarget(target)`. This is required for security and
+    ///      is not checked here. Furthermore, you must ensure that `target` is "reasonable". For
+    ///      example, it must not do something weird like modify `from` (possibly setting it to
+    ///      itself). Really, you should only use this function on addresses that you have computed
+    ///      using `AddressDerivation.deriveDeterministicContract` from a trusted `initHash`.
     function _setOperatorAndCall(address payable target, uint256 value, bytes memory data)
         internal
         override
@@ -140,7 +145,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
     // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
     // contract/file should reference it. The *ONLY* approved way to make a transfer using this
-    // witness string is by setting the witness with `_setWitness`
+    // witness string is by setting the witness with modifier `metaTx`
     string private constant _ACTIONS_AND_SLIPPAGE_WITNESS = string(
         abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
