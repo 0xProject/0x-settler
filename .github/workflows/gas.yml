@@ -10,14 +10,10 @@ jobs:
   gas:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
       - name: Check gas snapshots
         run: forge snapshot --check
-
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"

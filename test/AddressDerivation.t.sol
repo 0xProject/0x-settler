@@ -57,7 +57,9 @@ contract AddressDerivationTest is Test {
 
     function testContract(address deployer, uint64 nonce) public {
         vm.assume(
-            deployer > address(255) && deployer != address(this) && deployer != tx.origin && deployer != address(vm)
+            deployer > address(0xffff) && deployer != address(this) && deployer != tx.origin && deployer != address(vm)
+                && deployer != address(console) && deployer != 0x3fAB184622Dc19b6109349B94811493BF2a45362
+                && deployer != 0x4e59b44847b379578588920cA78FbF26c0B4956C
         );
         nonce = uint64(bound(nonce, 0, type(uint64).max - 1));
         vm.setNonceUnsafe(deployer, nonce);
