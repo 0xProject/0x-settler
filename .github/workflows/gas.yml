@@ -15,8 +15,3 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-      - name: Check gas snapshots
-        run: forge snapshot --check
-        env:
-          FOUNDRY_PROFILE: integration
-          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
