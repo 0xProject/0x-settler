@@ -46,7 +46,9 @@ contract UniswapV3PoolDummy {
 
     fallback(bytes calldata) external payable returns (bytes memory) {
         (,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
-        msg.sender.call(abi.encodeWithSelector(UniswapV3.uniswapV3SwapCallback.selector, int256(1), int256(1), data));
+        msg.sender.call(
+            abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", int256(1), int256(1), data)
+        );
         return RETURN_DATA;
     }
 }

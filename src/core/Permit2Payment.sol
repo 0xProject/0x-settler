@@ -39,6 +39,29 @@ library TransientStorage {
         }
     }
 
+    function setOperatorAndCallback(
+        address operator,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal {
+        address currentSigner;
+        assembly ("memory-safe") {
+            currentSigner := tload(_METATX_SIGNER_SLOT)
+        }
+        if (operator == currentSigner) {
+            revert ConfusedDeputy();
+        }
+        address currentOperator;
+        assembly ("memory-safe") {
+            currentOperator := tload(_OPERATOR_SLOT)
+        }
+        if (currentOperator != address(0) && msg.sender != currentOperator) {
+            revert ReentrantCallback(currentOperator);
+        }
+        assembly ("memory-safe") {
+            tstore(_OPERATOR_SLOT, or(shl(0xa0, callback), and(0xffffffffffffffffffffffffffffffffffffffff, operator)))
+        }
+    }
+
     error OperatorNotSpent(address oldOperator);
 
     function checkSpentOperator() internal view {
@@ -54,7 +77,29 @@ library TransientStorage {
     function getAndClearOperator() internal returns (address operator) {
         assembly ("memory-safe") {
             operator := tload(_OPERATOR_SLOT)
-            if operator { tstore(_OPERATOR_SLOT, 0) }
+            if operator {
+                if shr(0xa0, operator) {
+                    mstore(0x00, 0xe758b8d5) // selector for ConfusedDeputy()
+                    revert(0x1c, 0x04)
+                }
+                tstore(_OPERATOR_SLOT, 0)
+            }
+        }
+    }
+
+    function getAndClearCallback()
+        internal
+        returns (function (bytes calldata) internal returns (bytes memory) callback)
+    {
+        assembly ("memory-safe") {
+            let operator := tload(_OPERATOR_SLOT)
+            callback := shr(0xa0, operator)
+            operator := and(0xffffffffffffffffffffffffffffffffffffffff, operator)
+            if iszero(eq(operator, caller())) {
+                mstore(0x00, 0xe758b8d5) // selector for ConfusedDeputy()
+                revert(0x1c, 0x04)
+            }
+            tstore(_OPERATOR_SLOT, operator)
         }
     }
 
@@ -113,20 +158,25 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     ///      example, it must not do something weird like modify `from` (possibly setting it to
     ///      itself). Really, you should only use this function on addresses that you have computed
     ///      using `AddressDerivation.deriveDeterministicContract` from a trusted `initHash`.
-    function _setOperatorAndCall(address payable target, uint256 value, bytes memory data)
-        internal
-        override
-        returns (bytes memory)
-    {
-        TransientStorage.setOperator(target);
+    function _setOperatorAndCall(
+        address payable target,
+        uint256 value,
+        bytes memory data,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bytes memory) {
+        TransientStorage.setOperatorAndCallback(target, callback);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
         TransientStorage.checkSpentOperator();
         return returndata;
     }
 
-    function _setOperatorAndCall(address target, bytes memory data) internal override returns (bytes memory) {
-        return _setOperatorAndCall(payable(target), 0, data);
+    function _setOperatorAndCall(
+        address target,
+        bytes memory data,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bytes memory) {
+        return _setOperatorAndCall(payable(target), 0, data, callback);
     }
 
     modifier metaTx(address msgSender, bytes32 witness) override {
@@ -138,6 +188,10 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         _;
         TransientStorage.checkSpentOperator();
         TransientStorage.checkSpentWitness();
+    }
+
+    function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
+        return TransientStorage.getAndClearCallback()(data);
     }
 }
 

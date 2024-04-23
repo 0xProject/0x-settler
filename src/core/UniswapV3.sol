@@ -192,7 +192,8 @@ abstract contract UniswapV3 is SettlerAbstract {
                                 zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
                                 swapCallbackData
                             )
-                        )
+                        ),
+                        _uniV3Callback
                     ),
                     (int256, int256)
                 );
@@ -327,13 +328,24 @@ abstract contract UniswapV3 is SettlerAbstract {
 
     error ZeroSwapAmount();
 
+    bytes4 internal constant _UNIV3_CALLBACK_SELECTOR = bytes4(keccak256("uniswapV3SwapCallback(int256,int256,bytes)"));
+
+    function _uniV3Callback(bytes calldata data) private returns (bytes memory) {
+        require(data.length >= 0x84 && bytes4(data) == _UNIV3_CALLBACK_SELECTOR);
+        int256 amount0Delta = int256(uint256(bytes32(data[0x04:])));
+        int256 amount1Delta = int256(uint256(bytes32(data[0x24:])));
+        data = data[0x44:];
+        uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
+        return new bytes(0);
+    }
+
     /// @dev The UniswapV3 pool swap callback which pays the funds requested
     ///      by the caller/pool to the pool. Can only be called by a valid
     ///      UniswapV3 pool.
     /// @param amount0Delta Token0 amount owed.
     /// @param amount1Delta Token1 amount owed.
     /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: inputToken, outputToken, fee, payer, permit
-    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) private {
         // Decode the data.
         IERC20 token0;
         uint24 fee;

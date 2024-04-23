@@ -35,8 +35,9 @@ contract UniswapV3PoolDummy {
 
     fallback(bytes calldata) external returns (bytes memory) {
         (address recipient,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
-        (bool ok,) =
-            msg.sender.call(abi.encodeWithSelector(UniswapV3.uniswapV3SwapCallback.selector, amount0, amount1, data));
+        (bool ok,) = msg.sender.call(
+            abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", amount0, amount1, data)
+        );
         require(ok, "UniV3Callback failure");
         if (amount0 > 0) token0.transfer(recipient, uint256(amount0));
         if (amount1 > 0) token1.transfer(recipient, uint256(amount1));

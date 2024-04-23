@@ -96,6 +96,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         MakerPSM(dai)
     {}
 
+    fallback(bytes calldata data) external returns (bytes memory) {
+        return _invokeCallback(data);
+    }
+
     struct AllowedSlippage {
         address buyToken;
         address recipient;
