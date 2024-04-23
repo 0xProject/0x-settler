@@ -334,7 +334,11 @@ abstract contract UniswapV3 is SettlerAbstract {
         require(data.length >= 0x84 && bytes4(data) == _UNIV3_CALLBACK_SELECTOR);
         int256 amount0Delta = int256(uint256(bytes32(data[0x04:])));
         int256 amount1Delta = int256(uint256(bytes32(data[0x24:])));
-        data = data[0x44:];
+        assembly ("memory-safe") {
+            data.offset := add(0x04, calldataload(add(0x44, data.offset)))
+            data.length := calldataload(data.offset)
+            data.offset := add(0x20, data.offset)
+        }
         uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
         return new bytes(0);
     }
