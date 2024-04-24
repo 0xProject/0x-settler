@@ -345,8 +345,8 @@ abstract contract UniswapV3 is SettlerAbstract {
         int256 amount0Delta;
         int256 amount1Delta;
         assembly ("memory-safe") {
-            amount0Delta := calldataload(0x04)
-            amount1Delta := calldataload(0x24)
+            amount0Delta := calldataload(add(0x04, data.offset))
+            amount1Delta := calldataload(add(0x24, data.offset))
             data.offset := add(0x04, calldataload(add(0x44, data.offset)))
             data.length := calldataload(data.offset)
             data.offset := add(0x20, data.offset)
