@@ -93,7 +93,6 @@ abstract contract UniswapV3 is SettlerAbstract {
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param sellAmount amount of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
@@ -102,7 +101,6 @@ abstract contract UniswapV3 is SettlerAbstract {
     function sellTokenForTokenToUniswapV3VIP(
         address recipient,
         bytes memory encodedPath,
-        uint256 sellAmount,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
@@ -111,12 +109,11 @@ abstract contract UniswapV3 is SettlerAbstract {
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
-        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, _msgSender(), swapCallbackData);
+        buyAmount = _swap(recipient, encodedPath, permit.permitted.amount, minBuyAmount, _msgSender(), swapCallbackData);
     }
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param sellAmount amount of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @param payer The taker of the transaction and the signer of the permit
@@ -126,7 +123,6 @@ abstract contract UniswapV3 is SettlerAbstract {
     function sellTokenForTokenToUniswapV3MetaTxn(
         address recipient,
         bytes memory encodedPath,
-        uint256 sellAmount,
         uint256 minBuyAmount,
         address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
@@ -136,7 +132,7 @@ abstract contract UniswapV3 is SettlerAbstract {
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, false);
 
-        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, payer, swapCallbackData);
+        buyAmount = _swap(recipient, encodedPath, permit.permitted.amount, minBuyAmount, payer, swapCallbackData);
     }
 
     // Executes successive swaps along an encoded uniswap path.

@@ -26,12 +26,11 @@ contract UniswapV3Dummy is Permit2Payment, UniswapV3 {
     function sellTokenForToken(
         address recipient,
         bytes memory encodedPath,
-        uint256 sellAmount,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) external returns (uint256) {
-        return super.sellTokenForTokenToUniswapV3VIP(recipient, encodedPath, sellAmount, minBuyAmount, permit, sig);
+        return super.sellTokenForTokenToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
     }
 }
 
@@ -164,7 +163,7 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"deadbeef");
+        uni.sellTokenForToken(RECIPIENT, data, minBuyAmount, permitTransfer, hex"deadbeef");
     }
 
     function testUniswapV3SellAllowanceHolder() public {
@@ -195,10 +194,10 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.prank(ALLOWANCE_HOLDER);
         address(uni).call(
             abi.encodePacked(
-                abi.encodeCall(uni.sellTokenForToken, (RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"")),
+                abi.encodeCall(uni.sellTokenForToken, (RECIPIENT, data, minBuyAmount, permitTransfer, hex"")),
                 address(this)
             ) // Forward on true msg.sender
         );
-        // uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"");
+        // uni.sellTokenForToken(RECIPIENT, data, minBuyAmount, permitTransfer, hex"");
     }
 }

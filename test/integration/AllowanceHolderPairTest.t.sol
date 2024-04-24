@@ -76,7 +76,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    amount(),
                     0,
                     uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
@@ -115,7 +114,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    amount(),
                     0,
                     uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),

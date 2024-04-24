@@ -138,7 +138,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3VIP() public {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, amount(), 0, uniswapV3Path(), permit, sig))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, 0, uniswapV3Path(), permit, sig))
         );
 
         Settler _settler = settler;
@@ -209,7 +209,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3_buyToken_fee_single_custody() public {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), amount(), 0, uniswapV3Path(), permit, sig)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), 0, uniswapV3Path(), permit, sig)),
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (

@@ -52,7 +52,6 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_VIP(
         address recipient,
-        uint256 amountIn,
         uint256 amountOutMin,
         bytes memory path,
         ISignatureTransfer.PermitTransferFrom memory permit,
@@ -80,7 +79,6 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
     function METATXN_UNISWAPV3_VIP(
         address recipient,
-        uint256 amountIn,
         uint256 amountOutMin,
         bytes memory path,
         ISignatureTransfer.PermitTransferFrom memory permit

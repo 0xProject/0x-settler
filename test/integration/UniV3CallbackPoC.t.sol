@@ -156,7 +156,6 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
                 ISettlerActions.METATXN_UNISWAPV3_VIP,
                 (
                     address(settler), // recipient
-                    amount, // amountIn
                     100, // amountOutMin
                     uniswapV3Path, // (token0, fee, token1)
                     permit

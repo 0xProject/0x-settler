@@ -168,14 +168,13 @@ contract Settler is
     function _uniV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
         (
             address recipient,
-            uint256 amountIn,
             uint256 amountOutMin,
             bytes memory path,
             ISignatureTransfer.PermitTransferFrom memory permit,
             bytes memory sig
-        ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-        sellTokenForTokenToUniswapV3VIP(recipient, path, amountIn, amountOutMin, permit, sig);
+        sellTokenForTokenToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
     }
 
     function _curveTricryptoVIP(bytes calldata data) internal DANGEROUS_freeMemory {
@@ -293,12 +292,11 @@ contract Settler is
     {
         (
             address recipient,
-            uint256 amountIn,
             uint256 amountOutMin,
             bytes memory path,
             ISignatureTransfer.PermitTransferFrom memory permit
-        ) = abi.decode(data, (address, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellTokenForTokenToUniswapV3MetaTxn(recipient, path, amountIn, amountOutMin, msgSender, permit, sig);
+        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
+        sellTokenForTokenToUniswapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
     }
 
     function _metaTxnCurveTricryptoVIP(bytes calldata data, address msgSender, bytes calldata sig)
