@@ -16,11 +16,9 @@ abstract contract CurveTricryptoPairTest is SettlerBasePairTest {
             (
                 FROM,
                 bytes.concat(
-                    bytes20(address(fromToken())),
-                    bytes1(uint8(0)),
-                    bytes1(uint8(0)),
-                    bytes1(uint8(2)),
-                    bytes20(address(toToken()))
+                    bytes8(uint64(1)), // nonce
+                    bytes1(uint8(0)), // sellIndex
+                    bytes1(uint8(2)) // buyIndex
                 ),
                 0,
                 permit,

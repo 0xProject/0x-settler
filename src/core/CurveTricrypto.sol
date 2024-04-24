@@ -6,8 +6,10 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
+import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {ConfusedDeputy} from "./SettlerErrors.sol";
 
 interface ICurveTricrypto {
     function exchange_extended(
@@ -20,10 +22,6 @@ interface ICurveTricrypto {
         address receiver,
         bytes32 callbackSelector
     ) external returns (uint256 buyAmount);
-}
-
-interface ICurveTricryptoFactory {
-    function find_pool_for_coins(IERC20, IERC20, uint256) external view returns (ICurveTricrypto);
 }
 
 interface ICurveTricryptoCallback {
@@ -40,11 +38,13 @@ interface ICurveTricryptoCallback {
 abstract contract CurveTricrypto is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
+    using AddressDerivation for address;
 
-    ICurveTricryptoFactory private constant curveFactory =
-        ICurveTricryptoFactory(0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963);
-    uint256 private constant PATH_SIZE = 0x2b;
-    uint256 private constant PATH_SKIP_HOP_SIZE = 0x17;
+    address private constant curveFactory = 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
+    uint256 private constant codePrefixLen = 0x539d;
+    bytes32 private constant codePrefixHash = 0xec96085e693058e09a27755c07882ced27117a3161b1fdaf131a14c7db9978b7;
+    uint256 private constant PATH_SIZE = 0x0a;
+    uint256 private constant PATH_SKIP_HOP_SIZE = 0x0a;
 
     // solc is a piece of shit and even though this function is private, it conflicts with the function of the same name in UniswapV3.sol
     function _isPathMultiHopCurve(bytes memory encodedPath) private pure returns (bool) {
@@ -63,12 +63,15 @@ abstract contract CurveTricrypto is SettlerAbstract {
         return encodedPath;
     }
 
-    function sellToCurveTricrypto(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
-        internal
-    {
+    function sellToCurveTricrypto(
+        address recipient,
+        IERC20 sellToken,
+        bytes memory encodedPath,
+        uint256 bips,
+        uint256 minBuyAmount
+    ) internal {
         ISignatureTransfer.PermitTransferFrom memory permit;
-        permit.permitted.amount =
-            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bips).unsafeDiv(10_000);
+        permit.permitted.amount = (sellToken.balanceOf(address(this)) * bips).unsafeDiv(10_000);
         sellToCurveTricryptoMetaTxn(recipient, encodedPath, minBuyAmount, address(this), permit, new bytes(0));
     }
 
@@ -92,19 +95,24 @@ abstract contract CurveTricrypto is SettlerAbstract {
     ) internal {
         uint256 sellAmount = permit.permitted.amount;
         while (encodedPath.length >= PATH_SIZE) {
-            IERC20 sellToken;
-            uint8 poolIndex;
+            uint64 factoryNonce;
             uint8 sellIndex;
             uint8 buyIndex;
-            IERC20 buyToken;
             assembly ("memory-safe") {
-                sellToken := mload(add(0x14, encodedPath))
-                buyIndex := mload(add(0x17, encodedPath))
+                buyIndex := mload(add(0x0a, encodedPath))
                 sellIndex := shr(0x08, buyIndex)
-                poolIndex := shr(0x10, buyIndex)
-                buyToken := mload(add(PATH_SIZE, encodedPath))
+                factoryNonce := shr(0x10, buyIndex)
             }
-            ICurveTricrypto pool = curveFactory.find_pool_for_coins(sellToken, buyToken, poolIndex); // order of sell/buy token doesn't matter
+            address pool = curveFactory.deriveContract(factoryNonce);
+            bytes32 codePrefixHashActual;
+            assembly ("memory-safe") {
+                let ptr := mload(0x40)
+                extcodecopy(pool, ptr, 0x00, codePrefixLen)
+                codePrefixHashActual := keccak256(ptr, codePrefixLen)
+            }
+            if (codePrefixHashActual != codePrefixHash) {
+                revert ConfusedDeputy();
+            }
             bool isForwarded = _isForwarded();
             if (payer != address(this)) {
                 assembly ("memory-safe") {
@@ -125,9 +133,9 @@ abstract contract CurveTricrypto is SettlerAbstract {
             if (_isPathMultiHopCurve(encodedPath)) {
                 sellAmount = abi.decode(
                     _setOperatorAndCall(
-                        address(pool),
+                        pool,
                         abi.encodeCall(
-                            pool.exchange_extended,
+                            ICurveTricrypto.exchange_extended,
                             (
                                 sellIndex,
                                 buyIndex,
@@ -146,9 +154,9 @@ abstract contract CurveTricrypto is SettlerAbstract {
             } else {
                 sellAmount = abi.decode(
                     _setOperatorAndCall(
-                        address(pool),
+                        pool,
                         abi.encodeCall(
-                            pool.exchange_extended,
+                            ICurveTricrypto.exchange_extended,
                             (
                                 sellIndex,
                                 buyIndex,

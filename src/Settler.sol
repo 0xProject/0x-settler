@@ -393,9 +393,9 @@ contract Settler is
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.CURVE_TRICRYPTO.selector) {
-            (address recipient, bytes memory path, uint256 bips, uint256 minBuyAmount) =
-                abi.decode(data, (address, bytes, uint256, uint256));
-            sellToCurveTricrypto(recipient, path, bips, minBuyAmount);
+            (address recipient, IERC20 sellToken, bytes memory path, uint256 bips, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, bytes, uint256, uint256));
+            sellToCurveTricrypto(recipient, sellToken, path, bips, minBuyAmount);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {
