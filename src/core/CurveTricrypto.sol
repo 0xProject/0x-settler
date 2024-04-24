@@ -41,8 +41,8 @@ abstract contract CurveTricrypto is SettlerAbstract {
     using AddressDerivation for address;
 
     address private constant curveFactory = 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
-    uint256 private constant codePrefixLen = 0x539d;
-    bytes32 private constant codePrefixHash = 0xec96085e693058e09a27755c07882ced27117a3161b1fdaf131a14c7db9978b7;
+    // uint256 private constant codePrefixLen = 0x539d;
+    // bytes32 private constant codePrefixHash = 0xec96085e693058e09a27755c07882ced27117a3161b1fdaf131a14c7db9978b7;
     uint256 private constant PATH_SIZE = 0x0a;
     uint256 private constant PATH_SKIP_HOP_SIZE = 0x0a;
 
@@ -104,6 +104,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                 factoryNonce := shr(0x10, buyIndex)
             }
             address pool = curveFactory.deriveContract(factoryNonce);
+            /*
             bytes32 codePrefixHashActual;
             assembly ("memory-safe") {
                 let ptr := mload(0x40)
@@ -113,6 +114,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
             if (codePrefixHashActual != codePrefixHash) {
                 revert ConfusedDeputy();
             }
+            */
             bool isForwarded = _isForwarded();
             if (payer != address(this)) {
                 assembly ("memory-safe") {
