@@ -10,6 +10,7 @@ import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
+import {CurveTricrypto} from "./core/CurveTricrypto.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
@@ -73,7 +74,16 @@ library CalldataDecoder {
 }
 
 /// @custom:security-contact security@0x.org
-contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, UniswapV2, MakerPSM, FreeMemory {
+contract Settler is
+    Permit2Payment,
+    Basic,
+    OtcOrderSettlement,
+    UniswapV3,
+    UniswapV2,
+    MakerPSM,
+    CurveTricrypto,
+    FreeMemory
+{
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
     using UnsafeMath for uint256;
@@ -94,6 +104,7 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         UniswapV3(uniFactory, poolInitCodeHash)
         UniswapV2()
         MakerPSM(dai)
+        CurveTricrypto()
     {}
 
     fallback(bytes calldata data) external returns (bytes memory) {
@@ -167,6 +178,17 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         sellTokenForTokenToUniswapV3VIP(recipient, path, amountIn, amountOutMin, permit, sig);
     }
 
+    function _curveTricryptoVIP(bytes calldata data) internal DANGEROUS_freeMemory {
+        (
+            address recipient,
+            bytes memory path,
+            uint256 minBuyAmount,
+            ISignatureTransfer.PermitTransferFrom memory permit,
+            bytes memory sig
+        ) = abi.decode(data, (address, bytes, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
+        sellToCurveTricryptoVIP(recipient, path, minBuyAmount, permit, sig);
+    }
+
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
@@ -174,6 +196,8 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 _otcVIP(data);
             } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
                 _uniV3VIP(data);
+            } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
+                _curveTricryptoVIP(data);
             } else {
                 _dispatch(0, action, data, _msgSender());
             }
@@ -277,6 +301,19 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
         sellTokenForTokenToUniswapV3MetaTxn(recipient, path, amountIn, amountOutMin, msgSender, permit, sig);
     }
 
+    function _metaTxnCurveTricryptoVIP(bytes calldata data, address msgSender, bytes calldata sig)
+        internal
+        DANGEROUS_freeMemory
+    {
+        (
+            address recipient,
+            bytes memory path,
+            uint256 minBuyAmount,
+            ISignatureTransfer.PermitTransferFrom memory permit
+        ) = abi.decode(data, (address, bytes, uint256, ISignatureTransfer.PermitTransferFrom));
+        sellToCurveTricryptoMetaTxn(recipient, path, minBuyAmount, msgSender, permit, sig);
+    }
+
     function executeMetaTxn(
         bytes[] calldata actions,
         AllowedSlippage calldata slippage,
@@ -296,6 +333,8 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 _metaTxnTransferFrom(data, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_UNISWAPV3_VIP.selector) {
                 _metaTxnUniV3VIP(data, msgSender, sig);
+            } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
+                _metaTxnCurveTricryptoVIP(data, msgSender, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }
@@ -355,6 +394,10 @@ contract Settler is Permit2Payment, Basic, OtcOrderSettlement, UniswapV3, Uniswa
                 abi.decode(data, (address, IERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
+        } else if (action == ISettlerActions.CURVE_TRICRYPTO.selector) {
+            (address recipient, bytes memory path, uint256 bips, uint256 minBuyAmount) =
+                abi.decode(data, (address, bytes, uint256, uint256));
+            sellToCurveTricrypto(recipient, path, bips, minBuyAmount);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

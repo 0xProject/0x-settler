@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "../IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 
@@ -37,6 +38,7 @@ interface ICurveTricryptoCallback {
 }
 
 abstract contract CurveTricrypto is SettlerAbstract {
+    using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
     ICurveTricryptoFactory private constant curveFactory =
@@ -44,11 +46,12 @@ abstract contract CurveTricrypto is SettlerAbstract {
     uint256 private constant PATH_SIZE = 0x2b;
     uint256 private constant PATH_SKIP_HOP_SIZE = 0x17;
 
-    function _isPathMultiHop(bytes memory encodedPath) private pure returns (bool) {
+    // solc is a piece of shit and even though this function is private, it conflicts with the function of the same name in UniswapV3.sol
+    function _isPathMultiHopCurve(bytes memory encodedPath) private pure returns (bool) {
         return encodedPath.length > PATH_SIZE;
     }
 
-    function _shiftHopFromPathInPlace(bytes memory encodedPath) private pure returns (bytes memory) {
+    function _shiftHopFromPathInPlaceCurve(bytes memory encodedPath) private pure returns (bytes memory) {
         if (encodedPath.length < PATH_SKIP_HOP_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
@@ -60,15 +63,34 @@ abstract contract CurveTricrypto is SettlerAbstract {
         return encodedPath;
     }
 
-    function sellToCurveTricrypto(
+    function sellToCurveTricrypto(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
+        internal
+    {
+        ISignatureTransfer.PermitTransferFrom memory permit;
+        permit.permitted.amount =
+            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bips).unsafeDiv(10_000);
+        sellToCurveTricryptoMetaTxn(recipient, encodedPath, minBuyAmount, address(this), permit, new bytes(0));
+    }
+
+    function sellToCurveTricryptoVIP(
         address recipient,
         bytes memory encodedPath,
-        uint256 sellAmount,
+        uint256 minBuyAmount,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig
+    ) internal {
+        sellToCurveTricryptoMetaTxn(recipient, encodedPath, minBuyAmount, _msgSender(), permit, sig);
+    }
+
+    function sellToCurveTricryptoMetaTxn(
+        address recipient,
+        bytes memory encodedPath,
         uint256 minBuyAmount,
         address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal {
+        uint256 sellAmount = permit.permitted.amount;
         while (encodedPath.length >= PATH_SIZE) {
             IERC20 sellToken;
             uint8 poolIndex;
@@ -100,7 +122,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                     } { tstore(dst, mload(src)) }
                 }
             }
-            if (_isPathMultiHop(encodedPath)) {
+            if (_isPathMultiHopCurve(encodedPath)) {
                 sellAmount = abi.decode(
                     _setOperatorAndCall(
                         address(pool),
@@ -144,7 +166,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                 );
             }
             payer = address(this);
-            encodedPath = _shiftHopFromPathInPlace(encodedPath);
+            encodedPath = _shiftHopFromPathInPlaceCurve(encodedPath);
         }
     }
 
@@ -155,9 +177,9 @@ abstract contract CurveTricrypto is SettlerAbstract {
         uint256 sellAmount;
         assembly ("memory-safe") {
             payer := calldataload(add(0x04, data.offset))
-            let err := shr(0x60, payer)
+            let err := shr(0xa0, payer)
             sellToken := calldataload(add(0x44, data.offset))
-            err := or(shr(0x60, sellToken), err)
+            err := or(shr(0xa0, sellToken), err)
             sellAmount := calldataload(add(0x64, data.offset))
             if err { revert(0x00, 0x00) }
         }
@@ -180,7 +202,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                 tstore(0x00, 0x00)
                 nonce := tload(0x01)
                 tstore(0x01, 0x00)
-                deadline := tload(0x01)
+                deadline := tload(0x02)
                 tstore(0x02, 0x00)
                 sig := mload(0x40)
                 for {
