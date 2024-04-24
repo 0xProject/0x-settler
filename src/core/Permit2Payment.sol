@@ -41,6 +41,7 @@ library TransientStorage {
 
     function setOperatorAndCallback(
         address operator,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal {
         address currentSigner;
@@ -58,7 +59,13 @@ library TransientStorage {
             revert ReentrantCallback(currentOperator);
         }
         assembly ("memory-safe") {
-            tstore(_OPERATOR_SLOT, or(shl(0xa0, callback), and(0xffffffffffffffffffffffffffffffffffffffff, operator)))
+            tstore(
+                _OPERATOR_SLOT,
+                or(
+                    shl(0xe0, selector),
+                    or(shl(0xa0, and(0xffff, callback)), and(0xffffffffffffffffffffffffffffffffffffffff, operator))
+                )
+            )
         }
     }
 
@@ -87,7 +94,9 @@ library TransientStorage {
         }
     }
 
-    function setCallback(function (bytes calldata) internal returns (bytes memory) callback) internal {
+    function setCallback(uint32 selector, function (bytes calldata) internal returns (bytes memory) callback)
+        internal
+    {
         assembly ("memory-safe") {
             let operator := tload(_OPERATOR_SLOT)
             if shr(0xa0, operator) {
@@ -95,7 +104,7 @@ library TransientStorage {
                 mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
                 revert(0x1c, 0x24)
             }
-            tstore(_OPERATOR_SLOT, or(shl(0xa0, callback), operator))
+            tstore(_OPERATOR_SLOT, or(shl(0xe0, selector), or(shl(0xa0, and(0xffff, callback)), operator)))
         }
     }
 
@@ -113,12 +122,12 @@ library TransientStorage {
 
     function getAndClearCallback()
         internal
-        returns (function (bytes calldata) internal returns (bytes memory) callback)
+        returns (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback)
     {
         assembly ("memory-safe") {
-            let operator := tload(_OPERATOR_SLOT)
-            callback := shr(0xa0, operator)
-            tstore(_OPERATOR_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
+            selector := tload(_OPERATOR_SLOT)
+            tstore(_OPERATOR_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, selector))
+            callback := and(0xffff, shr(0xa0, selector))
         }
     }
 
@@ -181,9 +190,10 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         address payable target,
         uint256 value,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
-        TransientStorage.setOperatorAndCallback(target, callback);
+        TransientStorage.setOperatorAndCallback(target, selector, callback);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
         TransientStorage.checkSpentOperator();
@@ -193,18 +203,20 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     function _setOperatorAndCall(
         address target,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
-        return _setOperatorAndCall(payable(target), 0, data, callback);
+        return _setOperatorAndCall(payable(target), 0, data, selector, callback);
     }
 
     function _setCallbackAndCall(
         address payable target,
         uint256 value,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
-        TransientStorage.setCallback(callback);
+        TransientStorage.setCallback(selector, callback);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
         TransientStorage.checkSpentCallback();
@@ -214,9 +226,10 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     function _setCallbackAndCall(
         address target,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
-        return _setCallbackAndCall(payable(target), 0, data, callback);
+        return _setCallbackAndCall(payable(target), 0, data, selector, callback);
     }
 
     modifier metaTx(address msgSender, bytes32 witness) override {
@@ -231,7 +244,10 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     }
 
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
-        return TransientStorage.getAndClearCallback()(data);
+        (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback) =
+            TransientStorage.getAndClearCallback();
+        require(bytes4(data) == selector);
+        return callback(data[4:]);
     }
 }
 

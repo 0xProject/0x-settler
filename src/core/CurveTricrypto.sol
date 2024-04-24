@@ -149,6 +149,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                                 bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
                             )
                         ),
+                        uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
                         _curveTricryptoSwapCallback
                     ),
                     (uint256)
@@ -170,6 +171,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                                 bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
                             )
                         ),
+                        uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
                         _curveTricryptoSwapCallback
                     ),
                     (uint256)
@@ -181,16 +183,16 @@ abstract contract CurveTricrypto is SettlerAbstract {
     }
 
     function _curveTricryptoSwapCallback(bytes calldata data) private returns (bytes memory) {
-        require(data.length == 0xa4 && bytes4(data) == ICurveTricryptoCallback.curveTricryptoSwapCallback.selector);
+        require(data.length == 0xa0);
         address payer;
         IERC20 sellToken;
         uint256 sellAmount;
         assembly ("memory-safe") {
-            payer := calldataload(add(0x04, data.offset))
+            payer := calldataload(data.offset)
             let err := shr(0xa0, payer)
-            sellToken := calldataload(add(0x44, data.offset))
+            sellToken := calldataload(add(0x40, data.offset))
             err := or(shr(0xa0, sellToken), err)
-            sellAmount := calldataload(add(0x64, data.offset))
+            sellAmount := calldataload(add(0x60, data.offset))
             if err { revert(0x00, 0x00) }
         }
         curveTricryptoSwapCallback(payer, address(0), sellToken, sellAmount, 0);

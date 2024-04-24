@@ -54,12 +54,14 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         address payable target,
         uint256 value,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
 
     function _setOperatorAndCall(
         address target,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
 
@@ -67,12 +69,14 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         address payable target,
         uint256 value,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
 
     function _setCallbackAndCall(
         address target,
         bytes memory data,
+        uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
 

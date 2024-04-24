@@ -135,6 +135,9 @@ abstract contract UniswapV3 is SettlerAbstract {
         buyAmount = _swap(recipient, encodedPath, permit.permitted.amount, minBuyAmount, payer, swapCallbackData);
     }
 
+    uint32 internal constant _UNIV3_CALLBACK_SELECTOR =
+        uint32(bytes4(keccak256("uniswapV3SwapCallback(int256,int256,bytes)")));
+
     // Executes successive swaps along an encoded uniswap path.
     function _swap(
         address recipient,
@@ -180,6 +183,7 @@ abstract contract UniswapV3 is SettlerAbstract {
                                 swapCallbackData
                             )
                         ),
+                        _UNIV3_CALLBACK_SELECTOR,
                         _uniV3Callback
                     ),
                     (int256, int256)
@@ -199,6 +203,7 @@ abstract contract UniswapV3 is SettlerAbstract {
                                 swapCallbackData
                             )
                         ),
+                        _UNIV3_CALLBACK_SELECTOR,
                         _uniV3Callback
                     ),
                     (int256, int256)
@@ -334,16 +339,14 @@ abstract contract UniswapV3 is SettlerAbstract {
 
     error ZeroSwapAmount();
 
-    bytes4 internal constant _UNIV3_CALLBACK_SELECTOR = bytes4(keccak256("uniswapV3SwapCallback(int256,int256,bytes)"));
-
     function _uniV3Callback(bytes calldata data) private returns (bytes memory) {
-        require(data.length >= 0x84 && bytes4(data) == _UNIV3_CALLBACK_SELECTOR);
+        require(data.length >= 0x80);
         int256 amount0Delta;
         int256 amount1Delta;
         assembly ("memory-safe") {
-            amount0Delta := calldataload(add(0x04, data.offset))
-            amount1Delta := calldataload(add(0x24, data.offset))
-            data.offset := add(0x04, calldataload(add(0x44, data.offset)))
+            amount0Delta := calldataload(data.offset)
+            amount1Delta := calldataload(add(0x20, data.offset))
+            data.offset := add(data.offset, calldataload(add(0x40, data.offset)))
             data.length := calldataload(data.offset)
             data.offset := add(0x20, data.offset)
         }
