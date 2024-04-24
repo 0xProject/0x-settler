@@ -63,5 +63,18 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
 
+    function _setCallbackAndCall(
+        address payable target,
+        uint256 value,
+        bytes memory data,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal virtual returns (bytes memory);
+
+    function _setCallbackAndCall(
+        address target,
+        bytes memory data,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal virtual returns (bytes memory);
+
     modifier metaTx(address msgSender, bytes32 witness) virtual;
 }

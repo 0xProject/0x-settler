@@ -87,6 +87,30 @@ library TransientStorage {
         }
     }
 
+    function setCallback(function (bytes calldata) internal returns (bytes memory) callback) internal {
+        assembly ("memory-safe") {
+            let operator := tload(_OPERATOR_SLOT)
+            if shr(0xa0, operator) {
+                mstore(0x00, 0x77f94425) // selector for `ReentrantCallback(address)`
+                mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
+                revert(0x1c, 0x24)
+            }
+            tstore(_OPERATOR_SLOT, or(shl(0xa0, callback), operator))
+        }
+    }
+
+    error CallbackNotSpent(uint256 callbackInt);
+
+    function checkSpentCallback() internal view {
+        uint256 callbackInt;
+        assembly ("memory-safe") {
+            callbackInt := shr(0xa0, tload(_OPERATOR_SLOT))
+        }
+        if (callbackInt != 0) {
+            revert CallbackNotSpent(callbackInt);
+        }
+    }
+
     function getAndClearCallback()
         internal
         returns (function (bytes calldata) internal returns (bytes memory) callback)
@@ -94,12 +118,7 @@ library TransientStorage {
         assembly ("memory-safe") {
             let operator := tload(_OPERATOR_SLOT)
             callback := shr(0xa0, operator)
-            operator := and(0xffffffffffffffffffffffffffffffffffffffff, operator)
-            if iszero(eq(operator, caller())) {
-                mstore(0x00, 0xe758b8d5) // selector for ConfusedDeputy()
-                revert(0x1c, 0x04)
-            }
-            tstore(_OPERATOR_SLOT, operator)
+            tstore(_OPERATOR_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
         }
     }
 
@@ -177,6 +196,27 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
         return _setOperatorAndCall(payable(target), 0, data, callback);
+    }
+
+    function _setCallbackAndCall(
+        address payable target,
+        uint256 value,
+        bytes memory data,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bytes memory) {
+        TransientStorage.setCallback(callback);
+        (bool success, bytes memory returndata) = target.call{value: value}(data);
+        success.maybeRevert(returndata);
+        TransientStorage.checkSpentCallback();
+        return returndata;
+    }
+
+    function _setCallbackAndCall(
+        address target,
+        bytes memory data,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bytes memory) {
+        return _setCallbackAndCall(payable(target), 0, data, callback);
     }
 
     modifier metaTx(address msgSender, bytes32 witness) override {

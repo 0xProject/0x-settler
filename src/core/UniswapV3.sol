@@ -170,13 +170,23 @@ abstract contract UniswapV3 is SettlerAbstract {
             int256 amount0;
             int256 amount1;
             if (payer == address(this)) {
-                (amount0, amount1) = pool.swap(
-                    // Intermediate tokens go to this contract.
-                    isPathMultiHop ? address(this) : recipient,
-                    zeroForOne,
-                    int256(sellAmount),
-                    zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                    swapCallbackData
+                (amount0, amount1) = abi.decode(
+                    _setCallbackAndCall(
+                        address(pool),
+                        abi.encodeCall(
+                            pool.swap,
+                            (
+                                // Intermediate tokens go to this contract.
+                                isPathMultiHop ? address(this) : recipient,
+                                zeroForOne,
+                                int256(sellAmount),
+                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                                swapCallbackData
+                            )
+                        ),
+                        _uniV3Callback
+                    ),
+                    (int256, int256)
                 );
             } else {
                 (amount0, amount1) = abi.decode(
@@ -332,9 +342,11 @@ abstract contract UniswapV3 is SettlerAbstract {
 
     function _uniV3Callback(bytes calldata data) private returns (bytes memory) {
         require(data.length >= 0x84 && bytes4(data) == _UNIV3_CALLBACK_SELECTOR);
-        int256 amount0Delta = int256(uint256(bytes32(data[0x04:])));
-        int256 amount1Delta = int256(uint256(bytes32(data[0x24:])));
+        int256 amount0Delta;
+        int256 amount1Delta;
         assembly ("memory-safe") {
+            amount0Delta := calldataload(0x04)
+            amount1Delta := calldataload(0x24)
             data.offset := add(0x04, calldataload(add(0x44, data.offset)))
             data.length := calldataload(data.offset)
             data.offset := add(0x20, data.offset)
