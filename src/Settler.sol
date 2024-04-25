@@ -11,6 +11,7 @@ import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
 import {CurveTricrypto} from "./core/CurveTricrypto.sol";
+import {SolidlyV3} from "./core/SolidlyV3.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
@@ -82,6 +83,7 @@ contract Settler is
     UniswapV2,
     MakerPSM,
     CurveTricrypto,
+    SolidlyV3,
     FreeMemory
 {
     using SafeTransferLib for IERC20;
@@ -105,6 +107,7 @@ contract Settler is
         UniswapV2()
         MakerPSM(dai)
         CurveTricrypto()
+        SolidlyV3()
     {}
 
     fallback(bytes calldata data) external returns (bytes memory) {
@@ -188,6 +191,18 @@ contract Settler is
         sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
     }
 
+    function _solidlyV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
+        (
+            address recipient,
+            uint256 amountOutMin,
+            bytes memory path,
+            ISignatureTransfer.PermitTransferFrom memory permit,
+            bytes memory sig
+        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+
+        sellToSolidlyV3VIP(recipient, path, amountOutMin, permit, sig);
+    }
+
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
@@ -197,6 +212,8 @@ contract Settler is
                 _uniV3VIP(data);
             } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
                 _curveTricryptoVIP(data);
+            } else if (action == ISettlerActions.SOLIDLYV3_VIP.selector) {
+                _solidlyV3VIP(data);
             } else {
                 _dispatch(0, action, data, _msgSender());
             }
@@ -308,6 +325,19 @@ contract Settler is
         sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, msgSender, permit, sig);
     }
 
+    function _metaTxnSolidlyV3VIP(bytes calldata data, address msgSender, bytes calldata sig)
+        internal
+        DANGEROUS_freeMemory
+    {
+        (
+            address recipient,
+            uint256 amountOutMin,
+            bytes memory path,
+            ISignatureTransfer.PermitTransferFrom memory permit
+        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
+        sellToSolidlyV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+    }
+
     function executeMetaTxn(
         bytes[] calldata actions,
         AllowedSlippage calldata slippage,
@@ -329,6 +359,8 @@ contract Settler is
                 _metaTxnUniV3VIP(data, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
                 _metaTxnCurveTricryptoVIP(data, msgSender, sig);
+            } else if (action == ISettlerActions.METATXN_SOLIDLYV3_VIP.selector) {
+                _metaTxnSolidlyV3VIP(data, msgSender, sig);
             } else {
                 revert ActionInvalid({i: 0, action: action, data: data});
             }
@@ -391,7 +423,13 @@ contract Settler is
         } else if (action == ISettlerActions.CURVE_TRICRYPTO.selector) {
             (address recipient, IERC20 sellToken, uint80 poolInfo, uint256 bips, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint80, uint256, uint256));
+
             sellToCurveTricrypto(recipient, sellToken, poolInfo, bips, minBuyAmount);
+        } else if (action == ISettlerActions.SOLIDLYV3.selector) {
+            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
+                abi.decode(data, (address, uint256, uint256, bytes));
+
+            sellToSolidlyV3(recipient, path, bips, amountOutMin);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

@@ -197,8 +197,7 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.prank(ALLOWANCE_HOLDER);
         address(uni).call(
             abi.encodePacked(
-                abi.encodeCall(uni.sell, (RECIPIENT, data, minBuyAmount, permitTransfer, hex"")),
-                address(this)
+                abi.encodeCall(uni.sell, (RECIPIENT, data, minBuyAmount, permitTransfer, hex"")), address(this)
             ) // Forward on true msg.sender
         );
         // uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"");
