@@ -35,6 +35,10 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
         return super.sellToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
     }
 
+    fallback(bytes calldata data) external returns (bytes memory) {
+        return _invokeCallback(data);
+    }
+
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
     }
