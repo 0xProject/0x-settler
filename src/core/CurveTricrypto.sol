@@ -43,143 +43,87 @@ abstract contract CurveTricrypto is SettlerAbstract {
     address private constant curveFactory = 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     // uint256 private constant codePrefixLen = 0x539d;
     // bytes32 private constant codePrefixHash = 0xec96085e693058e09a27755c07882ced27117a3161b1fdaf131a14c7db9978b7;
-    uint256 private constant PATH_SIZE = 0x0a;
-    uint256 private constant PATH_SKIP_HOP_SIZE = 0x0a;
-
-    // solc is a piece of shit and even though this function is private, it conflicts with the function of the same name in UniswapV3.sol
-    function _isPathMultiHopCurve(bytes memory encodedPath) private pure returns (bool) {
-        return encodedPath.length > PATH_SIZE;
-    }
-
-    function _shiftHopFromPathInPlaceCurve(bytes memory encodedPath) private pure returns (bytes memory) {
-        if (encodedPath.length < PATH_SKIP_HOP_SIZE) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
-        assembly ("memory-safe") {
-            let length := sub(mload(encodedPath), PATH_SKIP_HOP_SIZE)
-            encodedPath := add(PATH_SKIP_HOP_SIZE, encodedPath)
-            mstore(encodedPath, length)
-        }
-        return encodedPath;
-    }
 
     function sellToCurveTricrypto(
         address recipient,
         IERC20 sellToken,
-        bytes memory encodedPath,
+        uint80 poolInfo,
         uint256 bips,
         uint256 minBuyAmount
     ) internal {
         ISignatureTransfer.PermitTransferFrom memory permit;
         permit.permitted.amount = (sellToken.balanceOf(address(this)) * bips).unsafeDiv(10_000);
-        sellToCurveTricryptoMetaTxn(recipient, encodedPath, minBuyAmount, address(this), permit, new bytes(0));
+        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(this), permit, new bytes(0));
     }
 
     function sellToCurveTricryptoVIP(
         address recipient,
-        bytes memory encodedPath,
+        uint80 poolInfo,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal {
-        sellToCurveTricryptoMetaTxn(recipient, encodedPath, minBuyAmount, _msgSender(), permit, sig);
+        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, _msgSender(), permit, sig);
     }
 
     function sellToCurveTricryptoMetaTxn(
         address recipient,
-        bytes memory encodedPath,
+        uint80 poolInfo,
         uint256 minBuyAmount,
         address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal {
-        uint256 sellAmount = permit.permitted.amount;
-        while (encodedPath.length >= PATH_SIZE) {
-            uint64 factoryNonce;
-            uint8 sellIndex;
-            uint8 buyIndex;
-            assembly ("memory-safe") {
-                buyIndex := mload(add(0x0a, encodedPath))
-                sellIndex := shr(0x08, buyIndex)
-                factoryNonce := shr(0x10, buyIndex)
-            }
-            address pool = curveFactory.deriveContract(factoryNonce);
-            /*
-            bytes32 codePrefixHashActual;
-            assembly ("memory-safe") {
-                let ptr := mload(0x40)
-                extcodecopy(pool, ptr, 0x00, codePrefixLen)
-                codePrefixHashActual := keccak256(ptr, codePrefixLen)
-            }
-            if (codePrefixHashActual != codePrefixHash) {
-                revert ConfusedDeputy();
-            }
-            */
-            bool isForwarded = _isForwarded();
-            if (payer != address(this)) {
-                assembly ("memory-safe") {
-                    tstore(0x00, isForwarded)
-                    tstore(0x01, mload(add(0x20, permit))) // nonce
-                    tstore(0x02, mload(add(0x40, permit))) // deadline
-                    for {
-                        let src := sig
-                        let end := add(0x20, add(mload(sig), sig))
-                        // TODO: dedupe copying length
-                        let dst := 0x03
-                    } lt(src, end) {
-                        src := add(0x20, src)
-                        dst := add(0x01, dst)
-                    } { tstore(dst, mload(src)) }
-                }
-            }
-            if (_isPathMultiHopCurve(encodedPath)) {
-                sellAmount = abi.decode(
-                    _setOperatorAndCall(
-                        pool,
-                        abi.encodeCall(
-                            ICurveTricrypto.exchange_extended,
-                            (
-                                sellIndex,
-                                buyIndex,
-                                permit.permitted.amount,
-                                0,
-                                false,
-                                payer,
-                                address(this),
-                                bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
-                            )
-                        ),
-                        uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
-                        _curveTricryptoSwapCallback
-                    ),
-                    (uint256)
-                );
-            } else {
-                sellAmount = abi.decode(
-                    _setOperatorAndCall(
-                        pool,
-                        abi.encodeCall(
-                            ICurveTricrypto.exchange_extended,
-                            (
-                                sellIndex,
-                                buyIndex,
-                                permit.permitted.amount,
-                                minBuyAmount,
-                                false,
-                                payer,
-                                recipient,
-                                bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
-                            )
-                        ),
-                        uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
-                        _curveTricryptoSwapCallback
-                    ),
-                    (uint256)
-                );
-            }
-            payer = address(this);
-            encodedPath = _shiftHopFromPathInPlaceCurve(encodedPath);
+        uint64 factoryNonce = uint64(poolInfo >> 16);
+        uint8 sellIndex = uint8(poolInfo >> 8);
+        uint8 buyIndex = uint8(poolInfo);
+        address pool = curveFactory.deriveContract(factoryNonce);
+        /*
+        bytes32 codePrefixHashActual;
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            extcodecopy(pool, ptr, 0x00, codePrefixLen)
+            codePrefixHashActual := keccak256(ptr, codePrefixLen)
         }
+        if (codePrefixHashActual != codePrefixHash) {
+            revert ConfusedDeputy();
+        }
+        */
+        bool isForwarded = _isForwarded();
+        if (payer != address(this)) {
+            assembly ("memory-safe") {
+                tstore(0x00, isForwarded)
+                tstore(0x01, mload(add(0x20, permit))) // nonce
+                tstore(0x02, mload(add(0x40, permit))) // deadline
+                for {
+                    let src := sig
+                    let end := add(0x20, add(mload(sig), sig))
+                    // TODO: dedupe copying length
+                    let dst := 0x03
+                } lt(src, end) {
+                    src := add(0x20, src)
+                    dst := add(0x01, dst)
+                } { tstore(dst, mload(src)) }
+            }
+        }
+        _setOperatorAndCall(
+            pool,
+            abi.encodeCall(
+                ICurveTricrypto.exchange_extended,
+                (
+                    sellIndex,
+                    buyIndex,
+                    permit.permitted.amount,
+                    minBuyAmount,
+                    false,
+                    payer,
+                    recipient,
+                    bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
+                )
+            ),
+            uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
+            _curveTricryptoSwapCallback
+        );
     }
 
     function _curveTricryptoSwapCallback(bytes calldata data) private returns (bytes memory) {

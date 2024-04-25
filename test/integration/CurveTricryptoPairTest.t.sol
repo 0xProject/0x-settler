@@ -15,11 +15,12 @@ abstract contract CurveTricryptoPairTest is SettlerBasePairTest {
             ISettlerActions.CURVE_TRICRYPTO_VIP,
             (
                 FROM,
-                bytes.concat(
-                    bytes8(uint64(1)), // nonce
-                    bytes1(uint8(0)), // sellIndex
-                    bytes1(uint8(2)) // buyIndex
-                ),
+                // nonce
+                (uint80(uint64(1)) << 16)
+                // sellIndex
+                | (uint80(uint8(0)) << 8)
+                // buyIndex
+                | uint80(uint8(2)),
                 0,
                 permit,
                 sig

@@ -61,23 +61,18 @@ interface ISettlerActions {
     function MAKERPSM_SELL(address recipient, uint256 bips, address psm, address gemToken) external;
     function MAKERPSM_BUY(address recipient, uint256 bips, address psm, address gemToken) external;
 
-    function CURVE_TRICRYPTO(
-        address recipient,
-        address sellToken,
-        bytes memory path,
-        uint256 bips,
-        uint256 minBuyAmount
-    ) external;
+    function CURVE_TRICRYPTO(address recipient, address sellToken, uint80 poolInfo, uint256 bips, uint256 minBuyAmount)
+        external;
     function CURVE_TRICRYPTO_VIP(
         address recipient,
-        bytes memory path,
+        uint80 poolInfo,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) external;
     function METATXN_CURVE_TRICRYPTO_VIP(
         address recipient,
-        bytes memory path,
+        uint80 poolInfo,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit
     ) external;
