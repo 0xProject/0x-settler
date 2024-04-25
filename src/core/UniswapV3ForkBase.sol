@@ -37,10 +37,10 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @dev Minimum size of an encoded swap path:
-    ///      sizeof(address(inputToken) | uint24(fee) | address(outputToken))
+    ///      sizeof(address(inputToken) | uint24(poolId) | address(outputToken))
     uint256 private constant SINGLE_HOP_PATH_SIZE = 0x2b;
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
-    ///      sizeof(address(inputToken) | uint24(fee))
+    ///      sizeof(address(inputToken) | uint24(poolId))
     uint256 private constant PATH_SKIP_HOP_SIZE = 0x17;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x3f;
@@ -241,13 +241,13 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
             bool zeroForOne;
             IUniswapV3Pool pool;
             {
-                (IERC20 token0, uint24 fee, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
+                (IERC20 token0, uint24 poolId, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
                 outputToken = token1;
                 if (!(zeroForOne = token0 < token1)) {
                     (token0, token1) = (token1, token0);
                 }
-                pool = _toPool(factory, initHash, token0, fee, token1);
-                _updateSwapCallbackData(swapCallbackData, token0, fee, token1, payer);
+                pool = _toPool(factory, initHash, token0, poolId, token1);
+                _updateSwapCallbackData(swapCallbackData, token0, poolId, token1, payer);
             }
 
             (int256 amount0, int256 amount1) = abi.decode(
@@ -303,7 +303,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
     function _decodeFirstPoolInfoFromPath(bytes memory encodedPath)
         private
         pure
-        returns (IERC20 inputToken, uint24 fee, IERC20 outputToken)
+        returns (IERC20 inputToken, uint24 poolId, IERC20 outputToken)
     {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
@@ -311,7 +311,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
         assembly ("memory-safe") {
             // Solidity cleans dirty bits automatically
             inputToken := mload(add(encodedPath, 0x14))
-            fee := mload(add(encodedPath, 0x17))
+            poolId := mload(add(encodedPath, 0x17))
             outputToken := mload(add(encodedPath, SINGLE_HOP_PATH_SIZE))
         }
     }
@@ -359,7 +359,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
     function _updateSwapCallbackData(
         bytes memory swapCallbackData,
         IERC20 token0,
-        uint24 fee,
+        uint24 poolId,
         IERC20 token1,
         address payer
     ) private pure {
@@ -367,13 +367,13 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
             let length := mload(swapCallbackData)
             mstore(add(swapCallbackData, 0x3f), payer)
             mstore(add(swapCallbackData, 0x2b), token1)
-            mstore(add(swapCallbackData, 0x17), fee)
+            mstore(add(swapCallbackData, 0x17), poolId)
             mstore(add(swapCallbackData, 0x14), token0)
             mstore(swapCallbackData, length)
         }
     }
 
-    // Compute the pool address given two tokens and a fee.
+    // Compute the pool address given two tokens and a poolId.
     function _toPool(address factory, bytes32 initHash, IERC20 inputToken, uint24 poolId, IERC20 outputToken)
         private
         view
@@ -421,18 +421,18 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
     ///      UniswapV3 pool.
     /// @param amount0Delta Token0 amount owed.
     /// @param amount1Delta Token1 amount owed.
-    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: inputToken, outputToken, fee, payer, permit
+    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: inputToken, outputToken, poolId, payer, permit
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) private {
         // Decode the data.
         IERC20 token0;
-        uint24 fee;
+        uint24 poolId;
         IERC20 token1;
         address payer;
         assembly ("memory-safe") {
             {
                 let firstWord := calldataload(data.offset)
                 token0 := shr(0x60, firstWord)
-                fee := shr(0x48, firstWord)
+                poolId := shr(0x48, firstWord)
             }
             token1 := calldataload(add(data.offset, 0xb))
             payer := calldataload(add(data.offset, 0x1f))
