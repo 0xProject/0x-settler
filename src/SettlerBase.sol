@@ -11,6 +11,7 @@ import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
 import {CurveTricrypto} from "./core/CurveTricrypto.sol";
+import {PancakeSwapV3} from "./core/PancakeSwapV3.sol";
 import {SolidlyV3} from "./core/SolidlyV3.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
@@ -80,6 +81,7 @@ abstract contract SettlerBase is
     UniswapV2,
     MakerPSM,
     CurveTricrypto,
+    PancakeSwapV3,
     SolidlyV3,
     FreeMemory
 {
@@ -105,6 +107,7 @@ abstract contract SettlerBase is
         UniswapV2()
         MakerPSM(dai)
         CurveTricrypto()
+        PancakeSwapV3()
         SolidlyV3()
     {}
 
@@ -190,6 +193,11 @@ abstract contract SettlerBase is
                 abi.decode(data, (address, IERC20, uint80, uint256, uint256));
 
             sellToCurveTricrypto(recipient, sellToken, poolInfo, bips, minBuyAmount);
+        } else if (action == ISettlerActions.PANCAKESWAPV3.selector) {
+            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
+                abi.decode(data, (address, uint256, uint256, bytes));
+
+            sellToPancakeSwapV3(recipient, path, bips, amountOutMin);
         } else if (action == ISettlerActions.SOLIDLYV3.selector) {
             (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));

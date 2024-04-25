@@ -86,6 +86,18 @@ contract Settler is AllowanceHolderContext, SettlerBase {
         sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
     }
 
+    function _pancakeSwapV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
+        (
+            address recipient,
+            uint256 amountOutMin,
+            bytes memory path,
+            ISignatureTransfer.PermitTransferFrom memory permit,
+            bytes memory sig
+        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+
+        sellToPancakeSwapV3VIP(recipient, path, amountOutMin, permit, sig);
+    }
+
     function _solidlyV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
         (
             address recipient,
@@ -107,6 +119,8 @@ contract Settler is AllowanceHolderContext, SettlerBase {
                 _uniV3VIP(data);
             } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
                 _curveTricryptoVIP(data);
+            } else if (action == ISettlerActions.PANCAKESWAPV3_VIP.selector) {
+                _pancakeSwapV3VIP(data);
             } else if (action == ISettlerActions.SOLIDLYV3_VIP.selector) {
                 _solidlyV3VIP(data);
             } else {

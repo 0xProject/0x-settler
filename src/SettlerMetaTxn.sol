@@ -123,6 +123,19 @@ contract SettlerMetaTxn is Context, SettlerBase {
         sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, msgSender, permit, sig);
     }
 
+    function _metaTxnPancakeSwapV3VIP(bytes calldata data, address msgSender, bytes calldata sig)
+        internal
+        DANGEROUS_freeMemory
+    {
+        (
+            address recipient,
+            uint256 amountOutMin,
+            bytes memory path,
+            ISignatureTransfer.PermitTransferFrom memory permit
+        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
+        sellToPancakeSwapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+    }
+
     function _metaTxnSolidlyV3VIP(bytes calldata data, address msgSender, bytes calldata sig)
         internal
         DANGEROUS_freeMemory
@@ -157,6 +170,8 @@ contract SettlerMetaTxn is Context, SettlerBase {
                 _metaTxnUniV3VIP(data, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
                 _metaTxnCurveTricryptoVIP(data, msgSender, sig);
+            } else if (action == ISettlerActions.METATXN_PANCAKESWAPV3_VIP.selector) {
+                _metaTxnPancakeSwapV3VIP(data, msgSender, sig);
             } else if (action == ISettlerActions.METATXN_SOLIDLYV3_VIP.selector) {
                 _metaTxnSolidlyV3VIP(data, msgSender, sig);
             } else {
