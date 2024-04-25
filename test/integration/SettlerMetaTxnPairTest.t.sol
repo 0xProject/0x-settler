@@ -232,12 +232,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         });
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit,
-            address(settlerMetaTxn),
-            MAKER_PRIVATE_KEY,
-            OTC_PERMIT2_WITNESS_TYPEHASH,
-            makerWitness,
-            permit2Domain
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
