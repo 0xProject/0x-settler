@@ -231,7 +231,7 @@ declare -r upgrade_safe
 
 # encode constructor arguments for Settler
 declare constructor_args
-constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_config uniV3.factory)" "$(get_config uniV3.initHash)" "$(get_config makerPsm.dai)")"
+constructor_args="$(cast abi-encode 'constructor(address,address)' "$(get_config uniV3.factory)" "$(get_config makerPsm.dai)")"
 declare -r constructor_args
 
 # set minimum gas price to (mostly for Arbitrum and BNB)

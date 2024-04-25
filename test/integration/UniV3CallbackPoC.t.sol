@@ -5,7 +5,8 @@ import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {UniswapV3, IUniswapV3Pool} from "src/core/UniswapV3.sol";
+import {UniswapV3} from "src/core/UniswapV3.sol";
+import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
@@ -68,7 +69,6 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
 
     // Only used for address derivation.
     address UNI_FACTORY_ADDRESS;
-    bytes32 UNI_POOL_INIT_CODE_HASH;
 
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
@@ -95,7 +95,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         }
 
         // Deploy Settler.
-        settler = new Settler(UNI_FACTORY_ADDRESS, UNI_POOL_INIT_CODE_HASH, dai);
+        settler = new Settler(UNI_FACTORY_ADDRESS, dai);
 
         // Deploy dummy pool.
         pool = _toPool(token, 500, dai);
@@ -118,7 +118,9 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
             salt := keccak256(0x00, 0x60)
             mstore(0x40, ptr)
         }
-        return AddressDerivation.deriveDeterministicContract(UNI_FACTORY_ADDRESS, salt, UNI_POOL_INIT_CODE_HASH);
+        return AddressDerivation.deriveDeterministicContract(
+            UNI_FACTORY_ADDRESS, salt, 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54
+        );
     }
 
     bytes32 private constant ACTIONS_AND_SLIPPAGE_TYPEHASH =

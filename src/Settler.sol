@@ -97,11 +97,11 @@ contract Settler is
     // When you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
-    constructor(address uniFactory, bytes32 poolInitCodeHash, address dai)
+    constructor(address uniFactory, address dai)
         Permit2Payment()
         Basic()
         OtcOrderSettlement()
-        UniswapV3(uniFactory, poolInitCodeHash)
+        UniswapV3(uniFactory)
         UniswapV2()
         MakerPSM(dai)
         CurveTricrypto()
@@ -174,7 +174,7 @@ contract Settler is
             bytes memory sig
         ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-        sellTokenForTokenToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
+        sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
     }
 
     function _curveTricryptoVIP(bytes calldata data) internal DANGEROUS_freeMemory {
@@ -296,7 +296,7 @@ contract Settler is
             bytes memory path,
             ISignatureTransfer.PermitTransferFrom memory permit
         ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellTokenForTokenToUniswapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+        sellToUniswapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
     }
 
     function _metaTxnCurveTricryptoVIP(bytes calldata data, address msgSender, bytes calldata sig)
@@ -367,7 +367,7 @@ contract Settler is
             (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellTokenForTokenToUniswapV3(recipient, path, bips, amountOutMin);
+            sellToUniswapV3(recipient, path, bips, amountOutMin);
         } else if (action == ISettlerActions.UNISWAPV2.selector) {
             (address recipient, address sellToken, address pool, uint8 swapInfo, uint256 bips, uint256 amountOutMin) =
                 abi.decode(data, (address, address, address, uint8, uint256, uint256));

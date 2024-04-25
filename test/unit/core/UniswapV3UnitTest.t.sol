@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {UniswapV3, IUniswapV3Pool} from "src/core/UniswapV3.sol";
+import {UniswapV3} from "src/core/UniswapV3.sol";
+import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
@@ -14,23 +15,23 @@ import {IERC20} from "src/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract UniswapV3Dummy is Permit2Payment, UniswapV3 {
-    constructor(address uniFactory, bytes32 poolInit) UniswapV3(uniFactory, poolInit) Permit2Payment() {}
+    constructor(address uniFactory) UniswapV3(uniFactory) Permit2Payment() {}
 
-    function sellTokenForTokenSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
+    function sellSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
         external
         returns (uint256)
     {
-        return super.sellTokenForTokenToUniswapV3(recipient, encodedPath, bips, minBuyAmount);
+        return super.sellToUniswapV3(recipient, encodedPath, bips, minBuyAmount);
     }
 
-    function sellTokenForToken(
+    function sell(
         address recipient,
         bytes memory encodedPath,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) external returns (uint256) {
-        return super.sellTokenForTokenToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
+        return super.sellToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
     }
 }
 
@@ -73,13 +74,15 @@ contract UniswapV3UnitTest is Utils, Test {
         POOL = _etchNamedRejectionDummy(
             "POOL",
             AddressDerivation.deriveDeterministicContract(
-                UNI_FACTORY, keccak256(abi.encode(token0, token1, fee)), keccak256(abi.encodePacked("POOL_INIT"))
+                UNI_FACTORY,
+                keccak256(abi.encode(token0, token1, fee)),
+                0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54
             )
         );
     }
 
     function setUp() public {
-        uni = new UniswapV3Dummy(UNI_FACTORY, keccak256(abi.encodePacked("POOL_INIT")));
+        uni = new UniswapV3Dummy(UNI_FACTORY);
     }
 
     function testUniswapV3SellSelfFunded() public {
@@ -104,7 +107,7 @@ contract UniswapV3UnitTest is Utils, Test {
             abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
         );
 
-        uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
+        uni.sellSelf(RECIPIENT, data, bips, minBuyAmount);
     }
 
     function testUniswapV3SellSlippage() public {
@@ -132,7 +135,7 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
         );
-        uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
+        uni.sellSelf(RECIPIENT, data, bips, minBuyAmount);
     }
 
     function testUniswapV3SellPermit2() public {
@@ -163,7 +166,7 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sellTokenForToken(RECIPIENT, data, minBuyAmount, permitTransfer, hex"deadbeef");
+        uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"deadbeef");
     }
 
     function testUniswapV3SellAllowanceHolder() public {
@@ -194,10 +197,10 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.prank(ALLOWANCE_HOLDER);
         address(uni).call(
             abi.encodePacked(
-                abi.encodeCall(uni.sellTokenForToken, (RECIPIENT, data, minBuyAmount, permitTransfer, hex"")),
+                abi.encodeCall(uni.sell, (RECIPIENT, data, minBuyAmount, permitTransfer, hex"")),
                 address(this)
             ) // Forward on true msg.sender
         );
-        // uni.sellTokenForToken(RECIPIENT, data, minBuyAmount, permitTransfer, hex"");
+        // uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"");
     }
 }

@@ -192,7 +192,7 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         bytes memory data,
         uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
-    ) internal override returns (bytes memory) {
+    ) internal returns (bytes memory) {
         TransientStorage.setOperatorAndCallback(target, selector, callback);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
@@ -215,7 +215,7 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
         bytes memory data,
         uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
-    ) internal override returns (bytes memory) {
+    ) internal returns (bytes memory) {
         TransientStorage.setCallback(selector, callback);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);

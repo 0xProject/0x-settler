@@ -33,7 +33,7 @@ nonce="$(cast abi-decode "$nonce_sig" "$(cast call --rpc-url "$rpc_url" "$safe_a
 declare -r -i nonce
 
 declare constructor_args
-constructor_args="$(cast abi-encode 'constructor(address,bytes32,address)' "$(get_config uniV3.factory)" "$(get_config uniV3.initHash)" "$(get_config makerPsm.dai)")"
+constructor_args="$(cast abi-encode 'constructor(address,address)' "$(get_config uniV3.factory)" "$(get_config makerPsm.dai)")"
 declare -r constructor_args
 
 declare initcode

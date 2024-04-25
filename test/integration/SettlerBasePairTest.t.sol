@@ -37,7 +37,6 @@ abstract contract SettlerBasePairTest is BasePairTest {
         allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
         settler = new Settler(
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
-            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
             0x6B175474E89094C44Da98b954EedeAC495271d0F // DAI
         );
 
