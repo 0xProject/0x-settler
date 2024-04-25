@@ -135,8 +135,9 @@ contract SettlerMetaTxn is Context, SettlerBase {
             ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
             sellToSolidlyV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+        } else {
+            revert ActionInvalid({i: 0, action: action, data: data});
         }
-        revert ActionInvalid({i: 0, action: action, data: data});
     }
 
     function executeMetaTxn(
