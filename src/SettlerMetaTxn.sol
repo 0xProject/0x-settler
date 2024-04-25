@@ -69,84 +69,74 @@ contract SettlerMetaTxn is Context, SettlerBase {
         }
     }
 
-    function _metaTxnOtcVIP(bytes calldata data, address msgSender, bytes calldata sig) internal DANGEROUS_freeMemory {
-        // An optimized path involving a maker/taker in a single trade
-        // The OTC order is signed by both maker and taker, validation is
-        // performed inside the OtcOrderSettlement so there is no need to
-        // validate `sig` against `actions` here
-        (
-            address recipient,
-            ISignatureTransfer.PermitTransferFrom memory makerPermit,
-            address maker,
-            bytes memory makerSig,
-            ISignatureTransfer.PermitTransferFrom memory takerPermit
-        ) = abi.decode(
-            data,
-            (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
-        );
-        fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
-    }
-
-    function _metaTxnTransferFrom(bytes calldata data, address msgSender, bytes calldata sig)
+    function _dispatchVIP(bytes4 action, bytes calldata data, address msgSender, bytes calldata sig)
         internal
         DANGEROUS_freeMemory
     {
-        (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
-            abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
-        (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-            _permitToTransferDetails(permit, recipient);
+        if (action == ISettlerActions.METATXN_OTC_VIP.selector) {
+            // An optimized path involving a maker/taker in a single trade
+            // The OTC order is signed by both maker and taker, validation is
+            // performed inside the OtcOrderSettlement so there is no need to
+            // validate `sig` against `actions` here
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory makerPermit,
+                address maker,
+                bytes memory makerSig,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit
+            ) = abi.decode(
+                data,
+                (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
+            );
 
-        // We simultaneously transfer-in the taker's tokens and authenticate the
-        // metatransaction.
-        _transferFrom(permit, transferDetails, msgSender, sig);
-    }
+            fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
+        } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
+                _permitToTransferDetails(permit, recipient);
 
-    function _metaTxnUniV3VIP(bytes calldata data, address msgSender, bytes calldata sig)
-        internal
-        DANGEROUS_freeMemory
-    {
-        (
-            address recipient,
-            uint256 amountOutMin,
-            bytes memory path,
-            ISignatureTransfer.PermitTransferFrom memory permit
-        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellToUniswapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
-    }
+            // We simultaneously transfer-in the taker's tokens and authenticate the
+            // metatransaction.
+            _transferFrom(permit, transferDetails, msgSender, sig);
+        } else if (action == ISettlerActions.METATXN_UNISWAPV3_VIP.selector) {
+            (
+                address recipient,
+                uint256 amountOutMin,
+                bytes memory path,
+                ISignatureTransfer.PermitTransferFrom memory permit
+            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
-    function _metaTxnCurveTricryptoVIP(bytes calldata data, address msgSender, bytes calldata sig)
-        internal
-        DANGEROUS_freeMemory
-    {
-        (address recipient, uint80 poolInfo, uint256 minBuyAmount, ISignatureTransfer.PermitTransferFrom memory permit)
-        = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
-        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, msgSender, permit, sig);
-    }
+            sellToUniswapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+        } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
+            (
+                address recipient,
+                uint80 poolInfo,
+                uint256 minBuyAmount,
+                ISignatureTransfer.PermitTransferFrom memory permit
+            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
 
-    function _metaTxnPancakeSwapV3VIP(bytes calldata data, address msgSender, bytes calldata sig)
-        internal
-        DANGEROUS_freeMemory
-    {
-        (
-            address recipient,
-            uint256 amountOutMin,
-            bytes memory path,
-            ISignatureTransfer.PermitTransferFrom memory permit
-        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellToPancakeSwapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
-    }
+            sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, msgSender, permit, sig);
+        } else if (action == ISettlerActions.METATXN_PANCAKESWAPV3_VIP.selector) {
+            (
+                address recipient,
+                uint256 amountOutMin,
+                bytes memory path,
+                ISignatureTransfer.PermitTransferFrom memory permit
+            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
-    function _metaTxnSolidlyV3VIP(bytes calldata data, address msgSender, bytes calldata sig)
-        internal
-        DANGEROUS_freeMemory
-    {
-        (
-            address recipient,
-            uint256 amountOutMin,
-            bytes memory path,
-            ISignatureTransfer.PermitTransferFrom memory permit
-        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-        sellToSolidlyV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+            sellToPancakeSwapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+        } else if (action == ISettlerActions.METATXN_SOLIDLYV3_VIP.selector) {
+            (
+                address recipient,
+                uint256 amountOutMin,
+                bytes memory path,
+                ISignatureTransfer.PermitTransferFrom memory permit
+            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
+
+            sellToSolidlyV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+        }
+        revert ActionInvalid({i: 0, action: action, data: data});
     }
 
     function executeMetaTxn(
@@ -161,22 +151,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
-
-            if (action == ISettlerActions.METATXN_OTC_VIP.selector) {
-                _metaTxnOtcVIP(data, msgSender, sig);
-            } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
-                _metaTxnTransferFrom(data, msgSender, sig);
-            } else if (action == ISettlerActions.METATXN_UNISWAPV3_VIP.selector) {
-                _metaTxnUniV3VIP(data, msgSender, sig);
-            } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
-                _metaTxnCurveTricryptoVIP(data, msgSender, sig);
-            } else if (action == ISettlerActions.METATXN_PANCAKESWAPV3_VIP.selector) {
-                _metaTxnPancakeSwapV3VIP(data, msgSender, sig);
-            } else if (action == ISettlerActions.METATXN_SOLIDLYV3_VIP.selector) {
-                _metaTxnSolidlyV3VIP(data, msgSender, sig);
-            } else {
-                revert ActionInvalid({i: 0, action: action, data: data});
-            }
+            _dispatchVIP(action, data, msgSender, sig);
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {

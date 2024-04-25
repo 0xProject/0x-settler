@@ -40,97 +40,85 @@ contract Settler is AllowanceHolderContext, SettlerBase {
         _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
     }
 
-    function _otcVIP(bytes calldata data) internal DANGEROUS_freeMemory {
-        (
-            address recipient,
-            ISignatureTransfer.PermitTransferFrom memory makerPermit,
-            address maker,
-            bytes memory makerSig,
-            ISignatureTransfer.PermitTransferFrom memory takerPermit,
-            bytes memory takerSig
-        ) = abi.decode(
-            data,
+    function _dispatchVIP(bytes4 action, bytes calldata data) internal DANGEROUS_freeMemory returns (bool result) {
+        if (action == ISettlerActions.OTC_VIP.selector) {
             (
-                address,
-                ISignatureTransfer.PermitTransferFrom,
-                address,
-                bytes,
-                ISignatureTransfer.PermitTransferFrom,
-                bytes
-            )
-        );
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory makerPermit,
+                address maker,
+                bytes memory makerSig,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit,
+                bytes memory takerSig
+            ) = abi.decode(
+                data,
+                (
+                    address,
+                    ISignatureTransfer.PermitTransferFrom,
+                    address,
+                    bytes,
+                    ISignatureTransfer.PermitTransferFrom,
+                    bytes
+                )
+            );
 
-        fillOtcOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
-    }
+            fillOtcOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
+        } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
+            (
+                address recipient,
+                uint256 amountOutMin,
+                bytes memory path,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig
+            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-    function _uniV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
-        (
-            address recipient,
-            uint256 amountOutMin,
-            bytes memory path,
-            ISignatureTransfer.PermitTransferFrom memory permit,
-            bytes memory sig
-        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+            sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
+        } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
+            (
+                address recipient,
+                uint80 poolInfo,
+                uint256 minBuyAmount,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig
+            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
 
-        sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
-    }
+            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+        } else if (action == ISettlerActions.PANCAKESWAPV3_VIP.selector) {
+            (
+                address recipient,
+                uint256 amountOutMin,
+                bytes memory path,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig
+            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-    function _curveTricryptoVIP(bytes calldata data) internal DANGEROUS_freeMemory {
-        (
-            address recipient,
-            uint80 poolInfo,
-            uint256 minBuyAmount,
-            ISignatureTransfer.PermitTransferFrom memory permit,
-            bytes memory sig
-        ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
-        sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
-    }
+            sellToPancakeSwapV3VIP(recipient, path, amountOutMin, permit, sig);
+        } else if (action == ISettlerActions.SOLIDLYV3_VIP.selector) {
+            (
+                address recipient,
+                uint256 amountOutMin,
+                bytes memory path,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig
+            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
-    function _pancakeSwapV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
-        (
-            address recipient,
-            uint256 amountOutMin,
-            bytes memory path,
-            ISignatureTransfer.PermitTransferFrom memory permit,
-            bytes memory sig
-        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
-
-        sellToPancakeSwapV3VIP(recipient, path, amountOutMin, permit, sig);
-    }
-
-    function _solidlyV3VIP(bytes calldata data) internal DANGEROUS_freeMemory {
-        (
-            address recipient,
-            uint256 amountOutMin,
-            bytes memory path,
-            ISignatureTransfer.PermitTransferFrom memory permit,
-            bytes memory sig
-        ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
-
-        sellToSolidlyV3VIP(recipient, path, amountOutMin, permit, sig);
+            sellToSolidlyV3VIP(recipient, path, amountOutMin, permit, sig);
+        } else {
+            result = true;
+        }
     }
 
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
+        address msgSender = _msgSender();
         if (actions.length != 0) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
-            if (action == ISettlerActions.OTC_VIP.selector) {
-                _otcVIP(data);
-            } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
-                _uniV3VIP(data);
-            } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
-                _curveTricryptoVIP(data);
-            } else if (action == ISettlerActions.PANCAKESWAPV3_VIP.selector) {
-                _pancakeSwapV3VIP(data);
-            } else if (action == ISettlerActions.SOLIDLYV3_VIP.selector) {
-                _solidlyV3VIP(data);
-            } else {
-                _dispatch(0, action, data, _msgSender());
+            if (_dispatchVIP(action, data)) {
+                _dispatch(0, action, data, msgSender);
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            _dispatch(i, action, data, _msgSender());
+            _dispatch(i, action, data, msgSender);
         }
 
         _checkSlippageAndTransfer(slippage);

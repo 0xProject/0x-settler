@@ -72,12 +72,12 @@ library TransientStorage {
     error OperatorNotSpent(address oldOperator);
 
     function checkSpentOperator() internal view {
-        address currentOperator;
+        uint256 currentOperator;
         assembly ("memory-safe") {
             currentOperator := tload(_OPERATOR_SLOT)
         }
-        if (currentOperator != address(0)) {
-            revert OperatorNotSpent(currentOperator);
+        if (currentOperator != 0) {
+            revert OperatorNotSpent(address(uint160(currentOperator)));
         }
     }
 
