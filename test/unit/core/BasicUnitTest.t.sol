@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Basic} from "../../../src/core/Basic.sol";
-import {Permit2Payment} from "../../../src/core/Permit2Payment.sol";
+import {Basic} from "src/core/Basic.sol";
+import {Permit2Payment} from "src/core/Permit2Payment.sol";
+import {Context} from "src/Context.sol";
 
-import {IERC20} from "../../../src/IERC20.sol";
+import {IERC20} from "src/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract BasicDummy is Basic, Permit2Payment {
+contract BasicDummy is Context, Basic, Permit2Payment {
     function sellToPool(address pool, IERC20 sellToken, uint256 bips, uint256 offset, bytes memory data) public {
         super.basicSellToPool(pool, sellToken, bips, offset, data);
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+        revert();
     }
 }
 

@@ -4,16 +4,26 @@ pragma solidity ^0.8.25;
 import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
+import {Context} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
+import {ConfusedDeputy} from "./core/SettlerErrors.sol";
 
-contract SettlerMetaTxn is SettlerBase {
+contract SettlerMetaTxn is Context, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
     constructor(address uniFactory, address dai) SettlerBase(uniFactory, dai) {}
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return true;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+        revert ConfusedDeputy();
+    }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
         // This function deliberately does no bounds checking on `actions` for

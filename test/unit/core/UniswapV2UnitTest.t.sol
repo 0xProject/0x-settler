@@ -3,13 +3,14 @@ pragma solidity ^0.8.25;
 
 import {UniswapV2, IUniV2Pair} from "src/core/UniswapV2.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";
+import {Context} from "src/Context.sol";
 
 import {Utils} from "../Utils.sol";
 import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV2Dummy is Permit2Payment, UniswapV2 {
+contract UniswapV2Dummy is Context, Permit2Payment, UniswapV2 {
     function sell(
         address recipient,
         address sellToken,
@@ -19,6 +20,14 @@ contract UniswapV2Dummy is Permit2Payment, UniswapV2 {
         uint256 minBuyAmount
     ) public {
         super.sellToUniswapV2(recipient, sellToken, pool, swapInfo, bips, minBuyAmount);
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+        revert();
     }
 }
 

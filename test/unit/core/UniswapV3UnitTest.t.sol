@@ -6,6 +6,7 @@ import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
@@ -14,7 +15,7 @@ import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV3Dummy is Permit2Payment, UniswapV3 {
+contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
     constructor(address uniFactory) UniswapV3(uniFactory) Permit2Payment() {}
 
     function sellSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
@@ -32,6 +33,17 @@ contract UniswapV3Dummy is Permit2Payment, UniswapV3 {
         bytes memory sig
     ) external returns (uint256) {
         return super.sellToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
+        internal
+        override
+    {
+        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
     }
 }
 

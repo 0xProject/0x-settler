@@ -5,13 +5,14 @@ import {OtcOrderSettlement} from "src/core/OtcOrderSettlement.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {Context} from "src/Context.sol";
 
 import {Utils} from "../Utils.sol";
 import {IERC20} from "../../../src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract OtcOrderSettlementDummy is OtcOrderSettlement, Permit2Payment {
+contract OtcOrderSettlementDummy is Context, OtcOrderSettlement, Permit2Payment {
     function considerationWitnessType() external pure returns (string memory) {
         return CONSIDERATION_WITNESS;
     }
@@ -58,6 +59,14 @@ contract OtcOrderSettlementDummy is OtcOrderSettlement, Permit2Payment {
         bytes32 takerWitness
     ) external metaTx(taker, takerWitness) {
         super.fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, taker, takerSig);
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+        revert();
     }
 }
 

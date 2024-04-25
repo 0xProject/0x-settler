@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ForwarderNotAllowed, InvalidSignatureLen, ConfusedDeputy, SignatureExpired} from "./SettlerErrors.sol";
-import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
+
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 
@@ -171,14 +171,14 @@ library TransientStorage {
     }
 }
 
-abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract {
+abstract contract Permit2PaymentBase is SettlerAbstract {
     using Revert for bool;
 
     /// @dev Permit2 address
     ISignatureTransfer internal constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
-    function isRestrictedTarget(address target) internal pure override returns (bool) {
-        return target == address(_PERMIT2) || target == address(_ALLOWANCE_HOLDER);
+    function isRestrictedTarget(address target) internal pure virtual override returns (bool) {
+        return target == address(_PERMIT2);
     }
 
     /// @dev You must ensure that `!isRestrictedTarget(target)`. This is required for security and
@@ -233,6 +233,7 @@ abstract contract Permit2PaymentBase is AllowanceHolderContext, SettlerAbstract 
     }
 
     modifier metaTx(address msgSender, bytes32 witness) override {
+        assert(_hasMetaTxn());
         if (_isForwarded()) {
             revert ConfusedDeputy();
         }
@@ -309,7 +310,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         if (from != _msgSender() && msg.sender != TransientStorage.getAndClearOperator()) {
             revert ConfusedDeputy();
         }
-        {
+        if (_hasMetaTxn()) {
             (bytes32 witness, address signer) = TransientStorage.getAndClearWitness();
             if (witness != bytes32(0)) {
                 if (from != signer) {
@@ -321,11 +322,12 @@ abstract contract Permit2Payment is Permit2PaymentBase {
             }
         }
         if (isForwarded) {
+            assert(!_hasMetaTxn());
             if (sig.length != 0) revert InvalidSignatureLen();
             if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
             // we don't check `requestedAmount` because it's copied in `_permitToTransferDetails`
-            _ALLOWANCE_HOLDER.transferFrom(
+            _allowanceHolderTransferFrom(
                 permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
             );
         } else {

@@ -65,4 +65,8 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
     ) internal virtual returns (bytes memory);
 
     modifier metaTx(address msgSender, bytes32 witness) virtual;
+
+    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
+        internal
+        virtual;
 }
