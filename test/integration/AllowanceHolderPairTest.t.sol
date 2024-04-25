@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "../../src/IERC20.sol";
+import {IERC20} from "src/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
@@ -11,12 +11,12 @@ import {IZeroEx} from "./vendor/IZeroEx.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
-import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
+import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
-import {Settler} from "../../src/Settler.sol";
-import {ISettlerActions} from "../../src/ISettlerActions.sol";
-import {OtcOrderSettlement} from "../../src/core/OtcOrderSettlement.sol";
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {Settler, SettlerBase} from "src/Settler.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {OtcOrderSettlement} from "src/core/OtcOrderSettlement.sol";
 
 abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
@@ -63,7 +63,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -101,7 +104,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -139,7 +145,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -186,7 +195,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -244,7 +256,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -302,7 +317,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -343,7 +361,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -353,7 +374,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = new bytes[](0);
         bytes memory call = abi.encodeCall(
             settler.execute,
-            (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            (actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;

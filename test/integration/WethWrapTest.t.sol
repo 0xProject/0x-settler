@@ -3,10 +3,10 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
-import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolder.sol";
-import {Settler} from "../../src/Settler.sol";
+import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
+import {Settler, SettlerBase} from "src/Settler.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {ISettlerActions} from "../../src/ISettlerActions.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 
 contract WethWrapTest is Test, GasSnapshot {
@@ -36,7 +36,8 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.startPrank(address(this));
         snapStart("wethDeposit");
         settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
+            actions,
+            SettlerBase.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
         );
         snapEnd();
         assertEq(_weth.balanceOf(address(this)) - balanceBefore, 1e18);
@@ -56,7 +57,7 @@ contract WethWrapTest is Test, GasSnapshot {
         snapStart("wethWithdraw");
         settler.execute(
             actions,
-            Settler.AllowedSlippage({
+            SettlerBase.AllowedSlippage({
                 buyToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
                 recipient: address(this),
                 minAmountOut: 1e18

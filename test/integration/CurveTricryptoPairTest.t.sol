@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
-import {Settler} from "src/Settler.sol";
+import {Settler, SettlerBase} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
@@ -26,8 +26,8 @@ abstract contract CurveTricryptoPairTest is SettlerBasePairTest {
                 sig
             )
         );
-        Settler.AllowedSlippage memory allowedSlippage =
-            Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0});
+        SettlerBase.AllowedSlippage memory allowedSlippage =
+            SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0});
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_curveTricrypto");
