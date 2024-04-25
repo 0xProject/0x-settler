@@ -109,16 +109,11 @@ contract Settler is AllowanceHolderContext, SettlerBase {
 
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable {
         address msgSender = _msgSender();
-        if (actions.length != 0) {
-            (bytes4 action, bytes calldata data) = actions.decodeCall(0);
-            if (_dispatchVIP(action, data)) {
-                _dispatch(0, action, data, msgSender);
-            }
-        }
-
-        for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
+        for (uint256 i; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            _dispatch(i, action, data, msgSender);
+            if (i != 0 || _dispatchVIP(action, data)) {
+                _dispatch(i, action, data, msgSender);
+            }
         }
 
         _checkSlippageAndTransfer(slippage);
