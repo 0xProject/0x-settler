@@ -135,7 +135,13 @@ contract UniswapV3UnitTest is Utils, Test {
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
-        _mockExpectCall(
+
+        deployCodeTo(
+            "UniswapV3UnitTest.t.sol:UniswapV3PoolDummy",
+            abi.encode(abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))),
+            POOL
+        );
+        vm.expectCall(
             POOL,
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
@@ -144,9 +150,10 @@ contract UniswapV3UnitTest is Utils, Test {
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
                 abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
-            ),
-            abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
+            )
         );
+
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
