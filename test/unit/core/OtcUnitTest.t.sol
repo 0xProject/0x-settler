@@ -5,6 +5,7 @@ import {OtcOrderSettlement} from "src/core/OtcOrderSettlement.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {Context} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {Utils} from "../Utils.sol";
@@ -12,7 +13,7 @@ import {IERC20} from "../../../src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract OtcOrderSettlementDummy is AllowanceHolderContext, OtcOrderSettlement, Permit2Payment {
+abstract contract OtcOrderSettlementDummyBase is OtcOrderSettlement, Permit2Payment {
     function considerationWitnessType() external pure returns (string memory) {
         return CONSIDERATION_WITNESS;
     }
@@ -24,7 +25,9 @@ contract OtcOrderSettlementDummy is AllowanceHolderContext, OtcOrderSettlement, 
             )
         );
     }
+}
 
+contract OtcOrderSettlementDummy is AllowanceHolderContext, OtcOrderSettlementDummyBase {
     function fillOtcOrderDirectCounterparties(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -48,6 +51,19 @@ contract OtcOrderSettlementDummy is AllowanceHolderContext, OtcOrderSettlement, 
         super.fillOtcOrderSelfFunded(recipient, permit, maker, makerSig, IERC20(takerToken), maxTakerAmount, msgSender);
     }
 
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
+        internal
+        override
+    {
+        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
+    }
+}
+
+contract OtcOrderSettlementMetaTxnDummy is Context, OtcOrderSettlementDummyBase {
     function fillOtcOrderMeta(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -62,19 +78,17 @@ contract OtcOrderSettlementDummy is AllowanceHolderContext, OtcOrderSettlement, 
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {
-        return false;
+        return true;
     }
 
-    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
-        internal
-        override
-    {
-        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+        revert();
     }
 }
 
 contract OtcUnitTest is Utils, Test {
     OtcOrderSettlementDummy otc;
+    OtcOrderSettlementMetaTxnDummy otcMeta;
     address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
     address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
 
@@ -93,6 +107,7 @@ contract OtcUnitTest is Utils, Test {
 
     function setUp() public {
         otc = new OtcOrderSettlementDummy();
+        otcMeta = new OtcOrderSettlementMetaTxnDummy();
     }
 
     function testOtcDirectCounterparties() public {
@@ -353,8 +368,8 @@ contract OtcUnitTest is Utils, Test {
             )
         );
 
-        string memory actionsAndSlippageWitnessType = otc.actionsAndSlippageWitnessType();
-        string memory considerationWitnessType = otc.considerationWitnessType();
+        string memory actionsAndSlippageWitnessType = otcMeta.actionsAndSlippageWitnessType();
+        string memory considerationWitnessType = otcMeta.considerationWitnessType();
 
         // Taker payment via Permit2
         _mockExpectCall(
@@ -381,7 +396,7 @@ contract OtcUnitTest is Utils, Test {
         );
 
         //// https://github.com/foundry-rs/foundry/issues/7457
-        // vm.expectEmit(address(otc));
+        // vm.expectEmit(address(otcMeta));
         // _emitOtcOrder(
         //     keccak256(
         //         abi.encode(
@@ -405,7 +420,7 @@ contract OtcUnitTest is Utils, Test {
         //     uint128(amount)
         // );
 
-        otc.fillOtcOrderMeta(
+        otcMeta.fillOtcOrderMeta(
             RECIPIENT,
             makerPermit,
             MAKER,
