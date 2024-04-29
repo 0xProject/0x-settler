@@ -48,11 +48,11 @@ abstract contract CurveTricrypto is SettlerAbstract {
         address recipient,
         IERC20 sellToken,
         uint80 poolInfo,
-        uint256 bips,
+        uint256 bps,
         uint256 minBuyAmount
     ) internal {
         ISignatureTransfer.PermitTransferFrom memory permit;
-        permit.permitted.amount = (sellToken.balanceOf(address(this)) * bips).unsafeDiv(10_000);
+        permit.permitted.amount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
         sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(this), permit, new bytes(0));
     }
 

@@ -19,7 +19,7 @@ abstract contract UniswapV3 is UniswapV3ForkBase {
     }
 
     /// see sellToUniswapV3Fork
-    function sellToUniswapV3(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
+    function sellToUniswapV3(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
         internal
         returns (uint256 buyAmount)
     {
@@ -28,7 +28,7 @@ abstract contract UniswapV3 is UniswapV3ForkBase {
             _UNISWAPV3_INITHASH,
             recipient,
             encodedPath,
-            bips,
+            bps,
             minBuyAmount,
             IUniswapV3Callback.uniswapV3SwapCallback.selector
         );

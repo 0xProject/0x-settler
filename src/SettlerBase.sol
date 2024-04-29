@@ -164,45 +164,45 @@ abstract contract SettlerBase is
 
             fillOtcOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.UNISWAPV3.selector) {
-            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
+            (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellToUniswapV3(recipient, path, bips, amountOutMin);
+            sellToUniswapV3(recipient, path, bps, amountOutMin);
         } else if (action == ISettlerActions.UNISWAPV2.selector) {
-            (address recipient, address sellToken, address pool, uint8 swapInfo, uint256 bips, uint256 amountOutMin) =
+            (address recipient, address sellToken, address pool, uint8 swapInfo, uint256 bps, uint256 amountOutMin) =
                 abi.decode(data, (address, address, address, uint8, uint256, uint256));
 
-            sellToUniswapV2(recipient, sellToken, pool, swapInfo, bips, amountOutMin);
+            sellToUniswapV2(recipient, sellToken, pool, swapInfo, bps, amountOutMin);
         } else if (action == ISettlerActions.MAKERPSM_SELL.selector) {
-            (address recipient, uint256 bips, IPSM psm, IERC20Meta gemToken) =
+            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
                 abi.decode(data, (address, uint256, IPSM, IERC20Meta));
 
-            makerPsmSellGem(recipient, bips, psm, gemToken);
+            makerPsmSellGem(recipient, bps, psm, gemToken);
         } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
-            (address recipient, uint256 bips, IPSM psm, IERC20Meta gemToken) =
+            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
                 abi.decode(data, (address, uint256, IPSM, IERC20Meta));
 
-            makerPsmBuyGem(recipient, bips, psm, gemToken);
+            makerPsmBuyGem(recipient, bps, psm, gemToken);
         } else if (action == ISettlerActions.BASIC.selector) {
             (address pool, IERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, IERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
         } else if (action == ISettlerActions.CURVE_TRICRYPTO.selector) {
-            (address recipient, IERC20 sellToken, uint80 poolInfo, uint256 bips, uint256 minBuyAmount) =
+            (address recipient, IERC20 sellToken, uint80 poolInfo, uint256 bps, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint80, uint256, uint256));
 
-            sellToCurveTricrypto(recipient, sellToken, poolInfo, bips, minBuyAmount);
+            sellToCurveTricrypto(recipient, sellToken, poolInfo, bps, minBuyAmount);
         } else if (action == ISettlerActions.PANCAKESWAPV3.selector) {
-            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
+            (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellToPancakeSwapV3(recipient, path, bips, amountOutMin);
+            sellToPancakeSwapV3(recipient, path, bps, amountOutMin);
         } else if (action == ISettlerActions.SOLIDLYV3.selector) {
-            (address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) =
+            (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));
 
-            sellToSolidlyV3(recipient, path, bips, amountOutMin);
+            sellToSolidlyV3(recipient, path, bps, amountOutMin);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

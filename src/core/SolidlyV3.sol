@@ -13,7 +13,7 @@ abstract contract SolidlyV3 is UniswapV3ForkBase {
     bytes32 private constant _SOLIDLYV3_INITHASH = 0xe9b68c5f77858eecac2e651646e208175e9b1359d68d0e14fc69f8c54e5010bf;
 
     /// see sellToUniswapV3Fork
-    function sellToSolidlyV3(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
+    function sellToSolidlyV3(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
         internal
         returns (uint256 buyAmount)
     {
@@ -22,7 +22,7 @@ abstract contract SolidlyV3 is UniswapV3ForkBase {
             _SOLIDLYV3_INITHASH,
             recipient,
             encodedPath,
-            bips,
+            bps,
             minBuyAmount,
             ISolidlyV3Callback.solidlyV3SwapCallback.selector
         );

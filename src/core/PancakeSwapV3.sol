@@ -14,7 +14,7 @@ abstract contract PancakeSwapV3 is UniswapV3ForkBase {
         0x6ce8eb472fa82df5469c6ab6d485f17c3ad13c8cd7af59b3d4a8026c5ce0f7e2;
 
     /// see sellToUniswapV3Fork
-    function sellToPancakeSwapV3(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
+    function sellToPancakeSwapV3(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
         internal
         returns (uint256 buyAmount)
     {
@@ -23,7 +23,7 @@ abstract contract PancakeSwapV3 is UniswapV3ForkBase {
             _PANCAKESWAPV3_INITHASH,
             recipient,
             encodedPath,
-            bips,
+            bps,
             minBuyAmount,
             IPancakeSwapV3Callback.pancakeV3SwapCallback.selector
         );

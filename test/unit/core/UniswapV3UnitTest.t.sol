@@ -18,11 +18,11 @@ import {Test} from "forge-std/Test.sol";
 contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
     constructor(address uniFactory) UniswapV3(uniFactory) Permit2Payment() {}
 
-    function sellSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
+    function sellSelf(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
         external
         returns (uint256)
     {
-        return super.sellToUniswapV3(recipient, encodedPath, bips, minBuyAmount);
+        return super.sellToUniswapV3(recipient, encodedPath, bps, minBuyAmount);
     }
 
     function sell(
@@ -102,7 +102,7 @@ contract UniswapV3UnitTest is Utils, Test {
     }
 
     function testUniswapV3SellSelfFunded() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
@@ -129,11 +129,11 @@ contract UniswapV3UnitTest is Utils, Test {
         );
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
-        uni.sellSelf(RECIPIENT, data, bips, minBuyAmount);
+        uni.sellSelf(RECIPIENT, data, bps, minBuyAmount);
     }
 
     function testUniswapV3SellSlippage() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount + 1;
 
@@ -163,7 +163,7 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
         );
-        uni.sellSelf(RECIPIENT, data, bips, minBuyAmount);
+        uni.sellSelf(RECIPIENT, data, bps, minBuyAmount);
     }
 
     function testUniswapV3SellPermit2() public {

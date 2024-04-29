@@ -59,7 +59,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
 
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param bips proportion of current balance of the first token in the path to sell.
+    /// @param bps proportion of current balance of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
@@ -68,7 +68,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
         bytes32 initHash,
         address recipient,
         bytes memory encodedPath,
-        uint256 bips,
+        uint256 bps,
         uint256 minBuyAmount,
         bytes4 callbackSelector,
         function (bytes calldata) internal returns (bytes memory) callback
@@ -81,7 +81,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
-            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bips).unsafeDiv(10_000),
+            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bps).unsafeDiv(10_000),
             minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE),
@@ -95,12 +95,12 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
         bytes32 initHash,
         address recipient,
         bytes memory encodedPath,
-        uint256 bips,
+        uint256 bps,
         uint256 minBuyAmount,
         bytes4 callbackSelector
     ) internal returns (uint256 buyAmount) {
         return sellToUniswapV3Fork(
-            factory, initHash, recipient, encodedPath, bips, minBuyAmount, callbackSelector, _uniV3ForkCallback
+            factory, initHash, recipient, encodedPath, bps, minBuyAmount, callbackSelector, _uniV3ForkCallback
         );
     }
 

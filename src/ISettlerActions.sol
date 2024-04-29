@@ -47,7 +47,7 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
-    function UNISWAPV3(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
+    function UNISWAPV3(address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) external;
 
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_VIP(
@@ -58,10 +58,10 @@ interface ISettlerActions {
         bytes memory sig
     ) external;
 
-    function MAKERPSM_SELL(address recipient, uint256 bips, address psm, address gemToken) external;
-    function MAKERPSM_BUY(address recipient, uint256 bips, address psm, address gemToken) external;
+    function MAKERPSM_SELL(address recipient, uint256 bps, address psm, address gemToken) external;
+    function MAKERPSM_BUY(address recipient, uint256 bps, address psm, address gemToken) external;
 
-    function CURVE_TRICRYPTO(address recipient, address sellToken, uint80 poolInfo, uint256 bips, uint256 minBuyAmount)
+    function CURVE_TRICRYPTO(address recipient, address sellToken, uint80 poolInfo, uint256 bps, uint256 minBuyAmount)
         external;
     function CURVE_TRICRYPTO_VIP(
         address recipient,
@@ -77,7 +77,7 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory permit
     ) external;
 
-    function SOLIDLYV3(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
+    function SOLIDLYV3(address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) external;
     function SOLIDLYV3_VIP(
         address recipient,
         uint256 amountOutMin,
@@ -92,7 +92,7 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory permit
     ) external;
 
-    function PANCAKESWAPV3(address recipient, uint256 bips, uint256 amountOutMin, bytes memory path) external;
+    function PANCAKESWAPV3(address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) external;
     function PANCAKESWAPV3_VIP(
         address recipient,
         uint256 amountOutMin,
@@ -121,7 +121,7 @@ interface ISettlerActions {
         address sellToken,
         address pool,
         uint8 swapInfo,
-        uint256 bips,
+        uint256 bps,
         uint256 amountOutMin
     ) external;
 
@@ -130,5 +130,5 @@ interface ISettlerActions {
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
-    function BASIC(address pool, address sellToken, uint256 bips, uint256 offset, bytes calldata data) external;
+    function BASIC(address pool, address sellToken, uint256 bps, uint256 offset, bytes calldata data) external;
 }

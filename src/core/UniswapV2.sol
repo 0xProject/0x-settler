@@ -31,7 +31,7 @@ abstract contract UniswapV2 {
         address sellToken,
         address pool,
         uint8 swapInfo,
-        uint256 bips,
+        uint256 bps,
         uint256 minBuyAmount
     ) internal {
         // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector
@@ -43,18 +43,18 @@ abstract contract UniswapV2 {
 
         uint256 sellAmount;
         uint256 buyAmount;
-        // If bips is zero we assume there are no funds within this contract, skip the updating sellAmount.
+        // If bps is zero we assume there are no funds within this contract, skip the updating sellAmount.
         // This case occurs if the pool is being chained, in which the funds have been sent directly to the pool
-        if (bips != 0) {
+        if (bps != 0) {
             // We don't care about phantom overflow here because reserves are
             // limited to 112 bits. Any token balance that would overflow here would
             // also break UniV2.
-            // It is *possible* to set `bips` above the basis and therefore
-            // cause an overflow on this multiplication. However, `bips` is
+            // It is *possible* to set `bps` above the basis and therefore
+            // cause an overflow on this multiplication. However, `bps` is
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bips).unsafeDiv(10_000);
+                sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bps).unsafeDiv(10_000);
             }
         }
         assembly ("memory-safe") {

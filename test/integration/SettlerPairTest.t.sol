@@ -413,7 +413,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                 (
                     poolData.pool,
                     address(fromToken()),
-                    10_000, // bips
+                    10_000, // bps
                     0x44, // offset
                     abi.encodeCall(ICurveV2Pool.exchange, (poolData.fromTokenIndex, poolData.toTokenIndex, 0, 0))
                 )
