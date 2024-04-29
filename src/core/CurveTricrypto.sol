@@ -96,10 +96,14 @@ abstract contract CurveTricrypto is SettlerAbstract {
                 tstore(0x01, mload(add(0x20, permit))) // nonce
                 tstore(0x02, mload(add(0x40, permit))) // deadline
                 for {
-                    let src := sig
-                    let end := add(0x20, add(mload(sig), sig))
-                    // TODO: dedupe copying length
-                    let dst := 0x03
+                    let src := add(0x20, sig)
+                    let end
+                    {
+                        let len := mload(sig)
+                        end := add(len, src)
+                        tstore(0x03, len)
+                    }
+                    let dst := 0x04
                 } lt(src, end) {
                     src := add(0x20, src)
                     dst := add(0x01, dst)
@@ -162,10 +166,15 @@ abstract contract CurveTricrypto is SettlerAbstract {
                 tstore(0x02, 0x00)
                 sig := mload(0x40)
                 for {
-                    let src := 0x03
-                    let dst := sig
-                    // TODO: dedupe copying length
-                    let end := add(0x20, add(dst, tload(src)))
+                    let dst := add(0x20, sig)
+                    let end
+                    {
+                        let len := tload(0x03)
+                        end := add(dst, len)
+                        mstore(sig, len)
+                        mstore(0x40, end)
+                    }
+                    let src := 0x04
                 } lt(dst, end) {
                     src := add(0x01, src)
                     dst := add(0x20, dst)
@@ -173,7 +182,6 @@ abstract contract CurveTricrypto is SettlerAbstract {
                     mstore(dst, tload(src))
                     tstore(src, 0x00)
                 }
-                mstore(0x40, add(0x20, add(mload(sig), sig)))
             }
             ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
                 permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: sellAmount}),
