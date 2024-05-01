@@ -122,16 +122,37 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
-if [[ $wallet_type = 'unlocked' ]] ; then
-    echo 'Cannot confirm Settler with unlocked wallet' >&2
-    echo 'https://github.com/foundry-rs/foundry/issues/5600' >&2
-    exit 1
-fi
-
 # sign the message
 declare signature
-signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$eip712_data")"
+if [[ $wallet_type = 'frame' ]] ; then
+    declare typedDataRPC
+    typedDataRPC="$(
+        jq -c \
+        '
+        {
+            "jsonrpc": "2.0",
+            "method": "eth_signTypedData",
+            "params": [
+                $signer,
+                .
+            ],
+            "id": 1
+        }
+        ' \
+        --arg signer "$signer" \
+        <<<"$eip712_data"
+    )"
+    declare -r typedDataRPC
+    signature="$(curl --fail -s -X POST --url http://127.0.0.1:1248 --data "$typedDataRPC")"
+    echo 'exit status '"$?"
+else
+    signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$eip712_data")"
+fi
 declare -r signature
+if [[ $signature == *error* ]] ; then
+    echo "$signature" >&2
+    exit 1
+fi
 
 # encode the Safe Transaction Service API call
 declare safe_multisig_transaction
@@ -156,6 +177,6 @@ safe_multisig_transaction="$(
 declare -r safe_multisig_transaction
 
 # call the API
-curl -s "$(get_config safe.apiUrl)"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+curl --fail -s "$(get_config safe.apiUrl)"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
 
 echo 'Signature submitted' >&2

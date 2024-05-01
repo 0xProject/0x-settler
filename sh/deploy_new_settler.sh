@@ -123,7 +123,7 @@ cd "$project_root"
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare signatures
-signatures="$(curl -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
+signatures="$(curl --fail -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
 declare -r signatures
 
 if (( $(jq -r -M .count <<<"$signatures") != 1 )) ; then
@@ -187,7 +187,7 @@ gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --chain $chaini
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
-if [[ $wallet_type = 'unlocked' ]] ; then
+if [[ $wallet_type = 'frame' ]] ; then
     cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 else
     cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"

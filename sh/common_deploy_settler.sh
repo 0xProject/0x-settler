@@ -61,7 +61,7 @@ fi
 
 PS3='What kind of wallet are you using? '
 declare wallet_type
-select wallet_type in ledger trezor hot unlocked ; do break ; done
+select wallet_type in ledger trezor hot frame ; do break ; done
 declare -r wallet_Type
 
 if [[ ${wallet_type:-unset} = 'unset' ]] ; then
@@ -79,7 +79,7 @@ case $wallet_type in
     'hot')
         wallet_args=(--interactive)
         ;;
-    'unlocked')
+    'frame')
         wallet_args=(--unlocked)
         ;;
     *)
