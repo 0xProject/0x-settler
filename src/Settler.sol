@@ -41,7 +41,7 @@ contract Settler is AllowanceHolderContext, SettlerBase {
     }
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal DANGEROUS_freeMemory returns (bool result) {
-        if (action == ISettlerActions.OTC_VIP.selector) {
+        if (action == ISettlerActions.RFQ_VIP.selector) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -61,7 +61,7 @@ contract Settler is AllowanceHolderContext, SettlerBase {
                 )
             );
 
-            fillOtcOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
+            fillRfqOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
         } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
             (
                 address recipient,

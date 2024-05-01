@@ -272,7 +272,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         token = permit.permitted.token;
     }
 
-    // This function is provided *EXCLUSIVELY* for use here and in OtcOrderSettlement. Any other use
+    // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use
     // of this function is forbidden. You must use the overload that does *NOT* take a `witness`
     // argument.
     function _transferFrom(

@@ -15,7 +15,7 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
 import {Settler, SettlerBase} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {OtcOrderSettlement} from "src/core/OtcOrderSettlement.sol";
+import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
 abstract contract SettlerPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
@@ -33,7 +33,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         // ### Maker / Seller ###
         // Otc via ZeroEx
         safeApproveIfBelow(toToken(), MAKER, address(ZERO_EX), amount());
-        // Otc inside of Settler
+        // Rfq inside of Settler
         safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
 
         // First time inits for Settler

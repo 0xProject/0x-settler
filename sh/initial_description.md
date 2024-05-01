@@ -72,9 +72,9 @@ tokens being sent _and_ the `bytes[]` actions that `Settler` will
 execute. `Permit2` combines all this together into a single
 [EIP712](https://eips.ethereum.org/EIPS/eip-712) struct that the taker signs.
 
-## OTC/RFQ
+## RFQ
 
-OTC/RFQ is 0x Settler's "native" settlement mechanism. It relies on a
+RFQ is 0x Settler's "native" settlement mechanism. It relies on a
 "witness"-signed `Permit2` coupon from a market maker where that entity agrees
 to trade a fixed amount of tokens at a fixed price with a taker. `Permit2` is
 responsible for verifying the nonce, signature, amount of tokens to be traded,

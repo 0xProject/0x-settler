@@ -11,9 +11,9 @@ interface ISettlerActions {
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
     function METATXN_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit) external;
 
-    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties
+    /// @dev Settle an RfqOrder between maker and taker transfering funds directly between the parties
     // Post-req: Payout if recipient != taker
-    function OTC_VIP(
+    function RFQ_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
@@ -22,8 +22,8 @@ interface ISettlerActions {
         bytes memory takerSig
     ) external;
 
-    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between the parties for the entire amount
-    function METATXN_OTC_VIP(
+    /// @dev Settle an RfqOrder between maker and taker transfering funds directly between the parties for the entire amount
+    function METATXN_RFQ_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
@@ -31,11 +31,11 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory takerPermit
     ) external;
 
-    /// @dev Settle an OtcOrder between Maker and Settler. Transfering funds from the Settler contract to maker.
+    /// @dev Settle an RfqOrder between Maker and Settler. Transfering funds from the Settler contract to maker.
     /// Retaining funds in the settler contract.
     // Pre-req: Funded
     // Post-req: Payout
-    function OTC(
+    function RFQ(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,

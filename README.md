@@ -76,7 +76,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler          | Uniswap V3 | USDT/WETH | 161234 | -18.72% |
 |                  |            |           |        |         |
 
-| OTC             | DEX     | Pair      | Gas    | %       |
+| RFQ             | DEX     | Pair      | Gas    | %       |
 | --------------- | ------- | --------- | ------ | ------- |
 | 0x V4           | 0x V4   | USDC/WETH | 97930  | 0.00%   |
 | Settler         | Settler | USDC/WETH | 111591 | 13.95%  |
@@ -127,30 +127,30 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | ------------------------------------ | -------------- | --------- | ------ | ------- |
 | execute                              | Uniswap V3 VIP | USDC/WETH | 125858 | 0.00%   |
 | Settler - external move then execute | Uniswap V3     | USDC/WETH | 139946 | 11.19%  |
-| execute                              | OTC            | USDC/WETH | 106163 | -15.65% |
+| execute                              | RFQ            | USDC/WETH | 106163 | -15.65% |
 |                                      |                |           |        |         |
 | execute                              | Uniswap V3 VIP | DAI/WETH  | 113292 | 0.00%   |
 | Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128955 | 13.83%  |
-| execute                              | OTC            | DAI/WETH  | 86689  | -23.48% |
+| execute                              | RFQ            | DAI/WETH  | 86689  | -23.48% |
 |                                      |                |           |        |         |
 | execute                              | Uniswap V3 VIP | USDT/WETH | 116116 | 0.00%   |
 | Settler - external move then execute | Uniswap V3     | USDT/WETH | 135950 | 17.08%  |
-| execute                              | OTC            | USDT/WETH | 97801  | -15.77% |
+| execute                              | RFQ            | USDT/WETH | 97801  | -15.77% |
 |                                      |                |           |        |         |
 
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
-| no fee                          | OTC | USDC/WETH | 106163 | 0.00%  |
-| proportional fee                | OTC | USDC/WETH | 155113 | 46.11% |
-| fixed fee                       | OTC | USDC/WETH | 153138 | 44.25% |
+| no fee                          | RFQ | USDC/WETH | 106163 | 0.00%  |
+| proportional fee                | RFQ | USDC/WETH | 155113 | 46.11% |
+| fixed fee                       | RFQ | USDC/WETH | 153138 | 44.25% |
 |                                 |     |           |        |        |
-| no fee                          | OTC | DAI/WETH  | 86689  | 0.00%  |
-| proportional fee                | OTC | DAI/WETH  | 127527 | 47.11% |
-| fixed fee                       | OTC | DAI/WETH  | 126265 | 45.65% |
+| no fee                          | RFQ | DAI/WETH  | 86689  | 0.00%  |
+| proportional fee                | RFQ | DAI/WETH  | 127527 | 47.11% |
+| fixed fee                       | RFQ | DAI/WETH  | 126265 | 45.65% |
 |                                 |     |           |        |        |
-| no fee                          | OTC | USDT/WETH | 97801  | 0.00%  |
-| proportional fee                | OTC | USDT/WETH | 144271 | 47.51% |
-| fixed fee                       | OTC | USDT/WETH | 142580 | 45.79% |
+| no fee                          | RFQ | USDT/WETH | 97801  | 0.00%  |
+| proportional fee                | RFQ | USDT/WETH | 144271 | 47.51% |
+| fixed fee                       | RFQ | USDT/WETH | 142580 | 45.79% |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"
@@ -164,7 +164,7 @@ On the otherside, currently Settler does not need to perform the same Feature im
 
 With the Curve VIP, 0xV4 has to use a LiquidityProviderSandbox as calling untrusted/arbitrary code is a risk in the protocol.
 
-OTC has noticeable overhead as it is optimized to be interacted with directly in 0xV4. It lacks `recipient` parameters (to avoid extra transfers) and it also lacks a payment callback when the caller is a contract.
+RFQ has noticeable overhead as it is optimized to be interacted with directly in 0xV4. It lacks `recipient` parameters (to avoid extra transfers) and it also lacks a payment callback when the caller is a contract.
 
 #### Settler vs Curve
 
@@ -182,7 +182,7 @@ See [ISettlerActions](https://github.com/0xProject/0x-settler/blob/master/src/IS
 - [x] MetaTxn
 - [x] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
 - [x] WETH wrap/unwrap
-- [ ] Payable OTC (ETH)
+- [ ] Payable RFQ (ETH)
 - [x] Sell token fees
 - [x] Buy token fees
 - [x] consider using argument encoding for action names, ala solidity function encoding
@@ -216,7 +216,7 @@ To make gas comparisons fair we will use the following methodology:
 - Market Makers have balances of both tokens. Since AMM Pools have non-zero balances of both tokens this is a fair comparison.
 - The Taker does not have a balance of the token being bought.
 - Fee Recipient has a non-zero balance of the fee tokens.
-- Nonces for Permit2 and Otc orders (0x V4) are initialized.
+- Nonces for Permit2 and Rfq orders (0x V4) are initialized.
 - `setUp` is used as much as possible with limited setup performed in the test. Warmup trades are avoided completely as to not warm up storage access.
 
 # Technical Reference
@@ -357,7 +357,7 @@ Note this has the following limitations:
 - Single UniswapV3 pool or single chain of pools (e.g ETH->DAI->USDC)
 - Cannot support a split between pools (e.g ETH->USDC 5bps and ETH->USDC 1bps) as Permit2 transfer can only occur once. a 0xV4 equivalent would be `sellTokenForTokenToUniswapV3` as opposed to `MultiPlex[sellTokenForEthToUniswapV3,sellTokenForEthToUniswapV3]`.
 
-## OTC
+## RFQ
 
 ```mermaid
 sequenceDiagram
@@ -370,12 +370,12 @@ sequenceDiagram
     end
 ```
 
-For OTC we utilize 2 Permit2 Transfers, one for the `Market Maker->User` and another for `User->Market Maker`. This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill OTC orders. We simply validate the OTC order (e.g Taker/tx.origin).
+For RFQ we utilize 2 Permit2 Transfers, one for the `Market Maker->User` and another for `User->Market Maker`. This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill RFQ orders. We simply validate the RFQ order (e.g Taker/tx.origin).
 
-Note the `permitWitnessTransferFrom`, we utilise the `Witness` functionality of Permit2 which allows arbitrary data to be attached to the Permit2 coupon. This arbitrary data is the actual OTC order itself, containing the taker/tx.origin and maker/taker amount and token fields.
+Note the `permitWitnessTransferFrom`, we utilise the `Witness` functionality of Permit2 which allows arbitrary data to be attached to the Permit2 coupon. This arbitrary data is the actual RFQ order itself, containing the taker/tx.origin and maker/taker amount and token fields.
 
 ```solidity
-struct OtcOrder {
+struct RfqOrder {
     address makerToken;
     address takerToken;
     uint128 makerAmount;
@@ -389,16 +389,16 @@ struct OtcOrder {
 A Market maker signs a slightly different Permit2 coupon than a User which contains these additional fields. The EIP712 type the Market Maker signs is as follows:
 
 ```solidity
-PermitWitnessTransferFrom(TokenPermissions permitted, address spender, uint256 nonce, uint256 deadline, OtcOrder order)
-OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)
+PermitWitnessTransferFrom(TokenPermissions permitted, address spender, uint256 nonce, uint256 deadline, RfqOrder order)
+RfqOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)
 TokenPermissions(address token,uint256 amount)"
 ```
 
 We use the Permit2 guarantees of a Permit2 coupon to ensure the following:
 
-- OTC Order cannot be filled more than once
-- OTC Orders expire
-- OTC Orders are signed by the Market Maker
+- RFQ Order cannot be filled more than once
+- RFQ Orders expire
+- RFQ Orders are signed by the Market Maker
 
 ## Fees in Basic Flow
 
@@ -461,7 +461,7 @@ It is possible to collect fees via Permit2, which is typically in the token that
 
 Note: This is still not entirely finalised and may change.
 
-### OTC fees via Permit2
+### RFQ fees via Permit2
 
 ```mermaid
 sequenceDiagram
@@ -482,9 +482,9 @@ sequenceDiagram
     end
 ```
 
-Using the Batch functionality we can do one or more transfers from either the User or the Market Maker. Allowing us to take either a buy token fee or a sell token fee, or both, during OTC order settlement.
+Using the Batch functionality we can do one or more transfers from either the User or the Market Maker. Allowing us to take either a buy token fee or a sell token fee, or both, during RFQ order settlement.
 
-This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill OTC orders with fees.
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill RFQ orders with fees.
 
 ### Uniswap VIP sell token fees via Permit2
 
@@ -502,7 +502,7 @@ sequenceDiagram
     end
 ```
 
-It is possible to collect sell token fees via Permit2 with the UniswapV3 VIP as well, using the Permit2 batch functionality. This flow is similar to the OTC fees.
+It is possible to collect sell token fees via Permit2 with the UniswapV3 VIP as well, using the Permit2 batch functionality. This flow is similar to the RFQ fees.
 
 This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UnuswapV3 with sell token fees.
 
@@ -527,7 +527,7 @@ Since UniswapV3 only supports a single `recipient`, to collect buy token fees, S
 
 ## MetaTransactions
 
-Similar to OTC orders, MetaTransactions use the Permit2 with witness. In this case the witness is the MetaTransaction itself, containing the actions the user wants to execute. This gives MetaTransactions access to the same flows above, with a slightly different entrypoint to decode the actions from the Permit2 coupon, rather than the actions being provided directly in the arguments to the execute function.
+Similar to RFQ orders, MetaTransactions use the Permit2 with witness. In this case the witness is the MetaTransaction itself, containing the actions the user wants to execute. This gives MetaTransactions access to the same flows above, with a slightly different entrypoint to decode the actions from the Permit2 coupon, rather than the actions being provided directly in the arguments to the execute function.
 
 The EIP712 type the user signs when wanting to perform a metatransaction is:
 

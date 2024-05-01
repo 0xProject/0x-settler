@@ -6,7 +6,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
-import {OtcOrderSettlement} from "./core/OtcOrderSettlement.sol";
+import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
@@ -76,7 +76,7 @@ library CalldataDecoder {
 abstract contract SettlerBase is
     Permit2Payment,
     Basic,
-    OtcOrderSettlement,
+    RfqOrderSettlement,
     UniswapV3,
     UniswapV2,
     MakerPSM,
@@ -102,7 +102,7 @@ abstract contract SettlerBase is
     constructor(address uniFactory, address dai)
         Permit2Payment()
         Basic()
-        OtcOrderSettlement()
+        RfqOrderSettlement()
         UniswapV3(uniFactory)
         UniswapV2()
         MakerPSM(dai)
@@ -152,7 +152,7 @@ abstract contract SettlerBase is
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, msgSender, sig);
-        } else if (action == ISettlerActions.OTC.selector) {
+        } else if (action == ISettlerActions.RFQ.selector) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -162,7 +162,7 @@ abstract contract SettlerBase is
                 uint256 maxTakerAmount
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
 
-            fillOtcOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
+            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
         } else if (action == ISettlerActions.UNISWAPV3.selector) {
             (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));

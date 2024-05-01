@@ -73,10 +73,10 @@ contract SettlerMetaTxn is Context, SettlerBase {
         internal
         DANGEROUS_freeMemory
     {
-        if (action == ISettlerActions.METATXN_OTC_VIP.selector) {
+        if (action == ISettlerActions.METATXN_RFQ_VIP.selector) {
             // An optimized path involving a maker/taker in a single trade
-            // The OTC order is signed by both maker and taker, validation is
-            // performed inside the OtcOrderSettlement so there is no need to
+            // The RFQ order is signed by both maker and taker, validation is
+            // performed inside the RfqOrderSettlement so there is no need to
             // validate `sig` against `actions` here
             (
                 address recipient,
@@ -89,7 +89,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
                 (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
             );
 
-            fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
+            fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
         } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));

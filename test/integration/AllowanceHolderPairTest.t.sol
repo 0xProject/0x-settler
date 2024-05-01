@@ -16,7 +16,7 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Settler, SettlerBase} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {OtcOrderSettlement} from "src/core/OtcOrderSettlement.sol";
+import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
 abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
@@ -154,13 +154,13 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_otc_VIP() public {
+    function testAllowanceHolder_rfq_VIP() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
-        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+        RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
             token: address(fromToken()),
             amount: amount(),
             counterparty: FROM,
@@ -169,13 +169,13 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
         );
 
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.OTC_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
+            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -185,7 +185,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         //_warm_allowanceHolder_slots(address(_fromToken), _amount);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_otc");
+        snapStartName("allowanceHolder_rfq");
         //_cold_account_access();
 
         _allowanceHolder.exec(
@@ -204,13 +204,13 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_otc_proportionalFee() public {
+    function testAllowanceHolder_rfq_proportionalFee() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
-        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+        RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
             token: address(fromToken()),
             amount: amount(),
             counterparty: FROM,
@@ -219,7 +219,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
         );
 
         bytes memory takerSig = new bytes(0);
@@ -236,7 +236,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
                 )
             ),
-            abi.encodeCall(ISettlerActions.OTC, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
+            abi.encodeCall(ISettlerActions.RFQ, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -246,7 +246,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         //_warm_allowanceHolder_slots(address(_fromToken), _amount);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_otc_proportionalFee_sellToken");
+        snapStartName("allowanceHolder_rfq_proportionalFee_sellToken");
         //_cold_account_access();
 
         _allowanceHolder.exec(
@@ -265,13 +265,13 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_otc_fixedFee() public {
+    function testAllowanceHolder_rfq_fixedFee() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
-        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+        RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
             token: address(fromToken()),
             amount: amount(),
             counterparty: FROM,
@@ -280,7 +280,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
         );
 
         bytes memory takerSig = new bytes(0);
@@ -297,7 +297,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, amount() * 1_000 / 10_000))
                 )
             ),
-            abi.encodeCall(ISettlerActions.OTC, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
+            abi.encodeCall(ISettlerActions.RFQ, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -307,7 +307,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         //_warm_allowanceHolder_slots(address(_fromToken), _amount);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_otc_fixedFee_sellToken");
+        snapStartName("allowanceHolder_rfq_fixedFee_sellToken");
         //_cold_account_access();
 
         _allowanceHolder.exec(
