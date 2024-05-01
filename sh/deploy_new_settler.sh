@@ -120,10 +120,20 @@ declare -r project_root
 cd "$project_root"
 
 . "$project_root"/sh/common.sh
+
+declare safe_address
+safe_address="$(get_config governance.deploymentSafe)"
+declare -r safe_address
+
+. "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
+declare signing_hash
+signing_hash="$(eip712_hash "$deploy_calldata")"
+declare -r signing_hash
+
 declare signatures
-signatures="$(curl --fail -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
+signatures="$(curl --fail -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
 declare -r signatures
 
 if (( $(jq -r -M .count <<<"$signatures") != 1 )) ; then
@@ -171,9 +181,8 @@ declare -r -i gas_price
 
 
 # configure gas limit
-declare -r exec_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
 declare -r -a args=(
-    "$safe_address" "$exec_sig"
+    "$safe_address" "$execTransaction_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
     "$deployer_address" 0 "$deploy_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
 )

@@ -122,14 +122,75 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 
 declare safe_address
-safe_address="$(get_config governance.deploymentSafe)"
+safe_address="$(get_config governance.upgradeSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
-. "$project_root"/sh/common_deploy_settler.sh
+
+declare -r -i feature="$1"
+shift
+
+declare -r description_file="$1"
+shift
+
+declare description
+description="$(jq -MRs < "$description_file")"
+description="${description:1:$((${#description} - 2))}"
+declare -r description
+
+declare -r setDescription_sig='setDescription(uint128, string)(string)'
+declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
+
+# calls encoded as operation (always zero) 1 byte
+#                  target address          20 bytes
+#                  value                   32 bytes
+#                  data length             32 bytes
+#                  data                    variable
+declare -r multisig_sig='multiSend(bytes)'
+
+declare -i auth_deadline
+# one year from the start of this month
+auth_deadline="$(date -d "$(("$(date '+%+4Y')" + 1))-$(date '+%m')-01T00:00:00-00:00" '+%s')"
+declare -r -i auth_deadline
+
+declare -a calls=()
+
+declare setDescription_call
+setDescription_call="$(cast calldata "$setDescription_sig" $feature "description")"
+declare -r setDescription_call
+
+calls+=(
+    "$(
+        cast concat-hex
+        0x00
+        "$deployer_address"
+        "$(cast to-uint256 0)"
+        "$(cast to-uint256 $(( ("${#setDescription_call}" - 2) / 2 )) )"
+        "$setDescription_call"
+    )"
+)
+
+declare authorize_call
+authorize_call="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" "$auth_deadline")"
+declare -r authorize_call
+
+calls+=(
+    "$(
+        cast concat-hex
+        0x00
+        "$deployer_address"
+        "$(cast to-uint256 0)"
+        "$(cast to-uint256 $(( ("${#authorize_call}" - 2) / 2 )) )"
+        "$authorize_call"
+    )"
+)
+
+declare new_feature_calldata
+new_feature_calldata="$(cast calldata "$multisig_sig" "$(cast concat-hex "${calls[@]}")")"
+declare -r new_feature_calldata
 
 declare struct_json
-struct_json="$(eip712_json "$deploy_calldata")"
+struct_json="$(eip712_json "$new_feature_calldata" 1)"
 declare -r struct_json
 
 # sign the message
@@ -165,8 +226,12 @@ if [[ $signature == *error* ]] ; then
 fi
 
 declare signing_hash
-signing_hash="$(eip712_hash "$deploy_calldata")"
+signing_hash="$(eip712_hash "$new_feature_calldata" 1)"
 declare -r signing_hash
+
+declare multicall_address
+multicall_address="$(get_config safe.multiCall)"
+declare -r multicall_address
 
 # encode the Safe Transaction Service API call
 declare safe_multisig_transaction
@@ -179,9 +244,9 @@ safe_multisig_transaction="$(
         "origin": "0xSettlerCLI"
     }
     '                                  \
-    --arg to "$deployer_address"       \
-    --arg data "$deploy_calldata"      \
-    --arg call_type 0                  \
+    --arg to "$multicall_address"      \
+    --arg data "$new_feature_calldata" \
+    --arg call_type 1                  \
     --arg nonce "$nonce"               \
     --arg signing_hash "$signing_hash" \
     --arg sender "$signer"             \
