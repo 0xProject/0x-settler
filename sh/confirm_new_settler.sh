@@ -127,7 +127,7 @@ declare signature
 if [[ $wallet_type = 'frame' ]] ; then
     declare typedDataRPC
     typedDataRPC="$(
-        jq -c \
+        jq -c                  \
         '
         {
             "jsonrpc": "2.0",
@@ -138,12 +138,12 @@ if [[ $wallet_type = 'frame' ]] ; then
             ],
             "id": 1
         }
-        ' \
+        '                      \
         --arg signer "$signer" \
         <<<"$eip712_data"
     )"
     declare -r typedDataRPC
-    signature="$(curl --fail -s -X POST --url http://127.0.0.1:1248 --data "$typedDataRPC")"
+    signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
     echo 'exit status '"$?"
 else
     signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$eip712_data")"
