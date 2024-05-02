@@ -150,7 +150,7 @@ declare -r multisig_sig='multiSend(bytes)'
 
 declare -i auth_deadline
 # one year from the start of this month
-auth_deadline="$(date -d "$(("$(date '+%+4Y')" + 1))-$(date '+%m')-01T00:00:00-00:00" '+%s')"
+auth_deadline="$(date -d "$(("$(date -u '+%+4Y')" + 1))-$(date -u '+%m')-01T00:00:00-00:00" '+%s')"
 declare -r -i auth_deadline
 
 declare -a calls=()
