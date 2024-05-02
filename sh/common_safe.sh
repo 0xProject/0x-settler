@@ -19,6 +19,7 @@ declare -r owners
 declare -r nonce_sig='nonce()(uint256)'
 declare -i nonce
 nonce="$(cast abi-decode "$nonce_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$nonce_sig")")")"
+nonce=$((${SAFE_NONCE_INCREMENT:-0} + nonce))
 declare -r -i nonce
 
 declare -a owners_array

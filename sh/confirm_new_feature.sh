@@ -215,15 +215,15 @@ if [[ $wallet_type = 'frame' ]] ; then
     )"
     declare -r typedDataRPC
     signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
+    if [[ $signature == *error* ]] ; then
+        echo "$signature" >&2
+        exit 1
+    fi
     signature="$(jq -r -M .result <<<"$signature")"
 else
     signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
 fi
 declare -r signature
-if [[ $signature == *error* ]] ; then
-    echo "$signature" >&2
-    exit 1
-fi
 
 declare signing_hash
 signing_hash="$(eip712_hash "$new_feature_calldata" 1)"
