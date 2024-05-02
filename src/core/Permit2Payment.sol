@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {ForwarderNotAllowed, InvalidSignatureLen, ConfusedDeputy, SignatureExpired} from "./SettlerErrors.sol";
+import {
+    CallbackNotSpent,
+    ConfusedDeputy,
+    ForwarderNotAllowed,
+    InvalidSignatureLen,
+    OperatorNotSpent,
+    ReentrantCallback,
+    ReentrantMetatransaction,
+    SignatureExpired,
+    WitnessNotSpent
+} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -17,9 +27,7 @@ library TransientStorage {
     // bytes32(uint256(keccak256("metatx signer slot")) - 1)
     bytes32 private constant _METATX_SIGNER_SLOT = 0xfc7be34027b4062d13b31d75182f37b703b5ad960f0e73236593535549bb277d;
 
-    error ReentrantCallback(address oldOperator);
-
-    function setOperator(address operator) internal {
+    function setOperator(address operator, bool strict) internal {
         address currentSigner;
         assembly ("memory-safe") {
             currentSigner := tload(_METATX_SIGNER_SLOT)
@@ -31,7 +39,7 @@ library TransientStorage {
         assembly ("memory-safe") {
             currentOperator := tload(_OPERATOR_SLOT)
         }
-        if (currentOperator != address(0) && msg.sender != currentOperator) {
+        if ((strict || currentOperator != address(0)) && msg.sender != currentOperator) {
             revert ReentrantCallback(currentOperator);
         }
         assembly ("memory-safe") {
@@ -42,7 +50,8 @@ library TransientStorage {
     function setOperatorAndCallback(
         address operator,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function (bytes calldata) internal returns (bytes memory) callback,
+        bool strict
     ) internal {
         address currentSigner;
         assembly ("memory-safe") {
@@ -55,7 +64,7 @@ library TransientStorage {
         assembly ("memory-safe") {
             currentOperator := tload(_OPERATOR_SLOT)
         }
-        if (currentOperator != address(0) && msg.sender != currentOperator) {
+        if ((strict || currentOperator != address(0)) && msg.sender != currentOperator) {
             revert ReentrantCallback(currentOperator);
         }
         assembly ("memory-safe") {
@@ -68,8 +77,6 @@ library TransientStorage {
             )
         }
     }
-
-    error OperatorNotSpent(address oldOperator);
 
     function checkSpentOperator() internal view {
         uint256 currentOperator;
@@ -108,8 +115,6 @@ library TransientStorage {
         }
     }
 
-    error CallbackNotSpent(uint256 callbackInt);
-
     function checkSpentCallback() internal view {
         uint256 callbackInt;
         assembly ("memory-safe") {
@@ -122,16 +127,15 @@ library TransientStorage {
 
     function getAndClearCallback()
         internal
-        returns (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback)
+        returns (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator)
     {
         assembly ("memory-safe") {
             selector := tload(_OPERATOR_SLOT)
-            tstore(_OPERATOR_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, selector))
             callback := and(0xffff, shr(0xa0, selector))
+            operator := and(0xffffffffffffffffffffffffffffffffffffffff, selector)
+            tstore(_OPERATOR_SLOT, operator)
         }
     }
-
-    error ReentrantMetatransaction(bytes32 oldWitness);
 
     function setWitness(bytes32 newWitness, address signer) internal {
         bytes32 currentWitness;
@@ -139,6 +143,8 @@ library TransientStorage {
             currentWitness := tload(_WITNESS_SLOT)
         }
         if (currentWitness != bytes32(0)) {
+            // It should be impossible to reach this error because the first thing a metatransaction
+            // does on entry is to spend the `witness` (either directly or via a callback)
             revert ReentrantMetatransaction(currentWitness);
         }
         assembly ("memory-safe") {
@@ -146,8 +152,6 @@ library TransientStorage {
             tstore(_METATX_SIGNER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, signer))
         }
     }
-
-    error WitnessNotSpent(bytes32 oldWitness);
 
     function checkSpentWitness() internal view {
         bytes32 currentWitness;
@@ -181,11 +185,15 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
         return target == address(_PERMIT2);
     }
 
-    /// @dev You must ensure that `!isRestrictedTarget(target)`. This is required for security and
-    ///      is not checked here. Furthermore, you must ensure that `target` is "reasonable". For
-    ///      example, it must not do something weird like modify `from` (possibly setting it to
-    ///      itself). Really, you should only use this function on addresses that you have computed
-    ///      using `AddressDerivation.deriveDeterministicContract` from a trusted `initHash`.
+    /// @dev You must ensure that `target` is derived by hashing trusted initcode or another
+    ///      equivalent mechanism that guarantees "reasonable"ness. `target` must not be
+    ///      user-supplied or attacker-controlled. This is required for security and is not checked
+    ///      here. For example, it must not do something weird like modifying the spender (possibly
+    ///      setting it to itself). If the callback is expected to relay a
+    ///      `ISignatureTransfer.PermitTransferFrom` struct, then the computation of `target` using
+    ///      the trusted initcode (or equivalent) must ensure that that calldata is relayed
+    ///      unmodified. The library function `AddressDerivation.deriveDeterministicContract` is
+    ///      recommended.
     function _setOperatorAndCall(
         address payable target,
         uint256 value,
@@ -193,7 +201,11 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
         uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal returns (bytes memory) {
-        TransientStorage.setOperatorAndCallback(target, selector, callback);
+        // metatx-supporting `Settler` instances (`_hasMetaTxn() == true`) don't rely on
+        // `_msgSender()` authentication, so a trusted `operator` being in transient storage is
+        // mandatory. for non-metatx-supporting `Settler` instances (`_hasMetaTxn() == false`), we
+        // allow an unset `operator` at top level.
+        TransientStorage.setOperatorAndCallback(target, selector, callback, _hasMetaTxn());
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         success.maybeRevert(returndata);
         TransientStorage.checkSpentOperator();
@@ -238,16 +250,22 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
             revert ConfusedDeputy();
         }
         TransientStorage.setWitness(witness, msgSender);
-        TransientStorage.setOperator(msg.sender);
+        TransientStorage.setOperator(msg.sender, false);
         _;
+        // It should not be possible for these checks to revert because the very first thing that a
+        // metatransaction does is spend the operator/witness.
         TransientStorage.checkSpentOperator();
         TransientStorage.checkSpentWitness();
     }
 
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
-        (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback) =
+        (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
             TransientStorage.getAndClearCallback();
         require(bytes4(data) == selector);
+        // `operator == address(0)` implies that this context is unable to spend coupons (unless
+        // `_msgSender()` wants to spend its own coupon for some insane reason; smart contract
+        // takers are responsible for their own security/reentrancy guards)
+        require(operator == address(0) || msg.sender == operator);
         return callback(data[4:]);
     }
 }
@@ -288,7 +306,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
-    // See comment in above overload
+    // See comment in above overload; don't use this function
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
@@ -307,31 +325,33 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        if (from != _msgSender() && msg.sender != TransientStorage.getAndClearOperator()) {
-            revert ConfusedDeputy();
-        }
+        // Because `_hasMetaTxn()` is `pure`, this `if` statement is branching on a compile-time
+        // constant. The branch not taken is dead code and is eliminated by the compiler. Only one
+        // branch is reachable from a given `Settler` instance.
         if (_hasMetaTxn()) {
-            (bytes32 witness, address signer) = TransientStorage.getAndClearWitness();
-            if (witness != bytes32(0)) {
-                if (from != signer) {
-                    revert ConfusedDeputy();
-                }
-                return _transferFrom(
-                    permit, transferDetails, from, witness, _ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
-                );
+            if (msg.sender != TransientStorage.getAndClearOperator()) {
+                revert ConfusedDeputy();
             }
-        }
-        if (isForwarded) {
-            assert(!_hasMetaTxn());
-            if (sig.length != 0) revert InvalidSignatureLen();
-            if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-            if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
-            // we don't check `requestedAmount` because it's copied in `_permitToTransferDetails`
-            _allowanceHolderTransferFrom(
-                permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
-            );
+            (bytes32 witness, address signer) = TransientStorage.getAndClearWitness();
+            if (witness == bytes32(0) || from != signer) {
+                revert ConfusedDeputy();
+            }
+            _transferFrom(permit, transferDetails, from, witness, _ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded);
         } else {
-            _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
+            if (from != _msgSender() && msg.sender != TransientStorage.getAndClearOperator()) {
+                revert ConfusedDeputy();
+            }
+            if (isForwarded) {
+                if (sig.length != 0) revert InvalidSignatureLen();
+                if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
+                // we don't check `requestedAmount` because it's copied in `_permitToTransferDetails`
+                _allowanceHolderTransferFrom(
+                    permit.permitted.token, from, transferDetails.to, transferDetails.requestedAmount
+                );
+            } else {
+                _PERMIT2.permitTransferFrom(permit, transferDetails, from, sig);
+            }
         }
     }
 

@@ -24,3 +24,24 @@ error TooMuchSlippage(address token, uint256 expected, uint256 actual);
 
 /// @notice Thrown when an AllowanceHolder transfer's permit is past its deadline
 error SignatureExpired(uint256 deadline);
+
+/// @notice An internal error that should never be thrown. Thrown when a callback-requiring
+///         liquidity source makes a callback on Settler from an unexpected address.
+error ReentrantCallback(address oldOperator);
+
+/// @notice An internal error that should never be thrown. Thrown when a callback-requiring
+///         liquidity source is called, but Settler never receives the callback.
+error OperatorNotSpent(address oldOperator);
+
+/// @notice An internal error that should never be thrown. This error can only be thrown by
+///         non-metatx-supporting Settler instances. Thrown when a callback-requiring liquidity
+///         source is called, but Settler never receives the callback.
+error CallbackNotSpent(uint256 callbackInt);
+
+/// @notice Thrown when a metatransaction has reentrancy. Metatransactions allow reentrancy in some
+///         limited cases.
+error ReentrantMetatransaction(bytes32 oldWitness);
+
+/// @notice An internal error that should never be thrown. Thrown when a metatransaction fails to
+///         spend a coupon.
+error WitnessNotSpent(bytes32 oldWitness);

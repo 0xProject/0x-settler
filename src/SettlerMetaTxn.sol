@@ -146,7 +146,8 @@ contract SettlerMetaTxn is Context, SettlerBase {
         address msgSender,
         bytes calldata sig
     ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) {
-        if (actions.length != 0) {
+        require(actions.length != 0);
+        {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
 
             // By forcing the first action to be one of the witness-aware
