@@ -4,7 +4,6 @@ declare -r -i chainid
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
-declare -r -i feature=1
 
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
@@ -84,7 +83,7 @@ eip712_json() {
     shift
 
     declare -i call_type
-    if $(( $# > 0 )) ; then
+    if (( $# > 0 )) ; then
         call_type="$1"
         shift
     else
@@ -180,7 +179,7 @@ eip712_struct_hash() {
     shift
 
     declare -i call_type
-    if $(( $# > 0 )) ; then
+    if (( $# > 0 )) ; then
         call_type="$1"
         shift
     else
@@ -204,7 +203,7 @@ eip712_hash() {
     shift
 
     declare -i call_type
-    if $(( $# > 0 )) ; then
+    if (( $# > 0 )) ; then
         call_type="$1"
         shift
     else
@@ -222,5 +221,5 @@ eip712_hash() {
 # this ourselves instead of computing it automatically from the other arguments
 # >:(
 declare -r type_hash="$(cast keccak 'SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)')"
-declare -r domain_separator="$(cast keccak "$(cast abi-encode 'foo(bytes32,uint256,address)' "$domain_type_hash" $chainid "$safe_address")")"
 declare -r domain_type_hash="$(cast keccak 'EIP712Domain(uint256 chainId,address verifyingContract)')"
+declare -r domain_separator="$(cast keccak "$(cast abi-encode 'foo(bytes32,uint256,address)' "$domain_type_hash" $chainid "$safe_address")")"

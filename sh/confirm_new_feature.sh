@@ -156,16 +156,16 @@ declare -r -i auth_deadline
 declare -a calls=()
 
 declare setDescription_call
-setDescription_call="$(cast calldata "$setDescription_sig" $feature "description")"
+setDescription_call="$(cast calldata "$setDescription_sig" $feature "$description")"
 declare -r setDescription_call
 
 calls+=(
     "$(
-        cast concat-hex
-        0x00
-        "$deployer_address"
-        "$(cast to-uint256 0)"
-        "$(cast to-uint256 $(( ("${#setDescription_call}" - 2) / 2 )) )"
+        cast concat-hex                                                  \
+        0x00                                                             \
+        "$deployer_address"                                              \
+        "$(cast to-uint256 0)"                                           \
+        "$(cast to-uint256 $(( ("${#setDescription_call}" - 2) / 2 )) )" \
         "$setDescription_call"
     )"
 )
@@ -176,11 +176,11 @@ declare -r authorize_call
 
 calls+=(
     "$(
-        cast concat-hex
-        0x00
-        "$deployer_address"
-        "$(cast to-uint256 0)"
-        "$(cast to-uint256 $(( ("${#authorize_call}" - 2) / 2 )) )"
+        cast concat-hex                                             \
+        0x00                                                        \
+        "$deployer_address"                                         \
+        "$(cast to-uint256 0)"                                      \
+        "$(cast to-uint256 $(( ("${#authorize_call}" - 2) / 2 )) )" \
         "$authorize_call"
     )"
 )
@@ -215,7 +215,7 @@ if [[ $wallet_type = 'frame' ]] ; then
     )"
     declare -r typedDataRPC
     signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-    echo 'exit status '"$?"
+    signature="$(jq -r -M .result <<<"$signature")"
 else
     signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
 fi

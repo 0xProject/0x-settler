@@ -121,6 +121,7 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
+declare -r -i feature=1
 declare safe_address
 safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
