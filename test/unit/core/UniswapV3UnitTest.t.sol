@@ -21,6 +21,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
 
     function sellSelf(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
         external
+        takerSubmitted
         returns (uint256)
     {
         return super.sellToUniswapV3(recipient, encodedPath, bps, minBuyAmount);
@@ -32,7 +33,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
-    ) external returns (uint256) {
+    ) external takerSubmitted returns (uint256) {
         return super.sellToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
     }
 
