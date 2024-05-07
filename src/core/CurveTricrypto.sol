@@ -63,7 +63,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal {
-        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, _msgSender(), permit, sig);
+        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(0), permit, sig);
     }
 
     function sellToCurveTricryptoMetaTxn(
@@ -153,6 +153,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         if (payer == address(this)) {
             sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
+            assert(payer == address(0));
             bool isForwarded;
             uint256 nonce;
             uint256 deadline;
@@ -190,7 +191,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
             });
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
-            _transferFrom(permit, transferDetails, payer, sig, isForwarded);
+            _transferFrom(permit, transferDetails, sig, isForwarded);
         }
     }
 }

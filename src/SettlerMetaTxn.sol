@@ -4,7 +4,9 @@ pragma solidity ^0.8.25;
 import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-import {Context} from "./Context.sol";
+import {Permit2PaymentBase} from "./core/Permit2Payment.sol";
+
+import {Context, AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
@@ -21,8 +23,17 @@ contract SettlerMetaTxn is Context, SettlerBase {
         return true;
     }
 
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
         revert ConfusedDeputy();
+    }
+
+    function _operator() internal view override returns (address) {
+        return Context._msgSender();
+    }
+
+    // Solidity inheritance is so stupid
+    function _msgSender() internal view override(Permit2PaymentBase, Context, AbstractContext) returns (address) {
+        return Permit2PaymentBase._msgSender();
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
@@ -69,10 +80,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
         }
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, address msgSender, bytes calldata sig)
-        internal
-        DANGEROUS_freeMemory
-    {
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal DANGEROUS_freeMemory {
         if (action == ISettlerActions.METATXN_RFQ_VIP.selector) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
@@ -89,7 +97,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
                 (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
             );
 
-            fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, msgSender, sig);
+            fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, sig);
         } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
@@ -98,7 +106,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
 
             // We simultaneously transfer-in the taker's tokens and authenticate the
             // metatransaction.
-            _transferFrom(permit, transferDetails, msgSender, sig);
+            _transferFrom(permit, transferDetails, sig);
         } else if (action == ISettlerActions.METATXN_UNISWAPV3_VIP.selector) {
             (
                 address recipient,
@@ -107,7 +115,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
                 ISignatureTransfer.PermitTransferFrom memory permit
             ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
-            sellToUniswapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+            sellToUniswapV3MetaTxn(recipient, path, amountOutMin, permit, sig);
         } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
@@ -116,7 +124,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
                 ISignatureTransfer.PermitTransferFrom memory permit
             ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
 
-            sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, msgSender, permit, sig);
+            sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(0), permit, sig);
         } else if (action == ISettlerActions.METATXN_PANCAKESWAPV3_VIP.selector) {
             (
                 address recipient,
@@ -125,7 +133,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
                 ISignatureTransfer.PermitTransferFrom memory permit
             ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
-            sellToPancakeSwapV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+            sellToPancakeSwapV3MetaTxn(recipient, path, amountOutMin, permit, sig);
         } else if (action == ISettlerActions.METATXN_SOLIDLYV3_VIP.selector) {
             (
                 address recipient,
@@ -134,7 +142,7 @@ contract SettlerMetaTxn is Context, SettlerBase {
                 ISignatureTransfer.PermitTransferFrom memory permit
             ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
-            sellToSolidlyV3MetaTxn(recipient, path, amountOutMin, msgSender, permit, sig);
+            sellToSolidlyV3MetaTxn(recipient, path, amountOutMin, permit, sig);
         } else {
             revert ActionInvalid({i: 0, action: action, data: data});
         }
@@ -153,12 +161,12 @@ contract SettlerMetaTxn is Context, SettlerBase {
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
-            _dispatchVIP(action, data, msgSender, sig);
+            _dispatchVIP(action, data, sig);
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            _dispatch(i, action, data, msgSender);
+            _dispatch(i, action, data);
         }
 
         _checkSlippageAndTransfer(slippage);

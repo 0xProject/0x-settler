@@ -54,7 +54,6 @@ abstract contract PancakeSwapV3 is UniswapV3ForkBase {
         address recipient,
         bytes memory encodedPath,
         uint256 minBuyAmount,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
@@ -64,7 +63,6 @@ abstract contract PancakeSwapV3 is UniswapV3ForkBase {
             recipient,
             encodedPath,
             minBuyAmount,
-            payer,
             permit,
             sig,
             IPancakeSwapV3Callback.pancakeV3SwapCallback.selector

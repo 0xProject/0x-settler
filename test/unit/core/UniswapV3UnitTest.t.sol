@@ -3,9 +3,10 @@ pragma solidity ^0.8.25;
 
 import {UniswapV3} from "src/core/UniswapV3.sol";
 import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
-import {Permit2Payment} from "src/core/Permit2Payment.sol";
+import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
@@ -48,6 +49,19 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
         override
     {
         _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
+    }
+
+    function _operator() internal view override returns (address) {
+        return AllowanceHolderContext._msgSender();
+    }
+
+    function _msgSender()
+        internal
+        view
+        override(Permit2PaymentBase, AllowanceHolderContext, AbstractContext)
+        returns (address)
+    {
+        return Permit2PaymentBase._msgSender();
     }
 }
 

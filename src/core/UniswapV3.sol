@@ -59,7 +59,6 @@ abstract contract UniswapV3 is UniswapV3ForkBase {
         address recipient,
         bytes memory encodedPath,
         uint256 minBuyAmount,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
@@ -69,7 +68,6 @@ abstract contract UniswapV3 is UniswapV3ForkBase {
             recipient,
             encodedPath,
             minBuyAmount,
-            payer,
             permit,
             sig,
             IUniswapV3Callback.uniswapV3SwapCallback.selector

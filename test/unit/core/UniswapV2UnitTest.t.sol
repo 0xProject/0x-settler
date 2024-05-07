@@ -2,8 +2,8 @@
 pragma solidity ^0.8.25;
 
 import {UniswapV2, IUniV2Pair} from "src/core/UniswapV2.sol";
-import {Permit2Payment} from "src/core/Permit2Payment.sol";
-import {Context} from "src/Context.sol";
+import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
+import {Context, AbstractContext} from "src/Context.sol";
 
 import {Utils} from "../Utils.sol";
 import {IERC20} from "src/IERC20.sol";
@@ -21,8 +21,16 @@ contract UniswapV2Dummy is Context, Permit2Payment, UniswapV2 {
         return false;
     }
 
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
         revert();
+    }
+
+    function _operator() internal view override returns (address) {
+        return Context._msgSender();
+    }
+
+    function _msgSender() internal view override(Permit2PaymentBase, Context) returns (address) {
+        return Permit2PaymentBase._msgSender();
     }
 }
 

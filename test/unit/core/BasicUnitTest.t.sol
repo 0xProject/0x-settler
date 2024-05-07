@@ -2,8 +2,8 @@
 pragma solidity ^0.8.25;
 
 import {Basic} from "src/core/Basic.sol";
-import {Permit2Payment} from "src/core/Permit2Payment.sol";
-import {Context} from "src/Context.sol";
+import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
+import {Context, AbstractContext} from "src/Context.sol";
 
 import {IERC20} from "src/IERC20.sol";
 import {Utils} from "../Utils.sol";
@@ -19,8 +19,16 @@ contract BasicDummy is Context, Basic, Permit2Payment {
         return false;
     }
 
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
         revert();
+    }
+
+    function _operator() internal view override returns (address) {
+        return Context._msgSender();
+    }
+
+    function _msgSender() internal view override(Permit2PaymentBase, Context, AbstractContext) returns (address) {
+        return Permit2PaymentBase._msgSender();
     }
 }
 

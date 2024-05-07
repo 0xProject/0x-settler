@@ -2,10 +2,10 @@
 pragma solidity ^0.8.25;
 
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
-import {Permit2Payment} from "src/core/Permit2Payment.sol";
+import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {Context} from "src/Context.sol";
+import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {Utils} from "../Utils.sol";
@@ -35,7 +35,7 @@ contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDu
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
-    ) external {
+    ) external takerSubmitted {
         super.fillRfqOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
@@ -45,10 +45,9 @@ contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDu
         address maker,
         bytes memory makerSig,
         address takerToken,
-        uint256 maxTakerAmount,
-        address msgSender
-    ) external {
-        super.fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, IERC20(takerToken), maxTakerAmount, msgSender);
+        uint256 maxTakerAmount
+    ) external takerSubmitted {
+        super.fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, IERC20(takerToken), maxTakerAmount);
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {
@@ -60,6 +59,19 @@ contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDu
         override
     {
         _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
+    }
+
+    function _operator() internal view override returns (address) {
+        return AllowanceHolderContext._msgSender();
+    }
+
+    function _msgSender()
+        internal
+        view
+        override(Permit2PaymentBase, AllowanceHolderContext, AbstractContext)
+        returns (address)
+    {
+        return Permit2PaymentBase._msgSender();
     }
 }
 
@@ -74,15 +86,23 @@ contract RfqOrderSettlementMetaTxnDummy is Context, RfqOrderSettlementDummyBase 
         bytes memory takerSig,
         bytes32 takerWitness
     ) external metaTx(taker, takerWitness) {
-        super.fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, taker, takerSig);
+        super.fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
     }
 
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
         revert();
+    }
+
+    function _operator() internal view override returns (address) {
+        return Context._msgSender();
+    }
+
+    function _msgSender() internal view override(Permit2PaymentBase, Context, AbstractContext) returns (address) {
+        return Permit2PaymentBase._msgSender();
     }
 }
 
@@ -338,7 +358,7 @@ contract RfqUnitTest is Utils, Test {
         //     uint128(amount)
         // );
 
-        rfq.fillRfqOrderSelf(RECIPIENT, makerPermit, MAKER, hex"dead", TOKEN0, amount, address(this));
+        rfq.fillRfqOrderSelf(RECIPIENT, makerPermit, MAKER, hex"dead", TOKEN0, amount);
     }
 
     function testRfqMetaTxn() public {

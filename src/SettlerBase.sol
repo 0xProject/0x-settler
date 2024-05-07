@@ -142,16 +142,13 @@ abstract contract SettlerBase is
         }
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data, address msgSender)
-        internal
-        DANGEROUS_freeMemory
-    {
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data) internal DANGEROUS_freeMemory {
         if (action == ISettlerActions.TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, msgSender, sig);
+            _transferFrom(permit, transferDetails, sig);
         } else if (action == ISettlerActions.RFQ.selector) {
             (
                 address recipient,
@@ -162,7 +159,7 @@ abstract contract SettlerBase is
                 uint256 maxTakerAmount
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
 
-            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount, msgSender);
+            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
         } else if (action == ISettlerActions.UNISWAPV3.selector) {
             (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
                 abi.decode(data, (address, uint256, uint256, bytes));

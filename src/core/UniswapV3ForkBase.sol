@@ -133,7 +133,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
             encodedPath,
             permit.permitted.amount,
             minBuyAmount,
-            _msgSender(),
+            address(0), // payer
             swapCallbackData,
             callbackSelector,
             callback
@@ -159,7 +159,6 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
     /// @param encodedPath Uniswap-encoded path.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
-    /// @param payer The taker of the transaction and the signer of the permit
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
     /// @return buyAmount Amount of the last token in the path bought.
@@ -169,7 +168,6 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
         address recipient,
         bytes memory encodedPath,
         uint256 minBuyAmount,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         bytes4 callbackSelector,
@@ -186,7 +184,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
             encodedPath,
             permit.permitted.amount,
             minBuyAmount,
-            payer,
+            address(0), // payer
             swapCallbackData,
             callbackSelector,
             callback
@@ -199,22 +197,12 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
         address recipient,
         bytes memory encodedPath,
         uint256 minBuyAmount,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         bytes4 callbackSelector
     ) internal returns (uint256 buyAmount) {
         return sellToUniswapV3ForkMetaTxn(
-            factory,
-            initHash,
-            recipient,
-            encodedPath,
-            minBuyAmount,
-            payer,
-            permit,
-            sig,
-            callbackSelector,
-            _uniV3ForkCallback
+            factory, initHash, recipient, encodedPath, minBuyAmount, permit, sig, callbackSelector, _uniV3ForkCallback
         );
     }
 
@@ -251,7 +239,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
             }
 
             (int256 amount0, int256 amount1) = abi.decode(
-                (payer == address(this) ? _setCallbackAndCall : _setOperatorAndCall)(
+                _setOperatorAndCall(
                     address(pool),
                     abi.encodeCall(
                         pool.swap,
@@ -376,7 +364,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
     // Compute the pool address given two tokens and a poolId.
     function _toPool(address factory, bytes32 initHash, IERC20 inputToken, uint24 poolId, IERC20 outputToken)
         private
-        view
+        pure
         returns (IUniswapV3Pool)
     {
         // address(keccak256(abi.encodePacked(
@@ -453,12 +441,13 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
+            assert(payer == address(0));
             (ISignatureTransfer.PermitTransferFrom memory permit, bool isForwarded) =
                 abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bool));
             bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE:];
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
-            _transferFrom(permit, transferDetails, payer, sig, isForwarded);
+            _transferFrom(permit, transferDetails, sig, isForwarded);
         }
     }
 }

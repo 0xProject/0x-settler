@@ -74,7 +74,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        return fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, _msgSender(), takerSig);
+        return fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
     /// @dev Settle an RfqOrder between maker and taker transfering funds directly between
@@ -87,7 +87,6 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        address taker,
         bytes memory takerSig
     ) internal {
         (
@@ -102,9 +101,14 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         ) = _permitToTransferDetails(takerPermit, maker);
 
         bytes32 witness = _hashConsideration(
-            Consideration({token: takerToken, amount: takerAmount, counterparty: taker, partialFillAllowed: false})
+            Consideration({
+                token: takerToken,
+                amount: takerAmount,
+                counterparty: _msgSender(),
+                partialFillAllowed: false
+            })
         );
-        _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
+        _transferFrom(takerPermit, takerTransferDetails, takerSig);
         _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
 
         _logRfqOrder(
@@ -126,8 +130,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         address maker,
         bytes memory makerSig,
         IERC20 takerToken,
-        uint256 maxTakerAmount,
-        address msgSender
+        uint256 maxTakerAmount
     ) internal {
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered
@@ -141,7 +144,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
             Consideration({
                 token: address(takerToken),
                 amount: maxTakerAmount,
-                counterparty: msgSender,
+                counterparty: _msgSender(),
                 partialFillAllowed: true
             })
         );
