@@ -75,36 +75,6 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory permit
     ) external;
 
-    function SOLIDLYV3(address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) external;
-    function SOLIDLYV3_VIP(
-        address recipient,
-        uint256 amountOutMin,
-        bytes memory path,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) external;
-    function METATXN_SOLIDLYV3_VIP(
-        address recipient,
-        uint256 amountOutMin,
-        bytes memory path,
-        ISignatureTransfer.PermitTransferFrom memory permit
-    ) external;
-
-    function PANCAKESWAPV3(address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) external;
-    function PANCAKESWAPV3_VIP(
-        address recipient,
-        uint256 amountOutMin,
-        bytes memory path,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) external;
-    function METATXN_PANCAKESWAPV3_VIP(
-        address recipient,
-        uint256 amountOutMin,
-        bytes memory path,
-        ISignatureTransfer.PermitTransferFrom memory permit
-    ) external;
-
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
     function METATXN_UNISWAPV3_VIP(
         address recipient,
