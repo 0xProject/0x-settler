@@ -10,7 +10,7 @@ constructor_args="$(cast abi-encode 'constructor(address,address)' "$(get_config
 declare -r constructor_args
 
 declare initcode
-initcode="$(cast concat-hex "$(jq -r -M .bytecode.object < out/Settler.sol/Settler.json)" "$constructor_args")"
+initcode="$(cast concat-hex "$(jq -Mr .bytecode.object < out/Settler.sol/Settler.json)" "$constructor_args")"
 declare -r initcode
 
 declare -r deploy_sig='deploy(uint128,bytes)(address,uint32)'

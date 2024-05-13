@@ -20,5 +20,5 @@ if ! sha256sum -c <<<'24290900be9575d1fb6349098b1c11615a2eac8091bc486bec6cf67239
 fi
 
 function get_secret {
-    jq -r -M ."$1"."$2" < "$project_root"/secrets.json
+    jq -Mr ."$1"."$2" < "$project_root"/secrets.json
 }

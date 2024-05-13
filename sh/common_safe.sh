@@ -100,7 +100,7 @@ eip712_json() {
     fi
     declare -r to
     
-    jq -c \
+    jq -Mc \
     '
     {
       "primaryType": "SafeTx",

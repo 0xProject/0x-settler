@@ -138,7 +138,7 @@ declare signature
 if [[ $wallet_type = 'frame' ]] ; then
     declare typedDataRPC
     typedDataRPC="$(
-        jq -c                  \
+        jq -Mc                 \
         '
         {
             "jsonrpc": "2.0",
@@ -172,7 +172,7 @@ declare -r signing_hash
 # encode the Safe Transaction Service API call
 declare safe_multisig_transaction
 safe_multisig_transaction="$(
-    jq -c \
+    jq -Mc \
     "$eip712_message_json_template"',
         "contractTransactionHash": $signing_hash,
         "sender": $sender,

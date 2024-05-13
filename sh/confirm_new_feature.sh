@@ -138,7 +138,7 @@ description="$(jq -MRs < "$description_file")"
 description="${description:1:$((${#description} - 2))}"
 declare -r description
 
-declare -r setDescription_sig='setDescription(uint128, string)(string)'
+declare -r setDescription_sig='setDescription(uint128,string)(string)'
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
 # calls encoded as operation (always zero) 1 byte
@@ -146,7 +146,7 @@ declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 #                  value                   32 bytes
 #                  data length             32 bytes
 #                  data                    variable
-declare -r multisig_sig='multiSend(bytes)'
+declare -r multisend_sig='multiSend(bytes)'
 
 declare -i auth_deadline
 # one year from the start of this month
@@ -186,7 +186,7 @@ calls+=(
 )
 
 declare new_feature_calldata
-new_feature_calldata="$(cast calldata "$multisig_sig" "$(cast concat-hex "${calls[@]}")")"
+new_feature_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${calls[@]}")")"
 declare -r new_feature_calldata
 
 declare struct_json
@@ -198,7 +198,7 @@ declare signature
 if [[ $wallet_type = 'frame' ]] ; then
     declare typedDataRPC
     typedDataRPC="$(
-        jq -c                  \
+        jq -Mc                 \
         '
         {
             "jsonrpc": "2.0",
@@ -219,7 +219,7 @@ if [[ $wallet_type = 'frame' ]] ; then
         echo "$signature" >&2
         exit 1
     fi
-    signature="$(jq -r -M .result <<<"$signature")"
+    signature="$(jq -Mr .result <<<"$signature")"
 else
     signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
 fi
@@ -236,7 +236,7 @@ declare -r multicall_address
 # encode the Safe Transaction Service API call
 declare safe_multisig_transaction
 safe_multisig_transaction="$(
-    jq -c \
+    jq -Mc \
     "$eip712_message_json_template"',
         "contractTransactionHash": $signing_hash,
         "sender": $sender,

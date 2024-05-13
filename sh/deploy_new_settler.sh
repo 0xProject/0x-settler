@@ -137,16 +137,16 @@ declare signatures
 signatures="$(curl --fail -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
 declare -r signatures
 
-if (( $(jq -r -M .count <<<"$signatures") != 1 )) ; then
+if (( $(jq -Mr .count <<<"$signatures") != 1 )) ; then
     echo 'Bad number of signatures' >&2
     exit 1
 fi
 
 declare other_signer
-other_signer="$(jq -r -M '.results[0].owner' <<<"$signatures")"
+other_signer="$(jq -Mr '.results[0].owner' <<<"$signatures")"
 declare -r other_signer
 declare other_signature
-other_signature="$(jq -r -M '.results[0].signature' <<<"$signatures")"
+other_signature="$(jq -Mr '.results[0].signature' <<<"$signatures")"
 declare -r other_signature
 
 declare signer_lower
