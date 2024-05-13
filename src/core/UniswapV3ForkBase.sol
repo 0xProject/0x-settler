@@ -230,7 +230,7 @@ abstract contract UniswapV3ForkBase is SettlerAbstract {
         assembly ("memory-safe") {
             // Solidity cleans dirty bits automatically
             inputToken := mload(add(encodedPath, 0x14))
-            forkId := mload(add(encodedPath, 0x17))
+            forkId := mload(add(encodedPath, 0x15))
             poolId := mload(add(encodedPath, 0x18))
             outputToken := mload(add(encodedPath, SINGLE_HOP_PATH_SIZE))
         }
