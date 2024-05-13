@@ -22,10 +22,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api-sepolia.etherscan.io/api",
-    "uniV3": {
-      "factory": "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
-    }
+    "etherscanApi": "https://api-sepolia.etherscan.io/api"
   },
   "mainnet": {
     "chainId": 1,
@@ -50,10 +47,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.etherscan.io/api",
-    "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
-    }
+    "etherscanApi": "https://api.etherscan.io/api"
   },
   "polygon": {
     "chainId": 137,
@@ -106,10 +100,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.basescan.org/api",
-    "uniV3": {
-      "factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
-    }
+    "etherscanApi": "https://api.basescan.org/api"
   },
   "base_sepolia": {
     "chainId": 84532,
@@ -134,10 +125,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api-sepolia.basescan.org/api",
-    "uniV3": {
-      "factory": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api-sepolia.basescan.org/api"
   },
   "optimism": {
     "chainId": 10,
@@ -190,10 +178,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api-sepolia-optimism.etherscan.io/api",
-    "uniV3": {
-      "factory": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api-sepolia-optimism.etherscan.io/api"
   },
   "arbitrum": {
     "chainId": 42161,
@@ -246,10 +231,7 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
-    "etherscanApi": "https://api-sepolia.arbiscan.io/api",
-    "uniV3": {
-      "factory": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api-sepolia.arbiscan.io/api"
   },
   "bnb": {
     "chainId": 56,
@@ -274,10 +256,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api.bscscan.com/api",
-    "uniV3": {
-      "factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7"
-    }
+    "etherscanApi": "https://api.bscscan.com/api"
   },
   "avalanche": {
     "chainId": 43114,
@@ -302,10 +281,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api.snowtrace.io/api",
-    "uniV3": {
-      "factory": "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD"
-    }
+    "etherscanApi": "https://api.snowtrace.io/api"
   },
   "blast": {
     "chainId": 81457,

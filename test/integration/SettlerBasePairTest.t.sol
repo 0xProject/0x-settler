@@ -36,9 +36,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
     function setUp() public virtual override {
         super.setUp();
         allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
-        settler = new Settler(
-            0x1F98431c8aD98523631AE4a59f267346ea31F984 // UniV3 Factory
-        );
+        settler = new Settler();
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);

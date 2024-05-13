@@ -63,7 +63,7 @@ contract USDCWETHTest is
         override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest, UniswapV3PairTest, ZeroExPairTest)
         returns (bytes memory)
     {
-        return abi.encodePacked(fromToken(), uint24(500), toToken());
+        return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
     }
 
     function uniswapV2Pool() internal pure override(SettlerPairTest, AllowanceHolderPairTest) returns (address) {

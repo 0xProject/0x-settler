@@ -1,76 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {UniswapV3ForkBase} from "./UniswapV3ForkBase.sol";
+address constant uniswapV3MainnetFactory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+address constant uniswapV3SepoliaFactory = 0x0227628f3F023bb0B980b67D528571c95c6DaC1c;
+address constant uniswapV3BaseFactory = 0x33128a8fC17869897dcE68Ed026d694621f6FDfD;
+address constant uniswapV3BnbFactory = 0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7;
+address constant uniswapV3AvalancheFactory = 0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD;
+bytes32 constant uniswapV3InitHash = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 
 interface IUniswapV3Callback {
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external;
-}
-
-abstract contract UniswapV3 is UniswapV3ForkBase {
-    /// @dev UniswapV3 Factory contract address
-    address private immutable _UNISWAPV3_FACTORY;
-    /// @dev UniswapV3 pool init code hash.
-    bytes32 private constant _UNISWAPV3_INITHASH = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
-
-    constructor(address uniFactory) {
-        _UNISWAPV3_FACTORY = uniFactory;
-    }
-
-    /// see sellToUniswapV3Fork
-    function sellToUniswapV3(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
-        internal
-        returns (uint256 buyAmount)
-    {
-        return sellToUniswapV3Fork(
-            _UNISWAPV3_FACTORY,
-            _UNISWAPV3_INITHASH,
-            recipient,
-            encodedPath,
-            bps,
-            minBuyAmount,
-            IUniswapV3Callback.uniswapV3SwapCallback.selector
-        );
-    }
-
-    /// see sellToUniswapV3ForkVIP
-    function sellToUniswapV3VIP(
-        address recipient,
-        bytes memory encodedPath,
-        uint256 minBuyAmount,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) internal returns (uint256 buyAmount) {
-        return sellToUniswapV3ForkVIP(
-            _UNISWAPV3_FACTORY,
-            _UNISWAPV3_INITHASH,
-            recipient,
-            encodedPath,
-            minBuyAmount,
-            permit,
-            sig,
-            IUniswapV3Callback.uniswapV3SwapCallback.selector
-        );
-    }
-
-    /// see sellToUniswapV3ForkMetaTxn
-    function sellToUniswapV3MetaTxn(
-        address recipient,
-        bytes memory encodedPath,
-        uint256 minBuyAmount,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) internal returns (uint256 buyAmount) {
-        return sellToUniswapV3ForkMetaTxn(
-            _UNISWAPV3_FACTORY,
-            _UNISWAPV3_INITHASH,
-            recipient,
-            encodedPath,
-            minBuyAmount,
-            permit,
-            sig,
-            IUniswapV3Callback.uniswapV3SwapCallback.selector
-        );
-    }
 }

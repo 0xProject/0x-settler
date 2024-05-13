@@ -29,9 +29,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     function setUp() public virtual override {
         super.setUp();
 
-        settlerMetaTxn = new SettlerMetaTxn(
-            0x1F98431c8aD98523631AE4a59f267346ea31F984 // UniV3 Factory
-        );
+        settlerMetaTxn = new SettlerMetaTxn();
 
         // ### Taker ###
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());

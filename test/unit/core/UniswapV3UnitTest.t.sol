@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {UniswapV3} from "src/core/UniswapV3.sol";
-import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
+import {IUniswapV3Pool, UniswapV3ForkBase} from "src/core/UniswapV3ForkBase.sol";
 import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
+import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/UniswapV3.sol";
+import {UnknownForkId} from "src/core/SettlerErrors.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
@@ -16,8 +17,12 @@ import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
-    constructor(address uniFactory) UniswapV3(uniFactory) Permit2Payment() {}
+contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3ForkBase {
+    address internal immutable uniFactory;
+
+    constructor(address _uniFactory) UniswapV3ForkBase() Permit2Payment() {
+        uniFactory = _uniFactory;
+    }
 
     function sellSelf(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
         external
@@ -67,6 +72,21 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
 
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
+    }
+
+    function _uniV3ForkInfo(uint8 forkId)
+        internal
+        view
+        override
+        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+    {
+        if (forkId == 0) {
+            factory = uniFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else {
+            revert UnknownForkId(forkId);
+        }
     }
 }
 

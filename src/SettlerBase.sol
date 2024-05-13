@@ -7,11 +7,9 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
-import {UniswapV3} from "./core/UniswapV3.sol";
+import {UniswapV3ForkBase} from "./core/UniswapV3ForkBase.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {CurveTricrypto} from "./core/CurveTricrypto.sol";
-import {PancakeSwapV3} from "./core/PancakeSwapV3.sol";
-import {SolidlyV3} from "./core/SolidlyV3.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
@@ -76,11 +74,9 @@ abstract contract SettlerBase is
     Permit2Payment,
     Basic,
     RfqOrderSettlement,
-    UniswapV3,
+    UniswapV3ForkBase,
     UniswapV2,
     CurveTricrypto,
-    PancakeSwapV3,
-    SolidlyV3,
     FreeMemory
 {
     using SafeTransferLib for IERC20;
@@ -97,16 +93,6 @@ abstract contract SettlerBase is
     // When you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
-    constructor(address uniFactory)
-        Permit2Payment()
-        Basic()
-        RfqOrderSettlement()
-        UniswapV3(uniFactory)
-        UniswapV2()
-        CurveTricrypto()
-        PancakeSwapV3()
-        SolidlyV3()
-    {}
 
     struct AllowedSlippage {
         address buyToken;
@@ -177,16 +163,6 @@ abstract contract SettlerBase is
                 abi.decode(data, (address, IERC20, uint80, uint256, uint256));
 
             sellToCurveTricrypto(recipient, sellToken, poolInfo, bps, minBuyAmount);
-        } else if (action == ISettlerActions.PANCAKESWAPV3.selector) {
-            (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
-                abi.decode(data, (address, uint256, uint256, bytes));
-
-            sellToPancakeSwapV3(recipient, path, bps, amountOutMin);
-        } else if (action == ISettlerActions.SOLIDLYV3.selector) {
-            (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
-                abi.decode(data, (address, uint256, uint256, bytes));
-
-            sellToSolidlyV3(recipient, path, bps, amountOutMin);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

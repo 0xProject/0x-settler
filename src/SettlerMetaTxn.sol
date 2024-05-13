@@ -17,8 +17,6 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    constructor(address uniFactory) SettlerBase(uniFactory) {}
-
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
     }
@@ -131,24 +129,6 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
             ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
 
             sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(0), permit, sig);
-        } else if (action == ISettlerActions.METATXN_PANCAKESWAPV3_VIP.selector) {
-            (
-                address recipient,
-                uint256 amountOutMin,
-                bytes memory path,
-                ISignatureTransfer.PermitTransferFrom memory permit
-            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-
-            sellToPancakeSwapV3MetaTxn(recipient, path, amountOutMin, permit, sig);
-        } else if (action == ISettlerActions.METATXN_SOLIDLYV3_VIP.selector) {
-            (
-                address recipient,
-                uint256 amountOutMin,
-                bytes memory path,
-                ISignatureTransfer.PermitTransferFrom memory permit
-            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
-
-            sellToSolidlyV3MetaTxn(recipient, path, amountOutMin, permit, sig);
         } else {
             revert ActionInvalid({i: 0, action: action, data: data});
         }

@@ -22,9 +22,17 @@ error InvalidSignatureLen();
 /// @notice Thrown when a slippage limit is exceeded
 error TooMuchSlippage(address token, uint256 expected, uint256 actual);
 
-/// @notice Thrown when a byte array that is supposed to encode a function from
-///         ISettlerActions is not recognized in context.
+/// @notice Thrown when a byte array that is supposed to encode a function from ISettlerActions is
+///         not recognized in context.
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
+
+/// @notice Thrown when attempting a UniswapV3 (or fork) swap where both buy and sell amount are
+///         zero.
+error ZeroSwapAmount();
+
+/// @notice Thrown when the encoded fork ID as part of UniswapV3 fork path is not on the list of
+///         recognized forks for this chain.
+error UnknownForkId(uint8 forkId);
 
 /// @notice Thrown when an AllowanceHolder transfer's permit is past its deadline
 error SignatureExpired(uint256 deadline);

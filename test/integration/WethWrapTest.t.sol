@@ -20,9 +20,7 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.label(address(this), "FoundryTest");
         vm.label(address(_weth), "WETH");
 
-        _settler = new Settler(
-            0x1F98431c8aD98523631AE4a59f267346ea31F984 // UniV3 Factory
-        );
+        _settler = new Settler();
         vm.label(address(_settler), "Settler");
     }
 

@@ -10,7 +10,11 @@ import {ActionInvalid} from "../core/SettlerErrors.sol";
 
 import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ActionInvalid} from "../core/SettlerErrors.sol";
+import {ActionInvalid, UnknownForkId} from "../core/SettlerErrors.sol";
+
+import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/UniswapV3.sol";
+import {pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback} from "../core/PancakeSwapV3.sol";
+import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/SolidlyV3.sol";
 
 // Solidity inheritance is stupid
 import {AbstractContext} from "../Context.sol";
@@ -46,12 +50,33 @@ abstract contract MainnetMixin is MakerPSM, SettlerBase {
         }
         return true;
     }
+
+    function _uniV3ForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+    {
+        if (forkId == 0) {
+            factory = uniswapV3MainnetFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else if (forkId == 1) {
+            factory = pancakeSwapV3Factory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
+        } else if (forkId == 2) {
+            factory = solidlyV3Factory;
+            initHash = solidlyV3InitHash;
+            callbackSelector = ISolidlyV3Callback.solidlyV3SwapCallback.selector;
+        } else {
+            revert UnknownForkId(forkId);
+        }
+    }
 }
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettler is Settler, MainnetMixin {
-    constructor(address uniFactory) Settler(uniFactory) {}
-
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
@@ -77,8 +102,6 @@ contract MainnetSettler is Settler, MainnetMixin {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
-    constructor(address uniFactory) SettlerMetaTxn(uniFactory) {}
-
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal

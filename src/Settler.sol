@@ -18,8 +18,6 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    constructor(address uniFactory) SettlerBase(uniFactory) {}
-
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
     }
@@ -99,26 +97,6 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
             ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
 
             sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
-        } else if (action == ISettlerActions.PANCAKESWAPV3_VIP.selector) {
-            (
-                address recipient,
-                uint256 amountOutMin,
-                bytes memory path,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
-
-            sellToPancakeSwapV3VIP(recipient, path, amountOutMin, permit, sig);
-        } else if (action == ISettlerActions.SOLIDLYV3_VIP.selector) {
-            (
-                address recipient,
-                uint256 amountOutMin,
-                bytes memory path,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
-
-            sellToSolidlyV3VIP(recipient, path, amountOutMin, permit, sig);
         } else {
             result = true;
         }

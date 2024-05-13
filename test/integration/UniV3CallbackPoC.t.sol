@@ -5,12 +5,12 @@ import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {UniswapV3} from "src/core/UniswapV3.sol";
 import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IERC20} from "src/IERC20.sol";
+import {uniswapV3MainnetFactory} from "src/core/UniswapV3.sol";
 
 import {Utils} from "../unit/Utils.sol";
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
@@ -68,9 +68,6 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
     address bob;
     uint256 bobPk;
 
-    // Only used for address derivation.
-    address UNI_FACTORY_ADDRESS;
-
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
 
@@ -96,7 +93,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         }
 
         // Deploy Settler.
-        settler = new Settler(UNI_FACTORY_ADDRESS);
+        settler = new Settler();
 
         // Deploy dummy pool.
         pool = _toPool(token, 500, dai);
@@ -120,7 +117,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
             mstore(0x40, ptr)
         }
         return AddressDerivation.deriveDeterministicContract(
-            UNI_FACTORY_ADDRESS, salt, 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54
+            uniswapV3MainnetFactory, salt, 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54
         );
     }
 
@@ -150,7 +147,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
 
         // Set UniswapV3 swap path.
         uint24 fee = 500;
-        bytes memory uniswapV3Path = abi.encodePacked(dai, fee, token);
+        bytes memory uniswapV3Path = abi.encodePacked(dai, uint8(0), fee, token);
 
         // Set up actions.
         bytes[] memory actions = ActionDataBuilder.build(

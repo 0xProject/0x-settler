@@ -9,7 +9,9 @@ import {ActionInvalid} from "../core/SettlerErrors.sol";
 
 import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ActionInvalid} from "../core/SettlerErrors.sol";
+import {ActionInvalid, UnknownForkId} from "../core/SettlerErrors.sol";
+
+import {uniswapV3SepoliaFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/UniswapV3.sol";
 
 // Solidity inheritance is stupid
 import {AbstractContext} from "../Context.sol";
@@ -34,12 +36,25 @@ abstract contract SepoliaMixin is SettlerBase {
             revert ActionInvalid(i, action, data);
         }
     }
+
+    function _uniV3ForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+    {
+        if (forkId == 0) {
+            factory = uniswapV3SepoliaFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else {
+            revert UnknownForkId(forkId);
+        }
+    }
 }
 
 /// @custom:security-contact security@0x.org
 contract SepoliaSettler is Settler, SepoliaMixin {
-    constructor(address uniFactory) Settler(uniFactory) {}
-
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
@@ -65,8 +80,6 @@ contract SepoliaSettler is Settler, SepoliaMixin {
 
 /// @custom:security-contact security@0x.org
 contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
-    constructor(address uniFactory) SettlerMetaTxn(uniFactory) {}
-
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
