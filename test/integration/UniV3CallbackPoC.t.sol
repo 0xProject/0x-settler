@@ -5,12 +5,12 @@ import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
+import {IUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IERC20} from "src/IERC20.sol";
-import {uniswapV3MainnetFactory} from "src/core/UniswapV3.sol";
+import {uniswapV3MainnetFactory} from "src/core/univ3forks/UniswapV3.sol";
 
 import {Utils} from "../unit/Utils.sol";
 import {Permit2Signature} from "../utils/Permit2Signature.sol";

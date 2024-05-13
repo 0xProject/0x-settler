@@ -12,9 +12,11 @@ import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ActionInvalid, UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/UniswapV3.sol";
-import {pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback} from "../core/PancakeSwapV3.sol";
-import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/SolidlyV3.sol";
+import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {
+    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
+} from "../core/univ3forks/PancakeSwapV3.sol";
+import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/univ3forks/SolidlyV3.sol";
 
 // Solidity inheritance is stupid
 import {AbstractContext} from "../Context.sol";

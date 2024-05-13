@@ -32,7 +32,7 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
-abstract contract UniswapV3ForkBase is SettlerAbstract {
+abstract contract UniswapV3Fork is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 

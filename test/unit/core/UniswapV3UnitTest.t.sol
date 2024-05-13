@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IUniswapV3Pool, UniswapV3ForkBase} from "src/core/UniswapV3ForkBase.sol";
+import {IUniswapV3Pool, UniswapV3Fork} from "src/core/UniswapV3Fork.sol";
 import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
-import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/UniswapV3.sol";
+import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
 import {UnknownForkId} from "src/core/SettlerErrors.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
@@ -17,10 +17,10 @@ import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3ForkBase {
+contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3Fork {
     address internal immutable uniFactory;
 
-    constructor(address _uniFactory) UniswapV3ForkBase() Permit2Payment() {
+    constructor(address _uniFactory) UniswapV3Fork() Permit2Payment() {
         uniFactory = _uniFactory;
     }
 

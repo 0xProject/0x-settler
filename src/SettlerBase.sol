@@ -7,7 +7,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
-import {UniswapV3ForkBase} from "./core/UniswapV3ForkBase.sol";
+import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {CurveTricrypto} from "./core/CurveTricrypto.sol";
 import {FreeMemory} from "./utils/FreeMemory.sol";
@@ -74,7 +74,7 @@ abstract contract SettlerBase is
     Permit2Payment,
     Basic,
     RfqOrderSettlement,
-    UniswapV3ForkBase,
+    UniswapV3Fork,
     UniswapV2,
     CurveTricrypto,
     FreeMemory

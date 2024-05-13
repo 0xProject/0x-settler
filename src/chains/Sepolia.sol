@@ -11,7 +11,7 @@ import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ActionInvalid, UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3SepoliaFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/UniswapV3.sol";
+import {uniswapV3SepoliaFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 
 // Solidity inheritance is stupid
 import {AbstractContext} from "../Context.sol";
