@@ -3,7 +3,8 @@ pragma solidity ^0.8.25;
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
-import {Settler, SettlerBase} from "src/Settler.sol";
+import {Settler} from "src/Settler.sol";
+import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 

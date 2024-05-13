@@ -14,8 +14,9 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
+import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet.sol";
 import {Settler} from "src/Settler.sol";
-import {SettlerMetaTxn, SettlerBase} from "src/SettlerMetaTxn.sol";
+import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
@@ -29,8 +30,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         super.setUp();
 
         settlerMetaTxn = new SettlerMetaTxn(
-            0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
-            0x6B175474E89094C44Da98b954EedeAC495271d0F // DAI
+            0x1F98431c8aD98523631AE4a59f267346ea31F984 // UniV3 Factory
         );
 
         // ### Taker ###

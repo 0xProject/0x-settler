@@ -6,7 +6,7 @@ if [ ! -f "$project_root"/out/Settler.sol/Settler.json ] ; then
 fi
 
 declare constructor_args
-constructor_args="$(cast abi-encode 'constructor(address,address)' "$(get_config uniV3.factory)" "$(get_config makerPsm.dai)")"
+constructor_args="$(cast abi-encode 'constructor(address)' "$(get_config uniV3.factory)")"
 declare -r constructor_args
 
 declare initcode

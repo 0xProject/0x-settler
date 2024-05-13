@@ -9,13 +9,12 @@ import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3} from "./core/UniswapV3.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
-import {IPSM, MakerPSM} from "./core/MakerPSM.sol";
 import {CurveTricrypto} from "./core/CurveTricrypto.sol";
 import {PancakeSwapV3} from "./core/PancakeSwapV3.sol";
 import {SolidlyV3} from "./core/SolidlyV3.sol";
+import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
-import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {TooMuchSlippage} from "./core/SettlerErrors.sol";
@@ -79,7 +78,6 @@ abstract contract SettlerBase is
     RfqOrderSettlement,
     UniswapV3,
     UniswapV2,
-    MakerPSM,
     CurveTricrypto,
     PancakeSwapV3,
     SolidlyV3,
@@ -99,13 +97,12 @@ abstract contract SettlerBase is
     // When you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
-    constructor(address uniFactory, address dai)
+    constructor(address uniFactory)
         Permit2Payment()
         Basic()
         RfqOrderSettlement()
         UniswapV3(uniFactory)
         UniswapV2()
-        MakerPSM(dai)
         CurveTricrypto()
         PancakeSwapV3()
         SolidlyV3()
@@ -142,7 +139,7 @@ abstract contract SettlerBase is
         }
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data) internal DANGEROUS_freeMemory {
+    function _dispatch(uint256, bytes4 action, bytes calldata data) internal virtual override returns (bool) {
         if (action == ISettlerActions.TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
@@ -170,16 +167,6 @@ abstract contract SettlerBase is
                 abi.decode(data, (address, address, address, uint8, uint256, uint256));
 
             sellToUniswapV2(recipient, sellToken, pool, swapInfo, bps, amountOutMin);
-        } else if (action == ISettlerActions.MAKERPSM_SELL.selector) {
-            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
-
-            makerPsmSellGem(recipient, bps, psm, gemToken);
-        } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
-            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
-
-            makerPsmBuyGem(recipient, bps, psm, gemToken);
         } else if (action == ISettlerActions.BASIC.selector) {
             (address pool, IERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
                 abi.decode(data, (address, IERC20, uint256, uint256, bytes));
@@ -218,7 +205,8 @@ abstract contract SettlerBase is
                 }
             }
         } else {
-            revert ActionInvalid({i: i, action: action, data: data});
+            return false;
         }
+        return true;
     }
 }

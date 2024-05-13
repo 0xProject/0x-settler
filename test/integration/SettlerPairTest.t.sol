@@ -13,7 +13,8 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {Settler, SettlerBase} from "src/Settler.sol";
+import {Settler} from "src/Settler.sol";
+import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 

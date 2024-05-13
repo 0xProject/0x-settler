@@ -22,11 +22,15 @@ error InvalidSignatureLen();
 /// @notice Thrown when a slippage limit is exceeded
 error TooMuchSlippage(address token, uint256 expected, uint256 actual);
 
+/// @notice Thrown when a byte array that is supposed to encode a function from
+///         ISettlerActions is not recognized in context.
+error ActionInvalid(uint256 i, bytes4 action, bytes data);
+
 /// @notice Thrown when an AllowanceHolder transfer's permit is past its deadline
 error SignatureExpired(uint256 deadline);
 
 /// @notice An internal error that should never be thrown. Thrown when a callback reenters the
-///         entrypoint and attempts to clobber the existing callback
+///         entrypoint and attempts to clobber the existing callback.
 error ReentrantCallback(uint256 callbackInt);
 
 /// @notice An internal error that should never be thrown. This error can only be thrown by

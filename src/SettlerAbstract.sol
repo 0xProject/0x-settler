@@ -15,4 +15,6 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
     }
 
     function _hasMetaTxn() internal pure virtual returns (bool);
+
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data) internal virtual returns (bool);
 }

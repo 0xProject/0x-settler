@@ -64,6 +64,10 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
     {
         return Permit2PaymentBase._msgSender();
     }
+
+    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
 }
 
 /// @dev We need a dummy to actually call our contract, so it needs an implementation which at the very least

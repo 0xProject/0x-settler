@@ -32,6 +32,10 @@ contract UniswapV2Dummy is Context, Permit2Payment, UniswapV2 {
     function _msgSender() internal view override(Permit2PaymentBase, Context) returns (address) {
         return Permit2PaymentBase._msgSender();
     }
+
+    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
 }
 
 contract UniswapV2UnitTest is Utils, Test {

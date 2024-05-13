@@ -14,12 +14,11 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 
-/// @custom:security-contact security@0x.org
-contract Settler is AllowanceHolderContext, SettlerBase {
+abstract contract Settler is AllowanceHolderContext, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    constructor(address uniFactory, address dai) SettlerBase(uniFactory, dai) {}
+    constructor(address uniFactory) SettlerBase(uniFactory) {}
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
@@ -28,6 +27,7 @@ contract Settler is AllowanceHolderContext, SettlerBase {
     function _isRestrictedTarget(address target)
         internal
         pure
+        virtual
         override(Permit2PaymentAbstract, Permit2PaymentBase)
         returns (bool)
     {
@@ -49,6 +49,7 @@ contract Settler is AllowanceHolderContext, SettlerBase {
     function _msgSender()
         internal
         view
+        virtual
         // Solidity inheritance is so stupid
         override(Permit2PaymentBase, AllowanceHolderContext, AbstractContext)
         returns (address)

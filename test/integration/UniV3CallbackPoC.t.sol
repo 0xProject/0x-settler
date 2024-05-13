@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {Settler} from "src/Settler.sol";
+import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {UniswapV3} from "src/core/UniswapV3.sol";
 import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
@@ -47,7 +47,8 @@ contract UniswapV3PoolDummy {
 }
 
 contract Shim {
-    function chainId() external returns (uint256) {
+    // forgefmt: disable-next-line
+    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
         return block.chainid;
     }
 }
@@ -95,7 +96,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         }
 
         // Deploy Settler.
-        settler = new Settler(UNI_FACTORY_ADDRESS, dai);
+        settler = new Settler(UNI_FACTORY_ADDRESS);
 
         // Deploy dummy pool.
         pool = _toPool(token, 500, dai);
@@ -139,7 +140,6 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
 
         // Alice sets up the permit and transfer details.
         address operator = address(settler);
-        address recipient = address(settler);
         uint256 amount = 777;
 
         ISignatureTransfer.PermitTransferFrom memory permit = defaultERC20PermitTransfer(dai, amount, 1);

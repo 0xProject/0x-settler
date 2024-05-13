@@ -13,11 +13,11 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {ConfusedDeputy} from "./core/SettlerErrors.sol";
 
-contract SettlerMetaTxn is Context, SettlerBase {
+abstract contract SettlerMetaTxn is Context, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    constructor(address uniFactory, address dai) SettlerBase(uniFactory, dai) {}
+    constructor(address uniFactory) SettlerBase(uniFactory) {}
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
@@ -32,7 +32,13 @@ contract SettlerMetaTxn is Context, SettlerBase {
     }
 
     // Solidity inheritance is so stupid
-    function _msgSender() internal view override(Permit2PaymentBase, Context, AbstractContext) returns (address) {
+    function _msgSender()
+        internal
+        view
+        virtual
+        override(Permit2PaymentBase, Context, AbstractContext)
+        returns (address)
+    {
         return Permit2PaymentBase._msgSender();
     }
 

@@ -4,7 +4,8 @@ pragma solidity ^0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
-import {Settler, SettlerBase} from "src/Settler.sol";
+import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
+import {SettlerBase} from "src/SettlerBase.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
@@ -20,8 +21,7 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.label(address(_weth), "WETH");
 
         _settler = new Settler(
-            0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
-            0x6B175474E89094C44Da98b954EedeAC495271d0F // DAI
+            0x1F98431c8aD98523631AE4a59f267346ea31F984 // UniV3 Factory
         );
         vm.label(address(_settler), "Settler");
     }

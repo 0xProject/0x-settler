@@ -70,7 +70,8 @@ library SafeConfig {
 
     uint256 internal constant deploymentSafeThreshold = 2;
 
-    function getDeploymentSafeSigners() internal view returns (address[] memory) {
+    // forgefmt: disable-next-line
+    function getDeploymentSafeSigners() internal view returns (address[] memory) { // this is non-view (mutable) on purpose
         address[] memory result = new address[](7);
         result[0] = 0x24420bC8C760787F3eEF3b809e81f44d31a9c5A2; // Jacob
         result[1] = 0x000000c397124D0375555F435e201F83B636C26C; // Kyu

@@ -158,6 +158,7 @@ contract DeploySafes is Script {
         address safeMulticall,
         Feature feature,
         string calldata initialDescription,
+        string calldata chainDisplayName,
         bytes calldata constructorArgs
     ) public {
         require(address(safeFactory).codehash == factoryHash, "Safe factory codehash");
@@ -216,8 +217,15 @@ contract DeploySafes is Script {
         bytes memory setDescriptionCall = abi.encodeCall(Deployer.setDescription, (feature, initialDescription));
         bytes memory authorizeCall =
             abi.encodeCall(Deployer.authorize, (feature, deploymentSafe, uint40(block.timestamp + 365 days)));
-        bytes memory deployCall =
-            abi.encodeCall(Deployer.deploy, (feature, bytes.concat(type(Settler).creationCode, constructorArgs)));
+        bytes memory deployCall = abi.encodeCall(
+            Deployer.deploy,
+            (
+                feature,
+                bytes.concat(
+                    vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "Settler")), constructorArgs
+                )
+            )
+        );
 
         address[] memory deployerOwners = SafeConfig.getDeploymentSafeSigners();
         bytes memory deploymentChangeOwnersCall =

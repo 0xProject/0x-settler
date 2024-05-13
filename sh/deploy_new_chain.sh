@@ -231,7 +231,7 @@ declare -r upgrade_safe
 
 # encode constructor arguments for Settler
 declare constructor_args
-constructor_args="$(cast abi-encode 'constructor(address,address)' "$(get_config uniV3.factory)" "$(get_config makerPsm.dai)")"
+constructor_args="$(cast abi-encode 'constructor(address)' "$(get_config uniV3.factory)")"
 declare -r constructor_args
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
@@ -270,10 +270,10 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,string,bytes)' \
+    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,string,bytes,string)' \
     $(get_config extraFlags)                             \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$feature" "$description" "$constructor_args"
+    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$feature" "$description" "$constructor_args" "$(get_config displayName)"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -a common_args=()

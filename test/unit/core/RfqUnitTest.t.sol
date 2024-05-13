@@ -73,6 +73,10 @@ contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDu
     {
         return Permit2PaymentBase._msgSender();
     }
+
+    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
 }
 
 contract RfqOrderSettlementMetaTxnDummy is Context, RfqOrderSettlementDummyBase {
@@ -103,6 +107,10 @@ contract RfqOrderSettlementMetaTxnDummy is Context, RfqOrderSettlementDummyBase 
 
     function _msgSender() internal view override(Permit2PaymentBase, Context, AbstractContext) returns (address) {
         return Permit2PaymentBase._msgSender();
+    }
+
+    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
     }
 }
 
