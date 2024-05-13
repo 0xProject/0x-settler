@@ -27,7 +27,7 @@ abstract contract ZeroExPairTest is BasePairTest {
     address private constant UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address private constant ZERO_EX_TRANSFORMER_DEPLOYER = 0x39dCe47a67aD34344EAB877eaE3Ef1FA2a1d50Bb;
 
-    function uniswapV3Path() internal virtual returns (bytes memory);
+    function uniswapV3PathCompat() internal virtual returns (bytes memory);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
     // OTCOrder
@@ -59,7 +59,7 @@ abstract contract ZeroExPairTest is BasePairTest {
         calls[0] = IZeroEx.BatchSellSubcall({
             id: IZeroEx.MultiplexSubcall.UniswapV3,
             sellAmount: amount(),
-            data: uniswapV3Path()
+            data: uniswapV3PathCompat()
         });
 
         bytes memory mtxCallData = abi.encodeWithSelector(
@@ -92,7 +92,7 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_uniswapV3VIP() public {
-        bytes memory _uniswapV3Path = uniswapV3Path();
+        bytes memory _uniswapV3Path = uniswapV3PathCompat();
         uint256 _amount = amount();
         address _FROM = FROM;
         vm.startPrank(FROM);
@@ -106,7 +106,7 @@ abstract contract ZeroExPairTest is BasePairTest {
         calls[0] = IZeroEx.BatchSellSubcall({
             id: IZeroEx.MultiplexSubcall.UniswapV3,
             sellAmount: amount(),
-            data: uniswapV3Path()
+            data: uniswapV3PathCompat()
         });
 
         IERC20 _fromToken = fromToken();
@@ -124,12 +124,12 @@ abstract contract ZeroExPairTest is BasePairTest {
         calls[0] = IZeroEx.BatchSellSubcall({
             id: IZeroEx.MultiplexSubcall.UniswapV3,
             sellAmount: amount() / 2,
-            data: uniswapV3Path()
+            data: uniswapV3PathCompat()
         });
         calls[1] = IZeroEx.BatchSellSubcall({
             id: IZeroEx.MultiplexSubcall.UniswapV3,
             sellAmount: amount() / 2,
-            data: uniswapV3Path()
+            data: uniswapV3PathCompat()
         });
 
         IERC20 _fromToken = fromToken();
@@ -166,8 +166,9 @@ abstract contract ZeroExPairTest is BasePairTest {
     }
 
     function testZeroEx_uniswapV3_transformERC20() public {
-        ITransformERC20Feature.Transformation[] memory transformations =
-            createSimpleFQTTransformation(BridgeProtocols.UNISWAPV3, abi.encode(UNISWAP_V3_ROUTER, uniswapV3Path()), 1);
+        ITransformERC20Feature.Transformation[] memory transformations = createSimpleFQTTransformation(
+            BridgeProtocols.UNISWAPV3, abi.encode(UNISWAP_V3_ROUTER, uniswapV3PathCompat()), 1
+        );
 
         IERC20 _fromToken = fromToken();
         IERC20 _toToken = toToken();
@@ -207,7 +208,7 @@ abstract contract ZeroExPairTest is BasePairTest {
         calls[0] = IZeroEx.BatchSellSubcall({
             id: IZeroEx.MultiplexSubcall.UniswapV3,
             sellAmount: amount(),
-            data: uniswapV3Path()
+            data: uniswapV3PathCompat()
         });
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(FROM_PRIVATE_KEY, mtxHash);
