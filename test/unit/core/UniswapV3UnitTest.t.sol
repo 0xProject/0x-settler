@@ -145,7 +145,7 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
+        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
@@ -176,7 +176,7 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount + 1;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
+        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
@@ -209,7 +209,7 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
+        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
         // Override the UniswapV3 pool code to callback our contract
         // There's probably a smarter way to do this tbh
         deployCodeTo(
@@ -240,7 +240,7 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint24(500), TOKEN1);
+        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
         // Override the UniswapV3 pool code to callback our contract
         // There's probably a smarter way to do this tbh
         deployCodeTo(
