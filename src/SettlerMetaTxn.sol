@@ -128,7 +128,7 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
                 ISignatureTransfer.PermitTransferFrom memory permit
             ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
 
-            sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(0), permit, sig);
+            sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, permit, sig);
         } else {
             revert ActionInvalid({i: 0, action: action, data: data});
         }

@@ -158,11 +158,6 @@ abstract contract SettlerBase is
                 abi.decode(data, (address, IERC20, uint256, uint256, bytes));
 
             basicSellToPool(pool, sellToken, proportion, offset, _data);
-        } else if (action == ISettlerActions.CURVE_TRICRYPTO.selector) {
-            (address recipient, IERC20 sellToken, uint80 poolInfo, uint256 bps, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, uint80, uint256, uint256));
-
-            sellToCurveTricrypto(recipient, sellToken, poolInfo, bps, minBuyAmount);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

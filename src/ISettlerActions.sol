@@ -61,8 +61,6 @@ interface ISettlerActions {
     function MAKERPSM_SELL(address recipient, uint256 bps, address psm, address gemToken) external;
     function MAKERPSM_BUY(address recipient, uint256 bps, address psm, address gemToken) external;
 
-    function CURVE_TRICRYPTO(address recipient, address sellToken, uint80 poolInfo, uint256 bps, uint256 minBuyAmount)
-        external;
     function CURVE_TRICRYPTO_VIP(
         address recipient,
         uint80 poolInfo,

@@ -44,18 +44,6 @@ abstract contract CurveTricrypto is SettlerAbstract {
     // uint256 private constant codePrefixLen = 0x539d;
     // bytes32 private constant codePrefixHash = 0xec96085e693058e09a27755c07882ced27117a3161b1fdaf131a14c7db9978b7;
 
-    function sellToCurveTricrypto(
-        address recipient,
-        IERC20 sellToken,
-        uint80 poolInfo,
-        uint256 bps,
-        uint256 minBuyAmount
-    ) internal {
-        ISignatureTransfer.PermitTransferFrom memory permit;
-        permit.permitted.amount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
-        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(this), permit, new bytes(0));
-    }
-
     function sellToCurveTricryptoVIP(
         address recipient,
         uint80 poolInfo,
@@ -63,14 +51,13 @@ abstract contract CurveTricrypto is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal {
-        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, address(0), permit, sig);
+        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, permit, sig);
     }
 
     function sellToCurveTricryptoMetaTxn(
         address recipient,
         uint80 poolInfo,
         uint256 minBuyAmount,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal {
@@ -90,25 +77,23 @@ abstract contract CurveTricrypto is SettlerAbstract {
         }
         */
         bool isForwarded = _isForwarded();
-        if (payer != address(this)) {
-            assembly ("memory-safe") {
-                tstore(0x00, isForwarded)
-                tstore(0x01, mload(add(0x20, permit))) // nonce
-                tstore(0x02, mload(add(0x40, permit))) // deadline
-                for {
-                    let src := add(0x20, sig)
-                    let end
-                    {
-                        let len := mload(sig)
-                        end := add(len, src)
-                        tstore(0x03, len)
-                    }
-                    let dst := 0x04
-                } lt(src, end) {
-                    src := add(0x20, src)
-                    dst := add(0x01, dst)
-                } { tstore(dst, mload(src)) }
-            }
+        assembly ("memory-safe") {
+            tstore(0x00, isForwarded)
+            tstore(0x01, mload(add(0x20, permit))) // nonce
+            tstore(0x02, mload(add(0x40, permit))) // deadline
+            for {
+                let src := add(0x20, sig)
+                let end
+                {
+                    let len := mload(sig)
+                    end := add(len, src)
+                    tstore(0x03, len)
+                }
+                let dst := 0x04
+            } lt(src, end) {
+                src := add(0x20, src)
+                dst := add(0x01, dst)
+            } { tstore(dst, mload(src)) }
         }
         _setOperatorAndCall(
             pool,
@@ -120,7 +105,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                     permit.permitted.amount,
                     minBuyAmount,
                     false,
-                    payer,
+                    address(0), // payer
                     recipient,
                     bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
                 )
@@ -150,48 +135,44 @@ abstract contract CurveTricrypto is SettlerAbstract {
     function curveTricryptoSwapCallback(address payer, address, IERC20 sellToken, uint256 sellAmount, uint256)
         private
     {
-        if (payer == address(this)) {
-            sellToken.safeTransfer(msg.sender, sellAmount);
-        } else {
-            assert(payer == address(0));
-            bool isForwarded;
-            uint256 nonce;
-            uint256 deadline;
-            bytes memory sig;
-            assembly ("memory-safe") {
-                isForwarded := tload(0x00)
-                tstore(0x00, 0x00)
-                nonce := tload(0x01)
-                tstore(0x01, 0x00)
-                deadline := tload(0x02)
-                tstore(0x02, 0x00)
-                sig := mload(0x40)
-                for {
-                    let dst := add(0x20, sig)
-                    let end
-                    {
-                        let len := tload(0x03)
-                        end := add(dst, len)
-                        mstore(sig, len)
-                        mstore(0x40, end)
-                    }
-                    let src := 0x04
-                } lt(dst, end) {
-                    src := add(0x01, src)
-                    dst := add(0x20, dst)
-                } {
-                    mstore(dst, tload(src))
-                    tstore(src, 0x00)
+        assert(payer == address(0));
+        bool isForwarded;
+        uint256 nonce;
+        uint256 deadline;
+        bytes memory sig;
+        assembly ("memory-safe") {
+            isForwarded := tload(0x00)
+            tstore(0x00, 0x00)
+            nonce := tload(0x01)
+            tstore(0x01, 0x00)
+            deadline := tload(0x02)
+            tstore(0x02, 0x00)
+            sig := mload(0x40)
+            for {
+                let dst := add(0x20, sig)
+                let end
+                {
+                    let len := tload(0x03)
+                    end := add(dst, len)
+                    mstore(sig, len)
+                    mstore(0x40, end)
                 }
+                let src := 0x04
+            } lt(dst, end) {
+                src := add(0x01, src)
+                dst := add(0x20, dst)
+            } {
+                mstore(dst, tload(src))
+                tstore(src, 0x00)
             }
-            ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-                permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: sellAmount}),
-                nonce: nonce,
-                deadline: deadline
-            });
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-                _permitToTransferDetails(permit, msg.sender);
-            _transferFrom(permit, transferDetails, sig, isForwarded);
         }
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: sellAmount}),
+            nonce: nonce,
+            deadline: deadline
+        });
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
+            _permitToTransferDetails(permit, msg.sender);
+        _transferFrom(permit, transferDetails, sig, isForwarded);
     }
 }
