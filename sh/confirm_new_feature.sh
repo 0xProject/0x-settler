@@ -141,13 +141,6 @@ declare -r description
 declare -r setDescription_sig='setDescription(uint128,string)(string)'
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
-# calls encoded as operation (always zero) 1 byte
-#                  target address          20 bytes
-#                  value                   32 bytes
-#                  data length             32 bytes
-#                  data                    variable
-declare -r multisend_sig='multiSend(bytes)'
-
 declare -i auth_deadline
 # one year from the start of this month
 auth_deadline="$(date -d "$(("$(date -u '+%Y')" + 1))-$(date -u '+%m')-01T00:00:00-00:00" '+%s')"
@@ -215,7 +208,7 @@ if [[ $wallet_type = 'frame' ]] ; then
     )"
     declare -r typedDataRPC
     signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-    if [[ $signature == *error* ]] ; then
+    if [[ $signature = *error* ]] ; then
         echo "$signature" >&2
         exit 1
     fi

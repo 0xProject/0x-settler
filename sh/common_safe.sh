@@ -72,6 +72,13 @@ if [[ $wallet_type = 'ledger' ]] ; then
     )
 fi
 
+# calls encoded as operation (always zero) 1 byte
+#                  target address          20 bytes
+#                  value                   32 bytes
+#                  data length             32 bytes
+#                  data                    variable
+declare -r multisend_sig='multiSend(bytes)'
+
 declare -r execTransaction_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
 
 declare -r eip712_message_json_template='{

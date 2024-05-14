@@ -130,7 +130,7 @@ declare -r safe_address
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare struct_json
-struct_json="$(eip712_json "$deploy_calldata")"
+struct_json="$(eip712_json "$deploy_calldata" 1)"
 declare -r struct_json
 
 # sign the message
@@ -155,19 +155,22 @@ if [[ $wallet_type = 'frame' ]] ; then
     )"
     declare -r typedDataRPC
     signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-    echo 'exit status '"$?"
+    if [[ $signature = *error* ]] ; then
+        echo "$signature" >&2
+        exit 1
+    fi
 else
     signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
 fi
 declare -r signature
-if [[ $signature == *error* ]] ; then
-    echo "$signature" >&2
-    exit 1
-fi
 
 declare signing_hash
-signing_hash="$(eip712_hash "$deploy_calldata")"
+signing_hash="$(eip712_hash "$deploy_calldata" 1)"
 declare -r signing_hash
+
+declare multicall_address
+multicall_address="$(get_config safe.multiCall)"
+declare -r multicall_address
 
 # encode the Safe Transaction Service API call
 declare safe_multisig_transaction
@@ -180,9 +183,9 @@ safe_multisig_transaction="$(
         "origin": "0xSettlerCLI"
     }
     '                                  \
-    --arg to "$deployer_address"       \
+    --arg to "$multicall_address"      \
     --arg data "$deploy_calldata"      \
-    --arg call_type 0                  \
+    --arg call_type 1                  \
     --arg nonce "$nonce"               \
     --arg signing_hash "$signing_hash" \
     --arg sender "$signer"             \
