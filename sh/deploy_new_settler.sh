@@ -120,22 +120,32 @@ declare -r project_root
 cd "$project_root"
 
 . "$project_root"/sh/common.sh
+
+declare safe_address
+safe_address="$(get_config governance.deploymentSafe)"
+declare -r safe_address
+
+. "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
+declare signing_hash
+signing_hash="$(eip712_hash "$deploy_calldata" 1)"
+declare -r signing_hash
+
 declare signatures
-signatures="$(curl -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$eip712_hash"'/confirmations/?executed=false' -X GET)"
+signatures="$(curl --fail -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
 declare -r signatures
 
-if (( $(jq -r -M .count <<<"$signatures") != 1 )) ; then
+if (( $(jq -Mr .count <<<"$signatures") != 1 )) ; then
     echo 'Bad number of signatures' >&2
     exit 1
 fi
 
 declare other_signer
-other_signer="$(jq -r -M '.results[0].owner' <<<"$signatures")"
+other_signer="$(jq -Mr '.results[0].owner' <<<"$signatures")"
 declare -r other_signer
 declare other_signature
-other_signature="$(jq -r -M '.results[0].signature' <<<"$signatures")"
+other_signature="$(jq -Mr '.results[0].signature' <<<"$signatures")"
 declare -r other_signature
 
 declare signer_lower
@@ -169,13 +179,15 @@ if (( gas_price < min_gas_price )) ; then
 fi
 declare -r -i gas_price
 
+declare multicall_address
+multicall_address="$(get_config safe.multiCall)"
+declare -r multicall_address
 
 # configure gas limit
-declare -r exec_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
 declare -r -a args=(
-    "$safe_address" "$exec_sig"
+    "$safe_address" "$execTransaction_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-    "$deployer_address" 0 "$deploy_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    "$multicall_address" 0 "$deploy_calldata" 1 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
 )
 
 # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
@@ -187,14 +199,26 @@ gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --chain $chaini
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
-if [[ $wallet_type = 'unlocked' ]] ; then
+if [[ $wallet_type = 'frame' ]] ; then
     cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 else
     cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 fi
 
+echo 'Contracts deployed... verifying taker-submitted Settler' >&2
+
 declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
-declare settler
-settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" "$feature")")")"
-declare -r settler
-forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$settler" src/Settler.sol:Settler
+
+declare taker_settler
+taker_settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" 2)")")"
+declare -r taker_settler
+forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" "$chain_display_name"Settler
+
+echo 'Verified taker-submitted Settler... verifying metatx Settler' >&2
+
+declare metatx_settler
+metatx_settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" 3)")")"
+declare -r metatx_settler
+forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" "$chain_display_name"SettlerMetaTxn
+
+echo 'Verified metatx Settler. All done!' >&2

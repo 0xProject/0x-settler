@@ -6,6 +6,8 @@ import {IERC20} from "../../src/IERC20.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
@@ -19,6 +21,7 @@ contract USDCWETHTest is
     SettlerMetaTxnPairTest,
     ZeroExPairTest,
     UniswapV3PairTest,
+    CurveTricryptoPairTest,
     TokenTransferTest,
     Permit2TransferTest
 {
@@ -26,6 +29,7 @@ contract USDCWETHTest is
         public
         override(
             AllowanceHolderPairTest,
+            SettlerBasePairTest,
             SettlerPairTest,
             SettlerMetaTxnPairTest,
             ZeroExPairTest,
@@ -56,9 +60,13 @@ contract USDCWETHTest is
     function uniswapV3Path()
         internal
         pure
-        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest, UniswapV3PairTest, ZeroExPairTest)
+        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
         returns (bytes memory)
     {
+        return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
+    }
+
+    function uniswapV3PathCompat() internal pure override(UniswapV3PairTest, ZeroExPairTest) returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 

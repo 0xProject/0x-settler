@@ -68,9 +68,13 @@ contract USDTWETHTest is
     function uniswapV3Path()
         internal
         pure
-        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest, UniswapV3PairTest, ZeroExPairTest)
+        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
         returns (bytes memory)
     {
+        return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
+    }
+
+    function uniswapV3PathCompat() internal pure override(UniswapV3PairTest, ZeroExPairTest) returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint24(500), toToken());
     }
 

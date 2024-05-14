@@ -3,17 +3,18 @@ pragma solidity ^0.8.25;
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {Settler} from "src/Settler.sol";
+import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {UniswapV3, IUniswapV3Pool} from "src/core/UniswapV3.sol";
+import {IUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IERC20} from "src/IERC20.sol";
+import {uniswapV3MainnetFactory} from "src/core/univ3forks/UniswapV3.sol";
 
-import {Utils} from "./unit/Utils.sol";
-import {Permit2Signature} from "./utils/Permit2Signature.sol";
-import {ActionDataBuilder} from "./utils/ActionDataBuilder.sol";
+import {Utils} from "../unit/Utils.sol";
+import {Permit2Signature} from "../utils/Permit2Signature.sol";
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {Test, console} from "forge-std/Test.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -35,8 +36,9 @@ contract UniswapV3PoolDummy {
 
     fallback(bytes calldata) external returns (bytes memory) {
         (address recipient,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
-        (bool ok,) =
-            msg.sender.call(abi.encodeWithSelector(UniswapV3.uniswapV3SwapCallback.selector, amount0, amount1, data));
+        (bool ok,) = msg.sender.call(
+            abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", amount0, amount1, data)
+        );
         require(ok, "UniV3Callback failure");
         if (amount0 > 0) token0.transfer(recipient, uint256(amount0));
         if (amount1 > 0) token1.transfer(recipient, uint256(amount1));
@@ -45,7 +47,8 @@ contract UniswapV3PoolDummy {
 }
 
 contract Shim {
-    function chainId() external returns (uint256) {
+    // forgefmt: disable-next-line
+    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
         return block.chainid;
     }
 }
@@ -64,10 +67,6 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
     uint256 alicePk;
     address bob;
     uint256 bobPk;
-
-    // Only used for address derivation.
-    address UNI_FACTORY_ADDRESS;
-    bytes32 UNI_POOL_INIT_CODE_HASH;
 
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
@@ -94,7 +93,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         }
 
         // Deploy Settler.
-        settler = new Settler(UNI_FACTORY_ADDRESS, UNI_POOL_INIT_CODE_HASH, dai);
+        settler = new Settler();
 
         // Deploy dummy pool.
         pool = _toPool(token, 500, dai);
@@ -117,7 +116,9 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
             salt := keccak256(0x00, 0x60)
             mstore(0x40, ptr)
         }
-        return AddressDerivation.deriveDeterministicContract(UNI_FACTORY_ADDRESS, salt, UNI_POOL_INIT_CODE_HASH);
+        return AddressDerivation.deriveDeterministicContract(
+            uniswapV3MainnetFactory, salt, 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54
+        );
     }
 
     bytes32 private constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
@@ -136,7 +137,6 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
 
         // Alice sets up the permit and transfer details.
         address operator = address(settler);
-        address recipient = address(settler);
         uint256 amount = 777;
 
         ISignatureTransfer.PermitTransferFrom memory permit = defaultERC20PermitTransfer(dai, amount, 1);
@@ -147,15 +147,14 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
 
         // Set UniswapV3 swap path.
         uint24 fee = 500;
-        bytes memory uniswapV3Path = abi.encodePacked(dai, fee, token);
+        bytes memory uniswapV3Path = abi.encodePacked(dai, uint8(0), fee, token);
 
         // Set up actions.
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.METATXN_UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                ISettlerActions.METATXN_UNISWAPV3_VIP,
                 (
                     address(settler), // recipient
-                    amount, // amountIn
                     100, // amountOutMin
                     uniswapV3Path, // (token0, fee, token1)
                     permit
@@ -219,7 +218,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         );
         actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     pool, // pool
                     address(0), // sellToken

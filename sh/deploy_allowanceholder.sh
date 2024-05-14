@@ -135,6 +135,8 @@ if (( gas_price < 10000000000 )) ; then
 fi
 declare -r -i gas_price
 
+export FOUNDRY_OPTIMIZER_RUNS=1000000
+
 forge create --no-cache --private-key "$(get_secret allowanceHolderOld key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 
 echo 'Deployment is complete' >&2

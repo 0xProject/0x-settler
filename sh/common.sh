@@ -27,17 +27,17 @@ fi
 declare -r chain_name="$1"
 shift
 
-if [[ $(jq -r -M ."$chain_name" < api_secrets.json) == 'null' ]] ; then
+if [[ $(jq -Mr ."$chain_name" < api_secrets.json) == 'null' ]] ; then
     echo "$chain_name"' is missing from api_secrets.json' >&2
     exit 1
 fi
 
 function get_api_secret {
-    jq -r -M ."$chain_name"."$1" < "$project_root"/api_secrets.json
+    jq -Mr ."$chain_name"."$1" < "$project_root"/api_secrets.json
 }
 
 function get_config {
-    jq -r -M ."$chain_name"."$1" < "$project_root"/chain_config.json
+    jq -Mr ."$chain_name"."$1" < "$project_root"/chain_config.json
 }
 
 if [[ $(get_config isCancun) != [Ff]alse ]] ; then

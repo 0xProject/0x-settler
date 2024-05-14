@@ -13,4 +13,8 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
     constructor() {
         assert(ACTIONS_AND_SLIPPAGE_TYPEHASH == keccak256(bytes(ACTIONS_AND_SLIPPAGE_TYPE)));
     }
+
+    function _hasMetaTxn() internal pure virtual returns (bool);
+
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data) internal virtual returns (bool);
 }

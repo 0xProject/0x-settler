@@ -110,15 +110,15 @@ tables.push(
     ),
     { stringLength: stringWidth }
   ),
-  // OTC comparisons
+  // RFQ comparisons
   markdownTable(
     generateTable(
-      "OTC",
+      "RFQ",
       [
         ["0x V4", "0x V4", "zeroEx_otcOrder"],
-        ["Settler", "Settler", "settler_otc"],
+        ["Settler", "Settler", "settler_rfq"],
         ["Settler", "0x V4", "settler_zeroExOtc"],
-        ["AllowanceHolder", "Settler", "allowanceHolder_otc"],
+        ["AllowanceHolder", "Settler", "allowanceHolder_rfq"],
       ],
       pairs
     ),
@@ -148,7 +148,7 @@ tables.push(
           "Uniswap V3",
           "settler_uniswapV3_buyToken_fee_single_custody",
         ],
-        ["Settler", "OTC", "settler_otc_buyToken_fee"],
+        ["Settler", "RFQ", "settler_rfq_buyToken_fee"],
       ],
       pairs
     ),
@@ -160,7 +160,7 @@ tables.push(
       "Sell token fee",
       [
         ["Settler", "Uniswap V3", "settler_uniswapV3_sellToken_fee_full_custody"],
-        ["Settler", "OTC", "settler_otc_sellToken_fee"],
+        ["Settler", "RFQ", "settler_rfq_sellToken_fee"],
         ["Settler", "Curve", "settler_curveV2_fee"],
       ],
       pairs
@@ -174,20 +174,20 @@ tables.push(
       [
         ["execute", "Uniswap V3 VIP", "allowanceHolder_uniswapV3VIP"],
         ["Settler - external move then execute", "Uniswap V3", "settler_externalMoveExecute_uniswapV3"],
-        ["execute", "OTC", "allowanceHolder_otc"],
+        ["execute", "RFQ", "allowanceHolder_rfq"],
       ],
       pairs
     ),
     { stringLength: stringWidth }
   ),
-  // Allowance Holder OTC fees
+  // Allowance Holder RFQ fees
   markdownTable(
     generateTable(
       "AllowanceHolder sell token fees",
       [
-        ["no fee", "OTC", "allowanceHolder_otc"],
-        ["proportional fee", "OTC", "allowanceHolder_otc_proportionalFee_sellToken"],
-        ["fixed fee", "OTC", "allowanceHolder_otc_fixedFee_sellToken"],
+        ["no fee", "RFQ", "allowanceHolder_rfq"],
+        ["proportional fee", "RFQ", "allowanceHolder_rfq_proportionalFee_sellToken"],
+        ["fixed fee", "RFQ", "allowanceHolder_rfq_fixedFee_sellToken"],
       ],
       pairs
     ),

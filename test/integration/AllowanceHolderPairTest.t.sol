@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "../../src/IERC20.sol";
+import {IERC20} from "src/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
@@ -11,12 +11,13 @@ import {IZeroEx} from "./vendor/IZeroEx.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
-import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
+import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
-import {Settler} from "../../src/Settler.sol";
-import {ISettlerActions} from "../../src/ISettlerActions.sol";
-import {OtcOrderSettlement} from "../../src/core/OtcOrderSettlement.sol";
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {Settler} from "src/Settler.sol";
+import {SettlerBase} from "src/SettlerBase.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
 abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
@@ -35,7 +36,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             // Perform a transfer into Settler via AllowanceHolder
             abi.encodeCall(
-                ISettlerActions.PERMIT2_TRANSFER_FROM,
+                ISettlerActions.TRANSFER_FROM,
                 (
                     address(settler),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
@@ -43,7 +44,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 )
             ),
             // Execute UniswapV3 from the Settler balance
-            abi.encodeCall(ISettlerActions.UNISWAPV3_SWAP_EXACT_IN, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -63,7 +64,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -73,10 +77,9 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    amount(),
                     0,
                     uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
@@ -102,7 +105,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -112,10 +118,9 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
-                ISettlerActions.UNISWAPV3_PERMIT2_SWAP_EXACT_IN,
+                ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    amount(),
                     0,
                     uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
@@ -141,19 +146,22 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
     }
 
-    function testAllowanceHolder_otc_VIP() public {
+    function testAllowanceHolder_rfq_VIP() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
-        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+        RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
             token: address(fromToken()),
             amount: amount(),
             counterparty: FROM,
@@ -162,15 +170,13 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
         );
 
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_PERMIT2, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig)
-            )
+            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -180,7 +186,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         //_warm_allowanceHolder_slots(address(_fromToken), _amount);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_otc");
+        snapStartName("allowanceHolder_rfq");
         //_cold_account_access();
 
         _allowanceHolder.exec(
@@ -190,19 +196,22 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
     }
 
-    function testAllowanceHolder_otc_proportionalFee() public {
+    function testAllowanceHolder_rfq_proportionalFee() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
-        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+        RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
             token: address(fromToken()),
             amount: amount(),
             counterparty: FROM,
@@ -211,15 +220,15 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
         );
 
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(fromToken()),
                     address(fromToken()),
@@ -228,10 +237,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
                 )
             ),
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
-                (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount())
-            )
+            abi.encodeCall(ISettlerActions.RFQ, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -241,7 +247,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         //_warm_allowanceHolder_slots(address(_fromToken), _amount);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_otc_proportionalFee_sellToken");
+        snapStartName("allowanceHolder_rfq_proportionalFee_sellToken");
         //_cold_account_access();
 
         _allowanceHolder.exec(
@@ -251,19 +257,22 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
     }
 
-    function testAllowanceHolder_otc_fixedFee() public {
+    function testAllowanceHolder_rfq_fixedFee() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
-        OtcOrderSettlement.Consideration memory makerConsideration = OtcOrderSettlement.Consideration({
+        RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
             token: address(fromToken()),
             amount: amount(),
             counterparty: FROM,
@@ -272,15 +281,15 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit, address(settler), MAKER_PRIVATE_KEY, OTC_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
+            makerPermit, address(settler), MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
         );
 
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
+                ISettlerActions.BASIC,
                 (
                     address(fromToken()),
                     address(0),
@@ -289,10 +298,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, amount() * 1_000 / 10_000))
                 )
             ),
-            abi.encodeCall(
-                ISettlerActions.SETTLER_OTC_SELF_FUNDED,
-                (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount())
-            )
+            abi.encodeCall(ISettlerActions.RFQ, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -302,7 +308,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         //_warm_allowanceHolder_slots(address(_fromToken), _amount);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_otc_fixedFee_sellToken");
+        snapStartName("allowanceHolder_rfq_fixedFee_sellToken");
         //_cold_account_access();
 
         _allowanceHolder.exec(
@@ -312,7 +318,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -326,16 +335,14 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.PERMIT2_TRANSFER_FROM,
+                ISettlerActions.TRANSFER_FROM,
                 (
                     uniswapV2Pool(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
                     new bytes(0) /* sig (empty) */
                 )
             ),
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2_SWAP, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0)
-            )
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -355,7 +362,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             payable(address(_settler)),
             abi.encodeCall(
                 _settler.execute,
-                (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+                (
+                    actions,
+                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                )
             )
         );
         snapEnd();
@@ -365,7 +375,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = new bytes[](0);
         bytes memory call = abi.encodeCall(
             settler.execute,
-            (actions, Settler.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            (actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;

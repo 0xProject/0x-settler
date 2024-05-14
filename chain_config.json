@@ -1,6 +1,7 @@
 {
   "sepolia": {
     "chainId": 11155111,
+    "displayName": "Sepolia",
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
@@ -21,17 +22,11 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api-sepolia.etherscan.io/api",
-    "uniV3": {
-      "factory": "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6"
-    }
+    "etherscanApi": "https://api-sepolia.etherscan.io/api"
   },
   "mainnet": {
     "chainId": 1,
+    "displayName": "Mainnet",
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
@@ -52,17 +47,11 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.etherscan.io/api",
-    "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F"
-    }
+    "etherscanApi": "https://api.etherscan.io/api"
   },
   "polygon": {
     "chainId": 137,
+    "displayName": "Polygon",
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
@@ -85,15 +74,12 @@
     },
     "etherscanApi": "https://api.polygonscan.com/api",
     "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     }
   },
   "base": {
     "chainId": 8453,
+    "displayName": "Base",
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -114,17 +100,11 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.basescan.org/api",
-    "uniV3": {
-      "factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api.basescan.org/api"
   },
   "base_sepolia": {
     "chainId": 84532,
+    "displayName": "BaseSepolia",
     "isCancun": false,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -145,17 +125,11 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api-sepolia.basescan.org/api",
-    "uniV3": {
-      "factory": "0x0000000000000000000000000000000000000000",
-      "initHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api-sepolia.basescan.org/api"
   },
   "optimism": {
     "chainId": 10,
+    "displayName": "Optimism",
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -178,15 +152,12 @@
     },
     "etherscanApi": "https://api-optimistic.etherscan.io/api",
     "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     }
   },
   "optimism_sepolia": {
     "chainId": 11155420,
+    "displayName": "OptimismSepolia",
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -207,17 +178,11 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api-sepolia-optimism.etherscan.io/api",
-    "uniV3": {
-      "factory": "0x0000000000000000000000000000000000000000",
-      "initHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api-sepolia-optimism.etherscan.io/api"
   },
   "arbitrum": {
     "chainId": 42161,
+    "displayName": "Arbitrum",
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 500,
@@ -240,15 +205,12 @@
     },
     "etherscanApi": "https://api.arbiscan.io/api",
     "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     }
   },
   "arbitrum_sepolia": {
     "chainId": 421614,
+    "displayName": "ArbitrumSepolia",
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 500,
@@ -269,17 +231,11 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
-    "etherscanApi": "https://api-sepolia.arbiscan.io/api",
-    "uniV3": {
-      "factory": "0x0000000000000000000000000000000000000000",
-      "initHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api-sepolia.arbiscan.io/api"
   },
   "bnb": {
     "chainId": 56,
+    "displayName": "Bnb",
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
@@ -300,17 +256,11 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api.bscscan.com/api",
-    "uniV3": {
-      "factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api.bscscan.com/api"
   },
   "avalanche": {
     "chainId": 43114,
+    "displayName": "Avalanche",
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
@@ -331,14 +281,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api.snowtrace.io/api",
-    "uniV3": {
-      "factory": "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD",
-      "initHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
-    },
-    "makerPsm": {
-      "dai": "0x0000000000000000000000000000000000000000"
-    }
+    "etherscanApi": "https://api.snowtrace.io/api"
   },
   "blast": {
     "chainId": 81457,
@@ -351,7 +294,6 @@
       "apiUrl": "NOT SUPPORTED"
     },
     "etherscanApi": "https://api.blastscan.io/api",
-    "uniV3": {},
-    "makerPsm": {}
+    "uniV3": {}
   }
 }

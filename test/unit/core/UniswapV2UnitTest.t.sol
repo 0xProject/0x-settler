@@ -2,23 +2,39 @@
 pragma solidity ^0.8.25;
 
 import {UniswapV2, IUniV2Pair} from "src/core/UniswapV2.sol";
-import {Permit2Payment} from "src/core/Permit2Payment.sol";
+import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
+import {Context, AbstractContext} from "src/Context.sol";
 
 import {Utils} from "../Utils.sol";
 import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV2Dummy is Permit2Payment, UniswapV2 {
-    function sell(
-        address recipient,
-        address sellToken,
-        address pool,
-        uint8 swapInfo,
-        uint256 bips,
-        uint256 minBuyAmount
-    ) public {
-        super.sellToUniswapV2(recipient, sellToken, pool, swapInfo, bips, minBuyAmount);
+contract UniswapV2Dummy is Context, Permit2Payment, UniswapV2 {
+    function sell(address recipient, address sellToken, address pool, uint8 swapInfo, uint256 bps, uint256 minBuyAmount)
+        public
+    {
+        super.sellToUniswapV2(recipient, sellToken, pool, swapInfo, bps, minBuyAmount);
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
+        revert();
+    }
+
+    function _operator() internal view override returns (address) {
+        return Context._msgSender();
+    }
+
+    function _msgSender() internal view override(Permit2PaymentBase, Context) returns (address) {
+        return Permit2PaymentBase._msgSender();
+    }
+
+    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
     }
 }
 
@@ -36,7 +52,7 @@ contract UniswapV2UnitTest is Utils, Test {
     }
 
     function testUniswapV2Sell() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 9087;
 
@@ -50,11 +66,11 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bps, minBuyAmount);
     }
 
     function testUniswapV2SellSlippageCheck() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 1e18;
 
@@ -69,11 +85,11 @@ contract UniswapV2UnitTest is Utils, Test {
         );
 
         vm.expectRevert();
-        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bps, minBuyAmount);
     }
 
     function testUniswapV2LowerAmount() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 1;
 
@@ -87,11 +103,11 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(8328), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bps, minBuyAmount);
     }
 
     function testUniswapV2GreaterAmount() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 9521;
 
@@ -105,11 +121,11 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9521), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bps, minBuyAmount);
     }
 
     function testUniswapV2SellTokenFee() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 1;
 
@@ -127,11 +143,11 @@ contract UniswapV2UnitTest is Utils, Test {
         );
         // the pool is responsible for transferring to receipient, since the pool is a dummy, this transfer is not mocked
 
-        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 3 : 2, bips, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 3 : 2, bps, minBuyAmount);
     }
 
     function testUniswapV2Multihop() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 9521;
 
@@ -151,7 +167,7 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL2, abi.encodeCall(IUniV2Pair.swap, (uint256(0), uint256(9521), RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(POOL2, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bips, 0);
+        uni.sell(POOL2, TOKEN0, POOL, TOKEN0 < TOKEN1 ? 1 : 0, bps, 0);
         uni.sell(RECIPIENT, TOKEN1, POOL2, TOKEN1 < TOKEN2 ? 1 : 0, 0, minBuyAmount);
     }
 }

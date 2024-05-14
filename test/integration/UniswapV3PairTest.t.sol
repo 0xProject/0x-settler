@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "../../src/IERC20.sol";
+import {IERC20} from "src/IERC20.sol";
 
-import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
+import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {IUniswapV3Router} from "./vendor/IUniswapV3Router.sol";
@@ -18,14 +18,14 @@ abstract contract UniswapV3PairTest is BasePairTest {
         safeApproveIfBelow(fromToken(), FROM, address(UNISWAP_ROUTER), amount());
     }
 
-    function uniswapV3Path() internal virtual returns (bytes memory);
+    function uniswapV3PathCompat() internal view virtual returns (bytes memory);
 
     function testUniswapRouter() public {
         vm.startPrank(FROM);
         snapStartName("uniswapRouter_uniswapV3");
         UNISWAP_ROUTER.exactInput(
             IUniswapV3Router.ExactInputParams({
-                path: uniswapV3Path(),
+                path: uniswapV3PathCompat(),
                 recipient: FROM,
                 deadline: block.timestamp + 1,
                 amountIn: amount(),

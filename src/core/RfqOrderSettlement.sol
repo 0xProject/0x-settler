@@ -8,7 +8,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 
-abstract contract OtcOrderSettlement is SettlerAbstract {
+abstract contract RfqOrderSettlement is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using FullMath for uint256;
 
@@ -27,10 +27,10 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
     bytes32 internal constant CONSIDERATION_TYPEHASH =
         0x7d806873084f389a66fd0315dead7adaad8ae6e8b6cf9fb0d3db61e5a91c3ffa;
 
-    string internal constant OTC_ORDER_TYPE =
-        "OtcOrder(Consideration makerConsideration,Consideration takerConsideration)";
-    string internal constant OTC_ORDER_TYPE_RECURSIVE = string(abi.encodePacked(OTC_ORDER_TYPE, CONSIDERATION_TYPE));
-    bytes32 internal constant OTC_ORDER_TYPEHASH = 0x4efcac36537dd5721596376472101aec5ff380b23b286c66cdfe70a509c0cef3;
+    string internal constant RFQ_ORDER_TYPE =
+        "RfqOrder(Consideration makerConsideration,Consideration takerConsideration)";
+    string internal constant RFQ_ORDER_TYPE_RECURSIVE = string(abi.encodePacked(RFQ_ORDER_TYPE, CONSIDERATION_TYPE));
+    bytes32 internal constant RFQ_ORDER_TYPEHASH = 0x49fa719b76f0f6b7e76be94b56c26671a548e1c712d5b13dc2874f70a7598276;
 
     function _hashConsideration(Consideration memory consideration) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
@@ -42,11 +42,11 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         }
     }
 
-    function _logOtcOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash, uint128 makerFilledAmount)
+    function _logRfqOrder(bytes32 makerConsiderationHash, bytes32 takerConsiderationHash, uint128 makerFilledAmount)
         private
     {
         assembly ("memory-safe") {
-            mstore(0x00, OTC_ORDER_TYPEHASH)
+            mstore(0x00, RFQ_ORDER_TYPEHASH)
             mstore(0x20, makerConsiderationHash)
             let ptr := mload(0x40)
             mstore(0x40, takerConsiderationHash)
@@ -60,13 +60,13 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
 
     constructor() {
         assert(CONSIDERATION_TYPEHASH == keccak256(bytes(CONSIDERATION_TYPE)));
-        assert(OTC_ORDER_TYPEHASH == keccak256(bytes(OTC_ORDER_TYPE_RECURSIVE)));
+        assert(RFQ_ORDER_TYPEHASH == keccak256(bytes(RFQ_ORDER_TYPE_RECURSIVE)));
     }
 
-    /// @dev Settle an OtcOrder between maker and taker transferring funds directly between
+    /// @dev Settle an RfqOrder between maker and taker transferring funds directly between
     /// the counterparties. Either two Permit2 signatures are consumed, with the maker Permit2 containing
-    /// a witness of the OtcOrder, or AllowanceHolder is supported for the taker payment.
-    function fillOtcOrder(
+    /// a witness of the RfqOrder, or AllowanceHolder is supported for the taker payment.
+    function fillRfqOrder(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
@@ -74,20 +74,19 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        return fillOtcOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, _msgSender(), takerSig);
+        return fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
-    /// @dev Settle an OtcOrder between maker and taker transfering funds directly between
+    /// @dev Settle an RfqOrder between maker and taker transfering funds directly between
     /// the counterparties. Both Maker and Taker have signed the same order, and submission
     /// is via a third party
     /// @dev the taker's witness is not calculated nor verified here as calling function is trusted
-    function fillOtcOrderMetaTxn(
+    function fillRfqOrderMetaTxn(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        address taker,
         bytes memory takerSig
     ) internal {
         (
@@ -102,12 +101,17 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         ) = _permitToTransferDetails(takerPermit, maker);
 
         bytes32 witness = _hashConsideration(
-            Consideration({token: takerToken, amount: takerAmount, counterparty: taker, partialFillAllowed: false})
+            Consideration({
+                token: takerToken,
+                amount: takerAmount,
+                counterparty: _msgSender(),
+                partialFillAllowed: false
+            })
         );
-        _transferFrom(takerPermit, takerTransferDetails, taker, takerSig);
+        _transferFrom(takerPermit, takerTransferDetails, takerSig);
         _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
 
-        _logOtcOrder(
+        _logRfqOrder(
             witness,
             _hashConsideration(
                 Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: false})
@@ -116,44 +120,47 @@ abstract contract OtcOrderSettlement is SettlerAbstract {
         );
     }
 
-    /// @dev Settle an OtcOrder between maker and Settler retaining funds in this contract.
+    /// @dev Settle an RfqOrder between maker and Settler retaining funds in this contract.
     /// @dev pre-condition: msgSender has been authenticated against the requestor
-    /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the OtcOrder.
+    /// One Permit2 signature is consumed, with the maker Permit2 containing a witness of the RfqOrder.
     // In this variant, Maker pays recipient and Settler pays Maker
-    function fillOtcOrderSelfFunded(
+    function fillRfqOrderSelfFunded(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         address maker,
         bytes memory makerSig,
         IERC20 takerToken,
-        uint256 maxTakerAmount,
-        address msgSender
+        uint256 maxTakerAmount
     ) internal {
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails;
-        Consideration memory takerConsideration;
-        takerConsideration.partialFillAllowed = true;
-        uint256 buyAmount;
-        (transferDetails, takerConsideration.token, buyAmount) = _permitToTransferDetails(permit, recipient);
-        takerConsideration.amount = buyAmount;
-        takerConsideration.counterparty = maker;
+        // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
+        // later to adjust for the actual settled amount, which may be modified by encountered
+        // slippage.
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address makerToken, uint256 makerAmount) =
+            _permitToTransferDetails(permit, recipient);
+        bytes32 takerWitness = _hashConsideration(
+            Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: true})
+        );
+        bytes32 makerWitness = _hashConsideration(
+            Consideration({
+                token: address(takerToken),
+                amount: maxTakerAmount,
+                counterparty: _msgSender(),
+                partialFillAllowed: true
+            })
+        );
 
-        Consideration memory makerConsideration = Consideration({
-            token: address(takerToken),
-            amount: maxTakerAmount,
-            counterparty: msgSender,
-            partialFillAllowed: true
-        });
-        bytes32 witness = _hashConsideration(makerConsideration);
-
+        // Now we adjust the transfer amounts to compensate for encountered slippage. Rounding is
+        // performed in the maker's favor.
         uint256 takerAmount = takerToken.balanceOf(address(this));
         if (takerAmount > maxTakerAmount) {
             takerAmount = maxTakerAmount;
         }
-        transferDetails.requestedAmount = transferDetails.requestedAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
+        transferDetails.requestedAmount = makerAmount = makerAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
+        // Now that we have all the relevant information, make the transfers and log the order.
         takerToken.safeTransfer(maker, takerAmount);
-        _transferFrom(permit, transferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFrom(permit, transferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
 
-        _logOtcOrder(witness, _hashConsideration(takerConsideration), uint128(buyAmount));
+        _logRfqOrder(makerWitness, takerWitness, uint128(makerAmount));
     }
 }

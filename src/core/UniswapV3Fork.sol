@@ -9,7 +9,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {TooMuchSlippage, ConfusedDeputy} from "./SettlerErrors.sol";
+import {TooMuchSlippage, ConfusedDeputy, ZeroSwapAmount} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -32,20 +32,16 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
-abstract contract UniswapV3 is SettlerAbstract {
+abstract contract UniswapV3Fork is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
-    /// @dev UniswapV3 Factory contract address
-    address private immutable UNI_FACTORY_ADDRESS;
-    /// @dev UniswapV3 pool init code hash.
-    bytes32 private immutable UNI_POOL_INIT_CODE_HASH;
     /// @dev Minimum size of an encoded swap path:
-    ///      sizeof(address(inputToken) | uint24(fee) | address(outputToken))
-    uint256 private constant SINGLE_HOP_PATH_SIZE = 0x2b;
+    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | address(outputToken))
+    uint256 private constant SINGLE_HOP_PATH_SIZE = 0x2c;
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
-    ///      sizeof(address(inputToken) | uint24(fee))
-    uint256 private constant PATH_SKIP_HOP_SIZE = 0x17;
+    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId))
+    uint256 private constant PATH_SKIP_HOP_SIZE = 0x18;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x3f;
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
@@ -61,30 +57,23 @@ abstract contract UniswapV3 is SettlerAbstract {
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
 
-    constructor(address uniFactory, bytes32 poolInitCodeHash) {
-        UNI_FACTORY_ADDRESS = uniFactory;
-        UNI_POOL_INIT_CODE_HASH = poolInitCodeHash;
-    }
-
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param bips proportion of current balance of the first token in the path to sell.
+    /// @param bps proportion of current balance of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellTokenForTokenToUniswapV3(
-        address recipient,
-        bytes memory encodedPath,
-        uint256 bips,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
-        buyAmount = _swap(
+    function sellToUniswapV3(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
+        internal
+        returns (uint256 buyAmount)
+    {
+        buyAmount = _uniV3ForkSwap(
             recipient,
             encodedPath,
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
-            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bips).unsafeDiv(10_000),
+            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bps).unsafeDiv(10_000),
             minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
@@ -93,16 +82,14 @@ abstract contract UniswapV3 is SettlerAbstract {
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param sellAmount amount of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellTokenForTokenToUniswapV3VIP(
+    function sellToUniswapV3VIP(
         address recipient,
         bytes memory encodedPath,
-        uint256 sellAmount,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
@@ -111,43 +98,54 @@ abstract contract UniswapV3 is SettlerAbstract {
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
-        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, _msgSender(), swapCallbackData);
+        buyAmount = _uniV3ForkSwap(
+            recipient,
+            encodedPath,
+            permit.permitted.amount,
+            minBuyAmount,
+            address(0), // payer
+            swapCallbackData
+        );
     }
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param sellAmount amount of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
-    /// @param payer The taker of the transaction and the signer of the permit
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellTokenForTokenToUniswapV3MetaTxn(
+    function sellToUniswapV3MetaTxn(
         address recipient,
         bytes memory encodedPath,
-        uint256 sellAmount,
         uint256 minBuyAmount,
-        address payer,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal returns (uint256 buyAmount) {
+        // TODO: combine this with sellToUniswapV3VIP
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, false);
 
-        buyAmount = _swap(recipient, encodedPath, sellAmount, minBuyAmount, payer, swapCallbackData);
+        buyAmount = _uniV3ForkSwap(
+            recipient,
+            encodedPath,
+            permit.permitted.amount,
+            minBuyAmount,
+            address(0), // payer
+            swapCallbackData
+        );
     }
 
     // Executes successive swaps along an encoded uniswap path.
-    function _swap(
+    function _uniV3ForkSwap(
         address recipient,
         bytes memory encodedPath,
         uint256 sellAmount,
         uint256 minBuyAmount,
         address payer,
         bytes memory swapCallbackData
-    ) private returns (uint256 buyAmount) {
+    ) internal returns (uint256 buyAmount) {
         if (sellAmount > uint256(type(int256).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -157,46 +155,39 @@ abstract contract UniswapV3 is SettlerAbstract {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
             IUniswapV3Pool pool;
+            bytes4 callbackSelector;
             {
-                (IERC20 token0, uint24 fee, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
+                (IERC20 token0, uint8 forkId, uint24 poolId, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
                 outputToken = token1;
                 if (!(zeroForOne = token0 < token1)) {
                     (token0, token1) = (token1, token0);
                 }
-                pool = _toPool(token0, fee, token1);
-                _updateSwapCallbackData(swapCallbackData, token0, fee, token1, payer);
+                address factory;
+                bytes32 initHash;
+                (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
+                pool = _toPool(factory, initHash, token0, poolId, token1);
+                _updateSwapCallbackData(swapCallbackData, token0, poolId, token1, payer);
             }
 
-            int256 amount0;
-            int256 amount1;
-            if (payer == address(this)) {
-                (amount0, amount1) = pool.swap(
-                    // Intermediate tokens go to this contract.
-                    isPathMultiHop ? address(this) : recipient,
-                    zeroForOne,
-                    int256(sellAmount),
-                    zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                    swapCallbackData
-                );
-            } else {
-                (amount0, amount1) = abi.decode(
-                    _setOperatorAndCall(
-                        address(pool),
-                        abi.encodeCall(
-                            pool.swap,
-                            (
-                                // Intermediate tokens go to this contract.
-                                isPathMultiHop ? address(this) : recipient,
-                                zeroForOne,
-                                int256(sellAmount),
-                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                                swapCallbackData
-                            )
+            (int256 amount0, int256 amount1) = abi.decode(
+                _setOperatorAndCall(
+                    address(pool),
+                    abi.encodeCall(
+                        pool.swap,
+                        (
+                            // Intermediate tokens go to this contract.
+                            isPathMultiHop ? address(this) : recipient,
+                            zeroForOne,
+                            int256(sellAmount),
+                            zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                            swapCallbackData
                         )
                     ),
-                    (int256, int256)
-                );
-            }
+                    uint32(callbackSelector),
+                    _uniV3ForkCallback
+                ),
+                (int256, int256)
+            );
 
             {
                 int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
@@ -231,7 +222,7 @@ abstract contract UniswapV3 is SettlerAbstract {
     function _decodeFirstPoolInfoFromPath(bytes memory encodedPath)
         private
         pure
-        returns (IERC20 inputToken, uint24 fee, IERC20 outputToken)
+        returns (IERC20 inputToken, uint8 forkId, uint24 poolId, IERC20 outputToken)
     {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
@@ -239,7 +230,8 @@ abstract contract UniswapV3 is SettlerAbstract {
         assembly ("memory-safe") {
             // Solidity cleans dirty bits automatically
             inputToken := mload(add(encodedPath, 0x14))
-            fee := mload(add(encodedPath, 0x17))
+            forkId := mload(add(encodedPath, 0x15))
+            poolId := mload(add(encodedPath, 0x18))
             outputToken := mload(add(encodedPath, SINGLE_HOP_PATH_SIZE))
         }
     }
@@ -290,7 +282,7 @@ abstract contract UniswapV3 is SettlerAbstract {
     function _updateSwapCallbackData(
         bytes memory swapCallbackData,
         IERC20 token0,
-        uint24 fee,
+        uint24 poolId,
         IERC20 token1,
         address payer
     ) private pure {
@@ -298,19 +290,23 @@ abstract contract UniswapV3 is SettlerAbstract {
             let length := mload(swapCallbackData)
             mstore(add(swapCallbackData, 0x3f), payer)
             mstore(add(swapCallbackData, 0x2b), token1)
-            mstore(add(swapCallbackData, 0x17), fee)
+            mstore(add(swapCallbackData, 0x17), poolId)
             mstore(add(swapCallbackData, 0x14), token0)
             mstore(swapCallbackData, length)
         }
     }
 
-    // Compute the pool address given two tokens and a fee.
-    function _toPool(IERC20 inputToken, uint24 fee, IERC20 outputToken) private view returns (IUniswapV3Pool) {
+    // Compute the pool address given two tokens and a poolId.
+    function _toPool(address factory, bytes32 initHash, IERC20 inputToken, uint24 poolId, IERC20 outputToken)
+        private
+        pure
+        returns (IUniswapV3Pool)
+    {
         // address(keccak256(abi.encodePacked(
         //     hex"ff",
-        //     UNI_FACTORY_ADDRESS,
-        //     keccak256(abi.encode(inputToken, outputToken, fee)),
-        //     UNI_POOL_INIT_CODE_HASH
+        //     factory,
+        //     keccak256(abi.encode(inputToken, outputToken, poolId)),
+        //     initHash
         // )))
         (IERC20 token0, IERC20 token1) =
             inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
@@ -319,40 +315,50 @@ abstract contract UniswapV3 is SettlerAbstract {
             let ptr := mload(0x40)
             mstore(0x00, and(ADDRESS_MASK, token0))
             mstore(0x20, and(ADDRESS_MASK, token1))
-            mstore(0x40, and(UINT24_MASK, fee))
+            mstore(0x40, and(UINT24_MASK, poolId))
             salt := keccak256(0x00, 0x60)
             mstore(0x40, ptr)
         }
-        return IUniswapV3Pool(
-            AddressDerivation.deriveDeterministicContract(UNI_FACTORY_ADDRESS, salt, UNI_POOL_INIT_CODE_HASH)
-        );
+        return IUniswapV3Pool(AddressDerivation.deriveDeterministicContract(factory, salt, initHash));
     }
 
-    error ZeroSwapAmount();
+    function _uniV3ForkInfo(uint8 forkId) internal view virtual returns (address, bytes32, bytes4);
+
+    function _uniV3ForkCallback(bytes calldata data) internal returns (bytes memory) {
+        require(data.length >= 0x80);
+        int256 amount0Delta;
+        int256 amount1Delta;
+        assembly ("memory-safe") {
+            amount0Delta := calldataload(data.offset)
+            amount1Delta := calldataload(add(0x20, data.offset))
+            data.offset := add(data.offset, calldataload(add(0x40, data.offset)))
+            data.length := calldataload(data.offset)
+            data.offset := add(0x20, data.offset)
+        }
+        uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
+        return new bytes(0);
+    }
 
     /// @dev The UniswapV3 pool swap callback which pays the funds requested
     ///      by the caller/pool to the pool. Can only be called by a valid
     ///      UniswapV3 pool.
     /// @param amount0Delta Token0 amount owed.
     /// @param amount1Delta Token1 amount owed.
-    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: inputToken, outputToken, fee, payer, permit
-    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: inputToken, outputToken, poolId, payer, permit
+    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) private {
         // Decode the data.
         IERC20 token0;
-        uint24 fee;
+        uint24 poolId;
         IERC20 token1;
         address payer;
         assembly ("memory-safe") {
             {
                 let firstWord := calldataload(data.offset)
                 token0 := shr(0x60, firstWord)
-                fee := shr(0x48, firstWord)
+                poolId := shr(0x48, firstWord)
             }
             token1 := calldataload(add(data.offset, 0xb))
             payer := calldataload(add(data.offset, 0x1f))
-        }
-        if (msg.sender != address(_toPool(token0, fee, token1))) {
-            revert ConfusedDeputy();
         }
 
         bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
@@ -370,12 +376,13 @@ abstract contract UniswapV3 is SettlerAbstract {
         if (payer == address(this)) {
             token.safeTransfer(msg.sender, amount);
         } else {
+            assert(payer == address(0));
             (ISignatureTransfer.PermitTransferFrom memory permit, bool isForwarded) =
                 abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bool));
             bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE:];
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
                 _permitToTransferDetails(permit, msg.sender);
-            _transferFrom(permit, transferDetails, payer, sig, isForwarded);
+            _transferFrom(permit, transferDetails, sig, isForwarded);
         }
     }
 }

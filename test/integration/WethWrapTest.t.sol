@@ -3,10 +3,11 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
-import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol";
-import {Settler} from "../../src/Settler.sol";
+import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
+import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
+import {SettlerBase} from "src/SettlerBase.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {ISettlerActions} from "../../src/ISettlerActions.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 
 contract WethWrapTest is Test, GasSnapshot {
@@ -19,25 +20,22 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.label(address(this), "FoundryTest");
         vm.label(address(_weth), "WETH");
 
-        _settler = new Settler(
-            0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
-            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
-            0x6B175474E89094C44Da98b954EedeAC495271d0F // DAI
-        );
+        _settler = new Settler();
         vm.label(address(_settler), "Settler");
     }
 
     function testWethDeposit() public {
         vm.deal(address(_settler), 1e18);
         bytes[] memory actions =
-            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC_SELL, (address(_weth), _eth, 10_000, 0, "")));
+            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC, (address(_weth), _eth, 10_000, 0, "")));
 
         uint256 balanceBefore = _weth.balanceOf(address(this));
         Settler settler = _settler;
         vm.startPrank(address(this));
         snapStart("wethDeposit");
         settler.execute(
-            actions, Settler.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
+            actions,
+            SettlerBase.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
         );
         snapEnd();
         assertEq(_weth.balanceOf(address(this)) - balanceBefore, 1e18);
@@ -47,8 +45,7 @@ contract WethWrapTest is Test, GasSnapshot {
         deal(address(_weth), address(_settler), 1e18);
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.BASIC_SELL,
-                (address(_weth), address(_weth), 10_000, 4, abi.encodeCall(_weth.withdraw, (0)))
+                ISettlerActions.BASIC, (address(_weth), address(_weth), 10_000, 4, abi.encodeCall(_weth.withdraw, (0)))
             )
         );
 
@@ -58,7 +55,7 @@ contract WethWrapTest is Test, GasSnapshot {
         snapStart("wethWithdraw");
         settler.execute(
             actions,
-            Settler.AllowedSlippage({
+            SettlerBase.AllowedSlippage({
                 buyToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
                 recipient: address(this),
                 minAmountOut: 1e18

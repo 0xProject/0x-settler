@@ -8,7 +8,9 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 abstract contract Permit2PaymentAbstract is AbstractContext {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
-    function isRestrictedTarget(address) internal view virtual returns (bool);
+    function _isRestrictedTarget(address) internal view virtual returns (bool);
+
+    function _operator() internal view virtual returns (address);
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
@@ -38,7 +40,6 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        address from,
         bytes memory sig,
         bool isForwarded
     ) internal virtual;
@@ -46,16 +47,21 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        address from,
         bytes memory sig
     ) internal virtual;
 
-    function _setOperatorAndCall(address payable target, uint256 value, bytes memory data)
-        internal
-        virtual
-        returns (bytes memory);
-
-    function _setOperatorAndCall(address target, bytes memory data) internal virtual returns (bytes memory);
+    function _setOperatorAndCall(
+        address target,
+        bytes memory data,
+        uint32 selector,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal virtual returns (bytes memory);
 
     modifier metaTx(address msgSender, bytes32 witness) virtual;
+
+    modifier takerSubmitted() virtual;
+
+    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
+        internal
+        virtual;
 }
