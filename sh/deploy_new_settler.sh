@@ -128,6 +128,10 @@ declare -r safe_address
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
+declare deploy_calldata
+deploy_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calls[@]}")")"
+declare -r deploy_calldata
+
 declare signing_hash
 signing_hash="$(eip712_hash "$deploy_calldata" 1)"
 declare -r signing_hash
@@ -205,20 +209,4 @@ else
     cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 fi
 
-echo 'Contracts deployed... verifying taker-submitted Settler' >&2
-
-declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
-
-declare taker_settler
-taker_settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" 2)")")"
-declare -r taker_settler
-forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" "$chain_display_name"Settler
-
-echo 'Verified taker-submitted Settler... verifying metatx Settler' >&2
-
-declare metatx_settler
-metatx_settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" 3)")")"
-declare -r metatx_settler
-forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" "$chain_display_name"SettlerMetaTxn
-
-echo 'Verified metatx Settler. All done!' >&2
+echo 'Contracts deployed. Run `sh/verify_settler.sh '"$chain_name"'` to verify on Etherscan.' >&2

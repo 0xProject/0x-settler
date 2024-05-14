@@ -4,7 +4,6 @@ declare -r -i chainid
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
-
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
