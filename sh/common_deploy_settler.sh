@@ -40,11 +40,11 @@ declare -r taker_initcode
 declare -r deploy_sig='deploy(uint128,bytes)(address,uint32)'
 
 declare deploy_taker_calldata
-deploy_taker_calldata="$(cast calldata "$deploy_sig" $feature "$taker_initcode")"
+deploy_taker_calldata="$(cast calldata "$deploy_sig" 2 "$taker_initcode")"
 declare -r deploy_taker_calldata
 
 declare deploy_metatx_calldata
-deploy_metatx_calldata="$(cast calldata "$deploy_sig" $feature "$metatx_initcode")"
+deploy_metatx_calldata="$(cast calldata "$deploy_sig" 3 "$metatx_initcode")"
 declare -r deploy_metatx_calldata
 
 declare -a deploy_calls=(
