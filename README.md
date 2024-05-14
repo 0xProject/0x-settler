@@ -10,13 +10,14 @@ screwed up the vanity address and didn't update this document). The
 deployer/registry is an ERC1967 UUPS upgradeable contract that implements an
 ERC721-compatible NFT. To find the address of the most recent deployment, call
 `ownerOf(uint256)(address)` with the `tokenId` set to the number of the feature
-that you wish to query. The feature number is probably 1 unless something major
-changed and nobody updated this document. A reverting response indicates that
-`Settler` is paused and you should not interact. Do not hardcode any address
-other than `0x00000000000004533Fe15556B1E086BB1A72cEae` in your
-integration. _**ALWAYS**_ query the deployer/registry for the address of the
-most recent contract before building or signing a transaction, metatransaction,
-or order.
+that you wish to query. For taker-submitted flows, the feature number is
+probably 2 unless something major changed and nobody updated this
+document. Likewise, for gasless/metatransaction flows, the feature number is
+probably 3. A reverting response indicates that `Settler` is paused and you
+should not interact. Do not hardcode any address other than
+`0x00000000000004533Fe15556B1E086BB1A72cEae` in your integration. _**ALWAYS**_
+query the deployer/registry for the address of the most recent contract before
+building or signing a transaction, metatransaction, or order.
 
 ### Custody
 
@@ -628,10 +629,11 @@ update this document.
 
 ![Click on "Connect to Web3"](img/pause6.png?raw=true)
 
-9. Enter the "feature" number in the text box. This is probably 1 unless
-   something major has changed and nobody bothered to update this document.
+9. Enter the "feature" number in the text box. This is probably 2 for
+   taker-submitted for 3 for gasless/metatransaction, unless something major has
+   changed and nobody bothered to update this document.
 
-![Enter the "feature" number (1) in the text box](img/pause7.png?raw=true)
+![Enter the "feature" number (2 or 3) in the text box](img/pause7.png?raw=true)
 
 10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
 
