@@ -150,7 +150,7 @@ declare -r multisend_sig='multiSend(bytes)'
 
 declare -i auth_deadline
 # one year from the start of this month
-auth_deadline="$(date -d "$(("$(date -u '+%+4Y')" + 1))-$(date -u '+%m')-01T00:00:00-00:00" '+%s')"
+auth_deadline="$(date -d "$(("$(date -u '+%Y')" + 1))-$(date -u '+%m')-01T00:00:00-00:00" '+%s')"
 declare -r -i auth_deadline
 
 declare -a calls=()
@@ -165,7 +165,7 @@ calls+=(
         0x00                                                             \
         "$deployer_address"                                              \
         "$(cast to-uint256 0)"                                           \
-        "$(cast to-uint256 $(( ("${#setDescription_call}" - 2) / 2 )) )" \
+        "$(cast to-uint256 $(( (${#setDescription_call} - 2) / 2 )) )"   \
         "$setDescription_call"
     )"
 )
@@ -180,7 +180,7 @@ calls+=(
         0x00                                                        \
         "$deployer_address"                                         \
         "$(cast to-uint256 0)"                                      \
-        "$(cast to-uint256 $(( ("${#authorize_call}" - 2) / 2 )) )" \
+        "$(cast to-uint256 $(( (${#authorize_call} - 2) / 2 )) )"   \
         "$authorize_call"
     )"
 )
