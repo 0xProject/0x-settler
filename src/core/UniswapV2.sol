@@ -54,7 +54,7 @@ abstract contract UniswapV2 {
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bps).unsafeDiv(10_000);
+                sellAmount = ((IERC20(sellToken).balanceOf(address(this)) - 1 wei) * bps).unsafeDiv(10_000);
             }
         }
         assembly ("memory-safe") {

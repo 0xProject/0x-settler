@@ -45,7 +45,7 @@ abstract contract Basic is SettlerAbstract {
         } else if (address(sellToken) == address(0)) {
             if (offset != 0) revert InvalidOffset();
         } else {
-            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
+            uint256 amount = (sellToken.balanceOf(address(this)) - 1 wei).mulDiv(bps, 10_000);
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }

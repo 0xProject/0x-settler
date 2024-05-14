@@ -104,7 +104,7 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
                 }
                 payable(recipient).safeTransferETH(amountOut);
             } else {
-                uint256 amountOut = IERC20(buyToken).balanceOf(address(this));
+                uint256 amountOut = IERC20(buyToken).balanceOf(address(this)) - 1 wei;
                 if (amountOut < minAmountOut) {
                     revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
                 }
@@ -156,7 +156,7 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
                     }
                 }
             } else {
-                uint256 balance = token.balanceOf(address(this));
+                uint256 balance = token.balanceOf(address(this)) - 1 wei;
                 if (balance > expectedAmount) {
                     unchecked {
                         token.safeTransfer(recipient, balance - expectedAmount);
