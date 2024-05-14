@@ -36,7 +36,7 @@ contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDu
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) external takerSubmitted {
-        super.fillRfqOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
+        super.fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
     function fillRfqOrderSelf(
@@ -90,7 +90,7 @@ contract RfqOrderSettlementMetaTxnDummy is Context, RfqOrderSettlementDummyBase 
         bytes memory takerSig,
         bytes32 takerWitness
     ) external metaTx(taker, takerWitness) {
-        super.fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
+        super.fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {

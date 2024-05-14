@@ -80,7 +80,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         );
     }
 
-    /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
+    /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature (or AllowanceHolder).
     /// @param encodedPath Uniswap-encoded path.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
@@ -97,35 +97,6 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
-
-        buyAmount = _uniV3ForkSwap(
-            recipient,
-            encodedPath,
-            permit.permitted.amount,
-            minBuyAmount,
-            address(0), // payer
-            swapCallbackData
-        );
-    }
-
-    /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature.
-    /// @param encodedPath Uniswap-encoded path.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
-    /// @param recipient The recipient of the bought tokens.
-    /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
-    /// @param sig The taker's signature for Permit2
-    /// @return buyAmount Amount of the last token in the path bought.
-    function sellToUniswapV3MetaTxn(
-        address recipient,
-        bytes memory encodedPath,
-        uint256 minBuyAmount,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) internal returns (uint256 buyAmount) {
-        // TODO: combine this with sellToUniswapV3VIP
-        bytes memory swapCallbackData =
-            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
-        _encodePermit2Data(swapCallbackData, permit, sig, false);
 
         buyAmount = _uniV3ForkSwap(
             recipient,

@@ -101,7 +101,7 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
                 (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
             );
 
-            fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, sig);
+            fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
         } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
@@ -119,7 +119,7 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
                 ISignatureTransfer.PermitTransferFrom memory permit
             ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
-            sellToUniswapV3MetaTxn(recipient, path, amountOutMin, permit, sig);
+            sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
         } else {
             return false;
         }

@@ -63,25 +63,12 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         assert(RFQ_ORDER_TYPEHASH == keccak256(bytes(RFQ_ORDER_TYPE_RECURSIVE)));
     }
 
-    /// @dev Settle an RfqOrder between maker and taker transferring funds directly between
-    /// the counterparties. Either two Permit2 signatures are consumed, with the maker Permit2 containing
-    /// a witness of the RfqOrder, or AllowanceHolder is supported for the taker payment.
-    function fillRfqOrder(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory makerPermit,
-        address maker,
-        bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit,
-        bytes memory takerSig
-    ) internal {
-        return fillRfqOrderMetaTxn(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
-    }
-
-    /// @dev Settle an RfqOrder between maker and taker transfering funds directly between
-    /// the counterparties. Both Maker and Taker have signed the same order, and submission
-    /// is via a third party
-    /// @dev the taker's witness is not calculated nor verified here as calling function is trusted
-    function fillRfqOrderMetaTxn(
+    /// @dev Settle an RfqOrder between maker and taker transfering funds directly between the counterparties. Either
+    ///      two Permit2 signatures are consumed, with the maker Permit2 containing a witness of the RfqOrder, or
+    ///      AllowanceHolder is supported for the taker payment. The Maker has signed the same order as the
+    ///      Taker. Submission may be directly by the taker or via a third party with the Taker signing a witness.
+    /// @dev if used, the taker's witness is not calculated nor verified here as calling function is trusted
+    function fillRfqOrderVIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
