@@ -5,7 +5,6 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
@@ -26,8 +25,8 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto {
-    constructor() MakerPSM(0x6B175474E89094C44Da98b954EedeAC495271d0F) {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
+    constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
@@ -41,15 +40,9 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == ISettlerActions.MAKERPSM_SELL.selector) {
-            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
-
-            makerPsmSellGem(recipient, bps, psm, gemToken);
+            revert("unimplemented");
         } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
-            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
-
-            makerPsmBuyGem(recipient, bps, psm, gemToken);
+            revert("unimplemented");
         } else {
             return false;
         }
