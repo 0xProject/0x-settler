@@ -46,7 +46,7 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
         } else {
             return false;
         }
-        return true;
+        return true; // this is unreachable due to non-Cancun-related refactors
     }
 
     function _uniV3ForkInfo(uint8 forkId)
