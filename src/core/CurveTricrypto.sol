@@ -51,16 +51,6 @@ abstract contract CurveTricrypto is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) internal {
-        sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, permit, sig);
-    }
-
-    function sellToCurveTricryptoMetaTxn(
-        address recipient,
-        uint80 poolInfo,
-        uint256 minBuyAmount,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) internal {
         uint64 factoryNonce = uint64(poolInfo >> 16);
         uint8 sellIndex = uint8(poolInfo >> 8);
         uint8 buyIndex = uint8(poolInfo);
