@@ -4,20 +4,12 @@ declare chain_display_name
 chain_display_name="$(get_config displayName)"
 declare -r chain_display_name
 
-declare taker_settler_contract
-taker_settler_contract="$chain_display_name".sol/"$chain_display_name"Settler.json
-declare -r taker_settler_contract
-
-declare metatx_settler_contract
-metatx_settler_contract="$chain_display_name".sol/"$chain_display_name"SettlerMetaTxn.json
-declare -r metatx_settler_contract
-
 declare taker_artifact
-taker_artifact="$project_root"/out/"$taker_settler_contract"
+taker_artifact="$project_root"/out/"$chain_display_name".sol/"$chain_display_name"Settler.json
 declare -r taker_artifact
 
 declare metatx_artifact
-metatx_artifact="$project_root"/out/"$metatx_settler_contract"
+metatx_artifact="$project_root"/out/"$chain_display_name".sol/"$chain_display_name"SettlerMetaTxn.json
 declare -r metatx_artifact
 
 if [ ! -f "$taker_artifact" ] || [ ! -f "$metatx_artifact" ] ; then
