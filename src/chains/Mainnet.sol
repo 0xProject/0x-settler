@@ -6,11 +6,13 @@ import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
-import {ActionInvalid} from "../core/SettlerErrors.sol";
+import {CurveTricrypto} from "../core/CurveTricrypto.sol";
+import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ActionInvalid, UnknownForkId} from "../core/SettlerErrors.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {
@@ -19,11 +21,12 @@ import {
 import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/univ3forks/SolidlyV3.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is MakerPSM, SettlerBase {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto {
     constructor() MakerPSM(0x6B175474E89094C44Da98b954EedeAC495271d0F) {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -31,7 +34,7 @@ abstract contract MainnetMixin is MakerPSM, SettlerBase {
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         virtual
-        override
+        override(SettlerAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
@@ -48,7 +51,7 @@ abstract contract MainnetMixin is MakerPSM, SettlerBase {
 
             makerPsmBuyGem(recipient, bps, psm, gemToken);
         } else {
-            revert ActionInvalid(i, action, data);
+            return false;
         }
         return true;
     }
@@ -79,6 +82,25 @@ abstract contract MainnetMixin is MakerPSM, SettlerBase {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettler is Settler, MainnetMixin {
+    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+        if (super._dispatchVIP(action, data)) {
+            return true;
+        } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
+            (
+                address recipient,
+                uint80 poolInfo,
+                uint256 minBuyAmount,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig
+            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
+
+            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
@@ -104,6 +126,29 @@ contract MainnetSettler is Settler, MainnetMixin {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
+        if (super._dispatchVIP(action, data, sig)) {
+            return true;
+        } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
+            (
+                address recipient,
+                uint80 poolInfo,
+                uint256 minBuyAmount,
+                ISignatureTransfer.PermitTransferFrom memory permit
+            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
+
+            sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, permit, sig);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal

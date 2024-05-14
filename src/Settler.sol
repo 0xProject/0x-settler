@@ -13,6 +13,7 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
+import {ActionInvalid} from "./core/SettlerErrors.sol";
 
 abstract contract Settler is AllowanceHolderContext, SettlerBase {
     using UnsafeMath for uint256;
@@ -55,7 +56,7 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
         return Permit2PaymentBase._msgSender();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal DANGEROUS_freeMemory returns (bool result) {
+    function _dispatchVIP(bytes4 action, bytes calldata data) internal virtual returns (bool) {
         if (action == ISettlerActions.RFQ_VIP.selector) {
             (
                 address recipient,
@@ -87,26 +88,19 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
             ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
 
             sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
-        } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
-            (
-                address recipient,
-                uint80 poolInfo,
-                uint256 minBuyAmount,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
-
-            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
         } else {
-            result = true;
+            return false;
         }
+        return true;
     }
 
     function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable takerSubmitted {
         for (uint256 i; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            if (i != 0 || _dispatchVIP(action, data)) {
-                _dispatch(i, action, data);
+            if (i != 0 || !_dispatchVIP(action, data)) {
+                if (!_dispatch(i, action, data)) {
+                    revert ActionInvalid(i, action, data);
+                }
             }
         }
 

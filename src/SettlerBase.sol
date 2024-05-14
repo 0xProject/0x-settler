@@ -9,8 +9,6 @@ import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
-import {CurveTricrypto} from "./core/CurveTricrypto.sol";
-import {FreeMemory} from "./utils/FreeMemory.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
@@ -70,19 +68,9 @@ library CalldataDecoder {
     }
 }
 
-abstract contract SettlerBase is
-    Permit2Payment,
-    Basic,
-    RfqOrderSettlement,
-    UniswapV3Fork,
-    UniswapV2,
-    CurveTricrypto,
-    FreeMemory
-{
+abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
-
-    error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
     receive() external payable {}
 

@@ -11,7 +11,7 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {ConfusedDeputy} from "./core/SettlerErrors.sol";
+import {ConfusedDeputy, ActionInvalid} from "./core/SettlerErrors.sol";
 
 abstract contract SettlerMetaTxn is Context, SettlerBase {
     using UnsafeMath for uint256;
@@ -84,7 +84,7 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
         }
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal DANGEROUS_freeMemory {
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
         if (action == ISettlerActions.METATXN_RFQ_VIP.selector) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
@@ -120,18 +120,10 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
             ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
 
             sellToUniswapV3MetaTxn(recipient, path, amountOutMin, permit, sig);
-        } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
-            (
-                address recipient,
-                uint80 poolInfo,
-                uint256 minBuyAmount,
-                ISignatureTransfer.PermitTransferFrom memory permit
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
-
-            sellToCurveTricryptoMetaTxn(recipient, poolInfo, minBuyAmount, permit, sig);
         } else {
-            revert ActionInvalid({i: 0, action: action, data: data});
+            return false;
         }
+        return true;
     }
 
     function executeMetaTxn(
@@ -147,12 +139,16 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
-            _dispatchVIP(action, data, sig);
+            if (!_dispatchVIP(action, data, sig)) {
+                revert ActionInvalid(0, action, data);
+            }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
-            _dispatch(i, action, data);
+            if (!_dispatch(i, action, data)) {
+                revert ActionInvalid(i, action, data);
+            }
         }
 
         _checkSlippageAndTransfer(slippage);

@@ -5,11 +5,11 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {ActionInvalid} from "../core/SettlerErrors.sol";
+import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ActionInvalid, UnknownForkId} from "../core/SettlerErrors.sol";
+import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 
@@ -18,7 +18,7 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract PolygonMixin is SettlerBase {
+abstract contract PolygonMixin is FreeMemory, SettlerBase {
     constructor() {
         assert(block.chainid == 137 || block.chainid == 31337);
     }
@@ -30,11 +30,7 @@ abstract contract PolygonMixin is SettlerBase {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
-            return true;
-        } else {
-            revert ActionInvalid(i, action, data);
-        }
+        return super._dispatch(i, action, data);
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -55,6 +51,10 @@ abstract contract PolygonMixin is SettlerBase {
 
 /// @custom:security-contact security@0x.org
 contract PolygonSettler is Settler, PolygonMixin {
+    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+        return super._dispatchVIP(action, data);
+    }
+
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
@@ -80,6 +80,15 @@ contract PolygonSettler is Settler, PolygonMixin {
 
 /// @custom:security-contact security@0x.org
 contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
+        return super._dispatchVIP(action, data, sig);
+    }
+
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
