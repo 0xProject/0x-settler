@@ -159,6 +159,7 @@ if [[ $wallet_type = 'frame' ]] ; then
         echo "$signature" >&2
         exit 1
     fi
+    signature="$(jq -Mr .result <<<"$signature")"
 else
     signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
 fi
