@@ -65,6 +65,13 @@ case $wallet_type in
         ;;
 esac
 
+if [[ $wallet_type = 'ledger' ]] ; then
+    IFS='' read -r -e -i "44'/60'/0'/0" -p 'Ledger wallet HD path (BIP32) [default '"44'/60'/0'/0"']: '
+    wallet_args+=(
+        --mnemonic-derivation-path "$REPLY"
+    )
+fi
+
 declare -r execTransaction_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
 
 declare -r eip712_message_json_template='{
@@ -99,7 +106,7 @@ eip712_json() {
         to="$deployer_address"
     fi
     declare -r to
-    
+
     jq -Mc \
     '
     {
