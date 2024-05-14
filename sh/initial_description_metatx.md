@@ -1,8 +1,8 @@
 # 0x Settler
 
 [0x](https://0x.org/)'s settlement contracts utilising
-[Permit2](https://github.com/Uniswap/permit2) patterns to perform swaps without
-any passive allowance. Full source code and audits are found at
+[Permit2](https://github.com/Uniswap/permit2) to perform swaps without any
+passive allowance. Full source code and audits are found at
 [0xProject/0x-settler](https://github.com/0xProject/0x-settler).
 
 ## Bug Bounty
