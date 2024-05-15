@@ -100,6 +100,17 @@ contract MainnetSettler is Settler, MainnetMixin {
             ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
 
             sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+        } else if (action == ISettlerActions.DODOV1_VIP.selector) {
+            (
+                IERC20 sellToken,
+                uint64 deployerNonce,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                bool baseNotQuote,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (IERC20, uint64, ISignatureTransfer.PermitTransferFrom, bytes, bool, uint256));
+
+            sellToDodoV1VIP(sellToken, deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
         } else {
             return false;
         }
@@ -148,6 +159,16 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
 
             sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+        } else if (action == ISettlerActions.METATXN_DODOV1_VIP.selector) {
+            (
+                IERC20 sellToken,
+                uint64 deployerNonce,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bool baseNotQuote,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (IERC20, uint64, ISignatureTransfer.PermitTransferFrom, bool, uint256));
+
+            sellToDodoV1VIP(sellToken, deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
         } else {
             return false;
         }
