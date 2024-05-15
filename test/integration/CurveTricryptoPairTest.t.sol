@@ -22,9 +22,9 @@ abstract contract CurveTricryptoPairTest is SettlerBasePairTest {
                 | (uint80(uint8(0)) << 8)
                 // buyIndex
                 | uint80(uint8(2)),
-                0,
                 permit,
-                sig
+                sig,
+                0
             )
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =

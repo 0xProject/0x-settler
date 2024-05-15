@@ -95,12 +95,12 @@ contract MainnetSettler is Settler, MainnetMixin {
             (
                 address recipient,
                 uint80 poolInfo,
-                uint256 minBuyAmount,
                 ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
+                bytes memory sig,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
-            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+            sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.DODOV1_VIP.selector) {
             (
                 uint64 deployerNonce,
@@ -154,11 +154,11 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             (
                 address recipient,
                 uint80 poolInfo,
-                uint256 minBuyAmount,
-                ISignatureTransfer.PermitTransferFrom memory permit
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, uint256));
 
-            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+            sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.METATXN_DODOV1_VIP.selector) {
             (
                 uint64 deployerNonce,

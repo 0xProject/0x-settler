@@ -47,9 +47,9 @@ abstract contract CurveTricrypto is SettlerAbstract {
     function sellToCurveTricryptoVIP(
         address recipient,
         uint80 poolInfo,
-        uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
+        bytes memory sig,
+        uint256 minBuyAmount
     ) internal {
         uint64 factoryNonce = uint64(poolInfo >> 16);
         uint8 sellIndex = uint8(poolInfo >> 8);

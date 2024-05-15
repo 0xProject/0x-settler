@@ -64,15 +64,15 @@ interface ISettlerActions {
     function CURVE_TRICRYPTO_VIP(
         address recipient,
         uint80 poolInfo,
-        uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
+        bytes memory sig,
+        uint256 minBuyAmount
     ) external;
     function METATXN_CURVE_TRICRYPTO_VIP(
         address recipient,
         uint80 poolInfo,
-        uint256 minBuyAmount,
-        ISignatureTransfer.PermitTransferFrom memory permit
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 minBuyAmount
     ) external;
 
     function DODOV1(address sellToken, uint256 bps, address pool, bool baseNotQuote, uint256 minBuyAmount) external;
