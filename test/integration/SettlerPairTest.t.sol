@@ -12,6 +12,7 @@ import {LibBytes} from "../utils/LibBytes.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
+import {FullMath} from "src/vendor/FullMath.sol";
 
 import {Settler} from "src/Settler.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
@@ -20,6 +21,7 @@ import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
 abstract contract SettlerPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
+    using FullMath for uint256;
     using LibBytes for bytes;
 
     IZeroEx.OtcOrder private otcOrder;
@@ -49,7 +51,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         otcOrder.makerToken = toToken();
         otcOrder.takerToken = fromToken();
         otcOrder.makerAmount = uint128(amount());
-        otcOrder.takerAmount = uint128(amount());
+        otcOrder.takerAmount = uint128(amount() - 1 wei);
         otcOrder.taker = address(0);
         otcOrder.txOrigin = FROM;
         otcOrder.expiryAndNonce = type(uint256).max;
@@ -87,7 +89,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         SettlerBase.AllowedSlippage memory allowedSlippage = SettlerBase.AllowedSlippage({
             buyToken: address(otcOrder.makerToken),
             recipient: FROM,
-            minAmountOut: otcOrder.makerAmount
+            minAmountOut: otcOrder.makerAmount - 1 wei
         });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
@@ -128,7 +130,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         SettlerBase.AllowedSlippage memory allowedSlippage = SettlerBase.AllowedSlippage({
             buyToken: address(otcOrder.makerToken),
             recipient: FROM,
-            minAmountOut: otcOrder.makerAmount / 2
+            minAmountOut: uint256(otcOrder.takerAmount / 2).mulDiv(otcOrder.makerAmount, otcOrder.takerAmount) - 1 wei
         });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc_partialFill");

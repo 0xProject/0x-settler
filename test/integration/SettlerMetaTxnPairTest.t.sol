@@ -258,7 +258,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             SettlerBase.AllowedSlippage({
                 buyToken: address(toToken()),
                 recipient: FROM,
-                minAmountOut: amount() * 9_000 / 10_000
+                minAmountOut: (amount() - 1 wei) * 9_000 / 10_000
             })
         );
         snapEnd();
