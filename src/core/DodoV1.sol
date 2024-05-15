@@ -345,6 +345,11 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
             abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes, bool));
         (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
             _permitToTransferDetails(permit, msg.sender);
+        if (isBuyBaseToken) {
+            transferDetails.requestedAmount = quoteAmount;
+        } else {
+            transferDetails.requestedAmount = baseAmount;
+        }
         _transferFrom(permit, transferDetails, sig, isForwarded);
     }
 
