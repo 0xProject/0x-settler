@@ -292,7 +292,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
 
     function _uniV3ForkInfo(uint8 forkId) internal view virtual returns (address, bytes32, bytes4);
 
-    function _uniV3ForkCallback(bytes calldata data) internal returns (bytes memory) {
+    function _uniV3ForkCallback(bytes calldata data) private returns (bytes memory) {
         require(data.length >= 0x80);
         int256 amount0Delta;
         int256 amount1Delta;
