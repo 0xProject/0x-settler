@@ -342,9 +342,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     new bytes(0) /* sig (empty) */
                 )
             ),
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), 10_000, uniswapV2Pool(), swapInfo, 0)
-            )
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), 0, uniswapV2Pool(), swapInfo, 0))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;

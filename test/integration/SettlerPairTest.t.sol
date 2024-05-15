@@ -295,10 +295,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
         bytes[] memory actions = ActionDataBuilder.build(
             permit2Action,
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2, (nextPool, address(fromToken()), 10_000, uniswapV2Pool(), swapInfo, 0)
-            ),
-            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), 10_000, nextPool, swapInfo2, 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (nextPool, address(fromToken()), 0, uniswapV2Pool(), swapInfo, 0)),
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), 0, nextPool, swapInfo2, 0))
         );
 
         uint256 balanceBefore = wBTC.balanceOf(FROM);
@@ -327,9 +325,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             permit2Action,
-            abi.encodeCall(
-                ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), 10_000, uniswapV2Pool(), swapInfo, 0)
-            )
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), 0, uniswapV2Pool(), swapInfo, 0))
         );
 
         Settler _settler = settler;
@@ -356,7 +352,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 ISettlerActions.UNISWAPV2, (nextPool, address(fromToken()), 10_000, uniswapV2Pool(), swapInfo, 0)
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), 10_000, nextPool, swapInfo2, 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), 0, nextPool, swapInfo2, 0))
         );
 
         uint256 balanceBefore = wBTC.balanceOf(FROM);

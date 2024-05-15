@@ -168,6 +168,6 @@ contract UniswapV2UnitTest is Utils, Test {
         );
 
         uni.sell(POOL2, TOKEN0, bps, POOL, TOKEN0 < TOKEN1 ? 1 : 0, 0);
-        uni.sell(RECIPIENT, TOKEN1, 10_000, POOL2, TOKEN1 < TOKEN2 ? 1 : 0, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN1, 0, POOL2, TOKEN1 < TOKEN2 ? 1 : 0, minBuyAmount);
     }
 }
