@@ -311,15 +311,14 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     {
         uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
         sellToken.safeApproveIfBelow(dodo, sellAmount);
-        uint256 buyAmount;
         if (baseNotQuote) {
-            buyAmount = IDodo(dodo).sellBaseToken(sellAmount, 1 wei, new bytes(0));
+            IDodo(dodo).sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
         } else {
-            buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
+            uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
+            if (buyAmount < minBuyAmount) {
+                revert TooMuchSlippage(address(sellToken), minBuyAmount, buyAmount);
+            }
             IDodo(dodo).buyBaseToken(buyAmount, sellAmount, new bytes(0));
-        }
-        if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(address(sellToken), minBuyAmount, buyAmount);
         }
     }
 }
