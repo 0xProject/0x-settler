@@ -25,17 +25,9 @@ interface IDodo {
 
     function claimOwnership() external;
 
-    function sellBaseToken(
-        uint256 amount,
-        uint256 minReceiveQuote,
-        bytes calldata data
-    ) external returns (uint256);
+    function sellBaseToken(uint256 amount, uint256 minReceiveQuote, bytes calldata data) external returns (uint256);
 
-    function buyBaseToken(
-        uint256 amount,
-        uint256 maxPayQuote,
-        bytes calldata data
-    ) external returns (uint256);
+    function buyBaseToken(uint256 amount, uint256 maxPayQuote, bytes calldata data) external returns (uint256);
 
     function querySellBaseToken(uint256 amount) external view returns (uint256 receiveQuote);
 
@@ -107,11 +99,10 @@ library Math {
     }
 }
 
-
 library DecimalMath {
     using Math for uint256;
 
-    uint256 constant ONE = 10**18;
+    uint256 constant ONE = 10 ** 18;
 
     function mul(uint256 target, uint256 d) internal pure returns (uint256) {
         return target * d / ONE;
@@ -140,13 +131,11 @@ library DodoMath {
         let V1-V2=delta
         res = i*delta*(1-k+k(V0^2/V1/V2))
     */
-    function _GeneralIntegrate(
-        uint256 V0,
-        uint256 V1,
-        uint256 V2,
-        uint256 i,
-        uint256 k
-    ) internal pure returns (uint256) {
+    function _GeneralIntegrate(uint256 V0, uint256 V1, uint256 V2, uint256 i, uint256 k)
+        internal
+        pure
+        returns (uint256)
+    {
         uint256 fairAmount = DecimalMath.mul(i, V1 - V2); // i*delta
         uint256 V0V0V1V2 = DecimalMath.divCeil(V0 * V0 / V1, V2);
         uint256 penalty = DecimalMath.mul(k, V0V0V1V2); // k(V0^2/V1/V2)
@@ -167,13 +156,11 @@ library DodoMath {
         if deltaBSig=true, then Q2>Q1
         if deltaBSig=false, then Q2<Q1
     */
-    function _SolveQuadraticFunctionForTrade(
-        uint256 Q0,
-        uint256 Q1,
-        uint256 ideltaB,
-        bool deltaBSig,
-        uint256 k
-    ) internal pure returns (uint256) {
+    function _SolveQuadraticFunctionForTrade(uint256 Q0, uint256 Q1, uint256 ideltaB, bool deltaBSig, uint256 k)
+        internal
+        pure
+        returns (uint256)
+    {
         // calculate -b value and sig
         // -b = (1-k)Q1-kQ0^2/Q1+i*deltaB
         uint256 kQ02Q1 = DecimalMath.mul(k, Q0) * Q0 / Q1; // kQ0^2/Q1
@@ -193,10 +180,7 @@ library DodoMath {
         }
 
         // calculate sqrt
-        uint256 squareRoot = DecimalMath.mul(
-            (DecimalMath.ONE - k) * 4,
-            DecimalMath.mul(k, Q0) * Q0
-        ); // 4(1-k)kQ0^2
+        uint256 squareRoot = DecimalMath.mul((DecimalMath.ONE - k) * 4, DecimalMath.mul(k, Q0) * Q0); // 4(1-k)kQ0^2
         squareRoot = (b * b + squareRoot).sqrt(); // sqrt(b*b+4(1-k)kQ0*Q0)
 
         // final res
@@ -221,11 +205,11 @@ library DodoMath {
         Assume Q2=Q0, Given Q1 and deltaB, solve Q0
         let fairAmount = i*deltaB
     */
-    function _SolveQuadraticFunctionForTarget(
-        uint256 V1,
-        uint256 k,
-        uint256 fairAmount
-    ) internal pure returns (uint256 V0) {
+    function _SolveQuadraticFunctionForTarget(uint256 V1, uint256 k, uint256 fairAmount)
+        internal
+        pure
+        returns (uint256 V0)
+    {
         // V0 = V1+V1*(sqrt-1)/2k
         uint256 sqrt = DecimalMath.divCeil(DecimalMath.mul(k, fairAmount) * 4, V1);
         sqrt = ((sqrt + DecimalMath.ONE) * DecimalMath.ONE).sqrt();
@@ -235,11 +219,14 @@ library DodoMath {
     }
 }
 
-
 abstract contract DodoSellHelper {
     using Math for uint256;
 
-    enum RStatus {ONE, ABOVE_ONE, BELOW_ONE}
+    enum RStatus {
+        ONE,
+        ABOVE_ONE,
+        BELOW_ONE
+    }
 
     struct DodoState {
         uint256 oraclePrice;
@@ -261,8 +248,8 @@ abstract contract DodoSellHelper {
         state.K = dodo._K_();
 
         uint256 boughtAmount;
-        // Determine the status (RStatus) and calculate the amount
-        // based on the state
+        // Determine the status (RStatus) and calculate the amount based on the
+        // state
         if (state.rStatus == RStatus.ONE) {
             boughtAmount = _ROneSellQuoteToken(amount, state);
         } else if (state.rStatus == RStatus.ABOVE_ONE) {
@@ -277,11 +264,7 @@ abstract contract DodoSellHelper {
             }
         }
         // Calculate fees
-        return
-            DecimalMath.divFloor(
-                boughtAmount,
-                DecimalMath.ONE + dodo._MT_FEE_RATE_() + dodo._LP_FEE_RATE_()
-            );
+        return DecimalMath.divFloor(boughtAmount, DecimalMath.ONE + dodo._MT_FEE_RATE_() + dodo._LP_FEE_RATE_());
     }
 
     function _ROneSellQuoteToken(uint256 amount, DodoState memory state)
@@ -291,11 +274,7 @@ abstract contract DodoSellHelper {
     {
         uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
         uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
-            state.baseTarget,
-            state.baseTarget,
-            DecimalMath.mul(i, amount),
-            false,
-            state.K
+            state.baseTarget, state.baseTarget, DecimalMath.mul(i, amount), false, state.K
         );
         return state.baseTarget - B2;
     }
@@ -307,11 +286,7 @@ abstract contract DodoSellHelper {
     {
         uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
         uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
-            state.baseTarget,
-            state.B,
-            DecimalMath.mul(i, amount),
-            false,
-            state.K
+            state.baseTarget, state.B, DecimalMath.mul(i, amount), false, state.K
         );
         return state.B - B2;
     }
