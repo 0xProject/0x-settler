@@ -132,20 +132,20 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
 
             fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
         } else if (action == ISettlerActions.UNISWAPV3.selector) {
-            (address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) =
-                abi.decode(data, (address, uint256, uint256, bytes));
+            (address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) =
+                abi.decode(data, (address, uint256, bytes, uint256));
 
-            sellToUniswapV3(recipient, path, bps, amountOutMin);
+            sellToUniswapV3(recipient, bps, path, amountOutMin);
         } else if (action == ISettlerActions.UNISWAPV2.selector) {
-            (address recipient, address sellToken, address pool, uint8 swapInfo, uint256 bps, uint256 amountOutMin) =
-                abi.decode(data, (address, address, address, uint8, uint256, uint256));
+            (address recipient, address sellToken, uint256 bps, address pool, uint8 swapInfo, uint256 amountOutMin) =
+                abi.decode(data, (address, address, uint256, address, uint8, uint256));
 
-            sellToUniswapV2(recipient, sellToken, pool, swapInfo, bps, amountOutMin);
+            sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, amountOutMin);
         } else if (action == ISettlerActions.BASIC.selector) {
-            (address pool, IERC20 sellToken, uint256 proportion, uint256 offset, bytes memory _data) =
-                abi.decode(data, (address, IERC20, uint256, uint256, bytes));
+            (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
+                abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
-            basicSellToPool(pool, sellToken, proportion, offset, _data);
+            basicSellToPool(sellToken, bps, pool, offset, _data);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

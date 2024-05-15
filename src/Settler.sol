@@ -81,13 +81,13 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
         } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
             (
                 address recipient,
-                uint256 amountOutMin,
                 bytes memory path,
                 ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
-            sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
+            sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
             return false;
         }

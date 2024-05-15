@@ -47,19 +47,19 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
-    function UNISWAPV3(address recipient, uint256 bps, uint256 amountOutMin, bytes memory path) external;
+    function UNISWAPV3(address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) external;
 
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_VIP(
         address recipient,
-        uint256 amountOutMin,
         bytes memory path,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
+        bytes memory sig,
+        uint256 amountOutMin
     ) external;
 
-    function MAKERPSM_SELL(address recipient, uint256 bps, address psm, address gemToken) external;
-    function MAKERPSM_BUY(address recipient, uint256 bps, address psm, address gemToken) external;
+    function MAKERPSM_SELL(address recipient, address gemToken, uint256 bps, address psm) external;
+    function MAKERPSM_BUY(address recipient, address gemToken, uint256 bps, address psm) external;
 
     function CURVE_TRICRYPTO_VIP(
         address recipient,
@@ -80,18 +80,18 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
     function METATXN_UNISWAPV3_VIP(
         address recipient,
-        uint256 amountOutMin,
         bytes memory path,
-        ISignatureTransfer.PermitTransferFrom memory permit
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
     function UNISWAPV2(
         address recipient,
         address sellToken,
+        uint256 bps,
         address pool,
         uint8 swapInfo,
-        uint256 bps,
         uint256 amountOutMin
     ) external;
 
@@ -100,5 +100,5 @@ interface ISettlerActions {
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
-    function BASIC(address pool, address sellToken, uint256 bps, uint256 offset, bytes calldata data) external;
+    function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 }

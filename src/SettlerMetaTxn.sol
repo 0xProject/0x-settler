@@ -114,12 +114,12 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
         } else if (action == ISettlerActions.METATXN_UNISWAPV3_VIP.selector) {
             (
                 address recipient,
-                uint256 amountOutMin,
                 bytes memory path,
-                ISignatureTransfer.PermitTransferFrom memory permit
-            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom));
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
 
-            sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
+            sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
             return false;
         }

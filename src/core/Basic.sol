@@ -19,7 +19,7 @@ abstract contract Basic is SettlerAbstract {
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
-    function basicSellToPool(address pool, IERC20 sellToken, uint256 bps, uint256 offset, bytes memory data) internal {
+    function basicSellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) internal {
         if (_isRestrictedTarget(pool)) {
             revert ConfusedDeputy();
         }
