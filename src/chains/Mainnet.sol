@@ -5,11 +5,12 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
+import {IERC20, IERC20Meta} from "../IERC20.sol";
 import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
+import {DodoV1} from "../core/DodoV1.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
@@ -26,7 +27,7 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto, DodoV1 {
     constructor() MakerPSM(0x6B175474E89094C44Da98b954EedeAC495271d0F) {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -50,6 +51,10 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
                 abi.decode(data, (address, uint256, IPSM, IERC20Meta));
 
             makerPsmBuyGem(recipient, bps, psm, gemToken);
+        } else if (action == ISettlerActions.DODOV1.selector) {
+            (IERC20 sellToken, uint256 bps, address dodo, bool baseNotQuote, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, address, bool, uint256));
+            sellToDodoV1(sellToken, bps, dodo, baseNotQuote, minBuyAmount);
         } else {
             return false;
         }

@@ -75,6 +75,8 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory permit
     ) external;
 
+    function DODOV1(address sellToken, uint256 bps, address pool, bool baseNotQuote, uint256 minBuyAmount) external;
+
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
     function METATXN_UNISWAPV3_VIP(
         address recipient,
