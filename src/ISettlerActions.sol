@@ -77,7 +77,6 @@ interface ISettlerActions {
 
     function DODOV1(address sellToken, uint256 bps, address pool, bool baseNotQuote, uint256 minBuyAmount) external;
     function DODOV1_VIP(
-        address sellToken,
         uint64 deployerNonce,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
@@ -85,7 +84,6 @@ interface ISettlerActions {
         uint256 minBuyAmount
     ) external;
     function METATXN_DODOV1_VIP(
-        address sellToken,
         uint64 deployerNonce,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bool baseNotQuote,

@@ -54,6 +54,7 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
         } else if (action == ISettlerActions.DODOV1.selector) {
             (IERC20 sellToken, uint256 bps, address dodo, bool baseNotQuote, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, address, bool, uint256));
+
             sellToDodoV1(sellToken, bps, dodo, baseNotQuote, minBuyAmount);
         } else {
             return false;
@@ -102,15 +103,14 @@ contract MainnetSettler is Settler, MainnetMixin {
             sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
         } else if (action == ISettlerActions.DODOV1_VIP.selector) {
             (
-                IERC20 sellToken,
                 uint64 deployerNonce,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
                 bool baseNotQuote,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (IERC20, uint64, ISignatureTransfer.PermitTransferFrom, bytes, bool, uint256));
+            ) = abi.decode(data, (uint64, ISignatureTransfer.PermitTransferFrom, bytes, bool, uint256));
 
-            sellToDodoV1VIP(sellToken, deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
+            sellToDodoV1VIP(deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
         } else {
             return false;
         }
@@ -161,14 +161,13 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
         } else if (action == ISettlerActions.METATXN_DODOV1_VIP.selector) {
             (
-                IERC20 sellToken,
                 uint64 deployerNonce,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bool baseNotQuote,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (IERC20, uint64, ISignatureTransfer.PermitTransferFrom, bool, uint256));
+            ) = abi.decode(data, (uint64, ISignatureTransfer.PermitTransferFrom, bool, uint256));
 
-            sellToDodoV1VIP(sellToken, deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
+            sellToDodoV1VIP(deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
         } else {
             return false;
         }

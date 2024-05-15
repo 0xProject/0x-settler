@@ -349,7 +349,6 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     }
 
     function sellToDodoV1VIP(
-        IERC20 sellToken,
         uint64 deployerNonce,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
@@ -372,7 +371,7 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
         } else {
             uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(address(sellToken), minBuyAmount, buyAmount);
+                revert TooMuchSlippage(permit.permitted.token, minBuyAmount, buyAmount);
             }
             _setOperatorAndCall(
                 dodo,
