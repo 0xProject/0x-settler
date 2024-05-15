@@ -7,6 +7,7 @@ import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
+import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -22,6 +23,7 @@ contract USDCWETHTest is
     ZeroExPairTest,
     UniswapV3PairTest,
     CurveTricryptoPairTest,
+    DodoV1PairTest,
     TokenTransferTest,
     Permit2TransferTest
 {
