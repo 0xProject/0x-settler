@@ -76,6 +76,7 @@ interface ISettlerActions {
     ) external;
 
     function DODOV1(address sellToken, uint256 bps, address pool, bool baseNotQuote, uint256 minBuyAmount) external;
+    // the DodoV1 VIPs are disabled for contract size
     function DODOV1_VIP(
         uint64 deployerNonce,
         ISignatureTransfer.PermitTransferFrom memory permit,
