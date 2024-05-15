@@ -92,7 +92,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -124,7 +124,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, 0, uniswapV3Path(), permit))
+            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, 0))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -242,8 +242,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
                 ISettlerActions.BASIC,
                 (
                     address(toToken()),
-                    address(toToken()),
                     1_000,
+                    address(toToken()),
                     0x24,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))
                 )

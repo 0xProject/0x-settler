@@ -43,6 +43,7 @@ abstract contract Basic is SettlerAbstract {
                 }
             }
         } else if (address(sellToken) == address(0)) {
+            // TODO: check for zero `bps`
             if (offset != 0) revert InvalidOffset();
         } else {
             uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);

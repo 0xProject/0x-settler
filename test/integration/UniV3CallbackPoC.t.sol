@@ -155,9 +155,9 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
                 ISettlerActions.METATXN_UNISWAPV3_VIP,
                 (
                     address(settler), // recipient
-                    100, // amountOutMin
                     uniswapV3Path, // (token0, fee, token1)
-                    permit
+                    permit,
+                    100 // amountOutMin
                 )
             )
         );
@@ -220,9 +220,9 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (
-                    pool, // pool
                     address(0), // sellToken
                     10_000, // proportion
+                    pool, // pool
                     0, // offset
                     poolCalldata
                 )
