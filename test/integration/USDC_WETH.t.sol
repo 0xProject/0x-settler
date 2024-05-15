@@ -88,4 +88,16 @@ contract USDCWETHTest is
         override(SettlerPairTest, ZeroExPairTest)
         returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {}
+
+    function curveV2TricryptoPoolId() internal pure override returns (uint80) {
+        return
+        // nonce
+        (
+            (uint80(uint64(1)) << 16)
+            // sellIndex
+            | (uint80(uint8(0)) << 8)
+            // buyIndex
+            | uint80(uint8(2))
+        );
+    }
 }
