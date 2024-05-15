@@ -57,6 +57,14 @@ contract USDCWETHTest is
         return 1000e6;
     }
 
+    function dodoV1Pool() internal pure override returns (address) {
+        return 0x75c23271661d9d143DCb617222BC4BEc783eff34;
+    }
+
+    function dodoV1Direction() internal pure override returns (bool) {
+        return false;
+    }
+
     function uniswapV3Path()
         internal
         pure

@@ -64,6 +64,14 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function uniswapV2Pool() internal virtual returns (address);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
+    function dodoV1Pool() internal virtual returns (address) {
+        return address(0);
+    }
+
+    function dodoV1Direction() internal virtual returns (bool) {
+        return true;
+    }
+
     function testSettler_zeroExOtcOrder() public {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, otcOrderHash);
 
@@ -447,5 +455,23 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
             actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
         );
         snapEnd();
+    }
+
+    function testSettler_dodoV1() public skipIf(dodoV1Pool() == address(0)) {
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(ISettlerActions.DODOV1, (address(fromToken()), 10_000, dodoV1Pool(), dodoV1Direction(), 0))
+        );
+        Settler _settler = settler;
+        uint256 beforeBalance = toToken().balanceOf(FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_dodoV1");
+        _settler.execute(
+            actions, SettlerBase.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 1 wei})
+        );
+        snapEnd();
+
+        assertGt(toToken().balanceOf(FROM), beforeBalance);
     }
 }
