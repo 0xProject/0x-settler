@@ -46,7 +46,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x28;
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x48;
-    uint256 private constant PERMIT_DATA_SIZE = 0x80;
+    uint256 private constant PERMIT_DATA_SIZE = 0x60;
     uint256 private constant ISFORWARDED_DATA_SIZE = 0x01;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
@@ -227,8 +227,8 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         bool isForwarded
     ) private pure {
         assembly ("memory-safe") {
-            mcopy(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(permit), 0x40)
-            mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40), swapCallbackData), add(0x20, permit), 0x40)
+            mstore(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(add(0x20, mload(permit))))
+            mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20), swapCallbackData), add(0x20, permit), 0x40)
             mstore8(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData), isForwarded)
             mcopy(
                 add(
@@ -245,8 +245,8 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     function _updateSwapCallbackData(bytes memory swapCallbackData, IERC20 sellToken, address payer) private pure {
         assembly ("memory-safe") {
             let length := mload(swapCallbackData)
-            mstore(add(0x28, swapCallbackData), payer)
-            mstore(add(0x14, swapCallbackData), sellToken)
+            mstore(add(0x28, swapCallbackData), sellToken)
+            mstore(add(0x14, swapCallbackData), payer)
             mstore(swapCallbackData, length)
         }
     }
@@ -299,31 +299,37 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     ///      UniswapV3 pool.
     /// @param amount0Delta Token0 amount owed.
     /// @param amount1Delta Token1 amount owed.
-    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: sellToken, payer, (optionally: permit, isForwarded, sig)
+    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: payer, sellToken, (optionally: permit[0x20:], isForwarded, sig)
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) private {
-        IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
-        address payer = address(uint160(bytes20(data[0x14:])));
+        address payer = address(uint160(bytes20(data)));
+        data = data[0x14:];
         uint256 sellAmount = amount0Delta > 0 ? uint256(amount0Delta) : uint256(amount1Delta);
-        _pay(sellToken, payer, sellAmount, data[SWAP_CALLBACK_PREFIX_DATA_SIZE:]);
+        _pay(payer, sellAmount, data);
     }
 
-    function _pay(IERC20 token, address payer, uint256 amount, bytes calldata permit2Data) private {
+    function _pay(address payer, uint256 amount, bytes calldata permit2Data) private {
         if (payer == address(this)) {
-            token.safeTransfer(msg.sender, amount);
+            IERC20(address(uint160(bytes20(permit2Data)))).safeTransfer(msg.sender, amount);
         } else {
             assert(payer == address(0));
             ISignatureTransfer.PermitTransferFrom calldata permit;
             bool isForwarded;
             bytes calldata sig;
             assembly ("memory-safe") {
-                permit := permit2Data.offset
-                isForwarded := calldataload(add(0x61, permit2Data.offset))
-                sig.offset := add(add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE), permit2Data.offset)
-                sig.length := sub(permit2Data.length, add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE))
+                // this is super dirty, but it works because although `permit` is aliasing in the
+                // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
+                // first word of `permit`, which is the sell token
+                permit := sub(permit2Data.offset, 0x0c)
+                isForwarded := and(0x01, calldataload(add(0x55, permit2Data.offset)))
+                sig.offset := add(0x75, permit2Data.offset)
+                sig.length := sub(permit2Data.length, 0x75)
             }
-            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
-            _transferFrom(permit, transferDetails, sig, isForwarded);
+            _transferFrom(
+                permit,
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount}),
+                sig,
+                isForwarded
+            );
         }
     }
 }
