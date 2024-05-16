@@ -337,14 +337,14 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
         return new bytes(0);
     }
 
-    function dodoCall(bool isBuyBaseToken, uint256 baseAmount, uint256 quoteAmount, bytes calldata data) private {
+    function dodoCall(bool quoteForBase, uint256 baseAmount, uint256 quoteAmount, bytes calldata data) private {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, bool isForwarded) =
             abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes, bool));
         _transferFrom(
             permit,
             ISignatureTransfer.SignatureTransferDetails({
                 to: msg.sender,
-                requestedAmount: isBuyBaseToken ? quoteAmount : baseAmount
+                requestedAmount: quoteForBase ? quoteAmount : baseAmount
             }),
             sig,
             isForwarded
@@ -355,7 +355,7 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
         uint64 deployerNonce,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
-        bool baseNotQuote,
+        bool quoteForBase,
         uint256 minBuyAmount
     ) internal {
         // deriving the contract address from the factory nonce verifies the initcode conforms to ERC1167
@@ -368,31 +368,31 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
 
         uint256 sellAmount = permit.permitted.amount;
         bytes memory callbackData = abi.encode(permit, sig, _isForwarded());
-        if (baseNotQuote) {
-            callbackData = abi.encodeCall(IDodo.sellBaseToken, (sellAmount, minBuyAmount, callbackData));
-        } else {
+        if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
             if (buyAmount < minBuyAmount) {
                 revert TooMuchSlippage(permit.permitted.token, minBuyAmount, buyAmount);
             }
             callbackData = abi.encodeCall(IDodo.buyBaseToken, (buyAmount, sellAmount, callbackData));
+        } else {
+            callbackData = abi.encodeCall(IDodo.sellBaseToken, (sellAmount, minBuyAmount, callbackData));
         }
         _setOperatorAndCall(dodo, callbackData, uint32(IDodoCallee.dodoCall.selector), _dodoV1Callback);
     }
 
-    function sellToDodoV1(IERC20 sellToken, uint256 bps, address dodo, bool baseNotQuote, uint256 minBuyAmount)
+    function sellToDodoV1(IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount)
         internal
     {
         uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
         sellToken.safeApproveIfBelow(dodo, sellAmount);
-        if (baseNotQuote) {
-            IDodo(dodo).sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
-        } else {
+        if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
             if (buyAmount < minBuyAmount) {
                 revert TooMuchSlippage(address(sellToken), minBuyAmount, buyAmount);
             }
             IDodo(dodo).buyBaseToken(buyAmount, sellAmount, new bytes(0));
+        } else {
+            IDodo(dodo).sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
         }
     }
 }
