@@ -72,10 +72,6 @@ interface IDodo {
     function getOraclePrice() external view returns (uint256);
 }
 
-interface IDodoHelper {
-    function querySellQuoteToken(IDodo dodo, uint256 amount) external view returns (uint256);
-}
-
 library Math {
     function divCeil(uint256 a, uint256 b) internal pure returns (uint256) {
         uint256 quotient = a / b;
@@ -315,6 +311,7 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
 
     address private constant dodoDeployer = 0x5E5a7b76462E4BdF83Aa98795644281BdbA80B88;
     address private constant dodoPrototype = 0xF6A8E47daEEdDcCe297e7541523e27DF2f167BF3;
+    // this is the ERC1167 runtime code
     bytes32 private constant dodoCodehash =
         keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", dodoPrototype, hex"5af43d82803e903d91602b57fd5bf3"));
 
@@ -343,14 +340,15 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     function dodoCall(bool isBuyBaseToken, uint256 baseAmount, uint256 quoteAmount, bytes calldata data) private {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, bool isForwarded) =
             abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes, bool));
-        (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-            _permitToTransferDetails(permit, msg.sender);
-        if (isBuyBaseToken) {
-            transferDetails.requestedAmount = quoteAmount;
-        } else {
-            transferDetails.requestedAmount = baseAmount;
-        }
-        _transferFrom(permit, transferDetails, sig, isForwarded);
+        _transferFrom(
+            permit,
+            ISignatureTransfer.SignatureTransferDetails({
+                to: msg.sender,
+                requestedAmount: isBuyBaseToken ? quoteAmount : baseAmount
+            }),
+            sig,
+            isForwarded
+        );
     }
 
     function sellToDodoV1VIP(
@@ -360,31 +358,26 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
         bool baseNotQuote,
         uint256 minBuyAmount
     ) internal {
+        // deriving the contract address from the factory nonce verifies the initcode conforms to ERC1167
         address dodo = dodoDeployer.deriveContract(deployerNonce);
+        // checking the codehash against the one computed from the prototype verifies the implementation
         if (dodo.codehash != dodoCodehash) {
             revert ConfusedDeputy();
         }
+        // now we know that we can trust `dodo`
+
         uint256 sellAmount = permit.permitted.amount;
         bytes memory callbackData = abi.encode(permit, sig, _isForwarded());
         if (baseNotQuote) {
-            _setOperatorAndCall(
-                dodo,
-                abi.encodeCall(IDodo.sellBaseToken, (sellAmount, minBuyAmount, callbackData)),
-                uint32(IDodoCallee.dodoCall.selector),
-                _dodoV1Callback
-            );
+            callbackData = abi.encodeCall(IDodo.sellBaseToken, (sellAmount, minBuyAmount, callbackData));
         } else {
             uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
             if (buyAmount < minBuyAmount) {
                 revert TooMuchSlippage(permit.permitted.token, minBuyAmount, buyAmount);
             }
-            _setOperatorAndCall(
-                dodo,
-                abi.encodeCall(IDodo.buyBaseToken, (buyAmount, sellAmount, callbackData)),
-                uint32(IDodoCallee.dodoCall.selector),
-                _dodoV1Callback
-            );
+            callbackData = abi.encodeCall(IDodo.buyBaseToken, (buyAmount, sellAmount, callbackData));
         }
+        _setOperatorAndCall(dodo, callbackData, uint32(IDodoCallee.dodoCall.selector), _dodoV1Callback);
     }
 
     function sellToDodoV1(IERC20 sellToken, uint256 bps, address dodo, bool baseNotQuote, uint256 minBuyAmount)
