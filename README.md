@@ -68,13 +68,13 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
-| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 244603 | 0.00%   |
-| Settler              | Uniswap V3 | USDC/WETH | 164931 | -32.57% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 156992 | -35.82% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 244529 | 0.00%   |
+| Settler              | Uniswap V3 | USDC/WETH | 164931 | -32.55% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 156992 | -35.80% |
 |                      |            |           |        |         |
-| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 221601 | 0.00%   |
-| Settler              | Uniswap V3 | DAI/WETH  | 148309 | -33.07% |
-| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 140370 | -36.66% |
+| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 221527 | 0.00%   |
+| Settler              | Uniswap V3 | DAI/WETH  | 148309 | -33.05% |
+| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 140370 | -36.64% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 228500 | 0.00%   |
 | Settler              | Uniswap V3 | USDT/WETH | 154995 | -32.17% |
@@ -87,7 +87,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 | Settler          | Uniswap V3 | USDC/WETH | 170700 | -17.98% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 195552 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 154079 | -21.21% |
+| Settler          | Uniswap V3 | DAI/WETH  | 154078 | -21.21% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 198359 | 0.00%   |
 | Settler          | Uniswap V3 | USDT/WETH | 160764 | -18.95% |
