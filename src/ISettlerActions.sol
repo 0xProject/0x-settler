@@ -100,12 +100,15 @@ interface ISettlerActions {
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
+    /// @param swapInfo is encoded as the upper 16 bits as the fee of the pool in bps, the second
+    ///                 lowest bit as "sell token has transfer fee", and the lowest bit as the
+    ///                 "token0 for token1" flag.
     function UNISWAPV2(
         address recipient,
         address sellToken,
         uint256 bps,
         address pool,
-        uint8 swapInfo,
+        uint24 swapInfo,
         uint256 amountOutMin
     ) external;
 
