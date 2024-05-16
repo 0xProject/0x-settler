@@ -163,7 +163,7 @@ contract UniswapV3UnitTest is Utils, Test {
                 zeroForOne,
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
+                abi.encodePacked(TOKEN0, address(uni))
             )
         );
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
@@ -194,7 +194,7 @@ contract UniswapV3UnitTest is Utils, Test {
                 zeroForOne,
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
+                abi.encodePacked(TOKEN0, address(uni))
             )
         );
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
@@ -223,7 +223,7 @@ contract UniswapV3UnitTest is Utils, Test {
         ISignatureTransfer.PermitTransferFrom memory permitTransfer =
             ISignatureTransfer.PermitTransferFrom({permitted: permitted, nonce: 0, deadline: 0});
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: POOL, requestedAmount: amount});
+            ISignatureTransfer.SignatureTransferDetails({to: POOL, requestedAmount: 1});
 
         // permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes) 30f28b7a
         // cannot use abi.encodeWithSelector due to the selector overload and ambiguity
@@ -257,7 +257,7 @@ contract UniswapV3UnitTest is Utils, Test {
 
         _mockExpectCall(
             ALLOWANCE_HOLDER,
-            abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, amount)),
+            abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, 1)),
             abi.encode(true)
         );
 

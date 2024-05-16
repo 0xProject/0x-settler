@@ -319,7 +319,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             bytes calldata sig;
             assembly ("memory-safe") {
                 permit := permit2Data.offset
-                isForwarded := and(0x01, calldataload(add(0x61, permit2Data.offset)))
+                isForwarded := calldataload(add(0x61, permit2Data.offset))
                 sig.offset := add(add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE), permit2Data.offset)
                 sig.length := sub(permit2Data.length, add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE))
             }
