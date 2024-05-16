@@ -140,25 +140,55 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 _updateSwapCallbackData(swapCallbackData, zeroForOne ? token0 : token1, payer);
             }
 
-            (int256 amount0, int256 amount1) = abi.decode(
-                _setOperatorAndCall(
-                    address(pool),
-                    abi.encodeCall(
-                        pool.swap,
-                        (
-                            // Intermediate tokens go to this contract.
-                            isPathMultiHop ? address(this) : recipient,
-                            zeroForOne,
-                            int256(sellAmount),
-                            zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                            swapCallbackData
-                        )
+            int256 amount0;
+            int256 amount1;
+            if (isPathMultiHop) {
+                uint256 freeMemPtr;
+                assembly ("memory-safe") {
+                    freeMemPtr := mload(0x40)
+                }
+                (amount0, amount1) = abi.decode(
+                    _setOperatorAndCall(
+                        address(pool),
+                        abi.encodeCall(
+                            pool.swap,
+                            (
+                                // Intermediate tokens go to this contract.
+                                address(this),
+                                zeroForOne,
+                                int256(sellAmount),
+                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                                swapCallbackData
+                            )
+                        ),
+                        uint32(callbackSelector),
+                        _uniV3ForkCallback
                     ),
-                    uint32(callbackSelector),
-                    _uniV3ForkCallback
-                ),
-                (int256, int256)
-            );
+                    (int256, int256)
+                );
+                assembly ("memory-safe") {
+                    mstore(0x40, freeMemPtr)
+                }
+            } else {
+                (amount0, amount1) = abi.decode(
+                    _setOperatorAndCall(
+                        address(pool),
+                        abi.encodeCall(
+                            pool.swap,
+                            (
+                                recipient,
+                                zeroForOne,
+                                int256(sellAmount),
+                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                                swapCallbackData
+                            )
+                        ),
+                        uint32(callbackSelector),
+                        _uniV3ForkCallback
+                    ),
+                    (int256, int256)
+                );
+            }
 
             {
                 int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
