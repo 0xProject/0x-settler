@@ -385,7 +385,7 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     {
         uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
         sellToken.safeApproveIfBelow(dodo, sellAmount);
-        if (baseNotQuote) {
+        if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
             if (buyAmount < minBuyAmount) {
                 revert TooMuchSlippage(address(sellToken), minBuyAmount, buyAmount);
