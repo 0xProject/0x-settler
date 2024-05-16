@@ -29,9 +29,9 @@ abstract contract UniswapV2 {
     function sellToUniswapV2(
         address recipient,
         address sellToken,
+        uint256 bps,
         address pool,
         uint8 swapInfo,
-        uint256 bps,
         uint256 minBuyAmount
     ) internal {
         // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector

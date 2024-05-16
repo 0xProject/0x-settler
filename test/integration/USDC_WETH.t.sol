@@ -7,6 +7,7 @@ import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
+import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -22,6 +23,7 @@ contract USDCWETHTest is
     ZeroExPairTest,
     UniswapV3PairTest,
     CurveTricryptoPairTest,
+    DodoV1PairTest,
     TokenTransferTest,
     Permit2TransferTest
 {
@@ -57,6 +59,14 @@ contract USDCWETHTest is
         return 1000e6;
     }
 
+    function dodoV1Pool() internal pure override returns (address) {
+        return 0x75c23271661d9d143DCb617222BC4BEc783eff34;
+    }
+
+    function dodoV1Direction() internal pure override returns (bool) {
+        return true;
+    }
+
     function uniswapV3Path()
         internal
         pure
@@ -80,4 +90,16 @@ contract USDCWETHTest is
         override(SettlerPairTest, ZeroExPairTest)
         returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {}
+
+    function curveV2TricryptoPoolId() internal pure override returns (uint80) {
+        return
+        // nonce
+        (
+            (uint80(uint64(1)) << 16)
+            // sellIndex
+            | (uint80(uint8(0)) << 8)
+            // buyIndex
+            | uint80(uint8(2))
+        );
+    }
 }

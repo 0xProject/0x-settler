@@ -5,11 +5,12 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
+import {IERC20, IERC20Meta} from "../IERC20.sol";
 import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
+import {DodoV1} from "../core/DodoV1.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
@@ -26,8 +27,8 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto {
-    constructor() MakerPSM(0x6B175474E89094C44Da98b954EedeAC495271d0F) {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto, DodoV1 {
+    constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
@@ -41,15 +42,20 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == ISettlerActions.MAKERPSM_SELL.selector) {
-            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
+            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) =
+                abi.decode(data, (address, IERC20Meta, uint256, IPSM));
 
-            makerPsmSellGem(recipient, bps, psm, gemToken);
+            makerPsmSellGem(recipient, gemToken, bps, psm);
         } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
-            (address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) =
-                abi.decode(data, (address, uint256, IPSM, IERC20Meta));
+            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) =
+                abi.decode(data, (address, IERC20Meta, uint256, IPSM));
 
-            makerPsmBuyGem(recipient, bps, psm, gemToken);
+            makerPsmBuyGem(recipient, gemToken, bps, psm);
+        } else if (action == ISettlerActions.DODOV1.selector) {
+            (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, address, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -89,12 +95,25 @@ contract MainnetSettler is Settler, MainnetMixin {
             (
                 address recipient,
                 uint80 poolInfo,
-                uint256 minBuyAmount,
                 ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
+                bytes memory sig,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
-            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+            sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
+        } else if (action == ISettlerActions.DODOV1_VIP.selector) {
+            /*
+            (
+                uint64 deployerNonce,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                bool quoteForBase,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (uint64, ISignatureTransfer.PermitTransferFrom, bytes, bool, uint256));
+
+            sellToDodoV1VIP(deployerNonce, permit, sig, quoteForBase, minBuyAmount);
+            */
+            revert("unimplemented");
         } else {
             return false;
         }
@@ -138,11 +157,23 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             (
                 address recipient,
                 uint80 poolInfo,
-                uint256 minBuyAmount,
-                ISignatureTransfer.PermitTransferFrom memory permit
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, uint256));
 
-            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+            sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
+        } else if (action == ISettlerActions.METATXN_DODOV1_VIP.selector) {
+            /*
+            (
+                uint64 deployerNonce,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bool quoteForBase,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (uint64, ISignatureTransfer.PermitTransferFrom, bool, uint256));
+
+            sellToDodoV1VIP(deployerNonce, permit, sig, quoteForBase, minBuyAmount);
+            */
+            revert("unimplemented");
         } else {
             return false;
         }

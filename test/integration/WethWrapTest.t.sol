@@ -27,7 +27,7 @@ contract WethWrapTest is Test, GasSnapshot {
     function testWethDeposit() public {
         vm.deal(address(_settler), 1e18);
         bytes[] memory actions =
-            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC, (address(_weth), _eth, 10_000, 0, "")));
+            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, "")));
 
         uint256 balanceBefore = _weth.balanceOf(address(this));
         Settler settler = _settler;
@@ -49,7 +49,7 @@ contract WethWrapTest is Test, GasSnapshot {
         deal(address(_weth), address(_settler), 1e18);
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.BASIC, (address(_weth), address(_weth), 10_000, 4, abi.encodeCall(_weth.withdraw, (0)))
+                ISettlerActions.BASIC, (address(_weth), 10_000, address(_weth), 4, abi.encodeCall(_weth.withdraw, (0)))
             )
         );
 

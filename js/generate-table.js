@@ -131,8 +131,20 @@ tables.push(
       [
         ["0x V4", "Curve", "zeroEx_curveV2VIP"],
         ["Settler", "Curve", "settler_basic_curve"],
+        ["Settler", "CurveV2 Tricrypto VIP", "settler_curveTricrypto"],
         ["Curve", "Curve", "curveV2Pool"],
         ["Curve Swap Router", "Curve", "curveV2Pool_swapRouter"],
+      ],
+      pairs
+    ),
+    { stringLength: stringWidth }
+  ),
+  // Dodo
+  markdownTable(
+    generateTable(
+      "DODO V1",
+      [
+        ["Settler", "DODO V1", "settler_dodoV1"],
       ],
       pairs
     ),

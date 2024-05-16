@@ -63,7 +63,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellToUniswapV3(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
+    function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
         internal
         returns (uint256 buyAmount)
     {
@@ -90,9 +90,9 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     function sellToUniswapV3VIP(
         address recipient,
         bytes memory encodedPath,
-        uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
+        bytes memory sig,
+        uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
@@ -292,7 +292,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
 
     function _uniV3ForkInfo(uint8 forkId) internal view virtual returns (address, bytes32, bytes4);
 
-    function _uniV3ForkCallback(bytes calldata data) internal returns (bytes memory) {
+    function _uniV3ForkCallback(bytes calldata data) private returns (bytes memory) {
         require(data.length >= 0x80);
         int256 amount0Delta;
         int256 amount1Delta;

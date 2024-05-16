@@ -9,14 +9,12 @@ import {Utils} from "../Utils.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract MakerPSMDummy is MakerPSM {
-    constructor(address dai) MakerPSM(dai) {}
-
-    function sellToPool(address recipient, uint256 bps, address psm, address gemToken) public {
-        super.makerPsmSellGem(recipient, bps, IPSM(psm), IERC20Meta(gemToken));
+    function sellToPool(address recipient, address gemToken, uint256 bps, address psm) public {
+        super.makerPsmSellGem(recipient, IERC20Meta(gemToken), bps, IPSM(psm));
     }
 
-    function buyFromPool(address recipient, uint256 bps, address psm, address gemToken) public {
-        super.makerPsmBuyGem(recipient, bps, IPSM(psm), IERC20Meta(gemToken));
+    function buyFromPool(address recipient, address gemToken, uint256 bps, address psm) public {
+        super.makerPsmBuyGem(recipient, IERC20Meta(gemToken), bps, IPSM(psm));
     }
 }
 
@@ -25,11 +23,11 @@ contract MakerPSMUnitTest is Utils, Test {
     address POOL = _createNamedRejectionDummy("POOL");
     address RECIPIENT = _createNamedRejectionDummy("RECIPIENT");
     address PSM = _createNamedRejectionDummy("PSM");
-    address DAI = _createNamedRejectionDummy("DAI");
+    address DAI = _etchNamedRejectionDummy("DAI", 0x6B175474E89094C44Da98b954EedeAC495271d0F);
     address TOKEN = _createNamedRejectionDummy("TOKEN");
 
     function setUp() public {
-        psm = new MakerPSMDummy(DAI);
+        psm = new MakerPSMDummy();
     }
 
     function testMakerPSMSell() public {
@@ -41,7 +39,7 @@ contract MakerPSMUnitTest is Utils, Test {
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.gemJoin.selector), abi.encode(PSM));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(true));
 
-        psm.sellToPool(RECIPIENT, bps, PSM, TOKEN);
+        psm.sellToPool(RECIPIENT, TOKEN, bps, PSM);
     }
 
     function testMakerPSMBuy() public {
@@ -54,6 +52,6 @@ contract MakerPSMUnitTest is Utils, Test {
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.buyGem.selector, RECIPIENT, 99998), abi.encode(true));
 
-        psm.buyFromPool(RECIPIENT, bps, PSM, TOKEN);
+        psm.buyFromPool(RECIPIENT, TOKEN, bps, PSM);
     }
 }

@@ -35,20 +35,20 @@ abstract contract MakerPSM {
     // wad: fixed point decimal with 18 decimals (for basic quantities, e.g. balances)
     uint256 internal constant WAD = 10 ** 18;
 
-    IERC20 internal immutable DAI;
+    IERC20 internal constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
-    constructor(address dai) {
-        DAI = IERC20(dai);
+    constructor() {
+        assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function makerPsmSellGem(address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) internal {
+    function makerPsmSellGem(address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) internal {
         // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
         uint256 sellAmount = ((gemToken.balanceOf(address(this)) - 1 wei) * bps).unsafeDiv(10_000);
         gemToken.safeApproveIfBelow(psm.gemJoin(), sellAmount);
         psm.sellGem(recipient, sellAmount);
     }
 
-    function makerPsmBuyGem(address recipient, uint256 bps, IPSM psm, IERC20Meta gemToken) internal {
+    function makerPsmBuyGem(address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) internal {
         // phantom overflow can't happen here because DAI has decimals = 18
         uint256 sellAmount = ((DAI.balanceOf(address(this)) - 1 wei) * bps).unsafeDiv(10_000);
         unchecked {
