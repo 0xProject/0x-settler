@@ -116,4 +116,8 @@ library SafeTransferLib {
             safeApprove(token, spender, type(uint256).max);
         }
     }
+
+    function safeSelfBalance(IERC20 token) internal view returns (uint256) {
+        return token.balanceOf(address(this)) - 1 wei;
+    }
 }

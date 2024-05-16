@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "../IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniV2Pair {
@@ -15,6 +16,7 @@ interface IUniV2Pair {
 
 abstract contract UniswapV2 {
     using UnsafeMath for uint256;
+    using SafeTransferLib for IERC20;
 
     // bytes4(keccak256("getReserves()"))
     uint32 private constant UNI_PAIR_RESERVES_SELECTOR = 0x0902f1ac;
@@ -54,7 +56,7 @@ abstract contract UniswapV2 {
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = ((IERC20(sellToken).balanceOf(address(this)) - 1 wei) * bps).unsafeDiv(10_000);
+                sellAmount = (IERC20(sellToken).safeSelfBalance() * bps).unsafeDiv(10_000);
             }
         }
         assembly ("memory-safe") {
