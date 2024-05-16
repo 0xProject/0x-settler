@@ -12,6 +12,7 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {velodromeFactory, velodromeInitHash} from "../core/univ3forks/VelodromeSlipstream.sol";
 
 // Solidity inheritance is stupid
 import {AbstractContext} from "../Context.sol";
@@ -42,6 +43,10 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase {
         if (forkId == 0) {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
+            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else if (forkId == 1) {
+            factory = velodromeFactory;
+            initHash = velodromeInitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else {
             revert UnknownForkId(forkId);
