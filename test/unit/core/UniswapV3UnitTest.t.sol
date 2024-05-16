@@ -163,7 +163,7 @@ contract UniswapV3UnitTest is Utils, Test {
                 zeroForOne,
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN0, address(uni))
+                abi.encodePacked(address(uni), TOKEN0)
             )
         );
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
@@ -194,7 +194,7 @@ contract UniswapV3UnitTest is Utils, Test {
                 zeroForOne,
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN0, address(uni))
+                abi.encodePacked(address(uni), TOKEN0)
             )
         );
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
