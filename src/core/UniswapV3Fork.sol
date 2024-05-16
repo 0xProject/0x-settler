@@ -229,9 +229,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         assembly ("memory-safe") {
             mcopy(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(permit), 0x40)
             mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40), swapCallbackData), add(0x20, permit), 0x40)
-            mstore8(
-                add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData), and(isForwarded, 0x01)
-            )
+            mstore8(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData), isForwarded)
             mcopy(
                 add(
                     add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), ISFORWARDED_DATA_SIZE),
