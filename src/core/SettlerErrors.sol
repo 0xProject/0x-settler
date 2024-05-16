@@ -26,10 +26,6 @@ error TooMuchSlippage(address token, uint256 expected, uint256 actual);
 ///         not recognized in context.
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
-/// @notice Thrown when attempting a UniswapV3 (or fork) swap where both buy and sell amount are
-///         zero.
-error ZeroSwapAmount();
-
 /// @notice Thrown when the encoded fork ID as part of UniswapV3 fork path is not on the list of
 ///         recognized forks for this chain.
 error UnknownForkId(uint8 forkId);
