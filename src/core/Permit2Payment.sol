@@ -86,7 +86,8 @@ library TransientStorage {
             operator := tload(_OPERATOR_SLOT)
             if operator {
                 if shr(0xa0, operator) {
-                    mstore(0x00, 0xe758b8d5) // selector for ConfusedDeputy()
+                    // Revert with ConfusedDeputy()
+                    mstore(0x00, 0xe758b8d5)
                     revert(0x1c, 0x04)
                 }
                 tstore(_OPERATOR_SLOT, 0)
@@ -100,7 +101,8 @@ library TransientStorage {
         assembly ("memory-safe") {
             let operator := tload(_OPERATOR_SLOT)
             if shr(0xa0, operator) {
-                mstore(0x00, 0x77f94425) // selector for `ReentrantCallback(address)`
+                // Revert with `ReentrantCallback(address)`
+                mstore(0x00, 0x77f94425)
                 mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
                 revert(0x1c, 0x24)
             }
@@ -245,6 +247,7 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
     }
 
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
+        // Retrieve callback and perform call with untrusted calldata
         (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback) =
             TransientStorage.getAndClearCallback();
         require(bytes4(data) == selector);
