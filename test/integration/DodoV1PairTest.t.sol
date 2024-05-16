@@ -13,7 +13,7 @@ abstract contract DodoV1PairTest is SettlerBasePairTest {
     }
 
     function dodoV1Direction() internal virtual returns (bool) {
-        return true;
+        return false;
     }
 
     function testSettler_dodoV1() public skipIf(dodoV1Pool() == address(0)) {

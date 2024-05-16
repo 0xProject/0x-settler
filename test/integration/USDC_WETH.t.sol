@@ -64,7 +64,7 @@ contract USDCWETHTest is
     }
 
     function dodoV1Direction() internal pure override returns (bool) {
-        return false;
+        return true;
     }
 
     function uniswapV3Path()

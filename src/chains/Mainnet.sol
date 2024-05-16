@@ -52,10 +52,10 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
 
             makerPsmBuyGem(recipient, gemToken, bps, psm);
         } else if (action == ISettlerActions.DODOV1.selector) {
-            (IERC20 sellToken, uint256 bps, address dodo, bool baseNotQuote, uint256 minBuyAmount) =
+            (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, address, bool, uint256));
 
-            sellToDodoV1(sellToken, bps, dodo, baseNotQuote, minBuyAmount);
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -107,11 +107,11 @@ contract MainnetSettler is Settler, MainnetMixin {
                 uint64 deployerNonce,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
-                bool baseNotQuote,
+                bool quoteForBase,
                 uint256 minBuyAmount
             ) = abi.decode(data, (uint64, ISignatureTransfer.PermitTransferFrom, bytes, bool, uint256));
 
-            sellToDodoV1VIP(deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
+            sellToDodoV1VIP(deployerNonce, permit, sig, quoteForBase, minBuyAmount);
             */
             revert("unimplemented");
         } else {
@@ -167,11 +167,11 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             (
                 uint64 deployerNonce,
                 ISignatureTransfer.PermitTransferFrom memory permit,
-                bool baseNotQuote,
+                bool quoteForBase,
                 uint256 minBuyAmount
             ) = abi.decode(data, (uint64, ISignatureTransfer.PermitTransferFrom, bool, uint256));
 
-            sellToDodoV1VIP(deployerNonce, permit, sig, baseNotQuote, minBuyAmount);
+            sellToDodoV1VIP(deployerNonce, permit, sig, quoteForBase, minBuyAmount);
             */
             revert("unimplemented");
         } else {
