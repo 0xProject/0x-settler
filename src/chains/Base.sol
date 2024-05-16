@@ -12,6 +12,7 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3BaseFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {sushiswapV3Factory, sushiswapV3InitHash} from "../core/univ3forks/SushiswapV3.sol";
 
 // Solidity inheritance is stupid
 import {AbstractContext} from "../Context.sol";
@@ -42,6 +43,10 @@ abstract contract BaseMixin is FreeMemory, SettlerBase {
         if (forkId == 0) {
             factory = uniswapV3BaseFactory;
             initHash = uniswapV3InitHash;
+            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else if (forkId == 1) {
+            factory = sushiswapV3Factory;
+            initHash = sushiswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else {
             revert UnknownForkId(forkId);
