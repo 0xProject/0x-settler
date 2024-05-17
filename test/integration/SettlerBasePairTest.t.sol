@@ -37,7 +37,6 @@ abstract contract SettlerBasePairTest is BasePairTest {
         allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
         settler = new Settler(
             0x1F98431c8aD98523631AE4a59f267346ea31F984, // UniV3 Factory
-            0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54, // UniV3 pool init code hash
             0x6B175474E89094C44Da98b954EedeAC495271d0F // DAI
         );
 
@@ -49,13 +48,13 @@ abstract contract SettlerBasePairTest is BasePairTest {
 
     bytes32 internal constant CONSIDERATION_TYPEHASH =
         keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)");
-    bytes32 internal constant OTC_PERMIT2_WITNESS_TYPEHASH = keccak256(
+    bytes32 internal constant RFQ_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TokenPermissions(address token,uint256 amount)"
     );
 
     function _getDefaultFromPermit2Action() internal returns (bytes memory) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
-        return abi.encodeCall(ISettlerActions.PERMIT2_TRANSFER_FROM, (address(settler), permit, sig));
+        return abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig));
     }
 
     function _getDefaultFromPermit2() internal returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {

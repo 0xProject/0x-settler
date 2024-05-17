@@ -11,12 +11,12 @@ import {Test} from "forge-std/Test.sol";
 contract MakerPSMDummy is MakerPSM {
     constructor(address dai) MakerPSM(dai) {}
 
-    function sellToPool(address recipient, uint256 bips, address psm, address gemToken) public {
-        super.makerPsmSellGem(recipient, bips, IPSM(psm), IERC20Meta(gemToken));
+    function sellToPool(address recipient, uint256 bps, address psm, address gemToken) public {
+        super.makerPsmSellGem(recipient, bps, IPSM(psm), IERC20Meta(gemToken));
     }
 
-    function buyFromPool(address recipient, uint256 bips, address psm, address gemToken) public {
-        super.makerPsmBuyGem(recipient, bips, IPSM(psm), IERC20Meta(gemToken));
+    function buyFromPool(address recipient, uint256 bps, address psm, address gemToken) public {
+        super.makerPsmBuyGem(recipient, bps, IPSM(psm), IERC20Meta(gemToken));
     }
 }
 
@@ -33,7 +33,7 @@ contract MakerPSMUnitTest is Utils, Test {
     }
 
     function testMakerPSMSell() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
 
         _mockExpectCall(TOKEN, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
@@ -41,11 +41,11 @@ contract MakerPSMUnitTest is Utils, Test {
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.gemJoin.selector), abi.encode(PSM));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(true));
 
-        psm.sellToPool(RECIPIENT, bips, PSM, TOKEN);
+        psm.sellToPool(RECIPIENT, bps, PSM, TOKEN);
     }
 
     function testMakerPSMBuy() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
 
         _mockExpectCall(DAI, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
@@ -54,6 +54,6 @@ contract MakerPSMUnitTest is Utils, Test {
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.buyGem.selector, RECIPIENT, 99998), abi.encode(true));
 
-        psm.buyFromPool(RECIPIENT, bips, PSM, TOKEN);
+        psm.buyFromPool(RECIPIENT, bps, PSM, TOKEN);
     }
 }

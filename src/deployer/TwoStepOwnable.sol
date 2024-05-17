@@ -36,6 +36,7 @@ abstract contract AbstractOwnable is IOwnable {
 
     constructor() {
         assert(type(IOwnable).interfaceId == 0x7f5828d0);
+        assert(type(IERC165).interfaceId == 0x01ffc9a7);
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {

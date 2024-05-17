@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "forge-std/Script.sol";
+import {Script} from "forge-std/Script.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {console} from "forge-std/console.sol";
 
-import {Deployer, Nonce, Feature} from "src/deployer/Deployer.sol";
-import {IDeployer, IERC721View} from "src/deployer/IDeployer.sol";
+import {Settler} from "src/Settler.sol";
+import {IDeployer, IERC721View, Feature, Nonce} from "src/deployer/IDeployer.sol";
 
 contract Deploy is Script {
-    Deployer internal constant deployer = Deployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
+    IDeployer internal constant deployer = IDeployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
 
-    function run(Feature feature, bytes calldata initCode) public {
+    function run(Feature feature, bytes calldata constructorArgs) public {
         require(address(deployer).code.length > 0, "No deployer");
         (address authorized, uint40 deadline) = deployer.authorized(feature);
         require(authorized != address(0), "Nobody is authorized");
@@ -22,7 +23,8 @@ contract Deploy is Script {
         vm.recordLogs();
         vm.startBroadcast(authorized);
 
-        (address deployed, Nonce nonce) = deployer.deploy(feature, initCode);
+        (address deployed, Nonce nonce) =
+            deployer.deploy(feature, bytes.concat(type(Settler).creationCode, constructorArgs));
 
         vm.stopBroadcast();
 

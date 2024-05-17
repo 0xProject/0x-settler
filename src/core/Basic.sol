@@ -19,9 +19,7 @@ abstract contract Basic is SettlerAbstract {
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
-    function basicSellToPool(address pool, IERC20 sellToken, uint256 bips, uint256 offset, bytes memory data)
-        internal
-    {
+    function basicSellToPool(address pool, IERC20 sellToken, uint256 bps, uint256 offset, bytes memory data) internal {
         if (isRestrictedTarget(pool)) {
             revert ConfusedDeputy();
         }
@@ -30,7 +28,7 @@ abstract contract Basic is SettlerAbstract {
         bytes memory returnData;
         uint256 value;
         if (sellToken == IERC20(ETH_ADDRESS)) {
-            value = address(this).balance.mulDiv(bips, 10_000);
+            value = address(this).balance.mulDiv(bps, 10_000);
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
                 (success, returnData) = payable(pool).call{value: value}("");
@@ -47,7 +45,7 @@ abstract contract Basic is SettlerAbstract {
         } else if (address(sellToken) == address(0)) {
             if (offset != 0) revert InvalidOffset();
         } else {
-            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bips, 10_000);
+            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }

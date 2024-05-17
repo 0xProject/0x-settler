@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Basic} from "../../../src/core/Basic.sol";
-import {Permit2Payment} from "../../../src/core/Permit2Payment.sol";
+import {Basic} from "src/core/Basic.sol";
+import {Permit2Payment} from "src/core/Permit2Payment.sol";
+import {Context} from "src/Context.sol";
 
-import {IERC20} from "../../../src/IERC20.sol";
+import {IERC20} from "src/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract BasicDummy is Basic, Permit2Payment {
-    function sellToPool(address pool, IERC20 sellToken, uint256 bips, uint256 offset, bytes memory data) public {
-        super.basicSellToPool(pool, sellToken, bips, offset, data);
+contract BasicDummy is Context, Basic, Permit2Payment {
+    function sellToPool(address pool, IERC20 sellToken, uint256 bps, uint256 offset, bytes memory data) public {
+        super.basicSellToPool(pool, sellToken, bps, offset, data);
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal override {
+        revert();
     }
 }
 
@@ -27,7 +36,7 @@ contract BasicUnitTest is Utils, Test {
     }
 
     function testBasicSell() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 4;
         uint256 amount = 99999;
         bytes4 selector = bytes4(hex"12345678");
@@ -44,12 +53,12 @@ contract BasicUnitTest is Utils, Test {
 
         _mockExpectCall(address(POOL), data, abi.encode(true));
 
-        basic.sellToPool(POOL, TOKEN, bips, offset, data);
+        basic.sellToPool(POOL, TOKEN, bps, offset, data);
     }
 
     /// @dev adjust the balange of the contract to be less than expected
     function testBasicSellLowerBalanceAmount() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 4;
         uint256 amount = 99999;
         bytes4 selector = bytes4(hex"12345678");
@@ -65,12 +74,12 @@ contract BasicUnitTest is Utils, Test {
         );
 
         _mockExpectCall(address(POOL), abi.encodePacked(selector, amount / 2), abi.encode(true));
-        basic.sellToPool(POOL, TOKEN, bips, offset, data);
+        basic.sellToPool(POOL, TOKEN, bps, offset, data);
     }
 
     /// @dev adjust the balange of the contract to be greater than expected
     function testBasicSellGreaterBalanceAmount() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 4;
         uint256 amount = 99999;
         bytes4 selector = bytes4(hex"12345678");
@@ -86,12 +95,12 @@ contract BasicUnitTest is Utils, Test {
         );
 
         _mockExpectCall(address(POOL), abi.encodePacked(selector, amount * 2), abi.encode(true));
-        basic.sellToPool(POOL, TOKEN, bips, offset, data);
+        basic.sellToPool(POOL, TOKEN, bps, offset, data);
     }
 
     /// @dev When 0xeeee (native asset) is used we expect it to transfer as value
     function testBasicSellEthValue() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 4;
         uint256 amount = 99999;
         uint256 value = amount;
@@ -101,12 +110,12 @@ contract BasicUnitTest is Utils, Test {
         _mockExpectCall(address(POOL), value, abi.encodePacked(selector, amount), abi.encode(true));
 
         vm.deal(address(basic), value);
-        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
     }
 
     /// @dev When 0xeeee (native asset) is used we expect it to transfer as value and adjust for the current balance if lower
     function testBasicSellLowerEthValue() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 4;
         uint256 amount = 99999;
         uint256 value = amount / 2;
@@ -116,12 +125,12 @@ contract BasicUnitTest is Utils, Test {
         _mockExpectCall(address(POOL), value, abi.encodePacked(selector, value), abi.encode(true));
 
         vm.deal(address(basic), value);
-        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
     }
 
     /// @dev When 0xeeee (native asset) is used we expect it to transfer as value and adjust for the current balance if greater
     function testBasicSellGreaterEthValue() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 4;
         uint256 amount = 99999;
         uint256 value = amount * 2;
@@ -131,12 +140,12 @@ contract BasicUnitTest is Utils, Test {
         _mockExpectCall(address(POOL), value, abi.encodePacked(selector, value), abi.encode(true));
 
         vm.deal(address(basic), value);
-        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
     }
 
     /// @dev When 0xeeee (native asset) is used we expect it to transfer as value and adjust for the current balance
     function testBasicSellAdjustedEthValue() public {
-        uint256 bips = 5_000; // sell half
+        uint256 bps = 5_000; // sell half
         uint256 offset = 4;
         uint256 amount = 99999;
         uint256 value = amount * 2;
@@ -147,12 +156,12 @@ contract BasicUnitTest is Utils, Test {
         _mockExpectCall(address(POOL), amount, abi.encodePacked(selector, amount), abi.encode(true));
 
         vm.deal(address(basic), value);
-        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
     }
 
     /// @dev When 0xeeee (native asset) is used we expect it to support a transfer with no data
     function testBasicSellTransferValue() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 0;
         uint256 amount = 99999;
         uint256 value = amount;
@@ -161,27 +170,27 @@ contract BasicUnitTest is Utils, Test {
         _mockExpectCall(address(POOL), value, data, abi.encode(true));
 
         vm.deal(address(basic), value);
-        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
     }
 
     function testBasicRestrictedTarget() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 0;
         bytes memory data;
 
         vm.expectRevert();
-        basic.sellToPool(PERMIT2, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(PERMIT2, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
 
         vm.expectRevert();
-        basic.sellToPool(ALLOWANCE_HOLDER, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(ALLOWANCE_HOLDER, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
     }
 
     function testBasicBubblesUpRevert() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 offset = 0;
         bytes memory data;
 
         vm.expectRevert();
-        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bips, offset, data);
+        basic.sellToPool(POOL, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, offset, data);
     }
 }

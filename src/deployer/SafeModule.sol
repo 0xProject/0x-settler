@@ -26,6 +26,7 @@ contract ZeroExSettlerDeployerSafeModule is IDeployerRemove {
     IDeployer public constant deployer = IDeployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
 
     constructor(address _safe) {
+        assert(address(this) == 0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30 || block.chainid == 31337);
         safe = ISafeMinimal(_safe);
     }
 

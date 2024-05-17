@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {UniswapV3, IUniswapV3Pool} from "src/core/UniswapV3.sol";
+import {UniswapV3} from "src/core/UniswapV3.sol";
+import {IUniswapV3Pool} from "src/core/UniswapV3ForkBase.sol";
 import {Permit2Payment} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
@@ -13,25 +15,39 @@ import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV3Dummy is Permit2Payment, UniswapV3 {
-    constructor(address uniFactory, bytes32 poolInit) UniswapV3(uniFactory, poolInit) Permit2Payment() {}
+contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3 {
+    constructor(address uniFactory) UniswapV3(uniFactory) Permit2Payment() {}
 
-    function sellTokenForTokenSelf(address recipient, bytes memory encodedPath, uint256 bips, uint256 minBuyAmount)
+    function sellSelf(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
         external
         returns (uint256)
     {
-        return super.sellTokenForTokenToUniswapV3(recipient, encodedPath, bips, minBuyAmount);
+        return super.sellToUniswapV3(recipient, encodedPath, bps, minBuyAmount);
     }
 
-    function sellTokenForToken(
+    function sell(
         address recipient,
         bytes memory encodedPath,
-        uint256 sellAmount,
         uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig
     ) external returns (uint256) {
-        return super.sellTokenForTokenToUniswapV3VIP(recipient, encodedPath, sellAmount, minBuyAmount, permit, sig);
+        return super.sellToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
+    }
+
+    fallback(bytes calldata data) external returns (bytes memory) {
+        return _invokeCallback(data);
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
+        internal
+        override
+    {
+        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
     }
 }
 
@@ -46,7 +62,9 @@ contract UniswapV3PoolDummy {
 
     fallback(bytes calldata) external payable returns (bytes memory) {
         (,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
-        msg.sender.call(abi.encodeWithSelector(UniswapV3.uniswapV3SwapCallback.selector, int256(1), int256(1), data));
+        msg.sender.call(
+            abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", int256(1), int256(1), data)
+        );
         return RETURN_DATA;
     }
 }
@@ -72,17 +90,19 @@ contract UniswapV3UnitTest is Utils, Test {
         POOL = _etchNamedRejectionDummy(
             "POOL",
             AddressDerivation.deriveDeterministicContract(
-                UNI_FACTORY, keccak256(abi.encode(token0, token1, fee)), keccak256(abi.encodePacked("POOL_INIT"))
+                UNI_FACTORY,
+                keccak256(abi.encode(token0, token1, fee)),
+                0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54
             )
         );
     }
 
     function setUp() public {
-        uni = new UniswapV3Dummy(UNI_FACTORY, keccak256(abi.encodePacked("POOL_INIT")));
+        uni = new UniswapV3Dummy(UNI_FACTORY);
     }
 
     function testUniswapV3SellSelfFunded() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
@@ -90,7 +110,13 @@ contract UniswapV3UnitTest is Utils, Test {
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
-        _mockExpectCall(
+
+        deployCodeTo(
+            "UniswapV3UnitTest.t.sol:UniswapV3PoolDummy",
+            abi.encode(abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))),
+            POOL
+        );
+        vm.expectCall(
             POOL,
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
@@ -99,15 +125,15 @@ contract UniswapV3UnitTest is Utils, Test {
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
                 abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
-            ),
-            abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
+            )
         );
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
-        uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
+        uni.sellSelf(RECIPIENT, data, bps, minBuyAmount);
     }
 
     function testUniswapV3SellSlippage() public {
-        uint256 bips = 10_000;
+        uint256 bps = 10_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount + 1;
 
@@ -115,7 +141,13 @@ contract UniswapV3UnitTest is Utils, Test {
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
-        _mockExpectCall(
+
+        deployCodeTo(
+            "UniswapV3UnitTest.t.sol:UniswapV3PoolDummy",
+            abi.encode(abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))),
+            POOL
+        );
+        vm.expectCall(
             POOL,
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
@@ -124,14 +156,14 @@ contract UniswapV3UnitTest is Utils, Test {
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
                 abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
-            ),
-            abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))
+            )
         );
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
         );
-        uni.sellTokenForTokenSelf(RECIPIENT, data, bips, minBuyAmount);
+        uni.sellSelf(RECIPIENT, data, bps, minBuyAmount);
     }
 
     function testUniswapV3SellPermit2() public {
@@ -162,7 +194,7 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"deadbeef");
+        uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"deadbeef");
     }
 
     function testUniswapV3SellAllowanceHolder() public {
@@ -181,7 +213,7 @@ contract UniswapV3UnitTest is Utils, Test {
         ISignatureTransfer.PermitTransferFrom memory permitTransfer = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}),
             nonce: 0,
-            deadline: 0
+            deadline: block.timestamp
         });
 
         _mockExpectCall(
@@ -193,10 +225,9 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.prank(ALLOWANCE_HOLDER);
         address(uni).call(
             abi.encodePacked(
-                abi.encodeCall(uni.sellTokenForToken, (RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"")),
-                address(this)
+                abi.encodeCall(uni.sell, (RECIPIENT, data, minBuyAmount, permitTransfer, hex"")), address(this)
             ) // Forward on true msg.sender
         );
-        // uni.sellTokenForToken(RECIPIENT, data, amount, minBuyAmount, permitTransfer, hex"");
+        // uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"");
     }
 }
