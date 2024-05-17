@@ -2,12 +2,17 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "../IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
-import {TooMuchSlippage, ConfusedDeputy} from "./SettlerErrors.sol";
+import {TooMuchSlippage} from "./SettlerErrors.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+
+// see below for explanation
+/*
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
+import {ConfusedDeputy} from from "./SettlerErrors.sol";
+*/
 
 interface IDodo {
     function init(
@@ -300,13 +305,40 @@ abstract contract DodoSellHelper {
     }
 }
 
+// see below for explanation
+/*
 interface IDodoCallee {
     function dodoCall(bool isBuyBaseToken, uint256 baseAmount, uint256 quoteAmount, bytes calldata data) external;
 }
+*/
 
 abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
+
+    function sellToDodoV1(IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount)
+        internal
+    {
+        uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
+        sellToken.safeApproveIfBelow(dodo, sellAmount);
+        if (quoteForBase) {
+            uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
+            if (buyAmount < minBuyAmount) {
+                revert TooMuchSlippage(address(sellToken), minBuyAmount, buyAmount);
+            }
+            IDodo(dodo).buyBaseToken(buyAmount, sellAmount, new bytes(0));
+        } else {
+            IDodo(dodo).sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
+        }
+    }
+
+    // In spite of the fact that DodoV1 pools have a callback function as
+    // specified in `IDodoCallee` above, they don't actually support flash
+    // swaps. The approve/transferFrom flow is completely mandatory. Therefore,
+    // it is not possible to custody optimize using a VIP that spends the
+    // taker's coupon as part of the callback. This code is maintained here as
+    // an example of a way to obtain a trusted callback.
+    /*
     using AddressDerivation for address;
 
     address private constant dodoDeployer = 0x5E5a7b76462E4BdF83Aa98795644281BdbA80B88;
@@ -379,20 +411,5 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
         }
         _setOperatorAndCall(dodo, callbackData, uint32(IDodoCallee.dodoCall.selector), _dodoV1Callback);
     }
-
-    function sellToDodoV1(IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount)
-        internal
-    {
-        uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
-        sellToken.safeApproveIfBelow(dodo, sellAmount);
-        if (quoteForBase) {
-            uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
-            if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(address(sellToken), minBuyAmount, buyAmount);
-            }
-            IDodo(dodo).buyBaseToken(buyAmount, sellAmount, new bytes(0));
-        } else {
-            IDodo(dodo).sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
-        }
-    }
+    */
 }
