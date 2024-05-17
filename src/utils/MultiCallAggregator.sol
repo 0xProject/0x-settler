@@ -108,49 +108,40 @@ library UnsafeArray {
             data.offset :=
                 add(
                     calls.offset,
+                    // We allow the indirection/offset to `calls[i]` to be negative
                     calldataload(
                         add(shl(0x05, i), calls.offset) // Can't overflow; we assume `i` is in-bounds.
                     )
                 )
-            // Because the offset stored in `calls` is arbitrary, we have to check it.
-            let err := lt(data.offset, add(calls.offset, shl(0x05, calls.length))) // Must not alias `calls`; checks for overflow.
-            // Check that the whole `Call` struct is in-bounds.
-            err := or(err, lt(add(0x60, data.offset), data.offset)) // Check for overflow.
-            err := or(err, gt(add(0x60, data.offset), calldatasize())) // Check that the `Call` struct is in-bounds.
+
             // `data.offset` now points to `target`; load it.
             target := calldataload(data.offset)
             // Check for dirty bits in `target`.
-            err := or(err, shr(0xa0, target))
+            let err := shr(0xa0, target)
+
             // And load `revertPolicy`.
             revertPolicy := calldataload(add(0x20, data.offset))
             // And check it for dirty bits too.
             err := or(err, gt(revertPolicy, 0x02))
 
+            // revert if calldata is unclean
+            if err { revert(0x00, 0x00) }
+
             // Indirect `data.offset` again to get the `bytes` payload.
             data.offset :=
                 add(
-                    // We allow the offset stored in the `Call` struct to be negative.
                     data.offset,
+                    // We allow the offset stored in the `Call` struct to be negative.
                     calldataload(
                         // Can't overflow; `data.offset` is in-bounds of `calldata`.
                         add(0x40, data.offset)
                     )
                 )
-            // Check that `data.offset` is in-bounds.
-            err := or(err, iszero(lt(data.offset, calldatasize())))
             // `data.offset` now points to the length field 32 bytes before the start of the actual array.
 
             // Now we load `data.length` and set `data.offset` to the start of the actual array.
             data.length := calldataload(data.offset)
-            data.offset := add(0x20, data.offset) // Can't overflow; calldata can't be that long.
-            {
-                // Check that the end of `data` is in-bounds.
-                let end := add(data.offset, data.length)
-                err := or(err, lt(end, data.offset))
-                err := or(err, gt(end, calldatasize()))
-            }
-
-            if err { revert(0x00, 0x00) }
+            data.offset := add(0x20, data.offset)
         }
     }
 
@@ -260,26 +251,15 @@ contract MultiCallAggregator {
         Call[] calldata calls;
         uint256 contextdepth;
         assembly ("memory-safe") {
-            let err := callvalue() // `nonpayable`
-            err := or(err, xor(selector, calldataload(0x00))) // Check the selector.
+            // check the selector and for `nonpayable`
+            // this implicitly prohibits a `calls.offset` greater than 4GiB
+            if or(callvalue(), xor(selector, calldataload(0x00))) { revert(0x00, 0x00) }
+
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
             calls.offset := add(0x20, calls.offset) // Can't overflow without clobbering selector.
-            // Check that `calls.offset` doesn't alias `contextdepth`.
-            err := or(err, lt(calls.offset, 0x44))
-            // Check that `calls.offset` is in-bounds.
-            err := or(err, iszero(lt(calls.offset, calldatasize())))
-            // Check that `calls.length` doesn't overflow.
-            err := or(err, shr(0xfb, calls.length))
-            // Check that the end of `calls` is in-bounds.
-            {
-                let end := add(calls.offset, shl(0x05, calls.length))
-                err := or(err, lt(end, calls.offset)) // Check for overflow.
-                err := or(err, gt(end, calldatasize())) // Check that it's in-bounds.
-            }
-            contextdepth := calldataload(0x24)
 
-            if err { revert(0x00, 0x00) }
+            contextdepth := calldataload(0x24)
         }
 
         multicall(calls, contextdepth).unsafeReturn();
