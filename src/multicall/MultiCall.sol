@@ -18,7 +18,7 @@ struct Result {
     bytes data;
 }
 
-interface IMultiCallAggregator {
+interface IMultiCall {
     function multicall(Call[] calldata, uint256 contextdepth) external returns (Result[] memory);
 }
 
@@ -210,7 +210,7 @@ library UnsafeReturn {
     }
 }
 
-contract MultiCallAggregator {
+contract MultiCall {
     using SafeCall for address;
     using UnsafeArray for Call[];
     using UnsafeArray for Result[];
@@ -247,7 +247,7 @@ contract MultiCallAggregator {
     }
 
     fallback() external payable {
-        bytes32 selector = bytes32(IMultiCallAggregator.multicall.selector);
+        bytes32 selector = bytes32(IMultiCall.multicall.selector);
         Call[] calldata calls;
         uint256 contextdepth;
         assembly ("memory-safe") {

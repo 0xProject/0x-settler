@@ -3,9 +3,7 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 
-import {
-    MultiCallAggregator, IMultiCallAggregator, RevertPolicy, Call, Result
-} from "src/utils/MultiCallAggregator.sol";
+import {MultiCall, IMultiCall, RevertPolicy, Call, Result} from "src/multicall/MultiCall.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 contract Echo {
@@ -32,8 +30,8 @@ contract OOG {
     }
 }
 
-contract MultiCallAggregatorTest is Test {
-    IMultiCallAggregator multicall;
+contract MultiCallTest is Test {
+    IMultiCall multicall;
     Echo echo;
     Reject reject;
     OOG oog;
@@ -41,7 +39,7 @@ contract MultiCallAggregatorTest is Test {
     uint256 internal constant contextdepth = 4;
 
     function setUp() external {
-        multicall = IMultiCallAggregator(address(new MultiCallAggregator()));
+        multicall = IMultiCall(address(new MultiCall()));
         echo = new Echo();
         reject = new Reject();
         oog = new OOG();
