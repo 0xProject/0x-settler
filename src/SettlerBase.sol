@@ -15,7 +15,7 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {TooMuchSlippage} from "./core/SettlerErrors.sol";
 
-/// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency, but still includes checks against `calldatasize()` for safety.
+/// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency
 library CalldataDecoder {
     function decodeCall(bytes[] calldata data, uint256 i)
         internal
@@ -23,47 +23,23 @@ library CalldataDecoder {
         returns (bytes4 selector, bytes calldata args)
     {
         assembly ("memory-safe") {
-            // helper functions
-            function panic(code) {
-                mstore(0x00, 0x4e487b71) // keccak256("Panic(uint256)")[:4]
-                mstore(0x20, code)
-                revert(0x1c, 0x24)
-            }
-            function overflow() {
-                panic(0x11) // 0x11 -> arithmetic under-/over- flow
-            }
-            function bad_calldata() {
-                revert(0x00, 0x00) // empty reason for malformed calldata
-            }
-
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
             args.offset :=
                 add(
                     data.offset,
+                    // We allow the indirection/offset to `calls[i]` to be negative
                     calldataload(
                         add(shl(5, i), data.offset) // can't overflow; we assume `i` is in-bounds
                     )
                 )
-            // because the offset to `args` stored in `data` is arbitrary, we have to check it
-            if lt(args.offset, add(shl(5, data.length), data.offset)) { overflow() }
-            if iszero(lt(args.offset, calldatasize())) { bad_calldata() }
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
-            args.offset := add(args.offset, 0x20) // can't overflow; calldata can't be that long
-            {
-                // check that the end of `args` is in-bounds
-                let end := add(args.offset, args.length)
-                if lt(end, args.offset) { overflow() }
-                if gt(end, calldatasize()) { bad_calldata() }
-            }
+            args.offset := add(args.offset, 0x20)
+
             // slice off the first 4 bytes of `args` as the selector
-            if lt(args.length, 4) {
-                // loading selector results in out-of-bounds read
-                panic(0x32) // 0x32 -> out-of-bounds array access
-            }
             selector := calldataload(args.offset) // solidity cleans dirty bits automatically
-            args.length := sub(args.length, 4) // can't underflow; checked above
-            args.offset := add(args.offset, 4) // can't overflow/oob; we already checked `end`
+            args.length := sub(args.length, 4)
+            args.offset := add(args.offset, 4)
         }
     }
 }
