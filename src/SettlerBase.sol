@@ -57,6 +57,7 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
     // When you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
+    constructor() {}
 
     struct AllowedSlippage {
         address recipient;
