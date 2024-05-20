@@ -94,7 +94,12 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
         return true;
     }
 
-    function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable takerSubmitted {
+    function execute(AllowedSlippage calldata slippage, bytes[] calldata actions)
+        public
+        payable
+        takerSubmitted
+        returns (bool)
+    {
         for (uint256 i; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
             if (!((i == 0 && _dispatchVIP(action, data)) || _dispatch(i, action, data))) {
@@ -103,5 +108,6 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
         }
 
         _checkSlippageAndTransfer(slippage);
+        return true;
     }
 }

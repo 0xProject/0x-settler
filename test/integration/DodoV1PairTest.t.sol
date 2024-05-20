@@ -27,7 +27,7 @@ abstract contract DodoV1PairTest is SettlerBasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodoV1");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 1 wei})
+            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: 1 wei}), actions
         );
         snapEnd();
 

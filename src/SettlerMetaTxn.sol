@@ -77,7 +77,7 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, ACTIONS_AND_SLIPPAGE_TYPEHASH)
+            mstore(ptr, SLIPPAGE_AND_ACTIONS_TYPEHASH)
             calldatacopy(add(ptr, 0x20), slippage, 0x60)
             mstore(add(ptr, 0x80), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
@@ -127,11 +127,11 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
     }
 
     function executeMetaTxn(
-        bytes[] calldata actions,
         AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
         address msgSender,
         bytes calldata sig
-    ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) {
+    ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
         require(actions.length != 0);
         {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
@@ -152,5 +152,6 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
         }
 
         _checkSlippageAndTransfer(slippage);
+        return true;
     }
 }

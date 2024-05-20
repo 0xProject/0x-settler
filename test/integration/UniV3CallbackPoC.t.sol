@@ -170,8 +170,8 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
 
         Settler.AllowedSlippage memory slippage;
 
-        slippage.buyToken = token;
         slippage.recipient = alice;
+        slippage.buyToken = IERC20(token);
         slippage.minAmountOut = poolAmountOut;
 
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
@@ -232,10 +232,10 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         // Bob is able to front-run the transaction
         // and take Alice's funds authorized via permit2.
         vm.startPrank(bob);
-        slippage.buyToken = token;
         slippage.recipient = bob;
+        slippage.buyToken = IERC20(token);
 
         vm.expectRevert("UniV3Callback failure");
-        settler.execute(actions, slippage);
+        settler.execute(slippage, actions);
     }
 }

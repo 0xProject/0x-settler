@@ -75,16 +75,17 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_rfq");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }
 
     bytes32 private constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
     );
-    bytes32 private constant ACTIONS_AND_SLIPPAGE_TYPEHASH =
-        keccak256("ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)");
+    bytes32 private constant SLIPPAGE_AND_ACTIONS_TYPEHASH =
+        keccak256("SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)");
 
     function testSettler_metaTxn_uniswapV3() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -101,7 +102,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
         bytes32 witness =
-            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
+            keccak256(abi.encode(SLIPPAGE_AND_ACTIONS_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
         bytes memory sig = getPermitWitnessTransferSignature(
             permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
         );
@@ -111,8 +112,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
         _settlerMetaTxn.executeMetaTxn(
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
-            SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}),
             FROM,
             sig
         );
@@ -133,7 +134,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
         bytes32 witness =
-            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
+            keccak256(abi.encode(SLIPPAGE_AND_ACTIONS_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
         bytes memory sig = getPermitWitnessTransferSignature(
             permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
         );
@@ -143,8 +144,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3VIP");
         _settlerMetaTxn.executeMetaTxn(
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
-            SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}),
             FROM,
             sig
         );
@@ -182,7 +183,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         }
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
         bytes32 takerWitness =
-            keccak256(abi.encode(ACTIONS_AND_SLIPPAGE_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
+            keccak256(abi.encode(SLIPPAGE_AND_ACTIONS_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
 
         bytes memory takerSig = getPermitWitnessTransferSignature(
             takerPermit,
@@ -198,8 +199,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_rfq");
         _settlerMetaTxn.executeMetaTxn(
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
-            SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}),
             FROM,
             takerSig
         );
@@ -254,12 +255,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_rfq_fee_full_custody");
         _settler.execute(
-            actions,
-            SettlerBase.AllowedSlippage({
-                buyToken: address(toToken()),
-                recipient: FROM,
-                minAmountOut: amount() * 9_000 / 10_000
-            })
+            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000}),
+            actions
         );
         snapEnd();
     }

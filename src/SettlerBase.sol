@@ -83,8 +83,8 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
     // `constructor_args`.
 
     struct AllowedSlippage {
-        address buyToken;
         address recipient;
+        IERC20 buyToken;
         uint256 minAmountOut;
     }
 
@@ -94,9 +94,9 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
         // ISettlerActions.BASIC could interact with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        (address buyToken, address recipient, uint256 minAmountOut) =
-            (slippage.buyToken, slippage.recipient, slippage.minAmountOut);
-        if (minAmountOut != 0 || buyToken != address(0)) {
+        (address recipient, IERC20 buyToken, uint256 minAmountOut) =
+            (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
+        if (minAmountOut != 0 || address(buyToken) != address(0)) {
             if (buyToken == ETH_ADDRESS) {
                 uint256 amountOut = address(this).balance;
                 if (amountOut < minAmountOut) {
@@ -104,11 +104,11 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
                 }
                 payable(recipient).safeTransferETH(amountOut);
             } else {
-                uint256 amountOut = IERC20(buyToken).balanceOf(address(this));
+                uint256 amountOut = buyToken.balanceOf(address(this));
                 if (amountOut < minAmountOut) {
                     revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
                 }
-                IERC20(buyToken).safeTransfer(recipient, amountOut);
+                buyToken.safeTransfer(recipient, amountOut);
             }
         }
     }
