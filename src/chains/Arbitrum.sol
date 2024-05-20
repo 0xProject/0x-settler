@@ -51,6 +51,8 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase {
 
 /// @custom:security-contact security@0x.org
 contract ArbitrumSettler is Settler, ArbitrumMixin {
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
@@ -80,6 +82,8 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
 
 /// @custom:security-contact security@0x.org
 contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal
         override

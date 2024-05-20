@@ -54,10 +54,15 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
         return _invokeCallback(data);
     }
 
+    event GitCommit(bytes20 indexed);
+
     // When you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
-    constructor() {}
+    constructor(bytes20 gitCommit) {
+        assert((gitCommit == bytes20(0)) == (block.chainid == 31337));
+        emit GitCommit(gitCommit);
+    }
 
     struct AllowedSlippage {
         address recipient;

@@ -93,7 +93,12 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         }
 
         // Deploy Settler.
-        settler = new Settler();
+        {
+            uint256 forkChainId = (new Shim()).chainId();
+            vm.chainId(31337);
+            settler = new Settler(bytes20(0));
+            vm.chainId(forkChainId);
+        }
 
         // Deploy dummy pool.
         pool = _toPool(token, 500, dai);

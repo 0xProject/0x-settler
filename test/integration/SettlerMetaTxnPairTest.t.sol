@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "src/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
+import {SettlerBasePairTest, Shim} from "./SettlerBasePairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
 
@@ -29,7 +29,10 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     function setUp() public virtual override {
         super.setUp();
 
-        settlerMetaTxn = new SettlerMetaTxn();
+        uint256 forkChainId = (new Shim()).chainId();
+        vm.chainId(31337);
+        settlerMetaTxn = new SettlerMetaTxn(bytes20(0));
+        vm.chainId(forkChainId);
 
         // ### Taker ###
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
