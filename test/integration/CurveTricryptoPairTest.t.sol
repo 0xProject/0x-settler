@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "src/IERC20.sol";
+
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
@@ -21,11 +23,11 @@ abstract contract CurveTricryptoPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.CURVE_TRICRYPTO_VIP, (FROM, curveV2TricryptoPoolId(), permit, sig, 0))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0});
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_curveTricrypto");
-        _settler.execute(actions, allowedSlippage);
+        _settler.execute(allowedSlippage, actions);
         snapEnd();
     }
 }

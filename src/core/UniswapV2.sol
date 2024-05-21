@@ -137,7 +137,7 @@ abstract contract UniswapV2 {
         }
         if (buyAmount < minBuyAmount) {
             revert TooMuchSlippage(
-                zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0(), minBuyAmount, sellAmount
+                IERC20(zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0()), minBuyAmount, sellAmount
             );
         }
     }

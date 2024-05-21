@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "src/IERC20.sol";
+
 import {Test} from "forge-std/Test.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
@@ -20,7 +22,10 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.label(address(this), "FoundryTest");
         vm.label(address(_weth), "WETH");
 
-        _settler = new Settler();
+        assertEq(block.chainid, 1);
+        vm.chainId(31337);
+        _settler = new Settler(bytes20(0));
+        vm.chainId(1);
         vm.label(address(_settler), "Settler");
     }
 
@@ -34,8 +39,8 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.startPrank(address(this));
         snapStart("wethDeposit");
         settler.execute(
-            actions,
-            SettlerBase.AllowedSlippage({buyToken: address(_weth), recipient: address(this), minAmountOut: 1e18})
+            SettlerBase.AllowedSlippage({recipient: address(this), buyToken: IERC20(address(_weth)), minAmountOut: 1e18}),
+            actions
         );
         snapEnd();
         assertEq(_weth.balanceOf(address(this)) - balanceBefore, 1e18);
@@ -54,12 +59,12 @@ contract WethWrapTest is Test, GasSnapshot {
         vm.startPrank(address(this));
         snapStart("wethWithdraw");
         settler.execute(
-            actions,
             SettlerBase.AllowedSlippage({
-                buyToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
                 recipient: address(this),
+                buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE),
                 minAmountOut: 1e18
-            })
+            }),
+            actions
         );
         snapEnd();
         assertEq(address(this).balance - balanceBefore, 1e18);

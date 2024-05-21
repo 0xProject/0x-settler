@@ -18,7 +18,7 @@ if [ ! -f "$taker_artifact" ] || [ ! -f "$metatx_artifact" ] ; then
 fi
 
 declare constructor_args
-constructor_args="$(cast abi-encode 'constructor()')"
+constructor_args="$(cast abi-encode 'constructor(bytes20)' 0x"$(git rev-parse HEAD)")"
 declare -r constructor_args
 
 declare taker_initcode

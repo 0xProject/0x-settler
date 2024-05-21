@@ -85,13 +85,13 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
 
         Settler _settler = settler;
         SettlerBase.AllowedSlippage memory allowedSlippage = SettlerBase.AllowedSlippage({
-            buyToken: address(otcOrder.makerToken),
             recipient: FROM,
+            buyToken: otcOrder.makerToken,
             minAmountOut: otcOrder.makerAmount
         });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
-        _settler.execute(actions, allowedSlippage);
+        _settler.execute(allowedSlippage, actions);
         snapEnd();
     }
 
@@ -126,13 +126,13 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
 
         Settler _settler = settler;
         SettlerBase.AllowedSlippage memory allowedSlippage = SettlerBase.AllowedSlippage({
-            buyToken: address(otcOrder.makerToken),
             recipient: FROM,
+            buyToken: otcOrder.makerToken,
             minAmountOut: otcOrder.makerAmount / 2
         });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc_partialFill");
-        _settler.execute(actions, allowedSlippage);
+        _settler.execute(allowedSlippage, actions);
         snapEnd();
     }
 
@@ -146,7 +146,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }
@@ -162,7 +163,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_multiplex2");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }
@@ -177,7 +179,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }
@@ -202,7 +205,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_full_custody");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: 0 ether}), actions
         );
         snapEnd();
     }
@@ -227,7 +230,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_buyToken_fee_single_custody");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: 0 ether}), actions
         );
         snapEnd();
     }
@@ -252,7 +255,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_sellToken_fee_full_custody");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }
@@ -274,7 +278,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }
@@ -305,7 +310,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2_multihop_single_chain");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
 
@@ -332,7 +338,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2_single_chain");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }
@@ -361,7 +368,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2_multihop");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
 
@@ -399,7 +407,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_curveV2_fee");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: 0 ether}), actions
         );
         snapEnd();
     }
@@ -426,7 +434,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(toToken()), recipient: FROM, minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({buyToken: toToken(), recipient: FROM, minAmountOut: 0 ether}), actions
         );
         snapEnd();
         assertGt(toToken().balanceOf(FROM), beforeBalance);
@@ -444,7 +452,8 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         fromToken().safeTransfer(address(_settler), amount());
 
         _settler.execute(
-            actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            actions
         );
         snapEnd();
     }

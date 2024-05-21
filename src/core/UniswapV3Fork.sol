@@ -181,7 +181,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             }
         }
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(address(outputToken), minBuyAmount, buyAmount);
+            revert TooMuchSlippage(outputToken, minBuyAmount, buyAmount);
         }
     }
 

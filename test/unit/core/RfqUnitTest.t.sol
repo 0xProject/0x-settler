@@ -21,7 +21,7 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
     function actionsAndSlippageWitnessType() external pure returns (string memory) {
         return string(
             abi.encodePacked(
-                "ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE
+                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
             )
         );
     }
