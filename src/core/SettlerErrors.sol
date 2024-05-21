@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "../IERC20.sol";
+
 /// @notice Thrown when an offset is not the expected value
 error InvalidOffset();
 
@@ -20,15 +22,11 @@ error ForwarderNotAllowed();
 error InvalidSignatureLen();
 
 /// @notice Thrown when a slippage limit is exceeded
-error TooMuchSlippage(address token, uint256 expected, uint256 actual);
+error TooMuchSlippage(IERC20 token, uint256 expected, uint256 actual);
 
 /// @notice Thrown when a byte array that is supposed to encode a function from ISettlerActions is
 ///         not recognized in context.
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
-
-/// @notice Thrown when attempting a UniswapV3 (or fork) swap where both buy and sell amount are
-///         zero.
-error ZeroSwapAmount();
 
 /// @notice Thrown when the encoded fork ID as part of UniswapV3 fork path is not on the list of
 ///         recognized forks for this chain.

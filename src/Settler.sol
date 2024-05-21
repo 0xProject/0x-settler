@@ -81,20 +81,25 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
         } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
             (
                 address recipient,
-                uint256 amountOutMin,
                 bytes memory path,
                 ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes));
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
-            sellToUniswapV3VIP(recipient, path, amountOutMin, permit, sig);
+            sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
             return false;
         }
         return true;
     }
 
-    function execute(bytes[] calldata actions, AllowedSlippage calldata slippage) public payable takerSubmitted {
+    function execute(AllowedSlippage calldata slippage, bytes[] calldata actions)
+        public
+        payable
+        takerSubmitted
+        returns (bool)
+    {
         for (uint256 i; i < actions.length; i = i.unsafeInc()) {
             (bytes4 action, bytes calldata data) = actions.decodeCall(i);
             if (!((i == 0 && _dispatchVIP(action, data)) || _dispatch(i, action, data))) {
@@ -103,5 +108,6 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
         }
 
         _checkSlippageAndTransfer(slippage);
+        return true;
     }
 }

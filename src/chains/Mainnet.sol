@@ -6,16 +6,18 @@ import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
+import {DodoV1} from "../core/DodoV1.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {
-    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
+    pancakeSwapV3MainnetFactory,
+    pancakeSwapV3InitHash,
+    IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
 import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/univ3forks/SolidlyV3.sol";
 
@@ -25,7 +27,7 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto, DodoV1 {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -43,6 +45,11 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
             revert("unimplemented");
         } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
             revert("unimplemented");
+        } else if (action == ISettlerActions.DODOV1.selector) {
+            (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, address, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -60,7 +67,7 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else if (forkId == 1) {
-            factory = pancakeSwapV3Factory;
+            factory = pancakeSwapV3MainnetFactory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
         } else if (forkId == 2) {
@@ -75,6 +82,8 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettler is Settler, MainnetMixin {
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
@@ -82,12 +91,12 @@ contract MainnetSettler is Settler, MainnetMixin {
             (
                 address recipient,
                 uint80 poolInfo,
-                uint256 minBuyAmount,
                 ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom, bytes));
+                bytes memory sig,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
-            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+            sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } else {
             return false;
         }
@@ -119,6 +128,8 @@ contract MainnetSettler is Settler, MainnetMixin {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal
         override
@@ -131,11 +142,11 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             (
                 address recipient,
                 uint80 poolInfo,
-                uint256 minBuyAmount,
-                ISignatureTransfer.PermitTransferFrom memory permit
-            ) = abi.decode(data, (address, uint80, uint256, ISignatureTransfer.PermitTransferFrom));
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, uint256));
 
-            sellToCurveTricryptoVIP(recipient, poolInfo, minBuyAmount, permit, sig);
+            sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } else {
             return false;
         }

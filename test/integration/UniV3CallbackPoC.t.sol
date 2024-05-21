@@ -93,7 +93,12 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         }
 
         // Deploy Settler.
-        settler = new Settler();
+        {
+            uint256 forkChainId = (new Shim()).chainId();
+            vm.chainId(31337);
+            settler = new Settler(bytes20(0));
+            vm.chainId(forkChainId);
+        }
 
         // Deploy dummy pool.
         pool = _toPool(token, 500, dai);
@@ -155,9 +160,9 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
                 ISettlerActions.METATXN_UNISWAPV3_VIP,
                 (
                     address(settler), // recipient
-                    100, // amountOutMin
                     uniswapV3Path, // (token0, fee, token1)
-                    permit
+                    permit,
+                    100 // amountOutMin
                 )
             )
         );
@@ -170,8 +175,8 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
 
         Settler.AllowedSlippage memory slippage;
 
-        slippage.buyToken = token;
         slippage.recipient = alice;
+        slippage.buyToken = IERC20(token);
         slippage.minAmountOut = poolAmountOut;
 
         bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
@@ -220,9 +225,9 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (
-                    pool, // pool
                     address(0), // sellToken
                     10_000, // proportion
+                    pool, // pool
                     0, // offset
                     poolCalldata
                 )
@@ -232,10 +237,10 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
         // Bob is able to front-run the transaction
         // and take Alice's funds authorized via permit2.
         vm.startPrank(bob);
-        slippage.buyToken = token;
         slippage.recipient = bob;
+        slippage.buyToken = IERC20(token);
 
         vm.expectRevert("UniV3Callback failure");
-        settler.execute(actions, slippage);
+        settler.execute(slippage, actions);
     }
 }

@@ -24,22 +24,22 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3Fork
         uniFactory = _uniFactory;
     }
 
-    function sellSelf(address recipient, bytes memory encodedPath, uint256 bps, uint256 minBuyAmount)
+    function sellSelf(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
         external
         takerSubmitted
         returns (uint256)
     {
-        return super.sellToUniswapV3(recipient, encodedPath, bps, minBuyAmount);
+        return super.sellToUniswapV3(recipient, bps, encodedPath, minBuyAmount);
     }
 
     function sell(
         address recipient,
         bytes memory encodedPath,
-        uint256 minBuyAmount,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
+        bytes memory sig,
+        uint256 minBuyAmount
     ) external takerSubmitted returns (uint256) {
-        return super.sellToUniswapV3VIP(recipient, encodedPath, minBuyAmount, permit, sig);
+        return super.sellToUniswapV3VIP(recipient, encodedPath, permit, sig, minBuyAmount);
     }
 
     fallback(bytes calldata data) external returns (bytes memory) {
@@ -163,12 +163,12 @@ contract UniswapV3UnitTest is Utils, Test {
                 zeroForOne,
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
+                abi.encodePacked(address(uni), TOKEN0)
             )
         );
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
-        uni.sellSelf(RECIPIENT, data, bps, minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, data, minBuyAmount);
     }
 
     function testUniswapV3SellSlippage() public {
@@ -194,7 +194,7 @@ contract UniswapV3UnitTest is Utils, Test {
                 zeroForOne,
                 amount,
                 zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(TOKEN0, uint24(500), TOKEN1, address(uni))
+                abi.encodePacked(address(uni), TOKEN0)
             )
         );
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
@@ -202,7 +202,7 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
         );
-        uni.sellSelf(RECIPIENT, data, bps, minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, data, minBuyAmount);
     }
 
     function testUniswapV3SellPermit2() public {
@@ -223,7 +223,7 @@ contract UniswapV3UnitTest is Utils, Test {
         ISignatureTransfer.PermitTransferFrom memory permitTransfer =
             ISignatureTransfer.PermitTransferFrom({permitted: permitted, nonce: 0, deadline: 0});
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: POOL, requestedAmount: amount});
+            ISignatureTransfer.SignatureTransferDetails({to: POOL, requestedAmount: 1});
 
         // permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes) 30f28b7a
         // cannot use abi.encodeWithSelector due to the selector overload and ambiguity
@@ -233,7 +233,7 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"deadbeef");
+        uni.sell(RECIPIENT, data, permitTransfer, hex"deadbeef", minBuyAmount);
     }
 
     function testUniswapV3SellAllowanceHolder() public {
@@ -257,14 +257,14 @@ contract UniswapV3UnitTest is Utils, Test {
 
         _mockExpectCall(
             ALLOWANCE_HOLDER,
-            abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, amount)),
+            abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, 1)),
             abi.encode(true)
         );
 
         vm.prank(ALLOWANCE_HOLDER);
         address(uni).call(
             abi.encodePacked(
-                abi.encodeCall(uni.sell, (RECIPIENT, data, minBuyAmount, permitTransfer, hex"")), address(this)
+                abi.encodeCall(uni.sell, (RECIPIENT, data, permitTransfer, hex"", minBuyAmount)), address(this)
             ) // Forward on true msg.sender
         );
         // uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"");

@@ -15,11 +15,11 @@ abstract contract Basic is SettlerAbstract {
     using FullMath for uint256;
     using Revert for bool;
 
-    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
-    function basicSellToPool(address pool, IERC20 sellToken, uint256 bps, uint256 offset, bytes memory data) internal {
+    function basicSellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) internal {
         if (_isRestrictedTarget(pool)) {
             revert ConfusedDeputy();
         }
@@ -43,6 +43,7 @@ abstract contract Basic is SettlerAbstract {
                 }
             }
         } else if (address(sellToken) == address(0)) {
+            // TODO: check for zero `bps`
             if (offset != 0) revert InvalidOffset();
         } else {
             uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);

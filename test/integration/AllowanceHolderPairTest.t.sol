@@ -44,7 +44,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 )
             ),
             // Execute UniswapV3 from the Settler balance
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, 0, uniswapV3Path()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -65,8 +65,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    actions,
-                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                    SettlerBase.AllowedSlippage({
+                        recipient: address(0),
+                        buyToken: IERC20(address(0)),
+                        minAmountOut: 0 ether
+                    }),
+                    actions
                 )
             )
         );
@@ -80,10 +84,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    0,
                     uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
-                    new bytes(0) // sig (empty)
+                    new bytes(0), // sig (empty)
+                    0
                 )
             )
         );
@@ -106,8 +110,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    actions,
-                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                    SettlerBase.AllowedSlippage({
+                        recipient: address(0),
+                        buyToken: IERC20(address(0)),
+                        minAmountOut: 0 ether
+                    }),
+                    actions
                 )
             )
         );
@@ -121,10 +129,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    0,
                     uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
-                    new bytes(0) // sig (empty)
+                    new bytes(0), // sig (empty)
+                    0
                 )
             )
         );
@@ -147,8 +155,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    actions,
-                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                    SettlerBase.AllowedSlippage({
+                        recipient: address(0),
+                        buyToken: IERC20(address(0)),
+                        minAmountOut: 0 ether
+                    }),
+                    actions
                 )
             )
         );
@@ -197,8 +209,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    actions,
-                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                    SettlerBase.AllowedSlippage({
+                        recipient: address(0),
+                        buyToken: IERC20(address(0)),
+                        minAmountOut: 0 ether
+                    }),
+                    actions
                 )
             )
         );
@@ -231,8 +247,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.BASIC,
                 (
                     address(fromToken()),
-                    address(fromToken()),
                     1_000,
+                    address(fromToken()),
                     0x24,
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
                 )
@@ -258,8 +274,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    actions,
-                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                    SettlerBase.AllowedSlippage({
+                        recipient: address(0),
+                        buyToken: IERC20(address(0)),
+                        minAmountOut: 0 ether
+                    }),
+                    actions
                 )
             )
         );
@@ -291,9 +311,9 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (
-                    address(fromToken()),
                     address(0),
                     0,
+                    address(fromToken()),
                     0x00,
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, amount() * 1_000 / 10_000))
                 )
@@ -319,8 +339,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    actions,
-                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                    SettlerBase.AllowedSlippage({
+                        recipient: address(0),
+                        buyToken: IERC20(address(0)),
+                        minAmountOut: 0 ether
+                    }),
+                    actions
                 )
             )
         );
@@ -331,7 +355,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool sellTokenHasFee = false;
-        uint8 swapInfo = (address(fromToken()) < address(toToken()) ? 1 : 0) | (sellTokenHasFee ? 1 : 0) << 1;
+        uint24 swapInfo = (address(fromToken()) < address(toToken()) ? 1 : 0) | (sellTokenHasFee ? 2 : 0) | (30 << 8);
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
@@ -342,7 +366,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                     new bytes(0) /* sig (empty) */
                 )
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), uniswapV2Pool(), swapInfo, 0, 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), 0, uniswapV2Pool(), swapInfo, 0))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -363,8 +387,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    actions,
-                    SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether})
+                    SettlerBase.AllowedSlippage({
+                        recipient: address(0),
+                        buyToken: IERC20(address(0)),
+                        minAmountOut: 0 ether
+                    }),
+                    actions
                 )
             )
         );
@@ -375,7 +403,10 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes[] memory actions = new bytes[](0);
         bytes memory call = abi.encodeCall(
             settler.execute,
-            (actions, SettlerBase.AllowedSlippage({buyToken: address(0), recipient: address(0), minAmountOut: 0 ether}))
+            (
+                SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+                actions
+            )
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;

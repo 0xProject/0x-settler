@@ -232,8 +232,8 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
     // contract/file should reference it. The *ONLY* approved way to make a transfer using this
     // witness string is by setting the witness with modifier `metaTx`
-    string private constant _ACTIONS_AND_SLIPPAGE_WITNESS = string(
-        abi.encodePacked("ActionsAndSlippage actionsAndSlippage)", ACTIONS_AND_SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
+    string private constant _SLIPPAGE_AND_ACTIONS_WITNESS = string(
+        abi.encodePacked("SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE)
     );
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
@@ -290,14 +290,14 @@ abstract contract Permit2Payment is Permit2PaymentBase {
                 revert ConfusedDeputy();
             }
             _transferFrom(
-                permit, transferDetails, _msgSender(), witness, _ACTIONS_AND_SLIPPAGE_WITNESS, sig, isForwarded
+                permit, transferDetails, _msgSender(), witness, _SLIPPAGE_AND_ACTIONS_WITNESS, sig, isForwarded
             );
         } else {
             if (isForwarded) {
                 if (sig.length != 0) revert InvalidSignatureLen();
                 if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                 if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
-                // we don't check `requestedAmount` because it's copied in `_permitToTransferDetails`
+                // we don't check `requestedAmount` because it's checked by AllowanceHolder itself
                 _allowanceHolderTransferFrom(
                     permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
                 );

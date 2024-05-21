@@ -29,9 +29,9 @@ abstract contract UniswapV2 {
     function sellToUniswapV2(
         address recipient,
         address sellToken,
-        address pool,
-        uint8 swapInfo,
         uint256 bps,
+        address pool,
+        uint24 swapInfo,
         uint256 minBuyAmount
     ) internal {
         // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector
@@ -40,6 +40,7 @@ abstract contract UniswapV2 {
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool zeroForOne = (swapInfo & 1) == 1; // Extract the least significant bit (bit 0)
         bool sellTokenHasFee = (swapInfo & 2) >> 1 == 1; // Extract the second least significant bit (bit 1) and shift it right
+        uint256 feeBps = swapInfo >> 8;
 
         uint256 sellAmount;
         uint256 buyAmount;
@@ -107,8 +108,8 @@ abstract contract UniswapV2 {
             }
 
             // compute buyAmount based on sellAmount and reserves
-            let sellAmountWithFee := mul(sellAmount, 997)
-            buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 1000)))
+            let sellAmountWithFee := mul(sellAmount, sub(10000, feeBps))
+            buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 10000)))
             let swapCalldata := add(ptr, 0x1c)
             // set up swap call selector and empty callback data
             mstore(ptr, UNI_PAIR_SWAP_SELECTOR)
@@ -137,7 +138,7 @@ abstract contract UniswapV2 {
         }
         if (buyAmount < minBuyAmount) {
             revert TooMuchSlippage(
-                zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0(), minBuyAmount, sellAmount
+                IERC20(zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0()), minBuyAmount, sellAmount
             );
         }
     }
