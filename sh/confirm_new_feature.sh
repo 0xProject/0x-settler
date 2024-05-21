@@ -143,7 +143,7 @@ declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
 declare -i auth_deadline
 # one year from the start of this month
-auth_deadline="$(date -d "$(($(date -u '+%Y') + 1))-$(date -u '+%m')-01T00:00:00-00:00" '+%s')"
+auth_deadline="$(date -Iseconds "$(($(date -u '+%Y') + 1))-$(date -u '+%m')-01T00:00:00-00:00" '+%s')"
 declare -r -i auth_deadline
 
 declare -a calls=()
