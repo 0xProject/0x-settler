@@ -12,6 +12,11 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3BnbFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {
+    pancakeSwapV3BnbFactory,
+    pancakeSwapV3InitHash,
+    IPancakeSwapV3Callback
+} from "../core/univ3forks/PancakeSwapV3.sol";
 
 // Solidity inheritance is stupid
 import {AbstractContext} from "../Context.sol";
@@ -43,6 +48,10 @@ abstract contract BnbMixin is FreeMemory, SettlerBase {
             factory = uniswapV3BnbFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else if (forkId == 1) {
+            factory = pancakeSwapV3BnbFactory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
         } else {
             revert UnknownForkId(forkId);
         }
