@@ -119,8 +119,8 @@ abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, Unis
 
             sellToUniswapV3(recipient, bps, path, amountOutMin);
         } else if (action == ISettlerActions.UNISWAPV2.selector) {
-            (address recipient, address sellToken, uint256 bps, address pool, uint8 swapInfo, uint256 amountOutMin) =
-                abi.decode(data, (address, address, uint256, address, uint8, uint256));
+            (address recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 amountOutMin) =
+                abi.decode(data, (address, address, uint256, address, uint24, uint256));
 
             sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, amountOutMin);
         } else if (action == ISettlerActions.BASIC.selector) {
