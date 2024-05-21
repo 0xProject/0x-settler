@@ -9,7 +9,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {TooMuchSlippage, ConfusedDeputy, ZeroSwapAmount} from "./SettlerErrors.sol";
+import {TooMuchSlippage, ConfusedDeputy} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -43,11 +43,11 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId))
     uint256 private constant PATH_SKIP_HOP_SIZE = 0x18;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x3f;
+    uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x28;
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x5f;
-    uint256 private constant PERMIT_DATA_SIZE = 0x80;
-    uint256 private constant ISFORWARDED_DATA_SIZE = 0x20;
+    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x48;
+    uint256 private constant PERMIT_DATA_SIZE = 0x60;
+    uint256 private constant ISFORWARDED_DATA_SIZE = 0x01;
     /// @dev Minimum tick price sqrt ratio.
     uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
     /// @dev Minimum tick price sqrt ratio.
@@ -137,28 +137,58 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
                 pool = _toPool(factory, initHash, token0, poolId, token1);
-                _updateSwapCallbackData(swapCallbackData, token0, poolId, token1, payer);
+                _updateSwapCallbackData(swapCallbackData, zeroForOne ? token0 : token1, payer);
             }
 
-            (int256 amount0, int256 amount1) = abi.decode(
-                _setOperatorAndCall(
-                    address(pool),
-                    abi.encodeCall(
-                        pool.swap,
-                        (
-                            // Intermediate tokens go to this contract.
-                            isPathMultiHop ? address(this) : recipient,
-                            zeroForOne,
-                            int256(sellAmount),
-                            zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                            swapCallbackData
-                        )
+            int256 amount0;
+            int256 amount1;
+            if (isPathMultiHop) {
+                uint256 freeMemPtr;
+                assembly ("memory-safe") {
+                    freeMemPtr := mload(0x40)
+                }
+                (amount0, amount1) = abi.decode(
+                    _setOperatorAndCall(
+                        address(pool),
+                        abi.encodeCall(
+                            pool.swap,
+                            (
+                                // Intermediate tokens go to this contract.
+                                address(this),
+                                zeroForOne,
+                                int256(sellAmount),
+                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                                swapCallbackData
+                            )
+                        ),
+                        uint32(callbackSelector),
+                        _uniV3ForkCallback
                     ),
-                    uint32(callbackSelector),
-                    _uniV3ForkCallback
-                ),
-                (int256, int256)
-            );
+                    (int256, int256)
+                );
+                assembly ("memory-safe") {
+                    mstore(0x40, freeMemPtr)
+                }
+            } else {
+                (amount0, amount1) = abi.decode(
+                    _setOperatorAndCall(
+                        address(pool),
+                        abi.encodeCall(
+                            pool.swap,
+                            (
+                                recipient,
+                                zeroForOne,
+                                int256(sellAmount),
+                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
+                                swapCallbackData
+                            )
+                        ),
+                        uint32(callbackSelector),
+                        _uniV3ForkCallback
+                    ),
+                    (int256, int256)
+                );
+            }
 
             {
                 int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
@@ -227,39 +257,26 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         bool isForwarded
     ) private pure {
         assembly ("memory-safe") {
-            {
-                let permitted := mload(permit)
-                mstore(add(swapCallbackData, SWAP_CALLBACK_PERMIT2DATA_OFFSET), mload(permitted))
-                mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20)), mload(add(permitted, 0x20)))
-            }
-            mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40)), mload(add(permit, 0x20)))
-            mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x60)), mload(add(permit, 0x40)))
-            mstore(add(swapCallbackData, add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE)), and(isForwarded, 1))
+            mstore(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(add(0x20, mload(permit))))
+            mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20), swapCallbackData), add(0x20, permit), 0x40)
+            mstore8(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData), isForwarded)
             mcopy(
                 add(
-                    swapCallbackData,
-                    add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), ISFORWARDED_DATA_SIZE)
+                    add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), ISFORWARDED_DATA_SIZE),
+                    swapCallbackData
                 ),
-                add(sig, 0x20),
+                add(0x20, sig),
                 mload(sig)
             )
         }
     }
 
     // Update `swapCallbackData` in place with new values.
-    function _updateSwapCallbackData(
-        bytes memory swapCallbackData,
-        IERC20 token0,
-        uint24 poolId,
-        IERC20 token1,
-        address payer
-    ) private pure {
+    function _updateSwapCallbackData(bytes memory swapCallbackData, IERC20 sellToken, address payer) private pure {
         assembly ("memory-safe") {
             let length := mload(swapCallbackData)
-            mstore(add(swapCallbackData, 0x3f), payer)
-            mstore(add(swapCallbackData, 0x2b), token1)
-            mstore(add(swapCallbackData, 0x17), poolId)
-            mstore(add(swapCallbackData, 0x14), token0)
+            mstore(add(0x28, swapCallbackData), sellToken)
+            mstore(add(0x14, swapCallbackData), payer)
             mstore(swapCallbackData, length)
         }
     }
@@ -312,45 +329,37 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     ///      UniswapV3 pool.
     /// @param amount0Delta Token0 amount owed.
     /// @param amount1Delta Token1 amount owed.
-    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: inputToken, outputToken, poolId, payer, permit
+    /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: payer, sellToken, (optionally: permit[0x20:], isForwarded, sig)
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) private {
-        // Decode the data.
-        IERC20 token0;
-        uint24 poolId;
-        IERC20 token1;
-        address payer;
-        assembly ("memory-safe") {
-            {
-                let firstWord := calldataload(data.offset)
-                token0 := shr(0x60, firstWord)
-                poolId := shr(0x48, firstWord)
-            }
-            token1 := calldataload(add(data.offset, 0xb))
-            payer := calldataload(add(data.offset, 0x1f))
-        }
-
-        bytes calldata permit2Data = data[SWAP_CALLBACK_PREFIX_DATA_SIZE:];
-        // Pay the amount owed to the pool.
-        if (amount0Delta > 0) {
-            _pay(token0, payer, uint256(amount0Delta), permit2Data);
-        } else if (amount1Delta > 0) {
-            _pay(token1, payer, uint256(amount1Delta), permit2Data);
-        } else {
-            revert ZeroSwapAmount();
-        }
+        address payer = address(uint160(bytes20(data)));
+        data = data[0x14:];
+        uint256 sellAmount = amount0Delta > 0 ? uint256(amount0Delta) : uint256(amount1Delta);
+        _pay(payer, sellAmount, data);
     }
 
-    function _pay(IERC20 token, address payer, uint256 amount, bytes calldata permit2Data) private {
+    function _pay(address payer, uint256 amount, bytes calldata permit2Data) private {
         if (payer == address(this)) {
-            token.safeTransfer(msg.sender, amount);
+            IERC20(address(uint160(bytes20(permit2Data)))).safeTransfer(msg.sender, amount);
         } else {
             assert(payer == address(0));
-            (ISignatureTransfer.PermitTransferFrom memory permit, bool isForwarded) =
-                abi.decode(permit2Data, (ISignatureTransfer.PermitTransferFrom, bool));
-            bytes calldata sig = permit2Data[PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE:];
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-                _permitToTransferDetails(permit, msg.sender);
-            _transferFrom(permit, transferDetails, sig, isForwarded);
+            ISignatureTransfer.PermitTransferFrom calldata permit;
+            bool isForwarded;
+            bytes calldata sig;
+            assembly ("memory-safe") {
+                // this is super dirty, but it works because although `permit` is aliasing in the
+                // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
+                // first word of `permit`, which is the sell token
+                permit := sub(permit2Data.offset, 0x0c)
+                isForwarded := and(0x01, calldataload(add(0x55, permit2Data.offset)))
+                sig.offset := add(0x75, permit2Data.offset)
+                sig.length := sub(permit2Data.length, 0x75)
+            }
+            _transferFrom(
+                permit,
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount}),
+                sig,
+                isForwarded
+            );
         }
     }
 }
