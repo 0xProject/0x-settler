@@ -65,10 +65,16 @@ case $wallet_type in
 esac
 
 if [[ $wallet_type = 'ledger' ]] ; then
-    IFS='' read -r -e -i "44'/60'/0'/0" -p 'Ledger wallet HD path (BIP32) [default '"44'/60'/0'/0"']: '
-    wallet_args+=(
-        --mnemonic-derivation-path "$REPLY"
-    )
+    IFS='' read -r -e -p 'Ledger wallet HD path (BIP32) [default '"44'/60'/0'/0"']: '
+    if [[ ${REPLY:-unset} = 'unset' ]] ; then
+        wallet_args+=(
+            --mnemonic-derivation-path "44'/60'/0'/0"
+        )
+    else
+        wallet_args+=(
+            --mnemonic-derivation-path "$REPLY"
+        )
+    fi
 fi
 
 # calls encoded as operation (always zero) 1 byte
