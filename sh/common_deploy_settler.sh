@@ -58,7 +58,3 @@ declare -a deploy_calls=(
         "$deploy_metatx_calldata"
     )"
 )
-
-declare deploy_calldata
-deploy_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calls[@]}")")"
-declare -r deploy_calldata

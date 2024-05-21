@@ -77,7 +77,7 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
                 )
             );
 
-            fillRfqOrder(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
+            fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
         } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
             (
                 address recipient,

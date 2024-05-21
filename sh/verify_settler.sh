@@ -121,85 +121,32 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-declare safe_address
-safe_address="$(get_config governance.deploymentSafe)"
-declare -r safe_address
+declare -i chainid
+chainid="$(get_config chainId)"
+declare -r -i chainid
+declare rpc_url
+rpc_url="$(get_api_secret rpcUrl)"
+declare -r rpc_url
+declare deployer_address
+deployer_address="$(get_config deployment.deployer)"
+declare -r deployer_address
 
-. "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
-declare deploy_calldata
-deploy_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calls[@]}")")"
-declare -r deploy_calldata
+declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
 
-declare struct_json
-struct_json="$(eip712_json "$deploy_calldata" 1)"
-declare -r struct_json
+echo 'Verifying taker-submitted settler...' >&2
 
-# sign the message
-declare signature
-if [[ $wallet_type = 'frame' ]] ; then
-    declare typedDataRPC
-    typedDataRPC="$(
-        jq -Mc                 \
-        '
-        {
-            "jsonrpc": "2.0",
-            "method": "eth_signTypedData",
-            "params": [
-                $signer,
-                .
-            ],
-            "id": 1
-        }
-        '                      \
-        --arg signer "$signer" \
-        <<<"$struct_json"
-    )"
-    declare -r typedDataRPC
-    signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-    if [[ $signature = *error* ]] ; then
-        echo "$signature" >&2
-        exit 1
-    fi
-    signature="$(jq -Mr .result <<<"$signature")"
-else
-    signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
-fi
-declare -r signature
+declare taker_settler
+taker_settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" 2)")")"
+declare -r taker_settler
+forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" "$chain_display_name"Settler
 
-declare signing_hash
-signing_hash="$(eip712_hash "$deploy_calldata" 1)"
-declare -r signing_hash
+echo 'Verified taker-submitted Settler... verifying metatx Settler...' >&2
 
-declare multicall_address
-multicall_address="$(get_config safe.multiCall)"
-declare -r multicall_address
+declare metatx_settler
+metatx_settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_address" "$(cast calldata "$erc721_ownerof_sig" 3)")")"
+declare -r metatx_settler
+forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" "$chain_display_name"SettlerMetaTxn
 
-# encode the Safe Transaction Service API call
-declare safe_multisig_transaction
-safe_multisig_transaction="$(
-    jq -Mc \
-    "$eip712_message_json_template"',
-        "contractTransactionHash": $signing_hash,
-        "sender": $sender,
-        "signature": $signature,
-        "origin": "0xSettlerCLI"
-    }
-    '                                  \
-    --arg to "$multicall_address"      \
-    --arg data "$deploy_calldata"      \
-    --arg call_type 1                  \
-    --arg nonce "$nonce"               \
-    --arg signing_hash "$signing_hash" \
-    --arg sender "$signer"             \
-    --arg signature "$signature"       \
-    --arg safe_address "$safe_address" \
-    <<<'{}'
-)"
-declare -r safe_multisig_transaction
-
-# call the API
-curl --fail -s "$(get_config safe.apiUrl)"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
-
-echo 'Signature submitted' >&2
+echo 'Verified metatx Settler. All done!' >&2

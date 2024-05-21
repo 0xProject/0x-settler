@@ -1,6 +1,23 @@
 # 0x Settler
 
-Proof of concept settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
+Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
+
+## How do I find the most recent deployment?
+
+The deployer/registry contract is deployed to
+`0x00000000000004533Fe15556B1E086BB1A72cEae` across all chains (unless somebody
+screwed up the vanity address and didn't update this document). The
+deployer/registry is an ERC1967 UUPS upgradeable contract that implements an
+ERC721-compatible NFT. To find the address of the most recent deployment, call
+`ownerOf(uint256)(address)` with the `tokenId` set to the number of the feature
+that you wish to query. For taker-submitted flows, the feature number is
+probably 2 unless something major changed and nobody updated this
+document. Likewise, for gasless/metatransaction flows, the feature number is
+probably 3. A reverting response indicates that `Settler` is paused and you
+should not interact. Do not hardcode any address other than
+`0x00000000000004533Fe15556B1E086BB1A72cEae` in your integration. _**ALWAYS**_
+query the deployer/registry for the address of the most recent contract before
+building or signing a transaction, metatransaction, or order.
 
 ### Custody
 
@@ -9,7 +26,7 @@ Custody, not like the delicious custardy, is when the token(s) being traded are 
 - In the middle of a Multihop trade
 - To distribute positive slippage from an AMM
 - To pay fees to a fee recipient in the buy token from an AMM
-- Trading against an ineffeciant AMM that only supports `transferFrom(msg.sender)` (e.g Curve)
+- Trading against an inefficient AMM that only supports `transferFrom(msg.sender)` (e.g Curve)
 
 For the above reasons, there are settlement paths in Settler which allow for custody of the sell token or the buy token. You will see the usage of `custody` to represent this. Sell token or Buy token or both custody is represented by `custody`.
 
@@ -30,127 +47,127 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | VIP                 | DEX        | Pair      | Gas    | %      |
 | ------------------- | ---------- | --------- | ------ | ------ |
-| 0x V4 VIP           | Uniswap V3 | USDC/WETH | 124834 | 0.00%  |
-| 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138690 | 11.10% |
-| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 179758 | 44.00% |
-| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 194589 | 55.88% |
-| UniswapRouter V3    | Uniswap V3 | USDC/WETH | 121143 | -2.96% |
+| 0x V4 VIP           | Uniswap V3 | USDC/WETH | 124669 | 0.00%  |
+| 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138525 | 11.11% |
+| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 134180 | 7.63%  |
+| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 126092 | 1.14%  |
+| UniswapRouter V3    | Uniswap V3 | USDC/WETH | 120978 | -2.96% |
 |                     |            |           |        |        |
-| 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112268 | 0.00%  |
-| 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126124 | 12.34% |
-| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 167192 | 48.92% |
-| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 182023 | 62.13% |
-| UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108577 | -3.29% |
+| 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112103 | 0.00%  |
+| 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 125959 | 12.36% |
+| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 121614 | 8.48%  |
+| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 113526 | 1.27%  |
+| UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108412 | -3.29% |
 |                     |            |           |        |        |
-| 0x V4 VIP           | Uniswap V3 | USDT/WETH | 115075 | 0.00%  |
-| 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128931 | 12.04% |
-| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 170022 | 47.75% |
-| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 184853 | 60.64% |
-| UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111256 | -3.32% |
+| 0x V4 VIP           | Uniswap V3 | USDT/WETH | 114910 | 0.00%  |
+| 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128766 | 12.06% |
+| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 124444 | 8.30%  |
+| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 116356 | 1.26%  |
+| UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111091 | -3.32% |
 |                     |            |           |        |        |
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
-| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 246380 | 0.00%   |
-| Settler              | Uniswap V3 | USDC/WETH | 210036 | -14.75% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 225450 | -8.50%  |
+| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 244603 | 0.00%   |
+| Settler              | Uniswap V3 | USDC/WETH | 164881 | -32.59% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 156942 | -35.84% |
 |                      |            |           |        |         |
-| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 223378 | 0.00%   |
-| Settler              | Uniswap V3 | DAI/WETH  | 193414 | -13.41% |
-| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 208828 | -6.51%  |
+| 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 221527 | 0.00%   |
+| Settler              | Uniswap V3 | DAI/WETH  | 148259 | -33.07% |
+| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 140320 | -36.66% |
 |                      |            |           |        |         |
-| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230277 | 0.00%   |
-| Settler              | Uniswap V3 | USDT/WETH | 200100 | -13.10% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 215514 | -6.41%  |
+| 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 228500 | 0.00%   |
+| Settler              | Uniswap V3 | USDT/WETH | 154945 | -32.19% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 147006 | -35.66% |
 |                      |            |           |        |         |
 
-| MetaTransactions | DEX        | Pair      | Gas    | %      |
-| ---------------- | ---------- | --------- | ------ | ------ |
-| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 209127 | 0.00%  |
-| Settler          | Uniswap V3 | USDC/WETH | 238469 | 14.03% |
-|                  |            |           |        |        |
-| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 196561 | 0.00%  |
-| Settler          | Uniswap V3 | DAI/WETH  | 221847 | 12.86% |
-|                  |            |           |        |        |
-| 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 199368 | 0.00%  |
-| Settler          | Uniswap V3 | USDT/WETH | 228533 | 14.63% |
-|                  |            |           |        |        |
+| MetaTransactions | DEX        | Pair      | Gas    | %       |
+| ---------------- | ---------- | --------- | ------ | ------- |
+| 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 208118 | 0.00%   |
+| Settler          | Uniswap V3 | USDC/WETH | 170692 | -17.98% |
+|                  |            |           |        |         |
+| 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 195552 | 0.00%   |
+| Settler          | Uniswap V3 | DAI/WETH  | 154069 | -21.21% |
+|                  |            |           |        |         |
+| 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 198359 | 0.00%   |
+| Settler          | Uniswap V3 | USDT/WETH | 160756 | -18.96% |
+|                  |            |           |        |         |
 
 | RFQ             | DEX     | Pair      | Gas    | %       |
 | --------------- | ------- | --------- | ------ | ------- |
 | 0x V4           | 0x V4   | USDC/WETH | 97930  | 0.00%   |
-| Settler         | Settler | USDC/WETH | 136258 | 39.14%  |
-| Settler         | 0x V4   | USDC/WETH | 228463 | 133.29% |
-| AllowanceHolder | Settler | USDC/WETH | 154179 | 57.44%  |
+| Settler         | Settler | USDC/WETH | 111966 | 14.33%  |
+| Settler         | 0x V4   | USDC/WETH | 204553 | 108.88% |
+| AllowanceHolder | Settler | USDC/WETH | 106534 | 8.79%   |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | DAI/WETH  | 78456  | 0.00%   |
-| Settler         | Settler | DAI/WETH  | 116784 | 48.85%  |
-| Settler         | 0x V4   | DAI/WETH  | 198553 | 153.08% |
-| AllowanceHolder | Settler | DAI/WETH  | 134705 | 71.69%  |
+| Settler         | Settler | DAI/WETH  | 92492  | 17.89%  |
+| Settler         | 0x V4   | DAI/WETH  | 174643 | 122.60% |
+| AllowanceHolder | Settler | DAI/WETH  | 87060  | 10.97%  |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | USDT/WETH | 89568  | 0.00%   |
-| Settler         | Settler | USDT/WETH | 127896 | 42.79%  |
-| Settler         | 0x V4   | USDT/WETH | 213885 | 138.80% |
-| AllowanceHolder | Settler | USDT/WETH | 145817 | 62.80%  |
+| Settler         | Settler | USDT/WETH | 103604 | 15.67%  |
+| Settler         | 0x V4   | USDT/WETH | 189975 | 112.10% |
+| AllowanceHolder | Settler | USDT/WETH | 98172  | 9.61%   |
 |                 |         |           |        |         |
 
 | Curve             | DEX   | Pair      | Gas    | %       |
 | ----------------- | ----- | --------- | ------ | ------- |
 |                   |       |           |        |         |
 |                   |       |           |        |         |
-| 0x V4             | Curve | USDT/WETH | 452961 | 0.00%   |
-| Settler           | Curve | USDT/WETH | 439618 | -2.95%  |
-| Curve             | Curve | USDT/WETH | 341761 | -24.55% |
-| Curve Swap Router | Curve | USDT/WETH | 412038 | -9.03%  |
+| 0x V4             | Curve | USDT/WETH | 452672 | 0.00%   |
+| Settler           | Curve | USDT/WETH | 416266 | -8.04%  |
+| Curve             | Curve | USDT/WETH | 341761 | -24.50% |
+| Curve Swap Router | Curve | USDT/WETH | 412038 | -8.98%  |
 |                   |       |           |        |         |
 
 | Buy token fee     | DEX        | Pair      | Gas    | %     |
 | ----------------- | ---------- | --------- | ------ | ----- |
-| Settler - custody | Uniswap V3 | USDC/WETH | 218552 | 0.00% |
+| Settler - custody | Uniswap V3 | USDC/WETH | 172357 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | DAI/WETH  | 205986 | 0.00% |
+| Settler - custody | Uniswap V3 | DAI/WETH  | 159791 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | USDT/WETH | 208816 | 0.00% |
+| Settler - custody | Uniswap V3 | USDT/WETH | 162621 | 0.00% |
 |                   |            |           |        |       |
 
 | Sell token fee | DEX        | Pair      | Gas    | %       |
 | -------------- | ---------- | --------- | ------ | ------- |
-| Settler        | Uniswap V3 | USDC/WETH | 226625 | 0.00%   |
+| Settler        | Uniswap V3 | USDC/WETH | 180841 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | DAI/WETH  | 205947 | 0.00%   |
+| Settler        | Uniswap V3 | DAI/WETH  | 160163 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | USDT/WETH | 214409 | 0.00%   |
-| Settler        | Curve      | USDT/WETH | 456335 | 112.83% |
+| Settler        | Uniswap V3 | USDT/WETH | 168625 | 0.00%   |
+| Settler        | Curve      | USDT/WETH | 432354 | 156.40% |
 |                |            |           |        |         |
 
 | AllowanceHolder                      | DEX            | Pair      | Gas    | %       |
 | ------------------------------------ | -------------- | --------- | ------ | ------- |
-| execute                              | Uniswap V3 VIP | USDC/WETH | 194589 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDC/WETH | 184954 | -4.95%  |
-| execute                              | RFQ            | USDC/WETH | 154179 | -20.77% |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 126092 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 140664 | 11.56%  |
+| execute                              | RFQ            | USDC/WETH | 106534 | -15.51% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | DAI/WETH  | 182023 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 173963 | -4.43%  |
-| execute                              | RFQ            | DAI/WETH  | 134705 | -26.00% |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 113526 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 129673 | 14.22%  |
+| execute                              | RFQ            | DAI/WETH  | 87060  | -23.31% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | USDT/WETH | 184853 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDT/WETH | 180964 | -2.10%  |
-| execute                              | RFQ            | USDT/WETH | 145817 | -21.12% |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 116356 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 136674 | 17.46%  |
+| execute                              | RFQ            | USDT/WETH | 98172  | -15.63% |
 |                                      |                |           |        |         |
 
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
-| no fee                          | RFQ | USDC/WETH | 154179 | 0.00%  |
-| proportional fee                | RFQ | USDC/WETH | 204656 | 32.74% |
-| fixed fee                       | RFQ | USDC/WETH | 202664 | 31.45% |
+| no fee                          | RFQ | USDC/WETH | 106534 | 0.00%  |
+| proportional fee                | RFQ | USDC/WETH | 155033 | 45.52% |
+| fixed fee                       | RFQ | USDC/WETH | 153058 | 43.67% |
 |                                 |     |           |        |        |
-| no fee                          | RFQ | DAI/WETH  | 134705 | 0.00%  |
-| proportional fee                | RFQ | DAI/WETH  | 177070 | 31.45% |
-| fixed fee                       | RFQ | DAI/WETH  | 175791 | 30.50% |
+| no fee                          | RFQ | DAI/WETH  | 87060  | 0.00%  |
+| proportional fee                | RFQ | DAI/WETH  | 127447 | 46.39% |
+| fixed fee                       | RFQ | DAI/WETH  | 126185 | 44.94% |
 |                                 |     |           |        |        |
-| no fee                          | RFQ | USDT/WETH | 145817 | 0.00%  |
-| proportional fee                | RFQ | USDT/WETH | 193814 | 32.92% |
-| fixed fee                       | RFQ | USDT/WETH | 192106 | 31.74% |
+| no fee                          | RFQ | USDT/WETH | 98172  | 0.00%  |
+| proportional fee                | RFQ | USDT/WETH | 144191 | 46.88% |
+| fixed fee                       | RFQ | USDT/WETH | 142500 | 45.15% |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"
@@ -164,7 +181,7 @@ On the otherside, currently Settler does not need to perform the same Feature im
 
 With the Curve VIP, 0xV4 has to use a LiquidityProviderSandbox as calling untrusted/arbitrary code is a risk in the protocol.
 
-OTC has noticeable overhead as it is optimized to be interacted with directly in 0xV4. It lacks `recipient` parameters (to avoid extra transfers) and it also lacks a payment callback when the caller is a contract.
+RFQ has noticeable overhead as it is optimized to be interacted with directly in 0xV4. It lacks `recipient` parameters (to avoid extra transfers) and it also lacks a payment callback when the caller is a contract.
 
 #### Settler vs Curve
 
@@ -182,7 +199,7 @@ See [ISettlerActions](https://github.com/0xProject/0x-settler/blob/master/src/IS
 - [x] MetaTxn
 - [x] Consolidate warmNonce vs coldNonce naming (let's assume warm by default unless otherwise specified)
 - [x] WETH wrap/unwrap
-- [ ] Payable OTC (ETH)
+- [ ] Payable RFQ (ETH)
 - [x] Sell token fees
 - [x] Buy token fees
 - [x] consider using argument encoding for action names, ala solidity function encoding
@@ -216,14 +233,14 @@ To make gas comparisons fair we will use the following methodology:
 - Market Makers have balances of both tokens. Since AMM Pools have non-zero balances of both tokens this is a fair comparison.
 - The Taker does not have a balance of the token being bought.
 - Fee Recipient has a non-zero balance of the fee tokens.
-- Nonces for Permit2 and Otc orders (0x V4) are initialized.
+- Nonces for Permit2 and Rfq orders (0x V4) are initialized.
 - `setUp` is used as much as possible with limited setup performed in the test. Warmup trades are avoided completely as to not warm up storage access.
 
 # Technical Reference
 
 ## Permit2 Based Flows
 
-We utilise `Permit2` transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transgers and `PermitBatchTransferFrom` for batch transfers.
+We utilise `Permit2` transfers with an `SignatureTransfer`. Allowing users to sign a coupon allowing our contracts to move their tokens. Permit2 uses `PermitTransferFrom` struct for single transfers and `PermitBatchTransferFrom` for batch transfers.
 
 `Permit2` provides the following guarantees:
 
@@ -317,7 +334,7 @@ sequenceDiagram
 
 ## Basic Flow
 
-This is the most basic flow and a flow that a number of dexes support. Essentially it is the "call function on DEX, DEX takes tokens from us, DEX gives us tokens". It has ineffeciences as `transferFrom` is more gas expensive than `transfer` and we are required to check/set allowances to the DEX. Typically this DEX also does not support a `recipient` field, introducing yet another needless `transfer` in simple swaps.
+This is the most basic flow and a flow that a number of dexes support. Essentially it is the "call function on DEX, DEX takes tokens from us, DEX gives us tokens". It has inefficiencies as `transferFrom` is more gas expensive than `transfer` and we are required to check/set allowances to the DEX. Typically this DEX also does not support a `recipient` field, introducing yet another needless `transfer` in simple swaps.
 
 ```mermaid
 sequenceDiagram
@@ -357,7 +374,7 @@ Note this has the following limitations:
 - Single UniswapV3 pool or single chain of pools (e.g ETH->DAI->USDC)
 - Cannot support a split between pools (e.g ETH->USDC 5bps and ETH->USDC 1bps) as Permit2 transfer can only occur once. a 0xV4 equivalent would be `sellTokenForTokenToUniswapV3` as opposed to `MultiPlex[sellTokenForEthToUniswapV3,sellTokenForEthToUniswapV3]`.
 
-## OTC
+## RFQ
 
 ```mermaid
 sequenceDiagram
@@ -370,12 +387,12 @@ sequenceDiagram
     end
 ```
 
-For OTC we utilize 2 Permit2 Transfers, one for the `Market Maker->User` and another for `User->Market Maker`. This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill OTC orders. We simply validate the OTC order (e.g Taker/tx.origin).
+For RFQ we utilize 2 Permit2 Transfers, one for the `Market Maker->User` and another for `User->Market Maker`. This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill RFQ orders. We simply validate the RFQ order (e.g Taker/tx.origin).
 
-Note the `permitWitnessTransferFrom`, we utilise the `Witness` functionality of Permit2 which allows arbitrary data to be attached to the Permit2 coupon. This arbitrary data is the actual OTC order itself, containing the taker/tx.origin and maker/taker amount and token fields.
+Note the `permitWitnessTransferFrom`, we utilise the `Witness` functionality of Permit2 which allows arbitrary data to be attached to the Permit2 coupon. This arbitrary data is the actual RFQ order itself, containing the taker/tx.origin and maker/taker amount and token fields.
 
 ```solidity
-struct OtcOrder {
+struct RfqOrder {
     address makerToken;
     address takerToken;
     uint128 makerAmount;
@@ -389,16 +406,16 @@ struct OtcOrder {
 A Market maker signs a slightly different Permit2 coupon than a User which contains these additional fields. The EIP712 type the Market Maker signs is as follows:
 
 ```solidity
-PermitWitnessTransferFrom(TokenPermissions permitted, address spender, uint256 nonce, uint256 deadline, OtcOrder order)
-OtcOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)
+PermitWitnessTransferFrom(TokenPermissions permitted, address spender, uint256 nonce, uint256 deadline, RfqOrder order)
+RfqOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address txOrigin)
 TokenPermissions(address token,uint256 amount)"
 ```
 
 We use the Permit2 guarantees of a Permit2 coupon to ensure the following:
 
-- OTC Order cannot be filled more than once
-- OTC Orders expire
-- OTC Orders are signed by the Market Maker
+- RFQ Order cannot be filled more than once
+- RFQ Orders expire
+- RFQ Orders are signed by the Market Maker
 
 ## Fees in Basic Flow
 
@@ -459,9 +476,7 @@ sequenceDiagram
 
 It is possible to collect fees via Permit2, which is typically in the token that the Permit2 is offloading (e.g the sell token for that counterparty). To perform this we use the Permit2 batch functionality where the second item in the batch is the fee.
 
-Note: This is still not entirely finalised and may change.
-
-### OTC fees via Permit2
+### RFQ fees via Permit2
 
 ```mermaid
 sequenceDiagram
@@ -482,9 +497,9 @@ sequenceDiagram
     end
 ```
 
-Using the Batch functionality we can do one or more transfers from either the User or the Market Maker. Allowing us to take either a buy token fee or a sell token fee, or both, during OTC order settlement.
+Using the Batch functionality we can do one or more transfers from either the User or the Market Maker. Allowing us to take either a buy token fee or a sell token fee, or both, during RFQ order settlement.
 
-This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill OTC orders with fees.
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill RFQ orders with fees.
 
 ### Uniswap VIP sell token fees via Permit2
 
@@ -502,9 +517,9 @@ sequenceDiagram
     end
 ```
 
-It is possible to collect sell token fees via Permit2 with the UniswapV3 VIP as well, using the Permit2 batch functionality. This flow is similar to the OTC fees.
+It is possible to collect sell token fees via Permit2 with the UniswapV3 VIP as well, using the Permit2 batch functionality. This flow is similar to the RFQ fees.
 
-This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UnuswapV3 with sell token fees.
+This allows us to achieve **no custody** during this flow and is an extremely gas efficient way to fill UniswapV3 with sell token fees.
 
 ### Uniswap buy token fees via Permit2
 
@@ -527,7 +542,7 @@ Since UniswapV3 only supports a single `recipient`, to collect buy token fees, S
 
 ## MetaTransactions
 
-Similar to OTC orders, MetaTransactions use the Permit2 with witness. In this case the witness is the MetaTransaction itself, containing the actions the user wants to execute. This gives MetaTransactions access to the same flows above, with a slightly different entrypoint to decode the actions from the Permit2 coupon, rather than the actions being provided directly in the arguments to the execute function.
+Similar to RFQ orders, MetaTransactions use the Permit2 with witness. In this case the witness is the MetaTransaction itself, containing the actions the user wants to execute. This gives MetaTransactions access to the same flows above, with a slightly different entrypoint to decode the actions from the Permit2 coupon, rather than the actions being provided directly in the arguments to the execute function.
 
 The EIP712 type the user signs when wanting to perform a metatransaction is:
 
@@ -542,7 +557,7 @@ Where `actions` is added and contains the encoded actions the to perform.
 ## AllowanceHolder
 As an intermediary step, we provide the `AllowanceHolder` contract. This sits infront of 0x Settler and acts as transparently as possible. 0x Settler has a one way trust relationship to `AllowanceHolder`. The true `msg.sender` is forwarded from `AllowanceHolder` to 0x Settler in a similar way to [ERC-2771](https://eips.ethereum.org/EIPS/eip-2771). `Permit2` is not used in conjunction with `AllowanceHolder`
 
-`execute`: An EOA or a Contract can utilise this function to perform a swap via 0x Settler. Tokens are transferred efficiently and on-demand as the swap executes 
+`execute`: An EOA or a Contract can utilise this function to perform a swap via 0x Settler. Tokens are transferred efficiently and on-demand as the swap executes
 
 Highlighted in orange is the standard token transfer operations. Note: these are not the most effiecient swaps available, just enough to demonstrate the point.
 
@@ -614,10 +629,11 @@ update this document.
 
 ![Click on "Connect to Web3"](img/pause6.png?raw=true)
 
-9. Enter the "feature" number in the text box. This is probably 1 unless
-   something major has changed and nobody bothered to update this document.
+9. Enter the "feature" number in the text box. This is probably 2 for
+   taker-submitted for 3 for gasless/metatransaction, unless something major has
+   changed and nobody bothered to update this document.
 
-![Enter the "feature" number (1) in the text box](img/pause7.png?raw=true)
+![Enter the "feature" number (2 or 3) in the text box](img/pause7.png?raw=true)
 
 10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
 
