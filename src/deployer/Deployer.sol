@@ -112,7 +112,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         return _stor1().featureInfo[feature].descriptionHash;
     }
 
-    constructor() ERC1967UUPSUpgradeable(1) {
+    constructor(uint256 version) ERC1967UUPSUpgradeable(version) {
         ZeroExSettlerDeployerStorage1 storage stor1 = _stor1();
         // storage starts at the slot defined by ERC7201
         {
