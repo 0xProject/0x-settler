@@ -220,4 +220,48 @@ contract DeployerTest is Test {
         deployer.deploy(wrap(1), type(Dummy).creationCode);
         assertEq(ipfsUriHash, keccak256(bytes(deployer.tokenURI(1))));
     }
+
+    function testFailDoubleRemove() public {
+        deployer.setDescription(wrap(1), "nothing to see here");
+        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
+        deployer.deploy(wrap(1), type(Dummy).creationCode);
+        address instance1 = deployer.ownerOf(1);
+        deployer.deploy(wrap(1), type(Dummy).creationCode);
+        address instance2 = deployer.ownerOf(1);
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance2, instance1, 1);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(wrap(1), Nonce.wrap(2), instance2);
+        deployer.remove(wrap(1), Nonce.wrap(2));
+
+        address instance3 = Create3.predict(_salt(1, 3), address(deployer));
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance1, instance3, 1);
+        deployer.deploy(wrap(1), type(Dummy).creationCode);
+        assertEq(deployer.ownerOf(1), instance3);
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance3, instance1, 1);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(wrap(1), Nonce.wrap(3), instance3);
+        deployer.remove(wrap(1), Nonce.wrap(3));
+
+        // This should revert
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance2, address(0), 1);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(wrap(1), Nonce.wrap(2), instance2);
+        deployer.remove(wrap(1), Nonce.wrap(2));
+
+        // This should not revert
+        vm.expectRevert();
+        deployer.ownerOf(1);
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance1, address(0), 1);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(wrap(1), Nonce.wrap(1), instance1);
+        deployer.remove(wrap(1), Nonce.wrap(1));
+    }
 }
