@@ -1,9 +1,13 @@
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
+if [[ ${chainid:-unset} = 'unset' ]] ; then
+    declare -i chainid
+    chainid="$(get_config chainId)"
+    declare -r -i chainid
+fi
+if [[ ${rpc_url:-unset} = 'unset' ]] ; then
+    declare rpc_url
+    rpc_url="$(get_api_secret rpcUrl)"
+    declare -r rpc_url
+fi
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
