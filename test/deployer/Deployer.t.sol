@@ -21,23 +21,29 @@ contract DeployerTest is Test {
 
         deployer = Deployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
         vm.label(address(deployer), "Deployer (proxy)");
-        address deployerImpl = deployer.implementation();
-        vm.label(deployerImpl, "Deployer (implementation)");
 
         vm.prank(deployer.owner());
         deployer.transferOwnership(address(this));
         deployer.acceptOwnership();
 
-        vm.expectRevert(abi.encodeWithSignature("VersionMismatch(uint256,uint256)", 1, 1));
-        deployer.initialize(address(this));
+        Deployer newImpl = new Deployer(2);
+        vm.label(address(newImpl), "Deployer (implementation)");
+        deployer.upgradeAndCall(address(newImpl), abi.encodeCall(newImpl.initialize, (address(0))));
+
+        vm.expectRevert(abi.encodeWithSignature("VersionMismatch(uint256,uint256)", 2, 2));
+        deployer.initialize(address(0));
 
         vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));
-        Deployer(deployerImpl).owner();
+        newImpl.owner();
 
         vm.chainId(31337);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 1));
+        newImpl.initialize(address(this));
         vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));
-        Deployer(deployerImpl).initialize(address(this));
+        newImpl.initialize(address(0));
         vm.chainId(1);
+        vm.expectRevert(new bytes(0));
+        newImpl.initialize(address(0));
     }
 
     bytes32 internal ipfsHash = 0x364ebf112e53924630d49d5b34708d29b506816610b84844077b2d7f4439ebf1;
@@ -273,7 +279,7 @@ contract DeployerTest is Test {
         deployer.remove(testFeature, Nonce.wrap(2));
 
         // This should not revert
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
         deployer.ownerOf(testTokenId);
 
         vm.expectEmit(true, true, true, false, address(deployer));
