@@ -219,6 +219,7 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
     }
 
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
+        // Retrieve callback and perform call with untrusted calldata
         (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
             TransientStorage.getAndClearOperatorAndCallback();
         require(bytes4(data) == selector);
