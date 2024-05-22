@@ -2,6 +2,7 @@
   "sepolia": {
     "chainId": 11155111,
     "displayName": "Sepolia",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
@@ -27,6 +28,7 @@
   "mainnet": {
     "chainId": 1,
     "displayName": "Mainnet",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
@@ -52,6 +54,7 @@
   "polygon": {
     "chainId": 137,
     "displayName": "Polygon",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
@@ -80,6 +83,7 @@
   "base": {
     "chainId": 8453,
     "displayName": "Base",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -105,6 +109,7 @@
   "base_sepolia": {
     "chainId": 84532,
     "displayName": "BaseSepolia",
+    "isLondon": true,
     "isCancun": false,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -130,6 +135,7 @@
   "optimism": {
     "chainId": 10,
     "displayName": "Optimism",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -158,6 +164,7 @@
   "optimism_sepolia": {
     "chainId": 11155420,
     "displayName": "OptimismSepolia",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
@@ -183,6 +190,7 @@
   "arbitrum": {
     "chainId": 42161,
     "displayName": "Arbitrum",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 500,
@@ -211,6 +219,7 @@
   "arbitrum_sepolia": {
     "chainId": 421614,
     "displayName": "ArbitrumSepolia",
+    "isLondon": true,
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 500,
@@ -236,6 +245,7 @@
   "bnb": {
     "chainId": 56,
     "displayName": "Bnb",
+    "isLondon": false,
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
@@ -261,6 +271,7 @@
   "avalanche": {
     "chainId": 43114,
     "displayName": "Avalanche",
+    "isLondon": true,
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
