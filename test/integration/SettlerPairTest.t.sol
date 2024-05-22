@@ -78,7 +78,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                     0x184,
                     abi.encodeCall(
                         ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
-                    )
+                        )
                 )
             )
         );
@@ -109,7 +109,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                     0x184,
                     abi.encodeCall(
                         ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
-                    )
+                        )
                 )
             ),
             abi.encodeCall(
