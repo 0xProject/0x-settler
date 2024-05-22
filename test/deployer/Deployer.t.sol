@@ -42,7 +42,9 @@ contract DeployerTest is Test {
 
     bytes32 internal ipfsHash = 0x364ebf112e53924630d49d5b34708d29b506816610b84844077b2d7f4439ebf1;
     bytes32 internal ipfsUriHash = keccak256("ipfs://QmRzeNMDA42tkFTYPE2eEji12VaU8Eg9YfWrHPAWdzcuLC");
-    bytes32 internal metadataHash = keccak256("{\"description\": \"nothing to see here\", \"name\": \"0x Settler feature 340282366920938463463374607431768211455\"}\n");
+    bytes32 internal metadataHash = keccak256(
+        "{\"description\": \"nothing to see here\", \"name\": \"0x Settler feature 340282366920938463463374607431768211455\"}\n"
+    );
     Feature internal testFeature = wrap(type(uint128).max);
     uint256 internal testTokenId = Feature.unwrap(testFeature);
 
@@ -151,7 +153,9 @@ contract DeployerTest is Test {
         assertEq(deployer.ownerOf(testTokenId), instance);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer)), address(0), testTokenId);
+        emit IERC721View.Transfer(
+            Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer)), address(0), testTokenId
+        );
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IDeployer.Removed(testFeature, Nonce.wrap(1), instance);
         assertTrue(deployer.remove(testFeature, nonce));
@@ -197,7 +201,9 @@ contract DeployerTest is Test {
 
         for (Nonce i = zero.incr(); nonce > i; i = i.incr()) {
             vm.expectEmit(true, true, true, false, address(deployer));
-            emit IDeployer.Removed(testFeature, i, Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(i)), address(deployer)));
+            emit IDeployer.Removed(
+                testFeature, i, Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(i)), address(deployer))
+            );
             vm.recordLogs();
             deployer.remove(testFeature, i);
             entries = vm.getRecordedLogs();
@@ -208,7 +214,11 @@ contract DeployerTest is Test {
         (instance, nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(instance, Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce) - 1), address(deployer)), testTokenId);
+        emit IERC721View.Transfer(
+            instance,
+            Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce) - 1), address(deployer)),
+            testTokenId
+        );
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IDeployer.Removed(testFeature, nonce, instance);
         deployer.remove(testFeature, nonce);
