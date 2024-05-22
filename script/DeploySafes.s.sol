@@ -242,7 +242,7 @@ contract DeploySafes is Script {
         // first, we deploy the module to get the correct address
         address deployedModule = address(new ZeroExSettlerDeployerSafeModule(deploymentSafe));
         // next, we deploy the implementation we're going to need when we take ownership of the proxy
-        address deployerImpl = address(new Deployer());
+        address deployerImpl = address(new Deployer(1));
         // now we deploy the safe that's responsible *ONLY* for deploying new instances
         address deployedDeploymentSafe = safeFactory.createProxyWithNonce(safeSingleton, deploymentInitializer, 0);
         // install the module in the deployment safe so that *anybody* can roll back deployments

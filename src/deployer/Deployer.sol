@@ -55,7 +55,8 @@ library NonceList {
         Nonce nextNonce;
         (newHead, nextNonce) = (entry.prev, entry.next);
         if (nextNonce.isNull()) {
-            if (thisNonce > list.highWater) {
+            (Nonce head, Nonce highWater) = (list.head, list.highWater);
+            if (thisNonce == head && thisNonce > highWater) {
                 updatedHead = true;
                 list.head = newHead;
             }
@@ -112,7 +113,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         return _stor1().featureInfo[feature].descriptionHash;
     }
 
-    constructor() ERC1967UUPSUpgradeable(1) {
+    constructor(uint256 version) ERC1967UUPSUpgradeable(version) {
         ZeroExSettlerDeployerStorage1 storage stor1 = _stor1();
         // storage starts at the slot defined by ERC7201
         {
@@ -143,7 +144,11 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
 
     function initialize(address initialOwner) external {
         require(address(this) == 0x00000000000004533Fe15556B1E086BB1A72cEae || block.chainid == 31337);
-        _setPendingOwner(initialOwner);
+        if (_implVersion == 1) {
+            _setPendingOwner(initialOwner);
+        } else {
+            assert(initialOwner == address(0));
+        }
         super._initialize();
     }
 

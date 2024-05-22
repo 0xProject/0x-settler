@@ -17,74 +17,89 @@ contract DeployerTest is Test {
     address public auth = address(0xc0de60d);
 
     function setUp() public {
-        address deployerImpl = address(new Deployer());
-        vm.label(deployerImpl, "Deployer (implementation)");
-        vm.expectEmit(true, false, false, false, AddressDerivation.deriveContract(address(this), 2));
-        emit IERC1967Proxy.Upgraded(deployerImpl);
-        deployer = Deployer(ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (address(this)))));
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 19921675);
+
+        deployer = Deployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
         vm.label(address(deployer), "Deployer (proxy)");
+
+        vm.prank(deployer.owner());
+        deployer.transferOwnership(address(this));
         deployer.acceptOwnership();
 
-        vm.expectRevert(abi.encodeWithSignature("VersionMismatch(uint256,uint256)", 1, 1));
-        deployer.initialize(address(this));
+        Deployer newImpl = new Deployer(2);
+        vm.label(address(newImpl), "Deployer (implementation)");
+        deployer.upgradeAndCall(address(newImpl), abi.encodeCall(newImpl.initialize, (address(0))));
+
+        vm.expectRevert(abi.encodeWithSignature("VersionMismatch(uint256,uint256)", 2, 2));
+        deployer.initialize(address(0));
 
         vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));
-        Deployer(deployerImpl).owner();
+        newImpl.owner();
 
+        vm.chainId(31337);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 1));
+        newImpl.initialize(address(this));
         vm.expectRevert(abi.encodeWithSignature("OnlyProxy()"));
-        Deployer(deployerImpl).initialize(address(this));
+        newImpl.initialize(address(0));
+        vm.chainId(1);
+        vm.expectRevert(new bytes(0));
+        newImpl.initialize(address(0));
     }
 
-    bytes32 ipfsHash = 0x3524b3a2ed5903016e64a4f12e46695ad5767bbc816d91e1ca60cf1513add658;
-    bytes32 ipfsUriHash = keccak256("ipfs://QmRv6n13mSSdriG8dHBcMWcnHFKfDTRJy9kEdhH7cvG7x3");
-    bytes32 metadataHash = keccak256("{\"description\": \"nothing to see here\", \"name\": \"0x Settler feature 1\"}\n");
+    bytes32 internal ipfsHash = 0x364ebf112e53924630d49d5b34708d29b506816610b84844077b2d7f4439ebf1;
+    bytes32 internal ipfsUriHash = keccak256("ipfs://QmRzeNMDA42tkFTYPE2eEji12VaU8Eg9YfWrHPAWdzcuLC");
+    bytes32 internal metadataHash = keccak256(
+        "{\"description\": \"nothing to see here\", \"name\": \"0x Settler feature 340282366920938463463374607431768211455\"}\n"
+    );
+    Feature internal testFeature = wrap(type(uint128).max);
+    uint256 internal testTokenId = Feature.unwrap(testFeature);
 
     function testSetDescription() public {
-        assertEq(keccak256(bytes(deployer.setDescription(wrap(1), "nothing to see here"))), metadataHash);
-        assertEq(deployer.descriptionHash(wrap(1)), ipfsHash);
+        assertEq(keccak256(bytes(deployer.setDescription(testFeature, "nothing to see here"))), metadataHash);
+        assertEq(deployer.descriptionHash(testFeature), ipfsHash);
     }
 
     function testSetDescriptionNotOwner() public {
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
         vm.startPrank(auth);
-        deployer.setDescription(wrap(1), "nothing to see here");
+        deployer.setDescription(testFeature, "nothing to see here");
     }
 
     function testAuthorize() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        (address who, uint40 expiry) = deployer.authorized(wrap(1));
+        deployer.setDescription(testFeature, "nothing to see here");
+        (address who, uint40 expiry) = deployer.authorized(testFeature);
         assertEq(who, address(0));
         assertEq(expiry, 0);
         vm.expectEmit(true, true, false, true, address(deployer));
-        emit IDeployer.Authorized(wrap(1), auth, uint40(block.timestamp + 1 days));
-        assertTrue(deployer.authorize(wrap(1), auth, uint40(block.timestamp + 1 days)));
-        (who, expiry) = deployer.authorized(wrap(1));
+        emit IDeployer.Authorized(testFeature, auth, uint40(block.timestamp + 1 days));
+        assertTrue(deployer.authorize(testFeature, auth, uint40(block.timestamp + 1 days)));
+        (who, expiry) = deployer.authorized(testFeature);
         assertEq(who, auth);
         assertEq(expiry, block.timestamp + 1 days);
     }
 
     function testAuthorizeZero() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
+        deployer.setDescription(testFeature, "nothing to see here");
         vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x21));
         deployer.authorize(Feature.wrap(0), auth, uint40(block.timestamp + 1 days));
     }
 
     function testUnauthorize() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), auth, uint40(block.timestamp + 1 days));
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, auth, uint40(block.timestamp + 1 days));
         vm.expectEmit(true, true, false, true, address(deployer));
-        emit IDeployer.Authorized(wrap(1), address(0), 0);
-        assertTrue(deployer.authorize(wrap(1), address(0), 0));
-        (address who, uint40 expiry) = deployer.authorized(wrap(1));
+        emit IDeployer.Authorized(testFeature, address(0), 0);
+        assertTrue(deployer.authorize(testFeature, address(0), 0));
+        (address who, uint40 expiry) = deployer.authorized(testFeature);
         assertEq(who, address(0));
         assertEq(expiry, 0);
     }
 
     function testAuthorizeNotOwner() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
+        deployer.setDescription(testFeature, "nothing to see here");
         vm.startPrank(auth);
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.authorize(wrap(1), auth, uint40(block.timestamp + 1 days));
+        deployer.authorize(testFeature, auth, uint40(block.timestamp + 1 days));
     }
 
     function _salt(uint128 feature, uint32 nonce) internal view returns (bytes32) {
@@ -92,132 +107,185 @@ contract DeployerTest is Test {
     }
 
     function testDeploy() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
-        address predicted = Create3.predict(_salt(1, 1), address(deployer));
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
+        address predicted = Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(address(0), predicted, 1);
+        emit IERC721View.Transfer(address(0), predicted, testTokenId);
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IDeployer.Deployed(wrap(1), Nonce.wrap(1), predicted);
-        (address instance,) = deployer.deploy(wrap(1), type(Dummy).creationCode);
+        emit IDeployer.Deployed(testFeature, Nonce.wrap(1), predicted);
+        (address instance,) = deployer.deploy(testFeature, type(Dummy).creationCode);
         assertEq(instance, predicted);
-        assertEq(deployer.ownerOf(1), predicted);
+        assertEq(deployer.ownerOf(testTokenId), predicted);
     }
 
     function testDeployNotAuthorized() public {
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        deployer.deploy(wrap(1), type(Dummy).creationCode);
+        deployer.deploy(testFeature, type(Dummy).creationCode);
     }
 
     function testDeployRevert() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
         vm.expectRevert(new bytes(0));
-        deployer.deploy(wrap(1), hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
+        deployer.deploy(testFeature, hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
-        address predicted = Create3.predict(_salt(1, 1), address(deployer));
-        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint128,uint32,address)", 1, 1, predicted));
-        deployer.deploy(wrap(1), hex"00"); // STOP; succeeds with empty returnData
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
+        address predicted = Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer));
+        vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint128,uint32,address)", testTokenId, 1, predicted));
+        deployer.deploy(testFeature, hex"00"); // STOP; succeeds with empty returnData
     }
 
     function testDeployMinimal() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
         // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
-        (address deployed,) = deployer.deploy(wrap(1), hex"60015ff3");
+        (address deployed,) = deployer.deploy(testFeature, hex"60015ff3");
         assertNotEq(deployed, address(0));
         assertNotEq(deployed.code.length, 0);
     }
 
     function testRemove() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
 
-        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
-        deployer.ownerOf(1);
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
+        deployer.ownerOf(testTokenId);
 
-        (address instance, Nonce nonce) = deployer.deploy(wrap(1), type(Dummy).creationCode);
-        assertEq(deployer.ownerOf(1), instance);
+        (address instance, Nonce nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
+        assertEq(deployer.ownerOf(testTokenId), instance);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(Create3.predict(_salt(1, 1), address(deployer)), address(0), 1);
+        emit IERC721View.Transfer(
+            Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer)), address(0), testTokenId
+        );
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IDeployer.Removed(wrap(1), Nonce.wrap(1), instance);
-        assertTrue(deployer.remove(wrap(1), nonce));
-        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
-        deployer.ownerOf(1);
+        emit IDeployer.Removed(testFeature, Nonce.wrap(1), instance);
+        assertTrue(deployer.remove(testFeature, nonce));
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
+        deployer.ownerOf(testTokenId);
 
-        (instance, nonce) = deployer.deploy(wrap(1), type(Dummy).creationCode);
-        assertEq(deployer.ownerOf(1), instance, "redeploy after remove");
+        (instance, nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
+        assertEq(deployer.ownerOf(testTokenId), instance, "redeploy after remove");
 
         address newInstance;
-        (newInstance, nonce) = deployer.deploy(wrap(1), type(Dummy).creationCode);
+        (newInstance, nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
         assertNotEq(newInstance, instance);
-        assertEq(deployer.ownerOf(1), newInstance, "2nd redeploy after remove");
+        assertEq(deployer.ownerOf(testTokenId), newInstance, "2nd redeploy after remove");
 
-        assertTrue(deployer.remove(wrap(1), nonce));
-        assertEq(deployer.ownerOf(1), instance, "reverts to previous deployment");
+        assertTrue(deployer.remove(testFeature, nonce));
+        assertEq(deployer.ownerOf(testTokenId), instance, "reverts to previous deployment");
     }
 
     function testRemoveAll() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
 
-        deployer.deploy(wrap(1), type(Dummy).creationCode);
-        deployer.deploy(wrap(1), type(Dummy).creationCode);
-        deployer.deploy(wrap(1), type(Dummy).creationCode);
-        (address instance, Nonce nonce) = deployer.deploy(wrap(1), type(Dummy).creationCode);
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        (address instance, Nonce nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(instance, address(0), 1);
+        emit IERC721View.Transfer(instance, address(0), testTokenId);
         vm.expectEmit(true, false, false, false, address(deployer));
-        emit IDeployer.RemovedAll(wrap(1));
-        deployer.removeAll(wrap(1));
+        emit IDeployer.RemovedAll(testFeature);
+        deployer.removeAll(testFeature);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IDeployer.Removed(wrap(1), nonce, instance);
+        emit IDeployer.Removed(testFeature, nonce, instance);
         vm.recordLogs();
-        deployer.remove(wrap(1), nonce);
+        deployer.remove(testFeature, nonce);
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 1);
 
-        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", 1));
-        deployer.ownerOf(1);
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
+        deployer.ownerOf(testTokenId);
 
         for (Nonce i = zero.incr(); nonce > i; i = i.incr()) {
             vm.expectEmit(true, true, true, false, address(deployer));
-            emit IDeployer.Removed(wrap(1), i, Create3.predict(_salt(1, Nonce.unwrap(i)), address(deployer)));
+            emit IDeployer.Removed(
+                testFeature, i, Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(i)), address(deployer))
+            );
             vm.recordLogs();
-            deployer.remove(wrap(1), i);
+            deployer.remove(testFeature, i);
             entries = vm.getRecordedLogs();
             assertEq(entries.length, 1);
         }
 
-        deployer.deploy(wrap(1), type(Dummy).creationCode);
-        (instance, nonce) = deployer.deploy(wrap(1), type(Dummy).creationCode);
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        (instance, nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
 
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(instance, Create3.predict(_salt(1, Nonce.unwrap(nonce) - 1), address(deployer)), 1);
+        emit IERC721View.Transfer(
+            instance,
+            Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce) - 1), address(deployer)),
+            testTokenId
+        );
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IDeployer.Removed(wrap(1), nonce, instance);
-        deployer.remove(wrap(1), nonce);
+        emit IDeployer.Removed(testFeature, nonce, instance);
+        deployer.remove(testFeature, nonce);
 
-        instance = Create3.predict(_salt(1, Nonce.unwrap(nonce)), address(deployer));
+        nonce = Nonce.wrap(Nonce.unwrap(nonce) - 1);
+        instance = Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce)), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(instance, address(0), 1);
+        emit IERC721View.Transfer(instance, address(0), testTokenId);
         vm.expectEmit(true, true, true, false, address(deployer));
-        emit IDeployer.Removed(wrap(1), nonce, instance);
-        deployer.remove(wrap(1), nonce);
+        emit IDeployer.Removed(testFeature, nonce, instance);
+        deployer.remove(testFeature, nonce);
     }
 
     function testTokenURI() public {
-        deployer.setDescription(wrap(1), "nothing to see here");
-        deployer.authorize(wrap(1), address(this), uint40(block.timestamp + 1 days));
-        deployer.deploy(wrap(1), type(Dummy).creationCode);
-        assertEq(ipfsUriHash, keccak256(bytes(deployer.tokenURI(1))));
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        assertEq(ipfsUriHash, keccak256(bytes(deployer.tokenURI(testTokenId))));
+    }
+
+    function testFailDoubleRemove() public {
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        address instance1 = deployer.ownerOf(testTokenId);
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        address instance2 = deployer.ownerOf(testTokenId);
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance2, instance1, testTokenId);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(testFeature, Nonce.wrap(2), instance2);
+        deployer.remove(testFeature, Nonce.wrap(2));
+
+        address instance3 = Create3.predict(_salt(Feature.unwrap(testFeature), 3), address(deployer));
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance1, instance3, testTokenId);
+        deployer.deploy(testFeature, type(Dummy).creationCode);
+        assertEq(deployer.ownerOf(testTokenId), instance3);
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance3, instance1, testTokenId);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(testFeature, Nonce.wrap(3), instance3);
+        deployer.remove(testFeature, Nonce.wrap(3));
+
+        // This should revert
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance2, address(0), testTokenId);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(testFeature, Nonce.wrap(2), instance2);
+        deployer.remove(testFeature, Nonce.wrap(2));
+
+        // This should not revert
+        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
+        deployer.ownerOf(testTokenId);
+
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IERC721View.Transfer(instance1, address(0), testTokenId);
+        vm.expectEmit(true, true, true, false, address(deployer));
+        emit IDeployer.Removed(testFeature, Nonce.wrap(1), instance1);
+        deployer.remove(testFeature, Nonce.wrap(1));
     }
 }
