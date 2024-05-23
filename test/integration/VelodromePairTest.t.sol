@@ -13,22 +13,28 @@ import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract Shim {
-    // forgefmt: disable-next-line
-    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
+    function chainId() external returns (uint256) {
+        // this is non-view (mutable) on purpose
         return block.chainid;
     }
 }
 
-abstract contract VelodromePairTest is BasePairTest {
+contract VelodromePairTest is BasePairTest {
     function testName() internal pure override returns (string memory) {
         return "USDT-USDC";
     }
 
     Settler internal settler;
     IAllowanceHolder internal allowanceHolder;
+    uint256 private _amount;
 
     function setUp() public override {
+        IERC20Meta sellToken = IERC20Meta(address(fromToken()));
+        _amount = 10 ** sellToken.decimals() * 100;
+
         super.setUp();
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
+
         allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
 
         uint256 forkChainId = (new Shim()).chainId();
@@ -51,11 +57,10 @@ abstract contract VelodromePairTest is BasePairTest {
     }
 
     function amount() internal view override returns (uint256) {
-        IERC20Meta sellToken = IERC20Meta(address(fromToken()));
-        return 10 ** sellToken.decimals() * 100;
+        return _amount;
     }
 
-    function testSettler_veldrome() public skipIf(velodromePool() == address(0)) {
+    function testSettler_velodrome() public skipIf(velodromePool() == address(0)) {
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()}),
             nonce: 1,
@@ -70,6 +75,10 @@ abstract contract VelodromePairTest is BasePairTest {
         );
 
         Settler _settler = settler;
+
+        // USDT is obnoxious about throwing errors, so let's check here before we run into something inscrutable
+        assertGe(fromToken().balanceOf(FROM), amount());
+        assertGe(fromToken().allowance(FROM, address(PERMIT2)), amount());
 
         uint256 beforeBalance = toToken().balanceOf(FROM);
         vm.startPrank(FROM, FROM);
