@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20Meta} from "../IERC20.sol";
+import {IERC20} from "../IERC20.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IVelodromePair {
@@ -23,45 +23,53 @@ interface IVelodromePair {
 }
 
 abstract contract Velodrome {
-    using FullMath for uint256;
-    using SafeTransferLib for *;
+    using UnsafeMath for uint256;
+    using SafeTransferLib for IERC20;
 
     uint256 private constant _BASIS = 1 ether;
 
     function _k(uint256 x, uint256 y) private pure returns (uint256) {
-        return (x * y / _BASIS) * (x * x / _BASIS + y * y / _BASIS) / _BASIS; // x3y+y3x
+        unchecked {
+            return (x * y / _BASIS) * (x * x / _BASIS + y * y / _BASIS) / _BASIS; // x3y+y3x
+        }
     }
 
     function _f(uint256 x0, uint256 y) private pure returns (uint256) {
-        return y * y / _BASIS * y / _BASIS * x0 / _BASIS + x0 * x0 / _BASIS * x0 / _BASIS * y / _BASIS;
+        unchecked {
+            return y * y / _BASIS * y / _BASIS * x0 / _BASIS + x0 * x0 / _BASIS * x0 / _BASIS * y / _BASIS;
+        }
     }
 
     function _d(uint256 x0, uint256 y) private pure returns (uint256) {
-        return y * y / _BASIS * 3 * x0 / _BASIS + x0 * x0 / _BASIS * x0 / _BASIS;
+        unchecked {
+            return y * y / _BASIS * 3 * x0 / _BASIS + x0 * x0 / _BASIS * x0 / _BASIS;
+        }
     }
 
     function _get_y(uint256 x0, uint256 xy, uint256 y) private pure returns (uint256) {
-        for (uint256 i = 0; i < 255; i++) {
-            uint256 y_prev = y;
-            uint256 k = _f(x0, y);
-            if (k < xy) {
-                uint256 dy = ((xy - k) * _BASIS) / _d(x0, y);
-                y = y + dy;
-            } else {
-                uint256 dy = ((k - xy) * _BASIS) / _d(x0, y);
-                y = y - dy;
-            }
-            if (y > y_prev) {
-                if (y - y_prev <= 1) {
-                    return y;
+        unchecked {
+            for (uint256 i = 0; i < 255; i++) {
+                uint256 y_prev = y;
+                uint256 k = _f(x0, y);
+                if (k < xy) {
+                    uint256 dy = ((xy - k) * _BASIS) / _d(x0, y);
+                    y = y + dy;
+                } else {
+                    uint256 dy = ((k - xy) * _BASIS) / _d(x0, y);
+                    y = y - dy;
                 }
-            } else {
-                if (y_prev - y <= 1) {
-                    return y;
+                if (y > y_prev) {
+                    if (y - y_prev <= 1) {
+                        return y;
+                    }
+                } else {
+                    if (y_prev - y <= 1) {
+                        return y;
+                    }
                 }
             }
+            return y;
         }
-        return y;
     }
 
     function sellToVelodrome(address recipient, uint256 bps, IVelodromePair pair, uint24 swapInfo, uint256 minAmountOut)
@@ -91,11 +99,11 @@ abstract contract Velodrome {
         }
 
         uint256 buyAmount;
-        {
+        unchecked {
             // Compute sell amount in native units
             uint256 sellAmount;
             if (bps != 0) {
-                sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
+                sellAmount = sellToken.balanceOf(address(this)) * bps / 10_000;
             }
             if (sellAmount != 0) {
                 sellToken.safeTransfer(address(pair), sellAmount);
@@ -104,12 +112,12 @@ abstract contract Velodrome {
                 sellAmount = sellToken.balanceOf(address(pair)) - sellReserve;
             }
             // Apply the fee
-            sellAmount -= sellAmount.mulDiv(feeBps, 10_000);
+            sellAmount -= sellAmount * feeBps / 10_000;
 
             // Convert everything from native units to `_BASIS`
-            sellReserve = (sellReserve * _BASIS) / sellBasis;
-            buyReserve = (buyReserve * _BASIS) / buyBasis;
-            sellAmount = (sellAmount * _BASIS) / sellBasis;
+            sellReserve = (sellReserve * _BASIS).unsafeDiv(sellBasis);
+            buyReserve = (buyReserve * _BASIS).unsafeDiv(buyBasis);
+            sellAmount = (sellAmount * _BASIS).unsafeDiv(sellBasis);
 
             // Get current constant-function value
             uint256 xy = _k(sellReserve, buyReserve);
@@ -118,7 +126,7 @@ abstract contract Velodrome {
             buyAmount = buyReserve - _get_y(sellAmount + sellReserve, xy, buyReserve);
 
             // Convert `buyAmount` from `_BASIS` to native units
-            buyAmount = (buyAmount * buyBasis) / _BASIS;
+            buyAmount = buyAmount * buyBasis / _BASIS;
         }
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
