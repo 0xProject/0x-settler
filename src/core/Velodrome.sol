@@ -36,7 +36,7 @@ abstract contract Velodrome {
 
     function _f(uint256 x0, uint256 y) private pure returns (uint256) {
         unchecked {
-            return y * y / _BASIS * y / _BASIS * x0 / _BASIS + x0 * x0 / _BASIS * x0 / _BASIS * y / _BASIS;
+            return x0 * y / _BASIS * (x0 * x0 / _BASIS + y * y / _BASIS) / _BASIS;
         }
     }
 
@@ -46,29 +46,49 @@ abstract contract Velodrome {
         }
     }
 
+    error NotConverged();
+
     function _get_y(uint256 x0, uint256 xy, uint256 y) private pure returns (uint256) {
         unchecked {
-            for (uint256 i = 0; i < 255; i++) {
-                uint256 y_prev = y;
+            for (uint256 i; i < 255; i++) {
                 uint256 k = _f(x0, y);
                 if (k < xy) {
-                    uint256 dy = ((xy - k) * _BASIS) / _d(x0, y);
+                    // there are two cases where dy == 0
+                    // case 1: The y is converged and we find the correct answer
+                    // case 2: _d(x0, y) is too large compare to (xy - k) and the rounding error
+                    //         screwed us.
+                    //         In this case, we need to increase y by 1
+                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(x0, y));
+                    if (dy == 0) {
+                        if (k == xy) {
+                            // We found the correct answer. Return y
+                            return y;
+                        }
+                        if (_k(x0, y + 1) > xy) {
+                            // If _k(x0, y + 1) > xy, then we are close to the correct answer.
+                            // There's no closer answer than y + 1
+                            return y + 1;
+                        }
+                        dy = 1;
+                    }
                     y = y + dy;
                 } else {
-                    uint256 dy = ((k - xy) * _BASIS) / _d(x0, y);
+                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(x0, y));
+                    if (dy == 0) {
+                        if (k == xy || _f(x0, y - 1) < xy) {
+                            // Likewise, if k == xy, we found the correct answer.
+                            // If _f(x0, y - 1) < xy, then we are close to the correct answer.
+                            // There's no closer answer than "y"
+                            // It's worth mentioning that we need to find y where f(x0, y) >= xy
+                            // As a result, we can't return y - 1 even it's closer to the correct answer
+                            return y;
+                        }
+                        dy = 1;
+                    }
                     y = y - dy;
                 }
-                if (y > y_prev) {
-                    if (y - y_prev <= 1) {
-                        return y;
-                    }
-                } else {
-                    if (y_prev - y <= 1) {
-                        return y;
-                    }
-                }
             }
-            return y;
+            revert NotConverged();
         }
     }
 
@@ -132,10 +152,7 @@ abstract contract Velodrome {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
         }
 
-        if (!zeroForOne) {
-            pair.swap(buyAmount, 0, recipient, new bytes(0));
-        } else {
-            pair.swap(0, buyAmount, recipient, new bytes(0));
-        }
+        (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
+        pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));
     }
 }
