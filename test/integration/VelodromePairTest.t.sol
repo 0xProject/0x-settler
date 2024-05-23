@@ -13,8 +13,8 @@ import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract Shim {
-    function chainId() external returns (uint256) {
-        // this is non-view (mutable) on purpose
+    // forgefmt: disable-next-line
+    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
         return block.chainid;
     }
 }
