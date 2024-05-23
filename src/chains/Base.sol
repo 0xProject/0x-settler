@@ -8,6 +8,7 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {IERC20Meta} from "../IERC20.sol";
+import {Velodrome, IVelodromePair} from "../core/Velodrome.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
@@ -26,7 +27,7 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract BaseMixin is FreeMemory, SettlerBase {
+abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
@@ -38,7 +39,17 @@ abstract contract BaseMixin is FreeMemory, SettlerBase {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        if (super._dispatch(i, action, data)) {
+            return true;
+        } else if (action == ISettlerActions.VELODROME.selector) {
+            (address recipient, uint256 bps, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
+                abi.decode(data, (address, uint256, IVelodromePair, uint24, uint256));
+
+            sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     function _uniV3ForkInfo(uint8 forkId)
