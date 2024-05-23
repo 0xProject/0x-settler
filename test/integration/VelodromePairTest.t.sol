@@ -29,6 +29,7 @@ contract VelodromePairTest is BasePairTest {
     uint256 private _amount;
 
     function setUp() public override {
+        // the pool specified below doesn't have very much liquidity, so we only swap a small amount
         IERC20Meta sellToken = IERC20Meta(address(fromToken()));
         _amount = 10 ** sellToken.decimals() * 100;
 
@@ -53,7 +54,7 @@ contract VelodromePairTest is BasePairTest {
     }
 
     function velodromePool() internal pure returns (address) {
-        return 0x63A65a174Cc725824188940255aD41c371F28F28; // actually solidlyv2 (veldroe does not exist on mainnet)
+        return 0x63A65a174Cc725824188940255aD41c371F28F28; // actually solidlyv2 (velodrome does not exist on mainnet)
     }
 
     function amount() internal view override returns (uint256) {
@@ -87,6 +88,8 @@ contract VelodromePairTest is BasePairTest {
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0}), actions
         );
         snapEnd();
-        assertGt(toToken().balanceOf(FROM), beforeBalance);
+        uint256 afterBalance = toToken().balanceOf(FROM);
+
+        assertGt(afterBalance, beforeBalance);
     }
 }
