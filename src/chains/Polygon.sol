@@ -7,7 +7,6 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
