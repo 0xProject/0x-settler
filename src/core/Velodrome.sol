@@ -117,6 +117,10 @@ abstract contract Velodrome {
             // Compute sell amount in native units
             uint256 sellAmount;
             if (bps != 0) {
+                // It must be possible to square the sell token balance of the pool, otherwise it
+                // will revert with an overflow. Therefore, it can't be so large that multiplying by
+                // a "reasonable" `bps` value could overflow. We don't care to protect against
+                // unreasonable `bps` values because that just means the taker is griefing themself.
                 sellAmount = sellToken.balanceOf(address(this)) * bps / 10_000;
             }
             if (sellAmount != 0) {
@@ -126,7 +130,7 @@ abstract contract Velodrome {
                 sellAmount = sellToken.balanceOf(address(pair)) - sellReserve;
             }
             // Apply the fee
-            sellAmount -= sellAmount * feeBps / 10_000;
+            sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
 
             // Convert everything from native units to `_BASIS`
             sellReserve = (sellReserve * _BASIS).unsafeDiv(sellBasis);
