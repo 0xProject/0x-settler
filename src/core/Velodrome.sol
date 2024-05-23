@@ -11,13 +11,13 @@ interface IVelodromePair {
         external
         view
         returns (
-            uint256 decimals0,
-            uint256 decimals1,
+            uint256 basis0,
+            uint256 basis1,
             uint256 reserve0,
             uint256 reserve1,
             bool stable,
-            IERC20Meta token0,
-            IERC20Meta token1
+            IERC20 token0,
+            IERC20 token1
         );
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
@@ -76,18 +76,18 @@ abstract contract Velodrome {
         uint256 feeBps = swapInfo >> 8;
 
         (
-            uint256 sellDecimals,
-            uint256 buyDecimals,
+            uint256 sellBasis,
+            uint256 buyBasis,
             uint256 sellReserve,
             uint256 buyReserve,
             bool stable,
-            IERC20Meta sellToken,
-            IERC20Meta buyToken
+            IERC20 sellToken,
+            IERC20 buyToken
         ) = pair.metadata();
         assert(stable);
         if (!zeroForOne) {
-            (sellDecimals, buyDecimals, sellReserve, buyReserve, sellToken, buyToken) =
-                (buyDecimals, sellDecimals, buyReserve, sellReserve, buyToken, sellToken);
+            (sellBasis, buyBasis, sellReserve, buyReserve, sellToken, buyToken) =
+                (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
         }
 
         uint256 buyAmount;
@@ -98,7 +98,7 @@ abstract contract Velodrome {
                 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
             }
             if (sellAmount != 0) {
-                sellToken.transfer(address(pair), sellAmount);
+                sellToken.safeTransfer(address(pair), sellAmount);
             }
             if (sellAmount == 0 || sellTokenHasFee) {
                 sellAmount = sellToken.balanceOf(address(pair)) - sellReserve;
@@ -107,9 +107,9 @@ abstract contract Velodrome {
             sellAmount -= sellAmount.mulDiv(feeBps, 10_000);
 
             // Convert everything from native units to `_BASIS`
-            sellReserve = (sellReserve * _BASIS) / sellDecimals;
-            buyReserve = (buyReserve * _BASIS) / buyDecimals;
-            sellAmount = (sellAmount * _BASIS) / sellDecimals;
+            sellReserve = (sellReserve * _BASIS) / sellBasis;
+            buyReserve = (buyReserve * _BASIS) / buyBasis;
+            sellAmount = (sellAmount * _BASIS) / sellBasis;
 
             // Get current constant-function value
             uint256 xy = _k(sellReserve, buyReserve);
@@ -118,7 +118,7 @@ abstract contract Velodrome {
             buyAmount = buyReserve - _get_y(sellAmount + sellReserve, xy, buyReserve);
 
             // Convert `buyAmount` from `_BASIS` to native units
-            buyAmount = (buyAmount * buyDecimals) / _BASIS;
+            buyAmount = (buyAmount * buyBasis) / _BASIS;
         }
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
