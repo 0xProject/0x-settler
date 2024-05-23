@@ -30,13 +30,7 @@ abstract contract Velodrome {
 
     function _k(uint256 x, uint256 y) private pure returns (uint256) {
         unchecked {
-            return (x * y / _BASIS) * (x * x / _BASIS + y * y / _BASIS) / _BASIS; // x3y+y3x
-        }
-    }
-
-    function _f(uint256 x0, uint256 y) private pure returns (uint256) {
-        unchecked {
-            return x0 * y / _BASIS * (x0 * x0 / _BASIS + y * y / _BASIS) / _BASIS;
+            return x * y / _BASIS * (x * x / _BASIS + y * y / _BASIS) / _BASIS; // x3y+y3x
         }
     }
 
@@ -51,7 +45,7 @@ abstract contract Velodrome {
     function _get_y(uint256 x0, uint256 xy, uint256 y) private pure returns (uint256) {
         unchecked {
             for (uint256 i; i < 255; i++) {
-                uint256 k = _f(x0, y);
+                uint256 k = _k(x0, y);
                 if (k < xy) {
                     // there are two cases where dy == 0
                     // case 1: The y is converged and we find the correct answer
@@ -75,11 +69,11 @@ abstract contract Velodrome {
                 } else {
                     uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(x0, y));
                     if (dy == 0) {
-                        if (k == xy || _f(x0, y - 1) < xy) {
+                        if (k == xy || _k(x0, y - 1) < xy) {
                             // Likewise, if k == xy, we found the correct answer.
-                            // If _f(x0, y - 1) < xy, then we are close to the correct answer.
+                            // If _k(x0, y - 1) < xy, then we are close to the correct answer.
                             // There's no closer answer than "y"
-                            // It's worth mentioning that we need to find y where f(x0, y) >= xy
+                            // It's worth mentioning that we need to find y where _k(x0, y) >= xy
                             // As a result, we can't return y - 1 even it's closer to the correct answer
                             return y;
                         }
