@@ -15,6 +15,7 @@ import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "..
 import {velodromeFactory, velodromeInitHash} from "../core/univ3forks/VelodromeSlipstream.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
@@ -84,7 +85,7 @@ contract OptimismSettler is Settler, OptimismMixin {
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, OptimismMixin)
+        override(SettlerAbstract, SettlerBase, OptimismMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -111,7 +112,7 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, OptimismMixin)
+        override(SettlerAbstract, SettlerBase, OptimismMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

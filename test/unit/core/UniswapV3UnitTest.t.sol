@@ -2,10 +2,9 @@
 pragma solidity ^0.8.25;
 
 import {IUniswapV3Pool, UniswapV3Fork} from "src/core/UniswapV3Fork.sol";
-import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
+import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
-import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
 import {UnknownForkId} from "src/core/SettlerErrors.sol";
@@ -17,10 +16,10 @@ import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3Fork {
+contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
     address internal immutable uniFactory;
 
-    constructor(address _uniFactory) UniswapV3Fork() Permit2Payment() {
+    constructor(address _uniFactory) {
         uniFactory = _uniFactory;
     }
 
@@ -59,15 +58,6 @@ contract UniswapV3Dummy is AllowanceHolderContext, Permit2Payment, UniswapV3Fork
 
     function _operator() internal view override returns (address) {
         return AllowanceHolderContext._msgSender();
-    }
-
-    function _msgSender()
-        internal
-        view
-        override(Permit2PaymentBase, AllowanceHolderContext, AbstractContext)
-        returns (address)
-    {
-        return Permit2PaymentBase._msgSender();
     }
 
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {

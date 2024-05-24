@@ -2,7 +2,13 @@
 pragma solidity ^0.8.25;
 
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
-import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
+import {
+    Permit2PaymentMetaTxn,
+    Permit2PaymentTakerSubmitted,
+    Permit2Payment,
+    Permit2PaymentBase
+} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Context, AbstractContext} from "src/Context.sol";
@@ -27,7 +33,7 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
     }
 }
 
-contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDummyBase {
+contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettlementDummyBase {
     function fillRfqOrderDirectCounterparties(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -68,10 +74,19 @@ contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDu
     function _msgSender()
         internal
         view
-        override(Permit2PaymentBase, AllowanceHolderContext, AbstractContext)
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, AbstractContext)
         returns (address)
     {
-        return Permit2PaymentBase._msgSender();
+        return super._msgSender();
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
@@ -79,7 +94,7 @@ contract RfqOrderSettlementDummy is AllowanceHolderContext, RfqOrderSettlementDu
     }
 }
 
-contract RfqOrderSettlementMetaTxnDummy is Context, RfqOrderSettlementDummyBase {
+contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettlementDummyBase {
     function fillRfqOrderMeta(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -105,8 +120,13 @@ contract RfqOrderSettlementMetaTxnDummy is Context, RfqOrderSettlementDummyBase 
         return Context._msgSender();
     }
 
-    function _msgSender() internal view override(Permit2PaymentBase, Context, AbstractContext) returns (address) {
-        return Permit2PaymentBase._msgSender();
+    function _msgSender()
+        internal
+        view
+        override(Permit2PaymentMetaTxn, Permit2PaymentBase, AbstractContext)
+        returns (address)
+    {
+        return super._msgSender();
     }
 
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {

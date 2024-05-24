@@ -18,6 +18,7 @@ import {
 } from "../core/univ3forks/PancakeSwapV3.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
@@ -77,7 +78,7 @@ contract BnbSettler is Settler, BnbMixin {
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, BnbMixin)
+        override(SettlerAbstract, SettlerBase, BnbMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -104,7 +105,7 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, BnbMixin)
+        override(SettlerAbstract, SettlerBase, BnbMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

@@ -22,6 +22,7 @@ import {aerodromeFactory, aerodromeInitHash} from "../core/univ3forks/AerodromeS
 import {alienBaseV3Factory} from "../core/univ3forks/AlienBaseV3.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
@@ -103,7 +104,7 @@ contract BaseSettler is Settler, BaseMixin {
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, BaseMixin)
+        override(SettlerAbstract, SettlerBase, BaseMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -130,7 +131,7 @@ contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, BaseMixin)
+        override(SettlerAbstract, SettlerBase, BaseMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

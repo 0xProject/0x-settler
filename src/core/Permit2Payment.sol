@@ -15,10 +15,14 @@ import {
 } from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
+
+import {Context} from "../Context.sol";
+import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 
 library TransientStorage {
     // bytes32(uint256(keccak256("operator slot")) - 1)
@@ -197,27 +201,6 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
     }
 
-    modifier metaTx(address msgSender, bytes32 witness) override {
-        assert(_hasMetaTxn());
-        if (_isForwarded()) {
-            revert ForwarderNotAllowed();
-        }
-        TransientStorage.setWitness(witness);
-        TransientStorage.setPayer(msgSender);
-        _;
-        TransientStorage.clearPayer();
-        // It should not be possible for this check to revert because the very first thing that a
-        // metatransaction does is spend the witness.
-        TransientStorage.checkSpentWitness();
-    }
-
-    modifier takerSubmitted() override {
-        assert(!_hasMetaTxn());
-        TransientStorage.setPayer(_operator());
-        _;
-        TransientStorage.clearPayer();
-    }
-
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
         // Retrieve callback and perform call with untrusted calldata
         (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
@@ -229,14 +212,6 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
-    // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
-    // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
-    // contract/file should reference it. The *ONLY* approved way to make a transfer using this
-    // witness string is by setting the witness with modifier `metaTx`
-    string private constant _SLIPPAGE_AND_ACTIONS_WITNESS = string(
-        abi.encodePacked("SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE)
-    );
-
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure
@@ -251,7 +226,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use
     // of this function is forbidden. You must use the overload that does *NOT* take a `witness`
     // argument.
-    function _transferFrom(
+    function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -265,7 +240,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     }
 
     // See comment in above overload; don't use this function
-    function _transferFrom(
+    function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -273,39 +248,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         string memory witnessTypeString,
         bytes memory sig
     ) internal override {
-        _transferFrom(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
-    }
-
-    function _transferFrom(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        bytes memory sig,
-        bool isForwarded
-    ) internal override {
-        // Because `_hasMetaTxn()` is `pure`, this `if` statement is branching on a compile-time
-        // constant. The branch not taken is dead code and is eliminated by the compiler. Only one
-        // branch is reachable from a given `Settler` instance.
-        if (_hasMetaTxn()) {
-            bytes32 witness = TransientStorage.getAndClearWitness();
-            if (witness == bytes32(0)) {
-                revert ConfusedDeputy();
-            }
-            _transferFrom(
-                permit, transferDetails, _msgSender(), witness, _SLIPPAGE_AND_ACTIONS_WITNESS, sig, isForwarded
-            );
-        } else {
-            if (isForwarded) {
-                if (sig.length != 0) revert InvalidSignatureLen();
-                if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-                if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
-                // we don't check `requestedAmount` because it's checked by AllowanceHolder itself
-                _allowanceHolderTransferFrom(
-                    permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
-                );
-            } else {
-                _PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
-            }
-        }
+        _transferFromIKnowWhatImDoing(permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded());
     }
 
     function _transferFrom(
@@ -314,5 +257,112 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig
     ) internal override {
         _transferFrom(permit, transferDetails, sig, _isForwarded());
+    }
+}
+
+abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
+    constructor() {
+        assert(!_hasMetaTxn());
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        virtual
+        override
+        returns (bool)
+    {
+        return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
+    }
+
+    function _msgSender()
+        internal
+        view
+        virtual
+        override(Permit2PaymentBase, AllowanceHolderContext)
+        returns (address)
+    {
+        return Permit2PaymentBase._msgSender();
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        bytes memory sig,
+        bool isForwarded
+    ) internal override {
+        if (isForwarded) {
+            if (sig.length != 0) revert InvalidSignatureLen();
+            if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
+            // we don't check `requestedAmount` because it's checked by AllowanceHolder itself
+            _allowanceHolderTransferFrom(
+                permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
+            );
+        } else {
+            _PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
+        }
+    }
+
+    modifier takerSubmitted() override {
+        TransientStorage.setPayer(_operator());
+        _;
+        TransientStorage.clearPayer();
+    }
+
+    modifier metaTx(address, bytes32) override {
+        revert();
+        _;
+    }
+}
+
+abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
+    constructor() {
+        assert(_hasMetaTxn());
+    }
+
+    function _msgSender() internal view virtual override(Permit2PaymentBase, Context) returns (address) {
+        return Permit2PaymentBase._msgSender();
+    }
+
+    // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
+    // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
+    // contract/file should reference it. The *ONLY* approved way to make a transfer using this
+    // witness string is by setting the witness with modifier `metaTx`
+    string private constant _SLIPPAGE_AND_ACTIONS_WITNESS = string(
+        abi.encodePacked("SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE)
+    );
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        bytes memory sig,
+        bool isForwarded // must be false
+    ) internal override {
+        bytes32 witness = TransientStorage.getAndClearWitness();
+        if (witness == bytes32(0)) {
+            revert ConfusedDeputy();
+        }
+        _transferFromIKnowWhatImDoing(
+            permit, transferDetails, _msgSender(), witness, _SLIPPAGE_AND_ACTIONS_WITNESS, sig, isForwarded
+        );
+    }
+
+    modifier takerSubmitted() override {
+        revert();
+        _;
+    }
+
+    modifier metaTx(address msgSender, bytes32 witness) override {
+        if (_isForwarded()) {
+            revert ForwarderNotAllowed();
+        }
+        TransientStorage.setWitness(witness);
+        TransientStorage.setPayer(msgSender);
+        _;
+        TransientStorage.clearPayer();
+        // It should not be possible for this check to revert because the very first thing that a
+        // metatransaction does is spend the witness.
+        TransientStorage.checkSpentWitness();
     }
 }

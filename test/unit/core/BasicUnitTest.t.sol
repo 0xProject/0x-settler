@@ -2,15 +2,15 @@
 pragma solidity ^0.8.25;
 
 import {Basic} from "src/core/Basic.sol";
-import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
-import {Context, AbstractContext} from "src/Context.sol";
+import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
+import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {IERC20} from "src/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract BasicDummy is Context, Basic, Permit2Payment {
+contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
     function sellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) public {
         super.basicSellToPool(sellToken, bps, pool, offset, data);
     }
@@ -24,11 +24,7 @@ contract BasicDummy is Context, Basic, Permit2Payment {
     }
 
     function _operator() internal view override returns (address) {
-        return Context._msgSender();
-    }
-
-    function _msgSender() internal view override(Permit2PaymentBase, Context, AbstractContext) returns (address) {
-        return Permit2PaymentBase._msgSender();
+        return AllowanceHolderContext._msgSender();
     }
 
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {

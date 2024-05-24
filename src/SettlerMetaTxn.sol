@@ -5,7 +5,7 @@ import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-import {Permit2PaymentBase} from "./core/Permit2Payment.sol";
+import {Permit2PaymentBase, Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
 
 import {Context, AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
@@ -14,7 +14,7 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {ConfusedDeputy, ActionInvalid} from "./core/SettlerErrors.sol";
 
-abstract contract SettlerMetaTxn is Context, SettlerBase {
+abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
@@ -37,15 +37,15 @@ abstract contract SettlerMetaTxn is Context, SettlerBase {
         return Context._msgSender();
     }
 
-    // Solidity inheritance is so stupid
     function _msgSender()
         internal
         view
         virtual
-        override(Permit2PaymentBase, Context, AbstractContext)
+        // Solidity inheritance is so stupid
+        override(Permit2PaymentMetaTxn, Permit2PaymentBase, AbstractContext)
         returns (address)
     {
-        return Permit2PaymentBase._msgSender();
+        return super._msgSender();
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
