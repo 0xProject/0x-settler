@@ -35,6 +35,7 @@ contract VelodromePairTest is BasePairTest {
 
         super.setUp();
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
+        warmPermit2Nonce(FROM);
 
         allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
 
