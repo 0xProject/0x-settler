@@ -2,9 +2,10 @@
 pragma solidity ^0.8.25;
 
 import {IERC20, IERC20Meta} from "./IERC20.sol";
+import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-import {Permit2PaymentBase} from "./core/Permit2Payment.sol";
+import {Permit2PaymentBase, Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 
 import {AbstractContext} from "./Context.sol";
@@ -15,22 +16,19 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {ActionInvalid} from "./core/SettlerErrors.sol";
 
-abstract contract Settler is AllowanceHolderContext, SettlerBase {
+abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    function _hasMetaTxn() internal pure override returns (bool) {
-        return false;
+    constructor() {
+        assert(
+            block.chainid == 31337
+                || IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(2) == address(this)
+        );
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        virtual
-        override(Permit2PaymentAbstract, Permit2PaymentBase)
-        returns (bool)
-    {
-        return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
     }
 
     function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
@@ -50,10 +48,21 @@ abstract contract Settler is AllowanceHolderContext, SettlerBase {
         view
         virtual
         // Solidity inheritance is so stupid
-        override(Permit2PaymentBase, AllowanceHolderContext, AbstractContext)
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, AbstractContext)
         returns (address)
     {
-        return Permit2PaymentBase._msgSender();
+        return super._msgSender();
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        virtual
+        // Solidity inheritance is so stupid
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal virtual returns (bool) {

@@ -6,7 +6,6 @@ import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
 import {Deployer, Feature} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
-import {Settler} from "src/Settler.sol";
 import {SafeConfig} from "./SafeConfig.sol";
 
 interface ISafeFactory {
@@ -223,7 +222,7 @@ contract DeploySafes is Script {
                 feature,
                 bytes.concat(
                     vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "Settler")), constructorArgs
-                )
+                    )
             )
         );
 

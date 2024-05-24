@@ -7,13 +7,13 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3AvalancheFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
@@ -69,7 +69,7 @@ contract AvalancheSettler is Settler, AvalancheMixin {
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, AvalancheMixin)
+        override(SettlerAbstract, SettlerBase, AvalancheMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -96,7 +96,7 @@ contract AvalancheSettlerMetaTxn is SettlerMetaTxn, AvalancheMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, AvalancheMixin)
+        override(SettlerAbstract, SettlerBase, AvalancheMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

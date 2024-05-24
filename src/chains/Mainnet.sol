@@ -116,7 +116,7 @@ contract MainnetSettler is Settler, MainnetMixin {
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, MainnetMixin)
+        override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -157,7 +157,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerBase, MainnetMixin)
+        override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

@@ -96,7 +96,9 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
             })
         );
         _transferFrom(takerPermit, takerTransferDetails, takerSig);
-        _transferFrom(makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFromIKnowWhatImDoing(
+            makerPermit, makerTransferDetails, maker, witness, CONSIDERATION_WITNESS, makerSig, false
+        );
 
         _logRfqOrder(
             witness,
@@ -146,7 +148,9 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
 
         // Now that we have all the relevant information, make the transfers and log the order.
         takerToken.safeTransfer(maker, takerAmount);
-        _transferFrom(permit, transferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false);
+        _transferFromIKnowWhatImDoing(
+            permit, transferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false
+        );
 
         _logRfqOrder(makerWitness, takerWitness, uint128(makerAmount));
     }
