@@ -28,12 +28,15 @@ abstract contract Velodrome {
 
     uint256 private constant _BASIS = 1 ether;
 
+    // This is the `k = x^3 * y + y^3 * x` constant function
     function _k(uint256 x, uint256 y) private pure returns (uint256) {
         unchecked {
-            return x * y / _BASIS * (x * x / _BASIS + y * y / _BASIS) / _BASIS; // x3y+y3x
+            return x * y / _BASIS * (x * x / _BASIS + y * y / _BASIS) / _BASIS;
         }
     }
 
+    // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
+    // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`.
     function _d(uint256 x0, uint256 y) private pure returns (uint256) {
         unchecked {
             return y * y / _BASIS * 3 * x0 / _BASIS + x0 * x0 / _BASIS * x0 / _BASIS;
@@ -42,6 +45,8 @@ abstract contract Velodrome {
 
     error NotConverged();
 
+    // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x0, new_y) >=
+    // xy`. As a function of `y`, we find the root of `_k(x0, y) - xy`.
     function _get_y(uint256 x0, uint256 xy, uint256 y) private pure returns (uint256) {
         unchecked {
             for (uint256 i; i < 255; i++) {
@@ -65,7 +70,7 @@ abstract contract Velodrome {
                         }
                         dy = 1;
                     }
-                    y = y + dy;
+                    y += dy;
                 } else {
                     uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(x0, y));
                     if (dy == 0) {
@@ -79,7 +84,7 @@ abstract contract Velodrome {
                         }
                         dy = 1;
                     }
-                    y = y - dy;
+                    y -= dy;
                 }
             }
             revert NotConverged();
@@ -137,11 +142,8 @@ abstract contract Velodrome {
             buyReserve = (buyReserve * _BASIS).unsafeDiv(buyBasis);
             sellAmount = (sellAmount * _BASIS).unsafeDiv(sellBasis);
 
-            // Get current constant-function value
-            uint256 xy = _k(sellReserve, buyReserve);
-
-            // Solve the constant function to get `buyAmount` from `sellAmount`
-            buyAmount = buyReserve - _get_y(sellAmount + sellReserve, xy, buyReserve);
+            // Solve the constant function numerically to get `buyAmount` from `sellAmount`
+            buyAmount = buyReserve - _get_y(sellAmount + sellReserve, _k(sellReserve, buyReserve), buyReserve);
 
             // Convert `buyAmount` from `_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _BASIS;
@@ -150,7 +152,9 @@ abstract contract Velodrome {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
         }
 
-        (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
-        pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));
+        {
+            (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
+            pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));
+        }
     }
 }
