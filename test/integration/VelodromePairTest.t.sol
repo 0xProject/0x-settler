@@ -43,6 +43,12 @@ contract VelodromePairTest is BasePairTest {
         settler = new Settler(bytes20(0));
         vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
         vm.chainId(forkChainId);
+
+        // USDT is obnoxious about throwing errors, so let's check here before
+        // we run into something inscrutable. Do this here to avoid incorrectly
+        // warming storage.
+        assertGe(fromToken().balanceOf(FROM), amount());
+        assertGe(fromToken().allowance(FROM, address(PERMIT2)), amount());
     }
 
     function fromToken() internal pure override returns (IERC20) {
@@ -76,10 +82,6 @@ contract VelodromePairTest is BasePairTest {
         );
 
         Settler _settler = settler;
-
-        // USDT is obnoxious about throwing errors, so let's check here before we run into something inscrutable
-        assertGe(fromToken().balanceOf(FROM), amount());
-        assertGe(fromToken().allowance(FROM, address(PERMIT2)), amount());
 
         uint256 beforeBalance = toToken().balanceOf(FROM);
         vm.startPrank(FROM, FROM);
