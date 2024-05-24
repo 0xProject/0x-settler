@@ -2,15 +2,15 @@
 pragma solidity ^0.8.25;
 
 import {UniswapV2, IUniV2Pair} from "src/core/UniswapV2.sol";
-import {Permit2Payment, Permit2PaymentBase} from "src/core/Permit2Payment.sol";
-import {Context, AbstractContext} from "src/Context.sol";
+import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
+import {Context} from "src/Context.sol";
 
 import {Utils} from "../Utils.sol";
 import {IERC20} from "src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-contract UniswapV2Dummy is Context, Permit2Payment, UniswapV2 {
+contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
     function sell(
         address recipient,
         address sellToken,
@@ -32,10 +32,6 @@ contract UniswapV2Dummy is Context, Permit2Payment, UniswapV2 {
 
     function _operator() internal view override returns (address) {
         return Context._msgSender();
-    }
-
-    function _msgSender() internal view override(Permit2PaymentBase, Context) returns (address) {
-        return Permit2PaymentBase._msgSender();
     }
 
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {

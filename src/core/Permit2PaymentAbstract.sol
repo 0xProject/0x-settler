@@ -18,7 +18,7 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         virtual
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount);
 
-    function _transferFrom(
+    function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
@@ -28,7 +28,7 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         bool isForwarded
     ) internal virtual;
 
-    function _transferFrom(
+    function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
         address from,
