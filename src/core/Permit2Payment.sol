@@ -141,12 +141,12 @@ library TransientStorage {
         }
     }
 
-    function clearPayer() internal {
+    function clearPayer(address expectedOldPayer) internal {
         address oldPayer;
         assembly ("memory-safe") {
             oldPayer := tload(_PAYER_SLOT)
         }
-        if (oldPayer == address(0)) {
+        if (oldPayer != expectedOldPayer) {
             revert PayerSpent();
         }
         assembly ("memory-safe") {
@@ -305,9 +305,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     }
 
     modifier takerSubmitted() override {
-        TransientStorage.setPayer(_operator());
+        address msgSender = _operator();
+        TransientStorage.setPayer(msgSender);
         _;
-        TransientStorage.clearPayer();
+        TransientStorage.clearPayer(msgSender);
     }
 
     modifier metaTx(address, bytes32) override {
@@ -360,7 +361,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         TransientStorage.setWitness(witness);
         TransientStorage.setPayer(msgSender);
         _;
-        TransientStorage.clearPayer();
+        TransientStorage.clearPayer(msgSender);
         // It should not be possible for this check to revert because the very first thing that a
         // metatransaction does is spend the witness.
         TransientStorage.checkSpentWitness();
