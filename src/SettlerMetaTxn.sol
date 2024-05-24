@@ -21,7 +21,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     constructor() {
         assert(
             block.chainid == 31337
-                || IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(2) == address(this)
+                || IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(3) == address(this)
         );
     }
 
