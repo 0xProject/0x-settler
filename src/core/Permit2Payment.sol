@@ -265,13 +265,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         assert(!_hasMetaTxn());
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        virtual
-        override
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
         return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
     }
 
