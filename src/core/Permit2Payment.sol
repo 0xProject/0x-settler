@@ -82,7 +82,7 @@ library TransientStorage {
         assembly ("memory-safe") {
             selector := tload(_OPERATOR_SLOT)
             callback := and(0xffff, shr(0xa0, selector))
-            operator := and(0xffffffffffffffffffffffffffffffffffffffff, selector)
+            operator := selector
             tstore(_OPERATOR_SLOT, 0x00)
         }
     }
