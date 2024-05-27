@@ -5,7 +5,7 @@ import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-import {Permit2PaymentBase, Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
+import {Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
 
 import {Context, AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
@@ -42,7 +42,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         view
         virtual
         // Solidity inheritance is so stupid
-        override(Permit2PaymentMetaTxn, Permit2PaymentBase, AbstractContext)
+        override(Permit2PaymentMetaTxn, AbstractContext)
         returns (address)
     {
         return super._msgSender();

@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-import {Permit2Payment} from "./core/Permit2Payment.sol";
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
@@ -44,15 +43,11 @@ library CalldataDecoder {
     }
 }
 
-abstract contract SettlerBase is Permit2Payment, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2 {
+abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
 
     receive() external payable {}
-
-    fallback(bytes calldata data) external returns (bytes memory) {
-        return _invokeCallback(data);
-    }
 
     event GitCommit(bytes20 indexed);
 

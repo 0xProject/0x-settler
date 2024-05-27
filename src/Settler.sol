@@ -5,7 +5,7 @@ import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
-import {Permit2PaymentBase, Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
+import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 
 import {AbstractContext} from "./Context.sol";
@@ -48,7 +48,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         view
         virtual
         // Solidity inheritance is so stupid
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, AbstractContext)
+        override(Permit2PaymentTakerSubmitted, AbstractContext)
         returns (address)
     {
         return super._msgSender();
@@ -59,7 +59,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         pure
         virtual
         // Solidity inheritance is so stupid
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, Permit2PaymentAbstract)
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
