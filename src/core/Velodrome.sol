@@ -31,15 +31,21 @@ abstract contract Velodrome {
     // This is the `k = x^3 * y + y^3 * x` constant function
     function _k(uint256 x, uint256 y) private pure returns (uint256) {
         unchecked {
-            return x * y / _BASIS * (x * x / _BASIS + y * y / _BASIS) / _BASIS;
+            return _k(x, y, x * x / _BASIS);
+        }
+    }
+
+    function _k(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
+        unchecked {
+            return x * y / _BASIS * (x_squared + y * y / _BASIS) / _BASIS;
         }
     }
 
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`.
-    function _d(uint256 x0, uint256 y) private pure returns (uint256) {
+    function _d(uint256 x0, uint256 y, uint256 three_x0, uint256 x0_cubed) private pure returns (uint256) {
         unchecked {
-            return y * y / _BASIS * 3 * x0 / _BASIS + x0 * x0 / _BASIS * x0 / _BASIS;
+            return y * y / _BASIS * three_x0 / _BASIS + x0_cubed;
         }
     }
 
@@ -49,21 +55,24 @@ abstract contract Velodrome {
     // xy`. As a function of `y`, we find the root of `_k(x0, y) - xy`.
     function _get_y(uint256 x0, uint256 xy, uint256 y) private pure returns (uint256) {
         unchecked {
+            uint256 three_x0 = 3 * x0;
+            uint256 x0_squared = x0 * x0 / _BASIS;
+            uint256 x0_cubed = x0_squared * x0 / _BASIS;
             for (uint256 i; i < 255; i++) {
-                uint256 k = _k(x0, y);
+                uint256 k = _k(x0, y, x0_squared);
                 if (k < xy) {
                     // there are two cases where dy == 0
                     // case 1: The y is converged and we find the correct answer
                     // case 2: _d(x0, y) is too large compare to (xy - k) and the rounding error
                     //         screwed us.
                     //         In this case, we need to increase y by 1
-                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(x0, y));
+                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(x0, y, three_x0, x0_cubed));
                     if (dy == 0) {
                         if (k == xy) {
                             // We found the correct answer. Return y
                             return y;
                         }
-                        if (_k(x0, y + 1) > xy) {
+                        if (_k(x0, y + 1, x0_squared) > xy) {
                             // If _k(x0, y + 1) > xy, then we are close to the correct answer.
                             // There's no closer answer than y + 1
                             return y + 1;
@@ -72,9 +81,9 @@ abstract contract Velodrome {
                     }
                     y += dy;
                 } else {
-                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(x0, y));
+                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(x0, y, three_x0, x0_cubed));
                     if (dy == 0) {
-                        if (k == xy || _k(x0, y - 1) < xy) {
+                        if (k == xy || _k(x0, y - 1, x0_squared) < xy) {
                             // Likewise, if k == xy, we found the correct answer.
                             // If _k(x0, y - 1) < xy, then we are close to the correct answer.
                             // There's no closer answer than "y"
