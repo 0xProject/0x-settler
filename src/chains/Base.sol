@@ -24,7 +24,6 @@ import {alienBaseV3Factory} from "../core/univ3forks/AlienBaseV3.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
-import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
 abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
@@ -96,7 +95,7 @@ contract BaseSettler is Settler, BaseMixin {
     function _isRestrictedTarget(address target)
         internal
         pure
-        override(Settler, Permit2PaymentBase, Permit2PaymentAbstract)
+        override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -110,7 +109,7 @@ contract BaseSettler is Settler, BaseMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(Settler, Permit2PaymentBase, AbstractContext) returns (address) {
+    function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }
@@ -137,12 +136,7 @@ contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender()
-        internal
-        view
-        override(SettlerMetaTxn, Permit2PaymentBase, AbstractContext)
-        returns (address)
-    {
+    function _msgSender() internal view override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }

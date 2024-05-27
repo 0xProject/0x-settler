@@ -212,6 +212,10 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
+    fallback(bytes calldata data) external virtual returns (bytes memory) {
+        return _invokeCallback(data);
+    }
+
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure
@@ -265,13 +269,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         assert(!_hasMetaTxn());
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        virtual
-        override
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
         return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
     }
 

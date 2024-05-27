@@ -15,7 +15,6 @@ import {uniswapV3SepoliaFactory, uniswapV3InitHash, IUniswapV3Callback} from "..
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
-import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
 abstract contract SepoliaMixin is FreeMemory, SettlerBase {
@@ -61,7 +60,7 @@ contract SepoliaSettler is Settler, SepoliaMixin {
     function _isRestrictedTarget(address target)
         internal
         pure
-        override(Settler, Permit2PaymentBase, Permit2PaymentAbstract)
+        override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -75,7 +74,7 @@ contract SepoliaSettler is Settler, SepoliaMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(Settler, Permit2PaymentBase, AbstractContext) returns (address) {
+    function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }
@@ -102,12 +101,7 @@ contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender()
-        internal
-        view
-        override(SettlerMetaTxn, Permit2PaymentBase, AbstractContext)
-        returns (address)
-    {
+    function _msgSender() internal view override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }
