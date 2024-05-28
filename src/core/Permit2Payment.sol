@@ -212,6 +212,10 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
+    fallback(bytes calldata data) external virtual returns (bytes memory) {
+        return _invokeCallback(data);
+    }
+
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure

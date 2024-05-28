@@ -41,10 +41,6 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         return super.sellToUniswapV3VIP(recipient, encodedPath, permit, sig, minBuyAmount);
     }
 
-    fallback(bytes calldata data) external returns (bytes memory) {
-        return _invokeCallback(data);
-    }
-
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
     }

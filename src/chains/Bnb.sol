@@ -20,7 +20,6 @@ import {
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
-import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
 abstract contract BnbMixin is FreeMemory, SettlerBase {
@@ -70,7 +69,7 @@ contract BnbSettler is Settler, BnbMixin {
     function _isRestrictedTarget(address target)
         internal
         pure
-        override(Settler, Permit2PaymentBase, Permit2PaymentAbstract)
+        override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -84,7 +83,7 @@ contract BnbSettler is Settler, BnbMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(Settler, Permit2PaymentBase, AbstractContext) returns (address) {
+    function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }
@@ -111,12 +110,7 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender()
-        internal
-        view
-        override(SettlerMetaTxn, Permit2PaymentBase, AbstractContext)
-        returns (address)
-    {
+    function _msgSender() internal view override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }
