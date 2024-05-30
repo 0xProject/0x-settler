@@ -29,14 +29,6 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         return true;
     }
 
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
-        revert ConfusedDeputy();
-    }
-
-    function _operator() internal view override returns (address) {
-        return Context._msgSender();
-    }
-
     function _msgSender()
         internal
         view

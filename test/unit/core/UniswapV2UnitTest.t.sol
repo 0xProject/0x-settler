@@ -26,14 +26,6 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
         return false;
     }
 
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
-        revert();
-    }
-
-    function _operator() internal view override returns (address) {
-        return Context._msgSender();
-    }
-
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }

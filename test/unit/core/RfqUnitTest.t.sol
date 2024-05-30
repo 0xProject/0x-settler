@@ -60,17 +60,6 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
         return false;
     }
 
-    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
-        internal
-        override
-    {
-        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
-    }
-
-    function _operator() internal view override returns (address) {
-        return AllowanceHolderContext._msgSender();
-    }
-
     function _msgSender()
         internal
         view
@@ -110,14 +99,6 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
-    }
-
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
-        revert();
-    }
-
-    function _operator() internal view override returns (address) {
-        return Context._msgSender();
     }
 
     function _msgSender()
