@@ -42,16 +42,11 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAKERPSM_SELL.selector) {
-            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) =
-                abi.decode(data, (address, IERC20Meta, uint256, IPSM));
+        } else if (action == ISettlerActions.MAKERPSM.selector) {
+            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm, bool buyGem) =
+                abi.decode(data, (address, IERC20Meta, uint256, IPSM, bool));
 
-            makerPsmSellGem(recipient, gemToken, bps, psm);
-        } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
-            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) =
-                abi.decode(data, (address, IERC20Meta, uint256, IPSM));
-
-            makerPsmBuyGem(recipient, gemToken, bps, psm);
+            sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
         } else if (action == ISettlerActions.DODOV1.selector) {
             (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, address, bool, uint256));
