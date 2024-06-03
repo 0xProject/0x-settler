@@ -11,6 +11,8 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
+import {camelotV3Factory, camelotV3InitHash} from "../core/univ3forks/CamelotV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -42,6 +44,10 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else if (forkId == 1) {
+            factory = camelotV3Factory;
+            initHash = camelotV3InitHash;
+            callbackSelector = IAlgebraCallback.algebraSwapCallback.selector;
         } else {
             revert UnknownForkId(forkId);
         }
