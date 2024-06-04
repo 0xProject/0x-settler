@@ -1,0 +1,1 @@
+The actions `MAKERPSM_SELL` and `MAKERPSM_BUY` actions have been combined into a single `MAKERPSM` action with a `buyGem` boolean flag

@@ -41,23 +41,23 @@ abstract contract MakerPSM {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function makerPsmSellGem(address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) internal {
-        // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
-        uint256 sellAmount = (gemToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
-        gemToken.safeApproveIfBelow(psm.gemJoin(), sellAmount);
-        psm.sellGem(recipient, sellAmount);
-    }
+    function sellToMakerPsm(address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm, bool buyGem) internal {
+        if (buyGem) {
+            // phantom overflow can't happen here because DAI has decimals = 18
+            uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(10_000);
+            unchecked {
+                uint256 feeDivisor = psm.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
+                // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
+                uint256 buyAmount = (sellAmount * 10 ** uint256(gemToken.decimals())).unsafeDiv(feeDivisor);
 
-    function makerPsmBuyGem(address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm) internal {
-        // phantom overflow can't happen here because DAI has decimals = 18
-        uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(10_000);
-        unchecked {
-            uint256 feeDivisor = psm.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
-            // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
-            uint256 buyAmount = (sellAmount * 10 ** uint256(gemToken.decimals())).unsafeDiv(feeDivisor);
-
-            DAI.safeApproveIfBelow(address(psm), sellAmount);
-            psm.buyGem(recipient, buyAmount);
+                DAI.safeApproveIfBelow(address(psm), sellAmount);
+                psm.buyGem(recipient, buyAmount);
+            }
+        } else {
+            // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
+            uint256 sellAmount = (gemToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
+            gemToken.safeApproveIfBelow(psm.gemJoin(), sellAmount);
+            psm.sellGem(recipient, sellAmount);
         }
     }
 }
