@@ -40,7 +40,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using AddressDerivation for address;
 
-    address private constant curveFactory = 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
+    function _curveFactory() internal virtual returns (address);
     // uint256 private constant codePrefixLen = 0x539d;
     // bytes32 private constant codePrefixHash = 0xec96085e693058e09a27755c07882ced27117a3161b1fdaf131a14c7db9978b7;
 
@@ -54,7 +54,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         uint64 factoryNonce = uint64(poolInfo >> 16);
         uint8 sellIndex = uint8(poolInfo >> 8);
         uint8 buyIndex = uint8(poolInfo);
-        address pool = curveFactory.deriveContract(factoryNonce);
+        address pool = _curveFactory().deriveContract(factoryNonce);
         /*
         bytes32 codePrefixHashActual;
         assembly ("memory-safe") {

@@ -80,6 +80,10 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
             revert UnknownForkId(forkId);
         }
     }
+
+    function _curveFactory() internal pure override returns (address) {
+        return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
+    }
 }
 
 /// @custom:security-contact security@0x.org
