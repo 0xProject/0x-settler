@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-address constant pancakeSwapV3MainnetFactory = 0x41ff9AA7e16B8B1a8a8dc4f0eFacd93D02d071c9;
-address constant pancakeSwapV3BnbFactory = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
+address constant pancakeSwapV3Factory = 0x41ff9AA7e16B8B1a8a8dc4f0eFacd93D02d071c9;
 bytes32 constant pancakeSwapV3InitHash = 0x6ce8eb472fa82df5469c6ab6d485f17c3ad13c8cd7af59b3d4a8026c5ce0f7e2;
 
 interface IPancakeSwapV3Callback {
