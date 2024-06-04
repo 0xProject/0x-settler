@@ -13,6 +13,9 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {
+    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
+} from "../core/univ3forks/PancakeSwapV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {camelotV3Factory, camelotV3InitHash} from "../core/univ3forks/CamelotV3.sol";
 
@@ -47,6 +50,11 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, CurveTricrypto {
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else if (forkId == 1) {
+            factory = pancakeSwapV3Factory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
+        // forkId == 2 is reserved for sushi
+        } else if (forkId == 3) {
             factory = camelotV3Factory;
             initHash = camelotV3InitHash;
             callbackSelector = IAlgebraCallback.algebraSwapCallback.selector;

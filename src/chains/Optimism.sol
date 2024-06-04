@@ -54,7 +54,9 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, Velodrome {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 1) {
+        // forkId == 1 is reserved for pancake
+        // forkId == 2 is reserved for sushi
+        } else if (forkId == 3) {
             factory = velodromeFactory;
             initHash = velodromeInitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;

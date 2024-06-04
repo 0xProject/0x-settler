@@ -17,9 +17,7 @@ import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {
-    pancakeSwapV3MainnetFactory,
-    pancakeSwapV3InitHash,
-    IPancakeSwapV3Callback
+    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
 import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/univ3forks/SolidlyV3.sol";
 
@@ -69,10 +67,11 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else if (forkId == 1) {
-            factory = pancakeSwapV3MainnetFactory;
+            factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        } else if (forkId == 2) {
+        // forkId == 2 is reserved for sushi
+        } else if (forkId == 3) {
             factory = solidlyV3Factory;
             initHash = solidlyV3InitHash;
             callbackSelector = ISolidlyV3Callback.solidlyV3SwapCallback.selector;
