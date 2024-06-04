@@ -20,6 +20,7 @@ import {
 import {sushiswapV3Factory, sushiswapV3InitHash} from "../core/univ3forks/SushiswapV3.sol";
 import {aerodromeFactory, aerodromeInitHash} from "../core/univ3forks/AerodromeSlipstream.sol";
 import {alienBaseV3Factory} from "../core/univ3forks/AlienBaseV3.sol";
+import {baseXFactory} from "../core/univ3forks/BaseX.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -75,6 +76,10 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else if (forkId == 4) {
             factory = alienBaseV3Factory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+        } else if (forkId == 5) {
+            factory = baseXFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else {
