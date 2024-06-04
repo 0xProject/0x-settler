@@ -68,15 +68,15 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
             factory = sushiswapV3Factory;
             initHash = sushiswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 3) {
+        } else if (forkId == 4) {
             factory = aerodromeFactory;
             initHash = aerodromeInitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 4) {
+        } else if (forkId == 6) {
             factory = alienBaseV3Factory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 5) {
+        } else if (forkId == 7) {
             factory = baseXFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;

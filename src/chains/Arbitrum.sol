@@ -53,8 +53,7 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, CurveTricrypto {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        // forkId == 2 is reserved for sushi
-        } else if (forkId == 3) {
+        } else if (forkId == 5) {
             factory = camelotV3Factory;
             initHash = camelotV3InitHash;
             callbackSelector = IAlgebraCallback.algebraSwapCallback.selector;

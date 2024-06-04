@@ -49,7 +49,6 @@ abstract contract BnbMixin is FreeMemory, SettlerBase {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        // forkId == 2 is reserved for sushi
         } else {
             revert UnknownForkId(forkId);
         }

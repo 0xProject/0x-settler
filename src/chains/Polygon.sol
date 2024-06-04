@@ -44,9 +44,7 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        // forkId == 1 is reserved for pancake
-        // forkId == 2 is reserved for sushi
-        } else if (forkId == 3) {
+        } else if (forkId == 5) {
             factory = quickSwapV3Factory;
             initHash = quickSwapV3InitHash;
             callbackSelector = IAlgebraCallback.algebraSwapCallback.selector;

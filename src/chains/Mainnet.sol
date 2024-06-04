@@ -70,7 +70,6 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        // forkId == 2 is reserved for sushi
         } else if (forkId == 3) {
             factory = solidlyV3Factory;
             initHash = solidlyV3InitHash;
