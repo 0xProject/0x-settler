@@ -45,17 +45,6 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         return false;
     }
 
-    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
-        internal
-        override
-    {
-        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
-    }
-
-    function _operator() internal view override returns (address) {
-        return AllowanceHolderContext._msgSender();
-    }
-
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }

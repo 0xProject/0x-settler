@@ -31,18 +31,6 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         return false;
     }
 
-    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
-        internal
-        override
-    {
-        // `owner` is always `_msgSender()` here, but we leave it to Permit2Payment.sol to enforce that
-        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
-    }
-
-    function _operator() internal view override returns (address) {
-        return AllowanceHolderContext._msgSender();
-    }
-
     function _msgSender()
         internal
         view

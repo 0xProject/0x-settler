@@ -82,7 +82,7 @@ library TransientStorage {
         assembly ("memory-safe") {
             selector := sload(_OPERATOR_SLOT)
             callback := and(0xffff, shr(0xa0, selector))
-            operator := and(0xffffffffffffffffffffffffffffffffffffffff, selector)
+            operator := selector
             sstore(_OPERATOR_SLOT, 0x00)
         }
     }
@@ -273,6 +273,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
     }
 
+    function _operator() internal view override returns (address) {
+        return AllowanceHolderContext._msgSender();
+    }
+
     function _msgSender()
         internal
         view
@@ -302,6 +306,15 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         }
     }
 
+    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
+        internal
+        override
+    {
+        // `owner` is always `_msgSender()`
+        _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
+    }
+
+
     modifier takerSubmitted() override {
         address msgSender = _operator();
         TransientStorage.setPayer(msgSender);
@@ -318,6 +331,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     constructor() {
         assert(_hasMetaTxn());
+    }
+
+    function _operator() internal view override returns (address) {
+        return Context._msgSender();
     }
 
     function _msgSender() internal view virtual override(Permit2PaymentBase, Context) returns (address) {
@@ -345,6 +362,10 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         _transferFromIKnowWhatImDoing(
             permit, transferDetails, _msgSender(), witness, _SLIPPAGE_AND_ACTIONS_WITNESS, sig, isForwarded
         );
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
+        revert ConfusedDeputy();
     }
 
     modifier takerSubmitted() override {

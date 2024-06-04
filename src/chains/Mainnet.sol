@@ -16,9 +16,7 @@ import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {
-    pancakeSwapV3MainnetFactory,
-    pancakeSwapV3InitHash,
-    IPancakeSwapV3Callback
+    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
 import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/univ3forks/SolidlyV3.sol";
 
@@ -41,9 +39,7 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto, DodoV
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAKERPSM_SELL.selector) {
-            revert("unimplemented");
-        } else if (action == ISettlerActions.MAKERPSM_BUY.selector) {
+        } else if (action == ISettlerActions.MAKERPSM.selector) {
             revert("unimplemented");
         } else if (action == ISettlerActions.DODOV1.selector) {
             (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
@@ -67,16 +63,20 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto, DodoV
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
         } else if (forkId == 1) {
-            factory = pancakeSwapV3MainnetFactory;
+            factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        } else if (forkId == 2) {
+        } else if (forkId == 3) {
             factory = solidlyV3Factory;
             initHash = solidlyV3InitHash;
             callbackSelector = ISolidlyV3Callback.solidlyV3SwapCallback.selector;
         } else {
             revert UnknownForkId(forkId);
         }
+    }
+
+    function _curveFactory() internal pure override returns (address) {
+        return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
 }
 
