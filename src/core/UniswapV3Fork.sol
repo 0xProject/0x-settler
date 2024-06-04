@@ -9,7 +9,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {TooMuchSlippage, ConfusedDeputy} from "./SettlerErrors.sol";
+import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -297,11 +297,14 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
         bytes32 salt;
         assembly ("memory-safe") {
+            token0 := and(ADDRESS_MASK, token0)
+            token1 := and(ADDRESS_MASK, token1)
+            poolId := and(UINT24_MASK, poolId)
             let ptr := mload(0x40)
-            mstore(0x00, and(ADDRESS_MASK, token0))
-            mstore(0x20, and(ADDRESS_MASK, token1))
-            mstore(0x40, and(UINT24_MASK, poolId))
-            salt := keccak256(0x00, 0x60)
+            mstore(0x00, token0)
+            mstore(0x20, token1)
+            mstore(0x40, poolId)
+            salt := keccak256(0x00, sub(0x60, shl(0x05, iszero(poolId))))
             mstore(0x40, ptr)
         }
         return IUniswapV3Pool(AddressDerivation.deriveDeterministicContract(factory, salt, initHash));
