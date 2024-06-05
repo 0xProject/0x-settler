@@ -105,4 +105,14 @@ interface ISettlerActions {
     // Pre-req: Funded
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
+
+    function ERC2612PERMIT(
+        address recipient,
+        address token,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
 }

@@ -3,11 +3,13 @@ pragma solidity ^0.8.25;
 
 import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC2612} from "./IERC2612.sol";
 
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
+import {ERC2612Permit} from "./core/ERC2612Permit.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
@@ -43,7 +45,7 @@ library CalldataDecoder {
     }
 }
 
-abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2 {
+abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, ERC2612Permit {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
 
@@ -123,6 +125,11 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
             basicSellToPool(sellToken, bps, pool, offset, _data);
+        } else if (action == ISettlerActions.ERC2612PERMIT.selector) {
+            (address recipient, IERC2612 token, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
+                abi.decode(data, (address, IERC2612, uint256, uint256, uint8, bytes32, bytes32));
+
+            erc2612PermitAndTransfer(recipient, token, amount, deadline, v, r, s);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

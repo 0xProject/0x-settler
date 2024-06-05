@@ -5,6 +5,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {InvalidOffset, ConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
 
 import {IERC20} from "../IERC20.sol";
+import {IERC2612} from "../IERC2612.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -56,6 +57,9 @@ abstract contract Basic is SettlerAbstract {
             if (address(sellToken) != pool) {
                 sellToken.safeApproveIfBelow(pool, amount);
             }
+        }
+        if (data.length >= 4 && bytes4(data) == IERC2612.permit.selector) {
+            revert ConfusedDeputy();
         }
         (success, returnData) = payable(pool).call{value: value}(data);
         success.maybeRevert(returnData);
