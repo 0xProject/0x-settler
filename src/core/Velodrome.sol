@@ -43,7 +43,7 @@ abstract contract Velodrome {
 
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`.
-    function _d(uint256 x0, uint256 y, uint256 three_x0, uint256 x0_cubed) private pure returns (uint256) {
+    function _d(uint256 y, uint256 three_x0, uint256 x0_cubed) private pure returns (uint256) {
         unchecked {
             return y * y / _BASIS * three_x0 / _BASIS + x0_cubed;
         }
@@ -66,7 +66,7 @@ abstract contract Velodrome {
                     // case 2: _d(x0, y) is too large compare to (xy - k) and the rounding error
                     //         screwed us.
                     //         In this case, we need to increase y by 1
-                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(x0, y, three_x0, x0_cubed));
+                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed));
                     if (dy == 0) {
                         if (k == xy) {
                             // We found the correct answer. Return y
@@ -81,7 +81,7 @@ abstract contract Velodrome {
                     }
                     y += dy;
                 } else {
-                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(x0, y, three_x0, x0_cubed));
+                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed));
                     if (dy == 0) {
                         if (k == xy || _k(x0, y - 1, x0_squared) < xy) {
                             // Likewise, if k == xy, we found the correct answer.
