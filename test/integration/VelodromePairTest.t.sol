@@ -88,7 +88,9 @@ contract VelodromePairTest is BasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_velodrome");
         _settler.execute(
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0}), actions
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            actions,
+            bytes32(0)
         );
         snapEnd();
         uint256 afterBalance = toToken().balanceOf(FROM);

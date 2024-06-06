@@ -40,7 +40,8 @@ contract WethWrapTest is Test, GasSnapshot {
         snapStart("wethDeposit");
         settler.execute(
             SettlerBase.AllowedSlippage({recipient: address(this), buyToken: IERC20(address(_weth)), minAmountOut: 1e18}),
-            actions
+            actions,
+            bytes32(0)
         );
         snapEnd();
         assertEq(_weth.balanceOf(address(this)) - balanceBefore, 1e18);
@@ -64,7 +65,8 @@ contract WethWrapTest is Test, GasSnapshot {
                 buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE),
                 minAmountOut: 1e18
             }),
-            actions
+            actions,
+            bytes32(0)
         );
         snapEnd();
         assertEq(address(this).balance - balanceBefore, 1e18);

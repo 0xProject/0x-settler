@@ -79,7 +79,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_rfq");
         _settler.execute(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
-            actions
+            actions,
+            bytes32(0)
         );
         snapEnd();
     }
@@ -117,6 +118,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         _settlerMetaTxn.executeMetaTxn(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
+            bytes32(0),
             FROM,
             sig
         );
@@ -149,6 +151,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         _settlerMetaTxn.executeMetaTxn(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
+            bytes32(0),
             FROM,
             sig
         );
@@ -204,6 +207,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         _settlerMetaTxn.executeMetaTxn(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
+            bytes32(0),
             FROM,
             takerSig
         );
@@ -259,7 +263,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_rfq_fee_full_custody");
         _settler.execute(
             SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000}),
-            actions
+            actions,
+            bytes32(0)
         );
         snapEnd();
     }

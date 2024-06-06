@@ -314,7 +314,6 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
     }
 
-
     modifier takerSubmitted() override {
         address msgSender = _operator();
         TransientStorage.setPayer(msgSender);
