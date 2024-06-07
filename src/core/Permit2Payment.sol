@@ -368,6 +368,9 @@ abstract contract ERC6492Handler is Permit2Payment {
                 address to;
                 bytes memory data;
                 (to, data, sig) = abi.decode(sig, (address, bytes, bytes));
+                if (_isRestrictedTarget(to)) {
+                    revert ConfusedDeputy();
+                }
                 bool success;
                 (success, data) = to.call(data);
                 success.maybeRevert(data);
