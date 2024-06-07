@@ -68,9 +68,9 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
-| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 244603 | 0.00%   |
-| Settler              | Uniswap V3 | USDC/WETH | 164720 | -32.66% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 156769 | -35.91% |
+| 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 244529 | 0.00%   |
+| Settler              | Uniswap V3 | USDC/WETH | 164720 | -32.64% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 156769 | -35.89% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 221601 | 0.00%   |
 | Settler              | Uniswap V3 | DAI/WETH  | 148098 | -33.17% |
