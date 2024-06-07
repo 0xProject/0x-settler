@@ -3,12 +3,7 @@ pragma solidity ^0.8.25;
 
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
-import {
-    Permit2PaymentMetaTxn,
-    Permit2PaymentTakerSubmitted,
-    Permit2Payment,
-    Permit2PaymentBase
-} from "src/core/Permit2Payment.sol";
+import {Permit2PaymentMetaTxn, Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Context, AbstractContext} from "src/Context.sol";
@@ -19,7 +14,7 @@ import {IERC20} from "../../../src/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 
-abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Payment {
+abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement {
     function considerationWitnessType() external pure returns (string memory) {
         return CONSIDERATION_WITNESS;
     }
@@ -60,24 +55,6 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
         return false;
     }
 
-    function _msgSender()
-        internal
-        view
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, AbstractContext)
-        returns (address)
-    {
-        return super._msgSender();
-    }
-
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, Permit2PaymentAbstract)
-        returns (bool)
-    {
-        return super._isRestrictedTarget(target);
-    }
-
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }
@@ -99,15 +76,6 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
-    }
-
-    function _msgSender()
-        internal
-        view
-        override(Permit2PaymentMetaTxn, Permit2PaymentBase, AbstractContext)
-        returns (address)
-    {
-        return super._msgSender();
     }
 
     function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
