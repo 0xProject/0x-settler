@@ -11,14 +11,22 @@ import {Velodrome, IVelodromePair} from "../core/Velodrome.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3BaseFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {
-    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
+    uniswapV3BaseFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "../core/univ3forks/UniswapV3.sol";
+import {
+    pancakeSwapV3Factory,
+    pancakeSwapV3InitHash,
+    pancakeSwapV3ForkId,
+    IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
-import {sushiswapV3Factory, sushiswapV3InitHash} from "../core/univ3forks/SushiswapV3.sol";
-import {aerodromeFactory, aerodromeInitHash} from "../core/univ3forks/AerodromeSlipstream.sol";
-import {alienBaseV3Factory} from "../core/univ3forks/AlienBaseV3.sol";
-import {baseXFactory} from "../core/univ3forks/BaseX.sol";
+import {sushiswapV3Factory, sushiswapV3InitHash, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
+import {aerodromeFactory, aerodromeInitHash, aerodromeForkId} from "../core/univ3forks/AerodromeSlipstream.sol";
+import {alienBaseV3Factory, alienBaseV3ForkId} from "../core/univ3forks/AlienBaseV3.sol";
+import {baseXFactory, baseXForkId} from "../core/univ3forks/BaseX.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -56,27 +64,27 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
         override
         returns (address factory, bytes32 initHash, bytes4 callbackSelector)
     {
-        if (forkId == 0) {
+        if (forkId == uniswapV3ForkId) {
             factory = uniswapV3BaseFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 1) {
+        } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        } else if (forkId == 2) {
+        } else if (forkId == sushiswapV3ForkId) {
             factory = sushiswapV3Factory;
             initHash = sushiswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 4) {
+        } else if (forkId == aerodromeForkId) {
             factory = aerodromeFactory;
             initHash = aerodromeInitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 6) {
+        } else if (forkId == alienBaseV3ForkId) {
             factory = alienBaseV3Factory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 7) {
+        } else if (forkId == baseXForkId) {
             factory = baseXFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
