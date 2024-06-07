@@ -12,6 +12,7 @@ import {LibBytes} from "../utils/LibBytes.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
+import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet.sol";
@@ -19,6 +20,28 @@ import {Settler} from "src/Settler.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
+
+contract ERC6492Signer {
+    address internal immutable actualSigner;
+
+    constructor(address _actualSigner) {
+        actualSigner = _actualSigner;
+    }
+
+    function isValidSignature(bytes32 hash, bytes memory sig) external view returns (bytes4) {
+        assert(sig.length == 65);
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        assembly ("memory-safe") {
+            v := mload(add(0x41, sig))
+            r := mload(add(0x20, sig))
+            s := mload(add(0x40, sig))
+        }
+        require(ecrecover(hash, v, r, s) == actualSigner);
+        return this.isValidSignature.selector;
+    }
+}
 
 abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
@@ -43,6 +66,15 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
         warmPermit2Nonce(FROM);
         warmPermit2Nonce(MAKER);
+
+        address erc6492Signer = AddressDerivation.deriveDeterministicContract(
+            address(this),
+            bytes32(uint256(1)),
+            keccak256(bytes.concat(type(ERC6492Signer).creationCode, abi.encode(FROM)))
+        );
+        deal(address(fromToken()), erc6492Signer, amount());
+        safeApproveIfBelow(fromToken(), erc6492Signer, address(PERMIT2), amount());
+        warmPermit2Nonce(erc6492Signer);
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
@@ -260,6 +292,49 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         _settler.execute(
             SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000}),
             actions
+        );
+        snapEnd();
+    }
+
+    function deployErc6492Signer(bytes32 salt) external {
+        new ERC6492Signer{salt: salt}(FROM);
+    }
+
+    function testSettler_erc6492() public {
+        bytes32 salt = bytes32(uint256(1));
+        address erc6492Signer = AddressDerivation.deriveDeterministicContract(
+            address(this), salt, keccak256(bytes.concat(type(ERC6492Signer).creationCode, abi.encode(FROM)))
+        );
+
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit))
+        );
+
+        bytes32[] memory actionHashes = new bytes32[](actions.length);
+        for (uint256 i; i < actionHashes.length; i++) {
+            actionHashes[i] = keccak256(actions[i]);
+        }
+        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
+        bytes32 witness = keccak256(abi.encode(SLIPPAGE_AND_ACTIONS_TYPEHASH, FROM, fromToken(), amount(), actionsHash));
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
+        );
+        sig = bytes.concat(
+            abi.encode(address(this), abi.encodeCall(this.deployErc6492Signer, (salt)), sig),
+            bytes32(0x6492649264926492649264926492649264926492649264926492649264926492)
+        );
+
+        SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
+        vm.startPrank(address(this), address(this));
+        snapStartName("settler_metaTxn_erc6492");
+        _settlerMetaTxn.executeMetaTxn(
+            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: fromToken(), minAmountOut: amount()}),
+            actions,
+            erc6492Signer,
+            sig
         );
         snapEnd();
     }
