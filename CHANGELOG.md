@@ -10,6 +10,7 @@ Master list of UniV3 forks:
 
 * Added extra anonymous argument to `execute` and `executeMetaTxn` for tracking
   zid and affiliate address
+* Add SolidlyV3 UniV3 fork to Optimism
 
 ## 2024-06-05
 
