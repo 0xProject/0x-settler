@@ -43,11 +43,18 @@ contract ERC6492Signer {
     }
 }
 
+contract ERC6492Factory {
+    function deploy(bytes32 salt, address actualSigner) external {
+        new ERC6492Signer{salt: salt}(actualSigner);
+    }
+}
+
 abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
 
     SettlerMetaTxn internal settlerMetaTxn;
+    ERC6492Factory internal erc6492Factory;
 
     function setUp() public virtual override {
         super.setUp();
@@ -67,8 +74,9 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         warmPermit2Nonce(FROM);
         warmPermit2Nonce(MAKER);
 
+        erc6492Factory = new ERC6492Factory();
         address erc6492Signer = AddressDerivation.deriveDeterministicContract(
-            address(this),
+            address(erc6492Factory),
             bytes32(uint256(1)),
             keccak256(bytes.concat(type(ERC6492Signer).creationCode, abi.encode(FROM)))
         );
@@ -296,14 +304,10 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function deployErc6492Signer(bytes32 salt) external {
-        new ERC6492Signer{salt: salt}(FROM);
-    }
-
     function testSettler_erc6492() public {
         bytes32 salt = bytes32(uint256(1));
         address erc6492Signer = AddressDerivation.deriveDeterministicContract(
-            address(this), salt, keccak256(bytes.concat(type(ERC6492Signer).creationCode, abi.encode(FROM)))
+            address(erc6492Factory), salt, keccak256(bytes.concat(type(ERC6492Signer).creationCode, abi.encode(FROM)))
         );
 
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -323,7 +327,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
         );
         sig = bytes.concat(
-            abi.encode(address(this), abi.encodeCall(this.deployErc6492Signer, (salt)), sig),
+            abi.encode(address(erc6492Factory), abi.encodeCall(erc6492Factory.deploy, (salt, FROM)), sig),
             bytes32(0x6492649264926492649264926492649264926492649264926492649264926492)
         );
 
