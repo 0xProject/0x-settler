@@ -7,6 +7,7 @@ address constant uniswapV3BaseFactory = 0x33128a8fC17869897dcE68Ed026d694621f6FD
 address constant uniswapV3BnbFactory = 0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7;
 address constant uniswapV3AvalancheFactory = 0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD;
 bytes32 constant uniswapV3InitHash = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
+uint8 constant uniswapV3ForkId = 0;
 
 interface IUniswapV3Callback {
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external;

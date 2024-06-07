@@ -10,9 +10,14 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {
+    uniswapV3MainnetFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "../core/univ3forks/UniswapV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
-import {quickSwapV3Factory, quickSwapV3InitHash} from "../core/univ3forks/QuickSwapV3.sol";
+import {quickSwapV3Factory, quickSwapV3InitHash, quickSwapV3ForkId} from "../core/univ3forks/QuickSwapV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -40,11 +45,11 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, bytes4 callbackSelector)
     {
-        if (forkId == 0) {
+        if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 5) {
+        } else if (forkId == quickSwapV3ForkId) {
             factory = quickSwapV3Factory;
             initHash = quickSwapV3InitHash;
             callbackSelector = IAlgebraCallback.algebraSwapCallback.selector;

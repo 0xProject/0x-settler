@@ -12,12 +12,20 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {
-    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
+    uniswapV3MainnetFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "../core/univ3forks/UniswapV3.sol";
+import {
+    pancakeSwapV3Factory,
+    pancakeSwapV3InitHash,
+    pancakeSwapV3ForkId,
+    IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
-import {camelotV3Factory, camelotV3InitHash} from "../core/univ3forks/CamelotV3.sol";
+import {camelotV3Factory, camelotV3InitHash, camelotV3ForkId} from "../core/univ3forks/CamelotV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -45,15 +53,15 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, CurveTricrypto {
         override
         returns (address factory, bytes32 initHash, bytes4 callbackSelector)
     {
-        if (forkId == 0) {
+        if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 1) {
+        } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        } else if (forkId == 5) {
+        } else if (forkId == camelotV3ForkId) {
             factory = camelotV3Factory;
             initHash = camelotV3InitHash;
             callbackSelector = IAlgebraCallback.algebraSwapCallback.selector;
