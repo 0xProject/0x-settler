@@ -238,7 +238,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         string memory witnessTypeString,
         bytes memory sig,
         bool isForwarded
-    ) internal override {
+    ) internal virtual override {
         if (isForwarded) revert ForwarderNotAllowed();
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
@@ -325,6 +325,47 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     modifier metaTx(address, bytes32) override {
         revert();
         _;
+    }
+}
+
+abstract contract ERC6492Handler is Permit2Payment {
+    using Revert for bool;
+
+    bytes32 private constant _ERC6492MAGIC = 0x6492649264926492649264926492649264926492649264926492649264926492;
+
+    function _transferFromIKnowWhatImDoing(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig,
+        bool isForwarded
+    ) internal override {
+        bool isErc6492;
+        assembly ("memory-safe") {
+            let sigLen := mload(sig)
+            if iszero(lt(sigLen, 0x20)) {
+                let maybeMagic := mload(add(sigLen, sig))
+                if eq(maybeMagic, _ERC6492MAGIC) {
+                    isErc6492 := 0x01
+                    mstore(sig, sub(sigLen, 0x20))
+                }
+            }
+        }
+
+        bytes memory newSig = sig;
+        if (isErc6492) {
+            address to;
+            bytes memory data;
+            (to, data, newSig) = abi.decode(sig, (address, bytes, bytes));
+            bool success;
+            (success, data) = to.call(data);
+            success.maybeRevert(data);
+            assert(from.code.length != 0);
+        }
+
+        super._transferFromIKnowWhatImDoing(permit, transferDetails, from, witness, witnessTypeString, newSig, isForwarded);
     }
 }
 
