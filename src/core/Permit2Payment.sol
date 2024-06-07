@@ -314,7 +314,6 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
     }
 
-
     modifier takerSubmitted() override {
         address msgSender = _operator();
         TransientStorage.setPayer(msgSender);
@@ -342,34 +341,31 @@ abstract contract ERC6492Handler is Permit2Payment {
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        bool isErc6492;
-        assembly ("memory-safe") {
-            let sigLen := mload(sig)
-            if iszero(lt(sigLen, 0x20)) {
-                let maybeMagic := mload(add(sigLen, sig))
-                if eq(maybeMagic, _ERC6492MAGIC) {
-                    isErc6492 := 0x01
-                    mstore(sig, sub(sigLen, 0x20))
+        if (from == _msgSender()) {
+            bool isErc6492;
+            assembly ("memory-safe") {
+                let sigLen := mload(sig)
+                if iszero(lt(sigLen, 0x20)) {
+                    isErc6492 := eq(_ERC6492MAGIC, mload(add(sigLen, sig)))
+                    if isErc6492 { mstore(sig, sub(sigLen, 0x20)) }
                 }
+            }
+            if (isErc6492) {
+                address to;
+                bytes memory data;
+                (to, data, sig) = abi.decode(sig, (address, bytes, bytes));
+                bool success;
+                (success, data) = to.call(data);
+                success.maybeRevert(data);
+                assert(from.code.length != 0);
             }
         }
 
-        bytes memory newSig = sig;
-        if (isErc6492) {
-            address to;
-            bytes memory data;
-            (to, data, newSig) = abi.decode(sig, (address, bytes, bytes));
-            bool success;
-            (success, data) = to.call(data);
-            success.maybeRevert(data);
-            assert(from.code.length != 0);
-        }
-
-        super._transferFromIKnowWhatImDoing(permit, transferDetails, from, witness, witnessTypeString, newSig, isForwarded);
+        super._transferFromIKnowWhatImDoing(permit, transferDetails, from, witness, witnessTypeString, sig, isForwarded);
     }
 }
 
-abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
+abstract contract Permit2PaymentMetaTxn is Context, ERC6492Handler {
     constructor() {
         assert(_hasMetaTxn());
     }
