@@ -327,6 +327,20 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     }
 }
 
+/// @dev This contract only supports a subset of otherwise-valid ERC6492
+///      signatures. The ERC6492 standard specifies that the nested ERC1271
+///      signature must be checked after unpacking it from the ERC6492 signature
+///      _before calling the factory/preparer_ if the signer has code. In this
+///      implementation, we skip the opportunity to exit the ERC6492 signature
+///      verification process early. We unconditionally call the
+///      factory/preparer before attempting the ERC1271 signature
+///      verification. We also do not support falling back to `ecrecover` if
+///      ERC1271 signature verification fails.
+/// @dev This gives the relayer the opportunity to execute arbitrary code before
+///      settlement of the swap that the taker signed. However, they were always
+///      able to do that. The different in this scenario is that the arbitrary
+///      code is executed while the taker owns the Settler. However, this is
+///      harmless.
 abstract contract ERC6492Handler is Permit2Payment {
     using Revert for bool;
 
