@@ -336,6 +336,12 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 ///      factory/preparer before attempting the ERC1271 signature
 ///      verification. We also do not support falling back to `ecrecover` if
 ///      ERC1271 signature verification fails.
+/// @dev Unconditionally calling the factory/preparer during ERC6492
+///      verification opens up an opportunity for unexpected calls from Settler
+///      to other contracts prior to beginning swap execution (before it has
+///      taken possession of the taker's funds). While we believe this to be
+///      harmless (see below), we restrict the behavior of ERC6492 verification
+///      in the case when the verifying contract already exists.
 /// @dev This gives the relayer the opportunity to execute arbitrary code before
 ///      settlement of the swap that the taker signed. However, they were always
 ///      able to do that. The different in this scenario is that the arbitrary
@@ -368,12 +374,24 @@ abstract contract ERC6492Handler is Permit2Payment {
                 address to;
                 bytes memory data;
                 (to, data, sig) = abi.decode(sig, (address, bytes, bytes));
+
+                // This check is extremely restrictive. There are many reasonable alternatives to
+                // this check, such as whitelisting an ERC4337 entrypoint contract or bundling the
+                // `to` and `data` with `witness` into another object that `from` has to
+                // sign. However, due to a lack of certainty on how this feature will be used, the
+                // most conservative form of this check is applied until a convincing use case for
+                // something more lax (and complex) is provided.
+                assert(to == from || from.code.length == 0);
+
                 if (_isRestrictedTarget(to)) {
                     revert ConfusedDeputy();
                 }
                 bool success;
                 (success, data) = to.call(data);
                 success.maybeRevert(data);
+
+                // Permit2 will fall back on `ecrecover` if `from` doesn't have code. This forces
+                // Permit2 to user ERC1271 verification.
                 assert(from.code.length != 0);
             }
         }
