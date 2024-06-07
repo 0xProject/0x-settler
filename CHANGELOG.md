@@ -11,6 +11,7 @@ Master list of UniV3 forks:
 * Added extra anonymous argument to `execute` and `executeMetaTxn` for tracking
   zid and affiliate address
 * Add SolidlyV3 UniV3 fork to Optimism
+* Added support for `DODOV1` action on Arbitrum
 
 ## 2024-06-05
 
@@ -27,4 +28,3 @@ Master list of UniV3 forks:
   other chains)
 * Added PancakeSwapV3 to Arbitrum UniV3 VIP
 * Added BaseX to Base UniV3 VIP
-
