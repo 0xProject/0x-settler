@@ -115,7 +115,7 @@ library TransientStorage {
     function getAndClearWitness() internal returns (bytes32 witness) {
         assembly ("memory-safe") {
             witness := tload(_WITNESS_SLOT)
-            tstore(_WITNESS_SLOT, 0)
+            tstore(_WITNESS_SLOT, 0x00)
         }
     }
 
@@ -228,8 +228,8 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     }
 
     // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use
-    // of this function is forbidden. You must use the overload that does *NOT* take a `witness`
-    // argument.
+    // of this function is forbidden. You must use the version that does *NOT* take a `from` or
+    // `witness` argument.
     function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
