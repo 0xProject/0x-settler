@@ -292,15 +292,6 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
         );
 
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-        assembly ("memory-safe") {
-            v := mload(add(0x41, sig))
-            r := mload(add(0x20, sig))
-            s := mload(add(0x40, sig))
-        }
-
         /// WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
         /// WARNING                                                                             WARNING
         /// WARNING           DO NOT CHANGE THIS HASH VALUE WITHOUT CONTACTING JACOB            WARNING
@@ -311,10 +302,20 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         bytes32 signingHash = bytes32(0xbf1b86e7987783db15e7b7f414a1f0c7972ab305fdbb062895896c4a5aa0fc86);
         /// WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        assembly ("memory-safe") {
+            v := mload(add(0x41, sig))
+            r := mload(add(0x20, sig))
+            s := mload(add(0x40, sig))
+        }
+
         vm.expectCall(address(0x01), abi.encode(signingHash, v, r, s));
         settlerMetaTxn.executeMetaTxn(
             SettlerBase.AllowedSlippage({recipient: FROM, buyToken: fromToken(), minAmountOut: amount()}),
             actions,
+            bytes32(0),
             FROM,
             sig
         );
