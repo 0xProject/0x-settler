@@ -129,6 +129,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
+        bytes32, /* zid & affiliate */
         address msgSender,
         bytes calldata sig
     ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {

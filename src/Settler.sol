@@ -91,7 +91,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         return true;
     }
 
-    function execute(AllowedSlippage calldata slippage, bytes[] calldata actions)
+    function execute(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
         public
         payable
         takerSubmitted

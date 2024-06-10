@@ -79,7 +79,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_rfq");
         _settler.execute(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
-            actions
+            actions,
+            bytes32(0)
         );
         snapEnd();
     }
@@ -117,6 +118,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         _settlerMetaTxn.executeMetaTxn(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
+            bytes32(0),
             FROM,
             sig
         );
@@ -149,6 +151,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         _settlerMetaTxn.executeMetaTxn(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
+            bytes32(0),
             FROM,
             sig
         );
@@ -204,6 +207,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         _settlerMetaTxn.executeMetaTxn(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
+            bytes32(0),
             FROM,
             takerSig
         );
@@ -259,8 +263,61 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_rfq_fee_full_custody");
         _settler.execute(
             SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000}),
-            actions
+            actions,
+            bytes32(0)
         );
         snapEnd();
+    }
+
+    function testSettler_eip712hash_hardcoded()
+        public
+        skipIf(address(fromToken()) != 0x6B175474E89094C44Da98b954EedeAC495271d0F)
+        skipIf(address(toToken()) != 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
+    {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit))
+        );
+
+        bytes32[] memory actionHashes = new bytes32[](actions.length);
+        for (uint256 i; i < actionHashes.length; i++) {
+            actionHashes[i] = keccak256(actions[i]);
+        }
+        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
+        bytes32 witness =
+            keccak256(abi.encode(SLIPPAGE_AND_ACTIONS_TYPEHASH, FROM, address(fromToken()), amount(), actionsHash));
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
+        );
+
+        /// WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
+        /// WARNING                                                                             WARNING
+        /// WARNING           DO NOT CHANGE THIS HASH VALUE WITHOUT CONTACTING JACOB            WARNING
+        /// WARNING              THIS HASH VALUE IS COPIED INTO A TEST IN SOLVER                WARNING
+        /// WARNING           YOU WILL BREAK THE BUILD IF YOU DO NOT SYNCHRONIZE THEM           WARNING
+        /// WARNING                                                                             WARNING
+        /// WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
+        bytes32 signingHash = bytes32(0xbf1b86e7987783db15e7b7f414a1f0c7972ab305fdbb062895896c4a5aa0fc86);
+        /// WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
+
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        assembly ("memory-safe") {
+            v := mload(add(0x41, sig))
+            r := mload(add(0x20, sig))
+            s := mload(add(0x40, sig))
+        }
+
+        vm.expectCall(address(0x01), abi.encode(signingHash, v, r, s));
+        settlerMetaTxn.executeMetaTxn(
+            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: fromToken(), minAmountOut: amount()}),
+            actions,
+            bytes32(0),
+            FROM,
+            sig
+        );
     }
 }

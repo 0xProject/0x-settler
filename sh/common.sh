@@ -3,6 +3,16 @@ if ! hash forge &>/dev/null ; then
     exit 1
 fi
 
+declare forge_version
+forge_version="$(forge --version)"
+forge_version="${forge_version:13:8}"
+declare -r forge_version
+if [[ $forge_version != 'f625d0fa' ]] ; then
+    echo 'Wrong foundry version installed' >&2
+    echo 'Run `foundryup -v nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9`' >&2
+    exit 1
+fi
+
 if ! hash curl &>/dev/null ; then
     echo 'curl is not installed' >&2
     exit 1

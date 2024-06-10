@@ -70,7 +70,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
-                    actions
+                    actions,
+                    bytes32(0)
                 )
             )
         );
@@ -115,7 +116,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
-                    actions
+                    actions,
+                    bytes32(0)
                 )
             )
         );
@@ -160,7 +162,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
-                    actions
+                    actions,
+                    bytes32(0)
                 )
             )
         );
@@ -214,7 +217,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
-                    actions
+                    actions,
+                    bytes32(0)
                 )
             )
         );
@@ -279,7 +283,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
-                    actions
+                    actions,
+                    bytes32(0)
                 )
             )
         );
@@ -344,7 +349,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
-                    actions
+                    actions,
+                    bytes32(0)
                 )
             )
         );
@@ -392,7 +398,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
-                    actions
+                    actions,
+                    bytes32(0)
                 )
             )
         );
@@ -405,7 +412,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             settler.execute,
             (
                 SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
-                actions
+                actions,
+                bytes32(0)
             )
         );
 

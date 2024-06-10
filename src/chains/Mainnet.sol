@@ -14,11 +14,21 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {IERC20} from "../IERC20.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3MainnetFactory, uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {
-    pancakeSwapV3Factory, pancakeSwapV3InitHash, IPancakeSwapV3Callback
+    uniswapV3MainnetFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "../core/univ3forks/UniswapV3.sol";
+import {
+    pancakeSwapV3Factory,
+    pancakeSwapV3InitHash,
+    pancakeSwapV3ForkId,
+    IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
-import {solidlyV3Factory, solidlyV3InitHash, ISolidlyV3Callback} from "../core/univ3forks/SolidlyV3.sol";
+import {
+    solidlyV3Factory, solidlyV3InitHash, solidlyV3ForkId, ISolidlyV3Callback
+} from "../core/univ3forks/SolidlyV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -56,20 +66,20 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto, DodoV
         internal
         pure
         override
-        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+        returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == 0) {
+        if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
-        } else if (forkId == 1) {
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
-            callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
-        } else if (forkId == 3) {
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == solidlyV3ForkId) {
             factory = solidlyV3Factory;
             initHash = solidlyV3InitHash;
-            callbackSelector = ISolidlyV3Callback.solidlyV3SwapCallback.selector;
+            callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }

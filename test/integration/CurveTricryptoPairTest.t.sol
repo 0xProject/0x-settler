@@ -27,7 +27,7 @@ abstract contract CurveTricryptoPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);
         snapStartName("settler_curveTricrypto");
-        _settler.execute(allowedSlippage, actions);
+        _settler.execute(allowedSlippage, actions, bytes32(0));
         snapEnd();
     }
 }

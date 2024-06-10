@@ -126,9 +126,10 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
             IUniswapV3Pool pool;
-            bytes4 callbackSelector;
+            uint32 callbackSelector;
             {
                 (IERC20 token0, uint8 forkId, uint24 poolId, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
+                IERC20 sellToken = token0;
                 outputToken = token1;
                 if (!(zeroForOne = token0 < token1)) {
                     (token0, token1) = (token1, token0);
@@ -137,7 +138,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
                 pool = _toPool(factory, initHash, token0, poolId, token1);
-                _updateSwapCallbackData(swapCallbackData, zeroForOne ? token0 : token1, payer);
+                _updateSwapCallbackData(swapCallbackData, sellToken, payer);
             }
 
             int256 amount0;
@@ -161,7 +162,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                                 swapCallbackData
                             )
                         ),
-                        uint32(callbackSelector),
+                        callbackSelector,
                         _uniV3ForkCallback
                     ),
                     (int256, int256)
@@ -183,7 +184,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                                 swapCallbackData
                             )
                         ),
-                        uint32(callbackSelector),
+                        callbackSelector,
                         _uniV3ForkCallback
                     ),
                     (int256, int256)
@@ -313,7 +314,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         return IUniswapV3Pool(AddressDerivation.deriveDeterministicContract(factory, salt, initHash));
     }
 
-    function _uniV3ForkInfo(uint8 forkId) internal view virtual returns (address, bytes32, bytes4);
+    function _uniV3ForkInfo(uint8 forkId) internal view virtual returns (address, bytes32, uint32);
 
     function _uniV3ForkCallback(bytes calldata data) private returns (bytes memory) {
         require(data.length >= 0x80);
