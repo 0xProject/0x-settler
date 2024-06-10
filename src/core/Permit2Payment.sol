@@ -32,6 +32,14 @@ library TransientStorage {
     // bytes32(uint256(keccak256("payer slot")) - 1)
     bytes32 private constant _PAYER_SLOT = 0x46bacb9b87ba1d2910347e4a3e052d06c824a45acd1e9517bb0cb8d0d5cde893;
 
+    // We assume (and our CI enforces) that internal function pointers cannot be
+    // greater than 2 bytes. On chains not supporting the ViaIR pipeline, not
+    // supporting EOF, and where the Spurious Dragon size limit is not enforced,
+    // it might be possible to violate this assumption. However, our
+    // `foundry.toml` enforces the use of the IR pipeline, so the point is moot.
+    //
+    // `operator` must not be `address(0)`. This is not checked.
+    // `callback` must not be zero. This is checked in `_invokeCallback`.
     function setOperatorAndCallback(
         address operator,
         uint32 selector,
@@ -87,6 +95,7 @@ library TransientStorage {
         }
     }
 
+    // `newWitness` must not be `bytes32(0)`. This is not checked.
     function setWitness(bytes32 newWitness) internal {
         bytes32 currentWitness;
         assembly ("memory-safe") {
