@@ -43,16 +43,16 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase {
         internal
         pure
         override
-        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+        returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == quickSwapV3ForkId) {
             factory = quickSwapV3Factory;
             initHash = quickSwapV3InitHash;
-            callbackSelector = IAlgebraCallback.algebraSwapCallback.selector;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }

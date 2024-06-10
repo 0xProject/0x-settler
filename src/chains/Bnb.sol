@@ -47,16 +47,16 @@ abstract contract BnbMixin is FreeMemory, SettlerBase {
         internal
         pure
         override
-        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+        returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3BnbFactory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
-            callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }

@@ -62,32 +62,32 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
         internal
         pure
         override
-        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+        returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3BaseFactory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
-            callbackSelector = IPancakeSwapV3Callback.pancakeV3SwapCallback.selector;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else if (forkId == sushiswapV3ForkId) {
             factory = sushiswapV3Factory;
             initHash = sushiswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == aerodromeForkId) {
             factory = aerodromeFactory;
             initHash = aerodromeInitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == alienBaseV3ForkId) {
             factory = alienBaseV3Factory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == baseXForkId) {
             factory = baseXFactory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }

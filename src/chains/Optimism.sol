@@ -56,20 +56,20 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, Velodrome {
         internal
         pure
         override
-        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+        returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == solidlyV3ForkId) {
             factory = solidlyV3Factory;
             initHash = solidlyV3InitHash;
-            callbackSelector = ISolidlyV3Callback.solidlyV3SwapCallback.selector;
+            callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else if (forkId == velodromeForkId) {
             factory = velodromeFactory;
             initHash = velodromeInitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }

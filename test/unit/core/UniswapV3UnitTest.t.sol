@@ -53,12 +53,12 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         internal
         view
         override
-        returns (address factory, bytes32 initHash, bytes4 callbackSelector)
+        returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == 0) {
             factory = uniFactory;
             initHash = uniswapV3InitHash;
-            callbackSelector = IUniswapV3Callback.uniswapV3SwapCallback.selector;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
