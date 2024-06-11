@@ -131,24 +131,13 @@ declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
 
-. "$project_root"/sh/common_deploy_settler.sh
+declare settler_address
+settler_address="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'ownerOf(uint256)(address)' 2)"
+declare -r settler_address
 
-declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
+declare git_commit
+git_commit="$(cast logs --rpc-url "$rpc_url" --address "$settler_address" --json --from-block 0 --to-block latest 'GitCommit(bytes20 indexed)' | jq -Mr '.[0].topics[1]')"
+git_commit="${git_commit:2:40}"
+declare -r git_commit
 
-echo 'Verifying taker-submitted settler...' >&2
-
-declare taker_settler
-taker_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 2)"
-declare -r taker_settler
-forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" "$chain_display_name"Settler
-forge verify-contract --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$taker_settler" "$chain_display_name"Settler
-
-echo 'Verified taker-submitted Settler... verifying metatx Settler...' >&2
-
-declare metatx_settler
-metatx_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 3)"
-declare -r metatx_settler
-forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" "$chain_display_name"SettlerMetaTxn
-forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$metatx_settler" "$chain_display_name"SettlerMetaTxn
-
-echo 'Verified metatx Settler. All done!' >&2
+git checkout "$git_commit"
