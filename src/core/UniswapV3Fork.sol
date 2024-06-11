@@ -137,7 +137,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 address factory;
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
-                pool = _toPool(factory, initHash, token0, poolId, token1);
+                pool = _toPool(factory, initHash, token0, token1, poolId);
                 _updateSwapCallbackData(swapCallbackData, sellToken, payer);
             }
 
@@ -286,7 +286,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     }
 
     // Compute the pool address given two tokens and a poolId.
-    function _toPool(address factory, bytes32 initHash, IERC20 inputToken, uint24 poolId, IERC20 outputToken)
+    function _toPool(address factory, bytes32 initHash, IERC20 token0, IERC20 token1, uint24 poolId)
         private
         pure
         returns (IUniswapV3Pool)
@@ -294,11 +294,9 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         // address(keccak256(abi.encodePacked(
         //     hex"ff",
         //     factory,
-        //     keccak256(abi.encode(inputToken, outputToken, poolId)),
+        //     keccak256(abi.encode(token0, token1, poolId)),
         //     initHash
         // )))
-        (IERC20 token0, IERC20 token1) =
-            inputToken < outputToken ? (inputToken, outputToken) : (outputToken, inputToken);
         bytes32 salt;
         assembly ("memory-safe") {
             token0 := and(ADDRESS_MASK, token0)
