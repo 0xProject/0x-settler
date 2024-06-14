@@ -125,7 +125,7 @@ Note: The following is more akin to `gasLimit` than it is `gasUsed`, this is due
 
 | DODO V1 | DEX     | Pair      | Gas    | %     |
 | ------- | ------- | --------- | ------ | ----- |
-| Settler | DODO V1 | USDC/WETH | 303177 | 0.00% |
+| Settler | DODO V1 | USDC/WETH | 301688 | 0.00% |
 |         |         |           |        |       |
 |         |         |           |        |       |
 |         |         |           |        |       |
