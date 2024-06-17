@@ -19,6 +19,271 @@ should not interact. Do not hardcode any address other than
 query the deployer/registry for the address of the most recent contract before
 building or signing a transaction, metatransaction, or order.
 
+### Examples
+
+#### TypeScript ([viem](https://viem.sh/))
+
+<details>
+<summary>Click to see TypeScript example of getting Settler addresses</summary>
+
+```TypeScript
+import { createPublicClient, http, parseAbi } from 'viem';
+import { mainnet } from 'viem/chains';
+
+(async function main() {
+    const client = createPublicClient({
+        chain: mainnet,
+        transport: http(process.env.RPC_URL),
+    });
+
+    const deployer = "0x00000000000004533Fe15556B1E086BB1A72cEae";
+    const tokenIds = [2, 3];
+    const tokenDescriptions = {
+        2: "taker submitted",
+        3: "metatransaction",
+    };
+
+    const deployerAbi = parseAbi([
+        "function ownerOf(uint256) external view returns (address)",
+        "function next(uint128) external view returns (address)",
+    ]);
+    const functionDescriptions = {
+        "ownerOf": "current",
+        "next": "next",
+    };
+
+    const blockNumber = await client.getBlockNumber();
+    for (let tokenId of tokenIds) {
+        for (let functionName of ["ownerOf", "next"]) {
+            let addr = await client.readContract({
+                address: deployer,
+                abi: deployerAbi,
+                functionName,
+                args: [tokenId],
+                blockNumber,
+            });
+            console.log(functionDescriptions[functionName] + " " + tokenDescriptions[tokenId] + " settler address " + addr);
+        }
+    }
+
+    // output:
+    // current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
+    // next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+    // current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
+    // next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+})();
+```
+
+</details>
+
+#### JavaScript ([Ethers.js](https://docs.ethers.org/v5/))
+
+<details>
+<summary>Click to see JavaScript example of getting Settler addresses</summary>
+
+Note that this example uses version 5 of `Ethers.js`. The current version of
+`Ethers.js` is 6, which is not compatible with this snippet.
+
+```JavaScript
+"use strict";
+const {ethers} = require("ethers");
+
+(async function main() {
+  const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
+
+  const deployerAddress = "0x00000000000004533Fe15556B1E086BB1A72cEae";
+  const tokenIds = [2, 3];
+  const tokenDescriptions = {
+    2: "taker submitted",
+    3: "metatransaction",
+  };
+
+  const deployerAbi = [
+    "function ownerOf(uint256) external view returns (address)",
+    "function next(uint128) external view returns (address)",
+  ];
+  const functionDescriptions = {
+    "ownerOf": "current",
+    "next": "next",
+  };
+
+
+  const erc20Abi = ["function balanceOf(address) external view returns (uint256)"];
+  const deployer = new ethers.Contract(deployerAddress, deployerAbi, provider);
+  for (let tokenId of tokenIds) {
+    for (let functionName of ["ownerOf", "next"]) {
+      let addr = await deployer[functionName](tokenId);
+      console.log(functionDescriptions[functionName] + " " + tokenDescriptions[tokenId] + " settler address " + addr);
+    }
+  }
+
+  // output:
+  // current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
+  // next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+  // current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
+  // next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+})();
+```
+
+</details>
+
+#### Rust ([Alloy](https://github.com/alloy-rs))
+
+<details>
+<summary>Cargo.toml</summary>
+
+```toml
+[package]
+name = "scratch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy = { git = "https://github.com/alloy-rs/alloy", rev = "e22d9be", features = [
+    "contract",
+    "network",
+    "providers",
+    "provider-http",
+    "rpc-client",
+    "rpc-types-eth",
+    "rpc-types-trace",
+] }
+eyre = "0.6.12"
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros"] }
+```
+
+</details>
+
+<details>
+<summary>Click to see Rust example of getting Settler addresses</summary>
+
+```Rust
+use alloy::{
+    network::TransactionBuilder,
+    primitives::{address, Address, Bytes, U256},
+    providers::{Provider, ProviderBuilder},
+    rpc::types::eth::{BlockId, TransactionRequest},
+    sol,
+    sol_types::SolCall,
+};
+use eyre::Result;
+use std::collections::HashMap;
+use std::env;
+
+const DEPLOYER_ADDRESS: Address = address!("00000000000004533Fe15556B1E086BB1A72cEae");
+
+sol!(
+    function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
+    function next(uint128 featureId) external view returns (address futureTokenOwner);
+);
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let provider = ProviderBuilder::new().on_http(env::var("RPC_URL")?.parse()?);
+    let block_id = BlockId::number(provider.get_block_number().await?);
+
+    let token_ids = vec![2, 3];
+    let token_descriptions = HashMap::from([(2, "taker submitted"), (3, "metatransaction")]);
+
+    for token_id in token_ids.iter() {
+        {
+            let tx = TransactionRequest::default()
+                .with_to(DEPLOYER_ADDRESS)
+                .with_input(Bytes::from(
+                    ownerOfCall {
+                        tokenId: U256::from(*token_id),
+                    }
+                    .abi_encode(),
+                ));
+            let token_owner =
+                ownerOfCall::abi_decode_returns(&provider.call(&tx).block(block_id).await?, false)?
+                    .tokenOwner;
+            println!(
+                "current {0:} settler address {1:}",
+                token_descriptions[token_id], token_owner
+            );
+        }
+        {
+            let tx = TransactionRequest::default()
+                .with_to(DEPLOYER_ADDRESS)
+                .with_input(Bytes::from(
+                    nextCall {
+                        featureId: *token_id,
+                    }
+                    .abi_encode(),
+                ));
+            let future_owner =
+                nextCall::abi_decode_returns(&provider.call(&tx).block(block_id).await?, false)?
+                    .futureTokenOwner;
+            println!(
+                "next {0:} settler address {1:}",
+                token_descriptions[token_id], future_owner
+            );
+        }
+    }
+
+    // output:
+    // current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
+    // next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+    // current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
+    // next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+
+    Ok(())
+}
+```
+
+</details>
+
+#### Bash ([Foundry `cast`](https://book.getfoundry.sh/cast/))
+
+<details>
+<summary>Click to see Bash (cast) example of getting Settler addresses</summary>
+
+```Bash
+#!/bin/bash
+
+set -Eeufo pipefail -o posix
+
+if ! hash cast &>/dev/null ; then
+    echo 'foundry is not installed' >&2
+    exit 1
+fi
+
+declare -r deployer='0x00000000000004533Fe15556B1E086BB1A72cEae'
+
+declare -r -a token_ids=(2 3)
+declare -A token_descriptions
+token_descriptions["${token_ids[0]}"]='taker submitted'
+token_descriptions["${token_ids[1]}"]='metatransaction'
+declare -r -A token_descriptions
+
+declare -r -a function_signatures=('ownerOf(uint256)(address)' 'next(uint128)(address)')
+declare -A function_descriptions
+function_descriptions["${function_signatures[0]%%(*}"]='current'
+function_descriptions["${function_signatures[1]%%(*}"]='next'
+declare -r -A function_descriptions
+
+declare -i token_id
+for token_id in "${token_ids[@]}" ; do
+    declare function_signature
+    for function_signature in "${function_signatures[@]}" ; do
+        declare addr
+        addr="$(cast call --rpc-url "$RPC_URL" "$deployer" "$function_signature" "$token_id")"
+        function_signature="${function_signature%%(*}"
+        echo "${function_descriptions["$function_signature"]}"' '"${token_descriptions[$token_id]}"' settler address '"$addr" >&2
+    done
+done
+
+# output:
+# current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
+# next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+# current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
+# next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+```
+
+</details>
+
+
 ### Custody
 
 Custody, not like the delicious custardy, is when the token(s) being traded are temporarily owned by the Settler contract. This sometimes implies an additional, non-optimal transfer. There are multiple reasons that Settler takes custody of the token, here are a few:
