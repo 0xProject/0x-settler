@@ -125,6 +125,11 @@ if ! hash cast &>/dev/null ; then
     exit 1
 fi
 
+if ! hash jq &>/dev/null ; then
+    echo 'jq is not installed' >&2
+    exit 1
+fi
+
 declare -r chain_name="$1"
 shift
 
@@ -167,13 +172,13 @@ function create3 {
     declare -r salt
 
     # this is the "create3" shim inithash
-    declare -r inithash="0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f"
+    declare -r inithash='0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f'
 
     declare shim
     shim="$(cast concat-hex 0xff "$factory" "$salt" "$inithash")"
     shim="$(cast keccak "$shim")"
     shim="${shim:26:40}"
-    shim="$(cast to-checksum "$shim")"
+    shim="$(cast to-check-sum-address "$shim")"
     declare -r shim
 
     declare result
