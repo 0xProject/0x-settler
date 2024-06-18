@@ -1,6 +1,7 @@
 # 0x Settler
 
-Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to perform swaps without any passive allowances to the contract.
+Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to
+perform swaps without any passive allowances to the contract.
 
 ## How do I find the most recent deployment?
 
@@ -280,8 +281,20 @@ done
 
 </details>
 
+### Checking out the commit of a Settler
 
-### Custody
+Settler emits the following event when it is deployed:
+
+```Solidity
+event GitCommit(bytes20 indexed);
+```
+
+By retrieving the argument of this event, you get the git commit from which the
+Settler was built. For convenience, the script [`./sh/checkout_settler_commit.sh
+<CHAIN_NAME>`](sh/checkout_settler_commit.sh) will pull the latest Settler
+address, read the deployment event, and checkout the git commit.
+
+## Custody
 
 Custody, not like the delicious custardy, is when the token(s) being traded are
 temporarily owned by the Settler contract. This sometimes implies an additional,
