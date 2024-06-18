@@ -133,14 +133,17 @@ shift
 
 declare -r -i num_addresses="${1-100}"
 
+function get_config {
+    jq -Mr ."$chain_name"."$1" < "$project_root"/chain_config.json
+}
+
 declare -i chainid
-chainid="$(jq -Mr ."$chain_name".chainId < "$project_root"/chain_config.json)"
+chainid="$(get_config chainId)"
 declare -r -i chainid
 
 declare deployer
-deployer="$(jq -Mr ."$chain_name".deployment.deployer < "$project_root"/chain_config.json)"
+deployer="$(get_config deployment.deployer)"
 declare -r deployer
-
 
 function create3_salt {
     declare -r -i feature="$1"
