@@ -232,6 +232,66 @@ async fn main() -> Result<()> {
 
 </details>
 
+#### Python ([web3.py](https://web3py.readthedocs.io/en/stable/))
+
+<details>
+<summary>Click to see Python example of getting Settler addresses</summary>
+
+```Python
+import os, web3
+
+w3 = web3.Web3(web3.Web3.HTTPProvider(os.getenv("RPC_URL")))
+deployer_address = "0x00000000000004533Fe15556B1E086BB1A72cEae"
+token_ids = [2, 3]
+token_descriptions = {
+    2: "taker submitted",
+    3: "metatransaction",
+}
+
+deployer_abi = [
+    {
+        "constant": True,
+        "inputs": [{"name": "tokenId", "type": "uint256"}],
+        "name": "ownerOf",
+        "outputs": [{"name": "tokenOwner", "type": "address"}],
+        "payable": False,
+        "type": "function",
+    },
+    {
+        "constant": True,
+        "inputs": [{"name": "feature", "type": "uint128"}],
+        "name": "next",
+        "outputs": [{"name": "futureTokenOwner", "type": "address"}],
+        "payable": False,
+        "type": "function",
+    },
+]
+function_descriptions = {
+    "ownerOf": "current",
+    "next": "next",
+}
+
+deployer = w3.eth.contract(address=deployer_address, abi=deployer_abi)
+
+for token_id in token_ids:
+    for function_name, function_description in function_descriptions.items():
+        settler_address = getattr(deployer.functions, function_name)(token_id).call()
+        print(
+            function_description,
+            token_descriptions[token_id],
+            "settler address",
+            settler_address,
+        )
+
+# output:
+# current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
+# next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+# current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
+# next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+```
+
+</details>
+
 #### Bash ([Foundry `cast`](https://book.getfoundry.sh/cast/))
 
 <details>
