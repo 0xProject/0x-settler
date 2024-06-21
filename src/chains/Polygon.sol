@@ -17,6 +17,7 @@ import {
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
+import {sushiswapV3PolygonFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {quickSwapV3Factory, quickSwapV3InitHash, quickSwapV3ForkId} from "../core/univ3forks/QuickSwapV3.sol";
 
 // Solidity inheritance is stupid
@@ -47,6 +48,10 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase {
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MainnetFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3PolygonFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == quickSwapV3ForkId) {
