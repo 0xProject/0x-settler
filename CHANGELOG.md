@@ -11,6 +11,8 @@ Master list of UniV3 forks:
 
 ---
 
+* Add SushiswapV3 UniV3 fork to Polygon
+
 ## 2024-06-10
 
 * Added extra anonymous argument to `execute` and `executeMetaTxn` for tracking
