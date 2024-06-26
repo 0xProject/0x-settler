@@ -168,7 +168,11 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
     }
 
     function next(Feature feature) external view override returns (address) {
-        return Create3.predict(_salt(feature, _stor1().featureInfo[feature].list.lastNonce.incr()));
+        FeatureInfo storage featureInfo = _stor1().featureInfo[feature];
+        if (featureInfo.descriptionHash == 0) {
+            revert ERC721NonexistentToken(Feature.unwrap(feature));
+        }
+        return Create3.predict(_salt(feature, featureInfo.list.lastNonce.incr()));
     }
 
     function prev(Feature feature) external view override returns (address) {
