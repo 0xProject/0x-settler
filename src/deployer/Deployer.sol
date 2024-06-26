@@ -177,7 +177,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         if (headNonce.isNull()) {
             revert ERC721NonexistentToken(Feature.unwrap(feature));
         }
-        (Nonce prevNonce, ) = list.get(headNonce);
+        (Nonce prevNonce,) = list.get(headNonce);
         if (prevNonce.isNull()) {
             revert NoInstance();
         }
