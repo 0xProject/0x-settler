@@ -172,12 +172,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
     }
 
     function prev(Feature feature) external view override returns (address) {
-        NonceList.List storage list = _stor1().featureInfo[feature].list;
-        Nonce headNonce = list.head;
-        if (headNonce.isNull()) {
-            revert ERC721NonexistentToken(Feature.unwrap(feature));
-        }
-        (Nonce prevNonce,) = list.get(headNonce);
+        (Nonce prevNonce,) = _stor1().featureInfo[feature].list.get(_requireTokenExists(feature));
         if (prevNonce.isNull()) {
             revert NoInstance();
         }
