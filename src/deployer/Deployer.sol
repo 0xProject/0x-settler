@@ -35,6 +35,11 @@ library NonceList {
         }
     }
 
+    function get(List storage list, Nonce i) internal view returns (Nonce prev, Nonce next) {
+        ListElem storage x = _idx(list.links, i);
+        (prev, next) = (x.prev, x.next);
+    }
+
     function push(List storage list) internal returns (Nonce prevNonce, Nonce thisNonce) {
         (prevNonce, thisNonce) = (list.head, list.lastNonce.incr());
         // update the head
@@ -166,11 +171,24 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         return Create3.predict(_salt(feature, _stor1().featureInfo[feature].list.lastNonce.incr()));
     }
 
+    function prev(Feature feature) external view override returns (address) {
+        NonceList.List storage list = _stor1().featureInfo[feature].list;
+        Nonce headNonce = list.head;
+        if (headNonce.isNull()) {
+            revert ERC721NonexistentToken(Feature.unwrap(feature));
+        }
+        (Nonce prevNonce, ) = list.get(headNonce);
+        if (prevNonce.isNull()) {
+            revert NoInstance();
+        }
+        return Create3.predict(_salt(feature, prevNonce));
+    }
+
     function deployInfo(address instance) public view override returns (Feature feature, Nonce nonce) {
         DeployInfo storage info = _stor1().deployInfo[instance];
         (feature, nonce) = (info.feature, info.nonce);
         if (feature.isNull()) {
-            revert NotDeployed(instance);
+            revert ERC721InvalidOwner(instance);
         }
     }
 
@@ -308,7 +326,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
 
     function _requireTokenExists(Feature feature) private view returns (Nonce nonce) {
         if ((nonce = _stor1().featureInfo[feature].list.head).isNull()) {
-            revert NoToken(Feature.unwrap(feature));
+            revert ERC721NonexistentToken(Feature.unwrap(feature));
         }
     }
 
