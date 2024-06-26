@@ -152,7 +152,7 @@ contract DeployerTest is Test {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
 
-        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
+        vm.expectRevert(abi.encodeWithSignature("ERC721NonexistentToken(uint256)", testTokenId));
         deployer.ownerOf(testTokenId);
 
         (address instance, Nonce nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
@@ -165,7 +165,7 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IDeployer.Removed(testFeature, Nonce.wrap(1), instance);
         assertTrue(deployer.remove(testFeature, nonce));
-        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
+        vm.expectRevert(abi.encodeWithSignature("ERC721NonexistentToken(uint256)", testTokenId));
         deployer.ownerOf(testTokenId);
 
         (instance, nonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
@@ -202,7 +202,7 @@ contract DeployerTest is Test {
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 1);
 
-        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
+        vm.expectRevert(abi.encodeWithSignature("ERC721NonexistentToken(uint256)", testTokenId));
         deployer.ownerOf(testTokenId);
 
         for (Nonce i = zero.incr(); nonce > i; i = i.incr()) {
