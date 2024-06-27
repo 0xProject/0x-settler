@@ -23,7 +23,7 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
-import {sushiswapV3Factory, sushiswapV3InitHash, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
+import {sushiswapV3Factory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {aerodromeFactory, aerodromeInitHash, aerodromeForkId} from "../core/univ3forks/AerodromeSlipstream.sol";
 import {alienBaseV3Factory, alienBaseV3ForkId} from "../core/univ3forks/AlienBaseV3.sol";
 import {baseXFactory, baseXForkId} from "../core/univ3forks/BaseX.sol";
@@ -74,7 +74,7 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else if (forkId == sushiswapV3ForkId) {
             factory = sushiswapV3Factory;
-            initHash = sushiswapV3InitHash;
+            initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == aerodromeForkId) {
             factory = aerodromeFactory;

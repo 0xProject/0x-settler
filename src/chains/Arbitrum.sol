@@ -5,7 +5,7 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {IERC20, IERC20Meta} from "../IERC20.sol";
+import {IERC20} from "../IERC20.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {DodoV1} from "../core/DodoV1.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
