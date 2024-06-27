@@ -197,7 +197,8 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     declare -r -a gas_price_args
 
     cast send --unlocked --from "$impl_deployer" --confirmations 10 "${gas_price_args[@]}" --gas-limit $gas_limit --rpc-url 'http://127.0.0.1:1248/' --chain $chainid $(get_config extraFlags) --create "$initcode"
-    forge verify-contract --watch --chain-id $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
 fi
 
 if [[ ${1:-unset} = 'confirm' ]] ; then
