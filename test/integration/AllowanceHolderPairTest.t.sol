@@ -294,14 +294,16 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     function testAllowanceHolder_rfq_fixedFee() public {
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
-        ISignatureTransfer.PermitTransferFrom memory takerPermit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit0 =
+            defaultERC20PermitTransfer(address(fromToken()), amount() * 9_000 / 10_000, 0);
+        ISignatureTransfer.PermitTransferFrom memory takerPermit1 =
+            defaultERC20PermitTransfer(address(fromToken()), amount() - takerPermit0.permitted.amount, 0);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
             token: address(fromToken()),
-            amount: amount(),
+            amount: takerPermit0.permitted.amount,
             counterparty: FROM,
-            partialFillAllowed: true
+            partialFillAllowed: false
         });
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
@@ -312,18 +314,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), takerPermit, takerSig)),
-            abi.encodeCall(
-                ISettlerActions.BASIC,
-                (
-                    address(0),
-                    0,
-                    address(fromToken()),
-                    0x00,
-                    abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, amount() * 1_000 / 10_000))
-                )
-            ),
-            abi.encodeCall(ISettlerActions.RFQ, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
+            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit0, takerSig)),
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (BURN_ADDRESS, takerPermit1, takerSig))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;

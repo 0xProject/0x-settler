@@ -468,7 +468,7 @@ comparison.
 
 | DODO V1 | DEX     | Pair      | Gas    | %     |
 | ------- | ------- | --------- | ------ | ----- |
-| Settler | DODO V1 | USDC/WETH | 303177 | 0.00% |
+| Settler | DODO V1 | USDC/WETH | 301688 | 0.00% |
 |         |         |           |        |       |
 |         |         |           |        |       |
 |         |         |           |        |       |
@@ -511,15 +511,15 @@ comparison.
 | ------------------------------- | --- | --------- | ------ | ------ |
 | no fee                          | RFQ | USDC/WETH | 106414 | 0.00%  |
 | proportional fee                | RFQ | USDC/WETH | 154463 | 45.15% |
-| fixed fee                       | RFQ | USDC/WETH | 152488 | 43.30% |
+| fixed fee                       | RFQ | USDC/WETH | 122654 | 15.26% |
 |                                 |     |           |        |        |
 | no fee                          | RFQ | DAI/WETH  | 86940  | 0.00%  |
 | proportional fee                | RFQ | DAI/WETH  | 126877 | 45.94% |
-| fixed fee                       | RFQ | DAI/WETH  | 125615 | 44.48% |
+| fixed fee                       | RFQ | DAI/WETH  | 99006  | 13.88% |
 |                                 |     |           |        |        |
 | no fee                          | RFQ | USDT/WETH | 98052  | 0.00%  |
 | proportional fee                | RFQ | USDT/WETH | 143621 | 46.47% |
-| fixed fee                       | RFQ | USDT/WETH | 141930 | 44.75% |
+| fixed fee                       | RFQ | USDT/WETH | 111230 | 13.44% |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"

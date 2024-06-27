@@ -2,5 +2,5 @@
 pragma solidity ^0.8.25;
 
 address constant sushiswapV3Factory = 0xc35DADB65012eC5796536bD9864eD8773aBc74C4;
-bytes32 constant sushiswapV3InitHash = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
+address constant sushiswapV3PolygonFactory = 0x917933899c6a5F8E37F31E19f92CdBFF7e8FF0e2;
 uint8 constant sushiswapV3ForkId = 2;
