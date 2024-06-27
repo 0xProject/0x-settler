@@ -7,58 +7,10 @@ import {TooMuchSlippage} from "./SettlerErrors.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-// see below for explanation
-/*
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {AddressDerivation} from "../utils/AddressDerivation.sol";
-import {ConfusedDeputy} from from "./SettlerErrors.sol";
-*/
-
 interface IDodo {
-    function init(
-        address owner,
-        address supervisor,
-        address maintainer,
-        address baseToken,
-        address quoteToken,
-        address oracle,
-        uint256 lpFeeRate,
-        uint256 mtFeeRate,
-        uint256 k,
-        uint256 gasPriceLimit
-    ) external;
-
-    function transferOwnership(address newOwner) external;
-
-    function claimOwnership() external;
-
     function sellBaseToken(uint256 amount, uint256 minReceiveQuote, bytes calldata data) external returns (uint256);
 
     function buyBaseToken(uint256 amount, uint256 maxPayQuote, bytes calldata data) external returns (uint256);
-
-    function querySellBaseToken(uint256 amount) external view returns (uint256 receiveQuote);
-
-    function queryBuyBaseToken(uint256 amount) external view returns (uint256 payQuote);
-
-    function depositBaseTo(address to, uint256 amount) external returns (uint256);
-
-    function withdrawBase(uint256 amount) external returns (uint256);
-
-    function withdrawAllBase() external returns (uint256);
-
-    function depositQuoteTo(address to, uint256 amount) external returns (uint256);
-
-    function withdrawQuote(uint256 amount) external returns (uint256);
-
-    function withdrawAllQuote() external returns (uint256);
-
-    function _BASE_CAPITAL_TOKEN_() external returns (address);
-
-    function _QUOTE_CAPITAL_TOKEN_() external returns (address);
-
-    function _BASE_TOKEN_() external returns (address);
-
-    function _QUOTE_TOKEN_() external returns (address);
 
     function _R_STATUS_() external view returns (uint8);
 
@@ -108,19 +60,27 @@ library DecimalMath {
     uint256 constant ONE = 10 ** 18;
 
     function mul(uint256 target, uint256 d) internal pure returns (uint256) {
-        return target * d / ONE;
+        unchecked {
+            return target * d / ONE;
+        }
     }
 
     function mulCeil(uint256 target, uint256 d) internal pure returns (uint256) {
-        return (target * d).divCeil(ONE);
+        unchecked {
+            return (target * d).divCeil(ONE);
+        }
     }
 
     function divFloor(uint256 target, uint256 d) internal pure returns (uint256) {
-        return target * ONE / d;
+        unchecked {
+            return target * ONE / d;
+        }
     }
 
     function divCeil(uint256 target, uint256 d) internal pure returns (uint256) {
-        return (target * ONE).divCeil(d);
+        unchecked {
+            return (target * ONE).divCeil(d);
+        }
     }
 }
 
@@ -139,10 +99,12 @@ library DodoMath {
         pure
         returns (uint256)
     {
-        uint256 fairAmount = DecimalMath.mul(i, V1 - V2); // i*delta
-        uint256 V0V0V1V2 = DecimalMath.divCeil(V0 * V0 / V1, V2);
-        uint256 penalty = DecimalMath.mul(k, V0V0V1V2); // k(V0^2/V1/V2)
-        return DecimalMath.mul(fairAmount, DecimalMath.ONE - k + penalty);
+        unchecked {
+            uint256 fairAmount = DecimalMath.mul(i, V1 - V2); // i*delta
+            uint256 V0V0V1V2 = DecimalMath.divCeil(V0 * V0 / V1, V2);
+            uint256 penalty = DecimalMath.mul(k, V0V0V1V2); // k(V0^2/V1/V2)
+            return DecimalMath.mul(fairAmount, DecimalMath.ONE - k + penalty);
+        }
     }
 
     /*
@@ -164,41 +126,43 @@ library DodoMath {
         pure
         returns (uint256)
     {
-        // calculate -b value and sig
-        // -b = (1-k)Q1-kQ0^2/Q1+i*deltaB
-        uint256 kQ02Q1 = DecimalMath.mul(k, Q0) * Q0 / Q1; // kQ0^2/Q1
-        uint256 b = DecimalMath.mul(DecimalMath.ONE - k, Q1); // (1-k)Q1
-        bool minusbSig = true;
-        if (deltaBSig) {
-            b += ideltaB; // (1-k)Q1+i*deltaB
-        } else {
-            kQ02Q1 += ideltaB; // i*deltaB+kQ0^2/Q1
-        }
-        if (b >= kQ02Q1) {
-            b -= kQ02Q1;
-            minusbSig = true;
-        } else {
-            b = kQ02Q1 - b;
-            minusbSig = false;
-        }
+        unchecked {
+            // calculate -b value and sig
+            // -b = (1-k)Q1-kQ0^2/Q1+i*deltaB
+            uint256 kQ02Q1 = DecimalMath.mul(k, Q0) * Q0 / Q1; // kQ0^2/Q1
+            uint256 b = DecimalMath.mul(DecimalMath.ONE - k, Q1); // (1-k)Q1
+            bool minusbSig = true;
+            if (deltaBSig) {
+                b += ideltaB; // (1-k)Q1+i*deltaB
+            } else {
+                kQ02Q1 += ideltaB; // i*deltaB+kQ0^2/Q1
+            }
+            if (b >= kQ02Q1) {
+                b -= kQ02Q1;
+                minusbSig = true;
+            } else {
+                b = kQ02Q1 - b;
+                minusbSig = false;
+            }
 
-        // calculate sqrt
-        uint256 squareRoot = DecimalMath.mul((DecimalMath.ONE - k) * 4, DecimalMath.mul(k, Q0) * Q0); // 4(1-k)kQ0^2
-        squareRoot = (b * b + squareRoot).sqrt(); // sqrt(b*b+4(1-k)kQ0*Q0)
+            // calculate sqrt
+            uint256 squareRoot = DecimalMath.mul((DecimalMath.ONE - k) * 4, DecimalMath.mul(k, Q0) * Q0); // 4(1-k)kQ0^2
+            squareRoot = (b * b + squareRoot).sqrt(); // sqrt(b*b+4(1-k)kQ0*Q0)
 
-        // final res
-        uint256 denominator = (DecimalMath.ONE - k) * 2; // 2(1-k)
-        uint256 numerator;
-        if (minusbSig) {
-            numerator = b + squareRoot;
-        } else {
-            numerator = squareRoot - b;
-        }
+            // final res
+            uint256 denominator = (DecimalMath.ONE - k) * 2; // 2(1-k)
+            uint256 numerator;
+            if (minusbSig) {
+                numerator = b + squareRoot;
+            } else {
+                numerator = squareRoot - b;
+            }
 
-        if (deltaBSig) {
-            return DecimalMath.divFloor(numerator, denominator);
-        } else {
-            return DecimalMath.divCeil(numerator, denominator);
+            if (deltaBSig) {
+                return DecimalMath.divFloor(numerator, denominator);
+            } else {
+                return DecimalMath.divCeil(numerator, denominator);
+            }
         }
     }
 
@@ -213,12 +177,14 @@ library DodoMath {
         pure
         returns (uint256 V0)
     {
-        // V0 = V1+V1*(sqrt-1)/2k
-        uint256 sqrt = DecimalMath.divCeil(DecimalMath.mul(k, fairAmount) * 4, V1);
-        sqrt = ((sqrt + DecimalMath.ONE) * DecimalMath.ONE).sqrt();
-        uint256 premium = DecimalMath.divCeil(sqrt - DecimalMath.ONE, k * 2);
-        // V0 is greater than or equal to V1 according to the solution
-        return DecimalMath.mul(V1, DecimalMath.ONE + premium);
+        unchecked {
+            // V0 = V1+V1*(sqrt-1)/2k
+            uint256 sqrt = DecimalMath.divCeil(DecimalMath.mul(k, fairAmount) * 4, V1);
+            sqrt = ((sqrt + DecimalMath.ONE) * DecimalMath.ONE).sqrt();
+            uint256 premium = DecimalMath.divCeil(sqrt - DecimalMath.ONE, k * 2);
+            // V0 is greater than or equal to V1 according to the solution
+            return DecimalMath.mul(V1, DecimalMath.ONE + premium);
+        }
     }
 }
 
@@ -250,24 +216,26 @@ abstract contract DodoSellHelper {
         state.B = dodo._BASE_BALANCE_();
         state.K = dodo._K_();
 
-        uint256 boughtAmount;
-        // Determine the status (RStatus) and calculate the amount based on the
-        // state
-        if (state.rStatus == RStatus.ONE) {
-            boughtAmount = _ROneSellQuoteToken(amount, state);
-        } else if (state.rStatus == RStatus.ABOVE_ONE) {
-            boughtAmount = _RAboveSellQuoteToken(amount, state);
-        } else {
-            uint256 backOneBase = state.B - state.baseTarget;
-            uint256 backOneQuote = state.quoteTarget - state.Q;
-            if (amount <= backOneQuote) {
-                boughtAmount = _RBelowSellQuoteToken(amount, state);
+        unchecked {
+            uint256 boughtAmount;
+            // Determine the status (RStatus) and calculate the amount based on the
+            // state
+            if (state.rStatus == RStatus.ONE) {
+                boughtAmount = _ROneSellQuoteToken(amount, state);
+            } else if (state.rStatus == RStatus.ABOVE_ONE) {
+                boughtAmount = _RAboveSellQuoteToken(amount, state);
             } else {
-                boughtAmount = backOneBase + _ROneSellQuoteToken(amount - backOneQuote, state);
+                uint256 backOneBase = state.B - state.baseTarget;
+                uint256 backOneQuote = state.quoteTarget - state.Q;
+                if (amount <= backOneQuote) {
+                    boughtAmount = _RBelowSellQuoteToken(amount, state);
+                } else {
+                    boughtAmount = backOneBase + _ROneSellQuoteToken(amount - backOneQuote, state);
+                }
             }
+            // Calculate fees
+            return DecimalMath.divFloor(boughtAmount, DecimalMath.ONE + dodo._MT_FEE_RATE_() + dodo._LP_FEE_RATE_());
         }
-        // Calculate fees
-        return DecimalMath.divFloor(boughtAmount, DecimalMath.ONE + dodo._MT_FEE_RATE_() + dodo._LP_FEE_RATE_());
     }
 
     function _ROneSellQuoteToken(uint256 amount, DodoState memory state)
@@ -275,11 +243,13 @@ abstract contract DodoSellHelper {
         pure
         returns (uint256 receiveBaseToken)
     {
-        uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
-        uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
-            state.baseTarget, state.baseTarget, DecimalMath.mul(i, amount), false, state.K
-        );
-        return state.baseTarget - B2;
+        unchecked {
+            uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
+            uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
+                state.baseTarget, state.baseTarget, DecimalMath.mul(i, amount), false, state.K
+            );
+            return state.baseTarget - B2;
+        }
     }
 
     function _RAboveSellQuoteToken(uint256 amount, DodoState memory state)
@@ -287,11 +257,13 @@ abstract contract DodoSellHelper {
         pure
         returns (uint256 receieBaseToken)
     {
-        uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
-        uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
-            state.baseTarget, state.B, DecimalMath.mul(i, amount), false, state.K
-        );
-        return state.B - B2;
+        unchecked {
+            uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
+            uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
+                state.baseTarget, state.B, DecimalMath.mul(i, amount), false, state.K
+            );
+            return state.B - B2;
+        }
     }
 
     function _RBelowSellQuoteToken(uint256 amount, DodoState memory state)
@@ -299,18 +271,13 @@ abstract contract DodoSellHelper {
         pure
         returns (uint256 receiveBaseToken)
     {
-        uint256 Q1 = state.Q + amount;
-        uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
-        return DodoMath._GeneralIntegrate(state.quoteTarget, Q1, state.Q, i, state.K);
+        unchecked {
+            uint256 Q1 = state.Q + amount;
+            uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
+            return DodoMath._GeneralIntegrate(state.quoteTarget, Q1, state.Q, i, state.K);
+        }
     }
 }
-
-// see below for explanation
-/*
-interface IDodoCallee {
-    function dodoCall(bool isBuyBaseToken, uint256 baseAmount, uint256 quoteAmount, bytes calldata data) external;
-}
-*/
 
 abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     using FullMath for uint256;
@@ -331,85 +298,4 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
             IDodo(dodo).sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
         }
     }
-
-    // In spite of the fact that DodoV1 pools have a callback function as
-    // specified in `IDodoCallee` above, they don't actually support flash
-    // swaps. The approve/transferFrom flow is completely mandatory. Therefore,
-    // it is not possible to custody optimize using a VIP that spends the
-    // taker's coupon as part of the callback. This code is maintained here as
-    // an example of a way to obtain a trusted callback.
-    /*
-    using AddressDerivation for address;
-
-    address private constant dodoDeployer = 0x5E5a7b76462E4BdF83Aa98795644281BdbA80B88;
-    address private constant dodoPrototype = 0xF6A8E47daEEdDcCe297e7541523e27DF2f167BF3;
-    // this is the ERC1167 runtime code
-    bytes32 private constant dodoCodehash =
-        keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", dodoPrototype, hex"5af43d82803e903d91602b57fd5bf3"));
-
-    constructor() {
-        assert(block.chainid == 1 || block.chainid == 31337);
-    }
-
-    function _dodoV1Callback(bytes calldata data) private returns (bytes memory) {
-        require(data.length >= 0xa0);
-        bool isBuyBaseToken;
-        uint256 baseAmount;
-        uint256 quoteAmount;
-        assembly ("memory-safe") {
-            isBuyBaseToken := calldataload(data.offset)
-            if shr(0x01, isBuyBaseToken) { revert(0x00, 0x00) }
-            baseAmount := calldataload(add(0x20, data.offset))
-            quoteAmount := calldataload(add(0x40, data.offset))
-            data.offset := add(data.offset, calldataload(add(0x60, data.offset)))
-            data.length := calldataload(data.offset)
-            data.offset := add(0x20, data.offset)
-        }
-        dodoCall(isBuyBaseToken, baseAmount, quoteAmount, data);
-        return new bytes(0);
-    }
-
-    function dodoCall(bool quoteForBase, uint256 baseAmount, uint256 quoteAmount, bytes calldata data) private {
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, bool isForwarded) =
-            abi.decode(data, (ISignatureTransfer.PermitTransferFrom, bytes, bool));
-        _transferFrom(
-            permit,
-            ISignatureTransfer.SignatureTransferDetails({
-                to: msg.sender,
-                requestedAmount: quoteForBase ? quoteAmount : baseAmount
-            }),
-            sig,
-            isForwarded
-        );
-    }
-
-    function sellToDodoV1VIP(
-        uint64 deployerNonce,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        bool quoteForBase,
-        uint256 minBuyAmount
-    ) internal {
-        // deriving the contract address from the factory nonce verifies the initcode conforms to ERC1167
-        address dodo = dodoDeployer.deriveContract(deployerNonce);
-        // checking the codehash against the one computed from the prototype verifies the implementation
-        if (dodo.codehash != dodoCodehash) {
-            revert ConfusedDeputy();
-        }
-        // now we know that we can trust `dodo`
-
-        uint256 sellAmount = permit.permitted.amount;
-        bytes memory callbackData = abi.encode(permit, sig, _isForwarded());
-        if (quoteForBase) {
-            uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
-            if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(permit.permitted.token, minBuyAmount, buyAmount);
-            }
-            callbackData = abi.encodeCall(IDodo.buyBaseToken, (buyAmount, sellAmount, callbackData));
-        } else {
-            callbackData = abi.encodeCall(IDodo.sellBaseToken, (sellAmount, minBuyAmount, callbackData));
-        }
-        _setOperatorAndCall(dodo, callbackData, uint32(IDodoCallee.dodoCall.selector), _dodoV1Callback);
-    }
-    */
 }

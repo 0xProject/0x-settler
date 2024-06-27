@@ -12,6 +12,8 @@ Master list of UniV3 forks:
 ---
 
 * Add SushiswapV3 UniV3 fork to Polygon
+* Added support for `DODOV1` action on Bnb
+* Added support for `DODOV1` action on Polygon
 
 ## 2024-06-10
 
