@@ -11,6 +11,8 @@ Master list of UniV3 forks:
 
 ---
 
+* Added `prev` view function to `Deployer`
+
 ## 2024-06-27
 
 * Add SushiswapV3 UniV3 fork to Polygon
