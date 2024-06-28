@@ -30,6 +30,7 @@ import {
 import {aerodromeFactory, aerodromeInitHash, aerodromeForkId} from "../core/univ3forks/AerodromeSlipstream.sol";
 import {alienBaseV3Factory, alienBaseV3ForkId} from "../core/univ3forks/AlienBaseV3.sol";
 import {baseXFactory, baseXForkId} from "../core/univ3forks/BaseX.sol";
+import {swapBasedV3Factory, swapBasedV3ForkId} from "../core/univ3forks/SwapBasedV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -95,6 +96,10 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, Velodrome {
             factory = baseXFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == swapBasedV3ForkId) {
+            factory = swapBasedV3Factory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
