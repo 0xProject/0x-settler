@@ -8,8 +8,12 @@ Master list of UniV3 forks:
   5. CamelotV3/QuickSwapV3 (Algebra-like)
   6. AlienBaseV3
   7. BaseX
+  8. SwapBasedV3
 
 ---
+
+* Added SolidlyV3 UniV3 fork to Base
+* Added SwapBasedV3 UniV3 fork to Base
 
 ## 2024-06-27
 
