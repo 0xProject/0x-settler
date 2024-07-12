@@ -5,8 +5,6 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {IERC20} from "../IERC20.sol";
-import {DodoV1} from "../core/DodoV1.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
@@ -30,7 +28,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract BnbMixin is FreeMemory, SettlerBase, DodoV1 {
+abstract contract BnbMixin is FreeMemory, SettlerBase {
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
     }
@@ -38,21 +36,11 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, DodoV1 {
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
-            return true;
-        } else if (action == ISettlerActions.DODOV1.selector) {
-            (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
-                abi.decode(data, (IERC20, uint256, address, bool, uint256));
-
-            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
-        } else {
-            return false;
-        }
-        return true;
+        return super._dispatch(i, action, data);
     }
 
     function _uniV3ForkInfo(uint8 forkId)
