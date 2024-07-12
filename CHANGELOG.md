@@ -12,6 +12,7 @@ Master list of UniV3 forks:
 
 ---
 
+* Deployed Settler to Blast
 * Added SolidlyV3 UniV3 fork to Base
 * Added SwapBasedV3 UniV3 fork to Base
 * Added support for `DODOV1` action to all chains
