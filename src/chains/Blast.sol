@@ -17,6 +17,22 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {
+    thrusterFactory,
+    thrusterInitHash,
+    thrusterForkId
+} from "../core/univ3forks/Thruster.sol";
+import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
+import {
+    bladeSwapFactory,
+    bladeSwapInitHash,
+    bladeSwapForkId
+} from "../core/univ3forks/BladeSwap.sol";
+import {
+    fenixFactory,
+    fenixInitHash,
+    fenixForkId
+} from "../core/univ3forks/Fenix.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -48,6 +64,18 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             factory = uniswapV3BlastFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == thrusterForkId) {
+            factory = thrusterFactory;
+            initHash = thrusterInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == bladeSwapForkId) {
+            factory = bladeSwapFactory;
+            initHash = bladeSwapInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == fenixForkId) {
+            factory = fenixFactory;
+            initHash = fenixInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
