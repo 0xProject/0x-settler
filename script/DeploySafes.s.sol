@@ -113,6 +113,16 @@ contract DeploySafes is Script {
         }
     }
 
+    function _encodeMultisend(address safe, bytes memory call) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            uint8(ISafeExecute.Operation.Call),
+            safe,
+            uint256(0), // value
+            call.length,
+            call
+        );
+    }
+
     function _encodeChangeOwners(address safe, uint256 threshold, address oldOwner, address[] memory newOwners)
         internal
         view
@@ -122,24 +132,12 @@ contract DeploySafes is Script {
         for (uint256 i; i < newOwners.length; i++) {
             bytes memory data =
                 abi.encodeCall(ISafeOwners.addOwnerWithThreshold, (newOwners[newOwners.length - i - 1], 1));
-            subCalls[i] = abi.encodePacked(
-                uint8(ISafeExecute.Operation.Call),
-                safe,
-                uint256(0), // value
-                data.length,
-                data
-            );
+            subCalls[i] = _encodeMultisend(safe, data);
         }
         {
             bytes memory data =
                 abi.encodeCall(ISafeOwners.removeOwner, (newOwners[newOwners.length - 1], oldOwner, threshold));
-            subCalls[newOwners.length] = abi.encodePacked(
-                uint8(ISafeExecute.Operation.Call),
-                safe,
-                uint256(0), // value
-                data.length,
-                data
-            );
+            subCalls[newOwners.length] = _encodeMultisend(safe, data);
         }
         return subCalls;
     }
@@ -166,6 +164,9 @@ contract DeploySafes is Script {
         require(safeSingleton.codehash == singletonHash, "Safe singleton codehash");
         require(safeFallback.codehash == fallbackHash, "Safe fallback codehash");
         require(safeMulticall.codehash == multicallHash, "Safe multicall codehash");
+
+        require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
+        require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");
 
         uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
         uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
@@ -251,11 +252,11 @@ contract DeploySafes is Script {
             _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
         assert(changeOwnersCalls.length == upgradeOwners.length + 1);
         bytes[] memory upgradeSetupCalls = new bytes[](5 + changeOwnersCalls.length);
-        upgradeSetupCalls[0] = acceptOwnershipCall;
-        upgradeSetupCalls[1] = takerSubmittedSetDescriptionCall;
-        upgradeSetupCalls[2] = takerSubmittedAuthorizeCall;
-        upgradeSetupCalls[3] = metaTxSetDescriptionCall;
-        upgradeSetupCalls[4] = metaTxAuthorizeCall;
+        upgradeSetupCalls[0] = _encodeMultisend(deployerProxy, acceptOwnershipCall);
+        upgradeSetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedSetDescriptionCall);
+        upgradeSetupCalls[2] = _encodeMultisend(deployerProxy, takerSubmittedAuthorizeCall);
+        upgradeSetupCalls[3] = _encodeMultisend(deployerProxy, metaTxSetDescriptionCall);
+        upgradeSetupCalls[4] = _encodeMultisend(deployerProxy, metaTxAuthorizeCall);
         for (uint256 i; i < changeOwnersCalls.length; i++) {
             upgradeSetupCalls[i + 5] = changeOwnersCalls[i];
         }
@@ -265,11 +266,12 @@ contract DeploySafes is Script {
         changeOwnersCalls =
             _encodeChangeOwners(deploymentSafe, SafeConfig.deploymentSafeThreshold, moduleDeployer, deployerOwners);
         assert(changeOwnersCalls.length == deployerOwners.length + 1);
-        bytes[] memory deploySetupCalls = new bytes[](2 + deployerOwners.length);
-        deploySetupCalls[0] = takerSubmittedDeployCall;
-        deploySetupCalls[1] = metaTxDeployCall;
+        bytes[] memory deploySetupCalls = new bytes[](3 + changeOwnersCalls.length);
+        deploySetupCalls[0] = _encodeMultisend(deploymentSafe, addModuleCall);
+        deploySetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedDeployCall);
+        deploySetupCalls[2] = _encodeMultisend(deployerProxy, metaTxDeployCall);
         for (uint256 i; i < changeOwnersCalls.length; i++) {
-            deploySetupCalls[i + 2] = changeOwnersCalls[i];
+            deploySetupCalls[i + 3] = changeOwnersCalls[i];
         }
         bytes memory deploySetupCall = _encodeMultisend(deploySetupCalls);
 
@@ -284,19 +286,6 @@ contract DeploySafes is Script {
         address deployerImpl = address(new Deployer(1));
         // now we deploy the safe that's responsible *ONLY* for deploying new instances
         address deployedDeploymentSafe = safeFactory.createProxyWithNonce(safeSingleton, deploymentInitializer, 0);
-        // install the module in the deployment safe so that *anybody* can roll back deployments
-        ISafeExecute(deploymentSafe).execTransaction(
-            deploymentSafe,
-            0,
-            addModuleCall,
-            ISafeExecute.Operation.Call,
-            0,
-            0,
-            0,
-            address(0),
-            address(0),
-            deploymentSignature
-        );
 
         vm.stopBroadcast();
 
@@ -326,7 +315,7 @@ contract DeploySafes is Script {
 
         vm.startBroadcast(moduleDeployerKey);
 
-        // deploy settlers; set new owners
+        // add rollback module; deploy settlers; set new owners
         ISafeExecute(deploymentSafe).execTransaction(
             safeMulticall,
             0,
