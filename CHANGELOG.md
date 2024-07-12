@@ -11,6 +11,9 @@ Master list of UniV3 forks:
 
 ---
 
+* Added support for `DODOV1` action to all chains
+* Added support for `VELODROME` action to all chains
+
 ## 2024-06-27
 
 * Add SushiswapV3 UniV3 fork to Polygon
