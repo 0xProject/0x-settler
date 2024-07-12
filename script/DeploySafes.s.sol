@@ -116,7 +116,7 @@ contract DeploySafes is Script {
     function _encodeChangeOwners(address safe, uint256 threshold, address oldOwner, address[] memory newOwners)
         internal
         view
-        returns (bytes memory)
+        returns (bytes[] memory)
     {
         bytes[] memory subCalls = new bytes[](newOwners.length + 1);
         for (uint256 i; i < newOwners.length; i++) {
@@ -141,7 +141,7 @@ contract DeploySafes is Script {
                 data
             );
         }
-        return _encodeMultisend(subCalls);
+        return subCalls;
     }
 
     function run(
@@ -155,8 +155,10 @@ contract DeploySafes is Script {
         address safeSingleton,
         address safeFallback,
         address safeMulticall,
-        Feature feature,
-        string calldata initialDescription,
+        Feature takerSubmittedFeature,
+        Feature metaTxFeature,
+        string calldata initialDescriptionTakerSubmitted,
+        string calldata initialDescriptionMetaTx,
         string calldata chainDisplayName,
         bytes calldata constructorArgs
     ) public {
@@ -213,25 +215,63 @@ contract DeploySafes is Script {
         // after everything is deployed, we're going to need to set up permissions; these are those calls
         bytes memory addModuleCall = abi.encodeCall(ISafeModule.enableModule, (iceColdCoffee));
         bytes memory acceptOwnershipCall = abi.encodeWithSignature("acceptOwnership()");
-        bytes memory setDescriptionCall = abi.encodeCall(Deployer.setDescription, (feature, initialDescription));
-        bytes memory authorizeCall =
-            abi.encodeCall(Deployer.authorize, (feature, deploymentSafe, uint40(block.timestamp + 365 days)));
-        bytes memory deployCall = abi.encodeCall(
+
+        bytes memory takerSubmittedSetDescriptionCall =
+            abi.encodeCall(Deployer.setDescription, (takerSubmittedFeature, initialDescriptionTakerSubmitted));
+        bytes memory takerSubmittedAuthorizeCall = abi.encodeCall(
+            Deployer.authorize, (takerSubmittedFeature, deploymentSafe, uint40(block.timestamp + 365 days))
+        );
+        bytes memory takerSubmittedDeployCall = abi.encodeCall(
             Deployer.deploy,
             (
-                feature,
+                takerSubmittedFeature,
                 bytes.concat(
                     vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "Settler")), constructorArgs
                     )
             )
         );
 
-        address[] memory deployerOwners = SafeConfig.getDeploymentSafeSigners();
-        bytes memory deploymentChangeOwnersCall =
-            _encodeChangeOwners(deploymentSafe, SafeConfig.deploymentSafeThreshold, moduleDeployer, deployerOwners);
+        bytes memory metaTxSetDescriptionCall =
+            abi.encodeCall(Deployer.setDescription, (metaTxFeature, initialDescriptionMetaTx));
+        bytes memory metaTxAuthorizeCall =
+            abi.encodeCall(Deployer.authorize, (metaTxFeature, deploymentSafe, uint40(block.timestamp + 365 days)));
+        bytes memory metaTxDeployCall = abi.encodeCall(
+            Deployer.deploy,
+            (
+                metaTxFeature,
+                bytes.concat(
+                    vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "SettlerMetaTxn")),
+                    constructorArgs
+                    )
+            )
+        );
+
         address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
-        bytes memory upgradeChangeOwnersCall =
+        bytes[] memory changeOwnersCalls =
             _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
+        assert(changeOwnersCalls.length == upgradeOwners.length + 1);
+        bytes[] memory upgradeSetupCalls = new bytes[](5 + changeOwnersCalls.length);
+        upgradeSetupCalls[0] = acceptOwnershipCall;
+        upgradeSetupCalls[1] = takerSubmittedSetDescriptionCall;
+        upgradeSetupCalls[2] = takerSubmittedAuthorizeCall;
+        upgradeSetupCalls[3] = metaTxSetDescriptionCall;
+        upgradeSetupCalls[4] = metaTxAuthorizeCall;
+        for (uint256 i; i < changeOwnersCalls.length; i++) {
+            upgradeSetupCalls[i + 5] = changeOwnersCalls[i];
+        }
+        bytes memory upgradeSetupCall = _encodeMultisend(upgradeSetupCalls);
+
+        address[] memory deployerOwners = SafeConfig.getDeploymentSafeSigners();
+        changeOwnersCalls =
+            _encodeChangeOwners(deploymentSafe, SafeConfig.deploymentSafeThreshold, moduleDeployer, deployerOwners);
+        assert(changeOwnersCalls.length == deployerOwners.length + 1);
+        bytes[] memory deploySetupCalls = new bytes[](2 + deployerOwners.length);
+        deploySetupCalls[0] = takerSubmittedDeployCall;
+        deploySetupCalls[1] = metaTxDeployCall;
+        for (uint256 i; i < changeOwnersCalls.length; i++) {
+            deploySetupCalls[i + 2] = changeOwnersCalls[i];
+        }
+        bytes memory deploySetupCall = _encodeMultisend(deploySetupCalls);
 
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
@@ -267,51 +307,12 @@ contract DeploySafes is Script {
             ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
         // then we deploy the safe that's going to own the proxy
         address deployedUpgradeSafe = safeFactory.createProxyWithNonce(safeSingleton, upgradeInitializer, 0);
-        // then the safe takes ownership of the proxy
-        ISafeExecute(upgradeSafe).execTransaction(
-            deployerProxy,
-            0,
-            acceptOwnershipCall,
-            ISafeExecute.Operation.Call,
-            0,
-            0,
-            0,
-            address(0),
-            address(0),
-            upgradeSignature
-        );
 
-        // set the description for the initial feature NFT
-        ISafeExecute(upgradeSafe).execTransaction(
-            deployerProxy,
-            0,
-            setDescriptionCall,
-            ISafeExecute.Operation.Call,
-            0,
-            0,
-            0,
-            address(0),
-            address(0),
-            upgradeSignature
-        );
-        // give the deployment safe permission to deploy instances (for 1 year)
-        ISafeExecute(upgradeSafe).execTransaction(
-            deployerProxy,
-            0,
-            authorizeCall,
-            ISafeExecute.Operation.Call,
-            0,
-            0,
-            0,
-            address(0),
-            address(0),
-            upgradeSignature
-        );
-        // set the initial owners from the config and remove the deployer
+        // configure the deployer (accept ownership; set descriptions; authorize; set new owners)
         ISafeExecute(upgradeSafe).execTransaction(
             safeMulticall,
             0,
-            upgradeChangeOwnersCall,
+            upgradeSetupCall,
             ISafeExecute.Operation.DelegateCall,
             0,
             0,
@@ -325,24 +326,11 @@ contract DeploySafes is Script {
 
         vm.startBroadcast(moduleDeployerKey);
 
-        // deploy a Settler
-        ISafeExecute(deploymentSafe).execTransaction(
-            deployerProxy,
-            0,
-            deployCall,
-            ISafeExecute.Operation.Call,
-            0,
-            0,
-            0,
-            address(0),
-            address(0),
-            deploymentSignature
-        );
-        // set the initial owners from the config and remove the deployer
+        // deploy settlers; set new owners
         ISafeExecute(deploymentSafe).execTransaction(
             safeMulticall,
             0,
-            deploymentChangeOwnersCall,
+            deploySetupCall,
             ISafeExecute.Operation.DelegateCall,
             0,
             0,
