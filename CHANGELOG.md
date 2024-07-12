@@ -9,10 +9,16 @@ Master list of UniV3 forks:
   6. AlienBaseV3
   7. BaseX
   8. SwapBasedV3
+  9. Thruster
+  10. BladeSwap (Algebra-like)
+  11. Fenix (Algebra-like)
 
 ---
 
 * Deployed Settler to Blast
+* Added Thruster UniV3 fork to Blast
+* Added BladeSwap Algebra-style UniV3 fork to Blast
+* Added Fenix Algebra-style UniV3 fork to Blast
 * Added SolidlyV3 UniV3 fork to Base
 * Added SwapBasedV3 UniV3 fork to Base
 * Added support for `DODOV1` action to all chains
