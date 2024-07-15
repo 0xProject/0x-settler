@@ -343,7 +343,7 @@
     "isLondon": true,
     "isCancun": false,
     "extraFlags": "--legacy",
-    "gasMultiplierPercent": 130,
+    "gasMultiplierPercent": 110,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
