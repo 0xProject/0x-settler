@@ -119,8 +119,12 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
-if [[ ! -f "$project_root"/sh/initial_description.md ]] ; then
-    echo 'sh/initial_description.md is missing' >&2
+if [[ ! -f "$project_root"/sh/initial_description_taker.md ]] ; then
+    echo 'sh/initial_description_taker.md is missing' >&2
+    exit 1
+fi
+if [[ ! -f "$project_root"/sh/initial_description_metatx.md ]] ; then
+    echo 'sh/initial_description_metatx.md is missing' >&2
     exit 1
 fi
 
@@ -145,11 +149,14 @@ deployer_impl="$(cast keccak "$(cast to-rlp '["0x6d4197897b4e776C96c04309cF1CA47
 deployer_impl="$(cast to-check-sum-address "0x${deployer_impl:26:40}")"
 declare -r deployer_impl
 
-declare -r -i feature=1
-declare description
-description="$(jq -MRs < "$project_root"/sh/initial_description.md)"
-description="${description:1:$((${#description} - 2))}"
-declare -r description
+declare taker_submitted_description
+taker_submitted_description="$(jq -MRs < "$project_root"/sh/initial_description_taker.md)"
+taker_submitted_description="${taker_submitted_description:1:$((${#taker_submitted_description} - 2))}"
+declare -r taker_submitted_description
+declare metatransaction_description
+metatransaction_description="$(jq -MRs < "$project_root"/sh/initial_description_metatx.md)"
+metatransaction_description="${metatransaction_description:1:$((${#metatransaction_description} - 2))}"
+declare -r metatransaction_description
 
 # not quite so secret-s
 declare -i chainid
@@ -259,37 +266,32 @@ fi
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
+forge clean
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
     --no-storage-caching                                 \
-    --no-cache                                           \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
     --with-gas-price $gas_price                          \
     --chain $chainid                                     \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,string,bytes,string)' \
+    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,uint128,string,string,string,bytes)' \
     $(get_config extraFlags)                             \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$feature" "$description" "$constructor_args" "$(get_config displayName)"
+    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
+    2 3 "$taker_submitted_description" "$metatransaction_description" \
+    "$(get_config displayName)" "$constructor_args"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    declare -a common_args=()
-    common_args+=(
-        --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)"
-    )
-    declare -r -a common_args
-    forge verify-contract "${common_args[@]}" --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    forge verify-contract --watch --chain $chainid --verifier sourcify --optimizer-runs 1000000 --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
-    forge verify-contract "${common_args[@]}" "$deployer_impl" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 "$deployer_impl" --constructor-args "$(cast abi-encode 'constructor(uint256)' 1)" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --verifier sourcify --optimizer-runs 1000000 "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
-    declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
-    declare settler
-    settler="$(cast abi-decode "$erc721_ownerof_sig" "$(cast call --rpc-url "$rpc_url" "$deployer_proxy" "$(cast calldata "$erc721_ownerof_sig" "$feature")")")"
-    declare -r settler
-    forge verify-contract "${common_args[@]}" --constructor-args "$constructor_args" "$settler" src/Settler.sol:Settler
+    echo 'Run ./sh/verify_settler.sh to verify newly-deployed Settlers' >&2
 fi
 
 echo 'Deployment is complete' >&2

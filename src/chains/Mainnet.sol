@@ -6,7 +6,6 @@ import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
-import {DodoV1} from "../core/DodoV1.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
@@ -35,7 +34,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto, DodoV1 {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -51,11 +50,6 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto, DodoV
             return true;
         } else if (action == ISettlerActions.MAKERPSM.selector) {
             revert("unimplemented");
-        } else if (action == ISettlerActions.DODOV1.selector) {
-            (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
-                abi.decode(data, (IERC20, uint256, address, bool, uint256));
-
-            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }

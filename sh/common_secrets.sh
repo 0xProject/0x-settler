@@ -8,7 +8,7 @@ if [ ! -f "$project_root"/secrets.json ] ; then
     exit 1
 fi
 
-if [[ $(ls -l secrets.json | cut -d' ' -f1) != '-rw-------' ]] ; then
+if [[ $(ls -l secrets.json | cut -d' ' -f1 | cut -d. -f1) != '-rw-------' ]] ; then
     echo 'secrets.json permissions too lax' >&2
     echo 'run: chmod 600 secrets.json' >&2
     exit 1

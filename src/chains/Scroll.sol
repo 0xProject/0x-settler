@@ -8,35 +8,35 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
-    uniswapV3BnbFactory,
     uniswapV3InitHash,
-    uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {sushiswapV3ScrollFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {
-    pancakeSwapV3Factory,
-    pancakeSwapV3InitHash,
-    pancakeSwapV3ForkId,
-    IPancakeSwapV3Callback
-} from "../core/univ3forks/PancakeSwapV3.sol";
+    zebraV3Factory,
+    zebraV3InitHash,
+    zebraV3ForkId,
+    IZebraV3SwapCallback
+} from "../core/univ3forks/ZebraV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract BnbMixin is FreeMemory, SettlerBase {
+abstract contract ScrollMixin is FreeMemory, SettlerBase {
     constructor() {
-        assert(block.chainid == 56 || block.chainid == 31337);
+        assert(block.chainid == 534352 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         virtual
-        override(SettlerBase)
+        override
         DANGEROUS_freeMemory
         returns (bool)
     {
@@ -49,14 +49,14 @@ abstract contract BnbMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3BnbFactory;
+        if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3ScrollFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == pancakeSwapV3ForkId) {
-            factory = pancakeSwapV3Factory;
-            initHash = pancakeSwapV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == zebraV3ForkId) {
+            factory = zebraV3Factory;
+            initHash = zebraV3InitHash;
+            callbackSelector = uint32(IZebraV3SwapCallback.zebraV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
@@ -64,7 +64,7 @@ abstract contract BnbMixin is FreeMemory, SettlerBase {
 }
 
 /// @custom:security-contact security@0x.org
-contract BnbSettler is Settler, BnbMixin {
+contract ScrollSettler is Settler, ScrollMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -83,7 +83,7 @@ contract BnbSettler is Settler, BnbMixin {
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BnbMixin)
+        override(SettlerAbstract, SettlerBase, ScrollMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -95,7 +95,7 @@ contract BnbSettler is Settler, BnbMixin {
 }
 
 /// @custom:security-contact security@0x.org
-contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
+contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
@@ -110,7 +110,7 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BnbMixin)
+        override(SettlerAbstract, SettlerBase, ScrollMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

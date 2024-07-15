@@ -8,35 +8,46 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
-    uniswapV3BnbFactory,
+    uniswapV3BlastFactory,
     uniswapV3InitHash,
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
 import {
-    pancakeSwapV3Factory,
-    pancakeSwapV3InitHash,
-    pancakeSwapV3ForkId,
-    IPancakeSwapV3Callback
-} from "../core/univ3forks/PancakeSwapV3.sol";
+    thrusterFactory,
+    thrusterInitHash,
+    thrusterForkId
+} from "../core/univ3forks/Thruster.sol";
+import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
+import {
+    bladeSwapFactory,
+    bladeSwapInitHash,
+    bladeSwapForkId
+} from "../core/univ3forks/BladeSwap.sol";
+import {
+    fenixFactory,
+    fenixInitHash,
+    fenixForkId
+} from "../core/univ3forks/Fenix.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract BnbMixin is FreeMemory, SettlerBase {
+abstract contract BlastMixin is FreeMemory, SettlerBase {
     constructor() {
-        assert(block.chainid == 56 || block.chainid == 31337);
+        assert(block.chainid == 81457 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         virtual
-        override(SettlerBase)
+        override
         DANGEROUS_freeMemory
         returns (bool)
     {
@@ -50,13 +61,21 @@ abstract contract BnbMixin is FreeMemory, SettlerBase {
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3BnbFactory;
+            factory = uniswapV3BlastFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == pancakeSwapV3ForkId) {
-            factory = pancakeSwapV3Factory;
-            initHash = pancakeSwapV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == thrusterForkId) {
+            factory = thrusterFactory;
+            initHash = thrusterInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == bladeSwapForkId) {
+            factory = bladeSwapFactory;
+            initHash = bladeSwapInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == fenixForkId) {
+            factory = fenixFactory;
+            initHash = fenixInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
@@ -64,7 +83,7 @@ abstract contract BnbMixin is FreeMemory, SettlerBase {
 }
 
 /// @custom:security-contact security@0x.org
-contract BnbSettler is Settler, BnbMixin {
+contract BlastSettler is Settler, BlastMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -83,7 +102,7 @@ contract BnbSettler is Settler, BnbMixin {
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BnbMixin)
+        override(SettlerAbstract, SettlerBase, BlastMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -95,7 +114,7 @@ contract BnbSettler is Settler, BnbMixin {
 }
 
 /// @custom:security-contact security@0x.org
-contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
+contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
@@ -110,7 +129,7 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BnbMixin)
+        override(SettlerAbstract, SettlerBase, BlastMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

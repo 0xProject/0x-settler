@@ -8,8 +8,27 @@ Master list of UniV3 forks:
   5. CamelotV3/QuickSwapV3 (Algebra-like)
   6. AlienBaseV3
   7. BaseX
+  8. SwapBasedV3
+  9. Thruster
+  10. BladeSwap (Algebra-like)
+  11. Fenix (Algebra-like)
+  12. ZebraV3
 
 ---
+
+* Deployed Settler to Scroll
+* Added ZebraV3 UniV3 fork to Scroll
+
+## 2024-07-15
+
+* Deployed Settler to Blast
+* Added Thruster UniV3 fork to Blast
+* Added BladeSwap Algebra-style UniV3 fork to Blast
+* Added Fenix Algebra-style UniV3 fork to Blast
+* Added SolidlyV3 UniV3 fork to Base
+* Added SwapBasedV3 UniV3 fork to Base
+* Added support for `DODOV1` action to all chains
+* Added support for `VELODROME` action to all chains
 
 ## 2024-06-27
 

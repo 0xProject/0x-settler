@@ -8,6 +8,8 @@ import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
+import {DodoV1} from "./core/DodoV1.sol";
+import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
@@ -43,7 +45,7 @@ library CalldataDecoder {
     }
 }
 
-abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2 {
+abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, DodoV1, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
 
@@ -123,6 +125,16 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
             basicSellToPool(sellToken, bps, pool, offset, _data);
+        } else if (action == ISettlerActions.DODOV1.selector) {
+            (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, address, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == ISettlerActions.VELODROME.selector) {
+            (address recipient, uint256 bps, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
+                abi.decode(data, (address, uint256, IVelodromePair, uint24, uint256));
+
+            sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {

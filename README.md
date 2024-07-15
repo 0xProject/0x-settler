@@ -36,7 +36,6 @@ import { createPublicClient, http, parseAbi } from 'viem';
     });
 
     const deployer = "0x00000000000004533Fe15556B1E086BB1A72cEae";
-    const tokenIds = [2, 3];
     const tokenDescriptions = {
         2: "taker submitted",
         3: "metatransaction",
@@ -52,8 +51,8 @@ import { createPublicClient, http, parseAbi } from 'viem';
     };
 
     const blockNumber = await client.getBlockNumber();
-    for (let tokenId of tokenIds) {
-        for (let functionName of ["ownerOf", "next"]) {
+    for (let tokenId in tokenDescriptions) {
+        for (let functionName in functionDescriptions) {
             let addr = await client.readContract({
                 address: deployer,
                 abi: deployerAbi,
@@ -91,7 +90,6 @@ const {ethers} = require("ethers");
   const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
 
   const deployerAddress = "0x00000000000004533Fe15556B1E086BB1A72cEae";
-  const tokenIds = [2, 3];
   const tokenDescriptions = {
     2: "taker submitted",
     3: "metatransaction",
@@ -106,10 +104,9 @@ const {ethers} = require("ethers");
     "next": "next",
   };
 
-  const erc20Abi = ["function balanceOf(address) external view returns (uint256)"];
   const deployer = new ethers.Contract(deployerAddress, deployerAbi, provider);
-  for (let tokenId of tokenIds) {
-    for (let functionName of ["ownerOf", "next"]) {
+  for (let tokenId in tokenDescriptions) {
+    for (let functionName in functionDescriptions) {
       let addr = await deployer[functionName](tokenId);
       console.log(functionDescriptions[functionName] + " " + tokenDescriptions[tokenId] + " settler address " + addr);
     }
@@ -242,7 +239,6 @@ import os, web3
 
 w3 = web3.Web3(web3.Web3.HTTPProvider(os.getenv("RPC_URL")))
 deployer_address = "0x00000000000004533Fe15556B1E086BB1A72cEae"
-token_ids = [2, 3]
 token_descriptions = {
     2: "taker submitted",
     3: "metatransaction",
@@ -273,12 +269,12 @@ function_descriptions = {
 
 deployer = w3.eth.contract(address=deployer_address, abi=deployer_abi)
 
-for token_id in token_ids:
+for token_id, token_description in token_descriptions.items():
     for function_name, function_description in function_descriptions.items():
         settler_address = getattr(deployer.functions, function_name)(token_id).call()
         print(
             function_description,
-            token_descriptions[token_id],
+            token_description,
             "settler address",
             settler_address,
         )
@@ -309,10 +305,9 @@ fi
 
 declare -r deployer='0x00000000000004533Fe15556B1E086BB1A72cEae'
 
-declare -r -a token_ids=(2 3)
 declare -A token_descriptions
-token_descriptions["${token_ids[0]}"]='taker submitted'
-token_descriptions["${token_ids[1]}"]='metatransaction'
+token_descriptions[2]='taker submitted'
+token_descriptions[3]='metatransaction'
 declare -r -A token_descriptions
 
 declare -r -a function_signatures=('ownerOf(uint256)(address)' 'next(uint128)(address)')
@@ -322,7 +317,7 @@ function_descriptions["${function_signatures[1]%%(*}"]='next'
 declare -r -A function_descriptions
 
 declare -i token_id
-for token_id in "${token_ids[@]}" ; do
+for token_id in "${!token_descriptions[@]}" ; do
     declare function_signature
     for function_signature in "${function_signatures[@]}" ; do
         declare addr
@@ -361,7 +356,8 @@ temporarily owned by the Settler contract. This sometimes implies an additional,
 non-optimal transfer. There are multiple reasons that Settler takes custody of
 the token, here are a few:
 
-- In the middle of a Multihop trade
+- In the middle of a Multihop trade (except AMMs like UniswapV2 and VelodromeV2)
+- To split tokens among multiple liquidity sources (Multiplex)
 - To distribute positive slippage from an AMM
 - To pay fees to a fee recipient in the buy token from an AMM
 - Trading against an inefficient AMM that only supports `transferFrom(msg.sender)` (e.g Curve)
