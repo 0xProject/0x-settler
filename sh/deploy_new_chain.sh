@@ -288,7 +288,7 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
     forge verify-contract --watch --chain $chainid --verifier sourcify --optimizer-runs 1000000 --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 "$deployer_impl" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 "$deployer_impl" --constructor-args "$(cast abi-encode 'constructor(uint256)' 1)" src/deployer/Deployer.sol:Deployer
     forge verify-contract --watch --chain $chainid --verifier sourcify --optimizer-runs 1000000 "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
     echo 'Run ./sh/verify_settler.sh to verify newly-deployed Settlers' >&2
