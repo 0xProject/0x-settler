@@ -16,8 +16,6 @@ Master list of UniV3 forks:
 
 ---
 
-* Deployed Settler to Scroll
-* Added ZebraV3 UniV3 fork to Scroll
 
 ## 2024-07-15
 
@@ -25,6 +23,8 @@ Master list of UniV3 forks:
 * Added Thruster UniV3 fork to Blast
 * Added BladeSwap Algebra-style UniV3 fork to Blast
 * Added Fenix Algebra-style UniV3 fork to Blast
+* Deployed Settler to Scroll
+* Added ZebraV3 UniV3 fork to Scroll
 * Added SolidlyV3 UniV3 fork to Base
 * Added SwapBasedV3 UniV3 fork to Base
 * Added support for `DODOV1` action to all chains
