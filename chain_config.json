@@ -352,6 +352,6 @@
     },
     "governance": {},
     "deployment": {},
-    "etherscanApi": "UNSET"
+    "etherscanApi": "https://api.scrollscan.com/api"
   }
 }
