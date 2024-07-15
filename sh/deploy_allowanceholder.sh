@@ -126,12 +126,16 @@ declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
 
-# set minimum gas price to 10gwei (Arbitrum gets weird if you go lower)
+# set minimum gas price to (mostly for Arbitrum and BNB)
+declare -i min_gas_price
+min_gas_price="$(get_config minGasPriceGwei)"
+min_gas_price=$((min_gas_price * 1000000000))
+declare -r -i min_gas_price
 declare -i gas_price
 gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < 10000000000 )) ; then
-    echo 'Setting gas price to minimum of 10 gwei' >&2
-    gas_price=10000000000
+if (( gas_price < min_gas_price )) ; then
+    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
+    gas_price=$min_gas_price
 fi
 declare -r -i gas_price
 
