@@ -16,6 +16,12 @@ import {
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3ScrollFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
+import {
+    zebraV3Factory,
+    zebraV3InitHash,
+    zebraV3ForkId,
+    IZebraV3SwapCallback
+} from "../core/univ3forks/ZebraV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -47,6 +53,10 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase {
             factory = sushiswapV3ScrollFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == zebraV3ForkId) {
+            factory = zebraV3Factory;
+            initHash = zebraV3InitHash;
+            callbackSelector = uint32(IZebraV3SwapCallback.zebraV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
