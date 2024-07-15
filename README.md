@@ -20,6 +20,15 @@ should not interact. Do not hardcode any address other than
 query the deployer/registry for the address of the most recent contract before
 building or signing a transaction, metatransaction, or order.
 
+### Why is Settler not verified on [Arbiscan](https://arbiscan.io/)?
+
+[Arbiscan sucks](https://twitter.com/duncancmt/status/1775893476342964464);
+Settler will not verify there. Arbitrum supports the opcodes from the Ethereum
+Cancun hardfork, but if you compile a contract for Cancun, Arbiscan will reject
+it for verification because it doesn't know that "Cancun" is a valid hardfork
+level for Arbitrum. The Arbitrum Settler (and all other Settlers) should be
+verified on [sourcify.eth](https://sourcify.dev/).
+
 ### Examples
 
 #### TypeScript ([viem](https://viem.sh/))
