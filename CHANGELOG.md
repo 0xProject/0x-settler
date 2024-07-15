@@ -12,8 +12,12 @@ Master list of UniV3 forks:
   9. Thruster
   10. BladeSwap (Algebra-like)
   11. Fenix (Algebra-like)
+  12. ZebraV3
 
 ---
+
+* Deployed Settler to Scroll
+* Added ZebraV3 UniV3 fork to Scroll
 
 ## 2024-07-15
 
