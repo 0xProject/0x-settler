@@ -333,8 +333,13 @@
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
       "apiUrl": "NOT SUPPORTED"
     },
-    "governance": {},
-    "deployment": {},
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+    },
+    "deployment": {
+      "allowanceHolder": "VANITY ADDRESS IS BURNED"
+    },
     "etherscanApi": "https://api.lineascan.build/api"
   },
   "scroll": {
