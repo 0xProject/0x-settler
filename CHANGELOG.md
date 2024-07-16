@@ -13,12 +13,9 @@ Master list of UniV3 forks:
   10. BladeSwap (Algebra-like)
   11. Fenix (Algebra-like)
   12. ZebraV3
-  13. Lynex (Algebra-like)
 
 ---
 
-* Deployed Settler to Linea
-* Added Lynex Algebra-style UniV3 fork to Linea
 * Update Velodrome Slipstream factory address (and inithash) to migrated one
 
 ## 2024-07-15
