@@ -141,7 +141,7 @@ declare taker_settler
 taker_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 2)"
 declare -r taker_settler
 forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" "$chain_display_name"Settler
-if (( $chainid != 81457 )) ; then # sourcify doesn't support Blast
+if (( chainid != 81457 )) && (( chainid != 59144 )); then # sourcify doesn't support Blast or Linea
     forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$taker_settler" "$chain_display_name"Settler
 fi
 
@@ -151,7 +151,7 @@ declare metatx_settler
 metatx_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 3)"
 declare -r metatx_settler
 forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" "$chain_display_name"SettlerMetaTxn
-if (( $chainid != 81457 )) ; then # sourcify doesn't support Blast
+if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
     forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$metatx_settler" "$chain_display_name"SettlerMetaTxn
 fi
 
