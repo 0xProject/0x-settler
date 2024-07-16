@@ -245,7 +245,7 @@
   "bnb": {
     "chainId": 56,
     "displayName": "Bnb",
-    "isLondon": false,
+    "isLondon": true,
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
@@ -323,7 +323,7 @@
   "linea": {
     "chainId": 59144,
     "displayName": "Linea",
-    "isLondon": true,
+    "isLondon": false,
     "isCancun": false,
     "extraFlags": "",
     "safe": {
