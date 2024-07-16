@@ -16,6 +16,7 @@ Master list of UniV3 forks:
 
 ---
 
+* Update Velodrome Slipstream factory address (and inithash) to migrated one
 
 ## 2024-07-15
 
