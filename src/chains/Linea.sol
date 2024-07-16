@@ -22,6 +22,12 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
+import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
+import {
+    lynexFactory,
+    lynexInitHash,
+    lynexForkId
+} from "../core/univ3forks/Lynex.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -57,6 +63,10 @@ abstract contract LineaMixin is FreeMemory, SettlerBase {
             factory = sushiswapV3Factory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == lynexForkId) {
+            factory = lynexFactory;
+            initHash = lynexInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
