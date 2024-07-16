@@ -21,6 +21,7 @@ library SafeConfig {
                 || block.chainid == 8453 // base
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
+                || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
                 || block.chainid == 534352 // scroll
         ) {
@@ -40,6 +41,7 @@ library SafeConfig {
                 || block.chainid == 8453 // base
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
+                || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
                 || block.chainid == 84532 // base sepolia
                 || block.chainid == 421614 // arbitrum sepolia
