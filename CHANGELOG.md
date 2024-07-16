@@ -16,6 +16,7 @@ Master list of UniV3 forks:
 
 ---
 
+* Deployed Settler to Linea
 * Update Velodrome Slipstream factory address (and inithash) to migrated one
 
 ## 2024-07-15
