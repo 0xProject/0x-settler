@@ -176,7 +176,7 @@ declare -r safe_url
 
 if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
     declare signature_file
-    signature_file="$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short HEAD)"_"$(tr '[:lower:]' '[:uppser:]' <<<"$signer")".txt
+    signature_file="$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short HEAD)"_"$(tr '[:lower:]' '[:upper:]' <<<"$signer")".txt
     declare -r signature_file
     echo "$signature" >"$signature_file"
     echo "Signature saved to '$signature_file'" >&2
