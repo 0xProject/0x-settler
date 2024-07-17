@@ -126,6 +126,8 @@ safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
+. "$project_root"/sh/common_safe_owner.sh
+. "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare deploy_calldata

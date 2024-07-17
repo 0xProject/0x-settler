@@ -208,6 +208,8 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     declare -r safe_address
 
     . "$project_root"/sh/common_safe.sh
+    . "$project_root"/sh/common_safe_owner.sh
+    . "$project_root"/sh/common_wallet_type.sh
 
     if [[ ${deployed_address-unset} = 'unset' ]] ; then
         declare deployed_address
