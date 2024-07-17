@@ -110,7 +110,7 @@ library Create3 {
 
     uint256 private constant _SHIM0_LONDON = 0x7f36583d54601d573d553d3d37363d34f03d816017573dfd5b5260203df35b30;
     uint48 private constant _SHIM1_LONDON = 0xff3d52593df3;
-    bytes32 private constant _SHIM_INITHASH_LONDON = 0x4181fd95643bb6bf1be20faa449de3be679a53ec38d829a0a789397a5d5d4887;
+    bytes32 private constant _SHIM_INITHASH_LONDON = 0x1774bbdc4a308eaf5967722c7a4708ea7a3097859cb8768a10611448c29981c3;
 
     function _createFromCalldata(bytes32 salt, bytes calldata initCode, uint256 value, uint256 shim0, uint48 shim1)
         private
