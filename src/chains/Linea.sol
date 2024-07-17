@@ -11,10 +11,7 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {
-    uniswapV3InitHash,
-    IUniswapV3Callback
-} from "../core/univ3forks/UniswapV3.sol";
+import {uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3Factory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {
     pancakeSwapV3Factory,
@@ -23,11 +20,7 @@ import {
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
-import {
-    lynexFactory,
-    lynexInitHash,
-    lynexForkId
-} from "../core/univ3forks/Lynex.sol";
+import {lynexFactory, lynexInitHash, lynexForkId} from "../core/univ3forks/Lynex.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
