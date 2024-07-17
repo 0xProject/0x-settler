@@ -286,30 +286,50 @@ library ERC1967UUPSProxy {
     bytes private constant _INITCODE_LONDON =
         hex"7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc_6014_60b8_600c_39_36_51_80_82_55_80_36_36_60cc_80_38_03_80_91_36_39_36_84_5a_f4_90_3b_15_18_6047_57_36_36_fd_5b_6001_7f4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143_55_7fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b_36_36_a2_6d545af43d3d93803e603757fd5bf3_602e_52_6a363d3d373d3d3d3d363d7f_36_52_6020_52_6039_6015_f3"; // forgefmt: disable-line
 
-    function _packArgs(address payable implementation, bytes memory initializer, bool isShanghai)
+    function _packArgs(address payable implementation, bytes memory initializer) private pure returns (bytes memory) {
+        return abi.encodePacked(_INITCODE, implementation, initializer);
+    }
+
+    function _packArgsLondon(address payable implementation, bytes memory initializer)
         private
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(isShanghai ? _INITCODE : _INITCODE_LONDON, implementation, initializer);
+        return abi.encodePacked(_INITCODE_LONDON, implementation, initializer);
     }
 
     function create(address implementation, bytes memory initializer) internal returns (address) {
-        return create(payable(implementation), initializer, 0, true);
+        return create(payable(implementation), initializer, 0);
     }
 
     function createLondon(address implementation, bytes memory initializer) internal returns (address) {
-        return create(payable(implementation), initializer, 0, false);
+        return createLondon(payable(implementation), initializer, 0);
     }
 
-    function create(address payable implementation, bytes memory initializer, uint256 value, bool isShanghai)
+    function create(address payable implementation, bytes memory initializer, uint256 value)
         internal
         returns (address result)
     {
         if (address(this).balance < value) {
             revert BalanceTooLow(value, address(this).balance);
         }
-        bytes memory initcode = _packArgs(implementation, initializer, isShanghai);
+        bytes memory initcode = _packArgs(implementation, initializer);
+        assembly ("memory-safe") {
+            result := create(value, add(0x20, initcode), mload(initcode))
+        }
+        if (result == address(0)) {
+            revert CreateFailed();
+        }
+    }
+
+    function createLondon(address payable implementation, bytes memory initializer, uint256 value)
+        internal
+        returns (address result)
+    {
+        if (address(this).balance < value) {
+            revert BalanceTooLow(value, address(this).balance);
+        }
+        bytes memory initcode = _packArgsLondon(implementation, initializer);
         assembly ("memory-safe") {
             result := create(value, add(0x20, initcode), mload(initcode))
         }
@@ -322,27 +342,24 @@ library ERC1967UUPSProxy {
         internal
         returns (address)
     {
-        return createDeterministic(payable(implementation), initializer, salt, 0, true);
+        return createDeterministic(payable(implementation), initializer, salt, 0);
     }
 
     function createDeterministicLondon(address implementation, bytes memory initializer, bytes32 salt)
         internal
         returns (address)
     {
-        return createDeterministic(payable(implementation), initializer, salt, 0, false);
+        return createDeterministicLondon(payable(implementation), initializer, salt, 0);
     }
 
-    function createDeterministic(
-        address payable implementation,
-        bytes memory initializer,
-        bytes32 salt,
-        uint256 value,
-        bool isShanghai
-    ) internal returns (address result) {
+    function createDeterministic(address payable implementation, bytes memory initializer, bytes32 salt, uint256 value)
+        internal
+        returns (address result)
+    {
         if (address(this).balance < value) {
             revert BalanceTooLow(value, address(this).balance);
         }
-        bytes memory initcode = _packArgs(implementation, initializer, isShanghai);
+        bytes memory initcode = _packArgs(implementation, initializer);
         assembly ("memory-safe") {
             result := create2(value, add(0x20, initcode), mload(initcode), salt)
         }
@@ -351,18 +368,46 @@ library ERC1967UUPSProxy {
         }
     }
 
-    function predict(address implementation, bytes memory initializer, bytes32 salt, address deployer, bool isShanghai)
+    function createDeterministicLondon(
+        address payable implementation,
+        bytes memory initializer,
+        bytes32 salt,
+        uint256 value
+    ) internal returns (address result) {
+        if (address(this).balance < value) {
+            revert BalanceTooLow(value, address(this).balance);
+        }
+        bytes memory initcode = _packArgsLondon(implementation, initializer);
+        assembly ("memory-safe") {
+            result := create2(value, add(0x20, initcode), mload(initcode), salt)
+        }
+        if (result == address(0)) {
+            revert Create2Failed();
+        }
+    }
+
+    function predict(address implementation, bytes memory initializer, bytes32 salt, address deployer)
         internal
         pure
         returns (address)
     {
         return AddressDerivation.deriveDeterministicContract(
-            deployer, salt, keccak256(_packArgs(payable(implementation), initializer, isShanghai))
+            deployer, salt, keccak256(_packArgs(payable(implementation), initializer))
+        );
+    }
+
+    function predictLondon(address implementation, bytes memory initializer, bytes32 salt, address deployer)
+        internal
+        pure
+        returns (address)
+    {
+        return AddressDerivation.deriveDeterministicContract(
+            deployer, salt, keccak256(_packArgsLondon(payable(implementation), initializer))
         );
     }
 
     function predict(address implementation, bytes memory initializer, bytes32 salt) internal view returns (address) {
-        return predict(implementation, initializer, salt, address(this), true);
+        return predict(implementation, initializer, salt, address(this));
     }
 
     function predictLondon(address implementation, bytes memory initializer, bytes32 salt)
@@ -370,6 +415,6 @@ library ERC1967UUPSProxy {
         view
         returns (address)
     {
-        return predict(implementation, initializer, salt, address(this), false);
+        return predictLondon(implementation, initializer, salt, address(this));
     }
 }
