@@ -187,7 +187,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     echo '' >&2
 
     declare -a gas_price_args
-    if [[ $(get_config isLondon) = 'true' ]] ; then
+    if (( chainid != 56 )) && (( chainid != 534352 )) ; then
         gas_price_args=(
             --gas-price $gas_price --priority-gas-price $gas_price
         )
