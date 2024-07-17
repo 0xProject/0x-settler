@@ -168,6 +168,19 @@ else
 fi
 declare -r signature
 
+declare safe_url
+safe_url="$(get_config safe.apiUrl)"
+declare -r safe_url
+
+if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+    declare signature_file
+    signature_file="$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short HEAD)"_"$(tr '[:lower:]' '[:uppser:]' <<<"$signer")".txt
+    declare -r signature_file
+    echo "$signature" >"$signature_file"
+    echo "Signature saved to '$signature_file'" >&2
+    exit 1
+fi
+
 declare signing_hash
 signing_hash="$(eip712_hash "$deploy_calldata" 1)"
 declare -r signing_hash
@@ -200,6 +213,6 @@ safe_multisig_transaction="$(
 declare -r safe_multisig_transaction
 
 # call the API
-curl --fail -s "$(get_config safe.apiUrl)"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+curl --fail -s "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
 
 echo 'Signature submitted' >&2
