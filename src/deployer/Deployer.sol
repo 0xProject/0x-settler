@@ -163,7 +163,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
     }
 
     function next(Feature feature) external view override returns (address) {
-        return Create3.predict(_salt(feature, _stor1().featureInfo[feature].list.lastNonce.incr()));
+        return Create3.predictLondon(_salt(feature, _stor1().featureInfo[feature].list.lastNonce.incr()));
     }
 
     function deployInfo(address instance) public view override returns (Feature feature, Nonce nonce) {
@@ -231,9 +231,9 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         (prevNonce, thisNonce) = _requireAuthorized(feature).list.push();
 
         bytes32 salt = _salt(feature, thisNonce);
-        predicted = Create3.predict(salt);
+        predicted = Create3.predictLondon(salt);
         emit Transfer(
-            prevNonce.isNull() ? address(0) : Create3.predict(_salt(feature, prevNonce)),
+            prevNonce.isNull() ? address(0) : Create3.predictLondon(_salt(feature, prevNonce)),
             predicted,
             Feature.unwrap(feature)
         );
@@ -241,7 +241,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         _stor1().deployInfo[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
 
-        if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted) {
+        if (Create3.createFromCalldataLondon(salt, initCode, msg.value) != predicted) {
             revert DeployFailed(feature, thisNonce, predicted);
         }
         if (predicted.code.length == 0) {
@@ -251,11 +251,11 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
 
     function remove(Feature feature, Nonce nonce) public override returns (bool) {
         (Nonce newHead, bool updatedHead) = _requireAuthorized(feature).list.remove(nonce);
-        address deployment = Create3.predict(_salt(feature, nonce));
+        address deployment = Create3.predictLondon(_salt(feature, nonce));
         if (updatedHead) {
             emit Transfer(
                 deployment,
-                newHead.isNull() ? address(0) : Create3.predict(_salt(feature, newHead)),
+                newHead.isNull() ? address(0) : Create3.predictLondon(_salt(feature, newHead)),
                 Feature.unwrap(feature)
             );
         }
@@ -271,7 +271,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
     function removeAll(Feature feature) external override returns (bool) {
         Nonce nonce = _requireAuthorized(feature).list.clear();
         if (!nonce.isNull()) {
-            emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), Feature.unwrap(feature));
+            emit Transfer(Create3.predictLondon(_salt(feature, nonce)), address(0), Feature.unwrap(feature));
         }
         emit RemovedAll(feature);
         return true;
@@ -318,7 +318,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
 
     function ownerOf(uint256 tokenId) external view override returns (address) {
         Feature feature = wrap(tokenId);
-        return Create3.predict(_salt(feature, _requireTokenExists(feature)));
+        return Create3.predictLondon(_salt(feature, _requireTokenExists(feature)));
     }
 
     modifier tokenExists(uint256 tokenId) {
