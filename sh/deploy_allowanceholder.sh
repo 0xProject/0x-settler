@@ -143,7 +143,9 @@ export FOUNDRY_OPTIMIZER_RUNS=1000000
 
 forge clean
 forge create --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
+    forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+fi
 
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
