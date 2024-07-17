@@ -11,17 +11,9 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {
-    uniswapV3InitHash,
-    IUniswapV3Callback
-} from "../core/univ3forks/UniswapV3.sol";
+import {uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3ScrollFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
-import {
-    zebraV3Factory,
-    zebraV3InitHash,
-    zebraV3ForkId,
-    IZebraV3SwapCallback
-} from "../core/univ3forks/ZebraV3.sol";
+import {zebraV3Factory, zebraV3InitHash, zebraV3ForkId, IZebraV3SwapCallback} from "../core/univ3forks/ZebraV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";

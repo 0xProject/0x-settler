@@ -25,7 +25,7 @@ import {AddressDerivation} from "./AddressDerivation.sol";
 | /---< | 04 | 601d | push1 0x1d   | [target initialized 1 cds]   | {}
 | |     | 06 | 57   | jumpi        | [1 cds]                      | {}
 | |     | 07 | 5f   | push0        | [0 1 cds]                    | {}
-| |     | 08 | 55   | sstore       [ [cds]                        | {}
+| |     | 08 | 55   | sstore       | [cds]                        | {}
 | |     | 09 | 5f   | push0        | [0 cds]                      | {}
 | |     | 0a | 5f   | push0        | [0 0 cds]                    | {}
 | |     | 0b | 37   | calldatacopy | []                           | {initCode}

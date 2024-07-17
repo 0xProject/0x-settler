@@ -286,7 +286,11 @@ library ERC1967UUPSProxy {
     bytes private constant _INITCODE_LONDON =
         hex"7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc_6014_60b8_600c_39_36_51_80_82_55_80_36_36_60cc_80_38_03_80_91_36_39_36_84_5a_f4_90_3b_15_18_6047_57_36_36_fd_5b_6001_7f4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143_55_7fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b_36_36_a2_6d545af43d3d93803e603757fd5bf3_602e_52_6a363d3d373d3d3d3d363d7f_36_52_6020_52_6039_6015_f3"; // forgefmt: disable-line
 
-    function _packArgs(address payable implementation, bytes memory initializer, bool isShanghai) private pure returns (bytes memory) {
+    function _packArgs(address payable implementation, bytes memory initializer, bool isShanghai)
+        private
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(isShanghai ? _INITCODE : _INITCODE_LONDON, implementation, initializer);
     }
 
@@ -328,10 +332,13 @@ library ERC1967UUPSProxy {
         return createDeterministic(payable(implementation), initializer, salt, 0, false);
     }
 
-    function createDeterministic(address payable implementation, bytes memory initializer, bytes32 salt, uint256 value, bool isShanghai)
-        internal
-        returns (address result)
-    {
+    function createDeterministic(
+        address payable implementation,
+        bytes memory initializer,
+        bytes32 salt,
+        uint256 value,
+        bool isShanghai
+    ) internal returns (address result) {
         if (address(this).balance < value) {
             revert BalanceTooLow(value, address(this).balance);
         }
@@ -358,7 +365,11 @@ library ERC1967UUPSProxy {
         return predict(implementation, initializer, salt, address(this), true);
     }
 
-    function predictLondon(address implementation, bytes memory initializer, bytes32 salt) internal view returns (address) {
+    function predictLondon(address implementation, bytes memory initializer, bytes32 salt)
+        internal
+        view
+        returns (address)
+    {
         return predict(implementation, initializer, salt, address(this), false);
     }
 }
