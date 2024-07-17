@@ -142,11 +142,11 @@ declare -r -i gas_price
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
 forge clean
-forge create --private-key "$(get_secret allowanceHolderOld key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
-forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolderOld address)" src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+forge create --private-key "$(get_secret allowanceHolderLondon key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolderLondon address)" src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
 echo '"deployment": {' >&2
-echo '	"allowanceHolder": "'"$(get_secret allowanceHolderOld address)"'"' >&2
+echo '	"allowanceHolder": "'"$(get_secret allowanceHolderLondon address)"'"' >&2
 echo '}' >&2
