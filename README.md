@@ -1039,7 +1039,9 @@ like deploying a new `Settler`. `0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30`
 address on all chains unless somebody screwed up the vanity addresses and didn't
 update this document. On Linea, the address of the pauser contract is
 `0x2F01FA51F49526da65E70A60EFDDD8e12077D120` because whoever did their EVM
-compatibility documentation documented the opposite of the truth 🤬.
+compatibility documentation documented the opposite of the truth 🤬. When Linea
+adopts the Shanghai hardfork (`PUSH0`), remove the preceeding sentence from this
+document.
 
 0. Go to that address on the relevant block explorer.
 
