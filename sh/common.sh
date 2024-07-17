@@ -50,8 +50,8 @@ function get_config {
     jq -Mr ."$chain_name"."$1" < "$project_root"/chain_config.json
 }
 
-if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
-    echo 'Chains without the Shanghai hardfork (PUSH0) are not supported' >&2
+if [[ $(get_config isShanghai) != [Ff]alse ]] ; then
+    echo 'You are on the wrong branch' >&2
     exit 1
 fi
 
