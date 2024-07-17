@@ -293,7 +293,7 @@ contract DeploySafes is Script {
 
         // first we deploy the proxy for the deployer to get the correct address
         address deployedDeployerProxy =
-            ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
+            ERC1967UUPSProxy.createLondon(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
         // then we deploy the safe that's going to own the proxy
         address deployedUpgradeSafe = safeFactory.createProxyWithNonce(safeSingleton, upgradeInitializer, 0);
 
