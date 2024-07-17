@@ -256,8 +256,11 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         bool isForwarded
-    ) private pure {
+    ) private view {
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
             mstore(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(add(0x20, mload(permit))))
             mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20), swapCallbackData), add(0x20, permit), 0x40)
             mstore8(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData), isForwarded)

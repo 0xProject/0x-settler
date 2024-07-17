@@ -5,13 +5,12 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
-import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "../IERC20.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -35,7 +34,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -50,14 +49,11 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == ISettlerActions.MAKERPSM.selector) {
-            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm, bool buyGem) =
-                abi.decode(data, (address, IERC20Meta, uint256, IPSM, bool));
-
-            sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
+            revert("unimplemented");
         } else {
             return false;
         }
-        return true;
+        return true; // this is unreachable due to non-Cancun-related refactors
     }
 
     function _uniV3ForkInfo(uint8 forkId)

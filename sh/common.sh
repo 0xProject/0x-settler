@@ -55,7 +55,7 @@ if [[ $(get_config isLondon) != [Tt]rue ]] ; then
     exit 1
 fi
 
-if [[ $(get_config isCancun) != [Tt]rue ]] ; then
+if [[ $(get_config isCancun) != [Ff]alse ]] ; then
     echo 'You are on the wrong branch' >&2
     exit 1
 fi
