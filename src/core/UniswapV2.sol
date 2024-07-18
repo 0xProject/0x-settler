@@ -8,8 +8,11 @@ import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniV2Pair {
     function token0() external view returns (address);
+
     function token1() external view returns (address);
+
     function getReserves() external view returns (uint112, uint112, uint32);
+
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
@@ -138,7 +141,7 @@ abstract contract UniswapV2 {
         }
         if (buyAmount < minBuyAmount) {
             revert TooMuchSlippage(
-                IERC20(zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0()), minBuyAmount, sellAmount
+                IERC20(zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0()), minBuyAmount, buyAmount
             );
         }
     }
