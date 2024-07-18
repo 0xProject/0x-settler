@@ -107,42 +107,51 @@ library Create3 {
     uint8 private constant _SHIM1_LENGTH = 0x06;
     uint8 private constant _SHIM_LENGTH = 0x26;
     bytes32 private constant _SHIM_INITHASH = 0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f;
+    bytes32 private constant _SHIM_RUNTIME_HASH = 0xa9549013530fb1542c6fac59b531052d9fd0c0433910571c379618caa172f2cb;
 
     uint256 private constant _SHIM0_LONDON = 0x7f36583d54601d573d553d3d37363d34f03d816017573dfd5b5260203df35b30;
     uint48 private constant _SHIM1_LONDON = 0xff3d52593df3;
-    bytes32 private constant _SHIM_INITHASH_LONDON = 0x4181fd95643bb6bf1be20faa449de3be679a53ec38d829a0a789397a5d5d4887;
+    bytes32 private constant _SHIM_INITHASH_LONDON = 0x1774bbdc4a308eaf5967722c7a4708ea7a3097859cb8768a10611448c29981c3;
+    bytes32 private constant _SHIM_RUNTIME_HASH_LONDON =
+        0x4181fd95643bb6bf1be20faa449de3be679a53ec38d829a0a789397a5d5d4887;
 
-    function _createFromCalldata(bytes32 salt, bytes calldata initCode, uint256 value, uint256 shim0, uint48 shim1)
-        private
-        returns (address deployed)
-    {
+    function _createFromCalldata(
+        bytes32 salt,
+        bytes calldata initCode,
+        uint256 value,
+        uint256 shim0,
+        uint48 shim1,
+        bytes32 shimRuntimeHash
+    ) private returns (address deployed) {
+        address shim;
         assembly ("memory-safe") {
             mstore(_SHIM1_LENGTH, shim1)
             mstore(0x00, shim0)
-            let shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
+            shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
             if iszero(shim) { revert(0x00, 0x00) }
+            if iszero(eq(extcodehash(shim), shimRuntimeHash)) { revert(0x00, 0x00) }
             let ptr := mload(0x40)
             calldatacopy(ptr, initCode.offset, initCode.length)
             if iszero(call(gas(), shim, value, ptr, initCode.length, 0x00, 0x20)) { revert(0x00, 0x00) }
             deployed := mload(0x00)
 
-            // This causes the shim to selfdestruct. On some chains, selfdestruct reverts, consuming
-            // all available gas. We swallow this revert with `pop` and the 51k gas limit gives a
-            // 10x multiplier over the expected gas consumption of this call without being *too*
-            // wasteful when `SELFDESTRUCT` is unimplemented.
+            // This causes the shim to selfdestruct. On some chains, `SELFDESTRUCT` reverts,
+            // consuming all available gas. We swallow this revert with `pop` and the 51k gas limit
+            // gives a 10x multiplier over the expected gas consumption of this call without being
+            // *too* wasteful when `SELFDESTRUCT` is unimplemented.
             pop(call(51220, shim, 0x00, 0x00, 0x00, 0x00, 0x00))
         }
     }
 
     function createFromCalldata(bytes32 salt, bytes calldata initCode, uint256 value) internal returns (address) {
-        return _createFromCalldata(salt, initCode, value, _SHIM0, _SHIM1);
+        return _createFromCalldata(salt, initCode, value, _SHIM0, _SHIM1, _SHIM_RUNTIME_HASH);
     }
 
     function createFromCalldataLondon(bytes32 salt, bytes calldata initCode, uint256 value)
         internal
         returns (address)
     {
-        return _createFromCalldata(salt, initCode, value, _SHIM0_LONDON, _SHIM1_LONDON);
+        return _createFromCalldata(salt, initCode, value, _SHIM0_LONDON, _SHIM1_LONDON, _SHIM_RUNTIME_HASH_LONDON);
     }
 
     function createFromCalldata(bytes32 salt, bytes calldata initCode) internal returns (address) {
@@ -153,27 +162,38 @@ library Create3 {
         return createFromCalldataLondon(salt, initCode, 0);
     }
 
-    function _createFromMemory(bytes32 salt, bytes memory initCode, uint256 value, uint256 shim0, uint48 shim1)
-        private
-        returns (address deployed)
-    {
+    function _createFromMemory(
+        bytes32 salt,
+        bytes memory initCode,
+        uint256 value,
+        uint256 shim0,
+        uint48 shim1,
+        bytes32 shimRuntimeHash
+    ) private returns (address deployed) {
+        address shim;
         assembly ("memory-safe") {
             mstore(_SHIM1_LENGTH, shim1)
             mstore(0x00, shim0)
-            let shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
+            shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
             if iszero(shim) { revert(0x00, 0x00) }
+            if iszero(eq(extcodehash(shim), shimRuntimeHash)) { revert(0x00, 0x00) }
             if iszero(call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)) { revert(0x00, 0x00) }
             deployed := mload(0x00)
-            pop(call(gas(), shim, 0x00, 0x00, 0x00, 0x00, 0x00))
+
+            // This causes the shim to selfdestruct. On some chains, `SELFDESTRUCT` reverts,
+            // consuming all available gas. We swallow this revert with `pop` and the 51k gas limit
+            // gives a 10x multiplier over the expected gas consumption of this call without being
+            // *too* wasteful when `SELFDESTRUCT` is unimplemented.
+            pop(call(51220, shim, 0x00, 0x00, 0x00, 0x00, 0x00))
         }
     }
 
     function createFromMemory(bytes32 salt, bytes memory initCode, uint256 value) internal returns (address) {
-        return _createFromMemory(salt, initCode, value, _SHIM0, _SHIM1);
+        return _createFromMemory(salt, initCode, value, _SHIM0, _SHIM1, _SHIM_RUNTIME_HASH);
     }
 
     function createFromMemoryLondon(bytes32 salt, bytes memory initCode, uint256 value) internal returns (address) {
-        return _createFromMemory(salt, initCode, value, _SHIM0_LONDON, _SHIM1_LONDON);
+        return _createFromMemory(salt, initCode, value, _SHIM0_LONDON, _SHIM1_LONDON, _SHIM_RUNTIME_HASH_LONDON);
     }
 
     function createFromMemory(bytes32 salt, bytes memory initCode) internal returns (address) {
