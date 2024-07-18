@@ -124,6 +124,7 @@ library Create3 {
             mstore(0x00, shim0)
             shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
             if iszero(shim) { revert(0x00, 0x00) }
+            if iszero(eq(extcodehash(shim), shimRuntimeHash)) { revert(0x00, 0x00) }
             let ptr := mload(0x40)
             calldatacopy(ptr, initCode.offset, initCode.length)
             if iszero(call(gas(), shim, value, ptr, initCode.length, 0x00, 0x20)) { revert(0x00, 0x00) }
@@ -134,10 +135,6 @@ library Create3 {
             // gives a 10x multiplier over the expected gas consumption of this call without being
             // *too* wasteful when `SELFDESTRUCT` is unimplemented.
             pop(call(51220, shim, 0x00, 0x00, 0x00, 0x00, 0x00))
-        }
-
-        if (shim.codehash != shimRuntimeHash) {
-            revert();
         }
     }
 
@@ -170,6 +167,7 @@ library Create3 {
             mstore(0x00, shim0)
             shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
             if iszero(shim) { revert(0x00, 0x00) }
+            if iszero(eq(extcodehash(shim), shimRuntimeHash)) { revert(0x00, 0x00) }
             if iszero(call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)) { revert(0x00, 0x00) }
             deployed := mload(0x00)
 
@@ -178,10 +176,6 @@ library Create3 {
             // gives a 10x multiplier over the expected gas consumption of this call without being
             // *too* wasteful when `SELFDESTRUCT` is unimplemented.
             pop(call(51220, shim, 0x00, 0x00, 0x00, 0x00, 0x00))
-        }
-
-        if (shim.codehash != shimRuntimeHash) {
-            revert();
         }
     }
 
