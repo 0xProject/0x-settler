@@ -1095,15 +1095,32 @@ Populate `api_secrets.json` by copying
 [`api_secrets.json.template`](api_secrets.json.template) and adding your own
 block explorer API key and RPC.
 
-You need 2 signers to do this. Run
-[`./sh/confirm_new_settler.sh`](sh/confirm_new_settler.sh). Following the
-prompts, this will sign the Safe transaction required to submit the
-deployment. Once two signers have run this script, the transaction will appear
-in the [Safe dApp](https://app.safe.global/) as a pending transaction. Anybody
-can pay the gas to execute this, but probably whoever holds
-`deployer.zeroexprotocol.eth` will do it (presently Duncan).
+You need 2 signers to do this. Each signer needs to run
+[`./sh/confirm_new_settler.sh
+<CHAIN_NAME>`](sh/confirm_new_settler.sh). Following the prompts, this will sign
+the Safe transaction required to submit the deployment. Once two signers have
+run this script, the transaction will appear in the [Safe
+dApp](https://app.safe.global/) as a pending transaction. Anybody can pay the
+gas to execute this, but probably whoever holds `deployer.zeroexprotocol.eth`
+will do it (presently Duncan).
 
-Now you need to run [`./sh/verify_settler.sh`](sh/verify_settler.sh). This will
+On some chains, the [Safe Transaction
+Service](https://docs.safe.global/core-api/transaction-service-overview) doesn't
+exist. On these chains, instead of uploading the signature to be viewed in the
+Safe dApp, `confirm_new_settler.sh` will save a `*.txt` file containing a hex
+encoded 65-byte signature. This file needs to be sent verbatim (with filename
+intact) to whomever will be doing transaction submission (again,
+`deployer.zeroexprotocol.eth` -- presently Duncan). Then the person doing
+transaction submission places _both_ `*.txt` files in the root of this
+repository and runs [`./sh/deploy_new_settler.sh
+<CHAIN_NAME>`](sh/deploy_new_settler.sh). This interacts with the Safe contracts
+directly without going through the Safe dApp. The downside of this approach is
+the lack of the extremely helpful [Tenderly](https://dashboard.tenderly.co/)
+integration that helps review the transaction before submission. Of course, it's
+possible to do similar simulations with Foundry, but the UX is much worse.
+
+Now that the contract is deployed on-chain you need to run
+[`./sh/verify_settler.sh <CHAIN_NAME>`](sh/verify_settler.sh). This will
 (attempt to) verify Settler on both the Etherscan for the chain and
 [Sourcify](https://sourcify.dev/). If this fails, it's probably because Foundry
 sucks. Try deploying the contracts in the normal way (without going through the
