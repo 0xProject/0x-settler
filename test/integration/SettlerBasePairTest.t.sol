@@ -35,7 +35,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
 
     function setUp() public virtual override {
         super.setUp();
-        allowanceHolder = IAllowanceHolder(0x0000000000005E88410CcDFaDe4a5EfaE4b49562);
+        allowanceHolder = IAllowanceHolder(0x000000000000175a8b9bC6d539B3708EEd92EA6c);
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
