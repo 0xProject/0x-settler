@@ -154,7 +154,7 @@ if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
     done
     set -f
 
-    if [[ "${#signatures[@]}" != '2' ]] ; then
+    if (( ${#signatures[@]} != 2 )) ; then
         echo 'Bad number of signatures' >&2
         exit 1
     fi
