@@ -12,8 +12,17 @@ Master list of UniV3 forks:
   9. Thruster
   10. BladeSwap (Algebra-like)
   11. Fenix (Algebra-like)
+  12. ZebraV3
+  13. Lynex (Algebra-like)
 
 ---
+
+## 2024-07-18
+
+* Deployed Settler to Linea
+* Added Lynex Algebra-style UniV3 fork to Linea
+* Update Velodrome Slipstream factory address (and inithash) to migrated one
+* Bug! Fixed wrong slippage actual value in `UNISWAPV2` action
 
 ## 2024-07-15
 
@@ -21,6 +30,8 @@ Master list of UniV3 forks:
 * Added Thruster UniV3 fork to Blast
 * Added BladeSwap Algebra-style UniV3 fork to Blast
 * Added Fenix Algebra-style UniV3 fork to Blast
+* Deployed Settler to Scroll
+* Added ZebraV3 UniV3 fork to Scroll
 * Added SolidlyV3 UniV3 fork to Base
 * Added SwapBasedV3 UniV3 fork to Base
 * Added support for `DODOV1` action to all chains

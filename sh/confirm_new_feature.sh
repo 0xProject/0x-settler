@@ -126,6 +126,8 @@ safe_address="$(get_config governance.upgradeSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
+. "$project_root"/sh/common_safe_owner.sh
+. "$project_root"/sh/common_wallet_type.sh
 
 declare -r -i feature="$1"
 shift

@@ -187,7 +187,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     echo '' >&2
 
     declare -a gas_price_args
-    if [[ $(get_config isLondon) = 'true' ]] ; then
+    if (( chainid != 56 )) && (( chainid != 534352 )) ; then
         gas_price_args=(
             --gas-price $gas_price --priority-gas-price $gas_price
         )
@@ -208,6 +208,8 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     declare -r safe_address
 
     . "$project_root"/sh/common_safe.sh
+    . "$project_root"/sh/common_safe_owner.sh
+    . "$project_root"/sh/common_wallet_type.sh
 
     if [[ ${deployed_address-unset} = 'unset' ]] ; then
         declare deployed_address

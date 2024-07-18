@@ -126,6 +126,12 @@ safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
+
+declare signer
+IFS='' read -p 'What address will you submit with?: ' -e -r signer
+declare -r signer
+
+. "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare deploy_calldata
@@ -136,39 +142,45 @@ declare signing_hash
 signing_hash="$(eip712_hash "$deploy_calldata" 1)"
 declare -r signing_hash
 
-declare signatures
-signatures="$(curl --fail -s "$(get_config safe.apiUrl)"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
-declare -r signatures
+declare safe_url
+safe_url="$(get_config safe.apiUrl)"
+declare -r safe_url
 
-if (( $(jq -Mr .count <<<"$signatures") != 1 )) ; then
-    echo 'Bad number of signatures' >&2
-    exit 1
+declare -a signatures=()
+if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+    set +f
+    for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short HEAD)"_*.txt ; do
+        signatures+=("$(<"$confirmation")")
+    done
+    set -f
+
+    if (( ${#signatures[@]} != 2 )) ; then
+        echo 'Bad number of signatures' >&2
+        exit 1
+    fi
+else
+    declare signatures_json
+    signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
+    declare -r signatures_json
+
+    if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
+        echo 'Bad number of signatures' >&2
+        exit 1
+    fi
+
+    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:lower:]' '[:upper:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:lower:]' '[:upper:]')" ] ; then
+        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
+        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
+    else
+        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
+        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
+    fi
 fi
-
-declare other_signer
-other_signer="$(jq -Mr '.results[0].owner' <<<"$signatures")"
-declare -r other_signer
-declare other_signature
-other_signature="$(jq -Mr '.results[0].signature' <<<"$signatures")"
-declare -r other_signature
-
-declare signer_lower
-signer_lower="$(tr '[:upper:]' '[:lower:]' <<<"$signer")"
-declare -r signer_lower
-declare other_signer_lower
-other_signer_lower="$(tr '[:upper:]' '[:lower:]' <<<"$other_signer")"
-declare -r other_signer_lower
-
-declare signature
-signature="$(cast concat-hex "$(cast to-uint256 "$signer")" "$(cast hash-zero)" 0x01)"
-declare -r signature
+declare -r -a signatures
 
 declare packed_signatures
-if [ "$other_signer_lower" \< "$signer_lower" ] ; then
-    packed_signatures="$(cast concat-hex "$other_signature" "$signature")"
-else
-    packed_signatures="$(cast concat-hex "$signature" "$other_signature")"
-fi
+packed_signatures="$(cast concat-hex "${signatures[@]}")"
+declare -r packed_signatures
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
