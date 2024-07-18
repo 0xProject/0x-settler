@@ -1167,8 +1167,8 @@ testnet. Simulate each individual transaction in
 [Tenderly](https://dashboard.tenderly.co/).
 
 Finally, run `BROADCAST=yes ./sh/deploy_new_chain.sh <CHAIN_NAME>`. Cross your
-fingers. If something goes wrong (most commonly, the second-to-last transaction
-runs out of gas; this is only a minor problem), you'll need to edit either
+fingers. If something goes wrong (most commonly, the last transaction runs out
+of gas; this is only a minor problem), you'll need to edit either
 `sh/deploy_new_chain.sh` or
 [`script/DeploySafes.s.sol`](script/DeploySafes.s.sol) to skip the parts of the
 deployment you've already done. Tweak `gasMultiplierPercent` and
