@@ -172,7 +172,12 @@ library Create3 {
             if iszero(shim) { revert(0x00, 0x00) }
             if iszero(call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)) { revert(0x00, 0x00) }
             deployed := mload(0x00)
-            pop(call(gas(), shim, 0x00, 0x00, 0x00, 0x00, 0x00))
+
+            // This causes the shim to selfdestruct. On some chains, `SELFDESTRUCT` reverts,
+            // consuming all available gas. We swallow this revert with `pop` and the 51k gas limit
+            // gives a 10x multiplier over the expected gas consumption of this call without being
+            // *too* wasteful when `SELFDESTRUCT` is unimplemented.
+            pop(call(51220, shim, 0x00, 0x00, 0x00, 0x00, 0x00))
         }
 
         if (shim.codehash != shimRuntimeHash) {
