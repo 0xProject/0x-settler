@@ -17,6 +17,7 @@ Master list of UniV3 forks:
 ---
 
 * Update Velodrome Slipstream factory address (and inithash) to migrated one
+* Bug! Fixed wrong slippage actual value in `UNISWAPV2` action
 
 ## 2024-07-15
 
