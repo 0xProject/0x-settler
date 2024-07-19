@@ -215,7 +215,7 @@ pragma solidity ^0.8.25;
 | |     90 | 6d | runtime1 | PUSH14 | [runtime1 implSlot]                                    | {init}
 | |     9f | 60 | 2e | PUSH1        | [2e runtime1 implSlot]                                 | {init}
 | |     a0 | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime1}
-| |     a1 | 6a | runtime0 | PUSH11  | [runtime0 implSlot]                                    | {.. runtime1}
+| |     a1 | 6a | runtime0 | PUSH11 | [runtime0 implSlot]                                    | {.. runtime1}
 | |     ad | 36 |    | CALLDATASIZE | [0 runtime0 implSlot]                                  | {.. runtime1}
 | |     af | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime0 .. runtime1}
 | |     b0 | 60 | 20 | PUSH1        | [20 implSlot]                                          | {.. runtime0 .. runtime1}
