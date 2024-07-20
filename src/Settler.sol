@@ -21,10 +21,10 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     using CalldataDecoder for bytes[];
 
     constructor() {
-        assert(
-            block.chainid == 31337
-                || IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(2) == address(this)
-        );
+        if (block.chainid != 31337) {
+            assert(msg.sender == 0x00000000000004533Fe15556B1E086BB1A72cEae);
+            assert(IERC721Owner(msg.sender).ownerOf(2) == address(this));
+        }
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {

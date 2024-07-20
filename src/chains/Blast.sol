@@ -22,14 +22,28 @@ import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {bladeSwapFactory, bladeSwapInitHash, bladeSwapForkId} from "../core/univ3forks/BladeSwap.sol";
 import {fenixFactory, fenixInitHash, fenixForkId} from "../core/univ3forks/Fenix.sol";
 
+import {IOwnable} from "../deployer/TwoStepOwnable.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
+import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
+
+interface IBlast {
+    function configureClaimableGas() external;
+    function configureGovernor(address governor) external;
+}
 
 abstract contract BlastMixin is FreeMemory, SettlerBase {
+    IBlast internal constant _BLAST = IBlast(0x4300000000000000000000000000000000000002);
+
     constructor() {
-        assert(block.chainid == 81457 || block.chainid == 31337);
+        if (block.chainid != 31337) {
+            assert(block.chainid == 81457);
+            _BLAST.configureClaimableGas();
+            _BLAST.configureGovernor(IOwnable(msg.sender).owner());
+        }
     }
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
@@ -78,16 +92,16 @@ contract BlastSettler is Settler, BlastMixin {
         return super._dispatchVIP(action, data);
     }
 
-    // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
         pure
         override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {
-        return super._isRestrictedTarget(target);
+        return target == address(_BLAST) || super._isRestrictedTarget(target);
     }
 
+    // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, BlastMixin)
@@ -112,6 +126,15 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        override(Permit2PaymentAbstract, Permit2PaymentBase)
+        returns (bool)
+    {
+        return target == address(_BLAST) || super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid
