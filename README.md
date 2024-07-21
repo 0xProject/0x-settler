@@ -1050,10 +1050,10 @@ like deploying a new `Settler`. `0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30`
 (ice cold coffees) is the address of the pauser contract. It's at the same
 address on all chains unless somebody screwed up the vanity addresses and didn't
 update this document. On Linea, the address of the pauser contract is
-`0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c` because whoever did their EVM
-compatibility documentation documented the opposite of the truth 🤬. When Linea
-adopts the Shanghai hardfork (`PUSH0`), remove the preceeding sentence from this
-document.
+`0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c` because the code deployed to the
+usual address relies on `PUSH0`, which is not supported on that chain. When
+Linea adopts the Shanghai hardfork (`PUSH0`), remove the preceeding sentence
+from this document.
 
 0. Go to that address on the relevant block explorer.
 
