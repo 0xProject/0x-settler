@@ -35,13 +35,26 @@ interface IBlast {
     function configureGovernor(address governor) external;
 }
 
+interface IBlastYieldERC20 {
+    enum YieldMode {
+        AUTOMATIC,
+        VOID,
+        CLAIMABLE
+    }
+    function configure(YieldMode) external returns (uint256);
+}
+
 abstract contract BlastMixin is FreeMemory, SettlerBase {
     IBlast internal constant _BLAST = IBlast(0x4300000000000000000000000000000000000002);
+    IBlastYieldERC20 internal constant _USDB = IBlastYieldERC20(0x4300000000000000000000000000000000000003);
+    IBlastYieldERC20 internal constant _WETH = IBlastYieldERC20(0x4300000000000000000000000000000000000004);
 
     constructor() {
         if (block.chainid != 31337) {
             assert(block.chainid == 81457);
             _BLAST.configureClaimableGas();
+            _USDB.configure(IBlastYieldERC20.YieldMode.VOID);
+            _WETH.configure(IBlastYieldERC20.YieldMode.VOID);
             _BLAST.configureGovernor(IOwnable(msg.sender).owner());
         }
     }
