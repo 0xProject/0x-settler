@@ -22,12 +22,15 @@ building or signing a transaction, metatransaction, or order.
 
 ### Why is Settler not verified on [Arbiscan](https://arbiscan.io/)?
 
-[Arbiscan sucks](https://twitter.com/duncancmt/status/1775893476342964464);
-Settler will not verify there. Arbitrum supports the opcodes from the Ethereum
-Cancun hardfork, but if you compile a contract for Cancun, Arbiscan will reject
-it for verification because it doesn't know that "Cancun" is a valid hardfork
-level for Arbitrum. The Arbitrum Settler (and all other Settlers) should be
-verified on [sourcify.eth](https://sourcify.dev/).
+[Arbiscan has an
+issue](https://twitter.com/duncancmt/status/1775893476342964464). It has been
+reported to Arbiscan/Arbitrum, but as of the last update to this document, it
+has not been debugged or resolved. Settler will not verify on Arbiscan. Arbitrum
+supports the opcodes from the Ethereum Cancun hardfork, but if you compile a
+contract for Cancun, Arbiscan will reject it for verification because it doesn't
+know that "Cancun" is a valid hardfork level for Arbitrum. The Arbitrum Settler
+(and all other Settlers) should be verified on
+[sourcify.eth](https://sourcify.dev/).
 
 ### Examples
 
@@ -1114,11 +1117,13 @@ can pay the gas to execute this, but probably whoever holds
 
 Now you need to run [`./sh/verify_settler.sh`](sh/verify_settler.sh). This will
 (attempt to) verify Settler on both the Etherscan for the chain and
-[Sourcify](https://sourcify.dev/). If this fails, it's probably because Foundry
-sucks. Try deploying the contracts in the normal way (without going through the
-2 signer ceremony above) to a testnet and verifying them there to make sure this
-doesn't happen. [Arbiscan
-sucks](https://twitter.com/duncancmt/status/1775893476342964464); Settler will
+[Sourcify](https://sourcify.dev/). If this fails, it's probably because
+[Foundry's source verification is
+flaky](https://github.com/foundry-rs/foundry/issues/8470). Try deploying the
+contracts in the normal way (without going through the 2 signer ceremony above)
+to a testnet and verifying them there to make sure this doesn't
+happen. [Arbiscan
+has an issue](https://twitter.com/duncancmt/status/1775893476342964464); Settler will
 not verify there (but the Arbitrum Settler should verify on Sourcify).
 
 ## How to deploy to a new chain
