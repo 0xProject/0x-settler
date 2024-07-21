@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20, IERC20Meta} from "./IERC20.sol";
+import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Basic} from "./core/Basic.sol";
@@ -56,9 +57,13 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
     // When you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
-    constructor(bytes20 gitCommit) {
-        assert((gitCommit == bytes20(0)) == (block.chainid == 31337));
-        emit GitCommit(gitCommit);
+    constructor(bytes20 gitCommit, uint256 tokenId) {
+        if (block.chainid != 31337) {
+            emit GitCommit(gitCommit);
+            assert(IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(tokenId) == address(this));
+        } else {
+            assert(gitCommit == bytes20(0));
+        }
     }
 
     struct AllowedSlippage {

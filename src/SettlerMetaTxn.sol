@@ -2,7 +2,6 @@
 pragma solidity ^0.8.25;
 
 import {IERC20, IERC20Meta} from "./IERC20.sol";
-import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
@@ -18,12 +17,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    constructor() {
-        if (block.chainid != 31337) {
-            assert(msg.sender == 0x00000000000004533Fe15556B1E086BB1A72cEae);
-            assert(IERC721Owner(msg.sender).ownerOf(3) == address(this));
-        }
-    }
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit, 3) {}
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
