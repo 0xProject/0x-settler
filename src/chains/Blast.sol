@@ -45,9 +45,9 @@ interface IBlastYieldERC20 {
 }
 
 abstract contract BlastMixin is FreeMemory, SettlerBase {
-    IBlast internal constant _BLAST = IBlast(0x4300000000000000000000000000000000000002);
-    IBlastYieldERC20 internal constant _USDB = IBlastYieldERC20(0x4300000000000000000000000000000000000003);
-    IBlastYieldERC20 internal constant _WETH = IBlastYieldERC20(0x4300000000000000000000000000000000000004);
+    IBlast private constant _BLAST = IBlast(0x4300000000000000000000000000000000000002);
+    IBlastYieldERC20 private constant _USDB = IBlastYieldERC20(0x4300000000000000000000000000000000000003);
+    IBlastYieldERC20 private constant _WETH = IBlastYieldERC20(0x4300000000000000000000000000000000000004);
 
     constructor() {
         if (block.chainid != 31337) {
@@ -57,6 +57,16 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             _WETH.configure(IBlastYieldERC20.YieldMode.VOID);
             _BLAST.configureGovernor(IOwnable(msg.sender).owner());
         }
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        virtual
+        override(Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return target == address(_BLAST);
     }
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
@@ -108,10 +118,10 @@ contract BlastSettler is Settler, BlastMixin {
     function _isRestrictedTarget(address target)
         internal
         pure
-        override(Settler, Permit2PaymentAbstract)
+        override(Settler, BlastMixin)
         returns (bool)
     {
-        return target == address(_BLAST) || super._isRestrictedTarget(target);
+        return BlastMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid
@@ -144,10 +154,10 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     function _isRestrictedTarget(address target)
         internal
         pure
-        override(Permit2PaymentAbstract, Permit2PaymentBase)
+        override(Permit2PaymentBase, BlastMixin, Permit2PaymentAbstract)
         returns (bool)
     {
-        return target == address(_BLAST) || super._isRestrictedTarget(target);
+        return BlastMixin._isRestrictedTarget(target) || Permit2PaymentBase._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid
