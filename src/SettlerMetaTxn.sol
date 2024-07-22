@@ -17,6 +17,9 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
+    // When/if you change this, you must make corresponding changes to
+    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
+    // `constructor_args`.
     constructor(bytes20 gitCommit) SettlerBase(gitCommit, 3) {}
 
     function _hasMetaTxn() internal pure override returns (bool) {

@@ -54,9 +54,6 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
     event GitCommit(bytes20 indexed);
 
-    // When you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
     constructor(bytes20 gitCommit, uint256 tokenId) {
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
