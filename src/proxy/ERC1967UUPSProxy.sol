@@ -215,7 +215,7 @@ pragma solidity ^0.8.25;
 | |     90 | 6d | runtime1 | PUSH14 | [runtime1 implSlot]                                    | {init}
 | |     9f | 60 | 2e | PUSH1        | [2e runtime1 implSlot]                                 | {init}
 | |     a0 | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime1}
-| |     a1 | 6a | runtime0 | PUSH11  | [runtime0 implSlot]                                    | {.. runtime1}
+| |     a1 | 6a | runtime0 | PUSH11 | [runtime0 implSlot]                                    | {.. runtime1}
 | |     ad | 36 |    | CALLDATASIZE | [0 runtime0 implSlot]                                  | {.. runtime1}
 | |     af | 52 |    | MSTORE       | [implSlot]                                             | {.. runtime0 .. runtime1}
 | |     b0 | 60 | 20 | PUSH1        | [20 implSlot]                                          | {.. runtime0 .. runtime1}
@@ -283,8 +283,10 @@ library ERC1967UUPSProxy {
 
     bytes private constant _INITCODE =
         hex"7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc_6014_60b9_600c_39_5f_51_80_82_55_80_5f_5f_60cd_80_38_03_80_91_5f_39_5f_84_5a_f4_90_3b_15_18_6047_57_5f_5f_fd_5b_6001_7f4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143_55_7fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b_5f_5f_a2_70545af43d5f5f3e6036573d5ffd5b3d5ff3_6031_52_68365f5f375f5f365f7f_5f_52_6020_52_603a_6017_f3"; // forgefmt: disable-line
+    bytes32 private constant _RUNTIME_HASH = 0x66139d772b392067ed16463c9a9f0c57c9332f9efaa80c6732917a66143942da;
     bytes private constant _INITCODE_LONDON =
         hex"7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc_6014_60b8_600c_39_36_51_80_82_55_80_36_36_60cc_80_38_03_80_91_36_39_36_84_5a_f4_90_3b_15_18_6047_57_36_36_fd_5b_6001_7f4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143_55_7fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b_36_36_a2_6d545af43d3d93803e603757fd5bf3_602e_52_6a363d3d373d3d3d3d363d7f_36_52_6020_52_6039_6015_f3"; // forgefmt: disable-line
+    bytes32 private constant _RUNTIME_HASH_LONDON = 0xb75f746f4a7c8fda9fc450aebc30eeb95644c86bc62f492cd3fb54d83d560805;
 
     function _packArgs(address payable implementation, bytes memory initializer) private pure returns (bytes memory) {
         return abi.encodePacked(_INITCODE, implementation, initializer);
@@ -320,6 +322,9 @@ library ERC1967UUPSProxy {
         if (result == address(0)) {
             revert CreateFailed();
         }
+        if (result.codehash != _RUNTIME_HASH) {
+            revert CreateFailed();
+        }
     }
 
     function createLondon(address payable implementation, bytes memory initializer, uint256 value)
@@ -334,6 +339,9 @@ library ERC1967UUPSProxy {
             result := create(value, add(0x20, initcode), mload(initcode))
         }
         if (result == address(0)) {
+            revert CreateFailed();
+        }
+        if (result.codehash != _RUNTIME_HASH_LONDON) {
             revert CreateFailed();
         }
     }
@@ -366,6 +374,9 @@ library ERC1967UUPSProxy {
         if (result == address(0)) {
             revert Create2Failed();
         }
+        if (result.codehash != _RUNTIME_HASH) {
+            revert Create2Failed();
+        }
     }
 
     function createDeterministicLondon(
@@ -382,6 +393,9 @@ library ERC1967UUPSProxy {
             result := create2(value, add(0x20, initcode), mload(initcode), salt)
         }
         if (result == address(0)) {
+            revert Create2Failed();
+        }
+        if (result.codehash != _RUNTIME_HASH_LONDON) {
             revert Create2Failed();
         }
     }
