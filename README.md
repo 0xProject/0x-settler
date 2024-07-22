@@ -20,6 +20,18 @@ should not interact. Do not hardcode any address other than
 query the deployer/registry for the address of the most recent contract before
 building or signing a transaction, metatransaction, or order.
 
+### Why is Settler not verified on [Arbiscan](https://arbiscan.io/)?
+
+[Arbiscan has an
+issue](https://twitter.com/duncancmt/status/1775893476342964464). It has been
+reported to Arbiscan/Arbitrum, but as of the last update to this document, it
+has not been debugged or resolved. Settler will not verify on Arbiscan. Arbitrum
+supports the opcodes from the Ethereum Cancun hardfork, but if you compile a
+contract for Cancun, Arbiscan will reject it for verification because it doesn't
+know that "Cancun" is a valid hardfork level for Arbitrum. The Arbitrum Settler
+(and all other Settlers) should be verified on
+[sourcify.eth](https://sourcify.dev/).
+
 ### Examples
 
 #### TypeScript ([viem](https://viem.sh/))
@@ -1038,10 +1050,10 @@ like deploying a new `Settler`. `0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30`
 (ice cold coffees) is the address of the pauser contract. It's at the same
 address on all chains unless somebody screwed up the vanity addresses and didn't
 update this document. On Linea, the address of the pauser contract is
-`0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c` because whoever did their EVM
-compatibility documentation documented the opposite of the truth 🤬. When Linea
-adopts the Shanghai hardfork (`PUSH0`), remove the preceeding sentence from this
-document.
+`0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c` because the code deployed to the
+usual address relies on `PUSH0`, which is not supported on that chain. When
+Linea adopts the Shanghai hardfork (`PUSH0`), remove the preceeding sentence
+from this document.
 
 0. Go to that address on the relevant block explorer.
 
@@ -1095,21 +1107,40 @@ Populate `api_secrets.json` by copying
 [`api_secrets.json.template`](api_secrets.json.template) and adding your own
 block explorer API key and RPC.
 
-You need 2 signers to do this. Run
-[`./sh/confirm_new_settler.sh`](sh/confirm_new_settler.sh). Following the
-prompts, this will sign the Safe transaction required to submit the
-deployment. Once two signers have run this script, the transaction will appear
-in the [Safe dApp](https://app.safe.global/) as a pending transaction. Anybody
-can pay the gas to execute this, but probably whoever holds
-`deployer.zeroexprotocol.eth` will do it (presently Duncan).
+You need 2 signers to do this. Each signer needs to run
+[`./sh/confirm_new_settler.sh
+<CHAIN_NAME>`](sh/confirm_new_settler.sh). Following the prompts, this will sign
+the Safe transaction required to submit the deployment. Once two signers have
+run this script, the transaction will appear in the [Safe
+dApp](https://app.safe.global/) as a pending transaction. Anybody can pay the
+gas to execute this, but probably whoever holds `deployer.zeroexprotocol.eth`
+will do it (presently Duncan).
 
-Now you need to run [`./sh/verify_settler.sh`](sh/verify_settler.sh). This will
+On some chains, the [Safe Transaction
+Service](https://docs.safe.global/core-api/transaction-service-overview) doesn't
+exist. On these chains, instead of uploading the signature to be viewed in the
+Safe dApp, `confirm_new_settler.sh` will save a `*.txt` file containing a hex
+encoded 65-byte signature. This file needs to be sent verbatim (with filename
+intact) to whomever will be doing transaction submission (again,
+`deployer.zeroexprotocol.eth` -- presently Duncan). Then the person doing
+transaction submission places _both_ `*.txt` files in the root of this
+repository and runs [`./sh/deploy_new_settler.sh
+<CHAIN_NAME>`](sh/deploy_new_settler.sh). This interacts with the Safe contracts
+directly without going through the Safe dApp. The downside of this approach is
+the lack of the extremely helpful [Tenderly](https://dashboard.tenderly.co/)
+integration that helps review the transaction before submission. Of course, it's
+possible to do similar simulations with Foundry, but the UX is much worse.
+
+Now that the contract is deployed on-chain you need to run
+[`./sh/verify_settler.sh <CHAIN_NAME>`](sh/verify_settler.sh). This will
 (attempt to) verify Settler on both the Etherscan for the chain and
-[Sourcify](https://sourcify.dev/). If this fails, it's probably because Foundry
-sucks. Try deploying the contracts in the normal way (without going through the
-2 signer ceremony above) to a testnet and verifying them there to make sure this
-doesn't happen. [Arbiscan
-sucks](https://twitter.com/duncancmt/status/1775893476342964464); Settler will
+[Sourcify](https://sourcify.dev/). If this fails, it's probably because
+[Foundry's source verification is
+flaky](https://github.com/foundry-rs/foundry/issues/8470). Try deploying the
+contracts in the normal way (without going through the 2 signer ceremony above)
+to a testnet and verifying them there to make sure this doesn't
+happen. [Arbiscan
+has an issue](https://twitter.com/duncancmt/status/1775893476342964464); Settler will
 not verify there (but the Arbitrum Settler should verify on Sourcify).
 
 ## How to deploy to a new chain
@@ -1132,7 +1163,9 @@ beware and overprovision the amount of native asset.
 Third, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
 `AllowanceHolder` (and vice versa). Run [`./sh/deploy_allowanceholder.sh
-<CHAIN_NAME>`](sh/deploy_allowanceholder.sh).
+<CHAIN_NAME>`](sh/deploy_allowanceholder.sh). Note that
+`deploy_allowanceholder.sh` doesn't give you a chance to back out. There is no
+prompt, it just deploys `AllowanceHolder`.
 
 Fourth, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
@@ -1148,8 +1181,8 @@ testnet. Simulate each individual transaction in
 [Tenderly](https://dashboard.tenderly.co/).
 
 Finally, run `BROADCAST=yes ./sh/deploy_new_chain.sh <CHAIN_NAME>`. Cross your
-fingers. If something goes wrong (most commonly, the second-to-last transaction
-runs out of gas; this is only a minor problem), you'll need to edit either
+fingers. If something goes wrong (most commonly, the last transaction runs out
+of gas; this is only a minor problem), you'll need to edit either
 `sh/deploy_new_chain.sh` or
 [`script/DeploySafes.s.sol`](script/DeploySafes.s.sol) to skip the parts of the
 deployment you've already done. Tweak `gasMultiplierPercent` and

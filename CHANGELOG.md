@@ -17,9 +17,12 @@ Master list of UniV3 forks:
 
 ---
 
+## 2024-07-18
+
 * Deployed Settler to Linea
 * Added Lynex Algebra-style UniV3 fork to Linea
 * Update Velodrome Slipstream factory address (and inithash) to migrated one
+* Bug! Fixed wrong slippage actual value in `UNISWAPV2` action
 
 ## 2024-07-15
 
