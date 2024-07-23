@@ -162,7 +162,10 @@ contract ERC1967UUPSTest is Test {
     function testBrokenVersion() external {
         IMock newImpl = new Mock(1);
 
-        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
+        // the revert string has the arguments backwards here because we get
+        // infinite recursion. which order we get depends on the context depth
+        // and gas limit on entry.
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", newImpl, mock.implementation()));
         mock.upgrade(address(newImpl));
     }
 
