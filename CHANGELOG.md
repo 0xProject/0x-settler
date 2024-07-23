@@ -17,6 +17,11 @@ Master list of UniV3 forks:
 
 ---
 
+* Configure Blast gas fee claims on Settler deployment
+* Change Settler's `AllowanceHolder` integration to use `return` to signal non-ERC20 compliance (rather than `revert`)
+  * `AllowanceHolder`'s own signal still uses `revert`, but this will only come up rarely
+* Flatten Settler source files before deployment for ease of verification
+
 ## 2024-07-18
 
 * Deployed Settler to Linea
