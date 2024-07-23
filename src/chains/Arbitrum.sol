@@ -77,7 +77,7 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, CurveTricrypto {
 
 /// @custom:security-contact security@0x.org
 contract ArbitrumSettler is Settler, ArbitrumMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
@@ -123,7 +123,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
 
 /// @custom:security-contact security@0x.org
 contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal
