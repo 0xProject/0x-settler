@@ -17,7 +17,11 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {TooMuchSlippage} from "./core/SettlerErrors.sol";
 
-/// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency
+/// @dev This library's ABIDeocding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
+/// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
+/// means that it is possible that `args` will run off the end of calldata and be implicitly padded with zeroes. That we
+/// don't check for overflow means that offsets can be negative. This can also result in `args` that alias other parts
+/// of calldata, or even the `actions` array itself.
 library CalldataDecoder {
     function decodeCall(bytes[] calldata data, uint256 i)
         internal
@@ -40,8 +44,8 @@ library CalldataDecoder {
 
             // slice off the first 4 bytes of `args` as the selector
             selector := calldataload(args.offset) // solidity cleans dirty bits automatically
-            args.length := sub(args.length, 4)
-            args.offset := add(args.offset, 4)
+            args.length := sub(args.length, 0x04)
+            args.offset := add(args.offset, 0x04)
         }
     }
 }
