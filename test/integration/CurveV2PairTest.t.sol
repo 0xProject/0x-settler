@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
-import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
+import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ICurveV2Pool, ICurveV2SwapRouter} from "./vendor/ICurveV2Pool.sol";

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {MakerPSM, IPSM} from "../../../src/core/MakerPSM.sol";
+import {MakerPSM, IPSM} from "src/core/MakerPSM.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Utils} from "../Utils.sol";

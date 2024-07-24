@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {AllowanceHolder} from "../../src/allowanceholder/AllowanceHolderOld.sol";
-import {IAllowanceHolder} from "../../src/allowanceholder/IAllowanceHolder.sol";
+import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
