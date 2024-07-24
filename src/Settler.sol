@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20, IERC20Meta} from "./IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";

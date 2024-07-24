@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {InvalidOffset, ConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
 
-import {IERC20} from "../IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";

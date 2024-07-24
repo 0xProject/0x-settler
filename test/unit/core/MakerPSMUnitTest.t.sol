@@ -3,18 +3,18 @@ pragma solidity ^0.8.25;
 
 import {MakerPSM, IPSM} from "../../../src/core/MakerPSM.sol";
 
-import {IERC20, IERC20Meta} from "../../../src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
 import {Test} from "forge-std/Test.sol";
 
 contract MakerPSMDummy is MakerPSM {
     function sellToPool(address recipient, address gemToken, uint256 bps, address psm) public {
-        super.sellToMakerPsm(recipient, IERC20Meta(gemToken), bps, IPSM(psm), false);
+        super.sellToMakerPsm(recipient, IERC20(gemToken), bps, IPSM(psm), false);
     }
 
     function buyFromPool(address recipient, address gemToken, uint256 bps, address psm) public {
-        super.sellToMakerPsm(recipient, IERC20Meta(gemToken), bps, IPSM(psm), true);
+        super.sellToMakerPsm(recipient, IERC20(gemToken), bps, IPSM(psm), true);
     }
 }
 
@@ -48,7 +48,7 @@ contract MakerPSMUnitTest is Utils, Test {
 
         _mockExpectCall(DAI, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
         _mockExpectCall(DAI, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
-        _mockExpectCall(TOKEN, abi.encodeWithSelector(IERC20Meta.decimals.selector), abi.encode(18));
+        _mockExpectCall(TOKEN, abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(18));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.buyGem.selector, RECIPIENT, 99998), abi.encode(true));
 

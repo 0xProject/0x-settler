@@ -5,7 +5,7 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
@@ -50,8 +50,8 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == ISettlerActions.MAKERPSM.selector) {
-            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm, bool buyGem) =
-                abi.decode(data, (address, IERC20Meta, uint256, IPSM, bool));
+            (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem) =
+                abi.decode(data, (address, IERC20, uint256, IPSM, bool));
 
             sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
         } else {

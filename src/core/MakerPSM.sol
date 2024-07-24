@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20, IERC20Meta} from "../IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -29,7 +29,6 @@ interface IPSM {
 abstract contract MakerPSM {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
-    using SafeTransferLib for IERC20Meta;
 
     // Maker units https://github.com/makerdao/dss/blob/master/DEVELOPING.md
     // wad: fixed point decimal with 18 decimals (for basic quantities, e.g. balances)
@@ -41,7 +40,7 @@ abstract contract MakerPSM {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function sellToMakerPsm(address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm, bool buyGem) internal {
+    function sellToMakerPsm(address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem) internal {
         if (buyGem) {
             // phantom overflow can't happen here because DAI has decimals = 18
             uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(10_000);

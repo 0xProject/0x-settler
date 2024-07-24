@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20, IERC20Meta} from "src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
@@ -30,7 +30,7 @@ contract VelodromePairTest is BasePairTest {
 
     function setUp() public override {
         // the pool specified below doesn't have very much liquidity, so we only swap a small amount
-        IERC20Meta sellToken = IERC20Meta(address(fromToken()));
+        IERC20 sellToken = IERC20(address(fromToken()));
         _amount = 10 ** sellToken.decimals() * 100;
 
         super.setUp();
