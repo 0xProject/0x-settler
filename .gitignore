@@ -3,6 +3,7 @@
 # Compiler files
 cache/
 out/
+src/flat/
 
 # Ignores development broadcast logs
 !/broadcast

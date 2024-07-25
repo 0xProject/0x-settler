@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20, IERC20Meta} from "./IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {Basic} from "./core/Basic.sol";
@@ -16,7 +17,11 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {TooMuchSlippage} from "./core/SettlerErrors.sol";
 
-/// @dev This library omits index bounds/overflow checking when accessing calldata arrays for gas efficiency
+/// @dev This library's ABIDeocding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
+/// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
+/// means that it is possible that `args` will run off the end of calldata and be implicitly padded with zeroes. That we
+/// don't check for overflow means that offsets can be negative. This can also result in `args` that alias other parts
+/// of calldata, or even the `actions` array itself.
 library CalldataDecoder {
     function decodeCall(bytes[] calldata data, uint256 i)
         internal
@@ -39,8 +44,8 @@ library CalldataDecoder {
 
             // slice off the first 4 bytes of `args` as the selector
             selector := calldataload(args.offset) // solidity cleans dirty bits automatically
-            args.length := sub(args.length, 4)
-            args.offset := add(args.offset, 4)
+            args.length := sub(args.length, 0x04)
+            args.offset := add(args.offset, 0x04)
         }
     }
 }
@@ -53,12 +58,13 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
     event GitCommit(bytes20 indexed);
 
-    // When you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
-    constructor(bytes20 gitCommit) {
-        assert((gitCommit == bytes20(0)) == (block.chainid == 31337));
-        emit GitCommit(gitCommit);
+    constructor(bytes20 gitCommit, uint256 tokenId) {
+        if (block.chainid != 31337) {
+            emit GitCommit(gitCommit);
+            assert(IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(tokenId) == address(this));
+        } else {
+            assert(gitCommit == bytes20(0));
+        }
     }
 
     struct AllowedSlippage {

@@ -27,7 +27,7 @@ abstract contract AllowanceHolderContext is Context {
     function balanceOf(address) external pure {
         assembly ("memory-safe") {
             mstore8(0x00, 0x00)
-            revert(0x00, 0x01)
+            return(0x00, 0x01)
         }
     }
 }
