@@ -125,6 +125,10 @@ cd "$project_root"
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
+if [[ -z $rpc_url ]] ; then
+    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
+    exit 1
+fi
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price

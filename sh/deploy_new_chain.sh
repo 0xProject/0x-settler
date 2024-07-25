@@ -166,6 +166,11 @@ declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
 
+if [[ -z $rpc_url ]] ; then
+    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
+    exit 1
+fi
+
 # safe constants
 declare safe_factory
 safe_factory="$(get_config safe.factory)"
