@@ -10,7 +10,6 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {IERC20} from "../IERC20.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -86,7 +85,7 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettler is Settler, MainnetMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
@@ -132,7 +131,7 @@ contract MainnetSettler is Settler, MainnetMixin {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal

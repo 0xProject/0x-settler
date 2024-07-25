@@ -17,9 +17,17 @@ Master list of UniV3 forks:
 
 ---
 
+* Configure Blast gas fee claims on Settler deployment
+* Change Settler's `AllowanceHolder` integration to use `return` to signal non-ERC20 compliance (rather than `revert`)
+  * `AllowanceHolder`'s own signal still uses `revert`, but this will only come up rarely
+* Flatten Settler source files before deployment for ease of verification
+
+## 2024-07-18
+
 * Deployed Settler to Linea
 * Added Lynex Algebra-style UniV3 fork to Linea
 * Update Velodrome Slipstream factory address (and inithash) to migrated one
+* Bug! Fixed wrong slippage actual value in `UNISWAPV2` action
 
 ## 2024-07-15
 

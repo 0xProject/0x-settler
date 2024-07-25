@@ -12,7 +12,7 @@ import {UnknownForkId} from "src/core/SettlerErrors.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 

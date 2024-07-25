@@ -8,7 +8,6 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
@@ -57,7 +56,7 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase {
 
 /// @custom:security-contact security@0x.org
 contract ScrollSettler is Settler, ScrollMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
@@ -88,7 +87,7 @@ contract ScrollSettler is Settler, ScrollMixin {
 
 /// @custom:security-contact security@0x.org
 contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal

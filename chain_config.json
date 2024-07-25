@@ -75,10 +75,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.polygonscan.com/api",
-    "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
-    }
+    "etherscanApi": "https://api.polygonscan.com/api"
   },
   "base": {
     "chainId": 8453,
@@ -156,10 +153,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api-optimistic.etherscan.io/api",
-    "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
-    }
+    "etherscanApi": "https://api-optimistic.etherscan.io/api"
   },
   "optimism_sepolia": {
     "chainId": 11155420,
@@ -211,10 +205,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.arbiscan.io/api",
-    "uniV3": {
-      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
-    }
+    "etherscanApi": "https://api.arbiscan.io/api"
   },
   "arbitrum_sepolia": {
     "chainId": 421614,
