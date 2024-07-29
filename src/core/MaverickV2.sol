@@ -84,7 +84,11 @@ abstract contract MaverickV2 is SettlerAbstract {
             IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
     }
 
-    function _encodeSwapCallback(bytes memory swapCallbackData, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) internal pure {
+    function _encodeSwapCallback(
+        bytes memory swapCallbackData,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig
+    ) internal pure {
         if (swapCallbackData.length < 0x95 + sig.length) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
@@ -153,30 +157,19 @@ abstract contract MaverickV2 is SettlerAbstract {
         uint256 bps
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(0x14);
-        _encodeSwapCallback(swapCallbackData);
+        uint256 sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
         (IERC20 tokenA, IERC20 tokenB) = tokenAIn ? (sellToken, buyToken) : (buyToken, sellToken);
         IMaverickV2Pool pool = _pool(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds);
-        (, buyAmount) = abi.decode(
-            _setOperatorAndCall(
-                address(pool),
-                abi.encodeCall(
-                    pool.swap,
-                    (
-                        recipient,
-                        IMaverickV2Pool.SwapParams({
-                            amount: permit.permitted.amount,
-                            tokenAIn: tokenAIn,
-                            exactOutput: false,
-                            tickLimit: tokenAIn ? type(int32).max : type(int32).min
-                        }),
-                        swapCallbackData
-                    )
-                ),
-                uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector),
-                _maverickV2Callback
-            ),
-            (uint256, uint256)
+        sellToken.safeTransfer(address(pool), sellAmount);
+        (, buyAmount) = pool.swap(
+            recipient,
+            IMaverickV2Pool.SwapParams({
+                amount: sellAmount,
+                tokenAIn: tokenAIn,
+                exactOutput: false,
+                tickLimit: tokenAIn ? type(int32).max : type(int32).min
+            }),
+            new bytes(0)
         );
         if (buyAmount < minBuyAmount) {
             revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
