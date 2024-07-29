@@ -18,6 +18,7 @@ Master list of UniV3 forks:
 ---
 
 * Arbiscan's "Cancun" issue has been fixed -- verify Settler on Arbiscan
+* Add UniswapV3 UniV3 fork to Scroll
 
 ## 2024-07-29
 
