@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {AddressDerivation} from "../utils/AddressDerivation.sol";
+
+import {TooMuchSlippage} from "./SettlerErrors.sol";
+
 // Maverick AMM V2 is not open-source. The source code was disclosed to the
 // developers of 0x Settler confidentially and recompiled privately. The
 // deployed bytecode inithash matches the privately recompiled inithash.
