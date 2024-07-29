@@ -86,6 +86,22 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
+    function MAVERICKV2(address recipient, address sellToken, uint256 bps, bytes memory poolId, uint256 minBuyAmount)
+        external;
+    function MAVERICKV2_VIP(
+        address recipient,
+        bytes memory poolId,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 minBuyAmount
+    ) external;
+    function MAVERICKV2_VIP_METATXN(
+        address recipient,
+        bytes memory poolId,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 minBuyAmount
+    ) external;
+
     /// @dev Trades against UniswapV2 using the contracts balance for funding
     /// @param swapInfo is encoded as the upper 16 bits as the fee of the pool in bps, the second
     ///                 lowest bit as "sell token has transfer fee", and the lowest bit as the

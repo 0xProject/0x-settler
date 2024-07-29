@@ -7,6 +7,7 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
+import {MaverickV2} from "../core/MaverickV2.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
@@ -35,7 +36,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricrypto {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, MaverickV2, CurveTricrypto {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -54,6 +55,8 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
                 abi.decode(data, (address, IERC20, uint256, IPSM, bool));
 
             sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
+        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+            revert("unimplemented");
         } else {
             return false;
         }
@@ -95,6 +98,8 @@ contract MainnetSettler is Settler, MainnetMixin {
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
+        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+            revert("unimplemented");
         } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
@@ -146,6 +151,8 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
+        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+            revert("unimplemented");
         } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
