@@ -211,7 +211,7 @@ declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 declare -i gas_limit
-gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --chain $chainid "${args[@]}")"
+gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
