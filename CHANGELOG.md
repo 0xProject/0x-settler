@@ -17,6 +17,8 @@ Master list of UniV3 forks:
 
 ---
 
+* Arbiscan's "Cancun" issue has been fixed -- verify Settler on Arbiscan
+
 ## 2024-07-29
 
 * Configure Blast gas fee claims on Settler deployment
