@@ -18,6 +18,7 @@ Master list of UniV3 forks:
 ---
 
 * Arbiscan's "Cancun" issue has been fixed -- verify Settler on Arbiscan
+* Link to 0x's Immunefi bug bounty page from `README.md`
 
 ## 2024-07-29
 
