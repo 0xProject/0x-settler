@@ -10,7 +10,12 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {
+    uniswapV3ScrollFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3ScrollFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {zebraV3Factory, zebraV3InitHash, zebraV3ForkId, IZebraV3SwapCallback} from "../core/univ3forks/ZebraV3.sol";
 
@@ -40,7 +45,11 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == sushiswapV3ForkId) {
+        if (forkId == uniswapV3ForkId) {
+            factory = uniswapV3ScrollFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
             factory = sushiswapV3ScrollFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
