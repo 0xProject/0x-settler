@@ -87,7 +87,21 @@ abstract contract MaverickV2 is SettlerAbstract {
             IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
     }
 
-    function _unpackPoolId(bytes memory poolId, IERC20 sellToken) private pure returns (bool tokenAIn, IERC20 buyToken, uint64 feeAIn, uint64 feeBIn, uint16 tickSpacing, uint32 lookback, IERC20 tokenA, IERC20 tokenB, uint8 kinds) {
+    function _unpackPoolId(bytes memory poolId, IERC20 sellToken)
+        private
+        pure
+        returns (
+            bool tokenAIn,
+            IERC20 buyToken,
+            uint64 feeAIn,
+            uint64 feeBIn,
+            uint16 tickSpacing,
+            uint32 lookback,
+            IERC20 tokenA,
+            IERC20 tokenB,
+            uint8 kinds
+        )
+    {
         assembly ("memory-safe") {
             tokenAIn := mload(add(0x01, poolId))
             feeAIn := mload(add(0x09, poolId))
@@ -100,10 +114,11 @@ abstract contract MaverickV2 is SettlerAbstract {
         (tokenA, tokenB) = tokenAIn ? (sellToken, buyToken) : (tokenB, buyToken);
     }
 
-    function _encodeSwapCallback(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig
-    ) internal view returns (bytes memory result) {
+    function _encodeSwapCallback(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
+        internal
+        view
+        returns (bytes memory result)
+    {
         bool isForwarded = _isForwarded();
         assembly ("memory-safe") {
             result := mload(0x40)
@@ -126,7 +141,17 @@ abstract contract MaverickV2 is SettlerAbstract {
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
         IERC20 sellToken = IERC20(permit.permitted.token);
-        (bool tokenAIn, IERC20 buyToken, uint64 feeAIn, uint64 feeBIn, uint16 tickSpacing, uint32 lookback, IERC20 tokenA, IERC20 tokenB, uint8 kinds) = _unpackPoolId(poolId, sellToken);
+        (
+            bool tokenAIn,
+            IERC20 buyToken,
+            uint64 feeAIn,
+            uint64 feeBIn,
+            uint16 tickSpacing,
+            uint32 lookback,
+            IERC20 tokenA,
+            IERC20 tokenB,
+            uint8 kinds
+        ) = _unpackPoolId(poolId, sellToken);
         IMaverickV2Pool pool = _pool(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds);
         (, buyAmount) = abi.decode(
             _setOperatorAndCall(
@@ -154,11 +179,24 @@ abstract contract MaverickV2 is SettlerAbstract {
         }
     }
 
-    function sellToMaverickV2(address recipient, IERC20 sellToken, uint256 bps, bytes memory poolId, uint256 minBuyAmount)
-        internal
-        returns (uint256 buyAmount)
-    {
-        (bool tokenAIn, IERC20 buyToken, uint64 feeAIn, uint64 feeBIn, uint16 tickSpacing, uint32 lookback, IERC20 tokenA, IERC20 tokenB, uint8 kinds) = _unpackPoolId(poolId, sellToken);
+    function sellToMaverickV2(
+        address recipient,
+        IERC20 sellToken,
+        uint256 bps,
+        bytes memory poolId,
+        uint256 minBuyAmount
+    ) internal returns (uint256 buyAmount) {
+        (
+            bool tokenAIn,
+            IERC20 buyToken,
+            uint64 feeAIn,
+            uint64 feeBIn,
+            uint16 tickSpacing,
+            uint32 lookback,
+            IERC20 tokenA,
+            IERC20 tokenB,
+            uint8 kinds
+        ) = _unpackPoolId(poolId, sellToken);
         // We don't care about phantom overflow here because reserves are
         // limited to 128 bits. Any token balance that would overflow here
         // would also break MaverickV2.
