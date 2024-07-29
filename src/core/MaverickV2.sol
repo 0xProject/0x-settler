@@ -142,6 +142,45 @@ abstract contract MaverickV2 is SettlerAbstract {
             ),
             (uint256, uint256)
         );
+        if (buyAmount < minBuyAmount) {
+            revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+        }
+    }
+
+    function sellToMaverickV2(
+        address recipient,
+        address sellToken,
+        uint256 bps
+        uint256 minBuyAmount
+    ) internal returns (uint256 buyAmount) {
+        bytes memory swapCallbackData = new bytes(0x14);
+        _encodeSwapCallback(swapCallbackData);
+        (IERC20 tokenA, IERC20 tokenB) = tokenAIn ? (sellToken, buyToken) : (buyToken, sellToken);
+        IMaverickV2Pool pool = _pool(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds);
+        (, buyAmount) = abi.decode(
+            _setOperatorAndCall(
+                address(pool),
+                abi.encodeCall(
+                    pool.swap,
+                    (
+                        recipient,
+                        IMaverickV2Pool.SwapParams({
+                            amount: permit.permitted.amount,
+                            tokenAIn: tokenAIn,
+                            exactOutput: false,
+                            tickLimit: tokenAIn ? type(int32).max : type(int32).min
+                        }),
+                        swapCallbackData
+                    )
+                ),
+                uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector),
+                _maverickV2Callback
+            ),
+            (uint256, uint256)
+        );
+        if (buyAmount < minBuyAmount) {
+            revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+        }
     }
 
     function _maverickV2Callback(bytes calldata data) private returns (bytes memory) {
