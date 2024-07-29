@@ -149,7 +149,7 @@ declare -r safe_url
 declare -a signatures=()
 if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
     set +f
-    for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short HEAD)"_*.txt ; do
+    for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*.txt ; do
         signatures+=("$(<"$confirmation")")
     done
     set -f
