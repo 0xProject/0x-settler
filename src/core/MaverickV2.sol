@@ -19,31 +19,60 @@ interface IMaverickV2Pool {
     }
 
     function swap(address recipient, SwapParams calldata params, bytes calldata data)
-    external
-    returns (uint256 amountIn, uint256 amountOut);
+        external
+        returns (uint256 amountIn, uint256 amountOut);
 }
 
 interface IMaverickV2SwapCallback {
-    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 amountOut, bytes calldata data) external;
+    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 amountOut, bytes calldata data)
+        external;
 }
 
 abstract contract MaverickV2 is SettlerAbstract {
     // fees are with basis 10**18 (60 bits max)
-    function _pool(uint256 feeAIn, uint256 feeBIn, uint256 tickSpacing, uint256 lookback, IERC20 tokenA, IERC20 tokenB, uint8 kinds) private pure returns (IMaverickV2Pool) {
+    function _pool(
+        uint256 feeAIn,
+        uint256 feeBIn,
+        uint256 tickSpacing,
+        uint256 lookback,
+        IERC20 tokenA,
+        IERC20 tokenB,
+        uint8 kinds
+    ) private pure returns (IMaverickV2Pool) {
         bytes32 salt = keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)));
-        return IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
+        return
+            IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
     }
 
-    function sellToMaverickV2VIP(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, uint256 minBuyAmount) internal returns (uint256 buyAmount) {
-        IMaverickV2Pool.SwapParams memory params = ;
+    function sellToMaverickV2VIP(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 minBuyAmount
+    ) internal returns (uint256 buyAmount) {
         (IERC20 tokenA, IERC20 tokenB) = tokenAIn ? (sellToken, buyToken) : (buyToken, sellToken);
         IMaverickV2Pool pool = _pool(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds);
-        (, buyAmount) = abi.decode(_setOperatorAndCall(address(pool), abi.encodeCall(pool.swap, (recipient, IMaverickV2Pool.SwapParams({
-            amount: permit.permitted.amount,
-            tokenAIn: tokenAIn,
-            exactOutput: false,
-            tickLimit: tokenAIn ? type(int32).max : type(int32).min,
-                            }), swapCallbackData)), uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector), _maverickV2Callback), (uint256, uint256));
+        (, buyAmount) = abi.decode(
+            _setOperatorAndCall(
+                address(pool),
+                abi.encodeCall(
+                    pool.swap,
+                    (
+                        recipient,
+                        IMaverickV2Pool.SwapParams({
+                            amount: permit.permitted.amount,
+                            tokenAIn: tokenAIn,
+                            exactOutput: false,
+                            tickLimit: tokenAIn ? type(int32).max : type(int32).min
+                        }),
+                        swapCallbackData
+                    )
+                ),
+                uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector),
+                _maverickV2Callback
+            ),
+            (uint256, uint256)
+        );
     }
 
     function _maverickV2Callback(bytes calldata data) private returns (bytes memory) {
@@ -62,10 +91,11 @@ abstract contract MaverickV2 is SettlerAbstract {
             data.length := calldataload(data.offset)
             data.offset := add(0x20, data.offset)
         }
-        maverickV2SwapCallback(tokenIn, amountIn, 0 /* we didn't bother loading `amountOut` because we don't use it */, data);
+        maverickV2SwapCallback(
+            tokenIn, amountIn, 0, /* we didn't bother loading `amountOut` because we don't use it */ data
+        );
         return new bytes(0);
     }
 
-    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256, bytes calldata data) private {
-    }
+    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256, bytes calldata data) private {}
 }
