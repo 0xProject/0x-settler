@@ -168,7 +168,7 @@ else
         exit 1
     fi
 
-    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:lower:]' '[:upper:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:lower:]' '[:upper:]')" ] ; then
+    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
         signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
         signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
     else

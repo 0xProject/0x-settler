@@ -54,7 +54,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             _BLAST.configureClaimableGas();
             _USDB.configure(IBlastYieldERC20.YieldMode.VOID);
             _WETH.configure(IBlastYieldERC20.YieldMode.VOID);
-            _BLAST.configureGovernor(IOwnable(msg.sender).owner());
+            _BLAST.configureGovernor(IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner());
         }
     }
 
