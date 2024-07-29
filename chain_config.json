@@ -265,7 +265,7 @@
     "isShanghai": true,
     "isCancun": false,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "gasMultiplierPercent": 180,
     "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -343,7 +343,7 @@
     "isShanghai": true,
     "isCancun": false,
     "extraFlags": "--legacy",
-    "gasMultiplierPercent": 110,
+    "gasMultiplierPercent": 120,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
