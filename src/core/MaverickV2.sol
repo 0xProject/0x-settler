@@ -5,6 +5,7 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
+import {Panic} from "../utils/Panic.sol";
 
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 
@@ -83,12 +84,41 @@ abstract contract MaverickV2 is SettlerAbstract {
             IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
     }
 
+    function _encodeSwapCallback(bytes memory swapCallbackData, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) internal pure {
+        if (swapCallbackData.length < 0x95 + sig.length) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
+        bool isForwarded = _isForwarded();
+        assembly ("memory-safe") {
+            mstore(add(0x14, swapCallbackData), 0x00)
+            mcopy(add(0x34, swapCallbackData), mload(permit), 0x40)
+            mcopy(add(0x74, swapCallbackData), add(0x20, permit), 0x40)
+            mstore8(add(0xb4, swapCallbackData), isForwarded)
+            let sigLength := mload(sig)
+            mcopy(add(0xb5, swapCallbackData), add(0x20, sig), sigLength)
+            mstore(swapCallbackData, add(0x95, sigLength))
+        }
+    }
+
+    function _encodeSwapCallback(bytes memory swapCallbackData) internal pure {
+        if (swapCallbackData.length < 0x14) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
+        assembly ("memory-safe") {
+            mstore(add(0x14, swapCallbackData), address())
+            mstore(swapCallbackData, 0x14)
+        }
+    }
+
     function sellToMaverickV2VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
+        IERC20 sellToken = IERC20(permit.permitted.token);
+        bytes memory swapCallbackData = new bytes(0x95 + sig.length);
+        _encodeSwapCallback(swapCallbackData, permit, sig);
         (IERC20 tokenA, IERC20 tokenB) = tokenAIn ? (sellToken, buyToken) : (buyToken, sellToken);
         IMaverickV2Pool pool = _pool(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds);
         (, buyAmount) = abi.decode(
@@ -147,5 +177,31 @@ abstract contract MaverickV2 is SettlerAbstract {
         address payer = address(uint160(bytes20(data)));
         data = data[0x14:];
         _pay(payer, sellAmount, data);
+    }
+
+    function _pay(IERC20 tokenIn, uint256 amountIn, address payer, bytes calldata permit2Data) private {
+        if (payer == address(this)) {
+            tokenIn.safeTransfer(msg.sender, amountIn);
+        } else {
+            assert(payer == address(0));
+            ISignatureTransfer.PermitTransferFrom calldata permit;
+            bool isForwarded;
+            bytes calldata sig;
+            assembly ("memory-safe") {
+                // this is super dirty, but it works because although `permit` is aliasing in the
+                // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
+                // first word of `permit`, which is the sell token
+                permit := sub(permit2Data.offset, 0x0c)
+                isForwarded := calldataload(add(0x55, permit2Data.offset))
+                sig.offset := add(0x75, permit2Data.offset)
+                sig.length := sub(permit2Data.length, 0x75)
+            }
+            _transferFrom(
+                permit,
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount}),
+                sig,
+                isForwarded
+            );
+        }
     }
 }
