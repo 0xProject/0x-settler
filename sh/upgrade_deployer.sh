@@ -147,6 +147,10 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     declare rpc_url
     rpc_url="$(get_api_secret rpcUrl)"
     declare -r rpc_url
+    if [[ -z $rpc_url ]] ; then
+        echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
+        exit 1
+    fi
 
     # set minimum gas price to (mostly for Arbitrum and BNB)
     declare -i min_gas_price
@@ -170,7 +174,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     initcode="$(cast concat-hex "$initcode" "$constructor_args")"
     declare -r initcode
     declare -i gas_limit
-    gas_limit="$(cast estimate --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
+    gas_limit="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
     gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
     declare -r -i gas_limit
 
@@ -187,7 +191,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     echo '' >&2
 
     declare -a gas_price_args
-    if [[ $(get_config isLondon) = 'true' ]] ; then
+    if (( chainid != 56 )) && (( chainid != 534352 )) ; then
         gas_price_args=(
             --gas-price $gas_price --priority-gas-price $gas_price
         )
@@ -208,6 +212,8 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     declare -r safe_address
 
     . "$project_root"/sh/common_safe.sh
+    . "$project_root"/sh/common_safe_owner.sh
+    . "$project_root"/sh/common_wallet_type.sh
 
     if [[ ${deployed_address-unset} = 'unset' ]] ; then
         declare deployed_address

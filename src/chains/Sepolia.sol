@@ -55,7 +55,7 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase {
 
 /// @custom:security-contact security@0x.org
 contract SepoliaSettler is Settler, SepoliaMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
@@ -86,7 +86,7 @@ contract SepoliaSettler is Settler, SepoliaMixin {
 
 /// @custom:security-contact security@0x.org
 contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal

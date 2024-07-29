@@ -6,7 +6,7 @@ import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {Context} from "src/Context.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 

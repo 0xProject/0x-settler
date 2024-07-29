@@ -5,7 +5,7 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {IERC20Meta} from "../IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
@@ -50,8 +50,8 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == ISettlerActions.MAKERPSM.selector) {
-            (address recipient, IERC20Meta gemToken, uint256 bps, IPSM psm, bool buyGem) =
-                abi.decode(data, (address, IERC20Meta, uint256, IPSM, bool));
+            (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem) =
+                abi.decode(data, (address, IERC20, uint256, IPSM, bool));
 
             sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
         } else {
@@ -90,7 +90,7 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, CurveTricry
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettler is Settler, MainnetMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
@@ -136,7 +136,7 @@ contract MainnetSettler is Settler, MainnetMixin {
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal
