@@ -174,7 +174,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     initcode="$(cast concat-hex "$initcode" "$constructor_args")"
     declare -r initcode
     declare -i gas_limit
-    gas_limit="$(cast estimate --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
+    gas_limit="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
     gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
     declare -r -i gas_limit
 
