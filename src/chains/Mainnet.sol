@@ -56,7 +56,10 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, MaverickV2,
 
             sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
         } else if (action == ISettlerActions.MAVERICKV2.selector) {
-            revert("unimplemented");
+            (address recipient, IERC20 sellToken, uint256 bps, bytes memory poolId, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, uint256, bytes, uint256));
+
+            sellToMaverickV2(recipient, sellToken, bps, poolId, minBuyAmount);
         } else {
             return false;
         }
@@ -99,7 +102,15 @@ contract MainnetSettler is Settler, MainnetMixin {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
-            revert("unimplemented");
+            (
+                address recipient,
+                bytes memory poolId,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+
+            sellToMaverickV2VIP(recipient, poolId, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
@@ -152,7 +163,14 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
         } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
-            revert("unimplemented");
+            (
+                address recipient,
+                bytes memory poolId,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
+
+            sellToMaverickV2VIP(recipient, poolId, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
