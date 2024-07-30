@@ -253,7 +253,7 @@ abstract contract MaverickV2 is SettlerAbstract {
         bool isForwarded;
         assembly ("memory-safe") {
             permit := data.offset
-            isForwarded := calldataload(add(0x61, data.offset))
+            isForwarded := and(0x01, calldataload(add(0x61, data.offset)))
             data.offset := add(0x81, data.offset)
             data.length := sub(data.length, 0x81)
         }

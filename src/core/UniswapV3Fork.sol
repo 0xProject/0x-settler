@@ -352,7 +352,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
                 // first word of `permit`, which is the sell token
                 permit := sub(permit2Data.offset, 0x0c)
-                isForwarded := calldataload(add(0x55, permit2Data.offset))
+                isForwarded := and(0x01, calldataload(add(0x55, permit2Data.offset)))
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }
