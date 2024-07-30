@@ -349,6 +349,20 @@ Settler was built. For convenience, the script [`./sh/checkout_settler_commit.sh
 <CHAIN_NAME>`](sh/checkout_settler_commit.sh) will pull the latest Settler
 address, read the deployment event, and checkout the git commit.
 
+## Bug Bounty Program
+
+0x hosts a bug bounty on Immunefi at the address
+https://immunefi.com/bug-bounty/0x .
+
+If you have found a vulnerability in our project, it must be submitted through
+Immunefi's platform. Immunefi will handle bug bounty communications.
+
+See the bounty page at Immunefi for more details on accepted vulnerabilities,
+payout amounts, and rules of participation.
+
+Users who violate the rules of participation will not receive bug bounty payouts
+and may be temporarily suspended or banned from the bug bounty program.
+
 ## Custody
 
 Custody, not like the delicious custardy, is when the token(s) being traded are
