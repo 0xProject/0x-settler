@@ -95,7 +95,7 @@ interface ISettlerActions {
         bytes memory sig,
         uint256 minBuyAmount
     ) external;
-    function MAVERICKV2_VIP_METATXN(
+    function METATXN_MAVERICKV2_VIP(
         address recipient,
         bytes memory poolId,
         ISignatureTransfer.PermitTransferFrom memory permit,
