@@ -20,6 +20,10 @@ contract Shim {
     function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
         return block.chainid;
     }
+
+    function blockNumber() external returns (uint256) { // this is non-view (mutable) on purpose
+        return block.number;
+    }
 }
 
 abstract contract SettlerBasePairTest is BasePairTest {

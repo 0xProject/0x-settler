@@ -8,6 +8,7 @@ import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
+import {MaverickV2PairTest} from "./MaverickV2PairTest.t.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -24,6 +25,7 @@ contract USDCWETHTest is
     UniswapV3PairTest,
     CurveTricryptoPairTest,
     DodoV1PairTest,
+    MaverickV2PairTest,
     TokenTransferTest,
     Permit2TransferTest
 {
@@ -34,6 +36,7 @@ contract USDCWETHTest is
             SettlerBasePairTest,
             SettlerPairTest,
             SettlerMetaTxnPairTest,
+            MaverickV2PairTest,
             ZeroExPairTest,
             UniswapV3PairTest,
             TokenTransferTest,
@@ -101,5 +104,21 @@ contract USDCWETHTest is
             // buyIndex
             | uint80(uint8(2))
         );
+    }
+
+    function maverickV2Salt() internal pure override returns (bytes32) {
+        uint64 feeAIn = 100000000000000;
+        uint64 feeBIn = 100000000000000;
+        uint16 tickSpacing = 2232;
+        uint32 lookback = 3600;
+        IERC20 tokenA = fromToken();
+        IERC20 tokenB = toToken();
+        uint8 kinds = 1;
+        bytes32 salt = keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)));
+        return salt;
+    }
+
+    function maverickV2TokenAIn() internal pure override returns (bool) {
+        return fromToken() < toToken();
     }
 }
