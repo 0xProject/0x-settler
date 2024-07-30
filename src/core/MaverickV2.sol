@@ -62,6 +62,16 @@ interface IMaverickV2Pool {
     function swap(address recipient, SwapParams calldata params, bytes calldata data)
         external
         returns (uint256 amountIn, uint256 amountOut);
+
+    /**
+     * @notice Pool tokenA.  Address of tokenA is such that tokenA < tokenB.
+     */
+    function tokenA() external view returns (IERC20);
+
+    /**
+     * @notice Pool tokenB.
+     */
+    function tokenB() external view returns (IERC20);
 }
 
 interface IMaverickV2SwapCallback {
@@ -72,47 +82,6 @@ interface IMaverickV2SwapCallback {
 abstract contract MaverickV2 is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
-
-    function _pool(
-        uint256 feeAIn,
-        uint256 feeBIn,
-        uint256 tickSpacing,
-        uint256 lookback,
-        IERC20 tokenA,
-        IERC20 tokenB,
-        uint8 kinds
-    ) private pure returns (IMaverickV2Pool) {
-        bytes32 salt = keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)));
-        return
-            IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
-    }
-
-    function _unpackPoolId(bytes memory poolId, IERC20 sellToken)
-        private
-        pure
-        returns (
-            bool tokenAIn,
-            IERC20 buyToken,
-            uint64 feeAIn,
-            uint64 feeBIn,
-            uint16 tickSpacing,
-            uint32 lookback,
-            IERC20 tokenA,
-            IERC20 tokenB,
-            uint8 kinds
-        )
-    {
-        assembly ("memory-safe") {
-            tokenAIn := mload(add(0x01, poolId))
-            feeAIn := mload(add(0x09, poolId))
-            feeBIn := mload(add(0x11, poolId))
-            tickSpacing := mload(add(0x13, poolId))
-            lookback := mload(add(0x17, poolId))
-            buyToken := mload(add(0x2b, poolId))
-            kinds := mload(add(0x2c, poolId))
-        }
-        (tokenA, tokenB) = tokenAIn ? (sellToken, buyToken) : (tokenB, buyToken);
-    }
 
     function _encodeSwapCallback(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         internal
@@ -134,36 +103,26 @@ abstract contract MaverickV2 is SettlerAbstract {
 
     function sellToMaverickV2VIP(
         address recipient,
-        bytes memory poolId,
+        bytes32 salt,
+        bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
-        IERC20 sellToken = IERC20(permit.permitted.token);
-        (
-            bool tokenAIn,
-            IERC20 buyToken,
-            uint64 feeAIn,
-            uint64 feeBIn,
-            uint16 tickSpacing,
-            uint32 lookback,
-            IERC20 tokenA,
-            IERC20 tokenB,
-            uint8 kinds
-        ) = _unpackPoolId(poolId, sellToken);
-        IMaverickV2Pool pool = _pool(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds);
+        address pool = AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash);
         (, buyAmount) = abi.decode(
             _setOperatorAndCall(
-                address(pool),
+                pool,
                 abi.encodeCall(
-                    pool.swap,
+                    IMaverickV2Pool.swap,
                     (
                         recipient,
                         IMaverickV2Pool.SwapParams({
                             amount: permit.permitted.amount,
                             tokenAIn: tokenAIn,
                             exactOutput: false,
+                            // TODO: actually set a tick limit so that we can partial fill
                             tickLimit: tokenAIn ? type(int32).max : type(int32).min
                         }),
                         swapCallbackData
@@ -175,7 +134,9 @@ abstract contract MaverickV2 is SettlerAbstract {
             (uint256, uint256)
         );
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+            revert TooMuchSlippage(
+                tokenAIn ? IMaverickV2Pool(pool).tokenB() : IMaverickV2Pool(pool).tokenA(), minBuyAmount, buyAmount
+            );
         }
     }
 
@@ -183,25 +144,14 @@ abstract contract MaverickV2 is SettlerAbstract {
         address recipient,
         IERC20 sellToken,
         uint256 bps,
-        bytes memory poolId,
+        IMaverickV2Pool pool,
+        bool tokenAIn,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        (
-            bool tokenAIn,
-            IERC20 buyToken,
-            uint64 feeAIn,
-            uint64 feeBIn,
-            uint16 tickSpacing,
-            uint32 lookback,
-            IERC20 tokenA,
-            IERC20 tokenB,
-            uint8 kinds
-        ) = _unpackPoolId(poolId, sellToken);
         // We don't care about phantom overflow here because reserves are
         // limited to 128 bits. Any token balance that would overflow here
         // would also break MaverickV2.
         uint256 sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
-        IMaverickV2Pool pool = _pool(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds);
         sellToken.safeTransfer(address(pool), sellAmount);
         (, buyAmount) = pool.swap(
             recipient,
@@ -209,12 +159,13 @@ abstract contract MaverickV2 is SettlerAbstract {
                 amount: sellAmount,
                 tokenAIn: tokenAIn,
                 exactOutput: false,
+                // TODO: actually set a tick limit so that we can partial fill
                 tickLimit: tokenAIn ? type(int32).max : type(int32).min
             }),
             new bytes(0)
         );
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+            revert TooMuchSlippage(tokenAIn ? pool.tokenB() : pool.tokenA(), minBuyAmount, buyAmount);
         }
     }
 
@@ -231,9 +182,8 @@ abstract contract MaverickV2 is SettlerAbstract {
             // likewise, we don't bother to perform the indirection to find the
             // nested data. we just index directly to it because we know that
             // the pool follows strict ABI encoding
-            data.offset := add(0x80, data.offset)
-            data.length := calldataload(data.offset)
-            data.offset := add(0x20, data.offset)
+            data.length := calldataload(add(0x80, data.offset))
+            data.offset := add(0xa0, data.offset)
         }
         maverickV2SwapCallback(
             tokenIn,
@@ -257,6 +207,7 @@ abstract contract MaverickV2 is SettlerAbstract {
             data.offset := add(0x81, data.offset)
             data.length := sub(data.length, 0x81)
         }
+        assert(tokenIn == IERC20(permit.permitted.token));
         _transferFrom(
             permit,
             ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn}),

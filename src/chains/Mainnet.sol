@@ -7,7 +7,7 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../core/MakerPSM.sol";
-import {MaverickV2} from "../core/MaverickV2.sol";
+import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
@@ -56,10 +56,16 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, MaverickV2,
 
             sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
         } else if (action == ISettlerActions.MAVERICKV2.selector) {
-            (address recipient, IERC20 sellToken, uint256 bps, bytes memory poolId, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, uint256, bytes, uint256));
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IMaverickV2Pool pool,
+                bool tokenAIn,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, poolId, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
         } else {
             return false;
         }
@@ -104,13 +110,14 @@ contract MainnetSettler is Settler, MainnetMixin {
         } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
             (
                 address recipient,
-                bytes memory poolId,
+                bytes32 salt,
+                bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
-            sellToMaverickV2VIP(recipient, poolId, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
@@ -165,12 +172,13 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
             (
                 address recipient,
-                bytes memory poolId,
+                bytes32 salt,
+                bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
 
-            sellToMaverickV2VIP(recipient, poolId, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
