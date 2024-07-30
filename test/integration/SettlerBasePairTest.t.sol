@@ -21,6 +21,7 @@ contract Shim {
         return block.chainid;
     }
 
+    // forgefmt: disable-next-line
     function blockNumber() external returns (uint256) { // this is non-view (mutable) on purpose
         return block.number;
     }

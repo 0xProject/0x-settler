@@ -134,9 +134,8 @@ abstract contract MaverickV2 is SettlerAbstract {
             (uint256, uint256)
         );
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(
-                tokenAIn ? IMaverickV2Pool(pool).tokenB() : IMaverickV2Pool(pool).tokenA(), minBuyAmount, buyAmount
-            );
+            IERC20 buyToken = tokenAIn ? IMaverickV2Pool(pool).tokenB() : IMaverickV2Pool(pool).tokenA();
+            revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
         }
     }
 
