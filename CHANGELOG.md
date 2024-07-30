@@ -21,8 +21,9 @@ Master list of UniV3 forks:
 * Link to 0x's Immunefi bug bounty page from `README.md`
 * Add new actions `MAVERICKV2`, `MAVERICKV2_VIP`, and `MAVERICKV2_VIP_METATXN`
 * Add MaverickV2 to Mainnet
-* Add MaverickV2 to Bnb
+* Add MaverickV2 to Base
 * Add MaverickV2 to Arbitrum
+* Add MaverickV2 to Bnb
 * Add MaverickV2 to Scroll
 
 ## 2024-07-29
