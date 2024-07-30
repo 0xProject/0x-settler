@@ -11,6 +11,7 @@ import {Settler} from "src/Settler.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {maverickV2InitHash, maverickV2Factory} from "src/core/MaverickV2.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -108,6 +109,36 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_maverickV2_VIP");
         _settler.execute(allowedSlippage, actions, bytes32(0));
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalance = toToken().balanceOf(FROM);
+        assertGt(afterBalance, beforeBalance);
+    }
+
+    function testMaverickV2VIPAllowanceHolder() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
+        bytes memory sig = new bytes(0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, 0)
+            )
+        );
+        SettlerBase.AllowedSlippage memory allowedSlippage =
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        uint256 beforeBalance = _balanceOf(toToken(), FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_maverickV2_VIP");
+        _allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         snapEnd();
         vm.stopPrank();
 
