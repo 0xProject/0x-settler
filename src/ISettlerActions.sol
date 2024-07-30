@@ -86,6 +86,9 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
+    /// @dev Trades against MaverickV2 using the contracts balance for funding
+    /// This action does not use the MaverickV2 callback, so it takes an arbitrary pool address to make calls against.
+    /// Passing `tokenAIn` as a parameter actually saves gas relative to introspecting the pool's `tokenA()` accessor.
     function MAVERICKV2(
         address recipient,
         address sellToken,
@@ -94,6 +97,9 @@ interface ISettlerActions {
         bool tokenAIn,
         uint256 minBuyAmount
     ) external;
+    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
+    /// This action requires the use of the MaverickV2 callback, so we take the MaverickV2 CREATE2 salt as an argument to derive the pool address from the trusted factory and inithash.
+    /// @param salt is formed as `keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)))`
     function MAVERICKV2_VIP(
         address recipient,
         bytes32 salt,
@@ -102,6 +108,7 @@ interface ISettlerActions {
         bytes memory sig,
         uint256 minBuyAmount
     ) external;
+    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
     function METATXN_MAVERICKV2_VIP(
         address recipient,
         bytes32 salt,
