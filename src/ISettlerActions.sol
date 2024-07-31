@@ -75,6 +75,14 @@ interface ISettlerActions {
     ) external;
 
     function DODOV1(address sellToken, uint256 bps, address pool, bool quoteForBase, uint256 minBuyAmount) external;
+    function DODOV2(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool quoteForBase,
+        uint256 minBuyAmount
+    ) external;
 
     function VELODROME(address recipient, uint256 bps, address pool, uint24 swapInfo, uint256 minBuyAmount) external;
 
