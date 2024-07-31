@@ -40,6 +40,7 @@ interface IBlastYieldERC20 {
         VOID,
         CLAIMABLE
     }
+
     function configure(YieldMode) external returns (uint256);
 }
 
@@ -114,12 +115,7 @@ contract BlastSettler is Settler, BlastMixin {
         return super._dispatchVIP(action, data);
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        override(Settler, BlastMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure override(Settler, BlastMixin) returns (bool) {
         return BlastMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
     }
 
