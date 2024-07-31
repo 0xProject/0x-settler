@@ -81,7 +81,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
         Settler _settler = settler;
-        uint256 beforeBalance = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
         snapStartName("settler_maverickV2");
@@ -89,8 +90,10 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         snapEnd();
         vm.stopPrank();
 
-        uint256 afterBalance = toToken().balanceOf(FROM);
-        assertGt(afterBalance, beforeBalance);
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
     function testMaverickV2VIP() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
@@ -104,7 +107,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
         Settler _settler = settler;
-        uint256 beforeBalance = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
         snapStartName("settler_maverickV2_VIP");
@@ -112,8 +116,10 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         snapEnd();
         vm.stopPrank();
 
-        uint256 afterBalance = toToken().balanceOf(FROM);
-        assertGt(afterBalance, beforeBalance);
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
     function testMaverickV2VIPAllowanceHolder() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
@@ -134,7 +140,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 _amount = amount();
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
-        uint256 beforeBalance = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_maverickV2_VIP");
@@ -142,8 +149,10 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         snapEnd();
         vm.stopPrank();
 
-        uint256 afterBalance = toToken().balanceOf(FROM);
-        assertGt(afterBalance, beforeBalance);
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
     function testMaverickV2MetaTxn() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
@@ -177,7 +186,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         );
 
         SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
-        uint256 beforeBalance = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
 
         snapStartName("settler_metaTxn_maverickV2");
         vm.startPrank(address(this), address(this));
@@ -185,7 +195,9 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         snapEnd();
         vm.stopPrank();
 
-        uint256 afterBalance = toToken().balanceOf(FROM);
-        assertGt(afterBalance, beforeBalance);
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 }
