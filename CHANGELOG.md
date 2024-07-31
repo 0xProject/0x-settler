@@ -26,6 +26,8 @@ Master list of UniV3 forks:
 * Add MaverickV2 to Bnb
 * Add MaverickV2 to Scroll
 * Add MaverickV2 to Sepolia
+* Add new action `DODOV2`
+* Add DodoV2 to Mainnet
 
 ## 2024-07-29
 
