@@ -5,20 +5,39 @@ perform swaps without any passive allowances to the contract.
 
 ## How do I find the most recent deployment?
 
-The deployer/registry contract is deployed to
+The 0x Settler deployer/registry contract is deployed to
 `0x00000000000004533Fe15556B1E086BB1A72cEae` across all chains (unless somebody
 screwed up the vanity address and didn't update this document). The
 deployer/registry is an ERC1967 UUPS upgradeable contract that implements an
-ERC721-compatible NFT. To find the address of the most recent deployment, call
-`ownerOf(uint256)(address)` with the `tokenId` set to the number of the feature
-that you wish to query. For taker-submitted flows, the feature number is
-probably 2 unless something major changed and nobody updated this
-document. Likewise, for gasless/metatransaction flows, the feature number is
-probably 3. A reverting response indicates that `Settler` is paused and you
-should not interact. Do not hardcode any address other than
-`0x00000000000004533Fe15556B1E086BB1A72cEae` in your integration. _**ALWAYS**_
-query the deployer/registry for the address of the most recent contract before
-building or signing a transaction, metatransaction, or order.
+ERC721-compatible NFT. To find the address of the most recent `Settler`
+deployment, call `function ownerOf(uint256 tokenId) external view returns (address)`
+with the `tokenId` set to the number of the feature that you wish to query. For
+taker-submitted flows, the feature number is probably 2 unless something major
+changed and nobody updated this document. Likewise, for gasless/metatransaction
+flows, the feature number is probably 3. A reverting response indicates that
+`Settler` is paused and you should not interact. Do not hardcode any `Settler`
+address in your integration. _**ALWAYS**_ query the deployer/registry for the
+address of the most recent `Settler` contract before building or signing a
+transaction, metatransaction, or order.
+
+### AllowanceHolder addresses
+
+AllowanceHolder is deployed to the following addresses depending on the most
+advanced EVM hardfork supported on the chain. You can hardcode this address in
+your integration.
+
+* `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
+  hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
+  Arbitrum, Blast)
+* `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
+  hardfork (Bnb, Avalanche, Scroll)
+* `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
+  hardfork (Linea)
+
+### Permit2 address
+
+Permit2 is deployed to `0x000000000022D473030F116dDEE9F6B43aC78BA3` across all
+chains. You can hardcode this address in your integration.
 
 ### Examples
 
