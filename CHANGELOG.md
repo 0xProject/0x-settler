@@ -25,6 +25,7 @@ Master list of UniV3 forks:
 * Add MaverickV2 to Arbitrum
 * Add MaverickV2 to Bnb
 * Add MaverickV2 to Scroll
+* Add MaverickV2 to Sepolia
 
 ## 2024-07-29
 
