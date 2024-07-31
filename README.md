@@ -20,6 +20,23 @@ should not interact. Do not hardcode any address other than
 query the deployer/registry for the address of the most recent contract before
 building or signing a transaction, metatransaction, or order.
 
+### AllowanceHolder addresses
+
+AllowanceHolder is deployed to the following addresses depending on the most advanced EVM hardfork supported on the chain.
+
+* `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
+  hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
+  Arbitrum, Blast)
+* `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
+  hardfork (Bnb, Avalanche, Scroll)
+* `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
+  hardfork (Linea)
+
+### Permit2 address
+
+Permit2 is deployed to `0x000000000022D473030F116dDEE9F6B43aC78BA3` across all
+chains.
+
 ### Examples
 
 #### TypeScript ([viem](https://viem.sh/))
