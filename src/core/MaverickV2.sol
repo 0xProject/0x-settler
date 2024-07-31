@@ -72,6 +72,43 @@ interface IMaverickV2Pool {
      * @notice Pool tokenB.
      */
     function tokenB() external view returns (IERC20);
+
+    /**
+     * @notice State of the pool.
+     * @param reserveA Pool tokenA balanceOf at end of last operation
+     * @param reserveB Pool tokenB balanceOf at end of last operation
+     * @param lastTwaD8 Value of log time weighted average price at last block.
+     * Value is 8-decimal scale and is in the fractional tick domain.  E.g. a
+     * value of 12.3e8 indicates the TWAP was 3/10ths of the way into the 12th
+     * tick.
+     * @param lastLogPriceD8 Value of log price at last block. Value is
+     * 8-decimal scale and is in the fractional tick domain.  E.g. a value of
+     * 12.3e8 indicates the price was 3/10ths of the way into the 12th tick.
+     * @param lastTimestamp Last block.timestamp value in seconds for latest
+     * swap transaction.
+     * @param activeTick Current tick position that contains the active bins.
+     * @param isLocked Pool isLocked, E.g., locked or unlocked; isLocked values
+     * defined in Pool.sol.
+     * @param binCounter Index of the last bin created.
+     * @param protocolFeeRatioD3 Ratio of the swap fee that is kept for the
+     * protocol.
+     */
+    struct State {
+        uint128 reserveA;
+        uint128 reserveB;
+        int64 lastTwaD8;
+        int64 lastLogPriceD8;
+        uint40 lastTimestamp;
+        int32 activeTick;
+        bool isLocked;
+        uint32 binCounter;
+        uint8 protocolFeeRatioD3;
+    }
+
+    /**
+     * @notice External function to get the state of the pool.
+     */
+    function getState() external view returns (State memory);
 }
 
 interface IMaverickV2SwapCallback {
@@ -147,14 +184,24 @@ abstract contract MaverickV2 is SettlerAbstract {
         bool tokenAIn,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        // We don't care about phantom overflow here because reserves are
-        // limited to 128 bits. Any token balance that would overflow here
-        // would also break MaverickV2.
         uint256 sellAmount;
-        unchecked {
-            sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
+        if (bps != 0) {
+            unchecked {
+                // We don't care about phantom overflow here because reserves
+                // are limited to 128 bits. Any token balance that would
+                // overflow here would also break MaverickV2.
+                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
+            }
         }
-        sellToken.safeTransfer(address(pool), sellAmount);
+        if (sellAmount == 0) {
+            sellAmount = sellToken.balanceOf(address(pool));
+            IMaverickV2Pool.State memory poolState = pool.getState();
+            unchecked {
+                sellAmount -= tokenAIn ? poolState.reserveA : poolState.reserveB;
+            }
+        } else {
+            sellToken.safeTransfer(address(pool), sellAmount);
+        }
         (, buyAmount) = pool.swap(
             recipient,
             IMaverickV2Pool.SwapParams({
