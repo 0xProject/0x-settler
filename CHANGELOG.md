@@ -14,12 +14,14 @@ Master list of UniV3 forks:
   11. Fenix (Algebra-like)
   12. ZebraV3
   13. Lynex (Algebra-like)
+  14. DackieSwapV3
 
 ---
 
 * Arbiscan's "Cancun" issue has been fixed -- verify Settler on Arbiscan
 * Link to 0x's Immunefi bug bounty page from `README.md`
 * Add UniswapV3 UniV3 fork to Scroll
+* Add DackieSwapV3 UniV3 fork to Base
 
 ## 2024-07-29
 
