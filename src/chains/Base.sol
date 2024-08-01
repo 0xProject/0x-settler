@@ -60,7 +60,7 @@ abstract contract BaseMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId < aerodromeForkId) {
+        if (forkId < alienBaseV3ForkId) {
             if (forkId < sushiswapV3ForkId) {
                 if (forkId == uniswapV3ForkId) {
                     factory = uniswapV3BaseFactory;
@@ -82,25 +82,21 @@ abstract contract BaseMixin is FreeMemory, SettlerBase {
                     factory = solidlyV3Factory;
                     initHash = solidlyV3InitHash;
                     callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
+                } else if (forkId == aerodromeForkId) {
+                    factory = aerodromeFactory;
+                    initHash = aerodromeInitHash;
+                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
                     revert UnknownForkId(forkId);
                 }
             }
         } else {
-            if (forkId < baseXForkId) {
-                if (forkId == aerodromeForkId) {
-                    factory = aerodromeFactory;
-                    initHash = aerodromeInitHash;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-                } else if (forkId == alienBaseV3ForkId) {
+            if (forkId < dackieSwapV3ForkId) {
+                if (forkId == alienBaseV3ForkId) {
                     factory = alienBaseV3Factory;
                     initHash = uniswapV3InitHash;
                     callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-                } else {
-                    revert UnknownForkId(forkId);
-                }
-            } else {
-                if (forkId == baseXForkId) {
+                } else if (forkId == baseXForkId) {
                     factory = baseXFactory;
                     initHash = uniswapV3InitHash;
                     callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
@@ -108,7 +104,11 @@ abstract contract BaseMixin is FreeMemory, SettlerBase {
                     factory = swapBasedV3Factory;
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-                } else if (forkId == dackieSwapV3ForkId) {
+                } else {
+                    revert UnknownForkId(forkId);
+                }
+            } else {
+                if (forkId == dackieSwapV3ForkId) {
                     factory = dackieSwapV3BaseFactory;
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
