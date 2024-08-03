@@ -19,6 +19,7 @@ Master list of UniV3 forks:
 
 * Arbiscan's "Cancun" issue has been fixed -- verify Settler on Arbiscan
 * Link to 0x's Immunefi bug bounty page from `README.md`
+* Add UniswapV3 UniV3 fork to Scroll
 * Add new actions `MAVERICKV2`, `MAVERICKV2_VIP`, and `METATXN_MAVERICKV2_VIP`
 * Add MaverickV2 to Mainnet
 * Add MaverickV2 to Base
