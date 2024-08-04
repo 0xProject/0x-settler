@@ -9,7 +9,7 @@ import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
-import {DodoV1} from "./core/DodoV1.sol";
+import {DodoV1, IDodoV1} from "./core/DodoV1.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
@@ -132,8 +132,8 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
             basicSellToPool(sellToken, bps, pool, offset, _data);
         } else if (action == ISettlerActions.DODOV1.selector) {
-            (IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount) =
-                abi.decode(data, (IERC20, uint256, address, bool, uint256));
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == ISettlerActions.VELODROME.selector) {

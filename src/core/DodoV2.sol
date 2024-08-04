@@ -7,7 +7,7 @@ import {TooMuchSlippage} from "./SettlerErrors.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-interface IDodo {
+interface IDodoV2 {
     function sellBase(address to) external returns (uint256 receiveQuoteAmount);
     function sellQuote(address to) external returns (uint256 receiveBaseAmount);
 
@@ -23,23 +23,23 @@ abstract contract DodoV2 is SettlerAbstract {
         address recipient,
         IERC20 sellToken,
         uint256 bps,
-        address dodo,
+        IDodoV2 dodo,
         bool quoteForBase,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         if (bps != 0) {
             uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
-            sellToken.safeTransfer(dodo, sellAmount);
+            sellToken.safeTransfer(address(dodo), sellAmount);
         }
         if (quoteForBase) {
-            buyAmount = IDodo(dodo).sellQuote(recipient);
+            buyAmount = dodo.sellQuote(recipient);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(IDodo(dodo)._BASE_TOKEN_(), minBuyAmount, buyAmount);
+                revert TooMuchSlippage(dodo._BASE_TOKEN_(), minBuyAmount, buyAmount);
             }
         } else {
-            buyAmount = IDodo(dodo).sellBase(recipient);
+            buyAmount = dodo.sellBase(recipient);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(IDodo(dodo)._QUOTE_TOKEN_(), minBuyAmount, buyAmount);
+                revert TooMuchSlippage(dodo._QUOTE_TOKEN_(), minBuyAmount, buyAmount);
             }
         }
     }
