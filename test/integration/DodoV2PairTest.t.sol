@@ -6,16 +6,16 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {BaseSettler as Settler} from "src/chains/Base.sol";
+import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
-contract VelodromePairTest is BasePairTest {
+contract DodoV2PairTest is BasePairTest {
     function testName() internal pure override returns (string memory) {
-        return "USDT-USDC";
+        return "USDT-DAI";
     }
 
     Settler internal settler;
@@ -51,36 +51,62 @@ contract VelodromePairTest is BasePairTest {
     }
 
     function toToken() internal pure override returns (IERC20) {
-        return IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC
+        return IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F); // DAI
     }
 
-    function velodromePool() internal pure returns (address) {
-        return 0x63A65a174Cc725824188940255aD41c371F28F28; // actually solidlyv2 (velodrome does not exist on mainnet)
+    function dodoV2Pool() internal pure returns (address) {
+        return 0x3058EF90929cb8180174D74C507176ccA6835D73;
     }
 
     function amount() internal view override returns (uint256) {
         return _amount;
     }
 
-    function testSettler_velodrome() public skipIf(velodromePool() == address(0)) {
+    function testSettler_dodov2() public skipIf(dodoV2Pool() == address(0)) {
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()}),
             nonce: 1,
             deadline: block.timestamp + 30 seconds
         });
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
-        uint24 swapInfo = (2 << 8) | (0 << 1) | (0);
-        // fees = 2 bp; internally, solidly uses ppm
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (velodromePool(), permit, sig)),
-            abi.encodeCall(ISettlerActions.VELODROME, (FROM, 0, velodromePool(), swapInfo, 0))
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
+            abi.encodeCall(ISettlerActions.DODOV2, (FROM, address(fromToken()), 10_000, dodoV2Pool(), true, 0))
         );
 
         Settler _settler = settler;
 
         uint256 beforeBalance = toToken().balanceOf(FROM);
         vm.startPrank(FROM, FROM);
-        snapStartName("settler_velodrome");
+        snapStartName("settler_dodov2");
+        _settler.execute(
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            actions,
+            bytes32(0)
+        );
+        snapEnd();
+        uint256 afterBalance = toToken().balanceOf(FROM);
+
+        assertGt(afterBalance, beforeBalance);
+    }
+
+    function testSettler_dodov2_custody() public skipIf(dodoV2Pool() == address(0)) {
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: address(fromToken()), amount: amount()}),
+            nonce: 1,
+            deadline: block.timestamp + 30 seconds
+        });
+        bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (dodoV2Pool(), permit, sig)),
+            abi.encodeCall(ISettlerActions.DODOV2, (FROM, address(0), 0, dodoV2Pool(), true, 0))
+        );
+
+        Settler _settler = settler;
+
+        uint256 beforeBalance = toToken().balanceOf(FROM);
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_dodov2_custody");
         _settler.execute(
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0}),
             actions,
