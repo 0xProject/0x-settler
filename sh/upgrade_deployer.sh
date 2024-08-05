@@ -129,9 +129,11 @@ declare -r safe_address
 
 forge build
 
+declare version
+version="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'version()(string)')"
+version="$(xargs -n1 echo <<<"$version")" # remove embedded quotes
 declare -i version
-version="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'version()(uint256)')"
-version=$((version + 1))
+version+=1
 declare -r -i version
 
 declare constructor_args
@@ -253,6 +255,10 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     fi
     declare -r signature
 
+    declare safe_url
+    safe_url="$(get_config safe.apiUrl)"
+    declare -r safe_url
+
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
         declare signature_file
         signature_file="$project_root"/deployer_upgrade_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")".txt
@@ -290,7 +296,7 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     declare -r safe_multisig_transaction
 
     # call the API
-    curl --fail -s "$(get_config safe.apiUrl)"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+    curl --fail -s "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
 
     echo 'Signature submitted' >&2
 fi
