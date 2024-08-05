@@ -121,12 +121,18 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
+declare safe_address
+safe_address="$(get_config governance.upgradeSafe)"
+declare -r safe_address
+
+. "$project_root"/sh/common_safe.sh
+
 forge build
 
 declare -i version
-version="$1"
+version="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'version()(uint256)')"
+version=$((version + 1))
 declare -r -i version
-shift
 
 declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(uint256)' "$version")"
@@ -139,18 +145,6 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     impl_deployer="$1"
     declare -r impl_deployer
     shift
-
-    declare -i chainid
-    chainid="$(get_config chainId)"
-    declare -r -i chainid
-
-    declare rpc_url
-    rpc_url="$(get_api_secret rpcUrl)"
-    declare -r rpc_url
-    if [[ -z $rpc_url ]] ; then
-        echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-        exit 1
-    fi
 
     # set minimum gas price to (mostly for Arbitrum and BNB)
     declare -i min_gas_price
@@ -208,11 +202,6 @@ fi
 if [[ ${1:-unset} = 'confirm' ]] ; then
     shift
 
-    declare safe_address
-    safe_address="$(get_config governance.upgradeSafe)"
-    declare -r safe_address
-
-    . "$project_root"/sh/common_safe.sh
     . "$project_root"/sh/common_safe_owner.sh
     . "$project_root"/sh/common_wallet_type.sh
 
