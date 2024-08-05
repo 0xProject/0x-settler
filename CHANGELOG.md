@@ -15,6 +15,7 @@ Master list of UniV3 forks:
   12. ZebraV3
   13. Lynex (Algebra-like)
   14. DackieSwapV3
+  15. Thick
 
 ---
 
@@ -29,6 +30,7 @@ Master list of UniV3 forks:
 * Add MaverickV2 to Scroll
 * Add MaverickV2 to Sepolia
 * Add DackieSwapV3 UniV3 fork to Base
+* Add Thick UniV3 fork to Base
 
 ## 2024-07-29
 
