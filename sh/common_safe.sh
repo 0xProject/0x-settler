@@ -3,83 +3,26 @@ if [[ ${chainid:-unset} = 'unset' ]] ; then
     chainid="$(get_config chainId)"
     declare -r -i chainid
 fi
+
 if [[ ${rpc_url:-unset} = 'unset' ]] ; then
     declare rpc_url
     rpc_url="$(get_api_secret rpcUrl)"
     declare -r rpc_url
 fi
+if [[ -z $rpc_url ]] ; then
+    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
+    exit 1
+fi
+
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
-
-declare -r get_owners_sig='getOwners()(address[])'
-declare owners
-owners="$(cast abi-decode "$get_owners_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$get_owners_sig")")")"
-owners="${owners:1:$((${#owners} - 2))}"
-owners="${owners//, /;}"
-declare -r owners
 
 declare -r nonce_sig='nonce()(uint256)'
 declare -i nonce
 nonce="$(cast abi-decode "$nonce_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$nonce_sig")")")"
 nonce=$((${SAFE_NONCE_INCREMENT:-0} + nonce))
 declare -r -i nonce
-
-declare -a owners_array
-IFS=';' read -r -a owners_array <<<"$owners"
-declare -r -a owners_array
-
-PS3='Who are you?: '
-declare signer
-select signer in "${owners_array[@]}" ; do break ; done
-declare -r signer
-
-if [[ ${signer:-unset} = 'unset' ]] ; then
-    echo 'I do not know who that is' >&2
-    exit 1
-fi
-
-PS3='What kind of wallet are you using? '
-declare wallet_type
-select wallet_type in ledger trezor hot frame ; do break ; done
-declare -r wallet_Type
-
-if [[ ${wallet_type:-unset} = 'unset' ]] ; then
-    exit 1
-fi
-
-declare -a wallet_args
-case $wallet_type in
-    'ledger')
-        wallet_args=(--ledger)
-        ;;
-    'trezor')
-        wallet_args=(--trezor)
-        ;;
-    'hot')
-        wallet_args=(--interactive)
-        ;;
-    'frame')
-        wallet_args=(--unlocked)
-        ;;
-    *)
-        echo 'Unrecognized wallet type: '"$wallet_type" >&2
-        exit 1
-        ;;
-esac
-
-if [[ $wallet_type = 'ledger' ]] ; then
-    IFS='' read -r -e -p 'Ledger wallet HD path (BIP32) [default '"44'/60'/0'/0"']: '
-    if [[ ${REPLY:-unset} = 'unset' ]] ; then
-        wallet_args+=(
-            --mnemonic-derivation-path "44'/60'/0'/0"
-        )
-    else
-        wallet_args+=(
-            --mnemonic-derivation-path "$REPLY"
-        )
-    fi
-fi
 
 # calls encoded as operation (always zero) 1 byte
 #                  target address          20 bytes

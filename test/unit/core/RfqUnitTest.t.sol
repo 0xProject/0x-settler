@@ -15,7 +15,7 @@ import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "../../../src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import {Test} from "forge-std/Test.sol";
 

@@ -5,7 +5,8 @@ import "forge-std/Test.sol";
 
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {ERC1967UUPSUpgradeable, IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
-import {IERC165, AbstractOwnable, IOwnable, Ownable} from "src/deployer/TwoStepOwnable.sol";
+import {IERC165} from "forge-std/interfaces/IERC165.sol";
+import {AbstractOwnable, IOwnable, Ownable} from "src/deployer/TwoStepOwnable.sol";
 import {Context} from "src/Context.sol";
 
 interface IMock is IOwnable, IERC1967Proxy {}
@@ -162,7 +163,10 @@ contract ERC1967UUPSTest is Test {
     function testBrokenVersion() external {
         IMock newImpl = new Mock(1);
 
-        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
+        // the revert string has the arguments backwards here because we get
+        // infinite recursion. which order we get depends on the context depth
+        // and gas limit on entry.
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", newImpl, mock.implementation()));
         mock.upgrade(address(newImpl));
     }
 

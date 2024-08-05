@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
@@ -78,7 +78,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                     0x184,
                     abi.encodeCall(
                         ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
-                        )
+                    )
                 )
             )
         );
@@ -109,7 +109,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
                     0x184,
                     abi.encodeCall(
                         ZERO_EX.fillOtcOrder, (otcOrder, IZeroEx.Signature(IZeroEx.SignatureType.EIP712, v, r, s), 0)
-                        )
+                    )
                 )
             ),
             abi.encodeCall(

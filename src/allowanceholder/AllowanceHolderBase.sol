@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
-import {IERC20} from "../IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {CheckCall} from "../utils/CheckCall.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";

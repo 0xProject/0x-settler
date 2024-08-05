@@ -125,20 +125,31 @@ cd "$project_root"
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
+if [[ -z $rpc_url ]] ; then
+    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
+    exit 1
+fi
 
-# set minimum gas price to 10gwei (Arbitrum gets weird if you go lower)
+# set minimum gas price to (mostly for Arbitrum and BNB)
+declare -i min_gas_price
+min_gas_price="$(get_config minGasPriceGwei)"
+min_gas_price=$((min_gas_price * 1000000000))
+declare -r -i min_gas_price
 declare -i gas_price
 gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < 10000000000 )) ; then
-    echo 'Setting gas price to minimum of 10 gwei' >&2
-    gas_price=10000000000
+if (( gas_price < min_gas_price )) ; then
+    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
+    gas_price=$min_gas_price
 fi
 declare -r -i gas_price
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
 forge clean
-forge create --no-cache --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+forge create --private-key "$(get_secret allowanceHolder key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
+    forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+fi
 
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2

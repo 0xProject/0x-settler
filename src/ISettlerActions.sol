@@ -75,6 +75,14 @@ interface ISettlerActions {
     ) external;
 
     function DODOV1(address sellToken, uint256 bps, address pool, bool quoteForBase, uint256 minBuyAmount) external;
+    function DODOV2(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool quoteForBase,
+        uint256 minBuyAmount
+    ) external;
 
     function VELODROME(address recipient, uint256 bps, address pool, uint24 swapInfo, uint256 minBuyAmount) external;
 
@@ -84,6 +92,37 @@ interface ISettlerActions {
         bytes memory path,
         ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin
+    ) external;
+
+    /// @dev Trades against MaverickV2 using the contracts balance for funding
+    /// This action does not use the MaverickV2 callback, so it takes an arbitrary pool address to make calls against.
+    /// Passing `tokenAIn` as a parameter actually saves gas relative to introspecting the pool's `tokenA()` accessor.
+    function MAVERICKV2(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool tokenAIn,
+        uint256 minBuyAmount
+    ) external;
+    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
+    /// This action requires the use of the MaverickV2 callback, so we take the MaverickV2 CREATE2 salt as an argument to derive the pool address from the trusted factory and inithash.
+    /// @param salt is formed as `keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)))`
+    function MAVERICKV2_VIP(
+        address recipient,
+        bytes32 salt,
+        bool tokenAIn,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 minBuyAmount
+    ) external;
+    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
+    function METATXN_MAVERICKV2_VIP(
+        address recipient,
+        bytes32 salt,
+        bool tokenAIn,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 minBuyAmount
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding

@@ -2,10 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {AbstractContext} from "../Context.sol";
-
-interface IERC165 {
-    function supportsInterface(bytes4) external view returns (bool);
-}
+import {IERC165} from "forge-std/interfaces/IERC165.sol";
 
 interface IOwnable is IERC165 {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);

@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20, IERC20Meta} from "src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {BaseSettler as Settler} from "src/chains/Base.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
+import {Shim} from "./SettlerBasePairTest.t.sol";
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-
-contract Shim {
-    // forgefmt: disable-next-line
-    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.chainid;
-    }
-}
 
 contract VelodromePairTest is BasePairTest {
     function testName() internal pure override returns (string memory) {
@@ -30,7 +24,7 @@ contract VelodromePairTest is BasePairTest {
 
     function setUp() public override {
         // the pool specified below doesn't have very much liquidity, so we only swap a small amount
-        IERC20Meta sellToken = IERC20Meta(address(fromToken()));
+        IERC20 sellToken = IERC20(address(fromToken()));
         _amount = 10 ** sellToken.decimals() * 100;
 
         super.setUp();

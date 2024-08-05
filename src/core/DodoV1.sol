@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.25;
 
-import {IERC20} from "../IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-interface IDodo {
+interface IDodoV1 {
     function sellBaseToken(uint256 amount, uint256 minReceiveQuote, bytes calldata data) external returns (uint256);
 
     function buyBaseToken(uint256 amount, uint256 maxPayQuote, bytes calldata data) external returns (uint256);
@@ -207,7 +207,7 @@ abstract contract DodoSellHelper {
         RStatus rStatus;
     }
 
-    function dodoQuerySellQuoteToken(IDodo dodo, uint256 amount) internal view returns (uint256) {
+    function dodoQuerySellQuoteToken(IDodoV1 dodo, uint256 amount) internal view returns (uint256) {
         DodoState memory state;
         (state.baseTarget, state.quoteTarget) = dodo.getExpectedTarget();
         state.rStatus = RStatus(dodo._R_STATUS_());
@@ -283,19 +283,19 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
-    function sellToDodoV1(IERC20 sellToken, uint256 bps, address dodo, bool quoteForBase, uint256 minBuyAmount)
+    function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)
         internal
     {
         uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
-        sellToken.safeApproveIfBelow(dodo, sellAmount);
+        sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {
-            uint256 buyAmount = dodoQuerySellQuoteToken(IDodo(dodo), sellAmount);
+            uint256 buyAmount = dodoQuerySellQuoteToken(dodo, sellAmount);
             if (buyAmount < minBuyAmount) {
                 revert TooMuchSlippage(sellToken, minBuyAmount, buyAmount);
             }
-            IDodo(dodo).buyBaseToken(buyAmount, sellAmount, new bytes(0));
+            dodo.buyBaseToken(buyAmount, sellAmount, new bytes(0));
         } else {
-            IDodo(dodo).sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
+            dodo.sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
         }
     }
 }

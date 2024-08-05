@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 import {SettlerBasePairTest, Shim} from "./SettlerBasePairTest.t.sol";
@@ -85,10 +85,10 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    bytes32 private constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
+    bytes32 internal constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
     );
-    bytes32 private constant SLIPPAGE_AND_ACTIONS_TYPEHASH =
+    bytes32 internal constant SLIPPAGE_AND_ACTIONS_TYPEHASH =
         keccak256("SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)");
 
     function testSettler_metaTxn_uniswapV3() public {

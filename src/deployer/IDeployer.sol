@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC165, IOwnable} from "./TwoStepOwnable.sol";
+import {IERC165} from "forge-std/interfaces/IERC165.sol";
+import {IOwnable} from "./TwoStepOwnable.sol";
 import {IERC1967Proxy} from "../proxy/ERC1967UUPSUpgradeable.sol";
 import {IMultiCall} from "../utils/MultiCall.sol";
 import {Feature} from "./Feature.sol";

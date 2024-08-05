@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.25;
 
-import {IERC20} from "../IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 /// @notice Safe ETH and ERC20 transfer library that gracefully handles missing return values.
 /// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/utils/SafeTransferLib.sol)

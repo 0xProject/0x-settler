@@ -7,7 +7,7 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
 
-import {IERC20} from "src/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
@@ -19,6 +19,11 @@ contract Shim {
     // forgefmt: disable-next-line
     function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
         return block.chainid;
+    }
+
+    // forgefmt: disable-next-line
+    function blockNumber() external returns (uint256) { // this is non-view (mutable) on purpose
+        return block.number;
     }
 }
 

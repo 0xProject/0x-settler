@@ -1,15 +1,25 @@
-forge build
-
 declare chain_display_name
 chain_display_name="$(get_config displayName)"
 declare -r chain_display_name
 
+forge clean
+declare flat_source
+flat_source="$project_root"/src/flat/"$chain_display_name"Flat.sol
+declare -r flat_source
+trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_source")" EXIT
+forge flatten -o "$flat_source" src/chains/"$chain_display_name".sol >/dev/null
+forge build "$flat_source"
+
+declare artifact_prefix
+artifact_prefix="$project_root"/out/"$chain_display_name"Flat.sol/"$chain_display_name"Settler
+declare -r artifact_prefix
+
 declare taker_artifact
-taker_artifact="$project_root"/out/"$chain_display_name".sol/"$chain_display_name"Settler.json
+taker_artifact="$artifact_prefix".json
 declare -r taker_artifact
 
 declare metatx_artifact
-metatx_artifact="$project_root"/out/"$chain_display_name".sol/"$chain_display_name"SettlerMetaTxn.json
+metatx_artifact="$artifact_prefix"MetaTxn.json
 declare -r metatx_artifact
 
 if [ ! -f "$taker_artifact" ] || [ ! -f "$metatx_artifact" ] ; then
