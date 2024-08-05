@@ -35,6 +35,7 @@ Master list of UniV3 forks:
 * Add KinetixV3 UniV3 fork to Base
 * Add new action `DODOV2`
 * Add DodoV2 to Mainnet
+* Added `prev` view function to `Deployer`
 
 ## 2024-07-29
 

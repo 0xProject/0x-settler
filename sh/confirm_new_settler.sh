@@ -180,7 +180,7 @@ if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
     declare -r signature_file
     echo "$signature" >"$signature_file"
     echo "Signature saved to '$signature_file'" >&2
-    exit 1
+    exit 0
 fi
 
 declare signing_hash

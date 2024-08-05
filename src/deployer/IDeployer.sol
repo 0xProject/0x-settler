@@ -33,18 +33,22 @@ interface IDeployerRemove {
 interface IDeployer is IOwnable, IERC721ViewMetadata, IMultiCall, IDeployerRemove {
     function authorized(Feature) external view returns (address, uint40);
     function descriptionHash(Feature) external view returns (bytes32);
+    function prev(Feature) external view returns (address);
     function next(Feature) external view returns (address);
     function deployInfo(address) external view returns (Feature, Nonce);
     function authorize(Feature, address, uint40) external returns (bool);
     function setDescription(Feature, string calldata) external returns (string memory);
     function deploy(Feature, bytes calldata) external payable returns (address, Nonce);
 
-    error NotDeployed(address);
+    // ERC-6093 errors
+    error ERC721InvalidOwner(address owner);
+    error ERC721NonexistentToken(uint256 tokenId);
+
     error FeatureNotInitialized(Feature);
     error FeatureInitialized(Feature);
     error DeployFailed(Feature, Nonce, address);
-    error NoToken(uint256);
     error FutureNonce(Nonce);
+    error NoInstance();
 
     event Authorized(Feature indexed, address indexed, uint40);
     event Deployed(Feature indexed, Nonce indexed, address indexed);

@@ -125,7 +125,7 @@ cd "$project_root"
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
-if [[ -z $rpc_url ]] ; then
+if [[ ${rpc_url:-unset} = 'unset' ]] ; then
     echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
     exit 1
 fi
