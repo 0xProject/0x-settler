@@ -253,6 +253,15 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     fi
     declare -r signature
 
+    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+        declare signature_file
+        signature_file="$project_root"/deployer_upgrade_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")".txt
+        declare -r signature_file
+        echo "$signature" >"$signature_file"
+        echo "Signature saved to '$signature_file'" >&2
+        exit 0
+    fi
+
     declare signing_hash
     signing_hash="$(eip712_hash "$upgrade_calldata")"
     declare -r signing_hash
