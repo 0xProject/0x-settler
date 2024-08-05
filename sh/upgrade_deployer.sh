@@ -180,9 +180,6 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     declare -r deployed_address
 
     echo '' >&2
-    echo 'Warning, Foundry nightly 2024-05-02 broke `cast send`' >&2
-    echo 'https://github.com/foundry-rs/foundry/pull/7804' >&2
-    echo 'To downgrade: `foundryup --version nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9`' >&2
     echo 'Duncan wrote this for his own use; if you are not using a Frame wallet, it probably will break' >&2
     echo '' >&2
 
