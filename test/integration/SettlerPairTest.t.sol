@@ -313,7 +313,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), 0, nextPool, swapInfo2, 0))
         );
 
-        uint256 balanceBefore = wBTC.balanceOf(FROM);
+        uint256 balanceBefore = balanceOf(wBTC, FROM);
 
         Settler _settler = settler;
         vm.startPrank(FROM);
@@ -373,7 +373,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), 0, nextPool, swapInfo2, 0))
         );
 
-        uint256 balanceBefore = wBTC.balanceOf(FROM);
+        uint256 balanceBefore = balanceOf(wBTC, FROM);
 
         Settler _settler = settler;
         vm.startPrank(FROM);
@@ -443,7 +443,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
             )
         );
 
-        uint256 beforeBalance = toToken().balanceOf(FROM);
+        uint256 beforeBalance = balanceOf(toToken(), FROM);
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_basic_curve");

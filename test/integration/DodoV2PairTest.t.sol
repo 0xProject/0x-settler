@@ -76,7 +76,7 @@ contract DodoV2PairTest is BasePairTest {
 
         Settler _settler = settler;
 
-        uint256 beforeBalance = toToken().balanceOf(FROM);
+        uint256 beforeBalance = balanceOf(toToken(), FROM);
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodov2");
         _settler.execute(
@@ -104,7 +104,7 @@ contract DodoV2PairTest is BasePairTest {
 
         Settler _settler = settler;
 
-        uint256 beforeBalance = toToken().balanceOf(FROM);
+        uint256 beforeBalance = balanceOf(toToken(), FROM);
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodov2_custody");
         _settler.execute(
