@@ -78,7 +78,7 @@ contract VelodromePairTest is BasePairTest {
 
         Settler _settler = settler;
 
-        uint256 beforeBalance = toToken().balanceOf(FROM);
+        uint256 beforeBalance = balanceOf(toToken(), FROM);
         vm.startPrank(FROM, FROM);
         snapStartName("settler_velodrome");
         _settler.execute(

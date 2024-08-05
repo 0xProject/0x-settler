@@ -52,22 +52,6 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         return false;
     }
 
-    function _balanceOf(IERC20 token, address account) private view returns (uint256) {
-        (bool success, bytes memory returnData) =
-            address(this).staticcall(abi.encodeCall(this.getBalanceAndRevert, (token, account)));
-        assert(!success);
-        assert(returnData.length == 32);
-        return abi.decode(returnData, (uint256));
-    }
-
-    function getBalanceAndRevert(IERC20 token, address account) external view {
-        uint256 result = token.balanceOf(account);
-        assembly ("memory-safe") {
-            mstore(0x00, result)
-            revert(0x00, 0x20)
-        }
-    }
-
     function testMaverickV2() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
@@ -81,8 +65,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
         Settler _settler = settler;
-        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
-        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
         snapStartName("settler_maverickV2");
@@ -107,8 +91,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
         Settler _settler = settler;
-        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
-        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
         snapStartName("settler_maverickV2_VIP");
@@ -140,8 +124,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 _amount = amount();
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
-        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
-        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_maverickV2_VIP");
@@ -186,8 +170,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         );
 
         SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
-        uint256 beforeBalanceFrom = _balanceOf(fromToken(), FROM);
-        uint256 beforeBalanceTo = _balanceOf(toToken(), FROM);
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         snapStartName("settler_metaTxn_maverickV2");
         vm.startPrank(address(this), address(this));
