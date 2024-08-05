@@ -35,6 +35,7 @@ import {baseXFactory, baseXForkId} from "../core/univ3forks/BaseX.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../core/univ3forks/SwapBasedV3.sol";
 import {dackieSwapV3BaseFactory, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
 import {thickFactory, thickInitHash, thickForkId} from "../core/univ3forks/Thick.sol";
+import {kinetixV3BaseFactory, kinetixV3ForkId} from "../core/univ3forks/KinetixV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -133,6 +134,10 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2 {
                 } else if (forkId == thickForkId) {
                     factory = thickFactory;
                     initHash = thickInitHash;
+                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+                } else if (forkId == kinetixV3ForkId) {
+                    factory = kinetixV3BaseFactory;
+                    initHash = uniswapV3InitHash;
                     callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
                     revert UnknownForkId(forkId);
