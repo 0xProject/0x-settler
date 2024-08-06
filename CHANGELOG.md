@@ -20,6 +20,23 @@ Master list of UniV3 forks:
 
 ---
 
+### Breaking changes
+
+* Remove DodoV1 from all chains except Mainnet
+  * Remove `DODOV1` action from Arbitrum
+  * Remove `DODOV1` action from Avalanche
+  * Remove `DODOV1` action from Base
+  * Remove `DODOV1` action from Blast
+  * Remove `DODOV1` action from Bnb
+  * Remove `DODOV1` action from Linea
+  * Remove `DODOV1` action from Optimism
+  * Remove `DODOV1` action from Polygon
+  * Remove `DODOV1` action from Scroll
+  * Remove `DODOV1` action from Sepolia
+  * (`DODOV1` action remains available on Mainnet)
+
+### Non-breaking changes
+
 * Arbiscan's "Cancun" issue has been fixed -- verify Settler on Arbiscan
 * Link to 0x's Immunefi bug bounty page from `README.md`
 * Add UniswapV3 UniV3 fork to Scroll
