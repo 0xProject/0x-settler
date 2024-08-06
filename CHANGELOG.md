@@ -41,17 +41,21 @@ Master list of UniV3 forks:
 * Link to 0x's Immunefi bug bounty page from `README.md`
 * Add UniswapV3 UniV3 fork to Scroll
 * Add new actions `MAVERICKV2`, `MAVERICKV2_VIP`, and `METATXN_MAVERICKV2_VIP`
-* Add MaverickV2 to Mainnet
-* Add MaverickV2 to Base
-* Add MaverickV2 to Arbitrum
-* Add MaverickV2 to Bnb
-* Add MaverickV2 to Scroll
-* Add MaverickV2 to Sepolia
+  * Add MaverickV2 to Mainnet
+  * Add MaverickV2 to Base
+  * Add MaverickV2 to Arbitrum
+  * Add MaverickV2 to Bnb
+  * Add MaverickV2 to Scroll
+  * Add MaverickV2 to Sepolia
 * Add DackieSwapV3 UniV3 fork to Base
 * Add Thick UniV3 fork to Base
 * Add KinetixV3 UniV3 fork to Base
 * Add new action `DODOV2`
-* Add DodoV2 to Mainnet
+  * Add DodoV2 to Avalanche
+  * Add DodoV2 to Bnb
+  * Add DodoV2 to Mainnet
+  * Add DodoV2 to Polygon
+  * Add DodoV2 to Scroll
 
 ## 2024-07-29
 

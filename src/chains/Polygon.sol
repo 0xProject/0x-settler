@@ -5,6 +5,8 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
@@ -25,7 +27,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract PolygonMixin is FreeMemory, SettlerBase {
+abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV2 {
     constructor() {
         assert(block.chainid == 137 || block.chainid == 31337);
     }
@@ -33,11 +35,21 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         virtual
-        override(SettlerBase)
+        override(SettlerAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        if (super._dispatch(i, action, data)) {
+            return true;
+        } else if (action == ISettlerActions.DODOV2.selector) {
+            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
+
+            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     function _uniV3ForkInfo(uint8 forkId)
