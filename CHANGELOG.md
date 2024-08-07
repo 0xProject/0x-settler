@@ -17,6 +17,7 @@ Master list of UniV3 forks:
   14. DackieSwapV3
   15. Thick
   16. KinetixV3
+  17. MetavaultV3
 
 ---
 
@@ -56,6 +57,7 @@ Master list of UniV3 forks:
   * Add DodoV2 to Mainnet
   * Add DodoV2 to Polygon
   * Add DodoV2 to Scroll
+* Add MetavaultV3 UniV3 fork to Scroll
 
 ## 2024-07-29
 
