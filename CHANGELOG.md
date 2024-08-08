@@ -58,6 +58,7 @@ Master list of UniV3 forks:
   * Add DodoV2 to Polygon
   * Add DodoV2 to Scroll
 * Add MetavaultV3 UniV3 fork to Scroll
+* Add DackieSwapV3 UniV3 fork to Optimism
 
 ## 2024-07-29
 
