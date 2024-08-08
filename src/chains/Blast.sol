@@ -16,6 +16,7 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {sushiswapV3BlastFactory, sushiswapV3BlastInitHash, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {thrusterFactory, thrusterInitHash, thrusterForkId} from "../core/univ3forks/Thruster.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {bladeSwapFactory, bladeSwapInitHash, bladeSwapForkId} from "../core/univ3forks/BladeSwap.sol";
@@ -88,6 +89,10 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3BlastFactory;
             initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3BlastFactory;
+            initHash = sushiswapV3BlastInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == thrusterForkId) {
             factory = thrusterFactory;
