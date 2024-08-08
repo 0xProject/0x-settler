@@ -58,6 +58,12 @@ Master list of UniV3 forks:
   * Add DodoV2 to Polygon
   * Add DodoV2 to Scroll
 * Add MetavaultV3 UniV3 fork to Scroll
+* Add SushiswapV3 UniV3 fork to more chains
+  * Add SushiswapV3 to Arbitrum
+  * Add SushiswapV3 to Avalanche
+  * Add SushiswapV3 to Blast (new initcode hash)
+  * Add SushiswapV3 to Bnb
+  * Add SushiswapV3 to Optimism
 
 ## 2024-07-29
 
