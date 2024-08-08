@@ -18,6 +18,7 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {sushiswapV3AvalancheFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -57,6 +58,10 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2 {
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3AvalancheFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3AvalancheFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
