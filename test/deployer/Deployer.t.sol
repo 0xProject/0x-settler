@@ -238,6 +238,50 @@ contract DeployerTest is Test {
         deployer.remove(testFeature, nonce);
     }
 
+    function testNext() public {
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
+
+        address next = Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer));
+        assertEq(deployer.next(testFeature), next);
+
+        (address instance, ) = deployer.deploy(testFeature, type(Dummy).creationCode);
+        assertEq(instance, next);
+
+        assertEq(deployer.ownerOf(Feature.unwrap(testFeature)), next);
+    }
+
+    function testPrev() public {
+        deployer.setDescription(testFeature, "nothing to see here");
+        deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
+
+        (address firstInstance, Nonce firstNonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
+        (address secondInstance, Nonce secondNonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
+        (address thirdInstance, Nonce thirdNonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
+        (, Nonce fourthNonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
+
+        address prev = Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(thirdNonce)), address(deployer));
+
+        assertEq(prev, thirdInstance);
+        assertEq(deployer.prev(testFeature), prev);
+
+        deployer.remove(testFeature, fourthNonce);
+
+        assertEq(deployer.ownerOf(Feature.unwrap(testFeature)), prev);
+        assertEq(deployer.prev(testFeature), secondInstance);
+
+        deployer.remove(testFeature, secondNonce);
+
+        assertEq(deployer.ownerOf(Feature.unwrap(testFeature)), prev);
+        assertEq(deployer.prev(testFeature), firstInstance);
+
+        deployer.remove(testFeature, firstNonce);
+
+        assertEq(deployer.ownerOf(Feature.unwrap(testFeature)), prev);
+        vm.expectRevert(abi.encodeWithSignature("NoInstance()"));
+        deployer.prev(testFeature);
+    }
+
     function testTokenURI() public {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
