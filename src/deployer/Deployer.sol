@@ -148,7 +148,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         }
     }
 
-    function initialize(address initialOwner) external {
+    function initialize(address initialOwner) public virtual {
         require(address(this) == 0x00000000000004533Fe15556B1E086BB1A72cEae || block.chainid == 31337);
         if (_implVersion == 1) {
             _setPendingOwner(initialOwner);
