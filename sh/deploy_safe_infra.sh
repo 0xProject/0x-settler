@@ -141,6 +141,12 @@ declare -r multicall_hash='0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
+
+if [[ ${rpc_url:-unset} = 'unset' ]] ; then
+    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
+    exit 1
+fi
+
 declare -i chainid
 chainid="$(get_config chainId)"
 declare -r -i chainid

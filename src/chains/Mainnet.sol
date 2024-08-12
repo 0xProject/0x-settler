@@ -5,7 +5,11 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
+import {DodoV1, IDodoV1} from "../core/DodoV1.sol";
+import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
@@ -24,6 +28,7 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
+import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {
     solidlyV3Factory, solidlyV3InitHash, solidlyV3ForkId, ISolidlyV3Callback
 } from "../core/univ3forks/SolidlyV3.sol";
@@ -33,7 +38,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
+abstract contract MainnetMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto, DodoV1, DodoV2 {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -49,6 +54,27 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
             return true;
         } else if (action == ISettlerActions.MAKERPSM.selector) {
             revert("unimplemented");
+        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IMaverickV2Pool pool,
+                bool tokenAIn,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
+
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+        } else if (action == ISettlerActions.DODOV2.selector) {
+            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
+
+            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == ISettlerActions.DODOV1.selector) {
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -69,6 +95,10 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, CurveTricrypto {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3MainnetFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == solidlyV3ForkId) {
             factory = solidlyV3Factory;
             initHash = solidlyV3InitHash;
@@ -90,6 +120,17 @@ contract MainnetSettler is Settler, MainnetMixin {
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
+        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+            (
+                address recipient,
+                bytes32 salt,
+                bool tokenAIn,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
@@ -141,6 +182,16 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
+        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+            (
+                address recipient,
+                bytes32 salt,
+                bool tokenAIn,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
+
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,

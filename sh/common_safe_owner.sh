@@ -14,8 +14,6 @@ declare signer
 select signer in "${owners_array[@]}" ; do break ; done
 declare -r signer
 
-echo "$signer" >&2
-
 if [[ ${signer:-unset} = 'unset' ]] ; then
     echo 'I do not know who that is' >&2
     exit 1

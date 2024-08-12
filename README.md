@@ -5,32 +5,39 @@ perform swaps without any passive allowances to the contract.
 
 ## How do I find the most recent deployment?
 
-The deployer/registry contract is deployed to
+The 0x Settler deployer/registry contract is deployed to
 `0x00000000000004533Fe15556B1E086BB1A72cEae` across all chains (unless somebody
 screwed up the vanity address and didn't update this document). The
 deployer/registry is an ERC1967 UUPS upgradeable contract that implements an
-ERC721-compatible NFT. To find the address of the most recent deployment, call
-`ownerOf(uint256)(address)` with the `tokenId` set to the number of the feature
-that you wish to query. For taker-submitted flows, the feature number is
-probably 2 unless something major changed and nobody updated this
-document. Likewise, for gasless/metatransaction flows, the feature number is
-probably 3. A reverting response indicates that `Settler` is paused and you
-should not interact. Do not hardcode any address other than
-`0x00000000000004533Fe15556B1E086BB1A72cEae` in your integration. _**ALWAYS**_
-query the deployer/registry for the address of the most recent contract before
-building or signing a transaction, metatransaction, or order.
+ERC721-compatible NFT. To find the address of the most recent `Settler`
+deployment, call `function ownerOf(uint256 tokenId) external view returns (address)`
+with the `tokenId` set to the number of the feature that you wish to query. For
+taker-submitted flows, the feature number is probably 2 unless something major
+changed and nobody updated this document. Likewise, for gasless/metatransaction
+flows, the feature number is probably 3. A reverting response indicates that
+`Settler` is paused and you should not interact. Do not hardcode any `Settler`
+address in your integration. _**ALWAYS**_ query the deployer/registry for the
+address of the most recent `Settler` contract before building or signing a
+transaction, metatransaction, or order.
 
-### Why is Settler not verified on [Arbiscan](https://arbiscan.io/)?
+### AllowanceHolder addresses
 
-[Arbiscan has an
-issue](https://twitter.com/duncancmt/status/1775893476342964464). It has been
-reported to Arbiscan/Arbitrum, but as of the last update to this document, it
-has not been debugged or resolved. Settler will not verify on Arbiscan. Arbitrum
-supports the opcodes from the Ethereum Cancun hardfork, but if you compile a
-contract for Cancun, Arbiscan will reject it for verification because it doesn't
-know that "Cancun" is a valid hardfork level for Arbitrum. The Arbitrum Settler
-(and all other Settlers) should be verified on
-[sourcify.eth](https://sourcify.dev/).
+AllowanceHolder is deployed to the following addresses depending on the most
+advanced EVM hardfork supported on the chain. You can hardcode this address in
+your integration.
+
+* `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
+  hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
+  Arbitrum, Blast)
+* `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
+  hardfork (Bnb, Avalanche, Scroll)
+* `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
+  hardfork (Linea)
+
+### Permit2 address
+
+Permit2 is deployed to `0x000000000022D473030F116dDEE9F6B43aC78BA3` across all
+chains. You can hardcode this address in your integration.
 
 ### Examples
 
@@ -360,6 +367,20 @@ By retrieving the argument of this event, you get the git commit from which the
 Settler was built. For convenience, the script [`./sh/checkout_settler_commit.sh
 <CHAIN_NAME>`](sh/checkout_settler_commit.sh) will pull the latest Settler
 address, read the deployment event, and checkout the git commit.
+
+## Bug Bounty Program
+
+0x hosts a bug bounty on Immunefi at the address
+https://immunefi.com/bug-bounty/0x .
+
+If you have found a vulnerability in our project, it must be submitted through
+Immunefi's platform. Immunefi will handle bug bounty communications.
+
+See the bounty page at Immunefi for more details on accepted vulnerabilities,
+payout amounts, and rules of participation.
+
+Users who violate the rules of participation will not receive bug bounty payouts
+and may be temporarily suspended or banned from the bug bounty program.
 
 ## Custody
 
@@ -1139,9 +1160,7 @@ Now that the contract is deployed on-chain you need to run
 flaky](https://github.com/foundry-rs/foundry/issues/8470). Try deploying the
 contracts in the normal way (without going through the 2 signer ceremony above)
 to a testnet and verifying them there to make sure this doesn't
-happen. [Arbiscan
-has an issue](https://twitter.com/duncancmt/status/1775893476342964464); Settler will
-not verify there (but the Arbitrum Settler should verify on Sourcify).
+happen.
 
 ## How to deploy to a new chain
 

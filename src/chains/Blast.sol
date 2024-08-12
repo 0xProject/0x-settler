@@ -16,10 +16,13 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {IPancakeSwapV3Callback} from "../core/univ3forks/PancakeSwapV3.sol";
+//import {sushiswapV3BlastFactory, sushiswapV3BlastInitHash, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {thrusterFactory, thrusterInitHash, thrusterForkId} from "../core/univ3forks/Thruster.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {bladeSwapFactory, bladeSwapInitHash, bladeSwapForkId} from "../core/univ3forks/BladeSwap.sol";
 import {fenixFactory, fenixInitHash, fenixForkId} from "../core/univ3forks/Fenix.sol";
+import {dackieSwapV3BlastFactory, dackieSwapV3BlastInitHash, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
 
 import {IOwnable} from "../deployer/TwoStepOwnable.sol";
 
@@ -40,6 +43,7 @@ interface IBlastYieldERC20 {
         VOID,
         CLAIMABLE
     }
+
     function configure(YieldMode) external returns (uint256);
 }
 
@@ -54,7 +58,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             _BLAST.configureClaimableGas();
             _USDB.configure(IBlastYieldERC20.YieldMode.VOID);
             _WETH.configure(IBlastYieldERC20.YieldMode.VOID);
-            _BLAST.configureGovernor(IOwnable(msg.sender).owner());
+            _BLAST.configureGovernor(IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner());
         }
     }
 
@@ -88,6 +92,10 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             factory = uniswapV3BlastFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        //} else if (forkId == sushiswapV3ForkId) {
+        //    factory = sushiswapV3BlastFactory;
+        //    initHash = sushiswapV3BlastInitHash;
+        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == thrusterForkId) {
             factory = thrusterFactory;
             initHash = thrusterInitHash;
@@ -100,6 +108,10 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             factory = fenixFactory;
             initHash = fenixInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == dackieSwapV3ForkId) {
+            factory = dackieSwapV3BlastFactory;
+            initHash = dackieSwapV3BlastInitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
@@ -114,12 +126,7 @@ contract BlastSettler is Settler, BlastMixin {
         return super._dispatchVIP(action, data);
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        override(Settler, BlastMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure override(Settler, BlastMixin) returns (bool) {
         return BlastMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
     }
 

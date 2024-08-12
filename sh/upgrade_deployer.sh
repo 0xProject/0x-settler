@@ -121,12 +121,20 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
+declare safe_address
+safe_address="$(get_config governance.upgradeSafe)"
+declare -r safe_address
+
+. "$project_root"/sh/common_safe.sh
+
 forge build
 
+declare version
+version="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'version()(string)')"
+version="$(xargs -n1 echo <<<"$version")" # remove embedded quotes
 declare -i version
-version="$1"
+version+=1
 declare -r -i version
-shift
 
 declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(uint256)' "$version")"
@@ -139,14 +147,6 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     impl_deployer="$1"
     declare -r impl_deployer
     shift
-
-    declare -i chainid
-    chainid="$(get_config chainId)"
-    declare -r -i chainid
-
-    declare rpc_url
-    rpc_url="$(get_api_secret rpcUrl)"
-    declare -r rpc_url
 
     # set minimum gas price to (mostly for Arbitrum and BNB)
     declare -i min_gas_price
@@ -170,7 +170,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     initcode="$(cast concat-hex "$initcode" "$constructor_args")"
     declare -r initcode
     declare -i gas_limit
-    gas_limit="$(cast estimate --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
+    gas_limit="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
     gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
     declare -r -i gas_limit
 
@@ -180,9 +180,6 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     declare -r deployed_address
 
     echo '' >&2
-    echo 'Warning, Foundry nightly 2024-05-02 broke `cast send`' >&2
-    echo 'https://github.com/foundry-rs/foundry/pull/7804' >&2
-    echo 'To downgrade: `foundryup --version nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9`' >&2
     echo 'Duncan wrote this for his own use; if you are not using a Frame wallet, it probably will break' >&2
     echo '' >&2
 
@@ -197,17 +194,13 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     declare -r -a gas_price_args
 
     cast send --unlocked --from "$impl_deployer" --confirmations 10 "${gas_price_args[@]}" --gas-limit $gas_limit --rpc-url 'http://127.0.0.1:1248/' --chain $chainid $(get_config extraFlags) --create "$initcode"
-    forge verify-contract --watch --chain-id $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
 fi
 
 if [[ ${1:-unset} = 'confirm' ]] ; then
     shift
 
-    declare safe_address
-    safe_address="$(get_config governance.upgradeSafe)"
-    declare -r safe_address
-
-    . "$project_root"/sh/common_safe.sh
     . "$project_root"/sh/common_safe_owner.sh
     . "$project_root"/sh/common_wallet_type.sh
 
@@ -259,6 +252,19 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     fi
     declare -r signature
 
+    declare safe_url
+    safe_url="$(get_config safe.apiUrl)"
+    declare -r safe_url
+
+    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+        declare signature_file
+        signature_file="$project_root"/deployer_upgrade_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")".txt
+        declare -r signature_file
+        echo "$signature" >"$signature_file"
+        echo "Signature saved to '$signature_file'" >&2
+        exit 0
+    fi
+
     declare signing_hash
     signing_hash="$(eip712_hash "$upgrade_calldata")"
     declare -r signing_hash
@@ -287,7 +293,7 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     declare -r safe_multisig_transaction
 
     # call the API
-    curl --fail -s "$(get_config safe.apiUrl)"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+    curl --fail -s "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
 
     echo 'Signature submitted' >&2
 fi
