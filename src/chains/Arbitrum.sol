@@ -5,6 +5,8 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
@@ -24,15 +26,17 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
+import {sushiswapV3ArbitrumFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {camelotV3Factory, camelotV3InitHash, camelotV3ForkId} from "../core/univ3forks/CamelotV3.sol";
+import {dackieSwapV3ArbitrumFactory, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract ArbitrumMixin is FreeMemory, SettlerBase, CurveTricrypto {
+abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto {
     constructor() {
         assert(block.chainid == 42161 || block.chainid == 31337);
     }
@@ -44,7 +48,23 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, CurveTricrypto {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        if (super._dispatch(i, action, data)) {
+            return true;
+        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IMaverickV2Pool pool,
+                bool tokenAIn,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
+
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -61,10 +81,18 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, CurveTricrypto {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3ArbitrumFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == camelotV3ForkId) {
             factory = camelotV3Factory;
             initHash = camelotV3InitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == dackieSwapV3ForkId) {
+            factory = dackieSwapV3ArbitrumFactory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
@@ -82,6 +110,17 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
+        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+            (
+                address recipient,
+                bytes32 salt,
+                bool tokenAIn,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,
@@ -133,6 +172,16 @@ contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
+        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+            (
+                address recipient,
+                bytes32 salt,
+                bool tokenAIn,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
+
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
             (
                 address recipient,

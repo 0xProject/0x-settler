@@ -5,9 +5,13 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
+import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -18,13 +22,14 @@ import {
 } from "../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3ScrollFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {zebraV3Factory, zebraV3InitHash, zebraV3ForkId, IZebraV3SwapCallback} from "../core/univ3forks/ZebraV3.sol";
+import {metavaultV3Factory, metavaultV3ForkId} from "../core/univ3forks/MetavaultV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract ScrollMixin is FreeMemory, SettlerBase {
+abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
     constructor() {
         assert(block.chainid == 534352 || block.chainid == 31337);
     }
@@ -32,11 +37,32 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         virtual
-        override
+        override(SettlerBase, SettlerAbstract)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        if (super._dispatch(i, action, data)) {
+            return true;
+        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IMaverickV2Pool pool,
+                bool tokenAIn,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
+
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+        } else if (action == ISettlerActions.DODOV2.selector) {
+            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
+
+            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -57,6 +83,10 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase {
             factory = zebraV3Factory;
             initHash = zebraV3InitHash;
             callbackSelector = uint32(IZebraV3SwapCallback.zebraV3SwapCallback.selector);
+        } else if (forkId == metavaultV3ForkId) {
+            factory = metavaultV3Factory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
@@ -68,7 +98,23 @@ contract ScrollSettler is Settler, ScrollMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
-        return super._dispatchVIP(action, data);
+        if (super._dispatchVIP(action, data)) {
+            return true;
+        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+            (
+                address recipient,
+                bytes32 salt,
+                bool tokenAIn,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     // Solidity inheritance is stupid
@@ -104,7 +150,22 @@ contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatchVIP(action, data, sig);
+        if (super._dispatchVIP(action, data, sig)) {
+            return true;
+        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+            (
+                address recipient,
+                bytes32 salt,
+                bool tokenAIn,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
+
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     // Solidity inheritance is stupid

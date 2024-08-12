@@ -8,16 +8,10 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {BaseSettler as Settler} from "src/chains/Base.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
+import {Shim} from "./SettlerBasePairTest.t.sol";
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-
-contract Shim {
-    // forgefmt: disable-next-line
-    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.chainid;
-    }
-}
 
 contract VelodromePairTest is BasePairTest {
     function testName() internal pure override returns (string memory) {
@@ -84,7 +78,7 @@ contract VelodromePairTest is BasePairTest {
 
         Settler _settler = settler;
 
-        uint256 beforeBalance = toToken().balanceOf(FROM);
+        uint256 beforeBalance = balanceOf(toToken(), FROM);
         vm.startPrank(FROM, FROM);
         snapStartName("settler_velodrome");
         _settler.execute(

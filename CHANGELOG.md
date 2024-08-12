@@ -17,15 +17,57 @@ Master list of UniV3 forks:
   14. DackieSwapV3
   15. Thick
   16. KinetixV3
+  17. MetavaultV3
 
 ---
+
+### Breaking changes
+
+* Remove DodoV1 from all chains except Mainnet
+  * Remove `DODOV1` action from Arbitrum
+  * Remove `DODOV1` action from Avalanche
+  * Remove `DODOV1` action from Base
+  * Remove `DODOV1` action from Blast
+  * Remove `DODOV1` action from Bnb
+  * Remove `DODOV1` action from Linea
+  * Remove `DODOV1` action from Optimism
+  * Remove `DODOV1` action from Polygon
+  * Remove `DODOV1` action from Scroll
+  * Remove `DODOV1` action from Sepolia
+  * (`DODOV1` action remains available on Mainnet)
+
+### Non-breaking changes
 
 * Arbiscan's "Cancun" issue has been fixed -- verify Settler on Arbiscan
 * Link to 0x's Immunefi bug bounty page from `README.md`
 * Add UniswapV3 UniV3 fork to Scroll
-* Add DackieSwapV3 UniV3 fork to Base
+* Add new actions `MAVERICKV2`, `MAVERICKV2_VIP`, and `METATXN_MAVERICKV2_VIP`
+  * Add MaverickV2 to Mainnet
+  * Add MaverickV2 to Base
+  * Add MaverickV2 to Arbitrum
+  * Add MaverickV2 to Bnb
+  * Add MaverickV2 to Scroll
+  * Add MaverickV2 to Sepolia
+* Add DackieSwapV3 UniV3 fork
+  * Add DackieSwapV3 to Arbitrum
+  * Add DackieSwapV3 to Base
+  * Add DackieSwapV3 to Blast (new inithash)
+  * Add DackieSwapV3 to Optimism
 * Add Thick UniV3 fork to Base
 * Add KinetixV3 UniV3 fork to Base
+* Add new action `DODOV2`
+  * Add DodoV2 to Avalanche
+  * Add DodoV2 to Base
+  * Add DodoV2 to Bnb
+  * Add DodoV2 to Mainnet
+  * Add DodoV2 to Polygon
+  * Add DodoV2 to Scroll
+* Add MetavaultV3 UniV3 fork to Scroll
+* Add SushiswapV3 UniV3 fork to more chains
+  * Add SushiswapV3 to Arbitrum
+  * Add SushiswapV3 to Mainnet
+  * Add SushiswapV3 to Optimism
+* Add `prev` view function to `Deployer`
 
 ## 2024-07-29
 

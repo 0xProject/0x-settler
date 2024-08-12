@@ -45,11 +45,15 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
 
         // Initialize addresses with non-zero balances
         // https://github.com/0xProject/0x-settler#gas-comparisons
-        deal(address(fromToken()), FROM, amount());
-        deal(address(fromToken()), MAKER, 1);
-        deal(address(toToken()), MAKER, amount());
-        deal(address(toToken()), BURN_ADDRESS, 1);
-        deal(address(fromToken()), BURN_ADDRESS, 1);
+        if (address(fromToken()).code.length != 0) {
+            deal(address(fromToken()), FROM, amount());
+            deal(address(fromToken()), MAKER, 1);
+            deal(address(fromToken()), BURN_ADDRESS, 1);
+        }
+        if (address(toToken()).code.length != 0) {
+            deal(address(toToken()), MAKER, amount());
+            deal(address(toToken()), BURN_ADDRESS, 1);
+        }
     }
 
     function snapStartName(string memory name) internal {
@@ -95,6 +99,22 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
             vm.startPrank(who);
             SafeTransferLib.safeApprove(token, spender, type(uint256).max);
             vm.stopPrank();
+        }
+    }
+
+    function balanceOf(IERC20 token, address account) internal view returns (uint256) {
+        (bool success, bytes memory returnData) =
+            address(this).staticcall(abi.encodeCall(this._balanceOf, (token, account)));
+        assert(!success);
+        assert(returnData.length == 32);
+        return abi.decode(returnData, (uint256));
+    }
+
+    function _balanceOf(IERC20 token, address account) external view {
+        uint256 result = token.balanceOf(account);
+        assembly ("memory-safe") {
+            mstore(0x00, result)
+            revert(0x00, 0x20)
         }
     }
 }
