@@ -7,6 +7,7 @@ import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
+import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
@@ -31,7 +32,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2 {
+abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
     }
@@ -56,6 +57,11 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2 {
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+        } else if (action == ISettlerActions.DODOV2.selector) {
+            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
+
+            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
