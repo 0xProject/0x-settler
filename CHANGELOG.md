@@ -52,6 +52,7 @@ Master list of UniV3 forks:
 * Add KinetixV3 UniV3 fork to Base
 * Add new action `DODOV2`
   * Add DodoV2 to Avalanche
+  * Add DodoV2 to Base
   * Add DodoV2 to Bnb
   * Add DodoV2 to Mainnet
   * Add DodoV2 to Polygon
