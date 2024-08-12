@@ -67,6 +67,7 @@ Master list of UniV3 forks:
   * Add SushiswapV3 to Arbitrum
   * Add SushiswapV3 to Mainnet
   * Add SushiswapV3 to Optimism
+* Add `prev` view function to `Deployer`
 
 ## 2024-07-29
 
