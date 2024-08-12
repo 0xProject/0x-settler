@@ -51,11 +51,11 @@ abstract contract Velodrome {
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`.
     function _d(uint256 y, uint256 three_x0, uint256 x0_cubed) private pure returns (uint256) {
         unchecked {
-            return _d(y, three_x0, x0_cubed, y * y / _BASIS);
+            return _d(three_x0, x0_cubed, y * y / _BASIS);
         }
     }
 
-    function _d(uint256 y, uint256 three_x0, uint256 x0_cubed, uint256 y_squared) private pure returns (uint256) {
+    function _d(uint256 three_x0, uint256 x0_cubed, uint256 y_squared) private pure returns (uint256) {
         unchecked {
             return y_squared * three_x0 / _BASIS + x0_cubed;
         }
@@ -79,7 +79,7 @@ abstract contract Velodrome {
                     // case 2: _d(x0, y) is too large compare to (xy - k) and the rounding error
                     //         screwed us.
                     //         In this case, we need to increase y by 1
-                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
+                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(three_x0, x0_cubed, y_squared));
                     if (dy == 0) {
                         if (k == xy) {
                             // We found the correct answer. Return y
@@ -94,7 +94,7 @@ abstract contract Velodrome {
                     }
                     y += dy;
                 } else {
-                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
+                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(three_x0, x0_cubed, y_squared));
                     if (dy == 0) {
                         if (k == xy || _k(x0, y - 1, x0_squared) < xy) {
                             // Likewise, if k == xy, we found the correct answer.
