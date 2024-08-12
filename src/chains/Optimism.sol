@@ -16,6 +16,7 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {sushiswapV3OptimismFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {velodromeFactory, velodromeInitHash, velodromeForkId} from "../core/univ3forks/VelodromeSlipstream.sol";
 import {
     solidlyV3Factory, solidlyV3InitHash, solidlyV3ForkId, ISolidlyV3Callback
@@ -49,6 +50,10 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase {
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MainnetFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3OptimismFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == solidlyV3ForkId) {

@@ -29,6 +29,7 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
+import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {
     solidlyV3Factory, solidlyV3InitHash, solidlyV3ForkId, ISolidlyV3Callback
 } from "../core/univ3forks/SolidlyV3.sol";
@@ -98,6 +99,10 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, MaverickV2,
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3MainnetFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == solidlyV3ForkId) {
             factory = solidlyV3Factory;
             initHash = solidlyV3InitHash;
