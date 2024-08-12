@@ -63,6 +63,7 @@ Master list of UniV3 forks:
   * Add SushiswapV3 to Arbitrum
   * Add SushiswapV3 to Mainnet
   * Add SushiswapV3 to Optimism
+* Add DackieSwapV3 UniV3 fork to Optimism
 
 ## 2024-07-29
 
