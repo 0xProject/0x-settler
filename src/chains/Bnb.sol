@@ -26,7 +26,7 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
-import {sushiswapV3BnbFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
+//import {sushiswapV3BnbFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -83,10 +83,10 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        } else if (forkId == sushiswapV3ForkId) {
-            factory = sushiswapV3BnbFactory;
-            initHash = uniswapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        //} else if (forkId == sushiswapV3ForkId) {
+        //    factory = sushiswapV3BnbFactory;
+        //    initHash = uniswapV3InitHash;
+        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
