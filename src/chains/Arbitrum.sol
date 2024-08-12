@@ -29,6 +29,7 @@ import {
 import {sushiswapV3ArbitrumFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {camelotV3Factory, camelotV3InitHash, camelotV3ForkId} from "../core/univ3forks/CamelotV3.sol";
+import {dackieSwapV3ArbitrumFactory, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -88,6 +89,10 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
             factory = camelotV3Factory;
             initHash = camelotV3InitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == dackieSwapV3ForkId) {
+            factory = dackieSwapV3ArbitrumFactory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }

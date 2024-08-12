@@ -16,11 +16,13 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {IPancakeSwapV3Callback} from "../core/univ3forks/PancakeSwapV3.sol";
 //import {sushiswapV3BlastFactory, sushiswapV3BlastInitHash, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {thrusterFactory, thrusterInitHash, thrusterForkId} from "../core/univ3forks/Thruster.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {bladeSwapFactory, bladeSwapInitHash, bladeSwapForkId} from "../core/univ3forks/BladeSwap.sol";
 import {fenixFactory, fenixInitHash, fenixForkId} from "../core/univ3forks/Fenix.sol";
+import {dackieSwapV3BlastFactory, dackieSwapV3BlastInitHash, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
 
 import {IOwnable} from "../deployer/TwoStepOwnable.sol";
 
@@ -106,6 +108,10 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             factory = fenixFactory;
             initHash = fenixInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == dackieSwapV3ForkId) {
+            factory = dackieSwapV3BlastFactory;
+            initHash = dackieSwapV3BlastInitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }

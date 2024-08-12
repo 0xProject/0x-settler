@@ -48,7 +48,11 @@ Master list of UniV3 forks:
   * Add MaverickV2 to Bnb
   * Add MaverickV2 to Scroll
   * Add MaverickV2 to Sepolia
-* Add DackieSwapV3 UniV3 fork to Base
+* Add DackieSwapV3 UniV3 fork
+  * Add DackieSwapV3 to Arbitrum
+  * Add DackieSwapV3 to Base
+  * Add DackieSwapV3 to Blast (new inithash)
+  * Add DackieSwapV3 to Optimism
 * Add Thick UniV3 fork to Base
 * Add KinetixV3 UniV3 fork to Base
 * Add new action `DODOV2`
@@ -63,7 +67,6 @@ Master list of UniV3 forks:
   * Add SushiswapV3 to Arbitrum
   * Add SushiswapV3 to Mainnet
   * Add SushiswapV3 to Optimism
-* Add DackieSwapV3 UniV3 fork to Optimism
 
 ## 2024-07-29
 
