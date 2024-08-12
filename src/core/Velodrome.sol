@@ -55,7 +55,7 @@ abstract contract Velodrome {
         }
     }
 
-    function _d(uint256 y, uint256 three_x0, uint256 x0_cubed, uint256 y_squared) private pure returns (uint256) {
+    function _d(uint256, uint256 three_x0, uint256 x0_cubed, uint256 y_squared) private pure returns (uint256) {
         unchecked {
             return y_squared * three_x0 / _BASIS + x0_cubed;
         }
