@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-address constant sushiswapV3Factory = 0xc35DADB65012eC5796536bD9864eD8773aBc74C4;
+address constant sushiswapV3MainnetFactory = 0xbACEB8eC6b9355Dfc0269C18bac9d6E2Bdc29C4F;
+address constant sushiswapV3Factory = 0xc35DADB65012eC5796536bD9864eD8773aBc74C4; // Base, Linea
 address constant sushiswapV3ArbitrumFactory = 0x1af415a1EbA07a4986a52B6f2e7dE7003D82231e;
 address constant sushiswapV3AvalancheFactory = 0x3e603C14aF37EBdaD31709C4f848Fc6aD5BEc715;
 address constant sushiswapV3BlastFactory = 0x7680D4B43f3d1d54d6cfEeB2169463bFa7a6cf0d;

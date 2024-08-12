@@ -63,6 +63,7 @@ Master list of UniV3 forks:
   * Add SushiswapV3 to Avalanche
   * Add SushiswapV3 to Blast (new initcode hash)
   * Add SushiswapV3 to Bnb
+  * Add SushiswapV3 to Mainnet
   * Add SushiswapV3 to Optimism
 
 ## 2024-07-29
