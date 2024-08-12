@@ -10,7 +10,7 @@ import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
+import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract DodoV2PairTest is BasePairTest {

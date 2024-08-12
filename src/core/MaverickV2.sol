@@ -127,6 +127,10 @@ abstract contract MaverickV2 is SettlerAbstract {
     {
         bool isForwarded = _isForwarded();
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             result := mload(0x40)
             mcopy(add(0x20, result), mload(permit), 0x40)
             mcopy(add(0x60, result), add(0x20, permit), 0x40)
