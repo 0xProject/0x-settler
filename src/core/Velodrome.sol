@@ -37,7 +37,13 @@ abstract contract Velodrome {
 
     function _k(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
         unchecked {
-            return x * y / _BASIS * (x_squared + y * y / _BASIS) / _BASIS;
+            return _k(x, y, x_squared, y * y / _BASIS);
+        }
+    }
+
+    function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
+        unchecked {
+            return x * y / _BASIS * (x_squared + y_squared) / _BASIS;
         }
     }
 
@@ -45,7 +51,13 @@ abstract contract Velodrome {
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`.
     function _d(uint256 y, uint256 three_x0, uint256 x0_cubed) private pure returns (uint256) {
         unchecked {
-            return y * y / _BASIS * three_x0 / _BASIS + x0_cubed;
+            return _d(y, three_x0, x0_cubed, y * y / _BASIS);
+        }
+    }
+
+    function _d(uint256 y, uint256 three_x0, uint256 x0_cubed, uint256 y_squared) private pure returns (uint256) {
+        unchecked {
+            return y_squared * three_x0 / _BASIS + x0_cubed;
         }
     }
 
@@ -59,14 +71,15 @@ abstract contract Velodrome {
             uint256 x0_squared = x0 * x0 / _BASIS;
             uint256 x0_cubed = x0_squared * x0 / _BASIS;
             for (uint256 i; i < 255; i++) {
-                uint256 k = _k(x0, y, x0_squared);
+                uint256 y_squared = y * y / _BASIS;
+                uint256 k = _k(x0, y, x0_squared, y_squared);
                 if (k < xy) {
                     // there are two cases where dy == 0
                     // case 1: The y is converged and we find the correct answer
                     // case 2: _d(x0, y) is too large compare to (xy - k) and the rounding error
                     //         screwed us.
                     //         In this case, we need to increase y by 1
-                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed));
+                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
                     if (dy == 0) {
                         if (k == xy) {
                             // We found the correct answer. Return y
@@ -81,7 +94,7 @@ abstract contract Velodrome {
                     }
                     y += dy;
                 } else {
-                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed));
+                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
                     if (dy == 0) {
                         if (k == xy || _k(x0, y - 1, x0_squared) < xy) {
                             // Likewise, if k == xy, we found the correct answer.

@@ -85,10 +85,10 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    bytes32 private constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
+    bytes32 internal constant FULL_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
     );
-    bytes32 private constant SLIPPAGE_AND_ACTIONS_TYPEHASH =
+    bytes32 internal constant SLIPPAGE_AND_ACTIONS_TYPEHASH =
         keccak256("SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)");
 
     function testSettler_metaTxn_uniswapV3() public {

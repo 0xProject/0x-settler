@@ -22,7 +22,7 @@ abstract contract DodoV1PairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.DODOV1, (address(fromToken()), 10_000, dodoV1Pool(), dodoV1Direction(), 0))
         );
         Settler _settler = settler;
-        uint256 beforeBalance = toToken().balanceOf(FROM);
+        uint256 beforeBalance = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodoV1");

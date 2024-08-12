@@ -128,7 +128,7 @@ declare -r safe_address
 . "$project_root"/sh/common_safe.sh
 
 declare signer
-IFS='' read -p 'What address will you submit with?: ' -e -r signer
+IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
 declare -r signer
 
 . "$project_root"/sh/common_wallet_type.sh
@@ -149,7 +149,7 @@ declare -r safe_url
 declare -a signatures=()
 if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
     set +f
-    for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short HEAD)"_*.txt ; do
+    for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*.txt ; do
         signatures+=("$(<"$confirmation")")
     done
     set -f
@@ -168,7 +168,7 @@ else
         exit 1
     fi
 
-    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:lower:]' '[:upper:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:lower:]' '[:upper:]')" ] ; then
+    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
         signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
         signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
     else
@@ -211,7 +211,7 @@ declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 declare -i gas_limit
-gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --chain $chainid "${args[@]}")"
+gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
