@@ -362,5 +362,18 @@
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
     "etherscanApi": "https://api.scrollscan.com/api"
+  },
+  "mantle": {
+    "chainId": 5000,
+    "displayName": "Mantle",
+    "isShanghai": true,
+    "isCancun": false,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {},
+    "governance": {},
+    "deployment": {},
+    "etherscanApi": "https://mantlescan.xyz/api"
   }
 }
