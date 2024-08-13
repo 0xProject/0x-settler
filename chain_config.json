@@ -380,6 +380,6 @@
     },
     "governance": {},
     "deployment": {},
-    "etherscanApi": "https://mantlescan.xyz/api"
+    "etherscanApi": "https://api.mantlescan.xyz/api"
   }
 }
