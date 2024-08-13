@@ -1173,26 +1173,63 @@ this, give up. Also populate `api_secrets.json` by copying
 [`api_secrets.json.template`](api_secrets.json.template) and adding your own
 block explorer API key and RPC.
 
-Second, you need have enough native asset in each of the deployer addresses
+Second, test for common opcode support:
+
+<details>
+<summary>Click for instructions on how to run opcode tests</summary>
+
+```bash
+export FOUNDRY_EVM_VERSION=london
+declare -r deployer_eoa='YOUR EOA ADDRESS HERE'
+declare -r rpc_url='YOUR RPC URL HERE' # http://localhost:1248 if using frame.sh
+declare -r -i chainid='CHAIN ID TO TEST HERE'
+forge clean
+forge build src/ChainCompatibility.sol
+declare txid
+# you might need to add the `--gas-price` and/or `--gas-limit` flags here; some chains are weird about that
+txid="$(cast send --json --rpc-url "$rpc_url" --chain $chainid --from $deployer_eoa --create "$(forge inspect src/ChainCompatibility.sol:ChainCompatibility bytecode)" | jq -rM .transactionHash)"
+declare -r txid
+cast receipt --json --rpc-url "$rpc_url" --chain $chainid $txid | jq -r '.logs[] | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }'
+```
+
+The `stage` fields should be in order (0 through 3). Stage 0 is
+`SELFDESTRUCT`. Stage 1 is `PUSH0`. Stage 2 is `TSTORE`/`TLOAD`. Stage 3 is
+`MCOPY`. If any entry has `success` of zero, that is strong evidence that the
+corresponding opcode is not supported. If `success` is zero, the corresponding
+`gas` value should be approximately 100000 (`0x186a0`). Another value in the
+`gas` field suggests that something bizarre is going on, meriting manual
+investigation. You can also use the `gas` field to see if the opcodes have the
+expected gas cost. In particular, you should verify that the gas cost for
+`SELFDESTRUCT` is approximately 5000 (`0x1388`). If `success` for `SELFDESTRUCT`
+is 1, but `gas` is over 51220 (`0xc814`), you will need to make changes to
+`Create3.sol`.
+
+If `PUSH0` is not supported, then `isShanghai` should be `false` in
+`chain_config.json`. If any of `TSTORE`/`TLOAD`/`MCOPY` are not supported, then
+`isCancun` should be `false` in `chain_config.json`.
+
+</details>
+
+Third, you need have enough native asset in each of the deployer addresses
 listed in [`secrets.json.template`](secrets.json.template) to perform the
 deployment. If how much isn't obvious to you, you can run the main deployment
 script with `BROADCAST=no` to simulate. This can be a little wonky on L2s, so
 beware and overprovision the amount of native asset.
 
-Third, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Fourth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
 `AllowanceHolder` (and vice versa). Run [`./sh/deploy_allowanceholder.sh
 <CHAIN_NAME>`](sh/deploy_allowanceholder.sh). Note that
 `deploy_allowanceholder.sh` doesn't give you a chance to back out. There is no
 prompt, it just deploys `AllowanceHolder`.
 
-Fourth, check that the Safe deployment on the new chain is complete. You can
+Fifth, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
 completes without reverting, you don't need to do anything. If the Safe
 deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 <CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
 
-Fifth, make _damn_ sure that you've got the correct configuration in
+Sixth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
 <CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
