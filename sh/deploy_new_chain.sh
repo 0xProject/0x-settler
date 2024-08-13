@@ -293,13 +293,13 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     echo 'Verifying pause Safe module' >&2
 
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
-    forge verify-contract --watch --chain $chainid --verifier sourcify --optimizer-runs 1000000 --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
     echo 'Verified Safe module -- now verifying Deployer implementation' >&2
 
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 "$deployer_impl" --constructor-args "$(cast abi-encode 'constructor(uint256)' 1)" src/deployer/Deployer.sol:Deployer
-    forge verify-contract --watch --chain $chainid --verifier sourcify --optimizer-runs 1000000 "$deployer_impl" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" "$deployer_impl" --constructor-args "$(cast abi-encode 'constructor(uint256)' 1)" src/deployer/Deployer.sol:Deployer
+    forge verify-contract --watch --chain $chainid --verifier sourcify "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
     echo 'Verified deployer implementation -- now verifying initial Settlers' >&2
 
