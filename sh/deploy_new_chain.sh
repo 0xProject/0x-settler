@@ -276,6 +276,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     forge script                                         \
     --slow                                               \
     --no-storage-caching                                 \
+    --isolate                                            \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
     --with-gas-price $gas_price                          \
     --chain $chainid                                     \
