@@ -52,8 +52,8 @@ declare -r deploy_metatx_calldata
 declare -a deploy_calldatas
 if (( chainid == 534352 )) ; then
     deploy_calldatas=(
-        0 "$deployer_address" "$deploy_taker_calldata"
-        0 "$deployer_address" "$deploy_metatx_calldata"
+        0 "$deploy_taker_calldata"
+        0 "$deploy_metatx_calldata"
     )
 else
     deploy_calldatas=(
@@ -76,8 +76,7 @@ else
         )"
     )
     deploy_calldatas=(
-        1 "$multicall_address"
-        "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")"
+        1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")"
     )
 fi
 
