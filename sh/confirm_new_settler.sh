@@ -130,91 +130,81 @@ declare -r safe_address
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
-declare deploy_calldata
-deploy_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calls[@]}")")"
-declare -r deploy_calldata
+while (( ${#deploy_calldatas[@]} >= 2 )) ; do
+    declare -i operation="${deploy_calldatas[0]}"
+    declare deploy_calldata="${deploy_calldatas[1]}"
+    deploy_calldatas=( "${deploy_calldatas[@]:2:$((${#deploy_calldatas[@]}-2))}" )
 
-declare struct_json
-struct_json="$(eip712_json "$deploy_calldata" 1)"
-declare -r struct_json
+    declare struct_json
+    struct_json="$(eip712_json "$deploy_calldata" $operation)"
 
-# sign the message
-declare signature
-if [[ $wallet_type = 'frame' ]] ; then
-    declare typedDataRPC
-    typedDataRPC="$(
-        jq -Mc                 \
-        '
-        {
-            "jsonrpc": "2.0",
-            "method": "eth_signTypedData",
-            "params": [
-                $signer,
-                .
-            ],
-            "id": 1
-        }
-        '                      \
-        --arg signer "$signer" \
-        <<<"$struct_json"
-    )"
-    declare -r typedDataRPC
-    signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-    if [[ $signature = *error* ]] ; then
-        echo "$signature" >&2
-        exit 1
+    # sign the message
+    declare signature
+    if [[ $wallet_type = 'frame' ]] ; then
+        declare typedDataRPC
+        typedDataRPC="$(
+            jq -Mc                 \
+            '
+            {
+                "jsonrpc": "2.0",
+                "method": "eth_signTypedData",
+                "params": [
+                    $signer,
+                    .
+                ],
+                "id": 1
+            }
+            '                      \
+            --arg signer "$signer" \
+            <<<"$struct_json"
+        )"
+        signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
+        if [[ $signature = *error* ]] ; then
+            echo "$signature" >&2
+            exit 1
+        fi
+        signature="$(jq -Mr .result <<<"$signature")"
+    else
+        signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
     fi
-    signature="$(jq -Mr .result <<<"$signature")"
-else
-    signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
-fi
-declare -r signature
 
-declare safe_url
-safe_url="$(get_config safe.apiUrl)"
-declare -r safe_url
+    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+        declare signature_file
+        signature_file="$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_$(nonce).txt
+        echo "$signature" >"$signature_file"
 
-if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-    declare signature_file
-    signature_file="$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")".txt
-    declare -r signature_file
-    echo "$signature" >"$signature_file"
-    echo "Signature saved to '$signature_file'" >&2
-    exit 0
-fi
+        echo "Signature saved to '$signature_file'" >&2
+    else
+        declare signing_hash
+        signing_hash="$(eip712_hash "$deploy_calldata" $operation)"
 
-declare signing_hash
-signing_hash="$(eip712_hash "$deploy_calldata" 1)"
-declare -r signing_hash
+        # encode the Safe Transaction Service API call
+        declare safe_multisig_transaction
+        safe_multisig_transaction="$(
+            jq -Mc \
+            "$eip712_message_json_template"',
+                "contractTransactionHash": $signing_hash,
+                "sender": $sender,
+                "signature": $signature,
+                "origin": "0xSettlerCLI"
+            }
+            '                                  \
+            --arg to "$(target $operation)"    \
+            --arg data "$deploy_calldata"      \
+            --arg operation $operation         \
+            --arg nonce $(nonce)               \
+            --arg signing_hash "$signing_hash" \
+            --arg sender "$signer"             \
+            --arg signature "$signature"       \
+            --arg safe_address "$safe_address" \
+            <<<'{}'
+        )"
 
-declare multicall_address
-multicall_address="$(get_config safe.multiCall)"
-declare -r multicall_address
+        # call the API
+        curl --fail -s "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
 
-# encode the Safe Transaction Service API call
-declare safe_multisig_transaction
-safe_multisig_transaction="$(
-    jq -Mc \
-    "$eip712_message_json_template"',
-        "contractTransactionHash": $signing_hash,
-        "sender": $sender,
-        "signature": $signature,
-        "origin": "0xSettlerCLI"
-    }
-    '                                  \
-    --arg to "$multicall_address"      \
-    --arg data "$deploy_calldata"      \
-    --arg call_type 1                  \
-    --arg nonce "$nonce"               \
-    --arg signing_hash "$signing_hash" \
-    --arg sender "$signer"             \
-    --arg signature "$signature"       \
-    --arg safe_address "$safe_address" \
-    <<<'{}'
-)"
-declare -r safe_multisig_transaction
+        echo 'Signature submitted' >&2
+    fi
 
-# call the API
-curl --fail -s "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
-
-echo 'Signature submitted' >&2
+    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+done
