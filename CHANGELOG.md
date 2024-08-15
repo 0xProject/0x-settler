@@ -21,6 +21,10 @@ Master list of UniV3 forks:
 
 ---
 
+### Breaking changes
+
+* Add slippage check parameter to `MAKERPSM` action to gas-optimize the new "lite" PSM
+
 ## 2024-08-12
 
 ### Breaking changes
