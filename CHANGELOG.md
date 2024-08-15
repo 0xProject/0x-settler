@@ -21,6 +21,8 @@ Master list of UniV3 forks:
 
 ---
 
+* Add `DODOV2` action to Arbitrum
+
 ## 2024-08-12
 
 ### Breaking changes
