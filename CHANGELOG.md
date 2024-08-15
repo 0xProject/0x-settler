@@ -21,6 +21,8 @@ Master list of UniV3 forks:
 
 ---
 
+* Deploy Settler to Mantle network
+
 ## 2024-08-12
 
 ### Breaking changes
