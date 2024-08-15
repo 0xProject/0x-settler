@@ -5,6 +5,7 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {TooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IPSM {
     /// @dev Get the fee for selling DAI to USDC in PSM
