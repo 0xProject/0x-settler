@@ -246,6 +246,17 @@ declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(bytes20)' 0x"$(git rev-parse HEAD)")"
 declare -r constructor_args
 
+declare chain_display_name
+chain_display_name="$(get_config displayName)"
+declare -r chain_display_name
+forge clean
+declare flat_source
+flat_source="$project_root"/src/flat/"$chain_display_name"Flat.sol
+declare -r flat_source
+trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_source")" EXIT
+forge flatten -o "$flat_source" src/chains/"$chain_display_name".sol >/dev/null
+forge build "$flat_source"
+
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -271,7 +282,6 @@ fi
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
-forge clean
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
@@ -288,7 +298,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     script/DeploySafes.s.sol:DeploySafes                 \
     "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
     2 3 "$taker_submitted_description" "$metatransaction_description" \
-    "$(get_config displayName)" "$constructor_args"
+    "$chain_display_name" "$constructor_args"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     echo 'Verifying pause Safe module' >&2
