@@ -1208,6 +1208,15 @@ If `PUSH0` is not supported, then `isShanghai` should be `false` in
 `chain_config.json`. If any of `TSTORE`/`TLOAD`/`MCOPY` are not supported, then
 `isCancun` should be `false` in `chain_config.json`.
 
+You may be tempted to use a blockchain explorer (e.g. Etherscan or Tenderly) to
+examine the trace of the resulting transaction or to read the logs. You may also
+be tempted to do an `eth_call`, local fork, devnet, or some other form of
+advanced simulation. _**DO NOT DO THIS**_. These tools cannot be trusted; they
+**will** lie to you. You must submit this transaction on-chain, wait for it to
+be confirmed, and then retrieve the receipt (like the above snippet). The
+blockchain cannot lie about the logs emitted by a transaction that become part
+of its receipt.
+
 </details>
 
 Third, you need have enough native asset in each of the deployer addresses
