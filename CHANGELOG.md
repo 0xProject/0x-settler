@@ -21,6 +21,8 @@ Master list of UniV3 forks:
 
 ---
 
+* Configure yield and gas for Deployer on Blast
+
 ## 2024-08-12
 
 ### Breaking changes
