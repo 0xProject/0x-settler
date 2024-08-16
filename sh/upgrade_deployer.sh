@@ -283,7 +283,7 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
         --arg to "$deployer_address"       \
         --arg data "$upgrade_calldata"     \
         --arg operation 0                  \
-        --arg nonce "$nonce"               \
+        --arg nonce "$(nonce)"             \
         --arg signing_hash "$signing_hash" \
         --arg sender "$signer"             \
         --arg signature "$signature"       \
