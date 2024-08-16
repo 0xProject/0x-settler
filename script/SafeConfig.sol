@@ -18,6 +18,7 @@ library SafeConfig {
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 137 // polygon
+                || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
@@ -38,6 +39,7 @@ library SafeConfig {
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 137 // polygon
+                || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche

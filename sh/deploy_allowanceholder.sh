@@ -130,6 +130,10 @@ if [[ ${rpc_url:-unset} = 'unset' ]] ; then
     exit 1
 fi
 
+declare -i chainid
+chainid="$(get_config chainId)"
+declare -r -i chainid
+
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -146,9 +150,19 @@ declare -r -i gas_price
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
 forge clean
-forge create --private-key "$(get_secret allowanceHolderLondon key)" --chain "$(get_config chainId)" --rpc-url "$rpc_url" --gas-price "$gas_price" --gas-limit 4000000 --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+forge build src/allowanceholder/AllowanceHolderOld.sol
+
+declare -i gas_estimate_multiplier
+gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
+declare -r -i gas_estimate_multiplier
+declare -i gas_limit
+gas_limit="$(cast estimate --from "$(get_secret allowanceHolderLondon deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$(forge inspect src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder bytecode)")"
+gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+declare -r -i gas_limit
+
+forge create --private-key "$(get_secret allowanceHolderLondon key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolderOld address)" src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+    forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolderLondon address)" src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 fi
 
 echo 'Deployment is complete' >&2
