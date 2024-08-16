@@ -22,6 +22,7 @@ Master list of UniV3 forks:
 ---
 
 * Configure yield and gas for Deployer on Blast
+* Added `prev` accessor function to `Deployer`
 
 ## 2024-08-12
 
