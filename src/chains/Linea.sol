@@ -10,7 +10,12 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
-import {uniswapV3InitHash, IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
+import {
+    uniswapV3LineaFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3Factory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
 import {
     pancakeSwapV3Factory,
@@ -47,7 +52,11 @@ abstract contract LineaMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == pancakeSwapV3ForkId) {
+        if (forkId == uniswapV3ForkId) {
+            factory = uniswapV3LineaFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
