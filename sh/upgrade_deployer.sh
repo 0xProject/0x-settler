@@ -264,7 +264,7 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
 
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
         declare signature_file
-        signature_file="$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")".txt
+        signature_file="$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_"$(nonce)".txt
         declare -r signature_file
         echo "$signature" >"$signature_file"
         echo "Signature saved to '$signature_file'" >&2
