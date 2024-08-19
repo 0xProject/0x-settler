@@ -23,6 +23,7 @@ Master list of UniV3 forks:
 
 * Configure yield and gas for Deployer on Blast
 * Deploy Settler to Mantle network
+* Add `DODOV2` action to Arbitrum
 
 ## 2024-08-12
 
