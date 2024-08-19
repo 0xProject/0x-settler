@@ -28,10 +28,10 @@ to perform extensive end-to-end testing to ensure zero downtime for
 integrators. During this "dwell" period, a strict comparison between the
 [`.transaction.to`](https://0x.org/docs/api#tag/Swap/operation/swap::permit2::getQuote)
 field of the API response and the result of querying
-`IDeployer(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(...)` will
+`IERC721(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(...)` will
 fail. For this reason, there is a fallback. If `ownerOf` does not revert, but
-the value isn't the expected value, _**YOU SHOULD ALSO**_ query the selector
-`function prev(uint128) external view returns (address)` with the same
+the return value isn't the expected value, _**YOU SHOULD ALSO**_ query the
+selector `function prev(uint128) external view returns (address)` with the same
 argument. If the response from this function call does not revert and the result
 is the expected address, then the 0x API is in the dwell time and you may
 proceed as normal.
