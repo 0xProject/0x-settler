@@ -22,6 +22,7 @@ Master list of UniV3 forks:
 ---
 
 * Configure yield and gas for Deployer on Blast
+* Deploy Settler to Mantle network
 
 ## 2024-08-12
 
