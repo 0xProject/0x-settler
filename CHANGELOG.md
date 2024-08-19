@@ -22,6 +22,7 @@ Master list of UniV3 forks:
 ---
 
 * Configure yield and gas for Deployer on Blast
+* Add SolidlyV3 UniV3 fork to Arbitrum
 
 ## 2024-08-12
 
