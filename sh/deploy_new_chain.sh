@@ -291,6 +291,9 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     "$(get_config displayName)" "$constructor_args"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
+    echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
+    sleep 60
+
     echo 'Verifying pause Safe module' >&2
 
     forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
