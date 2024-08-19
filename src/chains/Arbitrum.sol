@@ -27,6 +27,9 @@ import {
     IPancakeSwapV3Callback
 } from "../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3ArbitrumFactory, sushiswapV3ForkId} from "../core/univ3forks/SushiswapV3.sol";
+import {
+    solidlyV3Factory, solidlyV3InitHash, solidlyV3ForkId, ISolidlyV3Callback
+} from "../core/univ3forks/SolidlyV3.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {camelotV3Factory, camelotV3InitHash, camelotV3ForkId} from "../core/univ3forks/CamelotV3.sol";
 import {dackieSwapV3ArbitrumFactory, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
@@ -85,6 +88,10 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
             factory = sushiswapV3ArbitrumFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == solidlyV3ForkId) {
+            factory = solidlyV3Factory;
+            initHash = solidlyV3InitHash;
+            callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else if (forkId == camelotV3ForkId) {
             factory = camelotV3Factory;
             initHash = camelotV3InitHash;
