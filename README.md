@@ -20,6 +20,22 @@ address in your integration. _**ALWAYS**_ query the deployer/registry for the
 address of the most recent `Settler` contract before building or signing a
 transaction, metatransaction, or order.
 
+### 0x API dwell time
+
+There is some lag between the deployment of a new instance of 0x Settler and
+when 0x API begins generating calldata targeting that instance. This allows 0x
+to perform extensive end-to-end testing to ensure zero downtime for
+integrators. During this "dwell" period, a strict comparison between the
+[`.transaction.to`](https://0x.org/docs/api#tag/Swap/operation/swap::permit2::getQuote)
+field of the API response and the result of querying
+`IDeployer(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(...)` will
+fail. For this reason, there is a fallback. If `ownerOf` does not revert, but
+the value isn't the expected value, _**YOU SHOULD ALSO**_ query the selector
+`function prev(uint128) external view returns (address)` with the same
+argument. If the response from this function call does not revert and the result
+is the expected address, then the 0x API is in the dwell time and you may
+proceed as normal.
+
 ### AllowanceHolder addresses
 
 AllowanceHolder is deployed to the following addresses depending on the most
