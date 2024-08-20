@@ -21,6 +21,7 @@ Master list of UniV3 forks:
 
 ---
 
+* Added `prev` accessor function to `Deployer`
 * Configure yield and gas for Deployer on Blast
 * Deploy Settler to Mantle network
 * Add `DODOV2` action to Arbitrum
