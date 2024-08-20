@@ -41,7 +41,14 @@ abstract contract MakerPSM {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function sellToMakerPsm(address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem, uint256 amountOutMin) internal {
+    function sellToMakerPsm(
+        address recipient,
+        IERC20 gemToken,
+        uint256 bps,
+        IPSM psm,
+        bool buyGem,
+        uint256 amountOutMin
+    ) internal {
         if (buyGem) {
             // phantom overflow can't happen here because DAI has decimals = 18
             uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(10_000);

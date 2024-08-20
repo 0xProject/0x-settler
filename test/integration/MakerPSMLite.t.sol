@@ -124,7 +124,14 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
                 ISettlerActions.MAKERPSM,
-                (FROM, makerPsmBuyGem() ? address(toToken()) : address(fromToken()), 10_000, address(makerPsm()), makerPsmBuyGem(), amountOut())
+                (
+                    FROM,
+                    makerPsmBuyGem() ? address(toToken()) : address(fromToken()),
+                    10_000,
+                    address(makerPsm()),
+                    makerPsmBuyGem(),
+                    amountOut()
+                )
             )
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
@@ -145,7 +152,11 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
-    function testSettler_metaTxn_makerPsmLite() public skipIf(address(makerPsm()) == address(0)) setMakerPsmLiteBlockNumber {
+    function testSettler_metaTxn_makerPsmLite()
+        public
+        skipIf(address(makerPsm()) == address(0))
+        setMakerPsmLiteBlockNumber
+    {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
@@ -153,7 +164,14 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
             abi.encodeCall(
                 ISettlerActions.MAKERPSM,
-                (FROM, makerPsmBuyGem() ? address(toToken()) : address(fromToken()), 10_000, address(makerPsm()), makerPsmBuyGem(), amountOut())
+                (
+                    FROM,
+                    makerPsmBuyGem() ? address(toToken()) : address(fromToken()),
+                    10_000,
+                    address(makerPsm()),
+                    makerPsmBuyGem(),
+                    amountOut()
+                )
             )
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
