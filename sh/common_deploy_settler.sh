@@ -37,7 +37,7 @@ declare -r taker_initcode
 
 declare metatx_initcode
 metatx_initcode="$(cast concat-hex "$(jq -Mr .bytecode.object < "$metatx_artifact")" "$constructor_args")"
-declare -r taker_initcode
+declare -r metatx_initcode
 
 declare -r deploy_sig='deploy(uint128,bytes)(address,uint32)'
 
@@ -49,22 +49,37 @@ declare deploy_metatx_calldata
 deploy_metatx_calldata="$(cast calldata "$deploy_sig" 3 "$metatx_initcode")"
 declare -r deploy_metatx_calldata
 
-declare -a deploy_calls=(
-    "$(
-        cast concat-hex                                                   \
-        0x00                                                              \
-        "$deployer_address"                                               \
-        "$(cast to-uint256 0)"                                            \
-        "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
-        "$deploy_taker_calldata"
-    )"
+declare -a deploy_calldatas
+if (( chainid == 534352 )) ; then
+    deploy_calldatas=(
+        0 "$deploy_taker_calldata"
+        0 "$deploy_metatx_calldata"
+    )
+else
+    deploy_calldatas=(
+        "$(
+            cast concat-hex                                                   \
+            0x00                                                              \
+            "$deployer_address"                                               \
+            "$(cast to-uint256 0)"                                            \
+            "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
+            "$deploy_taker_calldata"
+        )"
 
-    "$(
-        cast concat-hex                                                   \
-        0x00                                                              \
-        "$deployer_address"                                               \
-        "$(cast to-uint256 0)"                                            \
-        "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
-        "$deploy_metatx_calldata"
-    )"
-)
+        "$(
+            cast concat-hex                                                   \
+            0x00                                                              \
+            "$deployer_address"                                               \
+            "$(cast to-uint256 0)"                                            \
+            "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
+            "$deploy_metatx_calldata"
+        )"
+    )
+    deploy_calldatas=(
+        1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")"
+    )
+fi
+
+declare safe_url
+safe_url="$(get_config safe.apiUrl)"
+declare -r safe_url

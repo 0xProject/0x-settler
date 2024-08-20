@@ -10,11 +10,11 @@ import {Test} from "forge-std/Test.sol";
 
 contract MakerPSMDummy is MakerPSM {
     function sellToPool(address recipient, address gemToken, uint256 bps, address psm) public {
-        super.sellToMakerPsm(recipient, IERC20(gemToken), bps, IPSM(psm), false);
+        super.sellToMakerPsm(recipient, IERC20(gemToken), bps, IPSM(psm), false, 0);
     }
 
     function buyFromPool(address recipient, address gemToken, uint256 bps, address psm) public {
-        super.sellToMakerPsm(recipient, IERC20(gemToken), bps, IPSM(psm), true);
+        super.sellToMakerPsm(recipient, IERC20(gemToken), bps, IPSM(psm), true, 0);
     }
 }
 

@@ -144,7 +144,7 @@ shift
 
 declare -a signatures=()
 set +f
-for confirmation in "$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$new_implementation"_*.txt ; do
+for confirmation in "$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$new_implementation"_*_"$(nonce)".txt ; do
     signatures+=("$(<"$confirmation")")
 done
 set -f
