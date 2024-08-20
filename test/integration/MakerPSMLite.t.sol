@@ -27,19 +27,27 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         if (address(makerPsm()) != address(0)) {
             persistPsm();
 
-            vm.startPrank(address(settler));
-            fromToken().approve(address(makerPsm()), type(uint256).max);
-            fromToken().approve(makerPsm().gemJoin(), type(uint256).max);
-            toToken().approve(address(makerPsm()), type(uint256).max);
-            toToken().approve(makerPsm().gemJoin(), type(uint256).max);
-            vm.stopPrank();
+            if (makerPsmBuyGem()) {
+                vm.startPrank(address(settler));
+                fromToken().approve(address(makerPsm()), type(uint256).max);
+                toToken().approve(makerPsm().gemJoin(), type(uint256).max);
+                vm.stopPrank();
 
-            vm.startPrank(address(settlerMetaTxn));
-            fromToken().approve(address(makerPsm()), type(uint256).max);
-            fromToken().approve(makerPsm().gemJoin(), type(uint256).max);
-            toToken().approve(address(makerPsm()), type(uint256).max);
-            toToken().approve(makerPsm().gemJoin(), type(uint256).max);
-            vm.stopPrank();
+                vm.startPrank(address(settlerMetaTxn));
+                fromToken().approve(address(makerPsm()), type(uint256).max);
+                toToken().approve(makerPsm().gemJoin(), type(uint256).max);
+                vm.stopPrank();
+            } else {
+                vm.startPrank(address(settler));
+                fromToken().approve(makerPsm().gemJoin(), type(uint256).max);
+                toToken().approve(address(makerPsm()), type(uint256).max);
+                vm.stopPrank();
+
+                vm.startPrank(address(settlerMetaTxn));
+                fromToken().approve(makerPsm().gemJoin(), type(uint256).max);
+                toToken().approve(address(makerPsm()), type(uint256).max);
+                vm.stopPrank();
+            }
 
             if (makerPsmBuyGem()) {
                 _amountOut = amount() * 10 ** toToken().decimals() / WAD;
@@ -137,7 +145,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settler), permit)),
+            abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
             abi.encodeCall(
                 ISettlerActions.MAKERPSM,
                 (FROM, makerPsmBuyGem() ? address(toToken()) : address(fromToken()), 10_000, address(makerPsm()), makerPsmBuyGem(), amountOut())
