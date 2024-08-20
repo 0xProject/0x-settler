@@ -15,6 +15,8 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 
+IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+
 contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     function setUp() public virtual override {
         if (address(makerPsm()) != address(0)) {
@@ -92,7 +94,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     }
 
     function fromToken() internal pure virtual override returns (IERC20) {
-        return IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        return USDC;
     }
 
     function toToken() internal pure virtual override returns (IERC20) {
@@ -126,7 +128,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
                 ISettlerActions.MAKERPSM,
                 (
                     FROM,
-                    makerPsmBuyGem() ? address(toToken()) : address(fromToken()),
+                    address(USDC),
                     10_000,
                     address(makerPsm()),
                     makerPsmBuyGem(),
@@ -166,7 +168,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
                 ISettlerActions.MAKERPSM,
                 (
                     FROM,
-                    makerPsmBuyGem() ? address(toToken()) : address(fromToken()),
+                    address(USDC),
                     10_000,
                     address(makerPsm()),
                     makerPsmBuyGem(),
@@ -218,11 +220,11 @@ contract MakerPsmLiteTestBuyGem is MakerPsmLiteTest {
     }
 
     function fromToken() internal pure override returns (IERC20) {
-        return DAI;
+        return super.toToken();
     }
 
     function toToken() internal pure override returns (IERC20) {
-        return IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        return super.fromToken();
     }
 
     function amount() internal pure override returns (uint256) {
