@@ -27,7 +27,11 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         if (address(makerPsm()) != address(0)) {
             persistPsm();
 
+            // DAI must be approved to the PSM
+            // USDC must be approved to the gemJoin
+            // This is pedantry because for the lite PSM, it is its own gemJoin
             if (makerPsmBuyGem()) {
+                // `fromToken()` is DAI; `toToken()` is USDC
                 vm.startPrank(address(settler));
                 fromToken().approve(address(makerPsm()), type(uint256).max);
                 toToken().approve(makerPsm().gemJoin(), type(uint256).max);
@@ -38,6 +42,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
                 toToken().approve(makerPsm().gemJoin(), type(uint256).max);
                 vm.stopPrank();
             } else {
+                // `fromToken()` is USDC; `toToken()` is DAI
                 vm.startPrank(address(settler));
                 fromToken().approve(makerPsm().gemJoin(), type(uint256).max);
                 toToken().approve(address(makerPsm()), type(uint256).max);
