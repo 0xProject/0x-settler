@@ -27,15 +27,15 @@ interface IPSM {
     function buyGem(address usr, uint256 gemAmt) external;
 }
 
+// Maker units https://github.com/makerdao/dss/blob/master/DEVELOPING.md
+// wad: fixed point decimal with 18 decimals (for basic quantities, e.g. balances)
+uint256 constant WAD = 10 ** 18;
+
+IERC20 constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+
 abstract contract MakerPSM {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
-
-    // Maker units https://github.com/makerdao/dss/blob/master/DEVELOPING.md
-    // wad: fixed point decimal with 18 decimals (for basic quantities, e.g. balances)
-    uint256 internal constant WAD = 10 ** 18;
-
-    IERC20 internal constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
