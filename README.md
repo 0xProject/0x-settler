@@ -36,6 +36,85 @@ argument. If the response from this function call does not revert and the result
 is the expected address, then the 0x API is in the dwell time and you may
 proceed as normal.
 
+<details>
+<summary>Example Solidity code for checking whether Settler is genuine</summary>
+
+```Solidity
+interface IERC721Tiny {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+interface IDeployerTiny is IERC721Tiny {
+    function prev(uint128 featureId) external view returns (address);
+}
+
+error CounterfeitSettler(address);
+
+function requireGenuineSettler(uint128 featureId, address allegedSettler)
+    internal
+    view
+{
+    IDeployerTiny deployer =
+        IDeployerTiny(0x00000000000004533Fe15556B1E086BB1A72cEae);
+    // Any revert in `ownerOf` or `prev` will be bubbled. Any error in
+    // ABIDecoding the result will result in a revert without a reason string.
+    if (deployer.ownerOf(featureId) != allegedSettler
+        || deployer.prev(featureId) != allegedSettler) {
+        revert CounterfeitSettler(allegedSettler);
+    }
+}
+```
+
+While the above code is the _**strongly recommended**_ approach, it is
+comparatively gas-expensive. A more gas-optimized approach is demonstrated
+below, but it does not cover the case where Settler has been paused due to a
+bug.
+
+```Solidity
+
+function computeGenuineSettler(uint128 featureId, uint64 deployNonce)
+    internal
+    view
+    returns (address)
+{
+    bytes32 salt = bytes32(
+        uint256(featureId) << 128 | uint256(block.chainid) << 64
+            | uint256(deployNonce)
+    );
+    // for London hardfork chains, substitute
+    // 0x1774bbdc4a308eaf5967722c7a4708ea7a3097859cb8768a10611448c29981c3
+    bytes32 shimInitHash =
+        0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f;
+    address shim =
+        address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(0xff),
+                            0x00000000000004533Fe15556B1E086BB1A72cEae,
+                            salt,
+                            shimInitHash
+                        )
+                    )
+                )
+            )
+        );
+    address settler =
+        address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(bytes2(0xd694), shim, bytes1(0x01))
+                    )
+                )
+            )
+        );
+    return settler;
+}
+```
+
+</details>
+
 ### AllowanceHolder addresses
 
 AllowanceHolder is deployed to the following addresses depending on the most
