@@ -131,10 +131,6 @@ declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
 
-declare safe_url
-safe_url=
-declare -r safe_url
-
 if [[ $(get_config safe.apiUrl) != 'NOT SUPPORTED' ]] ; then
     echo 'Just use the safe dApp' >&2
     echo 'Why are you running this script?' >&2
@@ -148,16 +144,16 @@ shift
 
 declare -a signatures=()
 set +f
-for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*.txt ; do
+for confirmation in "$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$new_implementation"_*.txt ; do
     signatures+=("$(<"$confirmation")")
 done
 set -f
+declare -r -a signatures
 
 if (( ${#signatures[@]} != 2 )) ; then
     echo 'Bad number of signatures' >&2
     exit 1
 fi
-declare -r -a signatures
 
 declare packed_signatures
 packed_signatures="$(cast concat-hex "${signatures[@]}")"
