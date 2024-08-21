@@ -360,13 +360,9 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }
-            ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
-            _transferFrom(
-                permit,
-                transferDetails,
-                sig,
-                isForwarded
-            );
+            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
+            _transferFrom(permit, transferDetails, sig, isForwarded);
         }
     }
 }

@@ -167,10 +167,8 @@ abstract contract CurveTricrypto is SettlerAbstract {
             nonce: nonce,
             deadline: deadline
         });
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
-            to: msg.sender,
-            requestedAmount: sellAmount
-        });
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
         _transferFrom(permit, transferDetails, sig, isForwarded);
     }
 }

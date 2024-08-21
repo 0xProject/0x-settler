@@ -258,12 +258,8 @@ abstract contract MaverickV2 is SettlerAbstract {
             data.length := sub(data.length, 0x81)
         }
         assert(tokenIn == IERC20(permit.permitted.token));
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn});
-        _transferFrom(
-            permit,
-            transferDetails,
-            data,
-            isForwarded
-        );
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn});
+        _transferFrom(permit, transferDetails, data, isForwarded);
     }
 }
