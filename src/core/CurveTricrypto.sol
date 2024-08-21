@@ -143,6 +143,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                 let end
                 {
                     let len := tload(0x03)
+                    tstore(0x03, 0x00)
                     end := add(dst, len)
                     mstore(sig, len)
                     mstore(0x40, end)
