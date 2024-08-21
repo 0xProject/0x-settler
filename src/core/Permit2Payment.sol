@@ -230,13 +230,13 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         internal
         view
         override
-        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, IERC20 token, uint256 amount)
     {
         transferDetails.to = recipient;
         amount = permit.permitted.amount;
-        token = permit.permitted.token;
+        token = IERC20(permit.permitted.token);
         if (amount == type(uint256).max) {
-            amount = IERC20(token).balanceOf(_msgSender());
+            amount = token.balanceOf(_msgSender());
         }
         transferDetails.requestedAmount = amount;
     }

@@ -56,7 +56,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: address(fromToken()),
+            token: fromToken(),
             amount: amount(),
             counterparty: FROM,
             partialFillAllowed: false
@@ -165,7 +165,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: address(fromToken()),
+            token: fromToken(),
             amount: amount(),
             counterparty: FROM,
             partialFillAllowed: false
@@ -231,7 +231,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             deadline: block.timestamp + 100
         });
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: address(fromToken()),
+            token: fromToken(),
             amount: amount(),
             counterparty: FROM,
             partialFillAllowed: true
