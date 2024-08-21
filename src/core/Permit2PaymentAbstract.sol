@@ -14,7 +14,7 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
-        pure
+        view
         virtual
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount);
 

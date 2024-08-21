@@ -97,11 +97,15 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
+        // We don't know the address of the pool yet, but we're also going to
+        // throw away the actual transfer details; we only want to get the sell
+        // amount. So passing the zero address as the `to` of the details is OK.
+        (,, uint256 sellAmount) = _permitToTransferDetails(permit, address(0));
 
         buyAmount = _uniV3ForkSwap(
             recipient,
             encodedPath,
-            permit.permitted.amount,
+            sellAmount,
             minBuyAmount,
             address(0), // payer
             swapCallbackData
@@ -356,9 +360,10 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }
+            ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
             _transferFrom(
                 permit,
-                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount}),
+                transferDetails,
                 sig,
                 isForwarded
             );

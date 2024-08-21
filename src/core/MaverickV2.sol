@@ -148,6 +148,7 @@ abstract contract MaverickV2 is SettlerAbstract {
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
         address pool = AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash);
+        (,, uint256 sellAmount) = _permitToTransferDetails(permit, pool);
         (, buyAmount) = abi.decode(
             _setOperatorAndCall(
                 pool,
@@ -156,7 +157,7 @@ abstract contract MaverickV2 is SettlerAbstract {
                     (
                         recipient,
                         IMaverickV2Pool.SwapParams({
-                            amount: permit.permitted.amount,
+                            amount: sellAmount,
                             tokenAIn: tokenAIn,
                             exactOutput: false,
                             // TODO: actually set a tick limit so that we can partial fill
@@ -257,9 +258,10 @@ abstract contract MaverickV2 is SettlerAbstract {
             data.length := sub(data.length, 0x81)
         }
         assert(tokenIn == IERC20(permit.permitted.token));
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn});
         _transferFrom(
             permit,
-            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn}),
+            transferDetails,
             data,
             isForwarded
         );

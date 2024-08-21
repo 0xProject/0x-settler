@@ -18,6 +18,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
 
@@ -227,13 +228,17 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
-        pure
+        view
         override
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
     {
         transferDetails.to = recipient;
-        transferDetails.requestedAmount = amount = permit.permitted.amount;
+        amount = permit.permitted.amount;
         token = permit.permitted.token;
+        if (amount == type(uint256).max) {
+            amount = IERC20(token).balanceOf(_msgSender());
+        }
+        transferDetails.requestedAmount = amount;
     }
 
     // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use
