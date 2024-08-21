@@ -226,6 +226,19 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         return _invokeCallback(data);
     }
 
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        override
+        returns (IERC20 token, uint256 amount)
+    {
+        token = IERC20(permit.permitted.token);
+        amount = permit.permitted.amount;
+        if (amount == type(uint256).max) {
+            amount = token.balanceOf(_msgSender());
+        }
+    }
+
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         view
@@ -233,11 +246,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, IERC20 token, uint256 amount)
     {
         transferDetails.to = recipient;
-        amount = permit.permitted.amount;
-        token = IERC20(permit.permitted.token);
-        if (amount == type(uint256).max) {
-            amount = token.balanceOf(_msgSender());
-        }
+        (token, amount) = _permitToTransferDetails(permit);
         transferDetails.requestedAmount = amount;
     }
 

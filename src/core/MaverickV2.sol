@@ -146,9 +146,9 @@ abstract contract MaverickV2 is SettlerAbstract {
         bytes memory sig,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
+        (, uint256 sellAmount) = _permitToTransferDetails(permit);
         bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
         address pool = AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash);
-        (,, uint256 sellAmount) = _permitToTransferDetails(permit, pool);
         (, buyAmount) = abi.decode(
             _setOperatorAndCall(
                 pool,

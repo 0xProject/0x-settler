@@ -13,6 +13,12 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
 
     function _operator() internal view virtual returns (address);
 
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        returns (IERC20 token, uint256 amount);
+
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         view
