@@ -27,6 +27,9 @@ Master list of UniV3 forks:
   * Note that for the "normal" PSM ("MCD PSM USDC A",
     0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A), `amountOutMin` _**MUST**_ be
     zeroed, otherwise you will get an out-of-gas
+* Special case a permitted (sell) amount of `type(uint256).max` -- this
+  introspects the taker's balance of the sell token and attempts to sell all of
+  it
 
 ### Non-breaking changes
 
