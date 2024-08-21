@@ -226,16 +226,15 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         return _invokeCallback(data);
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         override
-        returns (IERC20 token, uint256 amount)
+        returns (uint256 sellAmount)
     {
-        token = IERC20(permit.permitted.token);
-        amount = permit.permitted.amount;
-        if (amount == type(uint256).max) {
-            amount = token.balanceOf(_msgSender());
+        sellAmount = permit.permitted.amount;
+        if (sellAmount == type(uint256).max) {
+            sellAmount = IERC20(permit.permitted.token).balanceOf(_msgSender());
         }
     }
 
@@ -243,11 +242,10 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         internal
         view
         override
-        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, IERC20 token, uint256 amount)
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
     {
         transferDetails.to = recipient;
-        (token, amount) = _permitToTransferDetails(permit);
-        transferDetails.requestedAmount = amount;
+        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(permit);
     }
 
     // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use

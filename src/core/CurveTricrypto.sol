@@ -51,7 +51,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         bytes memory sig,
         uint256 minBuyAmount
     ) internal {
-        (, uint256 sellAmount) = _permitToTransferDetails(permit);
+        uint256 sellAmount = _permitToSellAmount(permit);
         uint64 factoryNonce = uint64(poolInfo >> 16);
         uint8 sellIndex = uint8(poolInfo >> 8);
         uint8 buyIndex = uint8(poolInfo);

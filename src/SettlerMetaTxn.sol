@@ -101,7 +101,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
 
             // We simultaneously transfer-in the taker's tokens and authenticate the

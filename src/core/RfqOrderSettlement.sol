@@ -77,20 +77,14 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         bytes memory takerSig
     ) internal {
         assert(makerPermit.permitted.amount != type(uint256).max);
-        (
-            ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails,
-            IERC20 makerToken,
-            uint256 makerAmount
-        ) = _permitToTransferDetails(makerPermit, recipient);
-        (
-            ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails,
-            IERC20 takerToken,
-            uint256 takerAmount
-        ) = _permitToTransferDetails(takerPermit, maker);
+        (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
+            _permitToTransferDetails(makerPermit, recipient);
+        (ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails, uint256 takerAmount) =
+            _permitToTransferDetails(takerPermit, maker);
 
         bytes32 witness = _hashConsideration(
             Consideration({
-                token: takerToken,
+                token: IERC20(takerPermit.permitted.token),
                 amount: takerAmount,
                 counterparty: _msgSender(),
                 partialFillAllowed: false
@@ -104,7 +98,12 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         _logRfqOrder(
             witness,
             _hashConsideration(
-                Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: false})
+                Consideration({
+                    token: IERC20(makerPermit.permitted.token),
+                    amount: makerAmount,
+                    counterparty: maker,
+                    partialFillAllowed: false
+                })
             ),
             uint128(makerAmount)
         );
@@ -126,10 +125,16 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered
         // slippage.
-        (ISignatureTransfer.SignatureTransferDetails memory transferDetails, IERC20 makerToken, uint256 makerAmount) =
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 makerAmount) =
             _permitToTransferDetails(permit, recipient);
+
         bytes32 takerWitness = _hashConsideration(
-            Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: true})
+            Consideration({
+                token: IERC20(permit.permitted.token),
+                amount: makerAmount,
+                counterparty: maker,
+                partialFillAllowed: true
+            })
         );
         bytes32 makerWitness = _hashConsideration(
             Consideration({

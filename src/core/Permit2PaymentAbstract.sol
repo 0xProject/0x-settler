@@ -3,7 +3,6 @@ pragma solidity ^0.8.25;
 
 import {AbstractContext} from "../Context.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 abstract contract Permit2PaymentAbstract is AbstractContext {
@@ -13,17 +12,17 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
 
     function _operator() internal view virtual returns (address);
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         virtual
-        returns (IERC20 token, uint256 amount);
+        returns (uint256 sellAmount);
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         view
         virtual
-        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, IERC20 token, uint256 amount);
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount);
 
     function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,

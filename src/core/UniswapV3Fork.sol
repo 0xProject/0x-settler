@@ -97,12 +97,11 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
-        (, uint256 sellAmount) = _permitToTransferDetails(permit);
 
         buyAmount = _uniV3ForkSwap(
             recipient,
             encodedPath,
-            sellAmount,
+            _permitToSellAmount(permit),
             minBuyAmount,
             address(0), // payer
             swapCallbackData
