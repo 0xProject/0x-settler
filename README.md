@@ -156,10 +156,12 @@ import { createPublicClient, http, parseAbi } from 'viem';
     };
 
     const deployerAbi = parseAbi([
+        "function prev(uint128) external view returns (address)",
         "function ownerOf(uint256) external view returns (address)",
         "function next(uint128) external view returns (address)",
     ]);
     const functionDescriptions = {
+        "prev": "previous",
         "ownerOf": "current",
         "next": "next",
     };
@@ -179,10 +181,12 @@ import { createPublicClient, http, parseAbi } from 'viem';
     }
 
     // output:
-    // current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
-    // next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-    // current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
-    // next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+    // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+    // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
+    // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
+    // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+    // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
+    // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
 })();
 ```
 
@@ -210,10 +214,12 @@ const {ethers} = require("ethers");
   };
 
   const deployerAbi = [
+    "function prev(uint128) external view returns (address)",
     "function ownerOf(uint256) external view returns (address)",
     "function next(uint128) external view returns (address)",
   ];
   const functionDescriptions = {
+    "prev": "previous",
     "ownerOf": "current",
     "next": "next",
   };
@@ -227,10 +233,12 @@ const {ethers} = require("ethers");
   }
 
   // output:
-  // current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
-  // next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-  // current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
-  // next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+  // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+  // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
+  // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
+  // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+  // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
+  // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
 })();
 ```
 
@@ -281,10 +289,11 @@ use std::env;
 
 const DEPLOYER_ADDRESS: Address = address!("00000000000004533Fe15556B1E086BB1A72cEae");
 
-sol!(
+sol! {
+    function prev(uint128 featureId) external view returns (address pastTokenOwner);
     function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
     function next(uint128 featureId) external view returns (address futureTokenOwner);
-);
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -295,6 +304,23 @@ async fn main() -> Result<()> {
     let token_descriptions = HashMap::from([(2, "taker submitted"), (3, "metatransaction")]);
 
     for token_id in token_ids.iter() {
+        {
+            let tx = TransactionRequest::default()
+                .with_to(DEPLOYER_ADDRESS)
+                .with_input(Bytes::from(
+                    prevCall {
+                        featureId: *token_id,
+                    }
+                    .abi_encode(),
+                ));
+            let past_owner =
+                prevCall::abi_decode_returns(&provider.call(&tx).block(block_id).await?, false)?
+                    .pastTokenOwner;
+            println!(
+                "previous {0:} settler address {1:}",
+                token_descriptions[token_id], past_owner
+            );
+        }
         {
             let tx = TransactionRequest::default()
                 .with_to(DEPLOYER_ADDRESS)
@@ -332,10 +358,12 @@ async fn main() -> Result<()> {
     }
 
     // output:
-    // current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
-    // next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-    // current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
-    // next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+    // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+    // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
+    // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
+    // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+    // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
+    // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
 
     Ok(())
 }
@@ -361,6 +389,14 @@ token_descriptions = {
 deployer_abi = [
     {
         "constant": True,
+        "inputs": [{"name": "featureId", "type": "uint128"}],
+        "name": "prev",
+        "outputs": [{"name": "pastTokenOwner", "type": "address"}],
+        "payable": False,
+        "type": "function",
+    },
+    {
+        "constant": True,
         "inputs": [{"name": "tokenId", "type": "uint256"}],
         "name": "ownerOf",
         "outputs": [{"name": "tokenOwner", "type": "address"}],
@@ -369,7 +405,7 @@ deployer_abi = [
     },
     {
         "constant": True,
-        "inputs": [{"name": "feature", "type": "uint128"}],
+        "inputs": [{"name": "featureId", "type": "uint128"}],
         "name": "next",
         "outputs": [{"name": "futureTokenOwner", "type": "address"}],
         "payable": False,
@@ -377,6 +413,7 @@ deployer_abi = [
     },
 ]
 function_descriptions = {
+    "prev": "previous",
     "ownerOf": "current",
     "next": "next",
 }
@@ -394,10 +431,12 @@ for token_id, token_description in token_descriptions.items():
         )
 
 # output:
-# current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
-# next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-# current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
-# next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+# previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+# current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
+# next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
+# previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+# current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
+# next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
 ```
 
 </details>
@@ -424,10 +463,11 @@ token_descriptions[2]='taker submitted'
 token_descriptions[3]='metatransaction'
 declare -r -A token_descriptions
 
-declare -r -a function_signatures=('ownerOf(uint256)(address)' 'next(uint128)(address)')
+declare -r -a function_signatures=('prev(uint128)(address)' 'ownerOf(uint256)(address)' 'next(uint128)(address)')
 declare -A function_descriptions
-function_descriptions["${function_signatures[0]%%(*}"]='current'
-function_descriptions["${function_signatures[1]%%(*}"]='next'
+function_descriptions["${function_signatures[0]%%(*}"]='previous'
+function_descriptions["${function_signatures[1]%%(*}"]='current'
+function_descriptions["${function_signatures[2]%%(*}"]='next'
 declare -r -A function_descriptions
 
 declare -i token_id
@@ -442,10 +482,12 @@ for token_id in "${!token_descriptions[@]}" ; do
 done
 
 # output:
-# current taker submitted settler address 0x7f6ceE965959295cC64d0E6c00d99d6532d8e86b
-# next taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-# current metatransaction settler address 0x7C39a136EA20B3483e402EA031c1f3C019bAb24b
-# next metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+# previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
+# current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
+# next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+# previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
+# current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
+# next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
 ```
 
 </details>
