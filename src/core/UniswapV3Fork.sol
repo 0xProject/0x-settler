@@ -73,7 +73,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
-            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bps).unsafeDiv(10_000),
+            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bps).unsafeDiv(BASIS),
             minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)

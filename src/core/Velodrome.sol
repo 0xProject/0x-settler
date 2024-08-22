@@ -6,6 +6,8 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 
+import {SettlerAbstract} from "../SettlerAbstract.sol";
+
 interface IVelodromePair {
     function metadata()
         external
@@ -22,7 +24,7 @@ interface IVelodromePair {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
-abstract contract Velodrome {
+abstract contract Velodrome is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
@@ -148,7 +150,7 @@ abstract contract Velodrome {
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
                 // a "reasonable" `bps` value could overflow. We don't care to protect against
                 // unreasonable `bps` values because that just means the taker is griefing themself.
-                sellAmount = sellToken.balanceOf(address(this)) * bps / 10_000;
+                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
             if (sellAmount != 0) {
                 sellToken.safeTransfer(address(pair), sellAmount);

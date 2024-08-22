@@ -7,6 +7,8 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 
+import {SettlerAbstract} from "../SettlerAbstract.sol";
+
 interface IPSM {
     /// @dev Get the fee for selling DAI to USDC in PSM
     /// @return tout toll out [wad]
@@ -27,7 +29,7 @@ interface IPSM {
     function buyGem(address usr, uint256 gemAmt) external;
 }
 
-abstract contract MakerPSM {
+abstract contract MakerPSM is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
@@ -44,7 +46,7 @@ abstract contract MakerPSM {
     function sellToMakerPsm(address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem, uint256 amountOutMin) internal {
         if (buyGem) {
             // phantom overflow can't happen here because DAI has decimals = 18
-            uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(10_000);
+            uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
             unchecked {
                 uint256 feeDivisor = psm.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
                 // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
@@ -58,7 +60,7 @@ abstract contract MakerPSM {
             }
         } else {
             // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
-            uint256 sellAmount = (gemToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
+            uint256 sellAmount = (gemToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
             gemToken.safeApproveIfBelow(psm.gemJoin(), sellAmount);
             psm.sellGem(recipient, sellAmount);
             if (amountOutMin != 0) {
