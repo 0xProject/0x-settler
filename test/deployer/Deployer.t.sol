@@ -245,7 +245,7 @@ contract DeployerTest is Test {
         address next = Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer));
         assertEq(deployer.next(testFeature), next);
 
-        (address instance, ) = deployer.deploy(testFeature, type(Dummy).creationCode);
+        (address instance,) = deployer.deploy(testFeature, type(Dummy).creationCode);
         assertEq(instance, next);
 
         assertEq(deployer.ownerOf(Feature.unwrap(testFeature)), next);
