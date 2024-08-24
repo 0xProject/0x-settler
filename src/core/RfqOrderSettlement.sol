@@ -76,7 +76,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        assert(makerPermit.permitted.amount != type(uint256).max);
+        assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
             _permitToTransferDetails(makerPermit, recipient);
         (ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails, uint256 takerAmount) =
@@ -121,7 +121,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         IERC20 takerToken,
         uint256 maxTakerAmount
     ) internal {
-        assert(permit.permitted.amount != type(uint256).max);
+        assert(permit.permitted.amount <= type(uint256).max - BASIS);
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered
         // slippage.
