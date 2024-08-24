@@ -30,7 +30,7 @@ contains() {
     return 1
 }
 
-if ! contains "$signer" "${owners_array[@]}" ; then
+if ! contains "${signer-unset}" "${owners_array[@]}" ; then
     PS3='Who are you?: '
     select signer in "${owners_array[@]}" ; do break ; done
 
