@@ -51,6 +51,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         bytes memory sig,
         uint256 minBuyAmount
     ) internal {
+        uint256 sellAmount = _permitToSellAmount(permit);
         uint64 factoryNonce = uint64(poolInfo >> 16);
         uint8 sellIndex = uint8(poolInfo >> 8);
         uint8 buyIndex = uint8(poolInfo);
@@ -69,17 +70,18 @@ abstract contract CurveTricrypto is SettlerAbstract {
         bool isForwarded = _isForwarded();
         assembly ("memory-safe") {
             sstore(0x00, isForwarded)
-            sstore(0x01, mload(add(0x20, permit))) // nonce
-            sstore(0x02, mload(add(0x40, permit))) // deadline
+            sstore(0x01, mload(add(0x20, mload(permit)))) // amount
+            sstore(0x02, mload(add(0x20, permit))) // nonce
+            sstore(0x03, mload(add(0x40, permit))) // deadline
             for {
                 let src := add(0x20, sig)
                 let end
                 {
                     let len := mload(sig)
                     end := add(len, src)
-                    sstore(0x03, len)
+                    sstore(0x04, len)
                 }
-                let dst := 0x04
+                let dst := 0x05
             } lt(src, end) {
                 src := add(0x20, src)
                 dst := add(0x01, dst)
@@ -92,7 +94,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
                 (
                     sellIndex,
                     buyIndex,
-                    permit.permitted.amount,
+                    sellAmount,
                     minBuyAmount,
                     false,
                     address(0), // payer
@@ -127,27 +129,31 @@ abstract contract CurveTricrypto is SettlerAbstract {
     {
         assert(payer == address(0));
         bool isForwarded;
+        uint256 permittedAmount;
         uint256 nonce;
         uint256 deadline;
         bytes memory sig;
         assembly ("memory-safe") {
             isForwarded := sload(0x00)
             sstore(0x00, 0x00)
-            nonce := sload(0x01)
+            permittedAmount := sload(0x01)
             sstore(0x01, 0x00)
-            deadline := sload(0x02)
+            nonce := sload(0x02)
             sstore(0x02, 0x00)
+            deadline := sload(0x03)
+            sstore(0x03, 0x00)
             sig := mload(0x40)
             for {
                 let dst := add(0x20, sig)
                 let end
                 {
-                    let len := sload(0x03)
+                    let len := sload(0x04)
+                    sstore(0x04, 0x00)
                     end := add(dst, len)
                     mstore(sig, len)
                     mstore(0x40, end)
                 }
-                let src := 0x04
+                let src := 0x05
             } lt(dst, end) {
                 src := add(0x01, src)
                 dst := add(0x20, dst)
@@ -157,12 +163,12 @@ abstract contract CurveTricrypto is SettlerAbstract {
             }
         }
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: sellAmount}),
+            permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: permittedAmount}),
             nonce: nonce,
             deadline: deadline
         });
-        (ISignatureTransfer.SignatureTransferDetails memory transferDetails,,) =
-            _permitToTransferDetails(permit, msg.sender);
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
         _transferFrom(permit, transferDetails, sig, isForwarded);
     }
 }

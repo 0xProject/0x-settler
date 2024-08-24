@@ -6,6 +6,8 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 
+import {SettlerAbstract} from "../SettlerAbstract.sol";
+
 interface IUniV2Pair {
     function token0() external view returns (address);
 
@@ -16,7 +18,7 @@ interface IUniV2Pair {
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
-abstract contract UniswapV2 {
+abstract contract UniswapV2 is SettlerAbstract {
     using UnsafeMath for uint256;
 
     // bytes4(keccak256("getReserves()"))
@@ -58,7 +60,7 @@ abstract contract UniswapV2 {
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bps).unsafeDiv(10_000);
+                sellAmount = (IERC20(sellToken).balanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
         }
         assembly ("memory-safe") {

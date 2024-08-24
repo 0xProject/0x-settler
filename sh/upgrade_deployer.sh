@@ -194,8 +194,14 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     declare -r -a gas_price_args
 
     cast send --unlocked --from "$impl_deployer" --confirmations 10 "${gas_price_args[@]}" --gas-limit $gas_limit --rpc-url 'http://127.0.0.1:1248/' --chain $chainid $(get_config extraFlags) --create "$initcode"
+
+    echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
+    sleep 60
+
     forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    if (( chainid != 81457 )) && (( chainid != 59144 )); then # sourcify doesn't support Blast or Linea
+        forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    fi
 fi
 
 if [[ ${1:-unset} = 'confirm' ]] ; then
@@ -258,7 +264,7 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
 
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
         declare signature_file
-        signature_file="$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")".txt
+        signature_file="$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$deployed_address"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_"$(nonce)".txt
         declare -r signature_file
         echo "$signature" >"$signature_file"
         echo "Signature saved to '$signature_file'" >&2

@@ -13,7 +13,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
     using FullMath for uint256;
 
     struct Consideration {
-        address token;
+        IERC20 token;
         uint256 amount;
         address counterparty;
         bool partialFillAllowed;
@@ -76,20 +76,15 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        (
-            ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails,
-            address makerToken,
-            uint256 makerAmount
-        ) = _permitToTransferDetails(makerPermit, recipient);
-        (
-            ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails,
-            address takerToken,
-            uint256 takerAmount
-        ) = _permitToTransferDetails(takerPermit, maker);
+        assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
+        (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
+            _permitToTransferDetails(makerPermit, recipient);
+        (ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails, uint256 takerAmount) =
+            _permitToTransferDetails(takerPermit, maker);
 
         bytes32 witness = _hashConsideration(
             Consideration({
-                token: takerToken,
+                token: IERC20(takerPermit.permitted.token),
                 amount: takerAmount,
                 counterparty: _msgSender(),
                 partialFillAllowed: false
@@ -103,7 +98,12 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         _logRfqOrder(
             witness,
             _hashConsideration(
-                Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: false})
+                Consideration({
+                    token: IERC20(makerPermit.permitted.token),
+                    amount: makerAmount,
+                    counterparty: maker,
+                    partialFillAllowed: false
+                })
             ),
             uint128(makerAmount)
         );
@@ -121,17 +121,24 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         IERC20 takerToken,
         uint256 maxTakerAmount
     ) internal {
+        assert(permit.permitted.amount <= type(uint256).max - BASIS);
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered
         // slippage.
-        (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address makerToken, uint256 makerAmount) =
+        (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 makerAmount) =
             _permitToTransferDetails(permit, recipient);
+
         bytes32 takerWitness = _hashConsideration(
-            Consideration({token: makerToken, amount: makerAmount, counterparty: maker, partialFillAllowed: true})
+            Consideration({
+                token: IERC20(permit.permitted.token),
+                amount: makerAmount,
+                counterparty: maker,
+                partialFillAllowed: true
+            })
         );
         bytes32 makerWitness = _hashConsideration(
             Consideration({
-                token: address(takerToken),
+                token: takerToken,
                 amount: maxTakerAmount,
                 counterparty: _msgSender(),
                 partialFillAllowed: true

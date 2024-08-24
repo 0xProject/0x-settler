@@ -146,6 +146,9 @@ if (( gas_price < min_gas_price )) ; then
     gas_price=$min_gas_price
 fi
 declare -r -i gas_price
+declare -i gas_estimate_multiplier
+gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
+declare -r -i gas_estimate_multiplier
 
 while (( ${#deploy_calldatas[@]} >= 2 )) ; do
     declare -i operation="${deploy_calldatas[0]}"
@@ -189,20 +192,16 @@ while (( ${#deploy_calldatas[@]} >= 2 )) ; do
     packed_signatures="$(cast concat-hex "${signatures[@]}")"
 
     # configure gas limit
-    declare -r -a args=(
+    declare -a args=(
         "$safe_address" "$execTransaction_sig"
         # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         "$(target $operation)" 0 "$deploy_calldata" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
     )
 
     # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
-    declare -i gas_estimate_multiplier
-    gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-    declare -r -i gas_estimate_multiplier
     declare -i gas_limit
     gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
     gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-    declare -r -i gas_limit
 
     if [[ $wallet_type = 'frame' ]] ; then
         cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"

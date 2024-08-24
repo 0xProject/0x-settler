@@ -55,7 +55,11 @@ contract WethWrapTest is BasePairTest {
         vm.startPrank(address(this));
         snapStart("wethDeposit");
         settler.execute(
-            SettlerBase.AllowedSlippage({recipient: address(this), buyToken: IERC20(address(_weth)), minAmountOut: amount()}),
+            SettlerBase.AllowedSlippage({
+                recipient: address(this),
+                buyToken: IERC20(address(_weth)),
+                minAmountOut: amount()
+            }),
             actions,
             bytes32(0)
         );

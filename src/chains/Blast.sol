@@ -22,7 +22,11 @@ import {thrusterFactory, thrusterInitHash, thrusterForkId} from "../core/univ3fo
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {bladeSwapFactory, bladeSwapInitHash, bladeSwapForkId} from "../core/univ3forks/BladeSwap.sol";
 import {fenixFactory, fenixInitHash, fenixForkId} from "../core/univ3forks/Fenix.sol";
-import {dackieSwapV3BlastFactory, dackieSwapV3BlastInitHash, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
+import {
+    dackieSwapV3BlastFactory,
+    dackieSwapV3BlastInitHash,
+    dackieSwapV3ForkId
+} from "../core/univ3forks/DackieSwapV3.sol";
 
 import {IOwnable} from "../deployer/TwoStepOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
@@ -37,7 +41,11 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
     constructor() {
         if (block.chainid != 31337) {
             assert(block.chainid == 81457);
-            BLAST.configure(BlastYieldMode.AUTOMATIC, BlastGasMode.CLAIMABLE, IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner());
+            BLAST.configure(
+                BlastYieldMode.AUTOMATIC,
+                BlastGasMode.CLAIMABLE,
+                IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner()
+            );
             BLAST_USDB.configure(BlastYieldMode.VOID);
             BLAST_WETH.configure(BlastYieldMode.VOID);
         }
