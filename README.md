@@ -123,9 +123,9 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
-  Arbitrum, Blast)
+  Arbitrum, Blast, Bnb)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Bnb, Avalanche, Scroll, Mantle)
+  hardfork (Avalanche, Scroll, Mantle)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
   hardfork (Linea)
 
