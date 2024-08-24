@@ -237,7 +237,7 @@
     "chainId": 56,
     "displayName": "Bnb",
     "isShanghai": true,
-    "isCancun": false,
+    "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
     "minGasPriceGwei": 3,
@@ -255,7 +255,7 @@
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
     "etherscanApi": "https://api.bscscan.com/api"
   },
