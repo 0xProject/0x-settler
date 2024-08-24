@@ -28,7 +28,7 @@ abstract contract Basic is SettlerAbstract {
         bytes memory returnData;
         uint256 value;
         if (sellToken == IERC20(ETH_ADDRESS)) {
-            value = address(this).balance.mulDiv(bps, 10_000);
+            value = address(this).balance.mulDiv(bps, BASIS);
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
                 (success, returnData) = payable(pool).call{value: value}("");
@@ -46,7 +46,7 @@ abstract contract Basic is SettlerAbstract {
             // TODO: check for zero `bps`
             if (offset != 0) revert InvalidOffset();
         } else {
-            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
+            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, BASIS);
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }
