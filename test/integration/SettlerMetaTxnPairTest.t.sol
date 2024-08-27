@@ -56,7 +56,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: address(fromToken()),
+            token: fromToken(),
             amount: amount(),
             counterparty: FROM,
             partialFillAllowed: false
@@ -91,7 +91,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     bytes32 internal constant SLIPPAGE_AND_ACTIONS_TYPEHASH =
         keccak256("SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)");
 
-    function testSettler_metaTxn_uniswapV3() public {
+    function testSettler_metaTxn_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
@@ -125,7 +125,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_metaTxn_uniswapV3VIP() public {
+    function testSettler_metaTxn_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
@@ -165,7 +165,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: address(fromToken()),
+            token: fromToken(),
             amount: amount(),
             counterparty: FROM,
             partialFillAllowed: false
@@ -231,7 +231,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             deadline: block.timestamp + 100
         });
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: address(fromToken()),
+            token: fromToken(),
             amount: amount(),
             counterparty: FROM,
             partialFillAllowed: true

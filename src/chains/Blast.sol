@@ -22,9 +22,14 @@ import {thrusterFactory, thrusterInitHash, thrusterForkId} from "../core/univ3fo
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {bladeSwapFactory, bladeSwapInitHash, bladeSwapForkId} from "../core/univ3forks/BladeSwap.sol";
 import {fenixFactory, fenixInitHash, fenixForkId} from "../core/univ3forks/Fenix.sol";
-import {dackieSwapV3BlastFactory, dackieSwapV3BlastInitHash, dackieSwapV3ForkId} from "../core/univ3forks/DackieSwapV3.sol";
+import {
+    dackieSwapV3BlastFactory,
+    dackieSwapV3BlastInitHash,
+    dackieSwapV3ForkId
+} from "../core/univ3forks/DackieSwapV3.sol";
 
 import {IOwnable} from "../deployer/TwoStepOwnable.sol";
+import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -32,33 +37,17 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
 
-interface IBlast {
-    function configureClaimableGas() external;
-    function configureGovernor(address governor) external;
-}
-
-interface IBlastYieldERC20 {
-    enum YieldMode {
-        AUTOMATIC,
-        VOID,
-        CLAIMABLE
-    }
-
-    function configure(YieldMode) external returns (uint256);
-}
-
 abstract contract BlastMixin is FreeMemory, SettlerBase {
-    IBlast private constant _BLAST = IBlast(0x4300000000000000000000000000000000000002);
-    IBlastYieldERC20 private constant _USDB = IBlastYieldERC20(0x4300000000000000000000000000000000000003);
-    IBlastYieldERC20 private constant _WETH = IBlastYieldERC20(0x4300000000000000000000000000000000000004);
-
     constructor() {
         if (block.chainid != 31337) {
             assert(block.chainid == 81457);
-            _BLAST.configureClaimableGas();
-            _USDB.configure(IBlastYieldERC20.YieldMode.VOID);
-            _WETH.configure(IBlastYieldERC20.YieldMode.VOID);
-            _BLAST.configureGovernor(IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner());
+            BLAST.configure(
+                BlastYieldMode.AUTOMATIC,
+                BlastGasMode.CLAIMABLE,
+                IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner()
+            );
+            BLAST_USDB.configure(BlastYieldMode.VOID);
+            BLAST_WETH.configure(BlastYieldMode.VOID);
         }
     }
 
@@ -69,7 +58,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
         override(Permit2PaymentAbstract)
         returns (bool)
     {
-        return target == address(_BLAST);
+        return target == address(BLAST);
     }
 
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)

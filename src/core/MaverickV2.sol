@@ -156,7 +156,7 @@ abstract contract MaverickV2 is SettlerAbstract {
                     (
                         recipient,
                         IMaverickV2Pool.SwapParams({
-                            amount: permit.permitted.amount,
+                            amount: _permitToSellAmount(permit),
                             tokenAIn: tokenAIn,
                             exactOutput: false,
                             // TODO: actually set a tick limit so that we can partial fill
@@ -190,7 +190,7 @@ abstract contract MaverickV2 is SettlerAbstract {
                 // We don't care about phantom overflow here because reserves
                 // are limited to 128 bits. Any token balance that would
                 // overflow here would also break MaverickV2.
-                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(10_000);
+                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
         }
         if (sellAmount == 0) {
@@ -257,11 +257,8 @@ abstract contract MaverickV2 is SettlerAbstract {
             data.length := sub(data.length, 0x81)
         }
         assert(tokenIn == IERC20(permit.permitted.token));
-        _transferFrom(
-            permit,
-            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn}),
-            data,
-            isForwarded
-        );
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn});
+        _transferFrom(permit, transferDetails, data, isForwarded);
     }
 }

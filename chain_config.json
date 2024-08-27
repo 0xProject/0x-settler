@@ -369,7 +369,7 @@
     "isShanghai": true,
     "isCancun": false,
     "extraFlags": "--legacy",
-    "gasMultiplierPercent": 1000000,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",

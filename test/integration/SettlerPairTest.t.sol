@@ -136,7 +136,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3VIP() public {
+    function testSettler_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, sig, 0))
@@ -153,7 +153,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_multiplex2() public {
+    function testSettler_uniswapV3_multiplex2() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 5_000, uniswapV3Path(), 0)),
@@ -171,7 +171,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3() public {
+    function testSettler_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
@@ -188,7 +188,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_buyToken_fee_full_custody() public {
+    function testSettler_uniswapV3_buyToken_fee_full_custody() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.UNISWAPV3, (address(settler), 10_000, uniswapV3Path(), 0)),
@@ -215,7 +215,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_buyToken_fee_single_custody() public {
+    function testSettler_uniswapV3_buyToken_fee_single_custody() public skipIf(uniswapV3Path().length == 0) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), uniswapV3Path(), permit, sig, 0)),
@@ -242,7 +242,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_sellToken_fee_full_custody() public {
+    function testSettler_uniswapV3_sellToken_fee_full_custody() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(
@@ -456,7 +456,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         assertGt(toToken().balanceOf(FROM), beforeBalance);
     }
 
-    function testSettler_externalMoveExecute_uniswapV3() public {
+    function testSettler_externalMoveExecute_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions =
             ActionDataBuilder.build(abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0)));
 

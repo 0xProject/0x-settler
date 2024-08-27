@@ -134,54 +134,6 @@ declare -r signer
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
-declare deploy_calldata
-deploy_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calls[@]}")")"
-declare -r deploy_calldata
-
-declare signing_hash
-signing_hash="$(eip712_hash "$deploy_calldata" 1)"
-declare -r signing_hash
-
-declare safe_url
-safe_url="$(get_config safe.apiUrl)"
-declare -r safe_url
-
-declare -a signatures=()
-if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-    set +f
-    for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*.txt ; do
-        signatures+=("$(<"$confirmation")")
-    done
-    set -f
-
-    if (( ${#signatures[@]} != 2 )) ; then
-        echo 'Bad number of signatures' >&2
-        exit 1
-    fi
-else
-    declare signatures_json
-    signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
-    declare -r signatures_json
-
-    if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
-        echo 'Bad number of signatures' >&2
-        exit 1
-    fi
-
-    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
-        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-    else
-        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-    fi
-fi
-declare -r -a signatures
-
-declare packed_signatures
-packed_signatures="$(cast concat-hex "${signatures[@]}")"
-declare -r packed_signatures
-
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -194,31 +146,70 @@ if (( gas_price < min_gas_price )) ; then
     gas_price=$min_gas_price
 fi
 declare -r -i gas_price
-
-declare multicall_address
-multicall_address="$(get_config safe.multiCall)"
-declare -r multicall_address
-
-# configure gas limit
-declare -r -a args=(
-    "$safe_address" "$execTransaction_sig"
-    # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-    "$multicall_address" 0 "$deploy_calldata" 1 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
-)
-
-# set gas limit and add multiplier/headroom (again mostly for Arbitrum)
 declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
-declare -i gas_limit
-gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
-gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-declare -r -i gas_limit
 
-if [[ $wallet_type = 'frame' ]] ; then
-    cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
-else
-    cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
-fi
+while (( ${#deploy_calldatas[@]} >= 2 )) ; do
+    declare -i operation="${deploy_calldatas[0]}"
+    declare deploy_calldata="${deploy_calldatas[1]}"
+    deploy_calldatas=( "${deploy_calldatas[@]:2:$((${#deploy_calldatas[@]}-2))}" )
+
+    declare signing_hash
+    signing_hash="$(eip712_hash "$deploy_calldata" $operation)"
+
+    declare -a signatures=()
+    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+        set +f
+        for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
+            signatures+=("$(<"$confirmation")")
+        done
+        set -f
+
+        if (( ${#signatures[@]} != 2 )) ; then
+            echo 'Bad number of signatures' >&2
+            exit 1
+        fi
+    else
+        declare signatures_json
+        signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
+
+        if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
+            echo 'Bad number of signatures' >&2
+            exit 1
+        fi
+
+        if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
+            signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
+            signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
+        else
+            signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
+            signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
+        fi
+    fi
+
+    declare packed_signatures
+    packed_signatures="$(cast concat-hex "${signatures[@]}")"
+
+    # configure gas limit
+    declare -a args=(
+        "$safe_address" "$execTransaction_sig"
+        # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        "$(target $operation)" 0 "$deploy_calldata" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    )
+
+    # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
+    declare -i gas_limit
+    gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
+    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+
+    if [[ $wallet_type = 'frame' ]] ; then
+        cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+    else
+        cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+    fi
+
+    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+done
 
 echo 'Contracts deployed. Run `sh/verify_settler.sh '"$chain_name"'` to verify on Etherscan.' >&2

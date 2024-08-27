@@ -14,15 +14,37 @@ if [[ ${rpc_url:-unset} = 'unset' ]] ; then
     exit 1
 fi
 
+declare multicall_address
+multicall_address="$(get_config safe.multiCall)"
+declare -r multicall_address
+
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
 
-declare -r nonce_sig='nonce()(uint256)'
-declare -i nonce
-nonce="$(cast abi-decode "$nonce_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$nonce_sig")")")"
-nonce=$((${SAFE_NONCE_INCREMENT:-0} + nonce))
-declare -r -i nonce
+declare -i current_safe_nonce
+current_safe_nonce="$(cast call --rpc-url "$rpc_url" "$safe_address" 'nonce()(uint256)')"
+declare -r -i current_safe_nonce
+nonce() {
+    echo $((${SAFE_NONCE_INCREMENT:-0} + current_safe_nonce))
+}
+
+target() {
+    declare -i operation
+    if (( $# > 0 )) ; then
+        operation="$1"
+        shift
+    else
+        operation=0
+    fi
+    declare -r -i operation
+
+    if [[ $operation == 1 ]] ; then
+        echo "$multicall_address"
+    else
+        echo "$deployer_address"
+    fi
+}
 
 # calls encoded as operation (always zero) 1 byte
 #                  target address          20 bytes
@@ -37,7 +59,7 @@ declare -r eip712_message_json_template='{
     "to": $to,
     "value": 0,
     "data": $data,
-    "operation": $call_type,
+    "operation": $operation,
     "safeTxGas": 0,
     "baseGas": 0,
     "gasPrice": 0,
@@ -49,22 +71,14 @@ eip712_json() {
     declare -r calldata="$1"
     shift
 
-    declare -i call_type
+    declare -i operation
     if (( $# > 0 )) ; then
-        call_type="$1"
+        operation="$1"
         shift
     else
-        call_type=0
+        operation=0
     fi
-    declare -r -i call_type
-
-    declare to
-    if [[ $call_type == 1 ]] ; then
-        to="$(get_config safe.multiCall)"
-    else
-        to="$deployer_address"
-    fi
-    declare -r to
+    declare -r -i operation
 
     jq -Mc \
     '
@@ -134,10 +148,10 @@ eip712_json() {
     '                                       \
     --arg verifyingContract "$safe_address" \
     --arg chainId "$chainid"                \
-    --arg to "$to"                          \
+    --arg to "$(target $operation)"         \
     --arg data "$calldata"                  \
-    --arg call_type "$call_type"            \
-    --arg nonce "$nonce"                    \
+    --arg operation $operation              \
+    --arg nonce $(nonce)                    \
     <<<'{}'
 }
 
@@ -145,41 +159,33 @@ eip712_struct_hash() {
     declare -r calldata="$1"
     shift
 
-    declare -i call_type
+    declare -i operation
     if (( $# > 0 )) ; then
-        call_type="$1"
+        operation="$1"
         shift
     else
-        call_type=0
+        operation=0
     fi
-    declare -r -i call_type
+    declare -r -i operation
 
-    declare to
-    if [[ $call_type == 1 ]] ; then
-        to="$(get_config safe.multiCall)"
-    else
-        to="$deployer_address"
-    fi
-    declare -r to
-
-    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$to" 0 "$(cast keccak "$calldata")" "$call_type" 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $nonce)"
+    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$(target $operation)" 0 "$(cast keccak "$calldata")" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
 }
 
 eip712_hash() {
     declare -r calldata="$1"
     shift
 
-    declare -i call_type
+    declare -i operation
     if (( $# > 0 )) ; then
-        call_type="$1"
+        operation="$1"
         shift
     else
-        call_type=0
+        operation=0
     fi
-    declare -r -i call_type
+    declare -r -i operation
 
     declare struct_hash
-    struct_hash="$(eip712_struct_hash "$calldata" "$call_type")"
+    struct_hash="$(eip712_struct_hash "$calldata" $operation)"
 
     cast keccak "$(cast concat-hex '0x1901' "$domain_separator" "$struct_hash")"
 }

@@ -21,6 +21,26 @@ Master list of UniV3 forks:
 
 ---
 
+## 2024-08-26
+
+### Breaking changes
+
+* Add slippage check parameter to `MAKERPSM` action to gas-optimize the new "lite" PSM
+  * Note that for the "normal" PSM ("MCD PSM USDC A",
+    0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A), `amountOutMin` _**MUST**_ be
+    zeroed, otherwise you will get an out-of-gas
+* Special case a permitted (sell) amount of `type(uint256).max - 9_999` and
+  above -- this introspects the taker's balance of the sell token and attempts
+  to sell a proportion of it
+
+### Non-breaking changes
+
+* Added `prev` accessor function to `Deployer`
+* Configure yield and gas for Deployer on Blast
+* Deploy Settler to Mantle network
+* Add `DODOV2` action to Arbitrum
+* Add SolidlyV3 UniV3 fork to Arbitrum
+
 ## 2024-08-12
 
 ### Breaking changes

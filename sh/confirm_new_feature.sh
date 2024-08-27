@@ -260,7 +260,7 @@ safe_multisig_transaction="$(
     '                                  \
     --arg to "$multicall_address"      \
     --arg data "$new_feature_calldata" \
-    --arg call_type 1                  \
+    --arg operation 1                  \
     --arg nonce "$nonce"               \
     --arg signing_hash "$signing_hash" \
     --arg sender "$signer"             \
