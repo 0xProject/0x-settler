@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
+import {SettlerIntent} from "../SettlerIntent.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
@@ -24,6 +25,7 @@ import {
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
+import {Permit2PaymentMetaTxn} from "../core/Permit2Payment.sol";
 
 abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2 {
     constructor() {
@@ -72,7 +74,7 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2 {
 
 /// @custom:security-contact security@0x.org
 contract AvalancheSettler is Settler, AvalancheMixin {
-    constructor(bytes20 gitCommit) Settler(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
@@ -103,10 +105,11 @@ contract AvalancheSettler is Settler, AvalancheMixin {
 
 /// @custom:security-contact security@0x.org
 contract AvalancheSettlerMetaTxn is SettlerMetaTxn, AvalancheMixin {
-    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal
+        virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
@@ -117,13 +120,44 @@ contract AvalancheSettlerMetaTxn is SettlerMetaTxn, AvalancheMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
+        virtual
         override(SettlerAbstract, SettlerBase, AvalancheMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(SettlerMetaTxn, AbstractContext) returns (address) {
+    function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+}
+
+/// @custom:security-contact security@0x.org
+contract AvalancheSettlerIntent is SettlerIntent, AvalancheSettlerMetaTxn {
+    constructor(bytes20 gitCommit) AvalancheSettlerMetaTxn(gitCommit) {}
+
+    // Solidity inheritance is stupid
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+        internal
+        override(AvalancheSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data);
+    }
+
+    function _msgSender() internal view override(SettlerIntent, AvalancheSettlerMetaTxn) returns (address) {
+        return super._msgSender();
+    }
+
+    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
+        return super._witnessTypeSuffix();
+    }
+
+    function _tokenId() internal pure override(SettlerIntent, SettlerMetaTxn, SettlerAbstract) returns (uint256) {
+        return super._tokenId();
+    }
+
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal override(AvalancheSettlerMetaTxn, SettlerMetaTxn) returns (bool) {
+        return super._dispatchVIP(action, data, sig);
     }
 }
