@@ -15,6 +15,10 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
         super.basicSellToPool(sellToken, bps, pool, offset, data);
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
     }

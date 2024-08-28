@@ -19,7 +19,11 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     // When/if you change this, you must make corresponding changes to
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit, 3) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+
+    function _tokenId() internal pure virtual override returns (uint256) {
+        return 3;
+    }
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
@@ -122,13 +126,11 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         return true;
     }
 
-    function executeMetaTxn(
+    function _executeMetaTxn(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
-        address msgSender,
         bytes calldata sig
-    ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+    ) internal returns (bool) {
         require(actions.length != 0);
         {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);
@@ -150,5 +152,15 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
 
         _checkSlippageAndTransfer(slippage);
         return true;
+    }
+
+    function executeMetaTxn(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32, /* zid & affiliate */
+        address msgSender,
+        bytes calldata sig
+    ) public virtual metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+        return _executeMetaTxn(slippage, actions, sig);
     }
 }
