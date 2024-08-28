@@ -18,11 +18,6 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    // When/if you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
-
     function _tokenId() internal pure override returns (uint256) {
         return 2;
     }

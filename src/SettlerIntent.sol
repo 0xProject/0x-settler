@@ -8,12 +8,7 @@ import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 import {Permit2PaymentIntent, Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
 
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
-    // When/if you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
-    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
-
-    function _tokenId() internal pure override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
+    function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
         return 4;
     }
 
@@ -29,7 +24,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     }
 
     // Solidity inheritance is so stupid
-    function _witnessTypeSuffix() internal pure override(Permit2PaymentMetaTxn, Permit2PaymentIntent)  returns (string memory) {
+    function _witnessTypeSuffix() internal pure virtual override(Permit2PaymentMetaTxn, Permit2PaymentIntent)  returns (string memory) {
         return super._witnessTypeSuffix();
     }
 
