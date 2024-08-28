@@ -369,7 +369,9 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _witnessTypeSuffix() internal pure virtual returns (string memory) {
         return string(
-            abi.encodePacked("SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE)
+            abi.encodePacked(
+                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
+            )
         );
     }
 
@@ -413,8 +415,6 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
 abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
-        return string(
-            abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE)
-        );
+        return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
     }
 }

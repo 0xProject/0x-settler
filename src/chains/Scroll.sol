@@ -203,7 +203,12 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
+    function _witnessTypeSuffix()
+        internal
+        pure
+        override(SettlerIntent, Permit2PaymentMetaTxn)
+        returns (string memory)
+    {
         return super._witnessTypeSuffix();
     }
 
@@ -211,7 +216,11 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal override(ScrollSettlerMetaTxn, SettlerMetaTxn) returns (bool) {
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+        internal
+        override(ScrollSettlerMetaTxn, SettlerMetaTxn)
+        returns (bool)
+    {
         return super._dispatchVIP(action, data, sig);
     }
 }

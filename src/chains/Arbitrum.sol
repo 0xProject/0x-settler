@@ -128,7 +128,13 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
 contract ArbitrumSettler is Settler, ArbitrumMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal virtual override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(bytes4 action, bytes calldata data)
+        internal
+        virtual
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
@@ -252,7 +258,12 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
+    function _witnessTypeSuffix()
+        internal
+        pure
+        override(SettlerIntent, Permit2PaymentMetaTxn)
+        returns (string memory)
+    {
         return super._witnessTypeSuffix();
     }
 
@@ -260,7 +271,11 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal override(ArbitrumSettlerMetaTxn, SettlerMetaTxn) returns (bool) {
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+        internal
+        override(ArbitrumSettlerMetaTxn, SettlerMetaTxn)
+        returns (bool)
+    {
         return super._dispatchVIP(action, data, sig);
     }
 }

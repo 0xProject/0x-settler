@@ -121,11 +121,10 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         return true;
     }
 
-    function _executeMetaTxn(
-        AllowedSlippage calldata slippage,
-        bytes[] calldata actions,
-        bytes calldata sig
-    ) internal returns (bool) {
+    function _executeMetaTxn(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes calldata sig)
+        internal
+        returns (bool)
+    {
         require(actions.length != 0);
         {
             (bytes4 action, bytes calldata data) = actions.decodeCall(0);

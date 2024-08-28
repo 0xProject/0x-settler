@@ -182,7 +182,12 @@ contract SepoliaSettlerIntent is SettlerIntent, SepoliaSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
+    function _witnessTypeSuffix()
+        internal
+        pure
+        override(SettlerIntent, Permit2PaymentMetaTxn)
+        returns (string memory)
+    {
         return super._witnessTypeSuffix();
     }
 
@@ -190,7 +195,11 @@ contract SepoliaSettlerIntent is SettlerIntent, SepoliaSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal override(SepoliaSettlerMetaTxn, SettlerMetaTxn) returns (bool) {
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+        internal
+        override(SepoliaSettlerMetaTxn, SettlerMetaTxn)
+        returns (bool)
+    {
         return super._dispatchVIP(action, data, sig);
     }
 }

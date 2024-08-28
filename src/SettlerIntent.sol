@@ -23,16 +23,18 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         return super._msgSender();
     }
 
-    // Solidity inheritance is so stupid
-    function _witnessTypeSuffix() internal pure virtual override(Permit2PaymentMetaTxn, Permit2PaymentIntent)  returns (string memory) {
+    function _witnessTypeSuffix()
+        internal
+        pure
+        virtual
+        // Solidity inheritance is so stupid
+        override(Permit2PaymentMetaTxn, Permit2PaymentIntent)
+        returns (string memory)
+    {
         return super._witnessTypeSuffix();
     }
 
-    function _hashSlippage(AllowedSlippage calldata slippage)
-        internal
-        pure
-        returns (bytes32 result)
-    {
+    function _hashSlippage(AllowedSlippage calldata slippage) internal pure returns (bytes32 result) {
         // This function does not check for or clean any dirty bits that might
         // exist in `slippage`. We assume that `slippage` will be used elsewhere
         // in this context and that if there are dirty bits it will result in a
