@@ -8,6 +8,7 @@ import {SettlerIntent} from "../SettlerIntent.sol";
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -21,7 +22,7 @@ import {
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentMetaTxn} from "../core/Permit2Payment.sol";
+import {Permit2PaymentMetaTxn, Permit2Payment} from "../core/Permit2Payment.sol";
 
 abstract contract MantleMixin is FreeMemory, SettlerBase {
     constructor() {
@@ -150,5 +151,14 @@ contract MantleSettlerIntent is SettlerIntent, MantleSettlerMetaTxn {
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
     }
 }

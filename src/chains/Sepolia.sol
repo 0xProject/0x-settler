@@ -25,7 +25,7 @@ import {
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentMetaTxn} from "../core/Permit2Payment.sol";
+import {Permit2PaymentMetaTxn, Permit2Payment} from "../core/Permit2Payment.sol";
 
 abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2 {
     constructor() {
@@ -201,5 +201,14 @@ contract SepoliaSettlerIntent is SettlerIntent, SepoliaSettlerMetaTxn {
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
     }
 }

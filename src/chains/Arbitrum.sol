@@ -40,7 +40,7 @@ import {dackieSwapV3ArbitrumFactory, dackieSwapV3ForkId} from "../core/univ3fork
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentMetaTxn} from "../core/Permit2Payment.sol";
+import {Permit2PaymentMetaTxn, Permit2Payment} from "../core/Permit2Payment.sol";
 
 abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto, DodoV2 {
     constructor() {
@@ -277,5 +277,14 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
     }
 }

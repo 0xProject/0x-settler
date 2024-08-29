@@ -232,6 +232,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
+        virtual
         override
         returns (uint256 sellAmount)
     {

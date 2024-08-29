@@ -5,7 +5,10 @@ import {SettlerAbstract} from "./SettlerAbstract.sol";
 import {SettlerBase} from "./SettlerBase.sol";
 import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 
-import {Permit2PaymentIntent, Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
+import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./core/Permit2Payment.sol";
+
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
@@ -55,5 +58,15 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         bytes calldata sig
     ) public virtual metaTx(msgSender, _hashSlippage(slippage)) returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        override(Permit2Payment, Permit2PaymentAbstract)
+        returns (uint256 sellAmount)
+    {
+        sellAmount = permit.permitted.amount;
     }
 }
