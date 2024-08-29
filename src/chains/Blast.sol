@@ -4,10 +4,12 @@ pragma solidity ^0.8.25;
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
+import {SettlerIntent} from "../SettlerIntent.sol";
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -36,6 +38,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../core/Permit2Payment.sol";
+import {Permit2PaymentMetaTxn, Permit2Payment} from "../core/Permit2Payment.sol";
 
 abstract contract BlastMixin is FreeMemory, SettlerBase {
     constructor() {
@@ -109,7 +112,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
 
 /// @custom:security-contact security@0x.org
 contract BlastSettler is Settler, BlastMixin {
-    constructor(bytes20 gitCommit) Settler(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
@@ -135,10 +138,11 @@ contract BlastSettler is Settler, BlastMixin {
 
 /// @custom:security-contact security@0x.org
 contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
-    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
         internal
+        virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
@@ -149,6 +153,7 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     function _isRestrictedTarget(address target)
         internal
         pure
+        virtual
         override(Permit2PaymentBase, BlastMixin, Permit2PaymentAbstract)
         returns (bool)
     {
@@ -158,13 +163,71 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
+        virtual
         override(SettlerAbstract, SettlerBase, BlastMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(SettlerMetaTxn, AbstractContext) returns (address) {
+    function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+}
+
+/// @custom:security-contact security@0x.org
+contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
+    constructor(bytes20 gitCommit) BlastSettlerMetaTxn(gitCommit) {}
+
+    // Solidity inheritance is stupid
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        override(BlastSettlerMetaTxn, Permit2PaymentBase, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+        internal
+        override(BlastSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data);
+    }
+
+    function _msgSender() internal view override(SettlerIntent, BlastSettlerMetaTxn) returns (address) {
+        return super._msgSender();
+    }
+
+    function _witnessTypeSuffix()
+        internal
+        pure
+        override(SettlerIntent, Permit2PaymentMetaTxn)
+        returns (string memory)
+    {
+        return super._witnessTypeSuffix();
+    }
+
+    function _tokenId() internal pure override(SettlerIntent, SettlerMetaTxn, SettlerAbstract) returns (uint256) {
+        return super._tokenId();
+    }
+
+    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+        internal
+        override(BlastSettlerMetaTxn, SettlerMetaTxn)
+        returns (bool)
+    {
+        return super._dispatchVIP(action, data, sig);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
     }
 }
