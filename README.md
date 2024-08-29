@@ -13,12 +13,13 @@ ERC721-compatible NFT. To find the address of the most recent `Settler`
 deployment, call `function ownerOf(uint256 tokenId) external view returns (address)`
 with the `tokenId` set to the number of the feature that you wish to query. For
 taker-submitted flows, the feature number is probably 2 unless something major
-changed and nobody updated this document. Likewise, for gasless/metatransaction
-flows, the feature number is probably 3. A reverting response indicates that
-`Settler` is paused and you should not interact. Do not hardcode any `Settler`
-address in your integration. _**ALWAYS**_ query the deployer/registry for the
-address of the most recent `Settler` contract before building or signing a
-transaction, metatransaction, or order.
+changed and nobody updated this document. For gasless/metatransaction flows, the
+feature number is probably 3. For intents, the feature number is probably 4. A
+reverting response indicates that `Settler` is paused and you should not
+interact. Do not hardcode any `Settler` address in your
+integration. _**ALWAYS**_ query the deployer/registry for the address of the
+most recent `Settler` contract before building or signing a transaction,
+metatransaction, or order.
 
 ### 0x API dwell time
 
@@ -153,6 +154,7 @@ import { createPublicClient, http, parseAbi } from 'viem';
     const tokenDescriptions = {
         2: "taker submitted",
         3: "metatransaction",
+        4: "intents",
     };
 
     const deployerAbi = parseAbi([
@@ -211,6 +213,7 @@ const {ethers} = require("ethers");
   const tokenDescriptions = {
     2: "taker submitted",
     3: "metatransaction",
+    4: "intents",
   };
 
   const deployerAbi = [
@@ -300,8 +303,12 @@ async fn main() -> Result<()> {
     let provider = ProviderBuilder::new().on_http(env::var("RPC_URL")?.parse()?);
     let block_id = BlockId::number(provider.get_block_number().await?);
 
-    let token_ids = vec![2, 3];
-    let token_descriptions = HashMap::from([(2, "taker submitted"), (3, "metatransaction")]);
+    let token_ids = vec![2, 3, 4];
+    let token_descriptions = HashMap::from([
+        (2, "taker submitted"),
+        (3, "metatransaction"),
+        (4, "intents")
+    ]);
 
     for token_id in token_ids.iter() {
         {
@@ -384,6 +391,7 @@ deployer_address = "0x00000000000004533Fe15556B1E086BB1A72cEae"
 token_descriptions = {
     2: "taker submitted",
     3: "metatransaction",
+    4: "intents",
 }
 
 deployer_abi = [
@@ -461,6 +469,7 @@ declare -r deployer='0x00000000000004533Fe15556B1E086BB1A72cEae'
 declare -A token_descriptions
 token_descriptions[2]='taker submitted'
 token_descriptions[3]='metatransaction'
+token_descriptions[4]='intents'
 declare -r -A token_descriptions
 
 declare -r -a function_signatures=('prev(uint128)(address)' 'ownerOf(uint256)(address)' 'next(uint128)(address)')
@@ -1250,10 +1259,10 @@ from this document.
 ![Click on "Connect to Web3"](img/pause6.png?raw=true)
 
 9. Enter the "feature" number in the text box. This is probably 2 for
-   taker-submitted for 3 for gasless/metatransaction, unless something major has
-   changed and nobody bothered to update this document.
+   taker-submitted, 3 for gasless/metatransaction, or 4 for intents, unless
+   something major has changed and nobody bothered to update this document.
 
-![Enter the "feature" number (2 or 3) in the text box](img/pause7.png?raw=true)
+![Enter the "feature" number (2, 3, or 4) in the text box](img/pause7.png?raw=true)
 
 10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
 
