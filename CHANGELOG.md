@@ -21,6 +21,10 @@ Master list of UniV3 forks:
 
 ---
 
+* Create new Settler version for intent-based settlement -- the taker only signs
+  the slippage, not the actions
+  * This is now `tokenId` 4
+
 ## 2024-08-26
 
 ### Breaking changes
