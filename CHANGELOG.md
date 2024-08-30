@@ -21,6 +21,14 @@ Master list of UniV3 forks:
 
 ---
 
+### Breaking changes
+
+* Upgrade Bnb chain deployment to Cancun (Tycho) hardfork
+  * This changes the `AllowanceHolder` address on that chain to
+    `0x0000000000001fF3684f28c67538d4D072C22734`
+
+### Non-breaking changes
+
 ## 2024-08-26
 
 ### Breaking changes
