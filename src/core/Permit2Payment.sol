@@ -17,7 +17,9 @@ import {
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
+import {FullMath} from "../vendor/FullMath.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
 
@@ -221,19 +223,35 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
+    using FullMath for uint256;
+
     fallback(bytes calldata data) external virtual returns (bytes memory) {
         return _invokeCallback(data);
     }
 
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = permit.permitted.amount;
+        if (sellAmount > type(uint256).max - BASIS) {
+            unchecked {
+                sellAmount -= type(uint256).max - BASIS;
+            }
+            sellAmount = IERC20(permit.permitted.token).balanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+        }
+    }
+
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
-        pure
+        view
         override
-        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, address token, uint256 amount)
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
     {
         transferDetails.to = recipient;
-        transferDetails.requestedAmount = amount = permit.permitted.amount;
-        token = permit.permitted.token;
+        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(permit);
     }
 
     // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use

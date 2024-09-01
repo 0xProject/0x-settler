@@ -73,7 +73,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
-            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bps).unsafeDiv(10_000),
+            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bps).unsafeDiv(BASIS),
             minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
@@ -101,7 +101,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         buyAmount = _uniV3ForkSwap(
             recipient,
             encodedPath,
-            permit.permitted.amount,
+            _permitToSellAmount(permit),
             minBuyAmount,
             address(0), // payer
             swapCallbackData
@@ -356,12 +356,9 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }
-            _transferFrom(
-                permit,
-                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount}),
-                sig,
-                isForwarded
-            );
+            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
+            _transferFrom(permit, transferDetails, sig, isForwarded);
         }
     }
 }

@@ -54,10 +54,10 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, MaverickV2,
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == ISettlerActions.MAKERPSM.selector) {
-            (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem) =
-                abi.decode(data, (address, IERC20, uint256, IPSM, bool));
+            (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IPSM, bool, uint256));
 
-            sellToMakerPsm(recipient, gemToken, bps, psm, buyGem);
+            sellToMakerPsm(recipient, gemToken, bps, psm, buyGem, amountOutMin);
         } else if (action == ISettlerActions.MAVERICKV2.selector) {
             (
                 address recipient,

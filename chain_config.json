@@ -237,10 +237,10 @@
     "chainId": 56,
     "displayName": "Bnb",
     "isShanghai": true,
-    "isCancun": false,
+    "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
-    "minGasPriceGwei": 3,
+    "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -255,7 +255,7 @@
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
     "etherscanApi": "https://api.bscscan.com/api"
   },
@@ -369,7 +369,7 @@
     "isShanghai": true,
     "isCancun": false,
     "extraFlags": "--legacy",
-    "gasMultiplierPercent": 1000000,
+    "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",

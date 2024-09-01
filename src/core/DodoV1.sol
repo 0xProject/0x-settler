@@ -286,7 +286,7 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)
         internal
     {
-        uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, 10_000);
+        uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, BASIS);
         sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(dodo, sellAmount);
