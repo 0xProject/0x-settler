@@ -87,44 +87,50 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3BlastFactory;
-            initHash = uniswapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        //} else if (forkId == sushiswapV3ForkId) {
-        //    factory = sushiswapV3BlastFactory;
-        //    initHash = sushiswapV3BlastInitHash;
-        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == thrusterForkId) {
-            factory = thrusterFactory;
-            initHash = thrusterInitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == bladeSwapForkId) {
-            factory = bladeSwapFactory;
-            initHash = bladeSwapInitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
-        } else if (forkId == fenixForkId) {
-            factory = fenixFactory;
-            initHash = fenixInitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
-        } else if (forkId == dackieSwapV3ForkId) {
-            factory = dackieSwapV3BlastFactory;
-            initHash = dackieSwapV3BlastInitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        } else if (forkId == blasterV3ForkId) {
-            factory = blasterV3Factory;
-            initHash = blasterV3InitHash;
-            callbackSelector = uint32(IBlasterswapV3SwapCallback.blasterswapV3SwapCallback.selector);
-        } else if (forkId == monoSwapV3ForkId) {
-            factory = monoSwapV3Factory;
-            initHash = monoSwapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == rogueXV1ForkId) {
-            factory = rogueXV1Factory;
-            initHash = rogueXV1InitHash;
-            callbackSelector = uint32(IRoxSpotSwapCallback.swapCallback.selector);
+        if (forkId < dackieSwapV3ForkId) {
+            if (forkId == uniswapV3ForkId) {
+                factory = uniswapV3BlastFactory;
+                initHash = uniswapV3InitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            //} else if (forkId == sushiswapV3ForkId) {
+            //    factory = sushiswapV3BlastFactory;
+            //    initHash = sushiswapV3BlastInitHash;
+            //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            } else if (forkId == thrusterForkId) {
+                factory = thrusterFactory;
+                initHash = thrusterInitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            } else if (forkId == bladeSwapForkId) {
+                factory = bladeSwapFactory;
+                initHash = bladeSwapInitHash;
+                callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+            } else if (forkId == fenixForkId) {
+                factory = fenixFactory;
+                initHash = fenixInitHash;
+                callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+            } else {
+                revert UnknownForkId(forkId);
+            }
         } else {
-            revert UnknownForkId(forkId);
+            if (forkId == dackieSwapV3ForkId) {
+                factory = dackieSwapV3BlastFactory;
+                initHash = dackieSwapV3BlastInitHash;
+                callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+            } else if (forkId == blasterV3ForkId) {
+                factory = blasterV3Factory;
+                initHash = blasterV3InitHash;
+                callbackSelector = uint32(IBlasterswapV3SwapCallback.blasterswapV3SwapCallback.selector);
+            } else if (forkId == monoSwapV3ForkId) {
+                factory = monoSwapV3Factory;
+                initHash = monoSwapV3InitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            } else if (forkId == rogueXV1ForkId) {
+                factory = rogueXV1Factory;
+                initHash = rogueXV1InitHash;
+                callbackSelector = uint32(IRoxSpotSwapCallback.swapCallback.selector);
+            } else {
+                revert UnknownForkId(forkId);
+            }
         }
     }
 }
