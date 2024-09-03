@@ -18,6 +18,9 @@ Master list of UniV3 forks:
   15. Thick
   16. KinetixV3
   17. MetavaultV3
+  18. BlasterV3
+  19. MonoSwapV3
+  20. RogueXV1
 
 ---
 
@@ -28,6 +31,12 @@ Master list of UniV3 forks:
     `0x0000000000001fF3684f28c67538d4D072C22734`
 
 ### Non-breaking changes
+
+* Add BlasterV3 UniV3 fork to Blast
+* Add MonoSwapV3 UniV3 fork to Blast
+* Add RogueXV1 UniV3 fork to Blast
+  * This UniV3 fork has unusual integrations with perpetual futures; it may
+    revert when a "normal" UniV3 fork wouldn't
 
 ## 2024-08-26
 

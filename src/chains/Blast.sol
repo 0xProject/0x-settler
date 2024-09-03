@@ -27,6 +27,16 @@ import {
     dackieSwapV3BlastInitHash,
     dackieSwapV3ForkId
 } from "../core/univ3forks/DackieSwapV3.sol";
+import {
+    blasterV3Factory,
+    blasterV3InitHash,
+    blasterV3ForkId,
+    IBlasterswapV3SwapCallback
+} from "../core/univ3forks/BlasterV3.sol";
+import {monoSwapV3Factory, monoSwapV3InitHash, monoSwapV3ForkId} from "../core/univ3forks/MonoSwapV3.sol";
+import {
+    rogueXV1Factory, rogueXV1InitHash, rogueXV1ForkId, IRoxSpotSwapCallback
+} from "../core/univ3forks/RogueXV1.sol";
 
 import {IOwnable} from "../deployer/TwoStepOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
@@ -101,6 +111,18 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
             factory = dackieSwapV3BlastFactory;
             initHash = dackieSwapV3BlastInitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == blasterV3ForkId) {
+            factory = blasterV3Factory;
+            initHash = blasterV3InitHash;
+            callbackSelector = uint32(IBlasterswapV3SwapCallback.blasterswapV3SwapCallback.selector);
+        } else if (forkId == monoSwapV3ForkId) {
+            factory = monoSwapV3Factory;
+            initHash = monoSwapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == rogueXV1ForkId) {
+            factory = rogueXV1Factory;
+            initHash = rogueXV1InitHash;
+            callbackSelector = uint32(IRoxSpotSwapCallback.swapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
