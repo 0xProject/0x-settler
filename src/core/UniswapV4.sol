@@ -56,18 +56,14 @@ abstract contract UniswapV4 is SettlerAbstract {
     function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {
     }
 
-    function _getCredit(Currency currency) internal view returns (uint256) {
+    function _getDelta(Currency currency) internal view returns (int256 delta) {
         bytes32 key;
         assembly ("memory-safe") {
             mstore(0x00, address())
             mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
             key := keccak256(0x00, 0x40)
         }
-        int256 amount = int256(uint256(POOL_MANAGER.exttload(key)));
-        if (amount < 0) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        return uint256(amount);
+        delta = int256(uint256(POOL_MANAGER.exttload(key)));
     }
 
     bytes32 isNotedMappingSlot = bytes32(0);
