@@ -18,7 +18,30 @@ abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     function sellToUniswapV4(...) internal returns (uint256) {
-        return uint256(bytes32(abi.decode(_setOperatorAndCall(address(POOL_MANAGER), abi.encodeCall(POOL_MANAGER.unlock, (abi.encode(...))), IUnlockCallback.unlockCallback.selector, unlockCallback), (bytes))));
+        return
+            uint256(
+                bytes32(
+                    abi.decode(
+                        _setOperatorAndCall(
+                            address(POOL_MANAGER),
+                            abi.encodeCall(POOL_MANAGER.unlock, (abi.encode(...))),
+                            IUnlockCallback.unlockCallback.selector,
+                            _uniV4Callback
+                        ),
+                        (bytes)
+                    )
+                )
+            );
+    }
+
+    function _uniV4Callback(bytes calldata data) private returns (bytes memory) {
+        // We know that our calldata is well-formed. Therefore, the first slot is 0x20 and the
+        // second slot is the length of the strict ABIEncoded payload
+        assembly ("memory-safe") {
+            data.offset := add(0x40, data.offset)
+            data.length := calldataload(add(0x20, data.offset))
+        }
+        return unlockCallback(data);
     }
 
     function _swap(PoolKey memory key, SwapParams memory params, bytes memory hookData) private DANGEROUS_freeMemory returns (BalanceDelta) {
