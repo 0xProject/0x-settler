@@ -123,6 +123,11 @@ abstract contract UniswapV4 is SettlerAbstract {
                 revert(0x00, returndatasize())
             }
 
+            // TODO: this is all wrong; this would've been right if we were using the representation
+            // in calldata, but the representation in memory is completely different. fortunately,
+            // it does mean that it's now easier for us to `returndatacopy`. Each `Delta` object
+            // must be allocated separately from the array. The values in the array just point to
+            // `Delta` objects
             let dst := add(0x20, ptr)
             for {
                 // we know that the returndata is correctly ABIEncoded, so we skip the first 2 slots
@@ -151,7 +156,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             deltas := ptr
             mstore(deltas, shr(0x06, sub(dst, add(0x20, ptr))))
 
-            // update and restore the free memory pointer
+            // update/restore the free memory pointer
             mstore(0x40, dst)
         }
     }
