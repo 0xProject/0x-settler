@@ -24,6 +24,8 @@ Master list of UniV3 forks:
 
 ---
 
+## 2024-09-09
+
 ### Breaking changes
 
 * Upgrade Bnb chain deployment to Cancun (Tycho) hardfork
