@@ -296,6 +296,10 @@ abstract contract UniswapV4 is SettlerAbstract {
             // TODO: special-case when the sell token is equal to the global sell token; in that
             // case, we can't use the transient credit to compute the sell amount, we have to do
             // something clever
+            // TODO: it would be more efficient to store deltas locally rather than use exttload on
+            // each fill to compute the sell amount against UniV4's credit. this also provides an
+            // "easy" solution to how to handle the sell credit. on the other hand, it requires an
+            // extra tload/add/tstore, so maybe it's just a wash on gas
 
             (zeroForOne, data) = _getPoolKey(key, data);
             params.zeroForOne = zeroForOne;
