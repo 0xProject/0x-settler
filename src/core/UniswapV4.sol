@@ -243,20 +243,23 @@ abstract contract UniswapV4 is SettlerAbstract {
         // callback. But this introduces additional attack surface and may not even be that much
         // more efficient considering all the `calldatacopy`ing required and memory expansion.
         if (sellToken == ETH_ADDRESS) {
-            sellAmount = address(this).balance;
-            // TODO: bps
+            uint16 sellBps = uint16(bytes2(data));
+            data = data[2:];
+            unchecked {
+                sellAmount = (address(this).balance * bps).unsafeDiv(BASIS);
+            }
             sellToken = IERC20(address(0));
         } else {
             POOL_MANAGER.sync(Currency.wrap(address(sellToken)));
 
             if (payer == address(this)) {
-                uint256 sellAmount = uint128(bytes16(data));
-                data = data[16:];
-                // TODO: bps
-                sellToken.safeTransfer(_operator(), sellAmount);
+                uint16 sellBps = uint16(bytes2(data));
+                data = data[2:];
+                unchecked {
+                    sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                }
             } else {
                 assert(payer == address(0));
-                // TODO: assert(bps == 0);
 
                 assembly ("memory-safe") {
                     // this is super dirty, but it works because although `permit` is aliasing in the
