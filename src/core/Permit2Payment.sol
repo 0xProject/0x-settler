@@ -229,6 +229,21 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         return _invokeCallback(data);
     }
 
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = permit.permitted.amount;
+        if (sellAmount > type(uint256).max - BASIS) {
+            unchecked {
+                sellAmount -= type(uint256).max - BASIS;
+            }
+            sellAmount = IERC20(permit.permitted.token).balanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+        }
+    }
+
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
