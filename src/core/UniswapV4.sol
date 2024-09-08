@@ -47,9 +47,11 @@ abstract contract UniswapV4 is SettlerAbstract {
         return uint256(amount);
     }
 
+    bytes32 isNotedMappingSlot = bytes32(0);
+    bytes32 notedTokensArraySlot = bytes32(1);
     bytes32 arrayOneSlot = 0xb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6;
     constructor() {
-        assert(arrayOneSlot == keccak256(abi.encode(uint256(1))));
+        assert(arrayOneSlot == keccak256(abi.encode(notedTokensArraySlot)));
     }
 
     function _noteToken(Currency currency) internal {
@@ -59,12 +61,12 @@ abstract contract UniswapV4 is SettlerAbstract {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
             mstore(0x00, currency)
-            mstore(0x20, 0x00)
+            mstore(0x20, isNotedMappingSlot)
             let isNotedSlot := keccak(0x00, 0x40)
             if iszero(tload(isNotedSlot)) {
-                tstore(isNotedSlot, 0x01)
-                let len := tload(0x01)
-                tstore(0x01, add(0x01, len))
+                tstore(isNotedSlot, true)
+                let len := tload(notedTokensArraySlot)
+                tstore(notedTokensArraySlot, add(0x01, len))
                 tstore(add(arrayOneSlot, len), currency)
             }
         }
@@ -83,8 +85,8 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
             mstore(add(0x20, ptr), 0x20)
-            let len := tload(0x01)
-            tstore(0x01, 0x00)
+            let len := tload(notedTokensArraySlot)
+            tstore(notedTokensArraySlot, 0x00)
             mstore(add(0x40, ptr), len)
             for {
                 let src := arrayOneSlot
@@ -102,7 +104,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                 // clear the boolean mapping slot
                 mstore(0x20, currency)
-                tstore(keccak(0x20, 0x40), 0x00)
+                tstore(keccak(0x20, 0x40), false)
 
                 // compute the slot that POOL_MANAGER uses to store the delta; store it in the
                 // incremental calldata
@@ -205,6 +207,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
         data = data[20:];
+        _noteToken(Currency.wrap(address(sellToken)));
 
         uint256 sellAmount;
         ISignatureTransfer.PermitTransferFrom calldata permit;
@@ -273,6 +276,8 @@ abstract contract UniswapV4 is SettlerAbstract {
             params.amountSpecified = amountSpecified;
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+
+            _noteToken(zeroForOne ? key.currency1 : key.currency0);
 
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
