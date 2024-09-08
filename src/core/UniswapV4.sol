@@ -6,153 +6,197 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
+import {Panic} from "../utils/Panic.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
+
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 
-type Currency is address;
-
-/// @notice Returns the key for identifying a pool
-struct PoolKey {
-    /// @notice The lower currency of the pool, sorted numerically
-    Currency currency0;
-    /// @notice The higher currency of the pool, sorted numerically
-    Currency currency1;
-    /// @notice The pool LP fee, capped at 1_000_000. If the highest bit is 1, the pool has a dynamic fee and must be exactly equal to 0x800000
-    uint24 fee;
-    /// @notice Ticks that involve positions must be a multiple of tick spacing
-    int24 tickSpacing;
-    /// @notice The hooks of the pool
-    IHooks hooks;
-}
-
-type PoolId is bytes32;
-
-/// @notice Library for computing the ID of a pool
-library PoolIdLibrary {
-    /// @notice Returns value equal to keccak256(abi.encode(poolKey))
-    function toId(PoolKey memory poolKey) internal pure returns (PoolId poolId) {
-        assembly ("memory-safe") {
-            // 0xa0 represents the total size of the poolKey struct (5 slots of 32 bytes)
-            poolId := keccak256(poolKey, 0xa0)
-        }
-    }
-}
-
-using PoolIdLibrary for PoolKey global;
-
-/// @notice Interface for the callback executed when an address unlocks the pool manager
-interface IUnlockCallback {
-    /// @notice Called by the pool manager on `msg.sender` when the manager is unlocked
-    /// @param data The data that was passed to the call to unlock
-    /// @return Any data that you want to be returned from the unlock call
-    function unlockCallback(bytes calldata data) external returns (bytes memory);
-}
-
-interface IHooks {
-
-}
-
-interface IPoolManager {
-    /// @notice Called by external contracts to access transient storage of the contract
-    /// @param slot Key of slot to tload
-    /// @return value The value of the slot as bytes32
-    function exttload(bytes32 slot) external view returns (bytes32 value);
-
-    /// @notice All interactions on the contract that account deltas require unlocking. A caller that calls `unlock` must implement
-    /// `IUnlockCallback(msg.sender).unlockCallback(data)`, where they interact with the remaining functions on this contract.
-    /// @dev The only functions callable without an unlocking are `initialize` and `updateDynamicLPFee`
-    /// @param data Any data to pass to the callback, via `IUnlockCallback(msg.sender).unlockCallback(data)`
-    /// @return The data returned by the call to `IUnlockCallback(msg.sender).unlockCallback(data)`
-    function unlock(bytes calldata data) external returns (bytes memory);
-
-    struct SwapParams {
-        /// Whether to swap token0 for token1 or vice versa
-        bool zeroForOne;
-        /// The desired input amount if negative (exactIn), or the desired output amount if positive (exactOut)
-        int256 amountSpecified;
-        /// The sqrt price at which, if reached, the swap will stop executing
-        uint160 sqrtPriceLimitX96;
-    }
-
-    /// @notice Swap against the given pool
-    /// @param key The pool to swap in
-    /// @param params The parameters for swapping
-    /// @param hookData The data to pass through to the swap hooks
-    /// @return swapDelta The balance delta of the address swapping
-    /// @dev Swapping on low liquidity pools may cause unexpected swap amounts when liquidity available is less than amountSpecified.
-    /// Additionally note that if interacting with hooks that have the BEFORE_SWAP_RETURNS_DELTA_FLAG or AFTER_SWAP_RETURNS_DELTA_FLAG
-    /// the hook may alter the swap input/output. Integrators should perform checks on the returned swapDelta.
-    function swap(PoolKey memory key, SwapParams memory params, bytes calldata hookData)
-        external
-        returns (BalanceDelta swapDelta);
-
-    /// @notice Writes the current ERC20 balance of the specified currency to transient storage
-    /// This is used to checkpoint balances for the manager and derive deltas for the caller.
-    /// @dev This MUST be called before any ERC20 tokens are sent into the contract, but can be skipped
-    /// for native tokens because the amount to settle is determined by the sent value.
-    /// However, if an ERC20 token has been synced and not settled, and the caller instead wants to settle
-    /// native funds, this function can be called with the native currency to then be able to settle the native currency
-    function sync(Currency currency) external;
-
-    /// @notice Called by the user to net out some value owed to the user
-    /// @dev Can also be used as a mechanism for _free_ flash loans
-    /// @param currency The currency to withdraw from the pool manager
-    /// @param to The address to withdraw to
-    /// @param amount The amount of currency to withdraw
-    function take(Currency currency, address to, uint256 amount) external;
-
-    /// @notice Called by the user to pay what is owed
-    /// @return paid The amount of currency settled
-    function settle() external payable returns (uint256 paid);
-
-    /// @notice WARNING - Any currency that is cleared, will be non-retrievable, and locked in the contract permanently.
-    /// A call to clear will zero out a positive balance WITHOUT a corresponding transfer.
-    /// @dev This could be used to clear a balance that is considered dust.
-    /// Additionally, the amount must be the exact positive balance. This is to enforce that the caller is aware of the amount being cleared.
-    function clear(Currency currency, uint256 amount) external;
-}
-
-/// @dev Two `int128` values packed into a single `int256` where the upper 128 bits represent the amount0
-/// and the lower 128 bits represent the amount1.
-type BalanceDelta is int256;
-
-/// @notice Library for getting the amount0 and amount1 deltas from the BalanceDelta type
-library BalanceDeltaLibrary {
-    function amount0(BalanceDelta balanceDelta) internal pure returns (int128 _amount0) {
-        assembly ("memory-safe") {
-            _amount0 := sar(128, balanceDelta)
-        }
-    }
-
-    function amount1(BalanceDelta balanceDelta) internal pure returns (int128 _amount1) {
-        assembly ("memory-safe") {
-            _amount1 := signextend(15, balanceDelta)
-        }
-    }
-}
-
-using BalanceDeltaLibrary for BalanceDelta global;
+import {Currency, PoolId, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
 
 abstract contract UniswapV4 is SettlerAbstract {
+    using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
     function sellToUniswapV4(...) internal returns (uint256) {
-        return abi.decode(abi.decode(_setOperatorAndCall(address(POOL_MANAGER), abi.encodeCall(POOL_MANAGER.unlock, (abi.encode(...))), IUnlockCallback.unlockCallback.selector, unlockCallback), (bytes)), (uint256));
+        return uint256(bytes32(abi.decode(_setOperatorAndCall(address(POOL_MANAGER), abi.encodeCall(POOL_MANAGER.unlock, (abi.encode(...))), IUnlockCallback.unlockCallback.selector, unlockCallback), (bytes))));
     }
 
     function _swap(PoolKey memory key, SwapParams memory params, bytes memory hookData) private DANGEROUS_freeMemory returns (BalanceDelta) {
-        return poolManager.swap(
-                poolKey,
-                params,
-                hookData
-        );
+        return poolManager.swap(poolKey, params, hookData);
     }
 
     uint256 private constant _HOP_LENGTH = 0;
-    
+
     function _getPoolKey(PoolKey memory key, bytes calldata data) private pure returns (bool, bytes calldata) {
     }
 
     function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {
+    }
+
+    function _getCredit(Currency currency) internal view returns (uint256) {
+        bytes32 key;
+        assembly ("memory-safe") {
+            mstore(0x00, address())
+            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
+            key := keccak256(0x00, 0x40)
+        }
+        int256 amount = int256(uint256(POOL_MANAGER.exttload(key)));
+        if (amount < 0) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        return uint256(amount);
+    }
+
+    bytes32 arrayOneSlot = 0xb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6;
+    constructor() {
+        assert(arrayOneSlot == keccak256(abi.encode(uint256(1))));
+    }
+
+    function _noteToken(Currency currency) internal {
+        // TODO: this uses transient storage for the array of tokens; it would be more efficient to
+        // use memory, but this introduces the question of how much memory to allocate for the
+        // array. I've used transient storage here for expediency, but it should be revisited.
+        assembly ("memory-safe") {
+            currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
+            mstore(0x00, currency)
+            mstore(0x20, 0x00)
+            let isNotedSlot := keccak(0x00, 0x40)
+            if iszero(tload(isNotedSlot)) {
+                tstore(isNotedSlot, 0x01)
+                let len := tload(0x01)
+                tstore(0x01, add(0x01, len))
+                tstore(add(arrayOneSlot, len), currency)
+            }
+        }
+    }
+
+    struct Delta {
+        Currency currency;
+        int256 creditDebt;
+    }
+
+    function _getDeltas() private returns (Delta[] memory deltas) {
+        assembly ("memory-safe") {
+            // we're going to both allocate memory and take total control of this slot. we must
+            // correctly restore it later
+            let ptr := mload(0x40)
+
+            mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
+            mstore(add(0x20, ptr), 0x20)
+            let len := tload(0x01)
+            tstore(0x01, 0x00)
+            mstore(add(0x40, ptr), len)
+            for {
+                let src := arrayOneSlot
+                let dst := add(0x60, ptr)
+                let end := add(src, len)
+                mstore(0x00, address())
+                mstore(0x40, 0x00)
+            } lt(src, end) {
+                src := add(0x01, src)
+                dst := add(0x20, dst)
+            } {
+                // load the currency from the array; we defer clearing the slot until after we read
+                // the result of `exttload`
+                let currency := tload(src)
+
+                // clear the boolean mapping slot
+                mstore(0x20, currency)
+                tstore(keccak(0x20, 0x40), 0x00)
+
+                // compute the slot that POOL_MANAGER uses to store the delta; store it in the
+                // incremental calldata
+                mstore(dst, keccak(0x00, 0x40))
+            }
+
+            // perform the call to `exttload`; check for failure
+            len := shl(0x05, len)
+            if or(
+                  xor(returndatasize(), add(0x40, len)),
+                  // TODO: the code below does incremental returndatacopies and clobbers the result of this `staticcall` with `deltas`
+                  // TODO: this also wastes 2 slots of memory compared to the bulk returndatacopy (we know that the first 2 slots are 0x20 and the length, respectively)
+                  iszero(staticcall(gas(), POOL_MANAGER, add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len)))
+            ) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(0x00, returndatasize())
+            }
+
+            let dst := add(0x20, ptr)
+            for {
+                // we know that the returndata is correctly ABIEncoded, so we skip the first 2 slots
+                let src := 0x40
+                let end := add(src, len)
+            } lt(src, end) {
+                src := add(0x20, src)
+                // dst is updated below
+            } {
+                let currencySlot = add(sub(arrayOneSlot, 2), shr(0x05, src))
+
+                // TODO: optimize by doing a bulk returndatacopy
+                returndatacopy(0x00, src, 0x20)
+                let creditDebt := mload(0x00)
+
+                if creditDebt {
+                    mstore(dst, tload(currencySlot))
+                    mstore(add(0x20, dst), creditDebt)
+                    dst := add(0x40, dst)
+                }
+
+                tstore(currencySlot, 0x00)
+            }
+
+            // set length
+            deltas := ptr
+            mstore(deltas, shr(0x06, sub(dst, add(0x20, ptr))))
+
+            // update and restore the free memory pointer
+            mstore(0x40, dst)
+        }
+    }
+
+    function _take(address recipient, uint256 minBuyAmount) private returns (uint256 sellAmount, uint256 buyAmount) {
+        Delta[] memory deltas = _getDeltas();
+
+        // The actual sell amount (inclusive of any partial filling) is the debt of the first token
+        {
+            Delta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired
+            if (sellDelta.creditDebt > 0) {
+                // debt is negative
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
+            sellAmount = uint256(sellDelta.creditDebt.unsafeNeg());
+        }
+
+        // Sweep any dust or any non-UniV4 multiplex into Settler.
+        uint256 length = deltas.length - 1; // revert on underflow is desired
+        for (uint256 i = 1; i < length; i = i.unsafeInc()) {
+            Delta memory delta = deltas.unsafeGet(i);
+            (Currency currency, int256 creditDebt) = (delta.currency, delta.creditDebt);
+            if (creditDebt < 0) {
+                // credit is positive
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
+            POOL_MANAGER.take(currency, address(this), uint256(creditDebt));
+        }
+
+        // The last token is the buy token. Check the slippage limit. Sweep to the recipient.
+        {
+            Delta memory delta = deltas.unsafeGet(length);
+            (Currency currency, int256 creditDebt) = (delta.currency, delta.creditDebt);
+            if (creditDebt < 0) {
+                // credit is positive
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
+            buyAmount = uint256(creditDebt);
+            if (buyAmount < minBuyAmount) {
+                IERC20 buyToken = IERC20(Currency.unwrap(currency));
+                if (buyToken == IERC20(address(0))) {
+                    buyToken = ETH_ADDRESS;
+                }
+                revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+            }
+            POOL_MANAGER.take(currency, recipient, buyAmount);
+        }
     }
 
     function unlockCallback(bytes calldata data) private returns (bytes memory) {
@@ -163,6 +207,10 @@ abstract contract UniswapV4 is SettlerAbstract {
         data = data[20:];
 
         uint256 sellAmount;
+        ISignatureTransfer.PermitTransferFrom calldata permit;
+        bool isForwarded;
+        bytes calldata sig;
+
         // TODO: it would be really nice to be able to custody-optimize multihops by calling
         // `unlock` at the beginning of the swap and doing the dispatch loop inside the
         // callback. But this introduces additional attack surface and may not even be that much
@@ -170,7 +218,6 @@ abstract contract UniswapV4 is SettlerAbstract {
         if (sellToken == ETH_ADDRESS) {
             sellAmount = address(this).balance;
             // TODO: bps
-            POOL_MANAGER.settle{value: sellAmount}();
             sellToken = IERC20(address(0));
         } else {
             POOL_MANAGER.sync(Currency.wrap(address(sellToken)));
@@ -184,9 +231,6 @@ abstract contract UniswapV4 is SettlerAbstract {
                 assert(payer == address(0));
                 // TODO: assert(bps == 0);
 
-                ISignatureTransfer.PermitTransferFrom calldata permit;
-                bool isForwarded;
-                bytes calldata sig;
                 assembly ("memory-safe") {
                     // this is super dirty, but it works because although `permit` is aliasing in the
                     // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
@@ -195,8 +239,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     isForwarded := and(0x01, calldataload(add(0x55, data.offset)))
 
                     // `sig` is packed at the end of `data`, in "reverse ABIEncoded" fashion
-                    let dataEnd := add(data.offset, data.length)
-                    sig.offset := sub(dataEnd, 0x20)
+                    sig.offset := sub(add(data.offset, data.length), 0x20)
                     sig.length := calldataload(sig.offset)
                     sig.offset := sub(sig.offset, sig.length)
 
@@ -206,24 +249,24 @@ abstract contract UniswapV4 is SettlerAbstract {
                     data.length := sub(sub(data.length, 0x95), sig.length)
                 }
 
-                // TODO: support partial fill
                 sellAmount = _permitToSellAmount(permit)
-
-                ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                    ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
-                _transferFrom(permit, transferDetails, sig, isForwarded);
             }
-
-            POOL_MANAGER.settle();
         }
 
         address recipient = address(uint160(bytes20(data)));
         data = data[20:];
+        uint256 minBuyAmount = uint256(bytes32(data));
+        data = data[32:];
 
         PoolKey memory key;
         IPoolManager.SwapParams memory params;
         bool zeroForOne;
         while (data.length > _HOP_LENGTH) {
+            // TODO: bps for multiplex
+            // TODO: special-case when the sell token is equal to the global sell token; in that
+            // case, we can't use the transient credit to compute the sell amount, we have to do
+            // something clever
+
             (zeroForOne, data) = _getPoolKey(key, data);
             params.zeroForOne = zeroForOne;
             int256 amountSpecified = -int256(sellAmount);
@@ -238,14 +281,22 @@ abstract contract UniswapV4 is SettlerAbstract {
             sellAmount = uint256(int256((zeroForOne == amountSpecified < 0) ? delta.amount1() : delta.amount0()));
         }
 
-        // sellAmount is now the actual buyAmount of buyToken
-        if (sellAmount < minBuyAmount) {
-            revert TooMuchSlippage(IERC20(Currency.unwrap(zeroForOne ? key.currency1 : key.currency0)) , minBuyAmount, buyAmount);
+        uint256 buyAmount;
+        (sellAmount, buyAmount) = _take(recipient, minBuyAmount);
+        if (sellToken == IERC20(address(0))) {
+            POOL_MANAGER.settle{value: sellAmount}();
+        } else {
+            if (payer == address(this)) {
+                sellToken.safeTransfer(_operator(), sellAmount);
+            } else {
+                ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                    ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
+                _transferFrom(permit, transferDetails, sig, isForwarded);
+            }
+            POOL_MANAGER.settle();
         }
 
-        POOL_MANAGER.take(Current.wrap(address(buyToken)), recipient, sellAmount);
-
-        return abi.encode(sellAmount);
+        return bytes(bytes32(buyAmount));
     }
 
 }
