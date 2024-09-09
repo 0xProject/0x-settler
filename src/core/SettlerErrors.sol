@@ -57,3 +57,6 @@ error WitnessNotSpent(bytes32 oldWitness);
 /// @notice An internal error that should never be thrown. Thrown when the payer is unset
 ///         unexpectedly.
 error PayerSpent();
+
+error DeltaNotPositive(address currency);
+error DeltaNotPositive(address currency);

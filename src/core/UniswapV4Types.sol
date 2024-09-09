@@ -22,23 +22,6 @@ struct PoolKey {
 /// and the lower 128 bits represent the amount1.
 type BalanceDelta is int256;
 
-/// @notice Library for getting the amount0 and amount1 deltas from the BalanceDelta type
-library BalanceDeltaLibrary {
-    function amount0(BalanceDelta balanceDelta) internal pure returns (int128 _amount0) {
-        assembly ("memory-safe") {
-            _amount0 := sar(128, balanceDelta)
-        }
-    }
-
-    function amount1(BalanceDelta balanceDelta) internal pure returns (int128 _amount1) {
-        assembly ("memory-safe") {
-            _amount1 := signextend(15, balanceDelta)
-        }
-    }
-}
-
-using BalanceDeltaLibrary for BalanceDelta global;
-
 interface IPoolManager {
     /// @notice Called by external contracts to access transient storage of the contract
     /// @param slot Key of slot to tload

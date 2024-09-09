@@ -9,7 +9,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {TooMuchSlippage, DeltaNotPositive, DeltaNotPositive} from "./SettlerErrors.sol";
 
 import {Currency, PoolId, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
 
@@ -56,14 +56,32 @@ abstract contract UniswapV4 is SettlerAbstract {
     function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {
     }
 
-    function _getDelta(Currency currency) private view returns (int256 delta) {
+    function _getDebt(Currency currency) private view returns (uint256) {
         bytes32 key;
         assembly ("memory-safe") {
             mstore(0x00, address())
             mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
             key := keccak256(0x00, 0x40)
         }
-        delta = int256(uint256(POOL_MANAGER.exttload(key)));
+        int256 delta = int256(uint256(POOL_MANAGER.exttload(key)));
+        if (delta > 0) {
+            revert DeltaNotNegative(Currency.unwrap(currency));
+        }
+        return uint256(delta.unsafeNeg());
+    }
+
+    function _getCredit(Currency currency) private view returns (uint256) {
+        bytes32 key;
+        assembly ("memory-safe") {
+            mstore(0x00, address())
+            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
+            key := keccak256(0x00, 0x40)
+        }
+        int256 delta = int256(uint256(POOL_MANAGER.exttload(key)));
+        if (delta < 0) {
+            revert DeltaNotPositive(Currency.unwrap(currency));
+        }
+        return uint256(delta);
     }
 
     bytes32 noteIndexMappingSlot = bytes32(0);
@@ -285,19 +303,25 @@ abstract contract UniswapV4 is SettlerAbstract {
         IPoolManager.SwapParams memory params;
         bool zeroForOne;
         while (data.length > _HOP_LENGTH) {
-            // TODO: bps for multiplex
-            // TODO: special-case when the sell token is equal to the global sell token; in that
-            // case, we can't use the transient credit to compute the sell amount, we have to do
-            // something clever
-            // TODO: it would be more efficient to store deltas locally rather than use exttload on
-            // each fill to compute the sell amount against UniV4's credit. this also provides an
-            // "easy" solution to how to handle the sell credit. on the other hand, it requires an
-            // extra tload/add/tstore, so maybe it's just a wash on gas
+            uint16 bps = uint16(bytes2(data));
+            data = data[2:];
 
             (zeroForOne, data) = _getPoolKey(key, data);
+
+            Currency hopSellCurrency = zeroForOne ? key.currency0 : key.currency1;
+            uint256 hopSellAmount;
+            if (IERC20(Currency.unwrap(hopSellCurrency)) == sellToken) {
+                // TODO: it might be worth gas-optimizing the case of the first call to `swap` to avoid the overhead of `exttload`
+                hopSellAmount = sellAmount - _getDebt(hopSellCurrency);
+            } else {
+                hopSellAmount = _getCredit(hopSellCurrency);
+            }
+            unchecked {
+                hopSellAmount = (hopSellAmount * bps).unsafeDiv(BASIS);
+            }
+
             params.zeroForOne = zeroForOne;
-            int256 amountSpecified = -int256(sellAmount);
-            params.amountSpecified = amountSpecified;
+            params.amountSpecified = int256(hopSellAmount).unsafeNeg();
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
@@ -306,8 +330,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
-            BalanceDelta delta = _swap(key, params, hookData);
-            sellAmount = uint256(int256((zeroForOne == amountSpecified < 0) ? delta.amount1() : delta.amount0()));
+            _swap(key, params, hookData);
         }
 
         uint256 buyAmount;
