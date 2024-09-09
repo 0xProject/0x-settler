@@ -15,6 +15,7 @@ import {Currency, PoolId, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnl
 
 abstract contract UniswapV4 is SettlerAbstract {
     using UnsafeMath for uint256;
+    using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
 
     function sellToUniswapV4(...) internal returns (uint256) {
@@ -121,19 +122,26 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
             mstore(add(0x20, ptr), 0x20)
+
+            // we need to hash the currency 2 different ways 1) the POOL_MANAGER delta key 2) the
+            // note index mapping key. to optimize this, we store the currency at address 0x20 and
+            // the data needed to augment that to compute the key in slots 0x00 (for the
+            // POOL_MANAGER delta) and 0x40 (for the note index mapping)
+            mstore(0x00, address())
+            mstore(0x40, 0x00)
+
             let len
             for {
                 let src := notes
                 let dst := add(0x60, ptr)
-                let end := add(src, _MAX_TOKENS)
-                mstore(0x00, address())
-                mstore(0x40, 0x00)
+                let end := add(src, shl(0x05, _MAX_TOKENS))
             } 0x01 {
                 src := add(0x20, src)
                 dst := add(0x20, dst)
             } {
                 // load the currency from the array
                 let currency := mload(src)
+
                 // loop termination condition
                 if or(iszero(currency), eq(src, end)) {
                     len := sub(src, notes)
@@ -152,21 +160,21 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             // perform the call to `exttload(bytes32[])`; check for failure
             if or(
-                  xor(returndatasize(), add(0x40, len)), // TODO: probably unnecessary
-                  iszero(staticcall(gas(), POOL_MANAGER, add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len)))
+                xor(returndatasize(), add(0x40, len)), // TODO: probably unnecessary
+                iszero(staticcall(gas(), POOL_MANAGER, add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len)))
             ) {
                 returndatacopy(ptr, 0x00, returndatasize())
-                revert(0x00, returndatasize())
+                revert(ptr, returndatasize())
             }
 
-            // there is 1 wasted slot of memory here, but we don't correct for it
+            // there is 1 wasted slot of memory here (it stores 0x20), but we don't correct for it
             deltas := add(0x20, ptr)
             // we know that the returndata is correctly ABIEncoded, so we skip the first 2 slots
             let src := add(0x40, ptr)
             ptr := add(len, src)
             let dst := src
             for {
-                let end := add(src, len)
+                let end := ptr
             } lt(src, end) {
                 src := add(0x20, src)
                 // dst is updated below
@@ -196,8 +204,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         {
             Delta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired
             if (sellDelta.creditDebt > 0) {
-                // debt is negative
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                revert DeltaNotNegative(Currency.unwrap(sellDelta.currency));
             }
             sellAmount = uint256(sellDelta.creditDebt.unsafeNeg());
         }
@@ -208,8 +215,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             Delta memory delta = deltas.unsafeGet(i);
             (Currency currency, int256 creditDebt) = (delta.currency, delta.creditDebt);
             if (creditDebt < 0) {
-                // credit is positive
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                revert DeltaNotPositive(Currency.unwrap(currency));
             }
             POOL_MANAGER.take(currency, address(this), uint256(creditDebt));
         }
@@ -219,8 +225,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             Delta memory delta = deltas.unsafeGet(length);
             (Currency currency, int256 creditDebt) = (delta.currency, delta.creditDebt);
             if (creditDebt < 0) {
-                // credit is positive
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                revert DeltaNotPositive(Currency.unwrap(currency));
             }
             buyAmount = uint256(creditDebt);
             if (buyAmount < minBuyAmount) {
