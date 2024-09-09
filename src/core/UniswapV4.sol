@@ -264,9 +264,6 @@ abstract contract UniswapV4 is SettlerAbstract {
     }
 
     function _settleERC20(IERC20 sellToken, address payer, uint256 sellAmount, ISignatureTransfer.PermitTransferFrom calldata permit, bool isForwarded, bytes calldata sig) internal {
-        if (sellAmount == 0) {
-            return;
-        }
         if (payer == address(this)) {
             sellToken.safeTransfer(_operator(), sellAmount);
         } else {
@@ -303,7 +300,6 @@ abstract contract UniswapV4 is SettlerAbstract {
                 sellAmount = (address(this).balance * bps).unsafeDiv(BASIS);
             }
             sellToken = IERC20(address(0));
-            assert(!feeOnTransfer);
         } else {
             POOL_MANAGER.sync(Currency.wrap(address(sellToken)));
 
@@ -389,7 +385,9 @@ abstract contract UniswapV4 is SettlerAbstract {
         (sellAmount, buyAmount) = _take(notes, recipient, minBuyAmount);
         if (sellToken == IERC20(address(0))) {
             POOL_MANAGER.settle{value: sellAmount}();
-        } else {
+        } else if (sellAmount != 0) {
+            // `sellAmount == 0` only happens when selling a FoT token, because we settled that flow
+            // *BEFORE* beginning the swap
             _settleERC20(sellToken, payer, sellAmount, permit, isForwarded, sig);
         }
 
