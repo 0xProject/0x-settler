@@ -66,29 +66,28 @@ abstract contract UniswapV4 is SettlerAbstract {
         delta = int256(uint256(POOL_MANAGER.exttload(key)));
     }
 
-    bytes32 isNotedMappingSlot = bytes32(0);
-    bytes32 notedTokensArraySlot = bytes32(1);
-    bytes32 arrayOneSlot = 0xb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6;
-    constructor() {
-        assert(arrayOneSlot == keccak256(abi.encode(notedTokensArraySlot)));
-    }
+    bytes32 noteIndexMappingSlot = bytes32(0);
 
-    function _noteToken(Currency currency) internal {
-        // TODO: this uses transient storage for the array of tokens; it would be more efficient to
-        // use memory, but this introduces the question of how much memory to allocate for the
-        // array. I've used transient storage here for expediency, but it should be revisited.
+    uint256 private constant _MAX_TOKENS = 10;
+
+    function _noteToken(Currency[_MAX_TOKENS] memory notes, uint256 notesLen, Currency currency) private returns (uint256) {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
             mstore(0x00, currency)
-            mstore(0x20, isNotedMappingSlot)
-            let isNotedSlot := keccak(0x00, 0x40)
-            if iszero(tload(isNotedSlot)) {
-                tstore(isNotedSlot, true)
-                let len := tload(notedTokensArraySlot)
-                tstore(notedTokensArraySlot, add(0x01, len))
-                tstore(add(arrayOneSlot, len), currency)
+            mstore(0x20, noteIndexMappingSlot)
+            let noteIndexSlot := keccak(0x00, 0x40)
+            if iszero(tload(noteIndexSlot)) {
+                mstore(add(notesLen, notes), currency)
+                notesLen := add(0x01, notesLen)
+                tstore(noteIndexSlot, notesLen)
+                if gt(notesLen, _MAX_TOKENS) {
+                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                    mstore(0x20, 0x32) // array out of bounds
+                    revert(0x1c, 0x24)
+                }
             }
         }
+        return notesLen;
     }
 
     struct Delta {
@@ -96,7 +95,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         int256 creditDebt;
     }
 
-    function _getDeltas() private returns (Delta[] memory deltas) {
+    function _getDeltas(Currency[_MAX_TOKENS] memory notes) private returns (Delta[] memory deltas) {
         assembly ("memory-safe") {
             // we're going to both allocate memory and take total control of this slot. we must
             // correctly restore it later
@@ -104,84 +103,76 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
             mstore(add(0x20, ptr), 0x20)
-            let len := tload(notedTokensArraySlot)
-            tstore(notedTokensArraySlot, 0x00)
-            mstore(add(0x40, ptr), len)
+            let len
             for {
-                let src := arrayOneSlot
+                let src := notes
                 let dst := add(0x60, ptr)
-                let end := add(src, len)
+                let end := add(src, _MAX_TOKENS)
                 mstore(0x00, address())
                 mstore(0x40, 0x00)
-            } lt(src, end) {
-                src := add(0x01, src)
+            } 0x01 {
+                src := add(0x20, src)
                 dst := add(0x20, dst)
             } {
-                // load the currency from the array; we defer clearing the slot until after we read
-                // the result of `exttload`
-                let currency := tload(src)
+                // load the currency from the array
+                let currency := mload(src)
+                // loop termination condition
+                if or(iszero(currency), eq(src, end)) {
+                    len := sub(src, notes)
+                    mstore(add(0x40, ptr), shr(0x05, len))
+                    break
+                }
 
-                // clear the boolean mapping slot
+                // clear the mapping slot
                 mstore(0x20, currency)
-                tstore(keccak(0x20, 0x40), false)
+                tstore(keccak(0x20, 0x40), 0x00)
 
                 // compute the slot that POOL_MANAGER uses to store the delta; store it in the
                 // incremental calldata
                 mstore(dst, keccak(0x00, 0x40))
             }
 
-            // perform the call to `exttload`; check for failure
-            len := shl(0x05, len)
+            // perform the call to `exttload(bytes32[])`; check for failure
             if or(
-                  xor(returndatasize(), add(0x40, len)),
-                  // TODO: the code below does incremental returndatacopies and clobbers the result of this `staticcall` with `deltas`
-                  // TODO: this also wastes 2 slots of memory compared to the bulk returndatacopy (we know that the first 2 slots are 0x20 and the length, respectively)
+                  xor(returndatasize(), add(0x40, len)), // TODO: probably unnecessary
                   iszero(staticcall(gas(), POOL_MANAGER, add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len)))
             ) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(0x00, returndatasize())
             }
 
-            // TODO: this is all wrong; this would've been right if we were using the representation
-            // in calldata, but the representation in memory is completely different. fortunately,
-            // it does mean that it's now easier for us to `returndatacopy`. Each `Delta` object
-            // must be allocated separately from the array. The values in the array just point to
-            // `Delta` objects
-            let dst := add(0x20, ptr)
+            // there is 1 wasted slot of memory here, but we don't correct for it
+            deltas := add(0x20, ptr)
+            // we know that the returndata is correctly ABIEncoded, so we skip the first 2 slots
+            let src := add(0x40, ptr)
+            ptr := add(len, src)
+            let dst := src
             for {
-                // we know that the returndata is correctly ABIEncoded, so we skip the first 2 slots
-                let src := 0x40
                 let end := add(src, len)
             } lt(src, end) {
                 src := add(0x20, src)
                 // dst is updated below
             } {
-                let currencySlot = add(sub(arrayOneSlot, 2), shr(0x05, src))
-
-                // TODO: optimize by doing a bulk returndatacopy
-                returndatacopy(0x00, src, 0x20)
-                let creditDebt := mload(0x00)
-
+                let creditDebt := mload(src)
                 if creditDebt {
-                    mstore(dst, tload(currencySlot))
-                    mstore(add(0x20, dst), creditDebt)
-                    dst := add(0x40, dst)
+                    mstore(dst, ptr)
+                    dst := add(0x20, dst)
+                    mcopy(ptr, add(notes, sub(sub(src, deltas), 0x20)), 0x20)
+                    mstore(add(0x20, ptr), creditDebt)
+                    ptr := add(0x40, ptr)
                 }
-
-                tstore(currencySlot, 0x00)
             }
 
             // set length
-            deltas := ptr
-            mstore(deltas, shr(0x06, sub(dst, add(0x20, ptr))))
+            mstore(deltas, shr(0x05, sub(sub(dst, deltas), 0x20)))
 
             // update/restore the free memory pointer
-            mstore(0x40, dst)
+            mstore(0x40, ptr)
         }
     }
 
-    function _take(address recipient, uint256 minBuyAmount) private returns (uint256 sellAmount, uint256 buyAmount) {
-        Delta[] memory deltas = _getDeltas();
+    function _take(Currency[_MAX_TOKENS] memory notes, address recipient, uint256 minBuyAmount) private returns (uint256 sellAmount, uint256 buyAmount) {
+        Delta[] memory deltas = _getDeltas(notes);
 
         // The actual sell amount (inclusive of any partial filling) is the debt of the first token
         {
@@ -231,7 +222,9 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
         data = data[20:];
-        _noteToken(Currency.wrap(address(sellToken)));
+
+        Currency[_MAX_TOKENS] memory notes;
+        uint256 notesLen = _noteToken(notes, 0, Currency.wrap(address(sellToken)));
 
         uint256 sellAmount;
         ISignatureTransfer.PermitTransferFrom calldata permit;
@@ -308,7 +301,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
-            _noteToken(zeroForOne ? key.currency1 : key.currency0);
+            notesLen = _noteToken(notes, notesLen, zeroForOne ? key.currency1 : key.currency0);
 
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
@@ -318,7 +311,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         }
 
         uint256 buyAmount;
-        (sellAmount, buyAmount) = _take(recipient, minBuyAmount);
+        (sellAmount, buyAmount) = _take(notes, recipient, minBuyAmount);
         if (sellToken == IERC20(address(0))) {
             POOL_MANAGER.settle{value: sellAmount}();
         } else {
