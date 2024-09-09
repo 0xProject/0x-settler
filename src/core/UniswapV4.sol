@@ -38,13 +38,13 @@ abstract contract UniswapV4 is SettlerAbstract {
         // We know that our calldata is well-formed. Therefore, the first slot is 0x20 and the
         // second slot is the length of the strict ABIEncoded payload
         assembly ("memory-safe") {
-            data.offset := add(0x40, data.offset)
             data.length := calldataload(add(0x20, data.offset))
+            data.offset := add(0x40, data.offset)
         }
         return unlockCallback(data);
     }
 
-    function _swap(PoolKey memory key, SwapParams memory params, bytes memory hookData) private DANGEROUS_freeMemory returns (BalanceDelta) {
+    function _swap(PoolKey memory key, SwapParams memory params, bytes calldata hookData) private DANGEROUS_freeMemory returns (BalanceDelta) {
         return poolManager.swap(poolKey, params, hookData);
     }
 
@@ -56,7 +56,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {
     }
 
-    function _getDelta(Currency currency) internal view returns (int256 delta) {
+    function _getDelta(Currency currency) private view returns (int256 delta) {
         bytes32 key;
         assembly ("memory-safe") {
             mstore(0x00, address())
@@ -285,8 +285,8 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         address recipient = address(uint160(bytes20(data)));
         data = data[20:];
-        uint256 minBuyAmount = uint256(bytes32(data));
-        data = data[32:];
+        uint256 minBuyAmount = uint128(bytes16(data));
+        data = data[16:];
 
         PoolKey memory key;
         IPoolManager.SwapParams memory params;
