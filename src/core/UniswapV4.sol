@@ -275,12 +275,20 @@ abstract contract UniswapV4 is SettlerAbstract {
     }
 
     function unlockCallback(bytes calldata data) private returns (bytes memory) {
+        // These values are user-supplied
+        address recipient = address(uint160(bytes20(data)));
+        data = data[20:];
+        uint256 minBuyAmount = uint128(bytes16(data));
+        data = data[16:];
+
+        // `payer` is special and is authenticated
         address payer = address(uint160(bytes20(data)));
         data = data[20:];
-
         IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
-        data = data[20:];
+        // We don't advance `data` here because there's a special interaction between `payer`,
+        // `sellToken`, and `permit` that's handled below.
 
+        // We could do this anytime before we begin swapping.
         Currency[_MAX_TOKENS] memory notes;
         uint256 notesLen = _noteToken(notes, 0, Currency.wrap(address(sellToken)));
 
@@ -294,6 +302,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         // callback. But this introduces additional attack surface and may not even be that much
         // more efficient considering all the `calldatacopy`ing required and memory expansion.
         if (sellToken == ETH_ADDRESS) {
+            data = data[20:];
+
             uint16 sellBps = uint16(bytes2(data));
             data = data[2:];
             unchecked {
@@ -304,6 +314,8 @@ abstract contract UniswapV4 is SettlerAbstract {
             POOL_MANAGER.sync(Currency.wrap(address(sellToken)));
 
             if (payer == address(this)) {
+                data = data[20:];
+
                 uint16 sellBps = uint16(bytes2(data));
                 data = data[2:];
                 unchecked {
@@ -313,9 +325,9 @@ abstract contract UniswapV4 is SettlerAbstract {
                 assert(payer == address(0));
 
                 assembly ("memory-safe") {
-                    // this is super dirty, but it works because although `permit` is aliasing in the
-                    // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
-                    // first word of `permit`, which is the sell token
+                    // this is super dirty, but it works because although `permit` is aliasing in
+                    // the middle of `payer`, because `payer` is all zeroes, it's treated as padding
+                    // for the first word of `permit`, which is the sell token
                     permit := sub(data.offset, 0x0c)
                     isForwarded := and(0x01, calldataload(add(0x55, data.offset)))
 
@@ -338,11 +350,8 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
         }
 
-        address recipient = address(uint160(bytes20(data)));
-        data = data[20:];
-        uint256 minBuyAmount = uint128(bytes16(data));
-        data = data[16:];
-
+        // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
+        // and executing them.
         PoolKey memory key;
         IPoolManager.SwapParams memory params;
         bool zeroForOne;
@@ -381,6 +390,10 @@ abstract contract UniswapV4 is SettlerAbstract {
             _swap(key, params, hookData);
         }
 
+        // `data` has been consumed. All that remains it to settle out the net result of all the
+        // swaps. If we somehow incurred a debt in any token other than `sellToken`, we're going to
+        // revert. Any credit in any token other than `buyToken` will be swept to
+        // Settler. `buyToken` will be sent to `recipient`.
         uint256 buyAmount;
         (sellAmount, buyAmount) = _take(notes, recipient, minBuyAmount);
         if (sellToken == IERC20(address(0))) {
