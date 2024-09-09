@@ -34,6 +34,7 @@ interface IUniswapV3Pool {
 
 abstract contract UniswapV3Fork is SettlerAbstract {
     using UnsafeMath for uint256;
+    using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
 
     /// @dev Minimum size of an encoded swap path:
@@ -192,7 +193,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             }
 
             {
-                int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
+                int256 _buyAmount = (zeroForOne ? amount1 : amount0).unsafeNeg();
                 if (_buyAmount < 0) {
                     Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                 }
