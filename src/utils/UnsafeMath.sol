@@ -14,6 +14,18 @@ library UnsafeMath {
         }
     }
 
+    function unsafeDec(uint256 x) internal pure returns (uint256) {
+        unchecked {
+            return x - 1;
+        }
+    }
+
+    function unsafeDec(int256 x) internal pure returns (int256) {
+        unchecked {
+            return x - 1;
+        }
+    }
+
     function unsafeNeg(int256 x) internal pure returns (int256) {
         unchecked {
             return -x;

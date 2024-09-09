@@ -197,33 +197,57 @@ abstract contract UniswapV4 is SettlerAbstract {
         }
     }
 
-    function _take(Currency[_MAX_TOKENS] memory notes, address recipient, uint256 minBuyAmount) private returns (uint256 sellAmount, uint256 buyAmount) {
+    function _take(Currency[_MAX_TOKENS] memory notes, IERC20 sellToken, address payer, address recipient, uint256 minBuyAmount) private returns (uint256 sellAmount, uint256 buyAmount) {
         Delta[] memory deltas = _getDeltas(notes);
+        uint256 length = deltas.length.unsafeDec();
 
-        // The actual sell amount (inclusive of any partial filling) is the debt of the first token
         {
             Delta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired
-            if (sellDelta.creditDebt > 0) {
-                revert DeltaNotNegative(Currency.unwrap(sellDelta.currency));
+            (Currency currency, int256 creditDebt) = (sellDelta.currency, sellDelta.creditDebt);
+            if (IERC20(Currency.unwrap(currency)) == sellToken) {
+                if (creditDebt > 0) {
+                    // It's only possible to reach this branch when selling a FoT token and
+                    // encountering a partial fill. This is a fairly rare occurrence, so it's
+                    // poorly-optimized. It also incurs an additional sell tax.
+                    POOL_MANAGER.take(currency, payer, creditDebt);
+                    // sellAmount remains zero
+                } else {
+                    // The actual sell amount (inclusive of any partial filling) is the debt of the
+                    // first token. This is the most common branch to hit.
+                    sellAmount = uint256(creditDebt.unsafeNeg());
+                }
+            } else if (length != 0) {
+                // This branch is encountered when selling a FoT token, not encountering a partial
+                // fill (filling exactly), and then having to multiplex *OUT* more than 1
+                // token. This is a fairly rare case.
+                if (creditDebt < 0) {
+                    revert DeltaNotPositive(Currency.unwrap(currency));
+                }
+                POOL_MANAGER.take(currency, address(this), uint256(creditDebt));
+                // sellAmount remains zero
             }
-            sellAmount = uint256(sellDelta.creditDebt.unsafeNeg());
+            // else {
+            //     // This branch is encountered when selling a FoT token, not encountering a
+            //     // partial fill (filling exactly), and then buying exactly 1 token. This is the
+            //     // second most common branch. This is also elegantly handled by simply falling
+            //     // through to the last block of this function
+            //
+            //     // sellAmount remains zero
+            // }
         }
 
-        // Sweep any dust or any non-UniV4 multiplex into Settler.
-        uint256 length = deltas.length - 1; // revert on underflow is desired
+        // Sweep any dust or any non-UniV4 multiplex-out into Settler.
         for (uint256 i = 1; i < length; i = i.unsafeInc()) {
-            Delta memory delta = deltas.unsafeGet(i);
-            (Currency currency, int256 creditDebt) = (delta.currency, delta.creditDebt);
+            (Currency currency, int256 creditDebt) = deltas.unsafeGet(i);
             if (creditDebt < 0) {
                 revert DeltaNotPositive(Currency.unwrap(currency));
             }
             POOL_MANAGER.take(currency, address(this), uint256(creditDebt));
         }
 
-        // The last token is the buy token. Check the slippage limit. Sweep to the recipient.
+        // The last token is the buy token. Check the slippage limit. Transfer to the recipient.
         {
-            Delta memory delta = deltas.unsafeGet(length);
-            (Currency currency, int256 creditDebt) = (delta.currency, delta.creditDebt);
+            (Currency currency, int256 creditDebt) = deltas.unsafeGet(length);
             if (creditDebt < 0) {
                 revert DeltaNotPositive(Currency.unwrap(currency));
             }
@@ -237,6 +261,20 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
             POOL_MANAGER.take(currency, recipient, buyAmount);
         }
+    }
+
+    function _settleERC20(IERC20 sellToken, address payer, uint256 sellAmount, ISignatureTransfer.PermitTransferFrom calldata permit, bool isForwarded, bytes calldata sig) internal {
+        if (sellAmount == 0) {
+            return;
+        }
+        if (payer == address(this)) {
+            sellToken.safeTransfer(_operator(), sellAmount);
+        } else {
+            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
+            _transferFrom(permit, transferDetails, sig, isForwarded);
+        }
+        POOL_MANAGER.settle();
     }
 
     function unlockCallback(bytes calldata data) private returns (bytes memory) {
@@ -265,6 +303,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 sellAmount = (address(this).balance * bps).unsafeDiv(BASIS);
             }
             sellToken = IERC20(address(0));
+            assert(!feeOnTransfer);
         } else {
             POOL_MANAGER.sync(Currency.wrap(address(sellToken)));
 
@@ -295,7 +334,11 @@ abstract contract UniswapV4 is SettlerAbstract {
                     data.length := sub(sub(data.length, 0x95), sig.length)
                 }
 
-                sellAmount = _permitToSellAmount(permit)
+                sellAmount = _permitToSellAmount(permit);
+            }
+
+            if (feeOnTransfer) {
+                _settleERC20(sellToken, payer, sellAmount, permit, isForwarded, sig);
             }
         }
 
@@ -317,7 +360,11 @@ abstract contract UniswapV4 is SettlerAbstract {
             uint256 hopSellAmount;
             if (IERC20(Currency.unwrap(hopSellCurrency)) == sellToken) {
                 // TODO: it might be worth gas-optimizing the case of the first call to `swap` to avoid the overhead of `exttload`
-                hopSellAmount = sellAmount - _getDebt(hopSellCurrency);
+                if (feeOnTransfer) {
+                    hopSellAmount = _getCredit(hopSellCurrency);
+                } else {
+                    hopSellAmount = sellAmount - _getDebt(hopSellCurrency);
+                }
             } else {
                 hopSellAmount = _getCredit(hopSellCurrency);
             }
@@ -343,14 +390,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         if (sellToken == IERC20(address(0))) {
             POOL_MANAGER.settle{value: sellAmount}();
         } else {
-            if (payer == address(this)) {
-                sellToken.safeTransfer(_operator(), sellAmount);
-            } else {
-                ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                    ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
-                _transferFrom(permit, transferDetails, sig, isForwarded);
-            }
-            POOL_MANAGER.settle();
+            _settleERC20(sellToken, payer, sellAmount, permit, isForwarded, sig);
         }
 
         return bytes(bytes32(buyAmount));
