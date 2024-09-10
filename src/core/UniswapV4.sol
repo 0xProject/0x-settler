@@ -316,7 +316,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     // It's only possible to reach this branch when selling a FoT token and
                     // encountering a partial fill. This is a fairly rare occurrence, so it's
                     // poorly-optimized. It also incurs an additional sell tax.
-                    POOL_MANAGER.take(currency, payer, creditDebt);
+                    POOL_MANAGER.take(currency, payer == address(this) ? address(this) : _msgSender(), creditDebt);
                     // sellAmount remains zero
                 } else {
                     // The actual sell amount (inclusive of any partial filling) is the debt of the
@@ -416,6 +416,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         // callback. But this introduces additional attack surface and may not even be that much
         // more efficient considering all the `calldatacopy`ing required and memory expansion.
         if (sellToken == ETH_ADDRESS) {
+            assert(payer == address(this));
             data = data[20:];
 
             uint16 sellBps = uint16(bytes2(data));
@@ -509,7 +510,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         // revert. Any credit in any token other than `buyToken` will be swept to
         // Settler. `buyToken` will be sent to `recipient`.
         uint256 buyAmount;
-        (sellAmount, buyAmount) = _take(notes, recipient, minBuyAmount);
+        (sellAmount, buyAmount) = _take(notes, sellToken, payer, recipient, minBuyAmount);
         if (sellToken == IERC20(address(0))) {
             POOL_MANAGER.settle{value: sellAmount}();
         } else if (sellAmount != 0) {
