@@ -20,11 +20,10 @@ abstract contract UniswapV4 is SettlerAbstract {
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
 
-    function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bytes memory path, uint256 amountOutMin)
+    function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bool feeOnTransfer, bytes memory path, uint256 amountOutMin)
         internal
         returns (uint256)
     {
-        // TODO: encode FoT flag
         if (amountOutMin > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -36,19 +35,20 @@ abstract contract UniswapV4 is SettlerAbstract {
             data := mload(0x40)
 
             let pathLen := mload(path)
-            mcopy(add(0xb2, data), add(0x20, path), pathLen)
+            mcopy(add(0xb3, data), add(0x20, path), pathLen)
 
-            mstore(add(0x92, data), bps)
-            mstore(add(0x90, data), sellToken)
-            mstore(add(0x7c, data), address()) // payer
+            mstore(add(0x93, data), bps)
+            mstore(add(0x91, data), sellToken)
+            mstore(add(0x7d, data), address()) // payer
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x4e, pathLen))
+            mstore(add(0x44, data), add(0x4f, pathLen))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
-            mstore(data, add(0x92, pathLen))
+            mstore(data, add(0x93, pathLen))
+            mstore8(add(0x88, data), feeOnTransfer)
 
-            mstore(0x40, add(add(0xb2, data), pathLen))
+            mstore(0x40, add(add(0xb3, data), pathLen))
         }
         return uint256(
             bytes32(
@@ -64,12 +64,12 @@ abstract contract UniswapV4 is SettlerAbstract {
 
     function sellToUniswapV4VIP(
         address recipient,
+        bool feeOnTransfer,
         bytes memory path,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
     ) internal returns (uint256) {
-        // TODO: encode FoT flag
         if (amountOutMin > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -84,7 +84,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             let pathLen := mload(path)
             let sigLen := mload(sig)
 
-            let ptr := add(0x111, data)
+            let ptr := add(0x112, data)
             mcopy(ptr, add(0x20, path), pathLen)
             ptr := add(ptr, pathLen)
             mcopy(ptr, add(0x20, sig), sigLen)
@@ -94,17 +94,18 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore(0x40, ptr)
 
-            mstore8(add(0x110, data), isForwarded)
-            mcopy(add(0xd0, data), add(0x20, permit), 0x40)
-            mcopy(add(0x90, data), mload(permit), 0x40)
+            mstore8(add(0x111, data), isForwarded)
+            mcopy(add(0xd1, data), add(0x20, permit), 0x40)
+            mcopy(add(0x91, data), mload(permit), 0x40)
 
-            mstore(add(0x7c, data), 0x00) // payer
+            mstore(add(0x7d, data), 0x00) // payer
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x131, add(pathLen, sigLen)))
+            mstore(add(0x44, data), add(0x132, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
-            mstore(data, add(0x175, add(pathLen, sigLen)))
+            mstore(data, add(0x176, add(pathLen, sigLen)))
+            mstore8(add(0x89, data), feeOnTransfer)
         }
         return uint256(
             bytes32(
@@ -394,6 +395,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         data = data[20:];
         uint256 minBuyAmount = uint128(bytes16(data));
         data = data[16:];
+        bool feeOnTransfer = uint8(bytes1(data)) != 0;
+        data = data[1:];
 
         // `payer` is special and is authenticated
         address payer = address(uint160(bytes20(data)));
