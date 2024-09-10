@@ -8,14 +8,15 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
 import {
-    Currency, PoolId, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback
+    Currency, PoolKey, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback
 } from "./UniswapV4Types.sol";
 
-abstract contract UniswapV4 is SettlerAbstract {
+abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
@@ -54,7 +55,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             bytes32(
                 abi.decode(
                     _setOperatorAndCall(
-                        address(POOL_MANAGER), data, IUnlockCallback.unlockCallback.selector, _uniV4Callback
+                        address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
                     ),
                     (bytes)
                 )
@@ -71,9 +72,6 @@ abstract contract UniswapV4 is SettlerAbstract {
         uint256 amountOutMin
     ) internal returns (uint256) {
         if (amountOutMin > type(uint128).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (bps > BASIS) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         bool isForwarded = _isForwarded();
@@ -111,7 +109,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             bytes32(
                 abi.decode(
                     _setOperatorAndCall(
-                        address(POOL_MANAGER), data, IUnlockCallback.unlockCallback.selector, _uniV4Callback
+                        address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
                     ),
                     (bytes)
                 )
@@ -129,12 +127,12 @@ abstract contract UniswapV4 is SettlerAbstract {
         return unlockCallback(data);
     }
 
-    function _swap(PoolKey memory key, SwapParams memory params, bytes calldata hookData)
+    function _swap(PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
         private
         DANGEROUS_freeMemory
         returns (BalanceDelta)
     {
-        return poolManager.swap(poolKey, params, hookData);
+        return POOL_MANAGER.swap(key, params, hookData);
     }
 
     uint256 private constant _HOP_LENGTH = 0;
@@ -422,7 +420,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             assert(payer == address(this));
             data = data[20:];
 
-            uint16 sellBps = uint16(bytes2(data));
+            uint16 bps = uint16(bytes2(data));
             data = data[2:];
             unchecked {
                 sellAmount = (address(this).balance * bps).unsafeDiv(BASIS);
@@ -434,7 +432,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             if (payer == address(this)) {
                 data = data[20:];
 
-                uint16 sellBps = uint16(bytes2(data));
+                uint16 bps = uint16(bytes2(data));
                 data = data[2:];
                 unchecked {
                     sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
