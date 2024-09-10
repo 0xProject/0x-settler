@@ -16,10 +16,21 @@ import {
     Currency, PoolKey, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback
 } from "./UniswapV4Types.sol";
 
+library UnsafeArray {
+    function unsafeGet(UniswapV4.Delta[] memory a, uint256 i) internal pure returns (Currency currency, int256 creditDebt) {
+        assembly ("memory-safe") {
+            let r := mload(add(a, add(0x20, shl(0x05, i))))
+            currency := mload(r)
+            creditDebt := mload(add(0x20, r))
+        }
+    }
+}
+
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
+    using UnsafeArray for Delta[];
 
     function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bool feeOnTransfer, bytes memory path, uint256 amountOutMin)
         internal
@@ -139,12 +150,18 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process
-    function _getPoolKey(PoolKey memory key, bytes calldata data) private pure returns (bool, bytes calldata) {}
+    function _getPoolKey(PoolKey memory key, bytes calldata data) private pure returns (bool, bytes calldata) {
+        // TODO:
+        return (false, data);
+    }
 
     /// Decode an ABIEncoded `bytes`. Also returns the remainder that wasn't consumed by the
     /// ABIDecoding. Does not follow the "strict" ABIEncoding rules that require padding to a
     /// multiple of 32 bytes.
-    function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {}
+    function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {
+        // TODO:
+        return (data, data);
+    }
 
     function _getDebt(Currency currency) private view returns (uint256) {
         bytes32 key;
@@ -174,6 +191,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return uint256(delta);
     }
 
+    // TODO: `notes` could be made dynamic with only a little bit of effort, but it would require
+    // altering the action encoding so that we can pass that as a parameter
     uint256 private constant _MAX_TOKENS = 8;
 
     function _noteToken(Currency[_MAX_TOKENS] memory notes, Currency currency) private returns (uint256) {
@@ -458,7 +477,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     data.length := sub(sub(data.length, 0x95), sig.length)
                 }
 
-                sellAmount = _permitToSellAmount(permit);
+                sellAmount = _permitToSellAmountCalldata(permit);
             }
 
             if (feeOnTransfer) {
@@ -520,6 +539,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             _settleERC20(sellToken, payer, sellAmount, permit, isForwarded, sig);
         }
 
-        return bytes(bytes32(buyAmount));
+        return bytes.concat(bytes32(buyAmount));
     }
 }

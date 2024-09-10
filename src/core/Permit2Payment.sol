@@ -229,7 +229,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         return _invokeCallback(data);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         override

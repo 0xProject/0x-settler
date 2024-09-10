@@ -39,6 +39,15 @@ contract MakerPSMDummy is MakerPSM {
         revert("unimplemented");
     }
 
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata)
+        internal
+        pure
+        override
+        returns (uint256 sellAmount)
+    {
+        revert("unimplemented");
+    }
+
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
         internal
         pure
