@@ -85,24 +85,41 @@ abstract contract UniswapV4 is SettlerAbstract {
         return uint256(delta);
     }
 
-    bytes32 noteIndexMappingSlot = bytes32(0);
+    uint256 private constant _MAX_TOKENS = 8;
 
-    uint256 private constant _MAX_TOKENS = 10;
+    function _noteToken(Currency[_MAX_TOKENS] memory notes, Currency currency) private returns (uint256) {
+        assembly ("memory-safe") {
+            currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
+            mstore(notes, currency)
+            tstore(currency, 0x20)
+        }
+        return 32;
+    }
 
     function _noteToken(Currency[_MAX_TOKENS] memory notes, uint256 notesLen, Currency currency) private returns (uint256) {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
-            mstore(0x00, currency)
-            mstore(0x20, noteIndexMappingSlot)
-            let noteIndexSlot := keccak(0x00, 0x40)
-            if iszero(tload(noteIndexSlot)) {
-                mstore(add(notesLen, notes), currency)
-                notesLen := add(0x01, notesLen)
-                tstore(noteIndexSlot, notesLen)
-                if gt(notesLen, _MAX_TOKENS) {
-                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                    mstore(0x20, 0x32) // array out of bounds
-                    revert(0x1c, 0x24)
+            let currencyIndex := tload(currency)
+            if iszero(eq(currencyIndex, notesLen)) {
+                switch currencyIndex
+                case 0 {
+                    mstore(add(notesLen, notes), currency)
+                    notesLen := add(0x20, notesLen)
+                    tstore(currency, notesLen)
+                    if gt(notesLen, shl(0x05, _MAX_TOKENS)) {
+                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                        mstore(0x20, 0x32) // array out of bounds
+                        revert(0x1c, 0x24)
+                    }
+                }
+                default {
+                    let notesEnd := add(notes, sub(notesLen, 0x20))
+                    let oldCurrency := mload(notesEnd)
+
+                    mstore(notesEnd, currency)
+                    mstore(add(notes, sub(currencyIndex, 0x20)), oldCurrency)
+                    tstore(currency, notesLen)
+                    tstore(oldCurrency, currencyIndex)
                 }
             }
         }
@@ -123,12 +140,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
             mstore(add(0x20, ptr), 0x20)
 
-            // we need to hash the currency 2 different ways 1) the POOL_MANAGER delta key 2) the
-            // note index mapping key. to optimize this, we store the currency at address 0x20 and
-            // the data needed to augment that to compute the key in slots 0x00 (for the
-            // POOL_MANAGER delta) and 0x40 (for the note index mapping)
+            // we need to hash the currency with `address(this)` to obtain the transient slot that
+            // stores the delta in POOL_MANAGER. this avoids duplication later
             mstore(0x00, address())
-            mstore(0x40, 0x00)
 
             let len
             for {
@@ -149,13 +163,13 @@ abstract contract UniswapV4 is SettlerAbstract {
                     break
                 }
 
-                // clear the mapping slot
-                mstore(0x20, currency)
-                tstore(keccak(0x20, 0x40), 0x00)
+                // clear the memoization transient slot
+                tstore(currency, 0x00)
 
                 // compute the slot that POOL_MANAGER uses to store the delta; store it in the
                 // incremental calldata
-                mstore(dst, keccak(0x00, 0x40))
+                mstore(0x20, currency)
+                mstore(dst, keccak256(0x00, 0x40))
             }
 
             // perform the call to `exttload(bytes32[])`; check for failure
@@ -290,7 +304,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         // We could do this anytime before we begin swapping.
         Currency[_MAX_TOKENS] memory notes;
-        uint256 notesLen = _noteToken(notes, 0, Currency.wrap(address(sellToken)));
+        uint256 notesLen = _noteToken(notes, Currency.wrap(address(sellToken)));
 
         uint256 sellAmount;
         ISignatureTransfer.PermitTransferFrom calldata permit;
@@ -355,7 +369,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         PoolKey memory key;
         IPoolManager.SwapParams memory params;
         bool zeroForOne;
-        while (data.length > _HOP_LENGTH) {
+        while (data.length >= _HOP_LENGTH) {
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
 
