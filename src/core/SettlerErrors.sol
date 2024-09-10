@@ -59,4 +59,4 @@ error WitnessNotSpent(bytes32 oldWitness);
 error PayerSpent();
 
 error DeltaNotPositive(address currency);
-error DeltaNotPositive(address currency);
+error DeltaNotNegative(address currency);
