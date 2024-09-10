@@ -18,7 +18,49 @@ abstract contract UniswapV4 is SettlerAbstract {
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
 
-    function sellToUniswapV4(...) internal returns (uint256) {
+    function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bytes memory path, uint256 amountOutMin) internal returns (uint256) {
+        if (amountOutMin > type(uint128).max) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (bps > BASIS) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        bytes memory data;
+        assembly ("memory-safe") {
+            data := mload(0x40)
+
+            let pathLen := mload(path)
+            mcopy(add(0xb2, data), add(0x20, path), pathLen)
+
+            mstore(add(0x92, data), bps)
+            mstore(add(0x90, data), sellToken)
+            mstore(add(0x7c, data), address())
+            mstore(add(0x68, data), amountOutMin)
+            mstore(add(0x58, data), recipient)
+            mstore(add(0x44, data), add(0x4e, pathLen))
+            mstore(add(0x24, data), 0x20)
+            mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
+            mstore(data, add(0x92, pathLen))
+
+            mstore(0x40, add(add(0xb2, pathLen), data))
+        }
+        return
+            uint256(
+                bytes32(
+                    abi.decode(
+                        _setOperatorAndCall(
+                            address(POOL_MANAGER),
+                            data,
+                            IUnlockCallback.unlockCallback.selector,
+                            _uniV4Callback
+                        ),
+                        (bytes)
+                    )
+                )
+            );
+    }
+
+    function sellToUniswapV4VIP(address recipient, bytes memory path, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, uint256 amountOutMin) internal returns (uint256) {
         return
             uint256(
                 bytes32(
