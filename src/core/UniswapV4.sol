@@ -42,7 +42,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
             mstore(data, add(0x92, pathLen))
 
-            mstore(0x40, add(add(0xb2, pathLen), data))
+            mstore(0x40, add(add(0xb2, data), pathLen))
         }
         return
             uint256(
@@ -60,14 +60,54 @@ abstract contract UniswapV4 is SettlerAbstract {
             );
     }
 
+
     function sellToUniswapV4VIP(address recipient, bytes memory path, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, uint256 amountOutMin) internal returns (uint256) {
+        if (amountOutMin > type(uint128).max) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (bps > BASIS) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        bool isForwarded = _isForwarded();
+        bytes memory data;
+        assembly ("memory-safe") {
+            data := mload(0x40)
+
+            let pathLen := mload(path)
+
+            mstore(add(0x92, data), bps)
+            mstore(add(0x90, data), sellToken)
+
+            mstore(data, add(0x92 0x, pathLen))
+            mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
+            mstore(add(0x24, data), 0x20)
+            mstore(add(0x44, data), add(0x4e 0x, pathLen))
+            mstore(add(0x58, data), recipient)
+            mstore(add(0x68, data), amountOutMin)
+            mstore(add(0x7c, data), 0x00) // payer
+
+            mcopy(add(0x90, data), mload(permit), 0x40)
+            mcopy(add(0xd0, data), add(0x20, permit), 0x40)
+            mstore8(add(0x110, data), isForwarded)
+
+            let ptr := add(0x111, data)
+            mcopy(ptr, add(0x20, path), pathLen)
+            ptr := add(ptr, pathLen)
+            let sigLen := mload(sig)
+            mcopy(ptr, add(0x20, sig), sigLen)
+            ptr := add(ptr, sigLen)
+            mstore(ptr, sigLen)
+            ptr := add(0x20, ptr)
+
+            mstore(0x40, ptr)
+        }
         return
             uint256(
                 bytes32(
                     abi.decode(
                         _setOperatorAndCall(
                             address(POOL_MANAGER),
-                            abi.encodeCall(POOL_MANAGER.unlock, (abi.encode(...))),
+                            data,
                             IUnlockCallback.unlockCallback.selector,
                             _uniV4Callback
                         ),
