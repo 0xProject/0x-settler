@@ -132,7 +132,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         DANGEROUS_freeMemory
         returns (BalanceDelta)
     {
-        return POOL_MANAGER.swap(key, params, hookData);
+        return IPoolManager(_operator()).swap(key, params, hookData);
     }
 
     uint256 private constant _HOP_LENGTH = 0;
@@ -153,7 +153,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
             key := keccak256(0x00, 0x40)
         }
-        int256 delta = int256(uint256(POOL_MANAGER.exttload(key)));
+        int256 delta = int256(uint256(IPoolManager(_operator()).exttload(key)));
         if (delta > 0) {
             revert DeltaNotNegative(Currency.unwrap(currency));
         }
@@ -167,7 +167,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
             key := keccak256(0x00, 0x40)
         }
-        int256 delta = int256(uint256(POOL_MANAGER.exttload(key)));
+        int256 delta = int256(uint256(IPoolManager(_operator()).exttload(key)));
         if (delta < 0) {
             revert DeltaNotPositive(Currency.unwrap(currency));
         }
@@ -265,7 +265,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             }
 
             // perform the call to `exttload(bytes32[])`; check for failure
-            if iszero(staticcall(gas(), POOL_MANAGER, add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len))) {
+            if iszero(staticcall(gas(), caller(), add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len))) {
                 // `exttload(bytes32[])` can only fail by OOG. no need to check the returndata
                 revert(0x00, 0x00)
             }
@@ -303,7 +303,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         address payer,
         address recipient,
         uint256 minBuyAmount
-    ) private returns (uint256 sellAmount, uint256 buyAmount) {
+    ) private DANGEROUS_freeMemory returns (uint256 sellAmount, uint256 buyAmount) {
         Delta[] memory deltas = _getDeltas(notes);
         uint256 length = deltas.length.unsafeDec();
 
@@ -315,7 +315,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     // It's only possible to reach this branch when selling a FoT token and
                     // encountering a partial fill. This is a fairly rare occurrence, so it's
                     // poorly-optimized. It also incurs an additional sell tax.
-                    POOL_MANAGER.take(currency, payer == address(this) ? address(this) : _msgSender(), creditDebt);
+                    IPoolManager(_operator()).take(currency, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt));
                     // sellAmount remains zero
                 } else {
                     // The actual sell amount (inclusive of any partial filling) is the debt of the
@@ -329,7 +329,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 if (creditDebt < 0) {
                     revert DeltaNotPositive(Currency.unwrap(currency));
                 }
-                POOL_MANAGER.take(currency, address(this), uint256(creditDebt));
+                IPoolManager(_operator()).take(currency, address(this), uint256(creditDebt));
                 // sellAmount remains zero
             }
             // else {
@@ -348,7 +348,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             if (creditDebt < 0) {
                 revert DeltaNotPositive(Currency.unwrap(currency));
             }
-            POOL_MANAGER.take(currency, address(this), uint256(creditDebt));
+            IPoolManager(_operator()).take(currency, address(this), uint256(creditDebt));
         }
 
         // The last token is the buy token. Check the slippage limit. Transfer to the recipient.
@@ -365,7 +365,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 }
                 revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
-            POOL_MANAGER.take(currency, recipient, buyAmount);
+            IPoolManager(_operator()).take(currency, recipient, buyAmount);
         }
     }
 
@@ -384,7 +384,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
-        POOL_MANAGER.settle();
+        IPoolManager(_operator()).settle();
     }
 
     function unlockCallback(bytes calldata data) private returns (bytes memory) {
@@ -427,7 +427,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             }
             sellToken = IERC20(address(0));
         } else {
-            POOL_MANAGER.sync(Currency.wrap(address(sellToken)));
+            IPoolManager(_operator()).sync(Currency.wrap(address(sellToken)));
 
             if (payer == address(this)) {
                 data = data[20:];
@@ -513,7 +513,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         uint256 buyAmount;
         (sellAmount, buyAmount) = _take(notes, sellToken, payer, recipient, minBuyAmount);
         if (sellToken == IERC20(address(0))) {
-            POOL_MANAGER.settle{value: sellAmount}();
+            IPoolManager(_operator()).settle{value: sellAmount}();
         } else if (sellAmount != 0) {
             // `sellAmount == 0` only happens when selling a FoT token, because we settled that flow
             // *BEFORE* beginning the swap
