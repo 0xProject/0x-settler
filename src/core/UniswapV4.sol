@@ -19,6 +19,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bytes memory path, uint256 amountOutMin) internal returns (uint256) {
+        // TODO: encode FoT flag
         if (amountOutMin > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -34,7 +35,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore(add(0x92, data), bps)
             mstore(add(0x90, data), sellToken)
-            mstore(add(0x7c, data), address())
+            mstore(add(0x7c, data), address()) // payer
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0x4e, pathLen))
@@ -62,6 +63,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
 
     function sellToUniswapV4VIP(address recipient, bytes memory path, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, uint256 amountOutMin) internal returns (uint256) {
+        // TODO: encode FoT flag
         if (amountOutMin > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -74,32 +76,29 @@ abstract contract UniswapV4 is SettlerAbstract {
             data := mload(0x40)
 
             let pathLen := mload(path)
-
-            mstore(add(0x92, data), bps)
-            mstore(add(0x90, data), sellToken)
-
-            mstore(data, add(0x92 0x, pathLen))
-            mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
-            mstore(add(0x24, data), 0x20)
-            mstore(add(0x44, data), add(0x4e 0x, pathLen))
-            mstore(add(0x58, data), recipient)
-            mstore(add(0x68, data), amountOutMin)
-            mstore(add(0x7c, data), 0x00) // payer
-
-            mcopy(add(0x90, data), mload(permit), 0x40)
-            mcopy(add(0xd0, data), add(0x20, permit), 0x40)
-            mstore8(add(0x110, data), isForwarded)
+            let sigLen := mload(sig)
 
             let ptr := add(0x111, data)
             mcopy(ptr, add(0x20, path), pathLen)
             ptr := add(ptr, pathLen)
-            let sigLen := mload(sig)
             mcopy(ptr, add(0x20, sig), sigLen)
             ptr := add(ptr, sigLen)
             mstore(ptr, sigLen)
             ptr := add(0x20, ptr)
 
             mstore(0x40, ptr)
+
+            mstore8(add(0x110, data), isForwarded)
+            mcopy(add(0xd0, data), add(0x20, permit), 0x40)
+            mcopy(add(0x90, data), mload(permit), 0x40)
+
+            mstore(add(0x7c, data), 0x00) // payer
+            mstore(add(0x68, data), amountOutMin)
+            mstore(add(0x58, data), recipient)
+            mstore(add(0x44, data), add(0x131, add(pathLen, sigLen)))
+            mstore(add(0x24, data), 0x20)
+            mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
+            mstore(data, add(0x175, add(pathLen, sigLen)))
         }
         return
             uint256(
