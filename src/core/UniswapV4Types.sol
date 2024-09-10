@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 type Currency is address;
+
 type IHooks is address;
 
 /// @notice Returns the key for identifying a pool

@@ -11,14 +11,19 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
-import {Currency, PoolId, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
+import {
+    Currency, PoolId, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback
+} from "./UniswapV4Types.sol";
 
 abstract contract UniswapV4 is SettlerAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
 
-    function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bytes memory path, uint256 amountOutMin) internal returns (uint256) {
+    function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bytes memory path, uint256 amountOutMin)
+        internal
+        returns (uint256)
+    {
         // TODO: encode FoT flag
         if (amountOutMin > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -45,24 +50,25 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore(0x40, add(add(0xb2, data), pathLen))
         }
-        return
-            uint256(
-                bytes32(
-                    abi.decode(
-                        _setOperatorAndCall(
-                            address(POOL_MANAGER),
-                            data,
-                            IUnlockCallback.unlockCallback.selector,
-                            _uniV4Callback
-                        ),
-                        (bytes)
-                    )
+        return uint256(
+            bytes32(
+                abi.decode(
+                    _setOperatorAndCall(
+                        address(POOL_MANAGER), data, IUnlockCallback.unlockCallback.selector, _uniV4Callback
+                    ),
+                    (bytes)
                 )
-            );
+            )
+        );
     }
 
-
-    function sellToUniswapV4VIP(address recipient, bytes memory path, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig, uint256 amountOutMin) internal returns (uint256) {
+    function sellToUniswapV4VIP(
+        address recipient,
+        bytes memory path,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) internal returns (uint256) {
         // TODO: encode FoT flag
         if (amountOutMin > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -100,20 +106,16 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
             mstore(data, add(0x175, add(pathLen, sigLen)))
         }
-        return
-            uint256(
-                bytes32(
-                    abi.decode(
-                        _setOperatorAndCall(
-                            address(POOL_MANAGER),
-                            data,
-                            IUnlockCallback.unlockCallback.selector,
-                            _uniV4Callback
-                        ),
-                        (bytes)
-                    )
+        return uint256(
+            bytes32(
+                abi.decode(
+                    _setOperatorAndCall(
+                        address(POOL_MANAGER), data, IUnlockCallback.unlockCallback.selector, _uniV4Callback
+                    ),
+                    (bytes)
                 )
-            );
+            )
+        );
     }
 
     function _uniV4Callback(bytes calldata data) private returns (bytes memory) {
@@ -126,7 +128,11 @@ abstract contract UniswapV4 is SettlerAbstract {
         return unlockCallback(data);
     }
 
-    function _swap(PoolKey memory key, SwapParams memory params, bytes calldata hookData) private DANGEROUS_freeMemory returns (BalanceDelta) {
+    function _swap(PoolKey memory key, SwapParams memory params, bytes calldata hookData)
+        private
+        DANGEROUS_freeMemory
+        returns (BalanceDelta)
+    {
         return poolManager.swap(poolKey, params, hookData);
     }
 
@@ -134,14 +140,12 @@ abstract contract UniswapV4 is SettlerAbstract {
 
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process
-    function _getPoolKey(PoolKey memory key, bytes calldata data) private pure returns (bool, bytes calldata) {
-    }
+    function _getPoolKey(PoolKey memory key, bytes calldata data) private pure returns (bool, bytes calldata) {}
 
     /// Decode an ABIEncoded `bytes`. Also returns the remainder that wasn't consumed by the
     /// ABIDecoding. Does not follow the "strict" ABIEncoding rules that require padding to a
     /// multiple of 32 bytes.
-    function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {
-    }
+    function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {}
 
     function _getDebt(Currency currency) private view returns (uint256) {
         bytes32 key;
@@ -182,7 +186,10 @@ abstract contract UniswapV4 is SettlerAbstract {
         return 32;
     }
 
-    function _noteToken(Currency[_MAX_TOKENS] memory notes, uint256 notesLen, Currency currency) private returns (uint256) {
+    function _noteToken(Currency[_MAX_TOKENS] memory notes, uint256 notesLen, Currency currency)
+        private
+        returns (uint256)
+    {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
             let currencyIndex := tload(currency)
@@ -270,12 +277,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             let src := add(0x40, ptr)
             ptr := add(len, src)
             let dst := src
-            for {
-                let end := ptr
-            } lt(src, end) {
-                src := add(0x20, src)
+            for { let end := ptr } lt(src, end) { src := add(0x20, src) } {
                 // dst is updated below
-            } {
+
                 let creditDebt := mload(src)
                 if creditDebt {
                     mstore(dst, ptr)
@@ -294,7 +298,13 @@ abstract contract UniswapV4 is SettlerAbstract {
         }
     }
 
-    function _take(Currency[_MAX_TOKENS] memory notes, IERC20 sellToken, address payer, address recipient, uint256 minBuyAmount) private returns (uint256 sellAmount, uint256 buyAmount) {
+    function _take(
+        Currency[_MAX_TOKENS] memory notes,
+        IERC20 sellToken,
+        address payer,
+        address recipient,
+        uint256 minBuyAmount
+    ) private returns (uint256 sellAmount, uint256 buyAmount) {
         Delta[] memory deltas = _getDeltas(notes);
         uint256 length = deltas.length.unsafeDec();
 
@@ -360,7 +370,14 @@ abstract contract UniswapV4 is SettlerAbstract {
         }
     }
 
-    function _settleERC20(IERC20 sellToken, address payer, uint256 sellAmount, ISignatureTransfer.PermitTransferFrom calldata permit, bool isForwarded, bytes calldata sig) internal {
+    function _settleERC20(
+        IERC20 sellToken,
+        address payer,
+        uint256 sellAmount,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bool isForwarded,
+        bytes calldata sig
+    ) private {
         if (payer == address(this)) {
             sellToken.safeTransfer(_operator(), sellAmount);
         } else {
@@ -503,5 +520,4 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         return bytes(bytes32(buyAmount));
     }
-
 }
