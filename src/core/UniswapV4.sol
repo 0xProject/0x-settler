@@ -51,9 +51,14 @@ abstract contract UniswapV4 is SettlerAbstract {
 
     uint256 private constant _HOP_LENGTH = 0;
 
+    /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
+    /// bytes that are not consumed in the decoding process
     function _getPoolKey(PoolKey memory key, bytes calldata data) private pure returns (bool, bytes calldata) {
     }
 
+    /// Decode an ABIEncoded `bytes`. Also returns the remainder that wasn't consumed by the
+    /// ABIDecoding. Does not follow the "strict" ABIEncoding rules that require padding to a
+    /// multiple of 32 bytes.
     function _getHookData(bytes calldata data) private pure returns (bytes calldata, bytes calldata) {
     }
 
@@ -173,12 +178,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
 
             // perform the call to `exttload(bytes32[])`; check for failure
-            if or(
-                xor(returndatasize(), add(0x40, len)), // TODO: probably unnecessary
-                iszero(staticcall(gas(), POOL_MANAGER, add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len)))
-            ) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+            if iszero(staticcall(gas(), POOL_MANAGER, add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len))) {
+                // `exttload(bytes32[])` can only fail by OOG. no need to check the returndata
+                revert(0x00, 0x00)
             }
 
             // there is 1 wasted slot of memory here (it stores 0x20), but we don't correct for it
