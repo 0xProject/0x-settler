@@ -410,16 +410,22 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         int256 creditDebt;
     }
 
+    /// Settling out the credits and debt at the end of a series of fills requires reading the
+    /// deltas for each token we touched from the transient storage of the pool manager. We do this
+    /// in bulk using `exttload(bytes32[])`. Then we parse the response, omitting each currency with
+    /// zero delta. This is done in assembly for efficiency _and_ so that we can clear the transient
+    /// storage mapping. This function is only used by `_take`, which implements the corresponding
+    /// business logic.
     function _getCurrencyDeltas(Currency[] memory notes) private returns (CurrencyDelta[] memory deltas) {
         assembly ("memory-safe") {
-            // we're going to both allocate memory. we must correctly restore the free pointer later
+            // We're going to allocate memory. We must correctly restore the free pointer later
             let ptr := mload(0x40)
 
             mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
             mstore(add(0x20, ptr), 0x20)
 
-            // we need to hash the currency with `address(this)` to obtain the transient slot that
-            // stores the delta in POOL_MANAGER. this avoids duplication later
+            // We need to hash the currency with `address(this)` to obtain the transient slot that
+            // stores the delta in POOL_MANAGER. This avoids duplicated writes later.
             mstore(0x00, address())
 
             let len
@@ -478,11 +484,19 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             // set length
             mstore(deltas, shr(0x05, sub(sub(dst, deltas), 0x20)))
 
-            // update/restore the free memory pointer
+            // update the free memory pointer
             mstore(0x40, ptr)
         }
     }
 
+    /// `_take` is responsible for removing the accumulated credit in each currency from the pool
+    /// manager. It returns the settled global `sellAmount` as the amount that must be paid to the
+    /// pool manager (there is a subtle interaction here with the `feeOnTransfer` flag) as well as
+    /// the settled global `buyAmount`, after checking it against the slippage limit. This function
+    /// uses `_getCurrencyDeltas` to do the dirty work of enumerating the tokens involved in all the
+    /// fills and reading their credit/debt from the transient storage of the pool manager. Each
+    /// token with credit causes a corresponding call to `POOL_MANAGER.take`. Any token with debt
+    /// (except the first) causes a revert. The last token in `notes` has its slippage checked.
     function _take(Currency[] memory notes, IERC20 sellToken, address payer, address recipient, uint256 minBuyAmount)
         private
         DANGEROUS_freeMemory
@@ -492,7 +506,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         uint256 length = deltas.length.unsafeDec();
 
         {
-            CurrencyDelta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired
+            CurrencyDelta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired TODO: probably unnecessary
             (Currency currency, int256 creditDebt) = (sellDelta.currency, sellDelta.creditDebt);
             if (IERC20(Currency.unwrap(currency)) == sellToken) {
                 if (creditDebt > 0) {
