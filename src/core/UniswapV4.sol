@@ -17,7 +17,11 @@ import {
 } from "./UniswapV4Types.sol";
 
 library UnsafeArray {
-    function unsafeGet(UniswapV4.CurrencyDelta[] memory a, uint256 i) internal pure returns (Currency currency, int256 creditDebt) {
+    function unsafeGet(UniswapV4.CurrencyDelta[] memory a, uint256 i)
+        internal
+        pure
+        returns (Currency currency, int256 creditDebt)
+    {
         assembly ("memory-safe") {
             let r := mload(add(a, add(0x20, shl(0x05, i))))
             currency := mload(r)
@@ -51,10 +55,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeArray for CurrencyDelta[];
 
-    function sellToUniswapV4(address recipient, IERC20 sellToken, uint256 bps, bool feeOnTransfer, bytes memory path, uint256 amountOutMin)
-        internal
-        returns (uint256)
-    {
+    function sellToUniswapV4(
+        address recipient,
+        IERC20 sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        bytes memory path,
+        uint256 amountOutMin
+    ) internal returns (uint256) {
         if (amountOutMin > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -179,7 +187,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process
-    function _getPoolKey(Currency[] memory notes, PoolKey memory key, State memory state, bytes calldata data) private pure returns (bool, bytes calldata) {
+    function _getPoolKey(Currency[] memory notes, PoolKey memory key, State memory state, bytes calldata data)
+        private
+        pure
+        returns (bool, bytes calldata)
+    {
         uint256 caseKey = uint8(bytes1(data));
         data = data[1:];
         // 0 -> buy and sell tokens remain the same
@@ -210,7 +222,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
 
         bool zeroForOne = state.sellToken < state.buyToken;
-        if (zeroForOne)  {
+        if (zeroForOne) {
             key.currency0 = Currency.wrap(address(state.sellToken));
             key.currency1 = Currency.wrap(address(state.buyToken));
         } else {
@@ -287,9 +299,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
-    function _noteToken(Currency[] memory notes, Currency currency)
-        private
-    {
+    function _noteToken(Currency[] memory notes, Currency currency) private {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
             let currencyIndex := tload(currency)
@@ -400,13 +410,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
-    function _take(
-        Currency[] memory notes,
-        IERC20 sellToken,
-        address payer,
-        address recipient,
-        uint256 minBuyAmount
-    ) private DANGEROUS_freeMemory returns (uint256 sellAmount, uint256 buyAmount) {
+    function _take(Currency[] memory notes, IERC20 sellToken, address payer, address recipient, uint256 minBuyAmount)
+        private
+        DANGEROUS_freeMemory
+        returns (uint256 sellAmount, uint256 buyAmount)
+    {
         CurrencyDelta[] memory deltas = _getCurrencyDeltas(notes);
         uint256 length = deltas.length.unsafeDec();
 
@@ -418,7 +426,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     // It's only possible to reach this branch when selling a FoT token and
                     // encountering a partial fill. This is a fairly rare occurrence, so it's
                     // poorly-optimized. It also incurs an additional sell tax.
-                    IPoolManager(_operator()).take(currency, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt));
+                    IPoolManager(_operator()).take(
+                        currency, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt)
+                    );
                     // sellAmount remains zero
                 } else {
                     // The actual sell amount (inclusive of any partial filling) is the debt of the
@@ -586,7 +596,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
             BalanceDelta delta = _swap(key, params, hookData);
-            state.buyAmount += int256(zeroForOne ? delta.amount1() : delta.amount0()).asCredit(Currency.wrap(address(state.buyToken)));
+            state.buyAmount +=
+                int256(zeroForOne ? delta.amount1() : delta.amount0()).asCredit(Currency.wrap(address(state.buyToken)));
         }
 
         // `data` has been consumed. All that remains is to settle out the net result of all the
@@ -594,7 +605,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // revert. Any credit in any token other than `buyToken` will be swept to
         // Settler. `buyToken` will be sent to `recipient`.
         {
-            (uint256 sellAmount, uint256 buyAmount) = _take(notes, state.globalSellToken, payer, recipient, minBuyAmount);
+            (uint256 sellAmount, uint256 buyAmount) =
+                _take(notes, state.globalSellToken, payer, recipient, minBuyAmount);
             if (state.globalSellToken == IERC20(address(0))) {
                 IPoolManager(_operator()).settle{value: sellAmount}();
             } else if (sellAmount != 0) {
