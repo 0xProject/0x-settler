@@ -43,7 +43,7 @@ contract MakerPSMDummy is MakerPSM {
         internal
         pure
         override
-        returns (uint256 sellAmount)
+        returns (uint256)
     {
         revert("unimplemented");
     }
@@ -52,7 +52,7 @@ contract MakerPSMDummy is MakerPSM {
         internal
         pure
         override
-        returns (uint256 sellAmount)
+        returns (uint256)
     {
         revert("unimplemented");
     }

@@ -173,10 +173,16 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return IPoolManager(_operator()).swap(key, params, hookData);
     }
 
-    uint256 private constant _HOP_LENGTH = 0;
+    // the mandatory fields are
+    // 2 - sell bps
+    // 1 - pool key tokens case
+    // 3 - pool fee
+    // 3 - pool tick spacing
+    // 20 - pool hooks
+    // 3 - hook data length
+    uint256 private constant _HOP_LENGTH = 32;
 
     struct State {
-        bool feeOnTransfer; // TODO: remove this member to the stack
         IERC20 globalSellToken;
         uint256 globalSellAmount;
         IERC20 sellToken;
@@ -187,11 +193,13 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process
-    function _getPoolKey(Currency[] memory notes, PoolKey memory key, State memory state, bytes calldata data)
-        private
-        pure
-        returns (bool, bytes calldata)
-    {
+    function _getPoolKey(
+        Currency[] memory notes,
+        PoolKey memory key,
+        State memory state,
+        bool feeOnTransfer,
+        bytes calldata data
+    ) private returns (bool, bytes calldata) {
         uint256 caseKey = uint8(bytes1(data));
         data = data[1:];
         // 0 -> buy and sell tokens remain the same
@@ -207,7 +215,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
                     state.sellToken = IERC20(address(uint160(bytes20(data))));
                     data = data[20:];
-                    state.sellAmount = _getCredit(state, Currency.wrap(address(state.sellToken)));
+                    state.sellAmount = _getCredit(state, feeOnTransfer, Currency.wrap(address(state.sellToken)));
                 }
             }
             state.buyToken = IERC20(address(uint160(bytes20(data))));
@@ -247,8 +255,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             hookData.length := shr(0xe8, calldataload(data.offset))
             hookData.offset := add(0x03, data.offset)
             let hop := add(0x03, hookData.length)
-            data.offset := add(data.offset, hop)
-            data.length := sub(data.length, hop)
+            retData.offset := add(data.offset, hop)
+            retData.length := sub(data.length, hop)
         }
     }
 
@@ -274,9 +282,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return delta.asCredit(currency);
     }
 
-    function _getCredit(State memory state, Currency currency) private view returns (uint256) {
+    function _getCredit(State memory state, bool feeOnTransfer, Currency currency) private view returns (uint256) {
         if (IERC20(Currency.unwrap(currency)) == state.globalSellToken) {
-            if (state.feeOnTransfer) {
+            if (feeOnTransfer) {
                 return _getCredit(currency);
             } else {
                 return state.globalSellAmount - _getDebt(currency);
@@ -498,13 +506,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         uint256 minBuyAmount = uint128(bytes16(data));
         data = data[16:];
 
-        State memory state;
-        state.feeOnTransfer = uint8(bytes1(data)) != 0;
+        bool feeOnTransfer = uint8(bytes1(data)) != 0;
         data = data[1:];
 
         // `payer` is special and is authenticated
         address payer = address(uint160(bytes20(data)));
         data = data[20:];
+
+        State memory state;
         state.globalSellToken = IERC20(address(uint160(bytes20(data))));
         // We don't advance `data` here because there's a special interaction between `payer`,
         // `sellToken`, and `permit` that's handled below.
@@ -516,6 +525,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         ISignatureTransfer.PermitTransferFrom calldata permit;
         bool isForwarded;
         bytes calldata sig;
+        assembly ("memory-safe") {
+            permit := calldatasize()
+            sig.offset := calldatasize()
+            sig.length := 0x00
+        }
 
         // TODO: it would be really nice to be able to custody-optimize multihops by calling
         // `unlock` at the beginning of the swap and doing the dispatch loop inside the
@@ -566,7 +580,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 state.globalSellAmount = _permitToSellAmountCalldata(permit);
             }
 
-            if (state.feeOnTransfer) {
+            if (feeOnTransfer) {
                 _settleERC20(state.globalSellToken, payer, state.globalSellAmount, permit, isForwarded, sig);
             }
         }
@@ -581,7 +595,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             data = data[2:];
 
             bool zeroForOne;
-            (zeroForOne, data) = _getPoolKey(notes, key, state, data);
+            (zeroForOne, data) = _getPoolKey(notes, key, state, feeOnTransfer, data);
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
