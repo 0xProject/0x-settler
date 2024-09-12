@@ -370,12 +370,15 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     function _note(Currency[] memory notes, Currency currency) private returns (bool isNew) {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
-            // TODO: compare against values in memory instead of transient storage; it's cheaper
-            let currencyIndex := tload(currency)
             let notesLen := shl(0x05, mload(notes))
-            if iszero(eq(currencyIndex, notesLen)) {
+            let notesEnd := add(notes, notesLen)
+            let oldCurrency := mload(notesEnd)
+            if iszero(eq(oldCurrency, currency)) {
+                // Either `currency` is new or it's in the wrong spot in `notes`
+                let currencyIndex := tload(currency)
                 switch currencyIndex
                 case 0 {
+                    // `currency` is new. Push it onto the end of `notes`.
                     isNew := true
 
                     notesLen := add(0x20, notesLen)
@@ -391,9 +394,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     }
                 }
                 default {
-                    let notesEnd := add(notes, notesLen)
-                    let oldCurrency := mload(notesEnd)
-
+                    // `currency` is not new, but it's in the wrong spot. Swap it with the currency
+                    // that's already there.
                     mstore(notesEnd, currency)
                     mstore(add(notes, currencyIndex), oldCurrency)
                     tstore(currency, notesLen)
