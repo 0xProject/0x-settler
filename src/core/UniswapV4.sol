@@ -55,6 +55,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeArray for CurrencyDelta[];
 
+    //// These two functions are the entrypoints to this set of actions. Because UniV4 has mandatory
+    //// callbacks, and the vast majority of the business logic has to be executed inside the
+    //// callback, they're pretty minimal. Both end up inside the last function in this file
+    //// `unlockCallback`, which is where most of the business logic lives. Primarily, these
+    //// functions are concerned with correctly encoding the argument to
+    //// `POOL_MANAGER.unlock(...)`. Pay special attention to the `payer` field, which is what
+    //// signals to the callback whether we should be spending a coupon.
+
     function sellToUniswapV4(
         address recipient,
         IERC20 sellToken,
@@ -165,6 +173,32 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return unlockCallback(data);
     }
 
+    //// The following functions are the helper functions for `unlockCallback`. They abstract much
+    //// of the complexity of tracking which tokens need to be zeroed out at the end of the
+    //// callback.
+    ////
+    //// The two major pieces of state that are maintained through the callback are `Currency[]
+    //// memory notes` and `State memory state`
+    ////
+    //// `notes` keeps track of the full list of all tokens that have been touched throughout the
+    //// callback. The first token in the list is the sell token (any debt will be paid to the pool
+    //// manager). The last token in the list is the buy token (any credit will be checked against
+    //// the slippage limit). All other tokens in the list are some combination of intermediate
+    //// tokens or multiplex-out tokens (any credit will be swept back into Settler). To avoid doing
+    //// a linear scan each time a new token is encountered, the transient storage slot named by
+    //// that token stores the index (actually index * 32 + 32) of the token in the array. The
+    //// function `_take` is responsible for iterating over the list of tokens and withdrawing any
+    //// credit to the appropriate recipient.
+    ////
+    //// `state` exists to reduce stack pressure and to simplify and gas-optimize the process of
+    //// swapping. By keeping track of the sell token on each hop, we're able to compress the
+    //// representation of the fills required to satisfy the swap. Most often in a swap, the tokens
+    //// in adjacent fills are somewhat in common. By caching these tokens, we avoid having them
+    //// appear multiple times in the calldata. Additionally, this caching helps us avoid reading
+    //// the credit of each fill's sell token.
+
+    /// Because we have to ABIEncode the arguments to `.swap(...)` and copy the `hookData` from
+    /// calldata into memory, we save gas be deallocating at the end of this function.
     function _swap(PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
         private
         DANGEROUS_freeMemory
@@ -182,6 +216,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     // 3 - hook data length
     uint256 private constant _HOP_LENGTH = 32;
 
+    /// To save stack and to simplify the following helper functions, we cache a bunch of state
+    /// about the swap. Note that `globalSellAmount` is practically unused when selling a FoT token.
     struct State {
         IERC20 globalSellToken;
         uint256 globalSellAmount;
@@ -192,7 +228,15 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     }
 
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
-    /// bytes that are not consumed in the decoding process
+    /// bytes that are not consumed in the decoding process. The first byte of `data` describes
+    /// which of the compact representations for the hop is used.
+    ///   0 -> buy and sell tokens remain unchanged from the previous fill
+    ///   1 -> sell token remains unchanged from the previous fill, buy token is read from `data`
+    ///   2 -> sell token becomes the buy token from the previous fill, new buy token is read from `data`
+    ///   3 -> both buy and sell token are read from `data`
+    ///
+    /// This function is also responsible for calling `_note`, which maintains the `notes` array and
+    /// the corresponding mapping in transient storage
     function _getPoolKey(
         Currency[] memory notes,
         PoolKey memory key,
@@ -202,10 +246,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     ) private returns (bool, bytes calldata) {
         uint256 caseKey = uint8(bytes1(data));
         data = data[1:];
-        // 0 -> buy and sell tokens remain the same
-        // 1 -> sell token remains the same
-        // 2 -> buy token becomes sell token
-        // 3 -> completely fresh tokens
         if (caseKey != 0) {
             if (caseKey > 1) {
                 if (caseKey == 2) {
@@ -220,13 +260,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             }
             state.buyToken = IERC20(address(uint160(bytes20(data))));
             data = data[20:];
-            if (caseKey & 4 != 0) {
-                state.buyAmount = _getCredit(Currency.wrap(address(state.buyToken)));
-            } else {
+            if (_note(notes, Currency.wrap(address(state.buyToken)))) {
                 delete state.buyAmount;
+            } else {
+                state.buyAmount = _getCredit(Currency.wrap(address(state.buyToken)));
             }
-
-            _noteToken(notes, Currency.wrap(address(state.buyToken)));
         }
 
         bool zeroForOne = state.sellToken < state.buyToken;
@@ -247,9 +285,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return (zeroForOne, data);
     }
 
-    /// Decode an ABIEncoded `bytes`. Also returns the remainder that wasn't consumed by the
-    /// ABIDecoding. Does not follow the "strict" ABIEncoding rules that require padding to a
-    /// multiple of 32 bytes.
+    /// Decode an ABI-ish encoded `bytes` from `data`. It is "-ish" in the sense that the encoding
+    /// of the length doesn't take up an entire word. The length is encoded as only 3 bytes (2^24
+    /// bytes of calldata consumes ~67M gas, much more than the block limit). The payload is also
+    /// unpadded. The next fill's `bps` is encoded immediately after the `hookData` payload.
     function _getHookData(bytes calldata data) private pure returns (bytes calldata hookData, bytes calldata retData) {
         assembly ("memory-safe") {
             hookData.length := shr(0xe8, calldataload(data.offset))
@@ -260,6 +299,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
+    /// Makes a `staticcall` to `POOL_MANAGER.exttload` to obtain the debt of the given
+    /// token. Reverts if the given token instead has credit.
     function _getDebt(Currency currency) private view returns (uint256) {
         bytes32 key;
         assembly ("memory-safe") {
@@ -271,6 +312,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return delta.asDebt(currency);
     }
 
+    /// Makes a `staticcall` to `POOL_MANAGER.exttload` to obtain the credit of the given
+    /// token. Reverts if the given token instead has debt.
     function _getCredit(Currency currency) private view returns (uint256) {
         bytes32 key;
         assembly ("memory-safe") {
@@ -282,6 +325,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return delta.asCredit(currency);
     }
 
+    /// A more complex version of `_getCredit`. There is additional logic that must be applied when
+    /// `currency` might be the global sell token. Handles that case elegantly. Reverts if the given
+    /// token has debt.
     function _getCredit(State memory state, bool feeOnTransfer, Currency currency) private view returns (uint256) {
         if (IERC20(Currency.unwrap(currency)) == state.globalSellToken) {
             if (feeOnTransfer) {
@@ -294,10 +340,16 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
-    // TODO: `notes` could be made dynamic with only a little bit of effort, but it would require
-    // altering the action encoding so that we can pass that as a parameter
+    /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
+    /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
+    /// access).
     uint256 private constant _MAX_TOKENS = 8;
 
+    /// This function assumes that `notes` has been initialized by Solidity with a length of exactly
+    /// `_MAX_TOKENS`. We when truncate the array to a length of 1, store `currency`, and make an
+    /// entry in the transient storage mapping. We do *NOT* deallocate memory. This ensures that the
+    /// length of `notes` can later be increased to store more tokens, up to the limit of
+    /// `_MAX_TOKENS`. `_note` below will revert upon reaching that limit.
     function _initializeNotes(Currency[] memory notes, Currency currency) private {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
@@ -307,14 +359,25 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
-    function _noteToken(Currency[] memory notes, Currency currency) private {
+    /// `_note` is responsible for maintaining `notes` and the corresponding mapping. The return
+    /// value `isNew` indicates that the token has been noted. That is, the token has been appended
+    /// to the `notes` array and a corresponding entry has been made in the transient storage
+    /// mapping. If `currency` is not new, and it is not the token at the end of `notes`, we swap it
+    /// to the end (and make corresponding changes to the transient storage mapping). If `currency`
+    /// is not new, and it is the token at the end of `notes`, this function is a no-op.  This
+    /// function reverts with a Panic with code 0x32 (indicating an out-of-bounds array access) if
+    /// more than `_MAX_TOKENS` tokens are involved in the UniV4 fills.
+    function _note(Currency[] memory notes, Currency currency) private returns (bool isNew) {
         assembly ("memory-safe") {
             currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
+            // TODO: compare against values in memory instead of transient storage; it's cheaper
             let currencyIndex := tload(currency)
             let notesLen := shl(0x05, mload(notes))
             if iszero(eq(currencyIndex, notesLen)) {
                 switch currencyIndex
                 case 0 {
+                    isNew := true
+
                     notesLen := add(0x20, notesLen)
                     mstore(add(notesLen, notes), currency)
                     tstore(currency, notesLen)
@@ -505,7 +568,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         data = data[20:];
         uint256 minBuyAmount = uint128(bytes16(data));
         data = data[16:];
-
         bool feeOnTransfer = uint8(bytes1(data)) != 0;
         data = data[1:];
 
