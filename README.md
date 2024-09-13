@@ -47,18 +47,19 @@ interface IDeployerTiny is IERC721Tiny {
     function prev(uint128 featureId) external view returns (address);
 }
 
+IDeployerTiny constant ZERO_EX_DEPLOYER =
+    IDeployerTiny(0x00000000000004533Fe15556B1E086BB1A72cEae);
+
 error CounterfeitSettler(address);
 
 function requireGenuineSettler(uint128 featureId, address allegedSettler)
     internal
     view
 {
-    IDeployerTiny deployer =
-        IDeployerTiny(0x00000000000004533Fe15556B1E086BB1A72cEae);
     // Any revert in `ownerOf` or `prev` will be bubbled. Any error in
     // ABIDecoding the result will result in a revert without a reason string.
-    if (deployer.ownerOf(featureId) != allegedSettler
-        || deployer.prev(featureId) != allegedSettler) {
+    if (ZERO_EX_DEPLOYER.ownerOf(featureId) != allegedSettler
+        && ZERO_EX_DEPLOYER.prev(featureId) != allegedSettler) {
         revert CounterfeitSettler(allegedSettler);
     }
 }
@@ -70,12 +71,12 @@ below, but it does not cover the case where Settler has been paused due to a
 bug.
 
 ```Solidity
-
 function computeGenuineSettler(uint128 featureId, uint64 deployNonce)
     internal
     view
     returns (address)
 {
+    address zeroExDeployer = 0x00000000000004533Fe15556B1E086BB1A72cEae;
     bytes32 salt = bytes32(
         uint256(featureId) << 128 | uint256(block.chainid) << 64
             | uint256(deployNonce)
@@ -91,7 +92,7 @@ function computeGenuineSettler(uint128 featureId, uint64 deployNonce)
                     keccak256(
                         abi.encodePacked(
                             bytes1(0xff),
-                            0x00000000000004533Fe15556B1E086BB1A72cEae,
+                            zeroExDeployer,
                             salt,
                             shimInitHash
                         )
