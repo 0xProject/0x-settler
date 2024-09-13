@@ -131,6 +131,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             let ptr := add(0x112, data)
             mcopy(ptr, add(0x20, path), pathLen)
             ptr := add(ptr, pathLen)
+            // TODO: encode sig length in 3 bytes instead of 32
             mcopy(ptr, add(0x20, sig), sigLen)
             ptr := add(ptr, sigLen)
             mstore(ptr, sigLen)
@@ -643,6 +644,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
                     // `sig` is packed at the end of `data`, in "reverse ABIEncoded" fashion
                     sig.offset := sub(add(data.offset, data.length), 0x20)
+                    // TODO: encode sig as 3 bytes instead of 32
                     sig.length := calldataload(sig.offset)
                     sig.offset := sub(sig.offset, sig.length)
 
