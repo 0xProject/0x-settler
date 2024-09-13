@@ -71,7 +71,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         bytes memory path,
         uint256 amountOutMin
     ) internal returns (uint256) {
-        if (amountOutMin > type(uint128).max) {
+        if (amountOutMin > uint128(type(int128).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         if (bps > BASIS) {
@@ -117,7 +117,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         bytes memory sig,
         uint256 amountOutMin
     ) internal returns (uint256) {
-        if (amountOutMin > type(uint128).max) {
+        if (amountOutMin > uint128(type(int128).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         bool isForwarded = _isForwarded();
@@ -382,16 +382,16 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     isNew := true
 
                     notesLen := add(0x20, notesLen)
-                    mstore(add(notesLen, notes), currency)
-                    tstore(currency, notesLen)
-
-                    notesLen := shr(0x05, notesLen)
-                    mstore(notes, notesLen)
-                    if gt(notesLen, _MAX_TOKENS) {
+                    if gt(notesLen, shr(0x05, _MAX_TOKENS)) {
                         mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                         mstore(0x20, 0x32) // array out of bounds
                         revert(0x1c, 0x24)
                     }
+
+                    mstore(add(notesLen, notes), currency)
+                    tstore(currency, notesLen)
+
+                    mstore(notes, shr(0x05, notesLen))
                 }
                 default {
                     // `currency` is not new, but it's in the wrong spot. Swap it with the currency
@@ -603,6 +603,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         ISignatureTransfer.PermitTransferFrom calldata permit;
         bool isForwarded;
         bytes calldata sig;
+        // This assembly block is just here to appease the compiler. We only use `permit` and `sig`
+        // in the codepaths where they are set away from the values initialized here.
         assembly ("memory-safe") {
             permit := calldatasize()
             sig.offset := calldatasize()
@@ -677,9 +679,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
-            uint256 hopSellAmount = state.sellAmount;
+            uint256 hopSellAmount;
             unchecked {
-                hopSellAmount = (hopSellAmount * bps).unsafeDiv(BASIS);
+                hopSellAmount = (state.sellAmount * bps).unsafeDiv(BASIS);
             }
 
             params.zeroForOne = zeroForOne;
@@ -688,8 +690,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
             BalanceDelta delta = _swap(key, params, hookData);
-            state.buyAmount +=
-                int256(zeroForOne ? delta.amount1() : delta.amount0()).asCredit(Currency.wrap(address(state.buyToken)));
+            unchecked {
+                state.buyAmount +=
+                    int256(zeroForOne ? delta.amount1() : delta.amount0()).asCredit(Currency.wrap(address(state.buyToken)));
+            }
         }
 
         // `data` has been consumed. All that remains is to settle out the net result of all the
