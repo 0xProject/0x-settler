@@ -712,14 +712,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             uint256 hopSellAmount;
             unchecked {
                 hopSellAmount = (state.sellAmount * bps).unsafeDiv(BASIS);
-
-                // TODO: some hooks may credit some sell amount back, reducing the incurred debt of
-                // the swap. this won't result in reverts due to how `_take` elegantly handles
-                // partial fills and ensures that everything is zeroed-out at the end, but it will
-                // result in unexpected dust. perhaps there is a clever solution? or alternatively,
-                // maybe we need to abandon the `caseKey` logic in `_getPoolKey` and simply read the
-                // credit on every fill
-                state.sellAmount -= hopSellAmount;
             }
 
             params.zeroForOne = zeroForOne;
@@ -728,9 +720,17 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
             BalanceDelta delta = _swap(key, params, hookData);
-            unchecked {
-                state.buyAmount +=
-                    int256(zeroForOne ? delta.amount1() : delta.amount0()).asCredit(state.buyToken);
+            {
+                (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());
+                // some insane hooks may increase the sell amount; obviously this may result in
+                // unavoidable reverts in some cases. but we still need to make sure that we don't
+                // underflow to avoid wildly unexpected behavior
+                state.sellAmount -= settledSellAmount.asDebt(state.sellToken);
+                unchecked {
+                    // if `state.buyAmount` overflows an `int128`, we'll get a revert inside the
+                    // pool manager later
+                    state.buyAmount += settledBuyAmount.asCredit(state.buyToken);
+                }
             }
         }
 
