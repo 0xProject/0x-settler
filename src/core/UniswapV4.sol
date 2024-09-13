@@ -269,8 +269,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// This function is also responsible for calling `_note`, which maintains the `notes` array and
     /// the corresponding mapping in transient storage
     function _getPoolKey(
-        IERC20[] memory notes,
         PoolKey memory key,
+        IERC20[] memory notes,
         State memory state,
         bool feeOnTransfer,
         bytes calldata data
@@ -703,7 +703,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             data = data[2:];
 
             bool zeroForOne;
-            (zeroForOne, data) = _getPoolKey(notes, key, state, feeOnTransfer, data);
+            (zeroForOne, data) = _getPoolKey(key, notes, state, feeOnTransfer, data);
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
