@@ -424,24 +424,22 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             // stores the delta in POOL_MANAGER. This avoids duplicated writes later.
             mstore(0x00, address())
 
-            let len
+            // `len` is one word short of the actual length of `notes`. the last element of `notes`
+            // is the buy token and is handled separately. we already know the credit of that
+            // token. it is `state.buyAmount`.
+            let len := sub(shl(0x05, mload(notes)), 0x20)
+            mstore(add(0x40, ptr), shr(0x05, len))
+
             for {
                 let src := add(0x20, notes)
                 let dst := add(0x60, ptr)
-                let end := add(src, shl(0x05, _MAX_TOKENS))
-            } 0x01 {
+                let end := add(src, len)
+            } lt(src, end) {
                 src := add(0x20, src)
                 dst := add(0x20, dst)
             } {
                 // load the token from the array
                 let token := mload(src)
-
-                // loop termination condition
-                if or(iszero(token), eq(src, end)) {
-                    len := sub(src, notes)
-                    mstore(add(0x40, ptr), shr(0x05, len))
-                    break
-                }
 
                 // clear the memoization transient slot
                 tstore(token, 0x00)
@@ -493,22 +491,22 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// fills and reading their credit/debt from the transient storage of the pool manager. Each
     /// token with credit causes a corresponding call to `POOL_MANAGER.take`. Any token with debt
     /// (except the first) causes a revert. The last token in `notes` has its slippage checked.
-    function _take(IERC20[] memory notes, IERC20 sellToken, address payer, address recipient, uint256 minBuyAmount)
+    function _take(IERC20[] memory notes, State memory state, address payer, address recipient, uint256 minBuyAmount)
         private
         DANGEROUS_freeMemory
         returns (uint256 sellAmount, uint256 buyAmount)
     {
         TokenDelta[] memory deltas = _getTokenDeltas(notes);
-        uint256 length = deltas.length.unsafeDec();
+        uint256 length = deltas.length;
 
         {
-            TokenDelta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired TODO: probably unnecessary
+            TokenDelta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired
             (IERC20 token, int256 creditDebt) = (sellDelta.token, sellDelta.creditDebt);
-            if (token == sellToken) {
+            if (token == state.sellToken) {
                 if (creditDebt > 0) {
                     // It's only possible to reach this branch when selling a FoT token and
                     // encountering a partial fill. This is a fairly rare occurrence, so it's
-                    // poorly-optimized. It also incurs an additional sell tax.
+                    // poorly-optimized. It also incurs an additional tax.
                     IPoolManager(_operator()).take(
                         token, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt)
                     );
@@ -541,10 +539,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             IPoolManager(_operator()).take(token, address(this), creditDebt.asCredit(token));
         }
 
-        // The last token is the buy token. Check the slippage limit. Transfer to the recipient.
+        // The last token of `notes` is not checked. We read its information from `state`
+        // instead. It is the global buy token. Check the slippage limit. Transfer to the recipient.
         {
-            (IERC20 token, int256 creditDebt) = deltas.unsafeGet(length);
-            buyAmount = creditDebt.asCredit(token);
+            IERC20 token = state.buyToken;
+            buyAmount = state.buyAmount;
             if (buyAmount < minBuyAmount) {
                 if (token == IERC20(address(0))) {
                     token = ETH_ADDRESS;
@@ -705,7 +704,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // Settler. `buyToken` will be sent to `recipient`.
         {
             (uint256 sellAmount, uint256 buyAmount) =
-                _take(notes, state.globalSellToken, payer, recipient, minBuyAmount);
+                _take(notes, state, payer, recipient, minBuyAmount);
             if (state.globalSellToken == IERC20(address(0))) {
                 IPoolManager(_operator()).settle{value: sellAmount}();
             } else if (sellAmount != 0) {
