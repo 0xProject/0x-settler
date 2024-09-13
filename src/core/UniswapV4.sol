@@ -12,9 +12,7 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
-import {
-    PoolKey, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback
-} from "./UniswapV4Types.sol";
+import {PoolKey, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
 
 library UnsafeArray {
     function unsafeGet(UniswapV4.TokenDelta[] memory a, uint256 i)
@@ -721,7 +719,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
             BalanceDelta delta = _swap(key, params, hookData);
             {
-                (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());
+                (int256 settledSellAmount, int256 settledBuyAmount) =
+                    zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());
                 // some insane hooks may increase the sell amount; obviously this may result in
                 // unavoidable reverts in some cases. but we still need to make sure that we don't
                 // underflow to avoid wildly unexpected behavior
@@ -739,8 +738,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // revert. Any credit in any token other than `buyToken` will be swept to
         // Settler. `buyToken` will be sent to `recipient`.
         {
-            (uint256 sellAmount, uint256 buyAmount) =
-                _take(notes, state, payer, recipient, minBuyAmount);
+            (uint256 sellAmount, uint256 buyAmount) = _take(notes, state, payer, recipient, minBuyAmount);
             if (state.globalSellToken == IERC20(address(0))) {
                 IPoolManager(_operator()).settle{value: sellAmount}();
             } else if (sellAmount != 0) {
