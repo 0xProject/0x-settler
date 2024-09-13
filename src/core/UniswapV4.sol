@@ -374,16 +374,12 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     uint256 private constant _MAX_TOKENS = 8;
 
     /// This function assumes that `notes` has been initialized by Solidity with a length of exactly
-    /// `_MAX_TOKENS`. We then truncate the array to a length of 1, store `token`, and make an entry
-    /// in the transient storage mapping. We do *NOT* deallocate memory. This ensures that the
-    /// length of `notes` can later be increased to store more tokens, up to the limit of
-    /// `_MAX_TOKENS`. `_note` below will revert upon reaching that limit.
-    function _initializeNotes(IERC20[] memory notes, IERC20 token) private {
+    /// `_MAX_TOKENS`. We truncate the array to a length of 0. We do *NOT* deallocate memory. This
+    /// ensures that the length of `notes` can later be increased to store more tokens, up to the
+    /// limit of `_MAX_TOKENS`. `_note` below will revert upon reaching that limit.
+    function _initializeNotes(IERC20[] memory notes) private pure {
         assembly ("memory-safe") {
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-            mstore(notes, 0x01)
-            mstore(add(0x20, notes), token)
-            tstore(token, 0x20)
+            mstore(notes, 0x00)
         }
     }
 
@@ -624,7 +620,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
         // We could do this anytime before we begin swapping.
         IERC20[] memory notes = new IERC20[](_MAX_TOKENS);
-        _initializeNotes(notes, state.globalSellToken);
+        _initializeNotes(notes);
 
         ISignatureTransfer.PermitTransferFrom calldata permit;
         bool isForwarded;
