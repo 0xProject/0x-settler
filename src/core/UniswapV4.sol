@@ -17,14 +17,14 @@ import {
 } from "./UniswapV4Types.sol";
 
 library UnsafeArray {
-    function unsafeGet(UniswapV4.CurrencyDelta[] memory a, uint256 i)
+    function unsafeGet(UniswapV4.TokenDelta[] memory a, uint256 i)
         internal
         pure
-        returns (IERC20 currency, int256 creditDebt)
+        returns (IERC20 token, int256 creditDebt)
     {
         assembly ("memory-safe") {
             let r := mload(add(a, add(0x20, shl(0x05, i))))
-            currency := mload(r)
+            token := mload(r)
             creditDebt := mload(add(0x20, r))
         }
     }
@@ -33,16 +33,16 @@ library UnsafeArray {
 library CreditDebt {
     using UnsafeMath for int256;
 
-    function asCredit(int256 delta, IERC20 currency) internal pure returns (uint256) {
+    function asCredit(int256 delta, IERC20 token) internal pure returns (uint256) {
         if (delta < 0) {
-            revert DeltaNotPositive(currency);
+            revert DeltaNotPositive(token);
         }
         return uint256(delta);
     }
 
-    function asDebt(int256 delta, IERC20 currency) internal pure returns (uint256) {
+    function asDebt(int256 delta, IERC20 token) internal pure returns (uint256) {
         if (delta > 0) {
-            revert DeltaNotNegative(currency);
+            revert DeltaNotNegative(token);
         }
         return uint256(delta.unsafeNeg());
     }
@@ -53,7 +53,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using UnsafeMath for int256;
     using CreditDebt for int256;
     using SafeTransferLib for IERC20;
-    using UnsafeArray for CurrencyDelta[];
+    using UnsafeArray for TokenDelta[];
 
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has mandatory
     //// callbacks, and the vast majority of the business logic has to be executed inside the
@@ -270,7 +270,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
 
         bool zeroForOne = state.sellToken < state.buyToken;
-        (key.currency0, key.currency1) = zeroForOne ? (state.sellToken, state.buyToken) : (state.buyToken, state.sellToken);
+        (key.token0, key.token1) = zeroForOne ? (state.sellToken, state.buyToken) : (state.buyToken, state.sellToken);
         key.fee = uint24(bytes3(data));
         data = data[3:];
         key.tickSpacing = int24(uint24(bytes3(data)));
@@ -297,42 +297,42 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
     /// Makes a `staticcall` to `POOL_MANAGER.exttload` to obtain the debt of the given
     /// token. Reverts if the given token instead has credit.
-    function _getDebt(IERC20 currency) private view returns (uint256) {
+    function _getDebt(IERC20 token) private view returns (uint256) {
         bytes32 key;
         assembly ("memory-safe") {
             mstore(0x00, address())
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
+            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
             key := keccak256(0x00, 0x40)
         }
         int256 delta = int256(uint256(IPoolManager(_operator()).exttload(key)));
-        return delta.asDebt(currency);
+        return delta.asDebt(token);
     }
 
     /// Makes a `staticcall` to `POOL_MANAGER.exttload` to obtain the credit of the given
     /// token. Reverts if the given token instead has debt.
-    function _getCredit(IERC20 currency) private view returns (uint256) {
+    function _getCredit(IERC20 token) private view returns (uint256) {
         bytes32 key;
         assembly ("memory-safe") {
             mstore(0x00, address())
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, currency))
+            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
             key := keccak256(0x00, 0x40)
         }
         int256 delta = int256(uint256(IPoolManager(_operator()).exttload(key)));
-        return delta.asCredit(currency);
+        return delta.asCredit(token);
     }
 
     /// A more complex version of `_getCredit`. There is additional logic that must be applied when
-    /// `currency` might be the global sell token. Handles that case elegantly. Reverts if the given
+    /// `token` might be the global sell token. Handles that case elegantly. Reverts if the given
     /// token has debt.
-    function _getCredit(State memory state, bool feeOnTransfer, IERC20 currency) private view returns (uint256) {
-        if (currency == state.globalSellToken) {
+    function _getCredit(State memory state, bool feeOnTransfer, IERC20 token) private view returns (uint256) {
+        if (token == state.globalSellToken) {
             if (feeOnTransfer) {
-                return _getCredit(currency);
+                return _getCredit(token);
             } else {
-                return state.globalSellAmount - _getDebt(currency);
+                return state.globalSellAmount - _getDebt(token);
             }
         } else {
-            return _getCredit(currency);
+            return _getCredit(token);
         }
     }
 
@@ -342,39 +342,39 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     uint256 private constant _MAX_TOKENS = 8;
 
     /// This function assumes that `notes` has been initialized by Solidity with a length of exactly
-    /// `_MAX_TOKENS`. We when truncate the array to a length of 1, store `currency`, and make an
-    /// entry in the transient storage mapping. We do *NOT* deallocate memory. This ensures that the
+    /// `_MAX_TOKENS`. We then truncate the array to a length of 1, store `token`, and make an entry
+    /// in the transient storage mapping. We do *NOT* deallocate memory. This ensures that the
     /// length of `notes` can later be increased to store more tokens, up to the limit of
     /// `_MAX_TOKENS`. `_note` below will revert upon reaching that limit.
-    function _initializeNotes(IERC20[] memory notes, IERC20 currency) private {
+    function _initializeNotes(IERC20[] memory notes, IERC20 token) private {
         assembly ("memory-safe") {
-            currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             mstore(notes, 0x01)
-            mstore(add(0x20, notes), currency)
-            tstore(currency, 0x20)
+            mstore(add(0x20, notes), token)
+            tstore(token, 0x20)
         }
     }
 
     /// `_note` is responsible for maintaining `notes` and the corresponding mapping. The return
     /// value `isNew` indicates that the token has been noted. That is, the token has been appended
     /// to the `notes` array and a corresponding entry has been made in the transient storage
-    /// mapping. If `currency` is not new, and it is not the token at the end of `notes`, we swap it
-    /// to the end (and make corresponding changes to the transient storage mapping). If `currency`
-    /// is not new, and it is the token at the end of `notes`, this function is a no-op.  This
-    /// function reverts with a Panic with code 0x32 (indicating an out-of-bounds array access) if
-    /// more than `_MAX_TOKENS` tokens are involved in the UniV4 fills.
-    function _note(IERC20[] memory notes, IERC20 currency) private returns (bool isNew) {
+    /// mapping. If `token` is not new, and it is not the token at the end of `notes`, we swap it to
+    /// the end (and make corresponding changes to the transient storage mapping). If `token` is not
+    /// new, and it is the token at the end of `notes`, this function is a no-op.  This function
+    /// reverts with a Panic with code 0x32 (indicating an out-of-bounds array access) if more than
+    /// `_MAX_TOKENS` tokens are involved in the UniV4 fills.
+    function _note(IERC20[] memory notes, IERC20 token) private returns (bool isNew) {
         assembly ("memory-safe") {
-            currency := and(0xffffffffffffffffffffffffffffffffffffffff, currency)
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             let notesLen := shl(0x05, mload(notes))
             let notesEnd := add(notes, notesLen)
-            let oldCurrency := mload(notesEnd)
-            if iszero(eq(oldCurrency, currency)) {
-                // Either `currency` is new or it's in the wrong spot in `notes`
-                let currencyIndex := tload(currency)
-                switch currencyIndex
+            let oldToken := mload(notesEnd)
+            if iszero(eq(oldToken, token)) {
+                // Either `token` is new or it's in the wrong spot in `notes`
+                let tokenIndex := tload(token)
+                switch tokenIndex
                 case 0 {
-                    // `currency` is new. Push it onto the end of `notes`.
+                    // `token` is new. Push it onto the end of `notes`.
                     isNew := true
 
                     notesLen := add(0x20, notesLen)
@@ -384,35 +384,35 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                         revert(0x1c, 0x24)
                     }
 
-                    mstore(add(notesLen, notes), currency)
-                    tstore(currency, notesLen)
+                    mstore(add(notesLen, notes), token)
+                    tstore(token, notesLen)
 
                     mstore(notes, shr(0x05, notesLen))
                 }
                 default {
-                    // `currency` is not new, but it's in the wrong spot. Swap it with the currency
+                    // `token` is not new, but it's in the wrong spot. Swap it with the token
                     // that's already there.
-                    mstore(notesEnd, currency)
-                    mstore(add(notes, currencyIndex), oldCurrency)
-                    tstore(currency, notesLen)
-                    tstore(oldCurrency, currencyIndex)
+                    mstore(notesEnd, token)
+                    mstore(add(notes, tokenIndex), oldToken)
+                    tstore(token, notesLen)
+                    tstore(oldToken, tokenIndex)
                 }
             }
         }
     }
 
-    struct CurrencyDelta {
-        IERC20 currency;
+    struct TokenDelta {
+        IERC20 token;
         int256 creditDebt;
     }
 
     /// Settling out the credits and debt at the end of a series of fills requires reading the
     /// deltas for each token we touched from the transient storage of the pool manager. We do this
-    /// in bulk using `exttload(bytes32[])`. Then we parse the response, omitting each currency with
+    /// in bulk using `exttload(bytes32[])`. Then we parse the response, omitting each token with
     /// zero delta. This is done in assembly for efficiency _and_ so that we can clear the transient
     /// storage mapping. This function is only used by `_take`, which implements the corresponding
     /// business logic.
-    function _getCurrencyDeltas(IERC20[] memory notes) private returns (CurrencyDelta[] memory deltas) {
+    function _getTokenDeltas(IERC20[] memory notes) private returns (TokenDelta[] memory deltas) {
         assembly ("memory-safe") {
             // We're going to allocate memory. We must correctly restore the free pointer later
             let ptr := mload(0x40)
@@ -420,7 +420,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
             mstore(add(0x20, ptr), 0x20)
 
-            // We need to hash the currency with `address(this)` to obtain the transient slot that
+            // We need to hash the token with `address(this)` to obtain the transient slot that
             // stores the delta in POOL_MANAGER. This avoids duplicated writes later.
             mstore(0x00, address())
 
@@ -433,22 +433,22 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 src := add(0x20, src)
                 dst := add(0x20, dst)
             } {
-                // load the currency from the array
-                let currency := mload(src)
+                // load the token from the array
+                let token := mload(src)
 
                 // loop termination condition
-                if or(iszero(currency), eq(src, end)) {
+                if or(iszero(token), eq(src, end)) {
                     len := sub(src, notes)
                     mstore(add(0x40, ptr), shr(0x05, len))
                     break
                 }
 
                 // clear the memoization transient slot
-                tstore(currency, 0x00)
+                tstore(token, 0x00)
 
                 // compute the slot that POOL_MANAGER uses to store the delta; store it in the
                 // incremental calldata
-                mstore(0x20, currency)
+                mstore(0x20, token)
                 mstore(dst, keccak256(0x00, 0x40))
             }
 
@@ -485,11 +485,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
-    /// `_take` is responsible for removing the accumulated credit in each currency from the pool
+    /// `_take` is responsible for removing the accumulated credit in each token from the pool
     /// manager. It returns the settled global `sellAmount` as the amount that must be paid to the
     /// pool manager (there is a subtle interaction here with the `feeOnTransfer` flag) as well as
     /// the settled global `buyAmount`, after checking it against the slippage limit. This function
-    /// uses `_getCurrencyDeltas` to do the dirty work of enumerating the tokens involved in all the
+    /// uses `_getTokenDeltas` to do the dirty work of enumerating the tokens involved in all the
     /// fills and reading their credit/debt from the transient storage of the pool manager. Each
     /// token with credit causes a corresponding call to `POOL_MANAGER.take`. Any token with debt
     /// (except the first) causes a revert. The last token in `notes` has its slippage checked.
@@ -498,19 +498,19 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         DANGEROUS_freeMemory
         returns (uint256 sellAmount, uint256 buyAmount)
     {
-        CurrencyDelta[] memory deltas = _getCurrencyDeltas(notes);
+        TokenDelta[] memory deltas = _getTokenDeltas(notes);
         uint256 length = deltas.length.unsafeDec();
 
         {
-            CurrencyDelta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired TODO: probably unnecessary
-            (IERC20 currency, int256 creditDebt) = (sellDelta.currency, sellDelta.creditDebt);
-            if (currency == sellToken) {
+            TokenDelta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired TODO: probably unnecessary
+            (IERC20 token, int256 creditDebt) = (sellDelta.token, sellDelta.creditDebt);
+            if (token == sellToken) {
                 if (creditDebt > 0) {
                     // It's only possible to reach this branch when selling a FoT token and
                     // encountering a partial fill. This is a fairly rare occurrence, so it's
                     // poorly-optimized. It also incurs an additional sell tax.
                     IPoolManager(_operator()).take(
-                        currency, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt)
+                        token, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt)
                     );
                     // sellAmount remains zero
                 } else {
@@ -522,7 +522,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 // This branch is encountered when selling a FoT token, not encountering a partial
                 // fill (filling exactly), and then having to multiplex *OUT* more than 1
                 // token. This is a fairly rare case.
-                IPoolManager(_operator()).take(currency, address(this), creditDebt.asCredit(currency));
+                IPoolManager(_operator()).take(token, address(this), creditDebt.asCredit(token));
                 // sellAmount remains zero
             }
             // else {
@@ -537,22 +537,21 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
         // Sweep any dust or any non-UniV4 multiplex-out into Settler.
         for (uint256 i = 1; i < length; i = i.unsafeInc()) {
-            (IERC20 currency, int256 creditDebt) = deltas.unsafeGet(i);
-            IPoolManager(_operator()).take(currency, address(this), creditDebt.asCredit(currency));
+            (IERC20 token, int256 creditDebt) = deltas.unsafeGet(i);
+            IPoolManager(_operator()).take(token, address(this), creditDebt.asCredit(token));
         }
 
         // The last token is the buy token. Check the slippage limit. Transfer to the recipient.
         {
-            (IERC20 currency, int256 creditDebt) = deltas.unsafeGet(length);
-            buyAmount = creditDebt.asCredit(currency);
+            (IERC20 token, int256 creditDebt) = deltas.unsafeGet(length);
+            buyAmount = creditDebt.asCredit(token);
             if (buyAmount < minBuyAmount) {
-                IERC20 buyToken = currency;
-                if (buyToken == IERC20(address(0))) {
-                    buyToken = ETH_ADDRESS;
+                if (token == IERC20(address(0))) {
+                    token = ETH_ADDRESS;
                 }
-                revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+                revert TooMuchSlippage(token, minBuyAmount, buyAmount);
             }
-            IPoolManager(_operator()).take(currency, recipient, buyAmount);
+            IPoolManager(_operator()).take(token, recipient, buyAmount);
         }
     }
 

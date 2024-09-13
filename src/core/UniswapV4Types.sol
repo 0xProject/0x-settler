@@ -7,10 +7,10 @@ type IHooks is address;
 
 /// @notice Returns the key for identifying a pool
 struct PoolKey {
-    /// @notice The lower currency of the pool, sorted numerically
-    IERC20 currency0;
-    /// @notice The higher currency of the pool, sorted numerically
-    IERC20 currency1;
+    /// @notice The lower token of the pool, sorted numerically
+    IERC20 token0;
+    /// @notice The higher token of the pool, sorted numerically
+    IERC20 token1;
     /// @notice The pool LP fee, capped at 1_000_000. If the highest bit is 1, the pool has a dynamic fee and must be exactly equal to 0x800000
     uint24 fee;
     /// @notice Ticks that involve positions must be a multiple of tick spacing
@@ -79,23 +79,23 @@ interface IPoolManager {
         external
         returns (BalanceDelta swapDelta);
 
-    /// @notice Writes the current ERC20 balance of the specified currency to transient storage
+    /// @notice Writes the current ERC20 balance of the specified token to transient storage
     /// This is used to checkpoint balances for the manager and derive deltas for the caller.
     /// @dev This MUST be called before any ERC20 tokens are sent into the contract, but can be skipped
     /// for native tokens because the amount to settle is determined by the sent value.
     /// However, if an ERC20 token has been synced and not settled, and the caller instead wants to settle
     /// native funds, this function can be called with the native currency to then be able to settle the native currency
-    function sync(IERC20 currency) external;
+    function sync(IERC20 token) external;
 
     /// @notice Called by the user to net out some value owed to the user
     /// @dev Can also be used as a mechanism for _free_ flash loans
-    /// @param currency The currency to withdraw from the pool manager
+    /// @param token The token to withdraw from the pool manager
     /// @param to The address to withdraw to
-    /// @param amount The amount of currency to withdraw
-    function take(IERC20 currency, address to, uint256 amount) external;
+    /// @param amount The amount of token to withdraw
+    function take(IERC20 token, address to, uint256 amount) external;
 
     /// @notice Called by the user to pay what is owed
-    /// @return paid The amount of currency settled
+    /// @return paid The amount of token settled
     function settle() external payable returns (uint256 paid);
 }
 
