@@ -291,6 +291,13 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             }
             state.buyToken = IERC20(address(uint160(bytes20(data))));
             data = data[20:];
+
+            // TODO: it would be a noticeable gas improvement to only note tokens when
+            // **un**-setting `buyToken`. That is, when overwriting it, note the old value. This
+            // removes some of the awkwardness with `_initializeNotes` and would avoid an extra
+            // `tload`/`tstore`. This does mean adding an extra check in `_getTokenDeltas` where we
+            // check if the last token in `notes` is the same as `state.buyToken`, and if it is,
+            // popping. On the whole, though, it should be an optimization.
             if (_note(notes, state.buyToken)) {
                 delete state.buyAmount;
             } else {
