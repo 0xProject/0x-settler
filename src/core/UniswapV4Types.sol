@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-type Currency is address;
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 type IHooks is address;
 
 /// @notice Returns the key for identifying a pool
 struct PoolKey {
     /// @notice The lower currency of the pool, sorted numerically
-    Currency currency0;
+    IERC20 currency0;
     /// @notice The higher currency of the pool, sorted numerically
-    Currency currency1;
+    IERC20 currency1;
     /// @notice The pool LP fee, capped at 1_000_000. If the highest bit is 1, the pool has a dynamic fee and must be exactly equal to 0x800000
     uint24 fee;
     /// @notice Ticks that involve positions must be a multiple of tick spacing
@@ -85,14 +85,14 @@ interface IPoolManager {
     /// for native tokens because the amount to settle is determined by the sent value.
     /// However, if an ERC20 token has been synced and not settled, and the caller instead wants to settle
     /// native funds, this function can be called with the native currency to then be able to settle the native currency
-    function sync(Currency currency) external;
+    function sync(IERC20 currency) external;
 
     /// @notice Called by the user to net out some value owed to the user
     /// @dev Can also be used as a mechanism for _free_ flash loans
     /// @param currency The currency to withdraw from the pool manager
     /// @param to The address to withdraw to
     /// @param amount The amount of currency to withdraw
-    function take(Currency currency, address to, uint256 amount) external;
+    function take(IERC20 currency, address to, uint256 amount) external;
 
     /// @notice Called by the user to pay what is owed
     /// @return paid The amount of currency settled

@@ -58,5 +58,5 @@ error WitnessNotSpent(bytes32 oldWitness);
 ///         unexpectedly.
 error PayerSpent();
 
-error DeltaNotPositive(address currency);
-error DeltaNotNegative(address currency);
+error DeltaNotPositive(IERC20 currency);
+error DeltaNotNegative(IERC20 currency);
