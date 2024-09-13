@@ -263,6 +263,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             if (_note(notes, state.buyToken)) {
                 delete state.buyAmount;
             } else {
+                // TODO: add a flag to allow skipping `_getCredit` in cases where it doesn't matter
                 state.buyAmount = _getCredit(state.buyToken);
             }
         }
@@ -676,6 +677,13 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             uint256 hopSellAmount;
             unchecked {
                 hopSellAmount = (state.sellAmount * bps).unsafeDiv(BASIS);
+
+                // TODO: some hooks may credit some sell amount back. this won't result in reverts
+                // due to how `_take` elegantly handles partial fill and ensures that everything is
+                // zeroed-out at the end, but it will result in unexpected dust. perhaps there is a
+                // clever solution? or alternatively, maybe we need to abandon the `caseKey` logic
+                // in `_getPoolKey` and simply read the credit on every fill
+                state.sellAmount -= hopSellAmount;
             }
 
             params.zeroForOne = zeroForOne;
