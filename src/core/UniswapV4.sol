@@ -63,12 +63,44 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// `POOL_MANAGER.unlock(...)`. Pay special attention to the `payer` field, which is what
     //// signals to the callback whether we should be spending a coupon.
 
+    //// How to generate `fills` for UniV4:
+    ////
+    //// Linearize your DAG of fills by doing a topological sort on the tokens involved. In the
+    //// topological sort of tokens, when there is a choice of the next token, break ties by
+    //// preferring a token if it is the lexicographically largest token that is bought among fills
+    //// with sell token equal to the previous token in the topological sort. Then sort the fills
+    //// belonging each sell token by their buy token. This technique isn't *quite* optimal, but
+    //// it's pretty close. The buy token of the final fill is special-cased. It is the token that
+    //// will be transferred to `recipient` and have its slippage checked against `amountOutMin`. In
+    //// the event that you are encoding a series of fills with more than one output token, ensure
+    //// that at least one of the global buy token's fills is positioned appropriately.
+    ////
+    //// Now that you have a list of fills, encode each fill as follows.
+    //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
+    //// running balance at the moment that the fill is settled.
+    //// Second, encode the packing key for that fill as 1 byte. The packing key byte depends on the
+    //// tokens involved in the previous fill. The packing key for the first fill must be 1;
+    //// i.e. encode only the buy token for the first fill.
+    ////   0 -> buy and sell tokens remain unchanged from the previous fill (pure multiplex)
+    ////   1 -> sell token remains unchanged from the previous fill, buy token encoded (diamond multiplex)
+    ////   2 -> sell token becomes the buy token from the previous fill, new buy token is encoded (multihop)
+    ////   3 -> both buy and sell token are encoded
+    //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
+    //// as appropriate.
+    //// The remaining fields of the fill are mandatory.
+    //// Third, encode the pool fee as 3 bytes, and the pool tick spacing as 3 bytes.
+    //// Fourth, encode the hook address as 20 bytes.
+    //// Fifth, encode the hook data for the fill. Encode the length of the hook data as 3 bytes,
+    //// then append the hook data itself.
+    ////
+    //// Repeat the process for each fill and concatenate the results without padding.
+
     function sellToUniswapV4(
         address recipient,
         IERC20 sellToken,
         uint256 bps,
         bool feeOnTransfer,
-        bytes memory path,
+        bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256) {
         if (amountOutMin > uint128(type(int128).max)) {
@@ -81,8 +113,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         assembly ("memory-safe") {
             data := mload(0x40)
 
-            let pathLen := mload(path)
-            mcopy(add(0xb3, data), add(0x20, path), pathLen)
+            let pathLen := mload(fills)
+            mcopy(add(0xb3, data), add(0x20, fills), pathLen)
 
             mstore(add(0x93, data), bps)
             mstore(add(0x91, data), sellToken)
@@ -112,7 +144,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     function sellToUniswapV4VIP(
         address recipient,
         bool feeOnTransfer,
-        bytes memory path,
+        bytes memory fills,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
@@ -125,11 +157,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         assembly ("memory-safe") {
             data := mload(0x40)
 
-            let pathLen := mload(path)
+            let pathLen := mload(fills)
             let sigLen := mload(sig)
 
             let ptr := add(0x112, data)
-            mcopy(ptr, add(0x20, path), pathLen)
+            mcopy(ptr, add(0x20, fills), pathLen)
             ptr := add(ptr, pathLen)
             // TODO: encode sig length in 3 bytes instead of 32
             mcopy(ptr, add(0x20, sig), sigLen)
@@ -231,9 +263,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process. The first byte of `data` describes
     /// which of the compact representations for the hop is used.
-    ///   0 -> buy and sell tokens remain unchanged from the previous fill
-    ///   1 -> sell token remains unchanged from the previous fill, buy token is read from `data`
-    ///   2 -> sell token becomes the buy token from the previous fill, new buy token is read from `data`
+    ///   0 -> buy and sell tokens remain unchanged from the previous fill (pure multiplex)
+    ///   1 -> sell token remains unchanged from the previous fill, buy token is read from `data` (diamond multiplex)
+    ///   2 -> sell token becomes the buy token from the previous fill, new buy token is read from `data` (multihop)
     ///   3 -> both buy and sell token are read from `data`
     ///
     /// This function is also responsible for calling `_note`, which maintains the `notes` array and
