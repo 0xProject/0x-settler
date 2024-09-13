@@ -706,11 +706,12 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             unchecked {
                 hopSellAmount = (state.sellAmount * bps).unsafeDiv(BASIS);
 
-                // TODO: some hooks may credit some sell amount back. this won't result in reverts
-                // due to how `_take` elegantly handles partial fill and ensures that everything is
-                // zeroed-out at the end, but it will result in unexpected dust. perhaps there is a
-                // clever solution? or alternatively, maybe we need to abandon the `caseKey` logic
-                // in `_getPoolKey` and simply read the credit on every fill
+                // TODO: some hooks may credit some sell amount back, reducing the incurred debt of
+                // the swap. this won't result in reverts due to how `_take` elegantly handles
+                // partial fills and ensures that everything is zeroed-out at the end, but it will
+                // result in unexpected dust. perhaps there is a clever solution? or alternatively,
+                // maybe we need to abandon the `caseKey` logic in `_getPoolKey` and simply read the
+                // credit on every fill
                 state.sellAmount -= hopSellAmount;
             }
 
