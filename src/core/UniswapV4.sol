@@ -79,10 +79,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// Second, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
     //// i.e. encode only the buy token for the first fill.
-    ////   0 -> buy and sell tokens remain unchanged from the previous fill (pure multiplex)
+    ////   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
     ////   1 -> sell token remains unchanged from the previous fill, buy token encoded (diamond multiplex)
     ////   2 -> sell token becomes the buy token from the previous fill, new buy token is encoded (multihop)
-    ////   3 -> both buy and sell token are encoded
+    ////   3 -> both sell and buy token are encoded
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
@@ -261,10 +261,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process. The first byte of `data` describes
     /// which of the compact representations for the hop is used.
-    ///   0 -> buy and sell tokens remain unchanged from the previous fill (pure multiplex)
+    ///   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
     ///   1 -> sell token remains unchanged from the previous fill, buy token is read from `data` (diamond multiplex)
     ///   2 -> sell token becomes the buy token from the previous fill, new buy token is read from `data` (multihop)
-    ///   3 -> both buy and sell token are read from `data`
+    ///   3 -> both sell and buy token are read from `data`
     ///
     /// This function is also responsible for calling `_note`, which maintains the `notes` array and
     /// the corresponding mapping in transient storage
