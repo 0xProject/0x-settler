@@ -615,6 +615,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         bool isForwarded,
         bytes calldata sig
     ) private {
+        IPoolManager(_operator()).sync(sellToken);
         if (payer == address(this)) {
             sellToken.safeTransfer(_operator(), sellAmount);
         } else {
@@ -676,8 +677,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             }
             state.globalSellToken = IERC20(address(0));
         } else {
-            IPoolManager(_operator()).sync(state.globalSellToken);
-
             if (payer == address(this)) {
                 data = data[20:];
 
