@@ -301,7 +301,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             if (_note(notes, state.buyToken)) {
                 delete state.buyAmount;
             } else {
-                // TODO: add a flag to allow skipping `_getCredit` in cases where it doesn't matter
                 state.buyAmount = _getCredit(state.buyToken);
             }
         }
