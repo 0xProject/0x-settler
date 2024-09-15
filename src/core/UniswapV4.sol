@@ -729,13 +729,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
-            uint256 hopSellAmount;
-            unchecked {
-                hopSellAmount = (state.sellAmount * bps).unsafeDiv(BASIS);
-            }
-
             params.zeroForOne = zeroForOne;
-            params.amountSpecified = int256(hopSellAmount).unsafeNeg();
+            unchecked {
+                params.amountSpecified = int256((state.sellAmount * bps).unsafeDiv(BASIS)).unsafeNeg();
+            }
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
