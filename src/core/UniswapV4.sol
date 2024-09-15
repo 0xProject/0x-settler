@@ -403,8 +403,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         assembly ("memory-safe") {
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             let notesLen := shl(0x05, mload(notes))
-            let notesEnd := add(notes, notesLen)
-            let oldToken := mload(notesEnd)
+            let notesLast := add(notes, notesLen)
+            let oldToken := mload(notesLast)
             if iszero(eq(oldToken, token)) {
                 // Either `token` is new or it's in the wrong spot in `notes`
                 let tokenIndex := tload(token)
@@ -428,7 +428,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 default {
                     // `token` is not new, but it's in the wrong spot. Swap it with the token
                     // that's already there.
-                    mstore(notesEnd, token)
+                    mstore(notesLast, token)
                     mstore(add(notes, tokenIndex), oldToken)
                     tstore(token, notesLen)
                     tstore(oldToken, tokenIndex)
