@@ -46,6 +46,9 @@ library CreditDebt {
     }
 }
 
+// TODO: the functions `sync` and `take` on the pool manager don't return anything; this incurs an
+// extra extcodesize; optimize this away
+
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
@@ -585,6 +588,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             (IERC20 token, int256 creditDebt) = deltas.unsafeGet(i);
             IPoolManager(_operator()).take(token, address(this), creditDebt.asCredit(token));
         }
+
+        // TODO: Remove this last branch from this function; it doesn't have much/anything to do
+        // with the other cases now that the buy token isn't in `notes`
 
         // The last token of `notes` is not checked. We read its information from `state`
         // instead. It is the global buy token. Check the slippage limit. Transfer to the recipient.
