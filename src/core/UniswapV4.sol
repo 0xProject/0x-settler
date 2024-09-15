@@ -457,7 +457,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         //
         // I think that the best way to do this is to apply the optimization described in
         // `_getPoolKey`, noting the buy token only when moving on to a new buy token, and then
-        // using a swap-and-pop to drop each token from `notes` as we zero its delta.
+        // using a swap-and-pop to drop each token from `notes` as we zero its delta. We can also
+        // remove the global sell token from the front of `notes`, making a potential implementation
+        // more straightforward, because it's already stored in `state.globalSellToken`
         assembly ("memory-safe") {
             // We're going to allocate memory. We must correctly restore the free pointer later
             let ptr := mload(0x40)
