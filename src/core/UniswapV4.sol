@@ -450,6 +450,15 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// storage mapping. This function is only used by `_take`, which implements the corresponding
     /// business logic.
     function _getTokenDeltas(IERC20[] memory notes) private returns (TokenDelta[] memory deltas) {
+        // TODO: the number of tokens with nonzero deltas is stored in slot
+        // 0x7d4b3164c6e45b97e7d87b7125a44c5828d005af88f9d751cfd78729c5d99a0b --
+        // bytes32(uint256(keccak256("NonzeroDeltaCount")) - 1) it might optimize the simple cases
+        // here to either cache this value in memory or to read it first before tloading all of the
+        // delta slots from the pool manager
+        //
+        // I think that the best way to do this is to apply the optimization described in
+        // `_getPoolKey`, noting the buy token only when moving on to a new buy token, and then
+        // using a swap-and-pop to drop each token from `notes` as we zero its delta.
         assembly ("memory-safe") {
             // We're going to allocate memory. We must correctly restore the free pointer later
             let ptr := mload(0x40)
