@@ -67,7 +67,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// topological sort of tokens, when there is a choice of the next token, break ties by
     //// preferring a token if it is the lexicographically largest token that is bought among fills
     //// with sell token equal to the previous token in the topological sort. Then sort the fills
-    //// belonging each sell token by their buy token. This technique isn't *quite* optimal, but
+    //// belonging to each sell token by their buy token. This technique isn't *quite* optimal, but
     //// it's pretty close. The buy token of the final fill is special-cased. It is the token that
     //// will be transferred to `recipient` and have its slippage checked against `amountOutMin`. In
     //// the event that you are encoding a series of fills with more than one output token, ensure
@@ -80,7 +80,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
     //// i.e. encode only the buy token for the first fill.
     ////   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
-    ////   1 -> sell token remains unchanged from the previous fill, buy token encoded (diamond multiplex)
+    ////   1 -> sell token remains unchanged from the previous fill, buy token is encoded (diamond multiplex)
     ////   2 -> sell token becomes the buy token from the previous fill, new buy token is encoded (multihop)
     ////   3 -> both sell and buy token are encoded
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
