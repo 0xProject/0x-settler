@@ -101,45 +101,10 @@ library NotedTokens {
 
     // TODO: store pointers intead of indices in each `note` field
 
-    /// It is an error to `push` a token that is already in `a`. This is not checked and does not
-    /// throw.
-    function push(TokenNote[] memory a, IERC20 token) internal returns (TokenNote memory r) {
-        assembly ("memory-safe") {
-            // TODO: remove this check; it's always true
-            if iszero(eq(mload(0x40), sub(r, 0x40))) {
-                revert(0x00, 0x00)
-            }
-            mstore(0x40, sub(r, 0x40)) // solc is fucking stupid
-
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-
-            // Increment the length of `a`
-            let i := add(0x01, mload(a))
-            mstore(a, i)
-            // `i` is now 1-indexed
-
-            // Find the first free `TokenNote` object (in memory after `a`)
-            let indirectArrayEnd := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
-            let noteAllocations := mload(indirectArrayEnd)
-            r := add(indirectArrayEnd, add(0x20, shl(0x06, noteAllocations)))
-            // Allocate it
-            mstore(indirectArrayEnd, add(0x01, noteAllocations))
-
-            // Set the indirection pointer stored in `a` at the appropriate index to `r`
-            mstore(add(add(0x20, a), shl(0x05, i)), r)
-
-            // Set the transient storage mapping for `token` to point at `r`
-            tstore(token, r)
-
-            // Initialize `r`
-            mstore(r, token)
-            mstore(add(0x20, r), shl(0xf8, i))
-        }
-    }
-
-    function getDefault(TokenNote[] memory a, IERC20 token) internal returns (int256 delta) {
+    function set(TokenNote[] memory a, IERC20 token, int256 delta) internal {
         assembly ("memory-safe") {
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
+            let delta_mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
             let x := tload(token)
             switch x
             case 0 {
@@ -169,12 +134,22 @@ library NotedTokens {
 
                 // Initialize `x`
                 mstore(x, token)
-                mstore(add(0x20, x), shl(0xf8, i))
-
-                // `delta` remains zero
+                mstore(add(0x20, x), or(shl(0xf8, i), and(delta_mask, delta)))
             }
             default {
-                delta := signextend(0x1f, mload(add(0x20, x)))
+                let note := add(0x20, x)
+                let back := and(not(delta_mask), mload(note))
+                if iszero(back) {
+                    // Push `x` (which is already initialized) onto `a`
+                    let i := add(0x01, mload(a))
+                    mstore(a, i)
+                    // `i` is 1-indexed; bounds-checking not required (see above)
+
+                    // Set indirection pointer
+                    mstore(add(shl(0x05, i), a), x)
+                    back := shl(0xf8, i)
+                }
+                mstore(note, or(back, and(delta_mask, delta)))
             }
         }
     }
@@ -209,6 +184,30 @@ library NotedTokens {
             let i_ptr := add(0x20, mload(end))
             mstore(i_ptr, and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, mload(i_ptr)))
             // We do not deallocate the `TokenNote`
+
+            mstore(a, sub(len, 0x01))
+        }
+    }
+
+    function remove(TokenNote[] memory a, uint256 i) internal pure {
+        assembly ("memory-safe") {
+            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+            // Clear the backpointer (index) in the referred-to `TokenNote`
+            let i_ptr := add(add(0x20, shl(0x05, len)), a)
+            let i_note := add(0x20, mload(i_ptr))
+            mstore(i_note, and(mask, mload(i_note)))
+            // We do not deallocate the `TokenNote`
+
+            // Overwrite the vacated indirection pointer with the one at the end.
+            let len := mload(a)
+            let end_ptr := add(shl(0x05, len), a)
+            let end := mload(end_ptr)
+            mstore(i_ptr, end)
+            // Fix up the backpointer (index) in the referred-to `TokenNote` to point to the new
+            // location of the indirection pointer.
+            let end_note := add(0x20, end)
+            mstore(end_note, or(shl(0xf8, i), and(mask, mload(end_note))))
 
             mstore(a, sub(len, 0x01))
         }
