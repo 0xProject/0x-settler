@@ -197,11 +197,39 @@ library NotedTokens {
             mstore(i_ptr, and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, mload(i_ptr)))
             // We do not deallocate the `TokenNote`
 
+            // Decrement the length of `a`
             mstore(a, sub(len, 0x01))
         }
     }
 
-    function remove(TokenNote[] memory a, uint256 i) internal pure {
+    function del(TokenNote[] memory a, TokenNote memory x) internal pure {
+        assembly ("memory-safe") {
+            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+            // Clear the backpointer (index) in the referred-to `TokenNote`
+            let x_note_ptr := add(0x20, x)
+            let x_note := mload(x_note_ptr)
+            mstore(x_note_ptr, and(mask, x_note))
+            let x_ptr := add(add(0x20, and(0x1fe0, shr(0xf3, x_note))), a)
+            // We do not deallocate `x`
+
+            // Overwrite the vacated indirection pointer `x_ptr` with the one at the end.
+            let len := mload(a)
+            let end_ptr := add(shl(0x05, len), a)
+            let end := mload(end_ptr)
+            mstore(x_ptr, end)
+
+            // Fix up the backpointer (index) in the referred-to `TokenNote` to point to the new
+            // location of the indirection pointer.
+            let end_note := add(0x20, end)
+            mstore(end_note, or(and(not(mask), x_note), and(mask, mload(end_note))))
+
+            // Decrement the length of `a`
+            mstore(a, sub(len, 0x01))
+        }
+    }
+
+    function del(TokenNote[] memory a, uint256 i) internal pure {
         assembly ("memory-safe") {
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
@@ -221,6 +249,35 @@ library NotedTokens {
             // location of the indirection pointer.
             let end_note := add(0x20, end)
             mstore(end_note, or(shl(0xf8, i), and(mask, mload(end_note))))
+
+            // Decrement the length of `a`
+            mstore(a, sub(len, 0x01))
+        }
+    }
+
+    function del(TokenNote[] memory a, IERC20 token) internal pure {
+        assembly ("memory-safe") {
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
+            let x := tload(token)
+            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+            // Clear the backpointer (index) in the referred-to `TokenNote`
+            let x_note_ptr := add(0x20, x)
+            let x_note := mload(x_note_ptr)
+            mstore(x_note_ptr, and(mask, x_note))
+            let x_ptr := add(add(0x20, and(0x1fe0, shr(0xf3, x_note))), a)
+            // We do not deallocate `x`
+
+            // Overwrite the vacated indirection pointer `x_ptr` with the one at the end.
+            let len := mload(a)
+            let end_ptr := add(shl(0x05, len), a)
+            let end := mload(end_ptr)
+            mstore(x_ptr, end)
+
+            // Fix up the backpointer (index) in the referred-to `TokenNote` to point to the new
+            // location of the indirection pointer.
+            let end_note := add(0x20, end)
+            mstore(end_note, or(and(not(mask), x_note), and(mask, mload(end_note))))
 
             // Decrement the length of `a`
             mstore(a, sub(len, 0x01))
