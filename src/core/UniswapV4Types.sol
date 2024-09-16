@@ -99,6 +99,36 @@ interface IPoolManager {
     function settle() external payable returns (uint256 paid);
 }
 
+/// Solc emits an EXTCODESIZE check when an external function doesn't return anything. Obviously, we know that
+/// POOL_MANAGER has code, so this is just here to force solc to omit that check.
+library UnsafePoolManager {
+    function unsafeSync(IPoolManager poolManager, IERC20 token) internal {
+        assembly ("memory-safe") {
+            mstore(0x00, 0xa5841194) // selector for `sync(address)`
+            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
+            if iszero(call(gas(), poolManager, 0x00, 0x1c, 0x24, 0x00, 0x00)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
+    }
+
+    function unsafeTake(IPoolManager poolManager, IERC20 token, address to, uint256 amount) internal {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x0b0d9c09) // selector for `take(address,address,uint256)`
+            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token))
+            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
+            mstore(add(0x60, ptr), amount)
+            if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), 0x64, 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
+    }
+}
+
 IPoolManager constant POOL_MANAGER = IPoolManager(0x000000000000000000000000000000000000dEaD); // TODO: replace with actual deployment address
 
 /// @notice Interface for the callback executed when an address unlocks the pool manager

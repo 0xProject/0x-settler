@@ -12,7 +12,7 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
-import {PoolKey, BalanceDelta, IHooks, IPoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
+import {PoolKey, BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
 
 library UnsafeArray {
     function unsafeGet(UniswapV4.TokenDelta[] memory a, uint256 i)
@@ -46,8 +46,6 @@ library CreditDebt {
     }
 }
 
-// TODO: the functions `sync` and `take` on the pool manager don't return anything; this incurs an
-// extra extcodesize; optimize this away
 
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using UnsafeMath for uint256;
@@ -55,6 +53,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using CreditDebt for int256;
     using SafeTransferLib for IERC20;
     using UnsafeArray for TokenDelta[];
+    using UnsafePoolManager for IPoolManager;
 
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has mandatory
     //// callbacks, and the vast majority of the business logic has to be executed inside the
@@ -557,7 +556,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     // It's only possible to reach this branch when selling a FoT token and
                     // encountering a partial fill. This is a fairly rare occurrence, so it's
                     // poorly-optimized. It also incurs an additional tax.
-                    IPoolManager(_operator()).take(
+                    IPoolManager(_operator()).unsafeTake(
                         token, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt)
                     );
                     // sellAmount remains zero
@@ -570,7 +569,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 // This branch is encountered when selling a FoT token, not encountering a partial
                 // fill (filling exactly), and then having to multiplex *OUT* more than 1
                 // token. This is a fairly rare case.
-                IPoolManager(_operator()).take(token, address(this), creditDebt.asCredit(token));
+                IPoolManager(_operator()).unsafeTake(token, address(this), creditDebt.asCredit(token));
                 // sellAmount remains zero
             }
             // else {
@@ -586,7 +585,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // Sweep any dust or any non-UniV4 multiplex-out into Settler.
         for (uint256 i = 1; i < length; i = i.unsafeInc()) {
             (IERC20 token, int256 creditDebt) = deltas.unsafeGet(i);
-            IPoolManager(_operator()).take(token, address(this), creditDebt.asCredit(token));
+            IPoolManager(_operator()).unsafeTake(token, address(this), creditDebt.asCredit(token));
         }
 
         // TODO: Remove this last branch from this function; it doesn't have much/anything to do
@@ -603,7 +602,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 }
                 revert TooMuchSlippage(token, minBuyAmount, buyAmount);
             }
-            IPoolManager(_operator()).take(token, recipient, buyAmount);
+            IPoolManager(_operator()).unsafeTake(token, recipient, buyAmount);
         }
     }
 
@@ -615,7 +614,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         bool isForwarded,
         bytes calldata sig
     ) private {
-        IPoolManager(_operator()).sync(sellToken);
+        IPoolManager(_operator()).unsafeSync(sellToken);
         if (payer == address(this)) {
             sellToken.safeTransfer(_operator(), sellAmount);
         } else {
