@@ -48,7 +48,13 @@ library CreditDebt {
 
 type IndexAndDelta is bytes32;
 
-library IndexAndDeltaAccessors {
+library IndexAndDeltaLib {
+    function construct(uint256 i, int256 delta) internal pure returns (IndexAndDelta r) {
+        assembly ("memory-safe") {
+            r := or(shl(0xf8, i), and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, delta))
+        }
+    }
+
     function index(IndexAndDelta x) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := shr(0xf8, x)
@@ -62,22 +68,24 @@ library IndexAndDeltaAccessors {
     }
 }
 
-using IndexAndDeltaAccessors for IndexAndDelta global;
+using IndexAndDeltaLib for IndexAndDelta global;
 
 /// This library is a highly-optimized, enumerable mapping from tokens to deltas
-library NotedTokens {
+library NotesLib {
     /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
     /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
     /// access).
     uint256 private constant _MAX_TOKENS = 8;
 
-    // TODO: swap the fields of this struct; putting `note` first saves us some ADDs
-    struct TokenNote {
+    // TODO: swap the fields of this struct; putting `note` first saves a bunch of ADDs
+    struct Note {
         IERC20 token;
         IndexAndDelta note;
     }
 
-    function construct() internal pure returns (TokenNote[] memory r) {
+    type NotePtr is uint256;
+
+    function construct() internal pure returns (Note[] memory r) {
         assembly ("memory-safe") {
             r := mload(0x40)
             mstore(r, 0x00)
@@ -86,7 +94,21 @@ library NotedTokens {
         }
     }
 
-    function get(TokenNote[] memory a, uint256 i) internal pure returns (IERC20 token, int256 delta) {
+    function eq(Note memory x, Note memory y) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := eq(x, y)
+        }
+    }
+
+    function has(Note[] memory, IERC20 token) internal view returns (bool r) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x00)
+            mstore(0x20, 0x00)
+            r := iszero(iszero(and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, mload(add(0x20, tload(and(0xffffffffffffffffffffffffffffffffffffffff, token)))))))
+        }
+    }
+
+    function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, int256 delta) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
             token := mload(x)
@@ -94,7 +116,7 @@ library NotedTokens {
         }
     }
 
-    function get(TokenNote[] memory, IERC20 token) internal view returns (int256 delta) {
+    function get(Note[] memory, IERC20 token) internal view returns (int256 delta) {
         assembly ("memory-safe") {
             let x := tload(and(0xffffffffffffffffffffffffffffffffffffffff, token))
             if x {
@@ -103,13 +125,16 @@ library NotedTokens {
         }
     }
 
-    // TODO: store pointers intead of indices in each `note` field
-
-    function set(TokenNote[] memory a, IERC20 token, int256 delta) internal {
+    // TODO: rename this function to something nicer
+    /// This function handles all cases except overflow of the number of tokens being tracked (above
+    /// _MAX_TOKENS). In that case we will Panic with code 0x32 (array out-of-bounds access).
+    /// This function is largely responsible for maintaining the consistency of the indirection
+    /// array, the heap of `Note` objects, and the transient storage mapping.
+    function getRaw(Note[] memory a, IERC20 token) internal returns (NotePtr x, uint256 i) {
         assembly ("memory-safe") {
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             let delta_mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-            let x := tload(token)
+            x := tload(token)
             switch x
             case 0 {
                 // We've never seen this token before; we must add it to the mapping and initialize
@@ -120,7 +145,7 @@ library NotedTokens {
                 // `i` is now 1-indexed; we do not require bounds-checking on `i` because it is
                 // implicitly bounded above by `noteAllocations`, which is bounds-checked
 
-                // Find the first free `TokenNote` object (in memory after `a`)
+                // Find the first free `Note` object (in memory after `a`)
                 let indirectArrayEnd := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
                 let noteAllocations := mload(indirectArrayEnd)
                 if eq(noteAllocations, _MAX_TOKENS) {
@@ -140,33 +165,41 @@ library NotedTokens {
 
                 // Initialize `x`
                 mstore(x, token)
-                mstore(add(0x20, x), or(shl(0xf8, i), and(delta_mask, delta)))
             }
             default {
-                // We've seen this token before; its `TokenNote` is initialized, but it may not have
+                // We've seen this token before; its `Note` is initialized, but it may not have
                 // an indirection pointer in `a`
 
                 let note := add(0x20, x)
-                let back := and(not(delta_mask), mload(note))
-                if iszero(back) {
+                i := shr(0xf8, mload(note))
+                if iszero(i) {
                     // No indirection pointer in `a` references `x`. Push `x` (which is already
                     // initialized) onto `a`
 
                     // Increment the length of `a`
-                    let i := add(0x01, mload(a))
+                    i := add(0x01, mload(a))
                     mstore(a, i)
                     // `i` is 1-indexed; bounds-checking not required (see above)
 
                     // Set indirection pointer
                     mstore(add(shl(0x05, i), a), x)
-                    back := shl(0xf8, i)
                 }
-                mstore(note, or(back, and(delta_mask, delta)))
             }
         }
     }
 
-    function swap(TokenNote[] memory a, TokenNote memory x, TokenNote memory y) internal pure {
+    // TODO: store pointers intead of indices in each `note` field
+
+    function set(Note[] memory a, IERC20 token, int256 delta) internal returns (NotePtr notePtr) {
+        uint256 noteIndex;
+        (notePtr, noteIndex) = getRaw(a, token);
+        IndexAndDelta note = IndexAndDeltaLib.construct(noteIndex, delta);
+        assembly ("memory-safe") {
+            mstore(add(0x20, notePtr), note)
+        }
+    }
+
+    function swap(Note[] memory a, Note memory x, Note memory y) internal pure {
         assembly ("memory-safe") {
             // Use the backpointers (indices) in `x.note.index()` and `y.note.index()` to swap the
             // corresponding entries in `a`
@@ -189,26 +222,26 @@ library NotedTokens {
         }
     }
 
-    function pop(TokenNote[] memory a) internal pure {
+    function pop(Note[] memory a) internal pure {
         assembly ("memory-safe") {
             let len := mload(a)
             let end := add(shl(0x05, len), a)
 
-            // Clear the backpointer (index) in the referred-to `TokenNote`
+            // Clear the backpointer (index) in the referred-to `Note`
             let i_ptr := add(0x20, mload(end))
             mstore(i_ptr, and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, mload(i_ptr)))
-            // We do not deallocate the `TokenNote`
+            // We do not deallocate the `Note`
 
             // Decrement the length of `a`
             mstore(a, sub(len, 0x01))
         }
     }
 
-    function del(TokenNote[] memory a, TokenNote memory x) internal pure {
+    function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
-            // Clear the backpointer (index) in the referred-to `TokenNote`
+            // Clear the backpointer (index) in the referred-to `Note`
             let x_note_ptr := add(0x20, x)
             let x_note := mload(x_note_ptr)
             mstore(x_note_ptr, and(mask, x_note))
@@ -221,7 +254,7 @@ library NotedTokens {
             let end := mload(end_ptr)
             mstore(x_ptr, end)
 
-            // Fix up the backpointer (index) in the referred-to `TokenNote` to point to the new
+            // Fix up the backpointer (index) in the referred-to `Note` to point to the new
             // location of the indirection pointer.
             let end_note := add(0x20, end)
             mstore(end_note, or(and(not(mask), x_note), and(mask, mload(end_note))))
@@ -232,15 +265,15 @@ library NotedTokens {
     }
 
     // TODO: remove this
-    function del(TokenNote[] memory a, uint256 i) internal pure {
+    function del(Note[] memory a, uint256 i) internal pure {
         assembly ("memory-safe") {
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
-            // Clear the backpointer (index) in the referred-to `TokenNote`
+            // Clear the backpointer (index) in the referred-to `Note`
             let i_ptr := add(add(0x20, shl(0x05, i)), a)
             let i_note := add(0x20, mload(i_ptr))
             mstore(i_note, and(mask, mload(i_note)))
-            // We do not deallocate the `TokenNote`
+            // We do not deallocate the `Note`
 
             // Overwrite the vacated indirection pointer `i_ptr` with the one at the end.
             let len := mload(a)
@@ -248,7 +281,7 @@ library NotedTokens {
             let end := mload(end_ptr)
             mstore(i_ptr, end)
 
-            // Fix up the backpointer (index) in the referred-to `TokenNote` to point to the new
+            // Fix up the backpointer (index) in the referred-to `Note` to point to the new
             // location of the indirection pointer.
             let end_note := add(0x20, end)
             mstore(end_note, or(shl(0xf8, i), and(mask, mload(end_note))))
@@ -258,7 +291,7 @@ library NotedTokens {
         }
     }
 
-    function del(TokenNote[] memory a, IERC20 token) internal view {
+    function del(Note[] memory a, IERC20 token) internal view {
         // This is largely duplicated from the other `del` overload because Solidity neither gives
         // us a good way to call other Solidity functions from Yul nor a good way to initialize
         // `memory` references from Yul.
@@ -267,7 +300,7 @@ library NotedTokens {
             let x := tload(token)
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
-            // Clear the backpointer (index) in the referred-to `TokenNote`
+            // Clear the backpointer (index) in the referred-to `Note`
             let x_note_ptr := add(0x20, x)
             let x_note := mload(x_note_ptr)
             mstore(x_note_ptr, and(mask, x_note))
@@ -280,7 +313,7 @@ library NotedTokens {
             let end := mload(end_ptr)
             mstore(x_ptr, end)
 
-            // Fix up the backpointer (index) in the referred-to `TokenNote` to point to the new
+            // Fix up the backpointer (index) in the referred-to `Note` to point to the new
             // location of the indirection pointer.
             let end_note := add(0x20, end)
             mstore(end_note, or(and(not(mask), x_note), and(mask, mload(end_note))))
@@ -292,7 +325,7 @@ library NotedTokens {
 
     /// This only deallocates the transient storage mapping. The objects in memory remain as-is and
     /// may still be used. This does not deallocate any memory.
-    function destruct(TokenNote[] memory a) internal {
+    function destruct(Note[] memory a) internal {
         assembly ("memory-safe") {
             for {
                 let i := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
@@ -311,6 +344,58 @@ library NotedTokens {
     }
 }
 
+library StateLib {
+    using NotesLib for NotesLib.Note;
+    using NotesLib for NotesLib.Note[];
+
+    struct State {
+        NotesLib.Note globalSell;
+        NotesLib.Note sell;
+        NotesLib.note buy;
+    }
+
+    function construct(State memory state, IERC20 globalSellToken, uint256 globalSellAmount) internal returns (Note[] memory notes) {
+        assembly ("memory-safe") {
+            // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks Solc.
+            if iszero(eq(mload(0x40), add(0x120, state))) {
+                revert(0x00, 0x00)
+            }
+            mstore(0x40, add(0x60, state))
+        }
+        // All the pointers in `state` are now dangling; let's fix that
+        notes = NotesLib.construct();
+        // The pointers in `state` are now illegally aliasing elements in `notes`
+        NotePtr notePtr = notes.set(token, int256(globalSellAmount));
+        assembly ("memory-safe") {
+            mstore(state, notePtr)
+        }
+        setSell(notePtr);
+        setBuy(notePtr);
+    }
+
+    function setSell(State memory state, NotesLib.NotePtr notePtr) internal pure {
+        assembly ("memory-safe") {
+            mstore(add(0x20, state), notePtr)
+        }
+    }
+
+    function setSell(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
+        (NotesLib.NotePtr notePtr, ) = notes.getRaw(token);
+        setSell(state, notePtr);
+    }
+
+    function setBuy(State memory state, NotesLib.NotePtr notePtr) internal pure {
+        assembly ("memory-safe") {
+            mstore(add(0x40, state), notePtr)
+        }
+    }
+
+    function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
+        (NotesLib.NotePtr notePtr, ) = notes.getRaw(token);
+        setBuy(notePtr);
+    }
+}
+
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
@@ -318,7 +403,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeArray for TokenDelta[];
     using UnsafePoolManager for IPoolManager;
-    using NotedTokens for NotedTokens.TokenNote[];
+    using NotesLib for NotesLib.Note;
+    using NotesLib for NotesLib.Note[];
+    using StateLib for StateLib.State;
 
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has mandatory
     //// callbacks, and the vast majority of the business logic has to be executed inside the
@@ -514,17 +601,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     // 3 - hook data length
     uint256 private constant _HOP_LENGTH = 32;
 
-    /// To save stack and to simplify the following helper functions, we cache a bunch of state
-    /// about the swap. Note that `globalSellAmount` is practically unused when selling a FoT token.
-    struct State {
-        IERC20 globalSellToken;
-        uint256 globalSellAmount;
-        IERC20 sellToken;
-        uint256 sellAmount;
-        IERC20 buyToken;
-        uint256 buyAmount;
-    }
-
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process. The first byte of `data` describes
     /// which of the compact representations for the hop is used.
@@ -537,8 +613,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// the corresponding mapping in transient storage
     function _getPoolKey(
         PoolKey memory key,
-        IERC20[] memory notes,
-        State memory state,
+        NotesLib.Note[] memory notes,
+        StateLib.State memory state,
         bool feeOnTransfer,
         bytes calldata data
     ) private returns (bool, bytes calldata) {
@@ -547,33 +623,25 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         if (caseKey != 0) {
             if (caseKey > 1) {
                 if (caseKey == 2) {
-                    (state.sellToken, state.sellAmount) = (state.buyToken, state.buyAmount);
+                    state.sell = state.buy;
                 } else {
                     assert(caseKey == 3);
 
-                    state.sellToken = IERC20(address(uint160(bytes20(data))));
+                    IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
                     data = data[20:];
-                    state.sellAmount = _getCredit(state, feeOnTransfer, state.sellToken);
+
+                    state.setSell(notes, sellToken);
                 }
             }
-            state.buyToken = IERC20(address(uint160(bytes20(data))));
+
+            IERC20 buyToken = IERC20(address(uint160(bytes20(data))));
             data = data[20:];
 
-            // TODO: it would be a noticeable gas improvement to only note tokens when
-            // **un**-setting `buyToken`. That is, when overwriting it, note the old value. This
-            // removes some of the awkwardness with `_initializeNotes` and would avoid an extra
-            // `tload`/`tstore`. This does mean adding an extra check in `_getTokenDeltas` where we
-            // check if the last token in `notes` is the same as `state.buyToken`, and if it is,
-            // popping. On the whole, though, it should be an optimization.
-            if (_note(notes, state.buyToken)) {
-                delete state.buyAmount;
-            } else {
-                state.buyAmount = _getCredit(state.buyToken);
-            }
+            state.setBuy(notes, buyToken);
         }
 
-        bool zeroForOne = state.sellToken < state.buyToken;
-        (key.token0, key.token1) = zeroForOne ? (state.sellToken, state.buyToken) : (state.buyToken, state.sellToken);
+        bool zeroForOne = state.sell.token < state.buy.token;
+        (key.token0, key.token1) = zeroForOne ? (state.sell.token, state.buy.token) : (state.buy.token, state.sell.token);
         key.fee = uint24(bytes3(data));
         data = data[3:];
         key.tickSpacing = int24(uint24(bytes3(data)));
@@ -598,209 +666,13 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
-    /// Makes a `staticcall` to `POOL_MANAGER.exttload` to obtain the debt of the given
-    /// token. Reverts if the given token instead has credit.
-    function _getDebt(IERC20 token) private view returns (uint256) {
-        bytes32 key;
-        assembly ("memory-safe") {
-            mstore(0x00, address())
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
-            key := keccak256(0x00, 0x40)
-        }
-        int256 delta = int256(uint256(IPoolManager(_operator()).exttload(key)));
-        return delta.asDebt(token);
-    }
-
-    /// Makes a `staticcall` to `POOL_MANAGER.exttload` to obtain the credit of the given
-    /// token. Reverts if the given token instead has debt.
-    function _getCredit(IERC20 token) private view returns (uint256) {
-        bytes32 key;
-        assembly ("memory-safe") {
-            mstore(0x00, address())
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
-            key := keccak256(0x00, 0x40)
-        }
-        int256 delta = int256(uint256(IPoolManager(_operator()).exttload(key)));
-        return delta.asCredit(token);
-    }
-
-    /// A more complex version of `_getCredit`. There is additional logic that must be applied when
-    /// `token` might be the global sell token. Handles that case elegantly. Reverts if the given
-    /// token has debt.
-    function _getCredit(State memory state, bool feeOnTransfer, IERC20 token) private view returns (uint256) {
-        if (token == state.globalSellToken) {
-            if (feeOnTransfer) {
-                return _getCredit(token);
-            } else {
-                return state.globalSellAmount - _getDebt(token);
-            }
-        } else {
-            return _getCredit(token);
-        }
-    }
-
-    /// This function assumes that `notes` has been initialized by Solidity with a length of exactly
-    /// `_MAX_TOKENS`. We then truncate the array to a length of 1, store `token`, and make an entry
-    /// in the transient storage mapping. We do *NOT* deallocate memory. This ensures that the
-    /// length of `notes` can later be increased to store more tokens, up to the limit of
-    /// `_MAX_TOKENS`. `_note` below will revert upon reaching that limit.
-    function _initializeNotes(IERC20[] memory notes, IERC20 token) private {
-        assembly ("memory-safe") {
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-            mstore(notes, 0x01)
-            mstore(add(0x20, notes), token)
-            tstore(token, 0x20)
-        }
-    }
-
-    /// `_note` is responsible for maintaining `notes` and the corresponding mapping. The return
-    /// value `isNew` indicates that the token has been noted. That is, the token has been appended
-    /// to the `notes` array and a corresponding entry has been made in the transient storage
-    /// mapping. If `token` is not new, and it is not the token at the end of `notes`, we swap it to
-    /// the end (and make corresponding changes to the transient storage mapping). If `token` is not
-    /// new, and it is the token at the end of `notes`, this function is a no-op.  This function
-    /// reverts with a Panic with code 0x32 (indicating an out-of-bounds array access) if more than
-    /// `_MAX_TOKENS` tokens are involved in the UniV4 fills.
-    function _note(IERC20[] memory notes, IERC20 token) private returns (bool isNew) {
-        assembly ("memory-safe") {
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-            let notesLen := shl(0x05, mload(notes))
-            let notesLast := add(notes, notesLen)
-            let oldToken := mload(notesLast)
-            if iszero(eq(oldToken, token)) {
-                // Either `token` is new or it's in the wrong spot in `notes`
-                let tokenIndex := tload(token)
-                switch tokenIndex
-                case 0 {
-                    // `token` is new. Push it onto the end of `notes`.
-                    isNew := true
-
-                    notesLen := add(0x20, notesLen)
-                    if gt(notesLen, shr(0x05, _MAX_TOKENS)) {
-                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                        mstore(0x20, 0x32) // array out of bounds
-                        revert(0x1c, 0x24)
-                    }
-
-                    mstore(add(notesLen, notes), token)
-                    tstore(token, notesLen)
-
-                    mstore(notes, shr(0x05, notesLen))
-                }
-                default {
-                    // `token` is not new, but it's in the wrong spot. Swap it with the token
-                    // that's already there.
-                    mstore(notesLast, token)
-                    mstore(add(notes, tokenIndex), oldToken)
-                    tstore(token, notesLen)
-                    tstore(oldToken, tokenIndex)
-                }
-            }
-        }
-    }
-
-    struct TokenDelta {
-        IERC20 token;
-        int256 creditDebt;
-    }
-
-    /// Settling out the credits and debt at the end of a series of fills requires reading the
-    /// deltas for each token we touched from the transient storage of the pool manager. We do this
-    /// in bulk using `exttload(bytes32[])`. Then we parse the response, omitting each token with
-    /// zero delta. This is done in assembly for efficiency _and_ so that we can clear the transient
-    /// storage mapping. This function is only used by `_take`, which implements the corresponding
-    /// business logic.
-    function _getTokenDeltas(IERC20[] memory notes) private returns (TokenDelta[] memory deltas) {
-        // TODO: the number of tokens with nonzero deltas is stored in slot
-        // 0x7d4b3164c6e45b97e7d87b7125a44c5828d005af88f9d751cfd78729c5d99a0b --
-        // bytes32(uint256(keccak256("NonzeroDeltaCount")) - 1) it might optimize the simple cases
-        // here to either cache this value in memory or to read it first before tloading all of the
-        // delta slots from the pool manager
-        //
-        // I think that the best way to do this is to apply the optimization described in
-        // `_getPoolKey`, noting the buy token only when moving on to a new buy token, and then
-        // using a swap-and-pop to drop each token from `notes` as we zero its delta. We can also
-        // remove the global sell token from the front of `notes`, making a potential implementation
-        // more straightforward, because it's already stored in `state.globalSellToken`
-        assembly ("memory-safe") {
-            // We're going to allocate memory. We must correctly restore the free pointer later
-            let ptr := mload(0x40)
-
-            mstore(ptr, 0x9bf6645f) // selector for `exttload(bytes32[])`
-            mstore(add(0x20, ptr), 0x20)
-
-            // We need to hash the token with `address(this)` to obtain the transient slot that
-            // stores the delta in POOL_MANAGER. This avoids duplicated writes later.
-            mstore(0x00, address())
-
-            // `len` is one word short of the actual length of `notes`. the last element of `notes`
-            // is the buy token and is handled separately. we already know the credit of that
-            // token. it is `state.buyAmount`.
-            let len := sub(shl(0x05, mload(notes)), 0x20)
-            mstore(add(0x40, ptr), shr(0x05, len))
-
-            for {
-                let src := add(0x20, notes)
-                let dst := add(0x60, ptr)
-                let end := add(src, len)
-            } lt(src, end) {
-                src := add(0x20, src)
-                dst := add(0x20, dst)
-            } {
-                // load the token from the array
-                let token := mload(src)
-
-                // clear the memoization transient slot
-                tstore(token, 0x00)
-
-                // compute the slot that POOL_MANAGER uses to store the delta; store it in the
-                // incremental calldata
-                mstore(0x20, token)
-                mstore(dst, keccak256(0x00, 0x40))
-            }
-
-            // perform the call to `exttload(bytes32[])`; check for failure
-            if iszero(staticcall(gas(), caller(), add(0x1c, ptr), add(0x44, len), ptr, add(0x40, len))) {
-                // `exttload(bytes32[])` can only fail by OOG. no need to check the returndata
-                revert(0x00, 0x00)
-            }
-
-            // there is 1 wasted slot of memory here (it stores 0x20), but we don't correct for it
-            deltas := add(0x20, ptr)
-            // we know that the returndata is correctly ABIEncoded, so we skip the first 2 slots
-            let src := add(0x40, ptr)
-            ptr := add(len, src)
-            let dst := src
-            for { let end := ptr } lt(src, end) { src := add(0x20, src) } {
-                // dst is updated below
-
-                let creditDebt := mload(src)
-                if creditDebt {
-                    mstore(dst, ptr)
-                    dst := add(0x20, dst)
-                    mcopy(ptr, add(notes, sub(src, deltas)), 0x20)
-                    mstore(add(0x20, ptr), creditDebt)
-                    ptr := add(0x40, ptr)
-                }
-            }
-
-            // set length
-            mstore(deltas, shr(0x05, sub(sub(dst, deltas), 0x20)))
-
-            // update the free memory pointer
-            mstore(0x40, ptr)
-        }
-    }
-
     /// `_take` is responsible for removing the accumulated credit in each token from the pool
     /// manager. It returns the settled global `sellAmount` as the amount that must be paid to the
     /// pool manager (there is a subtle interaction here with the `feeOnTransfer` flag) as well as
-    /// the settled global `buyAmount`, after checking it against the slippage limit. This function
-    /// uses `_getTokenDeltas` to do the dirty work of enumerating the tokens involved in all the
-    /// fills and reading their credit/debt from the transient storage of the pool manager. Each
-    /// token with credit causes a corresponding call to `POOL_MANAGER.take`. Any token with debt
-    /// (except the first) causes a revert. The last token in `notes` has its slippage checked.
-    function _take(IERC20[] memory notes, State memory state, address payer, address recipient, uint256 minBuyAmount)
+    /// the settled global `buyAmount`, after checking it against the slippage limit. Each token
+    /// with credit causes a corresponding call to `POOL_MANAGER.take`. Any token with debt (except
+    /// the first) causes a revert. The current `state.buy.token` has its slippage checked.
+    function _take(StateLib.State memory state, NotesLib.Note[] memory notes, address payer, address recipient, uint256 minBuyAmount)
         private
         DANGEROUS_freeMemory
         returns (uint256 sellAmount, uint256 buyAmount)
