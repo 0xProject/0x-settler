@@ -46,6 +46,194 @@ library CreditDebt {
     }
 }
 
+type IndexAndDelta is bytes32;
+
+library IndexAndDeltaAccessors {
+    function index(IndexAndDelta x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := shr(0xf8, x)
+        }
+    }
+
+    function delta(IndexAndDelta x) internal pure returns (int256 r) {
+        assembly ("memory-safe") {
+            r := signextend(0x1f, x)
+        }
+    }
+}
+
+using IndexAndDeltaAccessors for IndexAndDelta global;
+
+/// This library is a highly-optimized, enumerable mapping from tokens to deltas
+library NotedTokens {
+    /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
+    /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
+    /// access).
+    uint256 private constant _MAX_TOKENS = 8;
+
+    struct TokenNote {
+        IERC20 token;
+        IndexAndDelta note;
+    }
+
+    function construct() internal pure returns (TokenNote[] memory r) {
+        assembly ("memory-safe") {
+            r := mload(0x40)
+            mstore(r, 0x00)
+            mstore(add(r, add(0x20, shl(0x05, _MAX_TOKENS))), 0x00)
+            mstore(0x40, add(add(0x40, mul(_MAX_TOKENS, 0x60)), r))
+        }
+    }
+
+    function get(TokenNote[] memory a, uint256 i) internal pure returns (IERC20 token, int256 delta) {
+        assembly ("memory-safe") {
+            let x := mload(add(add(0x20, shl(0x05, i)), a))
+            token := mload(x)
+            delta := signextend(0x1f, mload(add(0x20, x)))
+        }
+    }
+
+    function get(TokenNote[] memory, IERC20 token) internal view returns (int256 delta) {
+        assembly ("memory-safe") {
+            delta := signextend(0x1f, mload(add(0x20, tload(and(0xffffffffffffffffffffffffffffffffffffffff, token)))))
+        }
+    }
+
+    // TODO: store pointers intead of indices in each `note` field
+
+    /// It is an error to `push` a token that is already in `a`. This is not checked and does not
+    /// throw.
+    function push(TokenNote[] memory a, IERC20 token) internal returns (TokenNote memory r) {
+        assembly ("memory-safe") {
+            // TODO: remove this check; it's always true
+            if iszero(eq(mload(0x40), sub(r, 0x40))) {
+                revert(0x00, 0x00)
+            }
+            mstore(0x40, sub(r, 0x40)) // solc is fucking stupid
+
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
+
+            // Increment the length of `a`
+            let i := add(0x01, mload(a))
+            mstore(a, i)
+            // `i` is now 1-indexed
+
+            // Find the first free `TokenNote` object (in memory after `a`)
+            let indirectArrayEnd := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
+            let noteAllocations := mload(indirectArrayEnd)
+            r := add(indirectArrayEnd, add(0x20, shl(0x06, noteAllocations)))
+            // Allocate it
+            mstore(indirectArrayEnd, add(0x01, noteAllocations))
+
+            // Set the indirection pointer stored in `a` at the appropriate index to `r`
+            mstore(add(add(0x20, a), shl(0x05, i)), r)
+
+            // Set the transient storage mapping for `token` to point at `r`
+            tstore(token, r)
+
+            // Initialize `r`
+            mstore(r, token)
+            mstore(add(0x20, r), shl(0xf8, i))
+        }
+    }
+
+    function getDefault(TokenNote[] memory a, IERC20 token) internal returns (int256 delta) {
+        assembly ("memory-safe") {
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
+            let x := tload(token)
+            switch x
+            case 0 {
+                // Increment the length of `a`
+                let i := add(0x01, mload(a))
+                mstore(a, i)
+                // `i` is now 1-indexed; we do not require bounds-checking on `i` because it is
+                // implicitly bounded above by `noteAllocations`, which is bounds-checked
+
+                // Find the first free `TokenNote` object (in memory after `a`)
+                let indirectArrayEnd := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
+                let noteAllocations := mload(indirectArrayEnd)
+                if eq(noteAllocations, _MAX_TOKENS) {
+                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                    mstore(0x20, 0x32) // array out of bounds
+                    revert(0x1c, 0x24)
+                }
+                x := add(indirectArrayEnd, add(0x20, shl(0x06, noteAllocations)))
+                // Allocate it
+                mstore(indirectArrayEnd, add(0x01, noteAllocations))
+
+                // Set the indirection pointer stored in `a` at the appropriate index to `x`
+                mstore(add(shl(0x05, i), a), x)
+
+                // Set the transient storage mapping for `token` to point at `x`
+                tstore(token, x)
+
+                // Initialize `x`
+                mstore(x, token)
+                mstore(add(0x20, x), shl(0xf8, i))
+
+                // `delta` remains zero
+            }
+            default {
+                delta := signextend(0x1f, mload(add(0x20, x)))
+            }
+        }
+    }
+
+    function swap(TokenNote[] memory a, TokenNote memory x, TokenNote memory y) internal pure {
+        assembly ("memory-safe") {
+            let x_i_ptr := add(0x20, x)
+            let x_note := mload(x_i_ptr)
+            let x_i := shr(0xf8, x_note)
+
+            let y_i_ptr := add(0x20, y)
+            let y_note := mload(y_i_ptr)
+            let y_i := shr(0xf8, y_note)
+
+            // Swap the indices in `x` and `y`
+            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+            mstore(x_i_ptr, or(and(mask, x_note), shl(0xf8, y_i)))
+            mstore(y_i_ptr, or(and(mask, y_note), shl(0xf8, x_i)))
+
+            // Swap the indirection pointers in `a` (`x_i` and `y_i` are 1-indexed)
+            mstore(add(shl(0x05, x_i), a), y)
+            mstore(add(shl(0x05, y_i), a), x)
+        }
+    }
+
+    function pop(TokenNote[] memory a) internal pure {
+        assembly ("memory-safe") {
+            let len := mload(a)
+            let end := add(shl(0x05, len), a)
+
+            // Clear the backpointer (index) in the referred-to `TokenNote`
+            let i_ptr := add(0x20, mload(end))
+            mstore(i_ptr, and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, mload(i_ptr)))
+            // We do not deallocate the `TokenNote`
+
+            mstore(a, sub(len, 0x01))
+        }
+    }
+
+    /// This only deallocates the transient storage mapping. The objects in memory remain as-is and
+    /// may still be used. This does not deallocate any memory.
+    function destruct(TokenNote[] memory a) internal {
+        assembly ("memory-safe") {
+            for {
+                let i := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
+                let end
+                {
+                    let len := mload(i)
+                    i := add(0x20, i)
+                    end := add(shl(0x06, len), i)
+                }
+            } lt(i, end) {
+                i := add(0x40, i)
+            } {
+                tstore(mload(i), 0x00)
+            }
+        }
+    }
+}
 
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using UnsafeMath for uint256;
@@ -54,6 +242,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeArray for TokenDelta[];
     using UnsafePoolManager for IPoolManager;
+    using NotedTokens for NotedTokens.TokenNote[];
 
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has mandatory
     //// callbacks, and the vast majority of the business logic has to be executed inside the
@@ -373,11 +562,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             return _getCredit(token);
         }
     }
-
-    /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
-    /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
-    /// access).
-    uint256 private constant _MAX_TOKENS = 8;
 
     /// This function assumes that `notes` has been initialized by Solidity with a length of exactly
     /// `_MAX_TOKENS`. We then truncate the array to a length of 1, store `token`, and make an entry
