@@ -168,6 +168,8 @@ library NotedTokens {
 
     function swap(TokenNote[] memory a, TokenNote memory x, TokenNote memory y) internal pure {
         assembly ("memory-safe") {
+            // Use the backpointers (indices) in `x.note.index()` and `y.note.index()` to swap the
+            // corresponding entries in `a`
             let x_i_ptr := add(0x20, x)
             let x_note := mload(x_i_ptr)
             let x_i := shr(0xf8, x_note)
@@ -176,7 +178,7 @@ library NotedTokens {
             let y_note := mload(y_i_ptr)
             let y_i := shr(0xf8, y_note)
 
-            // Swap the indices in `x` and `y`
+            // Swap the indices in `x.note.index()` and `y.note.index()`
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
             mstore(x_i_ptr, or(and(mask, x_note), shl(0xf8, y_i)))
             mstore(y_i_ptr, or(and(mask, y_note), shl(0xf8, x_i)))
@@ -229,6 +231,7 @@ library NotedTokens {
         }
     }
 
+    // TODO: remove this
     function del(TokenNote[] memory a, uint256 i) internal pure {
         assembly ("memory-safe") {
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -255,7 +258,10 @@ library NotedTokens {
         }
     }
 
-    function del(TokenNote[] memory a, IERC20 token) internal pure {
+    function del(TokenNote[] memory a, IERC20 token) internal view {
+        // This is largely duplicated from the other `del` overload because Solidity neither gives
+        // us a good way to call other Solidity functions from Yul nor a good way to initialize
+        // `memory` references from Yul.
         assembly ("memory-safe") {
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             let x := tload(token)
