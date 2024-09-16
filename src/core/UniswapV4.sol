@@ -206,7 +206,7 @@ library NotedTokens {
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
             // Clear the backpointer (index) in the referred-to `TokenNote`
-            let i_ptr := add(add(0x20, shl(0x05, len)), a)
+            let i_ptr := add(add(0x20, shl(0x05, i)), a)
             let i_note := add(0x20, mload(i_ptr))
             mstore(i_note, and(mask, mload(i_note)))
             // We do not deallocate the `TokenNote`
