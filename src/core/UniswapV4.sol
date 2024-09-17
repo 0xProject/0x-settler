@@ -493,7 +493,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
     /// Because we have to ABIEncode the arguments to `.swap(...)` and copy the `hookData` from
     /// calldata into memory, we save gas be deallocating at the end of this function.
-    function _swap(PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
+    function _swap(IPoolManager.PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
         private
         DANGEROUS_freeMemory
         returns (BalanceDelta)
@@ -522,7 +522,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// `StateLib.setBuy`), which maintains the `notes` array and the corresponding mapping in
     /// transient storage
     function _getPoolKey(
-        PoolKey memory key,
+        IPoolManager.PoolKey memory key,
         StateLib.State memory state,
         NotesLib.Note[] memory notes,
         bytes calldata data
@@ -756,7 +756,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
         // and executing them.
-        PoolKey memory key;
+        IPoolManager.PoolKey memory key;
         IPoolManager.SwapParams memory params;
         while (data.length >= _HOP_LENGTH) {
             uint16 bps = uint16(bytes2(data));
