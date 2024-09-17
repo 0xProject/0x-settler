@@ -34,7 +34,6 @@ library CreditDebt {
     }
 }
 
-// TODO: we never actually need to store negative numbers; make this unsigned
 library IndexAndDeltaLib {
     type IndexAndDelta is uint256;
 
@@ -92,6 +91,9 @@ library NotesLib {
     uint256 private constant _MAX_TOKENS = 8;
 
     // TODO: swap the fields of this struct; putting `note` first saves a bunch of ADDs
+    // TODO: maybe move the `index` to share its slot with `token` instead of `amount`; `amount` is
+    //       more frequently modified than `index` and `token` is never modified, so packing the
+    //       less-frequently-modified members together means less masking.
     // TODO: store pointers intead of indices in each `note` field
     struct Note {
         IERC20 token;
