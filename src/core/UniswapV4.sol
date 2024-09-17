@@ -667,57 +667,36 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         private
         returns (uint256 buyAmount)
     {
-        TokenDelta[] memory deltas = _getTokenDeltas(notes);
-        uint256 length = deltas.length;
+        notes.del(state.buy); // Guaranteed to exist
+        notes.destruct();
+        // No more looking up tokens in `notes` by their address
 
-        {
-            TokenDelta memory sellDelta = deltas[0]; // revert on out-of-bounds is desired
-            (IERC20 token, int256 creditDebt) = (sellDelta.token, sellDelta.creditDebt);
-            if (token == state.sellToken) {
-                if (creditDebt > 0) {
-                    // It's only possible to reach this branch when selling a FoT token and
-                    // encountering a partial fill. This is a fairly rare occurrence, so it's
-                    // poorly-optimized. It also incurs an additional tax.
-                    IPoolManager(_operator()).unsafeTake(
-                        token, payer == address(this) ? address(this) : _msgSender(), uint256(creditDebt)
-                    );
-                    // sellAmount remains zero
-                } else {
-                    // The actual sell amount (inclusive of any partial filling) is the debt of the
-                    // first token. This is the most common branch to hit.
-                    sellAmount = uint256(creditDebt.unsafeNeg());
-                }
-            } else if (length != 0) {
-                // This branch is encountered when selling a FoT token, not encountering a partial
-                // fill (filling exactly), and then having to multiplex *OUT* more than 1
-                // token. This is a fairly rare case.
-                IPoolManager(_operator()).unsafeTake(token, address(this), creditDebt.asCredit(token));
-                // sellAmount remains zero
+        uint256 length = notes.length;
+        IERC20 globalSellToken = state.globalSell.token;
+        for (uint256 i; i < length; i = i.unsafeInc()) {
+            (IERC20 token, int256 delta) = notes.get(i);
+            if (token == globalSellToken) {
+                // TODO: we can probably be sure that the global sell token is the first token in
+                // `notes` (if it hasn't been zeroed). But we should double check this before
+                // removing this check
+                continue;
             }
-            // else {
-            //     // This branch is encountered when selling a FoT token, not encountering a
-            //     // partial fill (filling exactly), and then buying exactly 1 token. This is the
-            //     // second most common branch. This is also elegantly handled by simply falling
-            //     // through to the last block of this function
-            //
-            //     // sellAmount remains zero
-            // }
+            // `delta` should be positive, unless something insane has happened
+            if (delta == 0) {
+                revert ZeroBuyAmount(token);
+            }
+            IPoolManager(_operator()).unsafeTake(token, address(this), delta.asCredit(token));
         }
 
-        // Sweep any dust or any non-UniV4 multiplex-out into Settler.
-        for (uint256 i = 1; i < length; i = i.unsafeInc()) {
-            (IERC20 token, int256 creditDebt) = deltas.unsafeGet(i);
-            IPoolManager(_operator()).unsafeTake(token, address(this), creditDebt.asCredit(token));
-        }
-
-        // TODO: Remove this last branch from this function; it doesn't have much/anything to do
-        // with the other cases now that the buy token isn't in `notes`
-
-        // The last token of `notes` is not checked. We read its information from `state`
-        // instead. It is the global buy token. Check the slippage limit. Transfer to the recipient.
+        // The final token to be bought is considered the global buy token. We bypass the transient
+        // storage mapping and read it directly from `state`. Check the slippage limit. Transfer to
+        // the recipient.
         {
-            IERC20 token = state.buyToken;
-            buyAmount = state.buyAmount;
+            (IERC20 token, int256 delta) = (state.buy.token, state.buy.note.delta());
+            if (delta == 0) {
+                revert ZeroBuyAmount(token);
+            }
+            buyAmount = delta.asCredit(token);
             if (buyAmount < minBuyAmount) {
                 if (token == IERC20(address(0))) {
                     token = ETH_ADDRESS;
@@ -747,34 +726,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return IPoolManager(_operator()).settle();
     }
 
-    function unlockCallback(bytes calldata data) private returns (bytes memory) {
-        // These values are user-supplied
-        address recipient = address(uint160(bytes20(data)));
-        data = data[20:];
-        uint256 minBuyAmount = uint128(bytes16(data));
-        data = data[16:];
-        bool feeOnTransfer = uint8(bytes1(data)) != 0;
-        data = data[1:];
-
-        // `payer` is special and is authenticated
-        address payer = address(uint160(bytes20(data)));
-        data = data[20:];
-
-        State memory state;
-        state.globalSellToken = IERC20(address(uint160(bytes20(data))));
-        // We don't advance `data` here because there's a special interaction between `payer`,
-        // `sellToken`, and `permit` that's handled below.
-
-        // We could do this anytime before we begin swapping.
-        IERC20[] memory notes = new IERC20[](_MAX_TOKENS);
-        // This is awkward and not gas-optimal, duplicating work with `_note` on the first hop, but
-        // it avoids a bug where the representation of selling Ether (zero) collides with the
-        // representation of an empty memory array (also zero).
-        _initializeNotes(notes, state.globalSellToken);
-
-        ISignatureTransfer.PermitTransferFrom calldata permit;
-        bool isForwarded;
-        bytes calldata sig;
+    function _setup(bytes calldata data, bool feeOnTransfer, address payer) internal returns (bytes calldata newData, IERC20 sellToken, uint256 sellAmount, ISignatureTransfer.PermitTransferFrom calldata permit, bool isForwarded, bytes calldata sig) {
         // This assembly block is just here to appease the compiler. We only use `permit` and `sig`
         // in the codepaths where they are set away from the values initialized here.
         assembly ("memory-safe") {
@@ -783,20 +735,20 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             sig.length := 0x00
         }
 
-        // TODO: it would be really nice to be able to custody-optimize multihops by calling
-        // `unlock` at the beginning of the swap and doing the dispatch loop inside the
-        // callback. But this introduces additional attack surface and may not even be that much
-        // more efficient considering all the `calldatacopy`ing required and memory expansion.
-        if (state.globalSellToken == ETH_ADDRESS) {
+        sellToken = IERC20(address(uint160(bytes20(data))));
+        // We don't advance `data` here because there's a special interaction between `payer`,
+        // `sellToken`, and `permit` that's handled below.
+
+        if (sellToken == ETH_ADDRESS) {
             assert(payer == address(this));
             data = data[20:];
 
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
             unchecked {
-                state.globalSellAmount = (address(this).balance * bps).unsafeDiv(BASIS);
+                sellAmount = (address(this).balance * bps).unsafeDiv(BASIS);
             }
-            state.globalSellToken = IERC20(address(0));
+            sellToken = IERC20(address(0));
         } else {
             if (payer == address(this)) {
                 data = data[20:];
@@ -804,7 +756,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 uint16 bps = uint16(bytes2(data));
                 data = data[2:];
                 unchecked {
-                    state.globalSellAmount = (state.globalSellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                    sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
                 }
             } else {
                 assert(payer == address(0));
@@ -828,13 +780,38 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     data.length := sub(sub(data.length, 0x95), sig.length)
                 }
 
-                state.globalSellAmount = _permitToSellAmountCalldata(permit);
+                sellAmount = _permitToSellAmountCalldata(permit);
             }
 
             if (feeOnTransfer) {
-                _settleERC20(state.globalSellToken, payer, state.globalSellAmount, permit, isForwarded, sig);
+                sellAmount = _pay(sellToken, payer, sellAmount, permit, isForwarded, sig);
             }
         }
+
+        newData = data;
+    }
+
+    function unlockCallback(bytes calldata data) private returns (bytes memory) {
+        // These values are user-supplied
+        address recipient = address(uint160(bytes20(data)));
+        data = data[20:];
+        uint256 minBuyAmount = uint128(bytes16(data));
+        data = data[16:];
+        bool feeOnTransfer = uint8(bytes1(data)) != 0;
+        data = data[1:];
+
+        // `payer` is special and is authenticated
+        address payer = address(uint160(bytes20(data)));
+        data = data[20:];
+
+        ISignatureTransfer.PermitTransferFrom calldata permit;
+        bool isForwarded;
+        bytes calldata sig;
+        uint256 globalSellAmount;
+        IERC20 globalSellToken;
+        (data, globalSellToken, globalSellAmount, permit, isForwarded, sig) = _setup(data, feeOnTransfer, payer);
+        StateLib.State memory state;
+        NotesLib.Note[] memory notes = state.construct(globalSellToken, globalSellAmount);
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
         // and executing them.
