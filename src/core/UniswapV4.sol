@@ -156,13 +156,15 @@ library NotesLib {
 
                 // Initialize `x`
                 mstore(x, token)
+                mstore(add(0x20, x), shl(0xf8, i))
             }
             default {
                 // We've seen this token before; its `Note` is initialized, but it may not have
                 // an indirection pointer in `a`
 
-                let note := add(0x20, x)
-                i := shr(0xf8, mload(note))
+                let note_ptr := add(0x20, x)
+                let note := mload(note_ptr)
+                i := shr(0xf8, note)
                 if iszero(i) {
                     // No indirection pointer in `a` references `x`. Push `x` (which is already
                     // initialized) onto `a`
@@ -174,6 +176,9 @@ library NotesLib {
 
                     // Set indirection pointer
                     mstore(add(shl(0x05, i), a), x)
+
+                    // Set backpointer (index)
+                    mstore(note_ptr, or(shl(0xf8, i), and(not(delta_mask), note)))
                 }
             }
         }
