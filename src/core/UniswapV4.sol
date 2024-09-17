@@ -286,10 +286,12 @@ library StateLib {
             if iszero(eq(mload(0x40), add(0x120, state))) { revert(0x00, 0x00) }
             mstore(0x40, add(0x60, state))
         }
-        // All the pointers in `state` are now dangling; let's fix that
+        // All the pointers in `state` are now pointing into unallocated memory
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
         NotesLib.NotePtr notePtr = notes.set(token, int256(amount));
+
+        // Here we actually set the pointers into a legal area of memory
         assembly ("memory-safe") {
             mstore(state, notePtr)
         }
@@ -486,16 +488,16 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// of the complexity of tracking which tokens need to be zeroed out at the end of the
     //// callback.
     ////
-    //// The two major pieces of state that are maintained through the callback are `IERC20[] memory
+    //// The two major pieces of state that are maintained through the callback are `Note[] memory
     //// notes` and `State memory state`
     ////
-    //// `notes` keeps track of the full list of all tokens that have been touched throughout the
-    //// callback. The first token in the list is the sell token (any debt will be paid to the pool
-    //// manager). The last token in the list is the buy token (any credit will be checked against
-    //// the slippage limit). All other tokens in the list are some combination of intermediate
-    //// tokens or multiplex-out tokens (any credit will be swept back into Settler). To avoid doing
-    //// a linear scan each time a new token is encountered, the transient storage slot named by
-    //// that token stores the index (actually index * 32 + 32) of the token in the array. The
+    //// `notes` keeps track of the list of the tokens that have been touched throughout the
+    //// callback that have nonzero delta (i.e. either credit or debt). At the end of the fills, all
+    //// tokens with positive delta (credit) will be swept back to Settler. These are the buy token
+    //// (against which slippage is checked) and any other multiplex-out tokens. Only the global
+    //// sell token is allowed to have debt, but it is accounted slightly differently from the other
+    //// tokens. To avoid doing a linear scan each time a new token is encountered, the transient
+    //// storage slot named by each token stores the pointer to the corresponding `Note` object. The
     //// function `_take` is responsible for iterating over the list of tokens and withdrawing any
     //// credit to the appropriate recipient.
     ////
@@ -503,8 +505,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// swapping. By keeping track of the sell token on each hop, we're able to compress the
     //// representation of the fills required to satisfy the swap. Most often in a swap, the tokens
     //// in adjacent fills are somewhat in common. By caching these tokens, we avoid having them
-    //// appear multiple times in the calldata. Additionally, this caching helps us avoid reading
-    //// the credit of each fill's sell token.
+    //// appear multiple times in the calldata. Additionally, this caching helps us avoid having to
+    //// dereference the pointer in transient storage.
 
     /// Because we have to ABIEncode the arguments to `.swap(...)` and copy the `hookData` from
     /// calldata into memory, we save gas be deallocating at the end of this function.
@@ -533,12 +535,13 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     ///   2 -> sell token becomes the buy token from the previous fill, new buy token is read from `data` (multihop)
     ///   3 -> both sell and buy token are read from `data`
     ///
-    /// This function is also responsible for calling `_note`, which maintains the `notes` array and
-    /// the corresponding mapping in transient storage
+    /// This function is also responsible for calling `NotesLib.insert` (via `StateLib.setSell` and
+    /// `StateLib.setBuy`), which maintains the `notes` array and the corresponding mapping in
+    /// transient storage
     function _getPoolKey(
         PoolKey memory key,
-        NotesLib.Note[] memory notes,
         StateLib.State memory state,
+        NotesLib.Note[] memory notes,
         bytes calldata data
     ) private returns (bool, bytes calldata) {
         uint256 caseKey = uint8(bytes1(data));
@@ -777,7 +780,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             data = data[2:];
 
             bool zeroForOne;
-            (zeroForOne, data) = _getPoolKey(key, notes, state, data);
+            (zeroForOne, data) = _getPoolKey(key, state, notes, data);
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
