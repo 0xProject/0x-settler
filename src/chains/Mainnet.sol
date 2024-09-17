@@ -54,7 +54,7 @@ abstract contract MainnetMixin is
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint32 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase)
@@ -144,7 +144,7 @@ abstract contract MainnetMixin is
 contract MainnetSettler is Settler, MainnetMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
-    function _dispatchVIP(uint32 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
@@ -199,7 +199,7 @@ contract MainnetSettler is Settler, MainnetMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, uint32 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
@@ -216,7 +216,7 @@ contract MainnetSettler is Settler, MainnetMixin {
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
-    function _dispatchVIP(uint32 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override
         DANGEROUS_freeMemory
@@ -264,7 +264,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, uint32 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
