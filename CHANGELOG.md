@@ -24,6 +24,10 @@ Master list of UniV3 forks:
 
 ---
 
+* Add actions for UniswapV4
+  * `UNISWAPV4`, `UNISWAPV4_VIP`, and `METATXN_UNISWAPV4_VIP`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to encode `fills`
+
 ## 2024-09-09
 
 ### Breaking changes
