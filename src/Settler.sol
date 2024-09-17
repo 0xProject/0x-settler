@@ -49,7 +49,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatchVIP(uint32 action, bytes calldata data) internal virtual returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
         if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
@@ -94,18 +94,18 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         returns (bool)
     {
         if (actions.length != 0) {
-            (uint32 action, bytes calldata data) = actions.decodeCall(0);
+            (uint256 action, bytes calldata data) = actions.decodeCall(0);
             if (!_dispatchVIP(action, data)) {
                 if (!_dispatch(0, action, data)) {
-                    revert ActionInvalid(0, bytes4(action), data);
+                    revert ActionInvalid(0, bytes4(uint32(action)), data);
                 }
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            (uint32 action, bytes calldata data) = actions.decodeCall(i);
+            (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, bytes4(action), data);
+                revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
         }
 

@@ -25,7 +25,7 @@ library CalldataDecoder {
     function decodeCall(bytes[] calldata data, uint256 i)
         internal
         pure
-        returns (uint32 selector, bytes calldata args)
+        returns (uint256 selector, bytes calldata args)
     {
         assembly ("memory-safe") {
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
@@ -97,7 +97,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         }
     }
 
-    function _dispatch(uint256, uint32 action, bytes calldata data) internal virtual override returns (bool) {
+    function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
         if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));

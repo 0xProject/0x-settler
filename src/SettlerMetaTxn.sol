@@ -80,7 +80,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         }
     }
 
-    function _dispatchVIP(uint32 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
         if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
@@ -131,20 +131,20 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
         require(actions.length != 0);
         {
-            (uint32 action, bytes calldata data) = actions.decodeCall(0);
+            (uint256 action, bytes calldata data) = actions.decodeCall(0);
 
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
             if (!_dispatchVIP(action, data, sig)) {
-                revert ActionInvalid(0, bytes4(action), data);
+                revert ActionInvalid(0, bytes4(uint32(action)), data);
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            (uint32 action, bytes calldata data) = actions.decodeCall(i);
+            (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, bytes4(action), data);
+                revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
         }
 
