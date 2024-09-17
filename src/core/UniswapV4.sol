@@ -509,7 +509,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     // 3 - pool tick spacing
     // 20 - pool hooks
     // 3 - hook data length
-    uint256 private constant _HOP_LENGTH = 32;
+    uint256 private constant _HOP_DATA_LENGTH = 32;
 
     /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
     /// bytes that are not consumed in the decoding process. The first byte of `data` describes
@@ -758,7 +758,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // and executing them.
         IPoolManager.PoolKey memory key;
         IPoolManager.SwapParams memory params;
-        while (data.length >= _HOP_LENGTH) {
+        while (data.length >= _HOP_DATA_LENGTH) {
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
 
