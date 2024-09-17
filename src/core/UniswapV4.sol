@@ -634,9 +634,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         {
             IERC20 buyToken = state.buy.token;
             buyAmount = state.buy.amount();
-            if (buyAmount == 0) {
-                revert ZeroBuyAmount(buyToken);
-            }
             if (buyAmount < minBuyAmount) {
                 if (buyToken == IERC20(address(0))) {
                     buyToken = ETH_ADDRESS;
