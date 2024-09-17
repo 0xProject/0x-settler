@@ -618,8 +618,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     // The global sell token being in a position other than the 1st would imply that
                     // at some point we _bought_ that token. This is illegal and results in a revert
                     // with reason `BoughtSellToken(address)`.
-                    (IERC20 token, uint256 amount) = notes.get(0);
-                    IPoolManager(_operator()).unsafeTake(token, address(this), amount);
+                    IPoolManager(_operator()).unsafeTake(firstNote.token, address(this), firstNote.amount());
                 }
             }
             for (uint256 i = 1; i < length; i = i.unsafeInc()) {
