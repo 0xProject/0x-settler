@@ -608,6 +608,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
 
         uint256 length = notes.length;
+        // `length` of zero implies that we fully liquidated the global sell token (there is no
+        // `amount` remaining) and that the only token in which we have credit is the global buy
+        // token. We're about to `take` that token below.
         if (length != 0) {
             {
                 NotesLib.Note memory firstNote = notes[0]; // out-of-bounds is impossible
@@ -624,9 +627,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 IPoolManager(_operator()).unsafeTake(token, address(this), amount);
             }
         }
-        // `length` of zero implies that we fully liquidated the global sell token (there is no
-        // `amount` remaining) and that the only token in which we have credit is the global buy
-        // token. We're about to `take` that token below.
 
         // The final token to be bought is considered the global buy token. We bypass the transient
         // storage mapping and read it directly from `state`. Check the slippage limit. Transfer to
