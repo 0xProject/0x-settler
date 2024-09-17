@@ -609,12 +609,12 @@ abstract contract UniswapV4 is SettlerAbstract {
                     // The global sell token being in a position other than the 1st would imply that
                     // at some point we _bought_ that token. This is illegal and results in a revert
                     // with reason `BoughtSellToken(address)`.
-                    IPoolManager(_operator()).unsafeTake(firstNote.token, address(this), firstNote.amount());
+                    IPoolManager(msg.sender).unsafeTake(firstNote.token, address(this), firstNote.amount());
                 }
             }
             for (uint256 i = 1; i < length; i = i.unsafeInc()) {
                 (IERC20 token, uint256 amount) = notes.get(i);
-                IPoolManager(_operator()).unsafeTake(token, address(this), amount);
+                IPoolManager(msg.sender).unsafeTake(token, address(this), amount);
             }
         }
 
@@ -629,7 +629,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 }
                 revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
-            IPoolManager(_operator()).unsafeTake(buyToken, recipient, buyAmount);
+            IPoolManager(msg.sender).unsafeTake(buyToken, recipient, buyAmount);
         }
     }
 
@@ -641,15 +641,15 @@ abstract contract UniswapV4 is SettlerAbstract {
         bool isForwarded,
         bytes calldata sig
     ) private returns (uint256) {
-        IPoolManager(_operator()).unsafeSync(sellToken);
+        IPoolManager(msg.sender).unsafeSync(sellToken);
         if (payer == address(this)) {
-            sellToken.safeTransfer(_operator(), sellAmount);
+            sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
-        return IPoolManager(_operator()).settle();
+        return IPoolManager(msg.sender).settle();
     }
 
     function _setup(bytes calldata data, bool feeOnTransfer, address payer)
