@@ -840,12 +840,21 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 // some insane hooks may increase the sell amount; obviously this may result in
                 // unavoidable reverts in some cases. but we still need to make sure that we don't
                 // underflow to avoid wildly unexpected behavior
-                state.sellAmount -= settledSellAmount.asDebt(state.sellToken);
-                unchecked {
-                    // if `state.buyAmount` overflows an `int128`, we'll get a revert inside the
-                    // pool manager later
-                    state.buyAmount += settledBuyAmount.asCredit(state.buyToken);
+                {
+                    IndexAndDeltaLib.IndexAndDelta note = state.sell.note;
+                    // The pool manager enforces that the settled sell amount cannot be positive
+                    note.unsafeAdd(settledSellAmount);
+                    if (note.delta() < 0) {
+                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                    }
+                    state.sell.note = note;
                 }
+                if (settledBuyAmount == 0) {
+                    revert ZeroBuyAmount(state.buy.token);
+                }
+                // if `state.buyAmount` overflows an `int128`, we'll get a revert inside the pool
+                // manager later
+                state.buy.note = state.buy.note.unsafeAdd(int256(settledBuyAmount.asCredit(state.buy.token)));
             }
         }
 
