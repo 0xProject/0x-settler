@@ -61,11 +61,19 @@ library IndexAndDeltaLib {
     }
 }
 
-/// This library is a highly-optimized, enumerable mapping from tokens to deltas
+/// This library is a highly-optimized, enumerable mapping from tokens to deltas. It consists of 3
+/// components that must be kept synchronized. There is a transient storage "mapping" that maps
+/// token addresses to `memory` pointers (aka `Note memory`). There is a `memory` array of `Note`
+/// (aka `Note[] memory`) that has up to `_MAX_TOKENS` pre-allocated. And then there is an implicit
+/// heap packed at the end of the array that stores the `Note`s and is prepended with the number of
+/// allocated objects. While the length of the `Notes[]` array grows and shrinks as tokens are added
+/// and retired, the heap never shrinks and is only deallocated when the context of `unlockCallback`
+/// returns. The function `destruct` is used for clearing the transient storage "mapping", but the
+/// array itself is perfectly usable afterwards.
 library NotesLib {
     /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
     /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
-    /// access).
+    /// access). Increasing or decreasing this value requires no changes elsewhere in this file.
     uint256 private constant _MAX_TOKENS = 8;
 
     // TODO: swap the fields of this struct; putting `note` first saves a bunch of ADDs
@@ -107,21 +115,11 @@ library NotesLib {
         }
     }
 
-    function get(Note[] memory, IERC20 token) internal view returns (int256 delta) {
-        assembly ("memory-safe") {
-            let x := tload(and(0xffffffffffffffffffffffffffffffffffffffff, token))
-            if x {
-                delta := signextend(0x1f, mload(add(0x20, x)))
-            }
-        }
-    }
-
-    // TODO: rename this function to something nicer
     /// This function handles all cases except overflow of the number of tokens being tracked (above
-    /// _MAX_TOKENS). In that case we will Panic with code 0x32 (array out-of-bounds access).
+    /// `_MAX_TOKENS`). In that case we will `Panic` with code 0x32 (array out-of-bounds access).
     /// This function is largely responsible for maintaining the consistency of the indirection
     /// array, the heap of `Note` objects, and the transient storage mapping.
-    function getRaw(Note[] memory a, IERC20 token) internal returns (NotePtr x, uint256 i) {
+    function insert(Note[] memory a, IERC20 token) internal returns (NotePtr x, uint256 i) {
         assembly ("memory-safe") {
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             let delta_mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -188,33 +186,10 @@ library NotesLib {
 
     function set(Note[] memory a, IERC20 token, int256 delta) internal returns (NotePtr notePtr) {
         uint256 noteIndex;
-        (notePtr, noteIndex) = getRaw(a, token);
+        (notePtr, noteIndex) = insert(a, token);
         IndexAndDeltaLib.IndexAndDelta note = IndexAndDeltaLib.construct(noteIndex, delta);
         assembly ("memory-safe") {
             mstore(add(0x20, notePtr), note)
-        }
-    }
-
-    function swap(Note[] memory a, Note memory x, Note memory y) internal pure {
-        assembly ("memory-safe") {
-            // Use the backpointers (indices) in `x.note.index()` and `y.note.index()` to swap the
-            // corresponding entries in `a`
-            let x_i_ptr := add(0x20, x)
-            let x_note := mload(x_i_ptr)
-            let x_i := shr(0xf8, x_note)
-
-            let y_i_ptr := add(0x20, y)
-            let y_note := mload(y_i_ptr)
-            let y_i := shr(0xf8, y_note)
-
-            // Swap the indices in `x.note.index()` and `y.note.index()`
-            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-            mstore(x_i_ptr, or(and(mask, x_note), shl(0xf8, y_i)))
-            mstore(y_i_ptr, or(and(mask, y_note), shl(0xf8, x_i)))
-
-            // Swap the indirection pointers in `a` (`x_i` and `y_i` are 1-indexed)
-            mstore(add(shl(0x05, x_i), a), y)
-            mstore(add(shl(0x05, y_i), a), x)
         }
     }
 
@@ -377,7 +352,7 @@ library StateLib {
     }
 
     function setSell(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        (NotesLib.NotePtr notePtr, ) = notes.getRaw(token);
+        (NotesLib.NotePtr notePtr, ) = notes.insert(token);
         setSell(state, notePtr);
     }
 
@@ -388,7 +363,7 @@ library StateLib {
     }
 
     function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        (NotesLib.NotePtr notePtr, ) = notes.getRaw(token);
+        (NotesLib.NotePtr notePtr, ) = notes.insert(token);
         setBuy(state, notePtr);
     }
 }
@@ -672,9 +647,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         private
         returns (uint256 buyAmount)
     {
-        notes.del(state.buy); // Guaranteed to exist
-        notes.destruct();
-        // No more looking up tokens in `notes` by their address
+        notes.del(state.buy); // Guaranteed to exist by the `ZeroBuyAmount` check in the main loop
 
         uint256 length = notes.length;
         IERC20 globalSellToken = state.globalSell.token;
@@ -888,6 +861,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     _pay(token, payer, debt, permit, isForwarded, sig);
                 }
             }
+            notes.destruct();
             return bytes.concat(bytes32(buyAmount));
         }
     }
