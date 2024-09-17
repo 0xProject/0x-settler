@@ -658,7 +658,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     }
 
     function _setup(bytes calldata data, bool feeOnTransfer, address payer)
-        internal
+        private
         returns (
             bytes calldata newData,
             IERC20 sellToken,

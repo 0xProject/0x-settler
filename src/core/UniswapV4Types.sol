@@ -27,16 +27,6 @@ library BalanceDeltaLibrary {
 }
 
 interface IPoolManager {
-    /// @notice Called by external contracts to access transient storage of the contract
-    /// @param slot Key of slot to tload
-    /// @return value The value of the slot as bytes32
-    function exttload(bytes32 slot) external view returns (bytes32 value);
-
-    /// @notice Called by external contracts to access sparse transient pool state
-    /// @param slots List of slots to tload
-    /// @return values List of loaded values
-    function exttload(bytes32[] calldata slots) external view returns (bytes32[] memory values);
-
     /// @notice All interactions on the contract that account deltas require unlocking. A caller that calls `unlock` must implement
     /// `IUnlockCallback(msg.sender).unlockCallback(data)`, where they interact with the remaining functions on this contract.
     /// @dev The only functions callable without an unlocking are `initialize` and `updateDynamicLPFee`
