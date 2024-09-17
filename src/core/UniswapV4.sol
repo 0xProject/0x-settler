@@ -39,7 +39,7 @@ library CreditDebt {
     }
 }
 
-// TODO: we never actually need to store negative numbers; make this signed
+// TODO: we never actually need to store negative numbers; make this unsigned
 library IndexAndDeltaLib {
     type IndexAndDelta is bytes32;
 
