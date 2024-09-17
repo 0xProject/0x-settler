@@ -5,20 +5,6 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 type IHooks is address;
 
-/// @notice Returns the key for identifying a pool
-struct PoolKey {
-    /// @notice The lower token of the pool, sorted numerically
-    IERC20 token0;
-    /// @notice The higher token of the pool, sorted numerically
-    IERC20 token1;
-    /// @notice The pool LP fee, capped at 1_000_000. If the highest bit is 1, the pool has a dynamic fee and must be exactly equal to 0x800000
-    uint24 fee;
-    /// @notice Ticks that involve positions must be a multiple of tick spacing
-    int24 tickSpacing;
-    /// @notice The hooks of the pool
-    IHooks hooks;
-}
-
 /// @dev Two `int128` values packed into a single `int256` where the upper 128 bits represent the amount0
 /// and the lower 128 bits represent the amount1.
 type BalanceDelta is int256;
@@ -57,6 +43,20 @@ interface IPoolManager {
     /// @param data Any data to pass to the callback, via `IUnlockCallback(msg.sender).unlockCallback(data)`
     /// @return The data returned by the call to `IUnlockCallback(msg.sender).unlockCallback(data)`
     function unlock(bytes calldata data) external returns (bytes memory);
+
+    /// @notice Returns the key for identifying a pool
+    struct PoolKey {
+        /// @notice The lower token of the pool, sorted numerically
+        IERC20 token0;
+        /// @notice The higher token of the pool, sorted numerically
+        IERC20 token1;
+        /// @notice The pool LP fee, capped at 1_000_000. If the highest bit is 1, the pool has a dynamic fee and must be exactly equal to 0x800000
+        uint24 fee;
+        /// @notice Ticks that involve positions must be a multiple of tick spacing
+        int24 tickSpacing;
+        /// @notice The hooks of the pool
+        IHooks hooks;
+    }
 
     struct SwapParams {
         /// Whether to swap token0 for token1 or vice versa

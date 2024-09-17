@@ -13,7 +13,6 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount} from "./SettlerErrors.sol";
 
 import {
-    PoolKey,
     BalanceDelta,
     IHooks,
     IPoolManager,
