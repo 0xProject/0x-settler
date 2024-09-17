@@ -80,8 +80,8 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         }
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
-        if (action == ISettlerActions.METATXN_RFQ_VIP.selector) {
+    function _dispatchVIP(uint32 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
+        if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
             // performed inside the RfqOrderSettlement so there is no need to
@@ -98,7 +98,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
             );
 
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
-        } else if (action == ISettlerActions.METATXN_TRANSFER_FROM.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
@@ -107,7 +107,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
             // We simultaneously transfer-in the taker's tokens and authenticate the
             // metatransaction.
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == ISettlerActions.METATXN_UNISWAPV3_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
                 bytes memory path,
@@ -131,20 +131,20 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
         require(actions.length != 0);
         {
-            (bytes4 action, bytes calldata data) = actions.decodeCall(0);
+            (uint32 action, bytes calldata data) = actions.decodeCall(0);
 
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
             if (!_dispatchVIP(action, data, sig)) {
-                revert ActionInvalid(0, action, data);
+                revert ActionInvalid(0, bytes4(action), data);
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            (bytes4 action, bytes calldata data) = actions.decodeCall(i);
+            (uint32 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, action, data);
+                revert ActionInvalid(i, bytes4(action), data);
             }
         }
 

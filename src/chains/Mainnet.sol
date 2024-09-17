@@ -54,7 +54,7 @@ abstract contract MainnetMixin is
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint32 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase)
@@ -63,7 +63,7 @@ abstract contract MainnetMixin is
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == ISettlerActions.UNISWAPV4.selector) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -74,12 +74,12 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, fills, amountOutMin);
-        } else if (action == ISettlerActions.MAKERPSM.selector) {
+        } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IPSM, bool, uint256));
 
             sellToMakerPsm(recipient, gemToken, bps, psm, buyGem, amountOutMin);
-        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -90,12 +90,12 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
-        } else if (action == ISettlerActions.DODOV2.selector) {
+        } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
-        } else if (action == ISettlerActions.DODOV1.selector) {
+        } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
             (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
@@ -142,10 +142,10 @@ abstract contract MainnetMixin is
 contract MainnetSettler is Settler, MainnetMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint32 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == ISettlerActions.UNISWAPV4_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
                 bool feeOnTransfer,
@@ -156,7 +156,7 @@ contract MainnetSettler is Settler, MainnetMixin {
             ) = abi.decode(data, (address, bool, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, fills, permit, sig, amountOutMin);
-        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -167,7 +167,7 @@ contract MainnetSettler is Settler, MainnetMixin {
             ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
-        } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
                 uint80 poolInfo,
@@ -193,7 +193,7 @@ contract MainnetSettler is Settler, MainnetMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint32 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
@@ -210,7 +210,7 @@ contract MainnetSettler is Settler, MainnetMixin {
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint32 action, bytes calldata data, bytes calldata sig)
         internal
         override
         DANGEROUS_freeMemory
@@ -218,7 +218,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == ISettlerActions.UNISWAPV4_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
                 bool feeOnTransfer,
@@ -228,7 +228,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             ) = abi.decode(data, (address, bool, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, fills, permit, sig, amountOutMin);
-        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -238,7 +238,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
 
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
-        } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
                 uint80 poolInfo,
@@ -254,7 +254,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint32 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
