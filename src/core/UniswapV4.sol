@@ -247,7 +247,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     // 3 - pool tick spacing
     // 20 - pool hooks
     // 3 - hook data length
-    uint256 private constant _HOP_LENGTH = 32;
+    uint256 private constant _HOP_DATA_LENGTH = 32;
 
     /// To save stack and to simplify the following helper functions, we cache a bunch of state
     /// about the swap. Note that `globalSellAmount` is practically unused when selling a FoT token.
@@ -719,7 +719,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         PoolKey memory key;
         IPoolManager.SwapParams memory params;
 
-        while (data.length >= _HOP_LENGTH) {
+        while (data.length >= _HOP_DATA_LENGTH) {
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
 
