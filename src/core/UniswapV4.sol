@@ -817,19 +817,18 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // and executing them.
         PoolKey memory key;
         IPoolManager.SwapParams memory params;
-
         while (data.length >= _HOP_LENGTH) {
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
 
             bool zeroForOne;
-            (zeroForOne, data) = _getPoolKey(key, notes, state, feeOnTransfer, data);
+            (zeroForOne, data) = _getPoolKey(key, notes, state, data);
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
             params.zeroForOne = zeroForOne;
             unchecked {
-                params.amountSpecified = int256((state.sellAmount * bps).unsafeDiv(BASIS)).unsafeNeg();
+                params.amountSpecified = (state.sell.note.delta() * int256(uint256(bps))).unsafeDiv(int256(BASIS)).unsafeNeg();
             }
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
@@ -855,13 +854,25 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // revert. Any credit in any token other than `buyToken` will be swept to
         // Settler. `buyToken` will be sent to `recipient`.
         {
-            (uint256 sellAmount, uint256 buyAmount) = _take(notes, state, payer, recipient, minBuyAmount);
-            if (state.globalSellToken == IERC20(address(0))) {
+            IERC20 token = state.globalSell.token;
+            uint256 sellAmount = state.globalSell.note.delta().asCredit(token);
+            uint256 buyAmount = _take(state, notes, recipient, minBuyAmount);
+            if (token == IERC20(address(0))) {
                 IPoolManager(_operator()).settle{value: sellAmount}();
-            } else if (sellAmount != 0) {
-                // `sellAmount == 0` only happens when selling a FoT token, because we settled that flow
-                // *BEFORE* beginning the swap
-                _settleERC20(state.globalSellToken, payer, sellAmount, permit, isForwarded, sig);
+            } else {
+                if (feeOnTransfer) {
+                    // We've already transferred the sell token to the pool manager and
+                    // `settle`'d. We only need to handle the case of incomplete filling.
+                    if (sellAmount != 0) {
+                        IPoolManager(_operator()).unsafeTake(token, payer == address(this) ? address(this) : _msgSender(), sellAmount);
+                    }
+                } else {
+                    // While `notes` records a credit value, the pool manager actually records a
+                    // debt for the global sell token. We recover the exact amount of that debt and
+                    // then pay it.
+                    uint256 debt = globalSellAmount - sellAmount;
+                    _pay(token, payer, debt, permit, isForwarded, sig);
+                }
             }
             return bytes.concat(bytes32(buyAmount));
         }
