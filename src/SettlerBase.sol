@@ -25,7 +25,7 @@ library CalldataDecoder {
     function decodeCall(bytes[] calldata data, uint256 i)
         internal
         pure
-        returns (bytes4 selector, bytes calldata args)
+        returns (uint32 selector, bytes calldata args)
     {
         assembly ("memory-safe") {
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
@@ -42,7 +42,7 @@ library CalldataDecoder {
             args.offset := add(args.offset, 0x20)
 
             // slice off the first 4 bytes of `args` as the selector
-            selector := calldataload(args.offset) // solidity cleans dirty bits automatically
+            selector := shr(0xe0, calldataload(args.offset))
             args.length := sub(args.length, 0x04)
             args.offset := add(args.offset, 0x04)
         }
@@ -97,14 +97,14 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         }
     }
 
-    function _dispatch(uint256, bytes4 action, bytes calldata data) internal virtual override returns (bool) {
-        if (action == ISettlerActions.TRANSFER_FROM.selector) {
+    function _dispatch(uint256, uint32 action, bytes calldata data) internal virtual override returns (bool) {
+        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == ISettlerActions.RFQ.selector) {
+        } else if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -115,27 +115,27 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
 
             fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
-        } else if (action == ISettlerActions.UNISWAPV3.selector) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
             (address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) =
                 abi.decode(data, (address, uint256, bytes, uint256));
 
             sellToUniswapV3(recipient, bps, path, amountOutMin);
-        } else if (action == ISettlerActions.UNISWAPV2.selector) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
             (address recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 amountOutMin) =
                 abi.decode(data, (address, address, uint256, address, uint24, uint256));
 
             sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, amountOutMin);
-        } else if (action == ISettlerActions.BASIC.selector) {
+        } else if (action == uint32(ISettlerActions.BASIC.selector)) {
             (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
             basicSellToPool(sellToken, bps, pool, offset, _data);
-        } else if (action == ISettlerActions.VELODROME.selector) {
+        } else if (action == uint32(ISettlerActions.VELODROME.selector)) {
             (address recipient, uint256 bps, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
                 abi.decode(data, (address, uint256, IVelodromePair, uint24, uint256));
 
             sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
-        } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
+        } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
             if (token == IERC20(ETH_ADDRESS)) {
                 uint256 balance = address(this).balance;
