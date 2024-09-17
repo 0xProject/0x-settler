@@ -10,23 +10,9 @@ import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
+import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount} from "./SettlerErrors.sol";
 
 import {PoolKey, BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
-
-library UnsafeArray {
-    function unsafeGet(UniswapV4.TokenDelta[] memory a, uint256 i)
-        internal
-        pure
-        returns (IERC20 token, int256 creditDebt)
-    {
-        assembly ("memory-safe") {
-            let r := mload(add(a, add(0x20, shl(0x05, i))))
-            token := mload(r)
-            creditDebt := mload(add(0x20, r))
-        }
-    }
-}
 
 library CreditDebt {
     using UnsafeMath for int256;
@@ -46,12 +32,13 @@ library CreditDebt {
     }
 }
 
-type IndexAndDelta is bytes32;
 
 library IndexAndDeltaLib {
-    function construct(uint256 i, int256 delta) internal pure returns (IndexAndDelta r) {
+    type IndexAndDelta is bytes32;
+
+    function construct(uint256 i, int256 _delta) internal pure returns (IndexAndDelta r) {
         assembly ("memory-safe") {
-            r := or(shl(0xf8, i), and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, delta))
+            r := or(shl(0xf8, i), and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, _delta))
         }
     }
 
@@ -66,9 +53,13 @@ library IndexAndDeltaLib {
             r := signextend(0x1f, x)
         }
     }
-}
 
-using IndexAndDeltaLib for IndexAndDelta global;
+    function unsafeAdd(IndexAndDelta x, int256 incr) internal pure returns (IndexAndDelta r) {
+        assembly ("memory-safe") {
+            r := add(x, incr)
+        }
+    }
+}
 
 /// This library is a highly-optimized, enumerable mapping from tokens to deltas
 library NotesLib {
@@ -80,7 +71,7 @@ library NotesLib {
     // TODO: swap the fields of this struct; putting `note` first saves a bunch of ADDs
     struct Note {
         IERC20 token;
-        IndexAndDelta note;
+        IndexAndDeltaLib.IndexAndDelta note;
     }
 
     type NotePtr is uint256;
@@ -140,7 +131,7 @@ library NotesLib {
                 // We've never seen this token before; we must add it to the mapping and initialize
 
                 // Increment the length of `a`
-                let i := add(0x01, mload(a))
+                i := add(0x01, mload(a))
                 mstore(a, i)
                 // `i` is now 1-indexed; we do not require bounds-checking on `i` because it is
                 // implicitly bounded above by `noteAllocations`, which is bounds-checked
@@ -193,7 +184,7 @@ library NotesLib {
     function set(Note[] memory a, IERC20 token, int256 delta) internal returns (NotePtr notePtr) {
         uint256 noteIndex;
         (notePtr, noteIndex) = getRaw(a, token);
-        IndexAndDelta note = IndexAndDeltaLib.construct(noteIndex, delta);
+        IndexAndDeltaLib.IndexAndDelta note = IndexAndDeltaLib.construct(noteIndex, delta);
         assembly ("memory-safe") {
             mstore(add(0x20, notePtr), note)
         }
@@ -349,12 +340,13 @@ library StateLib {
     using NotesLib for NotesLib.Note[];
 
     struct State {
+        // TODO uint256 globalSellAmount;
         NotesLib.Note globalSell;
         NotesLib.Note sell;
-        NotesLib.note buy;
+        NotesLib.Note buy;
     }
 
-    function construct(State memory state, IERC20 globalSellToken, uint256 globalSellAmount) internal returns (Note[] memory notes) {
+    function construct(State memory state, IERC20 token, uint256 amount) internal returns (NotesLib.Note[] memory notes) {
         assembly ("memory-safe") {
             // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks Solc.
             if iszero(eq(mload(0x40), add(0x120, state))) {
@@ -365,12 +357,12 @@ library StateLib {
         // All the pointers in `state` are now dangling; let's fix that
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
-        NotePtr notePtr = notes.set(token, int256(globalSellAmount));
+        NotesLib.NotePtr notePtr = notes.set(token, int256(amount));
         assembly ("memory-safe") {
             mstore(state, notePtr)
         }
-        setSell(notePtr);
-        setBuy(notePtr);
+        setSell(state, notePtr);
+        setBuy(state, notePtr);
     }
 
     function setSell(State memory state, NotesLib.NotePtr notePtr) internal pure {
@@ -392,16 +384,16 @@ library StateLib {
 
     function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
         (NotesLib.NotePtr notePtr, ) = notes.getRaw(token);
-        setBuy(notePtr);
+        setBuy(state, notePtr);
     }
 }
 
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
+    using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using CreditDebt for int256;
-    using SafeTransferLib for IERC20;
-    using UnsafeArray for TokenDelta[];
+    using IndexAndDeltaLib for IndexAndDeltaLib.IndexAndDelta;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
@@ -615,7 +607,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         PoolKey memory key,
         NotesLib.Note[] memory notes,
         StateLib.State memory state,
-        bool feeOnTransfer,
         bytes calldata data
     ) private returns (bool, bytes calldata) {
         uint256 caseKey = uint8(bytes1(data));
@@ -672,10 +663,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     /// the settled global `buyAmount`, after checking it against the slippage limit. Each token
     /// with credit causes a corresponding call to `POOL_MANAGER.take`. Any token with debt (except
     /// the first) causes a revert. The current `state.buy.token` has its slippage checked.
-    function _take(StateLib.State memory state, NotesLib.Note[] memory notes, address payer, address recipient, uint256 minBuyAmount)
+    function _take(StateLib.State memory state, NotesLib.Note[] memory notes, address recipient, uint256 minBuyAmount)
         private
-        DANGEROUS_freeMemory
-        returns (uint256 sellAmount, uint256 buyAmount)
+        returns (uint256 buyAmount)
     {
         TokenDelta[] memory deltas = _getTokenDeltas(notes);
         uint256 length = deltas.length;
@@ -738,14 +728,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
     }
 
-    function _settleERC20(
+    function _pay(
         IERC20 sellToken,
         address payer,
         uint256 sellAmount,
         ISignatureTransfer.PermitTransferFrom calldata permit,
         bool isForwarded,
         bytes calldata sig
-    ) private {
+    ) private returns (uint256) {
         IPoolManager(_operator()).unsafeSync(sellToken);
         if (payer == address(this)) {
             sellToken.safeTransfer(_operator(), sellAmount);
@@ -754,7 +744,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
-        IPoolManager(_operator()).settle();
+        return IPoolManager(_operator()).settle();
     }
 
     function unlockCallback(bytes calldata data) private returns (bytes memory) {
