@@ -309,6 +309,7 @@ library StateLib {
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
+    using UnsafeMath for int256;
     using CreditDebt for int256;
     using IndexAndDeltaLib for IndexAndDeltaLib.IndexAndDelta;
     using UnsafePoolManager for IPoolManager;
