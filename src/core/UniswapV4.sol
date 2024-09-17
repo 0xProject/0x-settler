@@ -175,7 +175,7 @@ library NotesLib {
                     mstore(add(shl(0x05, i), a), x)
 
                     // Set backpointer (index)
-                    mstore(note_ptr, or(shl(0xf8, i), and(not(delta_mask), note)))
+                    mstore(note_ptr, or(shl(0xf8, i), and(delta_mask, note)))
                 }
             }
         }
