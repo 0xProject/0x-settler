@@ -41,11 +41,13 @@ library CreditDebt {
 
 // TODO: we never actually need to store negative numbers; make this unsigned
 library IndexAndDeltaLib {
-    type IndexAndDelta is bytes32;
+    type IndexAndDelta is uint256;
 
-    function construct(uint256 i, int256 _delta) internal pure returns (IndexAndDelta r) {
+    uint256 private constant _MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+
+    function construct(uint256 i, uint256 initAmount) internal pure returns (IndexAndDelta r) {
         assembly ("memory-safe") {
-            r := or(shl(0xf8, i), and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, _delta))
+            r := or(shl(0xf8, i), and(_MASK, initAmount))
         }
     }
 
@@ -55,15 +57,21 @@ library IndexAndDeltaLib {
         }
     }
 
-    function delta(IndexAndDelta x) internal pure returns (int256 r) {
+    function amount(IndexAndDelta x) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := signextend(0x1f, x)
+            r := and(_MASK, x)
         }
     }
 
-    function unsafeAdd(IndexAndDelta x, int256 incr) internal pure returns (IndexAndDelta r) {
+    function unsafeAdd(IndexAndDelta x, uint256 incr) internal pure returns (IndexAndDelta r) {
         assembly ("memory-safe") {
             r := add(x, incr)
+        }
+    }
+
+    function unsafeSub(IndexAndDelta x, uint256 decr) internal pure returns (IndexAndDelta r) {
+        assembly ("memory-safe") {
+            r := sub(x, decr)
         }
     }
 }
@@ -79,6 +87,9 @@ library IndexAndDeltaLib {
 /// array itself is perfectly usable afterwards.
 library NotesLib {
     using IndexAndDeltaLib for IndexAndDeltaLib.IndexAndDelta;
+
+    uint256 private constant _AMOUNT_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
     /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
     /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
@@ -110,19 +121,19 @@ library NotesLib {
     }
 
     function amount(Note memory x) internal pure returns (uint256) {
-        return uint256(x.note.delta());
+        return x.note.amount();
     }
 
     function setAmount(Note memory x, uint256 newAmount) internal pure {
-        x.note = IndexAndDeltaLib.construct(x.note.index(), int256(newAmount));
+        x.note = IndexAndDeltaLib.construct(x.note.index(), newAmount);
     }
 
 
-    function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, int256 delta) {
+    function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, uint256 retAmount) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
             token := mload(x)
-            delta := signextend(0x1f, mload(add(0x20, x)))
+            retAmount := and(_AMOUNT_MASK, mload(add(0x20, x)))
         }
     }
 
@@ -132,8 +143,7 @@ library NotesLib {
     /// array, the heap of `Note` objects, and the transient storage mapping.
     function insert(Note[] memory a, IERC20 token) internal returns (NotePtr x) {
         assembly ("memory-safe") {
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-            let delta_mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+            token := and(_ADDRESS_MASK, token)
             x := tload(token)
             switch x
             case 0 {
@@ -187,7 +197,7 @@ library NotesLib {
                     mstore(add(shl(0x05, i), a), x)
 
                     // Set backpointer (index)
-                    mstore(note_ptr, or(shl(0xf8, i), and(delta_mask, note)))
+                    mstore(note_ptr, or(shl(0xf8, i), and(_AMOUNT_MASK, note)))
                 }
             }
         }
@@ -200,7 +210,7 @@ library NotesLib {
 
             // Clear the backpointer (index) in the referred-to `Note`
             let i_ptr := add(0x20, mload(end))
-            mstore(i_ptr, and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, mload(i_ptr)))
+            mstore(i_ptr, and(_AMOUNT_MASK, mload(i_ptr)))
             // We do not deallocate the `Note`
 
             // Decrement the length of `a`
@@ -210,12 +220,10 @@ library NotesLib {
 
     function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
-            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-
             // Clear the backpointer (index) in the referred-to `Note`
             let x_note_ptr := add(0x20, x)
             let x_note := mload(x_note_ptr)
-            mstore(x_note_ptr, and(mask, x_note))
+            mstore(x_note_ptr, and(_AMOUNT_MASK, x_note))
             let x_ptr := add(add(0x20, and(0x1fe0, shr(0xf3, x_note))), a)
             // We do not deallocate `x`
 
@@ -228,7 +236,7 @@ library NotesLib {
             // Fix up the backpointer (index) in the referred-to `Note` to point to the new
             // location of the indirection pointer.
             let end_note_ptr := add(0x20, end)
-            mstore(end_note_ptr, or(and(not(mask), x_note), and(mask, mload(end_note_ptr))))
+            mstore(end_note_ptr, or(and(not(_AMOUNT_MASK), x_note), and(_AMOUNT_MASK, mload(end_note_ptr))))
 
             // Decrement the length of `a`
             mstore(a, sub(len, 0x01))
@@ -310,7 +318,6 @@ library StateLib {
 abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
-    using UnsafeMath for int256;
     using CreditDebt for int256;
     using IndexAndDeltaLib for IndexAndDeltaLib.IndexAndDelta;
     using UnsafePoolManager for IPoolManager;
@@ -606,18 +613,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         uint256 length = notes.length;
         IERC20 globalSellToken = state.globalSell.token;
         for (uint256 i; i < length; i = i.unsafeInc()) {
-            (IERC20 token, int256 delta) = notes.get(i);
+            (IERC20 token, uint256 amount) = notes.get(i);
             if (token == globalSellToken) {
                 // TODO: we can probably be sure that the global sell token is the first token in
                 // `notes` (if it hasn't been zeroed). But we should double check this before
                 // removing this check
                 continue;
             }
-            // `delta` should be positive, unless something insane has happened
-            if (delta == 0) {
-                revert ZeroBuyAmount(token);
-            }
-            IPoolManager(_operator()).unsafeTake(token, address(this), delta.asCredit(token));
+            IPoolManager(_operator()).unsafeTake(token, address(this), amount);
         }
 
         // The final token to be bought is considered the global buy token. We bypass the transient
@@ -784,18 +787,18 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 {
                     IndexAndDeltaLib.IndexAndDelta note = state.sell.note;
                     // The pool manager enforces that the settled sell amount cannot be positive
-                    note.unsafeAdd(settledSellAmount);
-                    if (note.delta() < 0) {
+                    uint256 settledSellDebt = uint256(settledSellAmount.unsafeNeg());
+                    if (note.amount() < settledSellDebt) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    state.sell.note = note;
+                    state.sell.note = note.unsafeSub(settledSellDebt);
                 }
                 if (settledBuyAmount == 0) {
                     revert ZeroBuyAmount(state.buy.token);
                 }
                 // if `state.buyAmount` overflows an `int128`, we'll get a revert inside the pool
                 // manager later
-                state.buy.note = state.buy.note.unsafeAdd(int256(settledBuyAmount.asCredit(state.buy.token)));
+                state.buy.note = state.buy.note.unsafeAdd(settledBuyAmount.asCredit(state.buy.token));
             }
         }
 
