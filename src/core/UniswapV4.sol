@@ -77,6 +77,7 @@ library NotesLib {
     uint256 private constant _MAX_TOKENS = 8;
 
     // TODO: swap the fields of this struct; putting `note` first saves a bunch of ADDs
+    // TODO: store pointers intead of indices in each `note` field
     struct Note {
         IERC20 token;
         IndexAndDeltaLib.IndexAndDelta note;
@@ -182,8 +183,6 @@ library NotesLib {
         }
     }
 
-    // TODO: store pointers intead of indices in each `note` field
-
     function set(Note[] memory a, IERC20 token, int256 delta) internal returns (NotePtr notePtr) {
         uint256 noteIndex;
         (notePtr, noteIndex) = insert(a, token);
@@ -210,65 +209,6 @@ library NotesLib {
 
     function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
-            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-
-            // Clear the backpointer (index) in the referred-to `Note`
-            let x_note_ptr := add(0x20, x)
-            let x_note := mload(x_note_ptr)
-            mstore(x_note_ptr, and(mask, x_note))
-            let x_ptr := add(add(0x20, and(0x1fe0, shr(0xf3, x_note))), a)
-            // We do not deallocate `x`
-
-            // Overwrite the vacated indirection pointer `x_ptr` with the one at the end.
-            let len := mload(a)
-            let end_ptr := add(shl(0x05, len), a)
-            let end := mload(end_ptr)
-            mstore(x_ptr, end)
-
-            // Fix up the backpointer (index) in the referred-to `Note` to point to the new
-            // location of the indirection pointer.
-            let end_note := add(0x20, end)
-            mstore(end_note, or(and(not(mask), x_note), and(mask, mload(end_note))))
-
-            // Decrement the length of `a`
-            mstore(a, sub(len, 0x01))
-        }
-    }
-
-    // TODO: remove this
-    function del(Note[] memory a, uint256 i) internal pure {
-        assembly ("memory-safe") {
-            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-
-            // Clear the backpointer (index) in the referred-to `Note`
-            let i_ptr := add(add(0x20, shl(0x05, i)), a)
-            let i_note := add(0x20, mload(i_ptr))
-            mstore(i_note, and(mask, mload(i_note)))
-            // We do not deallocate the `Note`
-
-            // Overwrite the vacated indirection pointer `i_ptr` with the one at the end.
-            let len := mload(a)
-            let end_ptr := add(shl(0x05, len), a)
-            let end := mload(end_ptr)
-            mstore(i_ptr, end)
-
-            // Fix up the backpointer (index) in the referred-to `Note` to point to the new
-            // location of the indirection pointer.
-            let end_note := add(0x20, end)
-            mstore(end_note, or(shl(0xf8, i), and(mask, mload(end_note))))
-
-            // Decrement the length of `a`
-            mstore(a, sub(len, 0x01))
-        }
-    }
-
-    function del(Note[] memory a, IERC20 token) internal view {
-        // This is largely duplicated from the other `del` overload because Solidity neither gives
-        // us a good way to call other Solidity functions from Yul nor a good way to initialize
-        // `memory` references from Yul.
-        assembly ("memory-safe") {
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-            let x := tload(token)
             let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
             // Clear the backpointer (index) in the referred-to `Note`
