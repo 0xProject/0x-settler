@@ -545,6 +545,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         data = data[1:];
         if (caseKey != 0) {
             if (caseKey > 1) {
+                if (state.sell.note.delta() == 0) {
+                    if (state.sell.note.index() == notes.length) {
+                        // TODO: evaluate whether this is actually more gas efficient
+                        notes.pop();
+                    } else {
+                        notes.del(state.sell);
+                    }
+                }
                 if (caseKey == 2) {
                     state.sell = state.buy;
                 } else {
@@ -600,7 +608,13 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         private
         returns (uint256 buyAmount)
     {
-        notes.del(state.buy); // Guaranteed to exist by the `ZeroBuyAmount` check in the main loop
+        if (state.buy.note.index() == notes.length) {
+            // TODO: evaluate whether this is actually more gas efficient
+            notes.pop();
+        } else {
+            // Guaranteed to exist by the `ZeroBuyAmount` check in the main loop
+            notes.del(state.buy);
+        }
 
         uint256 length = notes.length;
         IERC20 globalSellToken = state.globalSell.token;
