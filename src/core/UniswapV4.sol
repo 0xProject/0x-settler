@@ -106,22 +106,6 @@ library NotesLib {
         }
     }
 
-    function has(Note[] memory, IERC20 token) internal view returns (bool r) {
-        assembly ("memory-safe") {
-            mstore(0x00, 0x00)
-            mstore(0x20, 0x00)
-            r :=
-                iszero(
-                    iszero(
-                        and(
-                            0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-                            mload(add(0x20, tload(and(0xffffffffffffffffffffffffffffffffffffffff, token))))
-                        )
-                    )
-                )
-        }
-    }
-
     function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, int256 delta) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
