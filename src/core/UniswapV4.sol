@@ -78,6 +78,8 @@ library IndexAndDeltaLib {
 /// returns. The function `destruct` is used for clearing the transient storage "mapping", but the
 /// array itself is perfectly usable afterwards.
 library NotesLib {
+    using IndexAndDeltaLib for IndexAndDeltaLib.IndexAndDelta;
+
     /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
     /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
     /// access). Increasing or decreasing this value requires no changes elsewhere in this file.
@@ -107,6 +109,15 @@ library NotesLib {
         }
     }
 
+    function amount(Note memory x) internal pure returns (uint256) {
+        return uint256(x.note.delta());
+    }
+
+    function setAmount(Note memory x, uint256 newAmount) internal pure {
+        x.note = IndexAndDeltaLib.construct(x.note.index(), int256(newAmount));
+    }
+
+
     function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, int256 delta) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
@@ -119,7 +130,7 @@ library NotesLib {
     /// `_MAX_TOKENS`). In that case we will `Panic` with code 0x32 (array out-of-bounds access).
     /// This function is largely responsible for maintaining the consistency of the indirection
     /// array, the heap of `Note` objects, and the transient storage mapping.
-    function insert(Note[] memory a, IERC20 token) internal returns (NotePtr x, uint256 i) {
+    function insert(Note[] memory a, IERC20 token) internal returns (NotePtr x) {
         assembly ("memory-safe") {
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             let delta_mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -129,7 +140,7 @@ library NotesLib {
                 // We've never seen this token before; we must add it to the mapping and initialize
 
                 // Increment the length of `a`
-                i := add(0x01, mload(a))
+                let i := add(0x01, mload(a))
                 mstore(a, i)
                 // `i` is now 1-indexed; we do not require bounds-checking on `i` because it is
                 // implicitly bounded above by `noteAllocations`, which is bounds-checked
@@ -162,7 +173,7 @@ library NotesLib {
 
                 let note_ptr := add(0x20, x)
                 let note := mload(note_ptr)
-                i := shr(0xf8, note)
+                let i := shr(0xf8, note)
                 if iszero(i) {
                     // No indirection pointer in `a` references `x`. Push `x` (which is already
                     // initialized) onto `a`
@@ -179,15 +190,6 @@ library NotesLib {
                     mstore(note_ptr, or(shl(0xf8, i), and(delta_mask, note)))
                 }
             }
-        }
-    }
-
-    function set(Note[] memory a, IERC20 token, int256 delta) internal returns (NotePtr notePtr) {
-        uint256 noteIndex;
-        (notePtr, noteIndex) = insert(a, token);
-        IndexAndDeltaLib.IndexAndDelta note = IndexAndDeltaLib.construct(noteIndex, delta);
-        assembly ("memory-safe") {
-            mstore(add(0x20, notePtr), note)
         }
     }
 
@@ -255,13 +257,13 @@ library StateLib {
     using NotesLib for NotesLib.Note[];
 
     struct State {
-        // TODO uint256 globalSellAmount;
-        NotesLib.Note globalSell;
-        NotesLib.Note sell;
         NotesLib.Note buy;
+        NotesLib.Note sell;
+        NotesLib.Note globalSell;
+        uint256 globalSellAmount;
     }
 
-    function construct(State memory state, IERC20 token, uint256 amount)
+    function construct(State memory state, IERC20 token)
         internal
         returns (NotesLib.Note[] memory notes)
     {
@@ -273,14 +275,15 @@ library StateLib {
         // All the pointers in `state` are now pointing into unallocated memory
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
-        NotesLib.NotePtr notePtr = notes.set(token, int256(amount));
+        NotesLib.NotePtr notePtr = notes.insert(token);
 
         // Here we actually set the pointers into a legal area of memory
-        assembly ("memory-safe") {
-            mstore(state, notePtr)
-        }
-        setSell(state, notePtr);
         setBuy(state, notePtr);
+        setSell(state, notePtr);
+        assembly ("memory-safe") {
+            // Set `state.globalSell`
+            mstore(add(0x40, state), notePtr)
+        }
     }
 
     function setSell(State memory state, NotesLib.NotePtr notePtr) internal pure {
@@ -290,19 +293,17 @@ library StateLib {
     }
 
     function setSell(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        (NotesLib.NotePtr notePtr,) = notes.insert(token);
-        setSell(state, notePtr);
+        setSell(state, notes.insert(token));
     }
 
     function setBuy(State memory state, NotesLib.NotePtr notePtr) internal pure {
         assembly ("memory-safe") {
-            mstore(add(0x40, state), notePtr)
+            mstore(state, notePtr)
         }
     }
 
     function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        (NotesLib.NotePtr notePtr,) = notes.insert(token);
-        setBuy(state, notePtr);
+        setBuy(state, notes.insert(token));
     }
 }
 
@@ -532,7 +533,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         data = data[1:];
         if (caseKey != 0) {
             if (caseKey > 1) {
-                if (state.sell.note.delta() == 0) {
+                if (state.sell.amount() == 0) {
                     if (state.sell.note.index() == notes.length) {
                         // TODO: evaluate whether this is actually more gas efficient
                         notes.pop();
@@ -623,18 +624,18 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // storage mapping and read it directly from `state`. Check the slippage limit. Transfer to
         // the recipient.
         {
-            (IERC20 token, int256 delta) = (state.buy.token, state.buy.note.delta());
-            if (delta == 0) {
-                revert ZeroBuyAmount(token);
+            IERC20 buyToken = state.buy.token;
+            buyAmount = state.buy.amount();
+            if (buyAmount == 0) {
+                revert ZeroBuyAmount(buyToken);
             }
-            buyAmount = delta.asCredit(token);
             if (buyAmount < minBuyAmount) {
-                if (token == IERC20(address(0))) {
-                    token = ETH_ADDRESS;
+                if (buyToken == IERC20(address(0))) {
+                    buyToken = ETH_ADDRESS;
                 }
-                revert TooMuchSlippage(token, minBuyAmount, buyAmount);
+                revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
-            IPoolManager(_operator()).unsafeTake(token, recipient, buyAmount);
+            IPoolManager(_operator()).unsafeTake(buyToken, recipient, buyAmount);
         }
     }
 
@@ -661,13 +662,23 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         private
         returns (
             bytes calldata newData,
-            IERC20 sellToken,
-            uint256 sellAmount,
+            StateLib.State memory state,
+            NotesLib.Note[] memory notes,
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
             bytes calldata sig
         )
     {
+        {
+            IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
+            // We don't advance `data` here because there's a special interaction between `payer`,
+            // `sellToken`, and `permit` that's handled below.
+            if (sellToken == ETH_ADDRESS) {
+                sellToken = IERC20(address(0));
+            }
+            notes = state.construct(sellToken);
+        }
+
         // This assembly block is just here to appease the compiler. We only use `permit` and `sig`
         // in the codepaths where they are set away from the values initialized here.
         assembly ("memory-safe") {
@@ -676,20 +687,15 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             sig.length := 0x00
         }
 
-        sellToken = IERC20(address(uint160(bytes20(data))));
-        // We don't advance `data` here because there's a special interaction between `payer`,
-        // `sellToken`, and `permit` that's handled below.
-
-        if (sellToken == ETH_ADDRESS) {
+        if (state.globalSell.token == IERC20(address(0))) {
             assert(payer == address(this));
             data = data[20:];
 
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
             unchecked {
-                sellAmount = (address(this).balance * bps).unsafeDiv(BASIS);
+                state.globalSell.setAmount((address(this).balance * bps).unsafeDiv(BASIS));
             }
-            sellToken = IERC20(address(0));
         } else {
             if (payer == address(this)) {
                 data = data[20:];
@@ -697,7 +703,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 uint16 bps = uint16(bytes2(data));
                 data = data[2:];
                 unchecked {
-                    sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                    state.globalSell.setAmount((state.globalSell.token.balanceOf(address(this)) * bps).unsafeDiv(BASIS));
                 }
             } else {
                 assert(payer == address(0));
@@ -721,11 +727,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     data.length := sub(sub(data.length, 0x95), sig.length)
                 }
 
-                sellAmount = _permitToSellAmountCalldata(permit);
+                state.globalSell.setAmount(_permitToSellAmountCalldata(permit));
             }
 
             if (feeOnTransfer) {
-                sellAmount = _pay(sellToken, payer, sellAmount, permit, isForwarded, sig);
+                state.globalSell.setAmount(_pay(state.globalSell.token, payer, state.globalSell.amount(), permit, isForwarded, sig));
             }
         }
 
@@ -745,14 +751,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         address payer = address(uint160(bytes20(data)));
         data = data[20:];
 
-        ISignatureTransfer.PermitTransferFrom calldata permit;
-        bool isForwarded;
-        bytes calldata sig;
-        uint256 globalSellAmount;
-        IERC20 globalSellToken;
-        (data, globalSellToken, globalSellAmount, permit, isForwarded, sig) = _setup(data, feeOnTransfer, payer);
-        StateLib.State memory state;
-        NotesLib.Note[] memory notes = state.construct(globalSellToken, globalSellAmount);
+        (bytes calldata newData, StateLib.State memory state, NotesLib.Note[] memory notes, ISignatureTransfer.PermitTransferFrom calldata permit, bool isForwarded, bytes calldata sig) = _setup(data, feeOnTransfer, payer);
+        data = newData;
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
         // and executing them.
@@ -769,8 +769,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
             params.zeroForOne = zeroForOne;
             unchecked {
-                params.amountSpecified =
-                    (state.sell.note.delta() * int256(uint256(bps))).unsafeDiv(int256(BASIS)).unsafeNeg();
+                params.amountSpecified = int256((state.sell.amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
@@ -806,7 +805,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         // Settler. `buyToken` will be sent to `recipient`.
         {
             IERC20 token = state.globalSell.token;
-            uint256 sellAmount = state.globalSell.note.delta().asCredit(token);
+            uint256 sellAmount = state.globalSell.amount();
             uint256 buyAmount = _take(state, notes, recipient, minBuyAmount);
             if (token == IERC20(address(0))) {
                 IPoolManager(_operator()).settle{value: sellAmount}();
@@ -823,7 +822,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     // While `notes` records a credit value, the pool manager actually records a
                     // debt for the global sell token. We recover the exact amount of that debt and
                     // then pay it.
-                    uint256 debt = globalSellAmount - sellAmount;
+                    uint256 debt = state.globalSell.amount() - sellAmount;
                     _pay(token, payer, debt, permit, isForwarded, sig);
                 }
             }
