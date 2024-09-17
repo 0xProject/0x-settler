@@ -12,7 +12,15 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount} from "./SettlerErrors.sol";
 
-import {PoolKey, BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback} from "./UniswapV4Types.sol";
+import {
+    PoolKey,
+    BalanceDelta,
+    IHooks,
+    IPoolManager,
+    UnsafePoolManager,
+    POOL_MANAGER,
+    IUnlockCallback
+} from "./UniswapV4Types.sol";
 
 library CreditDebt {
     using UnsafeMath for int256;
@@ -31,7 +39,6 @@ library CreditDebt {
         return uint256(delta.unsafeNeg());
     }
 }
-
 
 library IndexAndDeltaLib {
     type IndexAndDelta is bytes32;
@@ -104,7 +111,15 @@ library NotesLib {
         assembly ("memory-safe") {
             mstore(0x00, 0x00)
             mstore(0x20, 0x00)
-            r := iszero(iszero(and(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, mload(add(0x20, tload(and(0xffffffffffffffffffffffffffffffffffffffff, token)))))))
+            r :=
+                iszero(
+                    iszero(
+                        and(
+                            0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+                            mload(add(0x20, tload(and(0xffffffffffffffffffffffffffffffffffffffff, token))))
+                        )
+                    )
+                )
         }
     }
 
@@ -246,11 +261,7 @@ library NotesLib {
                     i := add(0x20, i)
                     end := add(shl(0x06, len), i)
                 }
-            } lt(i, end) {
-                i := add(0x40, i)
-            } {
-                tstore(mload(i), 0x00)
-            }
+            } lt(i, end) { i := add(0x40, i) } { tstore(mload(i), 0x00) }
         }
     }
 }
@@ -266,12 +277,13 @@ library StateLib {
         NotesLib.Note buy;
     }
 
-    function construct(State memory state, IERC20 token, uint256 amount) internal returns (NotesLib.Note[] memory notes) {
+    function construct(State memory state, IERC20 token, uint256 amount)
+        internal
+        returns (NotesLib.Note[] memory notes)
+    {
         assembly ("memory-safe") {
             // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks Solc.
-            if iszero(eq(mload(0x40), add(0x120, state))) {
-                revert(0x00, 0x00)
-            }
+            if iszero(eq(mload(0x40), add(0x120, state))) { revert(0x00, 0x00) }
             mstore(0x40, add(0x60, state))
         }
         // All the pointers in `state` are now dangling; let's fix that
@@ -292,7 +304,7 @@ library StateLib {
     }
 
     function setSell(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        (NotesLib.NotePtr notePtr, ) = notes.insert(token);
+        (NotesLib.NotePtr notePtr,) = notes.insert(token);
         setSell(state, notePtr);
     }
 
@@ -303,7 +315,7 @@ library StateLib {
     }
 
     function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        (NotesLib.NotePtr notePtr, ) = notes.insert(token);
+        (NotesLib.NotePtr notePtr,) = notes.insert(token);
         setBuy(state, notePtr);
     }
 }
@@ -552,7 +564,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
 
         bool zeroForOne = state.sell.token < state.buy.token;
-        (key.token0, key.token1) = zeroForOne ? (state.sell.token, state.buy.token) : (state.buy.token, state.sell.token);
+        (key.token0, key.token1) =
+            zeroForOne ? (state.sell.token, state.buy.token) : (state.buy.token, state.sell.token);
         key.fee = uint24(bytes3(data));
         data = data[3:];
         key.tickSpacing = int24(uint24(bytes3(data)));
@@ -644,7 +657,17 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return IPoolManager(_operator()).settle();
     }
 
-    function _setup(bytes calldata data, bool feeOnTransfer, address payer) internal returns (bytes calldata newData, IERC20 sellToken, uint256 sellAmount, ISignatureTransfer.PermitTransferFrom calldata permit, bool isForwarded, bytes calldata sig) {
+    function _setup(bytes calldata data, bool feeOnTransfer, address payer)
+        internal
+        returns (
+            bytes calldata newData,
+            IERC20 sellToken,
+            uint256 sellAmount,
+            ISignatureTransfer.PermitTransferFrom calldata permit,
+            bool isForwarded,
+            bytes calldata sig
+        )
+    {
         // This assembly block is just here to appease the compiler. We only use `permit` and `sig`
         // in the codepaths where they are set away from the values initialized here.
         assembly ("memory-safe") {
@@ -746,7 +769,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
             params.zeroForOne = zeroForOne;
             unchecked {
-                params.amountSpecified = (state.sell.note.delta() * int256(uint256(bps))).unsafeDiv(int256(BASIS)).unsafeNeg();
+                params.amountSpecified =
+                    (state.sell.note.delta() * int256(uint256(bps))).unsafeDiv(int256(BASIS)).unsafeNeg();
             }
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
@@ -791,7 +815,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     // We've already transferred the sell token to the pool manager and
                     // `settle`'d. We only need to handle the case of incomplete filling.
                     if (sellAmount != 0) {
-                        IPoolManager(_operator()).unsafeTake(token, payer == address(this) ? address(this) : _msgSender(), sellAmount);
+                        IPoolManager(_operator()).unsafeTake(
+                            token, payer == address(this) ? address(this) : _msgSender(), sellAmount
+                        );
                     }
                 } else {
                     // While `notes` records a credit value, the pool manager actually records a
