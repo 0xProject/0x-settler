@@ -10,7 +10,7 @@ import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount} from "./SettlerErrors.sol";
+import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount, BoughtSellToken} from "./SettlerErrors.sol";
 
 import {
     BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback
@@ -556,6 +556,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             data = data[20:];
 
             state.setBuy(notes, buyToken);
+            if (state.buy.eq(state.globalSell)) {
+                revert BoughtSellToken(state.globalSell.token);
+            }
         }
 
         bool zeroForOne = state.sell.token < state.buy.token;
@@ -603,17 +606,25 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         }
 
         uint256 length = notes.length;
-        IERC20 globalSellToken = state.globalSell.token;
-        for (uint256 i; i < length; i = i.unsafeInc()) {
-            (IERC20 token, uint256 amount) = notes.get(i);
-            if (token == globalSellToken) {
-                // TODO: we can probably be sure that the global sell token is the first token in
-                // `notes` (if it hasn't been zeroed). But we should double check this before
-                // removing this check
-                continue;
+        if (length != 0) {
+            {
+                NotesLib.Note memory firstNote = notes[0]; // out-of-bounds is impossible
+                if (!firstNote.eq(state.globalSell)) {
+                    // The global sell token being in a position other than the 1st would imply that
+                    // at some point we _bought_ that token. This is illegal and results in a revert
+                    // with reason `BoughtSellToken(address)`.
+                    (IERC20 token, uint256 amount) = notes.get(0);
+                    IPoolManager(_operator()).unsafeTake(token, address(this), amount);
+                }
             }
-            IPoolManager(_operator()).unsafeTake(token, address(this), amount);
+            for (uint256 i = 1; i < length; i = i.unsafeInc()) {
+                (IERC20 token, uint256 amount) = notes.get(i);
+                IPoolManager(_operator()).unsafeTake(token, address(this), amount);
+            }
         }
+        // `length` of zero implies that we fully liquidated the global sell token (there is no
+        // `amount` remaining) and that the only token in which we have credit is the global buy
+        // token. We're about to `take` that token below.
 
         // The final token to be bought is considered the global buy token. We bypass the transient
         // storage mapping and read it directly from `state`. Check the slippage limit. Transfer to

@@ -61,3 +61,4 @@ error PayerSpent();
 error DeltaNotPositive(IERC20 token);
 error DeltaNotNegative(IERC20 token);
 error ZeroBuyAmount(IERC20 buyToken);
+error BoughtSellToken(IERC20 sellToken);
