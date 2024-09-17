@@ -13,12 +13,7 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount} from "./SettlerErrors.sol";
 
 import {
-    BalanceDelta,
-    IHooks,
-    IPoolManager,
-    UnsafePoolManager,
-    POOL_MANAGER,
-    IUnlockCallback
+    BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback
 } from "./UniswapV4Types.sol";
 
 library CreditDebt {
@@ -127,7 +122,6 @@ library NotesLib {
     function setAmount(Note memory x, uint256 newAmount) internal pure {
         x.note = IndexAndDeltaLib.construct(x.note.index(), newAmount);
     }
-
 
     function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, uint256 retAmount) {
         assembly ("memory-safe") {
@@ -271,10 +265,7 @@ library StateLib {
         uint256 globalSellAmount;
     }
 
-    function construct(State memory state, IERC20 token)
-        internal
-        returns (NotesLib.Note[] memory notes)
-    {
+    function construct(State memory state, IERC20 token) internal returns (NotesLib.Note[] memory notes) {
         assembly ("memory-safe") {
             // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks solc.
             if iszero(eq(mload(0x40), add(0x120, state))) { revert(0x00, 0x00) }
@@ -734,7 +725,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             }
 
             if (feeOnTransfer) {
-                state.globalSell.setAmount(_pay(state.globalSell.token, payer, state.globalSell.amount(), permit, isForwarded, sig));
+                state.globalSell.setAmount(
+                    _pay(state.globalSell.token, payer, state.globalSell.amount(), permit, isForwarded, sig)
+                );
             }
         }
 
@@ -754,7 +747,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         address payer = address(uint160(bytes20(data)));
         data = data[20:];
 
-        (bytes calldata newData, StateLib.State memory state, NotesLib.Note[] memory notes, ISignatureTransfer.PermitTransferFrom calldata permit, bool isForwarded, bytes calldata sig) = _setup(data, feeOnTransfer, payer);
+        (
+            bytes calldata newData,
+            StateLib.State memory state,
+            NotesLib.Note[] memory notes,
+            ISignatureTransfer.PermitTransferFrom calldata permit,
+            bool isForwarded,
+            bytes calldata sig
+        ) = _setup(data, feeOnTransfer, payer);
         data = newData;
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
