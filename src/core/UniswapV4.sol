@@ -224,8 +224,8 @@ library NotesLib {
 
             // Fix up the backpointer (index) in the referred-to `Note` to point to the new
             // location of the indirection pointer.
-            let end_note := add(0x20, end)
-            mstore(end_note, or(and(not(mask), x_note), and(mask, mload(end_note))))
+            let end_note_ptr := add(0x20, end)
+            mstore(end_note_ptr, or(and(not(mask), x_note), and(mask, mload(end_note_ptr))))
 
             // Decrement the length of `a`
             mstore(a, sub(len, 0x01))
@@ -265,7 +265,7 @@ library StateLib {
         returns (NotesLib.Note[] memory notes)
     {
         assembly ("memory-safe") {
-            // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks Solc.
+            // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks solc.
             if iszero(eq(mload(0x40), add(0x120, state))) { revert(0x00, 0x00) }
             mstore(0x40, add(0x60, state))
         }
