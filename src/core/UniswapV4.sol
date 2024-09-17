@@ -8,7 +8,6 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {
     TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount, BoughtSellToken
@@ -314,7 +313,7 @@ library StateLib {
     }
 }
 
-abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
+abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
@@ -496,16 +495,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// tokens in adjacent fills are somewhat in common. By caching, we avoid having them appear
     //// multiple times in the calldata. Additionally, this caching helps us avoid having to
     //// dereference the pointer in transient storage.
-
-    /// Because we have to ABIEncode the arguments to `.swap(...)` and copy the `hookData` from
-    /// calldata into memory, we save gas by deallocating at the end of this function.
-    function _swap(IPoolManager.PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
-        private
-        DANGEROUS_freeMemory
-        returns (BalanceDelta)
-    {
-        return IPoolManager(_operator()).swap(key, params, hookData);
-    }
 
     // the mandatory fields are
     // 2 - sell bps
@@ -790,7 +779,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
-            BalanceDelta delta = _swap(key, params, hookData);
+            BalanceDelta delta = IPoolManager(_operator()).unsafeSwap(key, params, hookData);
             {
                 (int256 settledSellAmount, int256 settledBuyAmount) =
                     zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());

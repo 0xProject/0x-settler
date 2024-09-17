@@ -117,6 +117,28 @@ library UnsafePoolManager {
             }
         }
     }
+
+    function unsafeSwap(
+        IPoolManager poolManager,
+        IPoolManager.PoolKey memory key,
+        IPoolManager.SwapParams memory params,
+        bytes calldata hookData
+    ) internal returns (BalanceDelta r) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0xf3cd914c) // selector for `swap((address,address,uint24,int24,address),(bool,int256,uint160),bytes)`
+            mcopy(add(0x20, ptr), key, 0xa0)
+            mcopy(add(0xc0, ptr), params, 0x60)
+            mstore(add(0x120, ptr), 0x120)
+            mstore(add(0x140, ptr), hookData.length)
+            calldatacopy(add(0x160, ptr), hookData.offset, hookData.length)
+            if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), add(0x144, hookData.length), 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+        }
+    }
 }
 
 IPoolManager constant POOL_MANAGER = IPoolManager(0x000000000000000000000000000000000000dEaD); // TODO: replace with actual deployment address
