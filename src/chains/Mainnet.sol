@@ -11,6 +11,7 @@ import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
+import {UniswapV4} from "../core/UniswapV4.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
@@ -39,7 +40,16 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, MaverickV2, CurveTricrypto, DodoV1, DodoV2 {
+abstract contract MainnetMixin is
+    FreeMemory,
+    SettlerBase,
+    MakerPSM,
+    MaverickV2,
+    CurveTricrypto,
+    DodoV1,
+    DodoV2,
+    UniswapV4
+{
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -53,6 +63,17 @@ abstract contract MainnetMixin is FreeMemory, SettlerBase, MakerPSM, MaverickV2,
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == ISettlerActions.UNISWAPV4.selector) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, bytes, uint256));
+
+            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, fills, amountOutMin);
         } else if (action == ISettlerActions.MAKERPSM.selector) {
             (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IPSM, bool, uint256));
@@ -124,6 +145,17 @@ contract MainnetSettler is Settler, MainnetMixin {
     function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
+        } else if (action == ISettlerActions.UNISWAPV4_VIP.selector) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, bool, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+
+            sellToUniswapV4VIP(recipient, feeOnTransfer, fills, permit, sig, amountOutMin);
         } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
             (
                 address recipient,
@@ -186,6 +218,16 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
+        } else if (action == ISettlerActions.UNISWAPV4_VIP.selector) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, bool, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
+
+            sellToUniswapV4VIP(recipient, feeOnTransfer, fills, permit, sig, amountOutMin);
         } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
             (
                 address recipient,
