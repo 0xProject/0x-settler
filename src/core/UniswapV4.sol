@@ -399,15 +399,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
             mstore(0x40, add(add(0xb3, data), pathLen))
         }
-        return uint256(
-            bytes32(
-                abi.decode(
-                    _setOperatorAndCall(
-                        address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
-                    ),
-                    (bytes)
-                )
-            )
+        return abi.decode(
+            abi.decode(
+                _setOperatorAndCall(
+                    address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+                ),
+                (bytes)
+            ),
+            (uint256)
         );
     }
 
@@ -454,15 +453,14 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             mstore(data, add(0x176, add(pathLen, sigLen)))
             mstore8(add(0x89, data), feeOnTransfer)
         }
-        return uint256(
-            bytes32(
-                abi.decode(
-                    _setOperatorAndCall(
-                        address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
-                    ),
-                    (bytes)
-                )
-            )
+        return abi.decode(
+            abi.decode(
+                _setOperatorAndCall(
+                    address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+                ),
+                (bytes)
+            ),
+            (uint256)
         );
     }
 
@@ -846,7 +844,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 }
             }
             notes.destruct();
-            return bytes.concat(bytes32(buyAmount));
+            return abi.encode(globalBuyAmount);
         }
     }
 }
