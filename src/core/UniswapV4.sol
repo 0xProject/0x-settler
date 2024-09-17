@@ -586,11 +586,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     }
 
     /// `_take` is responsible for removing the accumulated credit in each token from the pool
-    /// manager. It returns the settled global `sellAmount` as the amount that must be paid to the
-    /// pool manager (there is a subtle interaction here with the `feeOnTransfer` flag) as well as
-    /// the settled global `buyAmount`, after checking it against the slippage limit. Each token
-    /// with credit causes a corresponding call to `POOL_MANAGER.take`. Any token with debt (except
-    /// the first) causes a revert. The current `state.buy.token` has its slippage checked.
+    /// manager. It returns the settled global `buyAmount`, after checking it against the slippage
+    /// limit. Each token with credit causes a corresponding call to `POOL_MANAGER.take`. Any token
+    /// with debt (except the global sell token) causes a revert. The current `state.buy.token` has
+    /// its slippage checked.
     function _take(StateLib.State memory state, NotesLib.Note[] memory notes, address recipient, uint256 minBuyAmount)
         private
         returns (uint256 buyAmount)
