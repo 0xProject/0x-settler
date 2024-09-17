@@ -10,7 +10,9 @@ import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
-import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount, BoughtSellToken} from "./SettlerErrors.sol";
+import {
+    TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount, BoughtSellToken
+} from "./SettlerErrors.sol";
 
 import {
     BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback
