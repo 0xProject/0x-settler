@@ -36,15 +36,6 @@ abstract contract VelodromeStub is Velodrome {
         revert("unimplemented");
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata)
-        internal
-        pure
-        override
-        returns (uint256)
-    {
-        revert("unimplemented");
-    }
-
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
         internal
         pure

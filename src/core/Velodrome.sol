@@ -146,7 +146,7 @@ abstract contract Velodrome is SettlerAbstract {
             // Compute sell amount in native units
             uint256 sellAmount;
             if (bps != 0) {
-                // It must be possible to square the sell token balance of the pool, otherwise it
+                // It must be possible to cube the sell token balance of the pool, otherwise it
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
                 // a "reasonable" `bps` value could overflow. We don't care to protect against
                 // unreasonable `bps` values because that just means the taker is griefing themself.
