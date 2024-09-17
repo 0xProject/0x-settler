@@ -127,6 +127,10 @@ library NotesLib {
         x.note = IndexAndDeltaLib.construct(x.note.index(), newAmount);
     }
 
+    function get(Note memory x) internal pure returns (IERC20, uint256) {
+        return (x.token, x.note.amount());
+    }
+
     function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, uint256 retAmount) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
@@ -321,9 +325,9 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     using NotesLib for NotesLib.Note[];
     using StateLib for StateLib.State;
 
-    //// These two functions are the entrypoints to this set of actions. Because UniV4 has mandatory
-    //// callbacks, and the vast majority of the business logic has to be executed inside the
-    //// callback, they're pretty minimal. Both end up inside the last function in this file
+    //// These two functions are the entrypoints to this set of actions. Because UniV4 has a
+    //// mandatory callback, and the vast majority of the business logic has to be executed inside
+    //// the callback, they're pretty minimal. Both end up inside the last function in this file
     //// `unlockCallback`, which is where most of the business logic lives. Primarily, these
     //// functions are concerned with correctly encoding the argument to
     //// `POOL_MANAGER.unlock(...)`. Pay special attention to the `payer` field, which is what
@@ -480,24 +484,23 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     //// notes` and `State memory state`
     ////
     //// `notes` keeps track of the list of the tokens that have been touched throughout the
-    //// callback that have nonzero delta (i.e. either credit or debt). At the end of the fills, all
-    //// tokens with positive delta (credit) will be swept back to Settler. These are the buy token
-    //// (against which slippage is checked) and any other multiplex-out tokens. Only the global
-    //// sell token is allowed to have debt, but it is accounted slightly differently from the other
-    //// tokens. To avoid doing a linear scan each time a new token is encountered, the transient
-    //// storage slot named by each token stores the pointer to the corresponding `Note` object. The
-    //// function `_take` is responsible for iterating over the list of tokens and withdrawing any
-    //// credit to the appropriate recipient.
+    //// callback that have nonzero credit. At the end of the fills, all tokens with credit will be
+    //// swept back to Settler. These are the global buy token (against which slippage is checked)
+    //// and any other multiplex-out tokens. Only the global sell token is allowed to have debt, but
+    //// it is accounted slightly differently from the other tokens. To avoid doing a linear scan
+    //// each time a new token is encountered, the transient storage slot named by each token stores
+    //// the pointer to the corresponding `Note` object. The function `_take` is responsible for
+    //// iterating over the list of tokens and withdrawing any credit to the appropriate recipient.
     ////
     //// `state` exists to reduce stack pressure and to simplify and gas-optimize the process of
-    //// swapping. By keeping track of the sell token on each hop, we're able to compress the
-    //// representation of the fills required to satisfy the swap. Most often in a swap, the tokens
-    //// in adjacent fills are somewhat in common. By caching these tokens, we avoid having them
-    //// appear multiple times in the calldata. Additionally, this caching helps us avoid having to
+    //// swapping. By keeping track of the sell and buy token on each hop, we're able to compress
+    //// the representation of the fills required to satisfy the swap. Most often in a swap, the
+    //// tokens in adjacent fills are somewhat in common. By caching, we avoid having them appear
+    //// multiple times in the calldata. Additionally, this caching helps us avoid having to
     //// dereference the pointer in transient storage.
 
     /// Because we have to ABIEncode the arguments to `.swap(...)` and copy the `hookData` from
-    /// calldata into memory, we save gas be deallocating at the end of this function.
+    /// calldata into memory, we save gas by deallocating at the end of this function.
     function _swap(IPoolManager.PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
         private
         DANGEROUS_freeMemory
@@ -628,12 +631,11 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             }
         }
 
-        // The final token to be bought is considered the global buy token. We bypass the transient
-        // storage mapping and read it directly from `state`. Check the slippage limit. Transfer to
-        // the recipient.
+        // The final token to be bought is considered the global buy token. We bypass `notes` and
+        // read it directly from `state`. Check the slippage limit. Transfer to the recipient.
         {
-            IERC20 buyToken = state.buy.token;
-            buyAmount = state.buy.amount();
+            IERC20 buyToken;
+            (buyToken, buyAmount) = state.buy.get();
             if (buyAmount < minBuyAmount) {
                 if (buyToken == IERC20(address(0))) {
                     buyToken = ETH_ADDRESS;
@@ -758,6 +760,8 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         address payer = address(uint160(bytes20(data)));
         data = data[20:];
 
+        // Set up `state` and `notes`. The other values are ancillary and may be used when we need
+        // to settle any debt at the end of swapping.
         (
             bytes calldata newData,
             StateLib.State memory state,
@@ -807,37 +811,38 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 if (settledBuyAmount == 0) {
                     revert ZeroBuyAmount(state.buy.token);
                 }
-                // if `state.buyAmount` overflows an `int128`, we'll get a revert inside the pool
+                // if `state.buy.amount()` overflows an `int128`, we'll get a revert inside the pool
                 // manager later
                 state.buy.note = state.buy.note.unsafeAdd(settledBuyAmount.asCredit(state.buy.token));
             }
         }
 
         // `data` has been consumed. All that remains is to settle out the net result of all the
-        // swaps. If we somehow incurred a debt in any token other than `sellToken`, we're going to
-        // revert. Any credit in any token other than `buyToken` will be swept to
-        // Settler. `buyToken` will be sent to `recipient`.
+        // swaps. Any credit in any token other than `state.buy.token` will be swept to
+        // Settler. `state.buy.token` will be sent to `recipient`.
         {
-            IERC20 token = state.globalSell.token;
-            uint256 sellAmount = state.globalSell.amount();
-            uint256 buyAmount = _take(state, notes, recipient, minBuyAmount);
-            if (token == IERC20(address(0))) {
-                IPoolManager(_operator()).settle{value: sellAmount}();
+            (IERC20 globalSellToken, uint256 globalSellAmount) = state.globalSell.get();
+            uint256 globalBuyAmount = _take(state, notes, recipient, minBuyAmount);
+            if (globalSellToken == IERC20(address(0))) {
+                IPoolManager(_operator()).settle{value: globalSellAmount}();
+            } else if (feeOnTransfer) {
+                // We've already transferred the sell token to the pool manager and
+                // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
+                // pool manager. We only need to handle the case of incomplete filling.
+                if (globalSellAmount != 0) {
+                    IPoolManager(_operator()).unsafeTake(
+                        globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount
+                    );
+                }
             } else {
-                if (feeOnTransfer) {
-                    // We've already transferred the sell token to the pool manager and
-                    // `settle`'d. We only need to handle the case of incomplete filling.
-                    if (sellAmount != 0) {
-                        IPoolManager(_operator()).unsafeTake(
-                            token, payer == address(this) ? address(this) : _msgSender(), sellAmount
-                        );
-                    }
-                } else {
-                    // While `notes` records a credit value, the pool manager actually records a
-                    // debt for the global sell token. We recover the exact amount of that debt and
-                    // then pay it.
-                    uint256 debt = state.globalSell.amount() - sellAmount;
-                    _pay(token, payer, debt, permit, isForwarded, sig);
+                // While `notes` records a credit value, the pool manager actually records a debt
+                // for the global sell token. We recover the exact amount of that debt and then pay
+                // it.
+                // `globalSellAmount` is _usually_ zero, but if it isn't it represents a partial
+                // fill. This subtraction recovers the actual debt recorded in the pool manager.
+                unchecked {
+                    uint256 debt = state.globalSellAmount - globalSellAmount;
+                    _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
             }
             notes.destruct();
