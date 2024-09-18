@@ -137,7 +137,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
             sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
         } else if (action == ISettlerActions.POSITIVE_SLIPPAGE.selector) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
-            if (token == IERC20(ETH_ADDRESS)) {
+            if (token == ETH_ADDRESS) {
                 uint256 balance = address(this).balance;
                 if (balance > expectedAmount) {
                     unchecked {

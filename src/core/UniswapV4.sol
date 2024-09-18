@@ -695,9 +695,6 @@ abstract contract UniswapV4 is SettlerAbstract {
             IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
             // We don't advance `data` here because there's a special interaction between `payer`,
             // `sellToken`, and `permit` that's handled below.
-            if (sellToken == ETH_ADDRESS) {
-                sellToken = IERC20(address(0));
-            }
             notes = state.construct(sellToken, hashMul, hashMod);
         }
 
@@ -709,7 +706,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             sig.length := 0x00
         }
 
-        if (state.globalSell.token == IERC20(address(0))) {
+        if (state.globalSell.token == ETH_ADDRESS) {
             assert(payer == address(this));
             data = data[20:];
 
