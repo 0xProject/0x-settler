@@ -25,7 +25,7 @@ abstract contract Basic is SettlerAbstract {
         bool success;
         bytes memory returnData;
         uint256 value;
-        if (sellToken == IERC20(ETH_ADDRESS)) {
+        if (sellToken == ETH_ADDRESS) {
             value = address(this).balance.mulDiv(bps, BASIS);
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
