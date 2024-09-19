@@ -11,7 +11,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {
-    TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount, BoughtSellToken
+    TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount, BoughtSellToken, TokenHashCollision
 } from "./SettlerErrors.sol";
 
 import {
@@ -107,9 +107,11 @@ library NotesLib {
     function construct() internal pure returns (Note[] memory r) {
         assembly ("memory-safe") {
             r := mload(0x40)
-            mstore(r, 0x00)
-            mstore(add(r, add(0x20, shl(0x05, _MAX_TOKENS))), 0x00)
-            mstore(0x40, add(add(0x40, mul(_MAX_TOKENS, 0x60)), r))
+            let len := add(0x20, shl(0x05, _MAX_TOKENS))
+            // zeroize all the memory required to store the notes
+            codecopy(r, codesize(), len)
+            // allocate memory
+            mstore(0x40, add(len, r))
         }
     }
 
@@ -139,72 +141,41 @@ library NotesLib {
         }
     }
 
-    /// This function handles all cases except overflow of the number of tokens being tracked (above
-    /// `_MAX_TOKENS`). In that case we will `Panic` with code 0x32 (array out-of-bounds access).
-    /// This function is largely responsible for maintaining the consistency of the indirection
-    /// array, the heap of `Note` objects, and the transient storage mapping.
-    function insert(Note[] memory a, IERC20 token) internal returns (NotePtr x) {
+    function get(Note[] memory a, IERC20 token, uint256 hashMul, uint256 hashMod) internal pure returns (NotePtr x) {
         assembly ("memory-safe") {
             token := and(_ADDRESS_MASK, token)
-            x := tload(token)
-            switch x
-            case 0 {
-                // We've never seen this token before; we must add it to the mapping and initialize
-
-                // Increment the length of `a`
-                let i := add(0x01, mload(a))
-                mstore(a, i)
-                // `i` is now 1-indexed; we do not require bounds-checking on `i` because it is
-                // implicitly bounded above by `noteAllocations`, which is bounds-checked
-
-                // Find the first free `Note` object (in memory after `a`)
-                let indirectArrayEnd := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
-                let noteAllocations := mload(indirectArrayEnd)
-                if eq(noteAllocations, _MAX_TOKENS) {
-                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                    mstore(0x20, 0x32) // array out of bounds
-                    revert(0x1c, 0x24)
-                }
-                x := add(indirectArrayEnd, add(0x20, shl(0x06, noteAllocations)))
-                // Allocate it
-                mstore(indirectArrayEnd, add(0x01, noteAllocations))
-
-                // Set the indirection pointer stored in `a` at the appropriate index to `x`
-                mstore(add(shl(0x05, i), a), x)
-
-                // Set the transient storage mapping for `token` to point at `x`
-                tstore(token, x)
-
-                // Initialize `x`
-                mstore(x, token)
-                mstore(add(0x20, x), shl(0xf8, i))
+            x := add(a, add(add(0x20, shl(0x05, _MAX_TOKENS)), mod(mulmod(token, hashMul, hashMod), shl(0x06, _MAX_TOKENS))))
+            let oldToken := mload(x)
+            if mul(oldToken, xor(oldToken, token)) { // TODO(dekz): check me on this?
+                mstore(0x00, 0x9a62e8b4) // selector for `TokenHashCollision(address,address)`
+                mstore(0x20, oldToken)
+                mstore(0x40, token)
+                revert(0x1c, 0x44)
             }
-            default {
-                // We've seen this token before; its `Note` is initialized, but it may not have
-                // an indirection pointer in `a`
-
-                let note_ptr := add(0x20, x)
-                let note := mload(note_ptr)
-                let i := shr(0xf8, note)
-                if iszero(i) {
-                    // No indirection pointer in `a` references `x`. Push `x` (which is already
-                    // initialized) onto `a`
-
-                    // Increment the length of `a`
-                    i := add(0x01, mload(a))
-                    mstore(a, i)
-                    // `i` is 1-indexed; bounds-checking not required (see above)
-
-                    // Set indirection pointer
-                    mstore(add(shl(0x05, i), a), x)
-
-                    // Set backpointer (index)
-                    mstore(note_ptr, or(shl(0xf8, i), and(_AMOUNT_MASK, note)))
-                }
-            }
+            mstore(x, token)
         }
     }
 
+    /// This function does *NOT* check whether `x` is already on `a`. If it is, then this will
+    /// result in corruption.
+    function push(Note[] memory a, Note memory x) internal pure {
+        assembly ("memory-safe") {
+            let len := add(0x01, mload(a))
+            // We don't need to check for out-of-bounds access here, the check in `get` above for
+            // token collision handles that for us. It's not possible to `get` more than
+            // `_MAX_TOKENS` tokens
+            mstore(a, len)
+            mstore(add(shl(0x05, len), a), x)
+
+            let note_ptr := add(0x20, x)
+            let note := mload(note_ptr)
+            note := or(shl(0xf8, len), and(_AMOUNT_MASK, note))
+            mstore(note_ptr, note)
+        }
+    }
+
+    /// This function does *NOT* check that `a` is nonempty. If it is, you will get underflow and
+    /// either corruption or an OOG.
     function pop(Note[] memory a) internal pure {
         assembly ("memory-safe") {
             let len := mload(a)
@@ -220,13 +191,15 @@ library NotesLib {
         }
     }
 
+    /// This function does *NOT* check that `x` is on `a`. If it isn't depending on whether `a` is
+    /// empty, you may get corruption or an OOG.
     function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
             // Clear the backpointer (index) in the referred-to `Note`
             let x_note_ptr := add(0x20, x)
             let x_note := mload(x_note_ptr)
             mstore(x_note_ptr, and(_AMOUNT_MASK, x_note))
-            let x_ptr := add(add(0x20, and(0x1fe0, shr(0xf3, x_note))), a)
+            let x_ptr := add(and(0x1fe0, shr(0xf3, x_note)), a)
             // We do not deallocate `x`
 
             // Overwrite the vacated indirection pointer `x_ptr` with the one at the end.
@@ -238,26 +211,12 @@ library NotesLib {
             // Fix up the backpointer (index) in the referred-to `Note` to point to the new
             // location of the indirection pointer.
             let end_note_ptr := add(0x20, end)
-            mstore(end_note_ptr, or(and(not(_AMOUNT_MASK), x_note), and(_AMOUNT_MASK, mload(end_note_ptr))))
+            let end_note := mload(end_note_ptr)
+            end_note := or(and(not(_AMOUNT_MASK), x_note), and(_AMOUNT_MASK, end_note))
+            mstore(end_note_ptr, end_note)
 
             // Decrement the length of `a`
             mstore(a, sub(len, 0x01))
-        }
-    }
-
-    /// This only deallocates the transient storage mapping. The objects in memory remain as-is and
-    /// may still be used. This does not deallocate any memory.
-    function destruct(Note[] memory a) internal {
-        assembly ("memory-safe") {
-            for {
-                let i := add(add(0x20, shl(0x05, _MAX_TOKENS)), a)
-                let end
-                {
-                    let len := mload(i)
-                    i := add(0x20, i)
-                    end := add(shl(0x06, len), i)
-                }
-            } lt(i, end) { i := add(0x40, i) } { tstore(mload(i), 0x00) }
         }
     }
 }
@@ -271,18 +230,20 @@ library StateLib {
         NotesLib.Note sell;
         NotesLib.Note globalSell;
         uint256 globalSellAmount;
+        uint256 _hashMul;
+        uint256 _hashMod;
     }
 
-    function construct(State memory state, IERC20 token) internal returns (NotesLib.Note[] memory notes) {
+    function construct(State memory state, IERC20 token, uint256 hashMul, uint256 hashMod) internal pure returns (NotesLib.Note[] memory notes) {
         assembly ("memory-safe") {
             // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks solc.
-            if iszero(eq(mload(0x40), add(0x120, state))) { revert(0x00, 0x00) }
-            mstore(0x40, add(0x60, state))
+            if iszero(eq(mload(0x40), add(0x180, state))) { revert(0x00, 0x00) }
+            mstore(0x40, add(0xc0, state))
         }
         // All the pointers in `state` are now pointing into unallocated memory
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
-        NotesLib.NotePtr notePtr = notes.insert(token);
+        NotesLib.NotePtr notePtr = notes.get(token, hashMul, hashMod);
 
         // Here we actually set the pointers into a legal area of memory
         setBuy(state, notePtr);
@@ -291,26 +252,28 @@ library StateLib {
             // Set `state.globalSell`
             mstore(add(0x40, state), notePtr)
         }
+        state._hashMul = hashMul;
+        state._hashMod = hashMod;
     }
 
-    function setSell(State memory state, NotesLib.NotePtr notePtr) internal pure {
+    function setSell(State memory state, NotesLib.NotePtr notePtr) private pure {
         assembly ("memory-safe") {
             mstore(add(0x20, state), notePtr)
         }
     }
 
-    function setSell(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        setSell(state, notes.insert(token));
+    function setSell(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal pure {
+        setSell(state, notes.get(token, state._hashMul, state._hashMod));
     }
 
-    function setBuy(State memory state, NotesLib.NotePtr notePtr) internal pure {
+    function setBuy(State memory state, NotesLib.NotePtr notePtr) private pure {
         assembly ("memory-safe") {
             mstore(state, notePtr)
         }
     }
 
-    function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal {
-        setBuy(state, notes.insert(token));
+    function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal pure {
+        setBuy(state, notes.get(token, state._hashMul, state._hashMod));
     }
 }
 
@@ -532,7 +495,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         StateLib.State memory state,
         NotesLib.Note[] memory notes,
         bytes calldata data
-    ) private returns (bool, bytes calldata) {
+    ) private pure returns (bool, bytes calldata) {
         uint256 caseKey = uint8(bytes1(data));
         data = data[1:];
         if (caseKey != 0) {
@@ -681,7 +644,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             if (sellToken == ETH_ADDRESS) {
                 sellToken = IERC20(address(0));
             }
-            notes = state.construct(sellToken);
+            notes = state.construct(sellToken, 0, 0);
         }
 
         // This assembly block is just here to appease the compiler. We only use `permit` and `sig`
@@ -843,7 +806,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
             }
-            notes.destruct();
             return abi.encode(globalBuyAmount);
         }
     }
