@@ -338,11 +338,28 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
 
+    //// How to generate a perfect hash for UniV4:
+    ////
+    //// The arguments `hashMul` and `hashMod` are required to form a perfect hash for a table with
+    //// size `_MAX_TOKENS` when applied to all the tokens involved in fills. The hash function is
+    //// constructed as `uint256 hash = mulmod(uint256(uint160(address(token))), hashMul, hashMod) %
+    //// _MAX_TOKENS`.
+    ////
+    //// The "simple" or "obvious" way to do this is to simply try random 128-bit numbers for both
+    //// `hashMul` and `hashMod` until you obtain a function that has no collisions when applied to
+    //// the tokens involved in fills. A substantially more optimized algorithm can be obtained by
+    //// selecting several (at least 10) prime values for `hashMod`, precomputing the limb moduluses
+    //// for each value, and then selecting randomly from among them. The author recommends using
+    //// the 10 largest 64-bit prime numbers: 2^64 - {59, 83, 95, 179, 189, 257, 279, 323, 353,
+    //// 363}. `hashMul` can then be selected randomly or via some other optimized method.
+
     function sellToUniswapV4(
         address recipient,
         IERC20 sellToken,
         uint256 bps,
         bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256) {
@@ -350,6 +367,12 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         if (bps > BASIS) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (hashMul > type(uint256).max) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (hashMod > type(uint256).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         bytes memory data;
@@ -386,12 +409,20 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
     function sellToUniswapV4VIP(
         address recipient,
         bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
         bytes memory fills,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
     ) internal returns (uint256) {
         if (amountOutMin > uint128(type(int128).max)) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (hashMul > type(uint256).max) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (hashMod > type(uint256).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         bool isForwarded = _isForwarded();
@@ -648,13 +679,18 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         )
     {
         {
+            uint256 hashMul = uint128(bytes16(data));
+            data = data[16:];
+            uint256 hashMod = uint128(bytes16(data));
+            data = data[16:];
+
             IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
             // We don't advance `data` here because there's a special interaction between `payer`,
             // `sellToken`, and `permit` that's handled below.
             if (sellToken == ETH_ADDRESS) {
                 sellToken = IERC20(address(0));
             }
-            notes = state.construct(sellToken, 0, 0);
+            notes = state.construct(sellToken, hashMul, hashMod);
         }
 
         // This assembly block is just here to appease the compiler. We only use `permit` and `sig`
