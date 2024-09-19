@@ -11,7 +11,12 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {
-    TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroBuyAmount, BoughtSellToken, TokenHashCollision
+    TooMuchSlippage,
+    DeltaNotPositive,
+    DeltaNotNegative,
+    ZeroBuyAmount,
+    BoughtSellToken,
+    TokenHashCollision
 } from "./SettlerErrors.sol";
 
 import {
@@ -144,7 +149,8 @@ library NotesLib {
     function get(Note[] memory a, IERC20 token, uint256 hashMul, uint256 hashMod) internal pure returns (NotePtr x) {
         assembly ("memory-safe") {
             token := and(_ADDRESS_MASK, token)
-            x := add(a, add(add(0x20, shl(0x05, _MAX_TOKENS)), mod(mulmod(token, hashMul, hashMod), shl(0x06, _MAX_TOKENS))))
+            x :=
+                add(a, add(add(0x20, shl(0x05, _MAX_TOKENS)), mod(mulmod(token, hashMul, hashMod), shl(0x06, _MAX_TOKENS))))
             let oldToken := mload(x)
             if mul(oldToken, xor(oldToken, token)) { // TODO(dekz): check me on this?
                 mstore(0x00, 0x9a62e8b4) // selector for `TokenHashCollision(address,address)`
@@ -234,7 +240,11 @@ library StateLib {
         uint256 _hashMod;
     }
 
-    function construct(State memory state, IERC20 token, uint256 hashMul, uint256 hashMod) internal pure returns (NotesLib.Note[] memory notes) {
+    function construct(State memory state, IERC20 token, uint256 hashMul, uint256 hashMod)
+        internal
+        pure
+        returns (NotesLib.Note[] memory notes)
+    {
         assembly ("memory-safe") {
             // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks solc.
             if iszero(eq(mload(0x40), add(0x180, state))) { revert(0x00, 0x00) }
