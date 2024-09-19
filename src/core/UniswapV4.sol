@@ -369,10 +369,12 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         if (bps > BASIS) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if (hashMul > type(uint256).max) {
+        hashMul *= 64;
+        hashMod *= 64;
+        if (hashMul > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if (hashMod > type(uint256).max) {
+        if (hashMod > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         bytes memory data;
@@ -419,10 +421,12 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         if (amountOutMin > uint128(type(int128).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if (hashMul > type(uint256).max) {
+        hashMul *= 64;
+        hashMod *= 64;
+        if (hashMul > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        if (hashMod > type(uint256).max) {
+        if (hashMod > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         bool isForwarded = _isForwarded();
