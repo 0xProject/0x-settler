@@ -129,6 +129,10 @@ library NotesLib {
         return x.note.amount();
     }
 
+    function index(Note memory x) internal pure returns (uint256) {
+        return x.note.index();
+    }
+
     function setAmount(Note memory x, uint256 newAmount) internal pure {
         x.note = IndexAndDeltaLib.construct(x.note.index(), newAmount);
     }
@@ -163,7 +167,7 @@ library NotesLib {
 
     /// This function does *NOT* check whether `x` is already on `a`. If it is, then this will
     /// result in corruption.
-    function push(Note[] memory a, Note memory x) internal pure {
+    function push(Note[] memory a, NotePtr x) internal pure {
         assembly ("memory-safe") {
             let len := add(0x01, mload(a))
             // We don't need to check for out-of-bounds access here, the check in `get` above for
@@ -177,6 +181,16 @@ library NotesLib {
             note := or(shl(0xf8, len), and(_AMOUNT_MASK, note))
             mstore(note_ptr, note)
         }
+    }
+
+    /// This function does *NOT* check whether `x` is already on `a`. If it is, then this will
+    /// result in corruption.
+    function push(Note[] memory a, Note memory x) internal pure {
+        NotePtr x_ptr;
+        assembly ("memory-safe") {
+            x_ptr := x
+        }
+        return push(a, x);
     }
 
     /// This function does *NOT* check that `a` is nonempty. If it is, you will get underflow and
