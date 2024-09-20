@@ -97,14 +97,13 @@ library NotesLib {
     /// decreasing this value requires no changes elsewhere in this file.
     uint256 private constant _MAX_TOKENS = 8;
 
-    // TODO: swap the fields of this struct; putting `note` first saves a bunch of ADDs
     // TODO: maybe move the `index` to share its slot with `token` instead of `amount`; `amount` is
     //       more frequently modified than `index` and `token` is never modified, so packing the
     //       less-frequently-modified members together means less masking.
     // TODO: store pointers intead of indices in each `note` field
     struct Note {
-        IERC20 token;
         IndexAndDeltaLib.IndexAndDelta note;
+        IERC20 token;
     }
 
     type NotePtr is uint256;
@@ -145,8 +144,8 @@ library NotesLib {
     function get(Note[] memory a, uint256 i) internal pure returns (IERC20 token, uint256 retAmount) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
-            token := mload(x)
-            retAmount := and(_AMOUNT_MASK, mload(add(0x20, x)))
+            token := mload(add(0x20, x))
+            retAmount := and(_AMOUNT_MASK, mload(x))
         }
     }
 
@@ -156,7 +155,8 @@ library NotesLib {
             x := add(add(0x20, shl(0x05, _MAX_TOKENS)), a) // `x` now points at the first `Note` on the heap
             x := add(mod(mulmod(token, hashMul, hashMod), shl(0x06, _MAX_TOKENS)), x) // combine with token hash
             // `x` now points at the exact `Note` object we want; let's check it to be sure, though
-            let oldToken := mload(x)
+            let x_token_ptr := add(0x20, x)
+            let oldToken := mload(x_token_ptr)
             if mul(oldToken, xor(oldToken, token)) { // TODO(dekz): check me on this?
                 mstore(0x00, 0x9a62e8b4) // selector for `TokenHashCollision(address,address)`
                 mstore(0x20, oldToken)
@@ -167,7 +167,7 @@ library NotesLib {
                 mstore(0x00, 0xad1991f5) // selector for `ZeroToken()`
                 revert(0x1c, 0x04)
             }
-            mstore(x, token)
+            mstore(x_token_ptr, token)
         }
     }
 
@@ -182,11 +182,10 @@ library NotesLib {
             mstore(a, len)
             mstore(add(shl(0x05, len), a), x)
 
-            let note_ptr := add(0x20, x)
-            let note := mload(note_ptr)
+            let note := mload(x)
             // The 8 high bits of `note` must be clear. This is the same as `x` is not in `a`.
             note := or(shl(0xf8, len), note)
-            mstore(note_ptr, note)
+            mstore(x, note)
         }
     }
 
@@ -208,8 +207,8 @@ library NotesLib {
             let end := add(shl(0x05, len), a)
 
             // Clear the backpointer (index) in the referred-to `Note`
-            let i_ptr := add(0x20, mload(end))
-            mstore(i_ptr, and(_AMOUNT_MASK, mload(i_ptr)))
+            let x := mload(end)
+            mstore(x, and(_AMOUNT_MASK, mload(x)))
             // We do not deallocate the `Note`
 
             // Decrement the length of `a`
@@ -222,9 +221,8 @@ library NotesLib {
     function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
             // Clear the backpointer (index) in the referred-to `Note`
-            let x_note_ptr := add(0x20, x)
-            let x_note := mload(x_note_ptr)
-            mstore(x_note_ptr, and(_AMOUNT_MASK, x_note))
+            let x_note := mload(x)
+            mstore(x, and(_AMOUNT_MASK, x_note))
             let x_ptr := add(and(0x1fe0, shr(0xf3, x_note)), a)
             // We do not deallocate `x`
 
@@ -236,10 +234,9 @@ library NotesLib {
 
             // Fix up the backpointer (index) in the referred-to `Note` to point to the new
             // location of the indirection pointer.
-            let end_note_ptr := add(0x20, end)
-            let end_note := mload(end_note_ptr)
+            let end_note := mload(end)
             end_note := or(and(not(_AMOUNT_MASK), x_note), and(_AMOUNT_MASK, end_note))
-            mstore(end_note_ptr, end_note)
+            mstore(end, end_note)
 
             // Decrement the length of `a`
             mstore(a, sub(len, 0x01))
