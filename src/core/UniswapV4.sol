@@ -126,11 +126,6 @@ library NotesLib {
         return x.tokenAndBackptr.token();
     }
 
-    // TODO: this is a leaky abstraction; remove it
-    function backptr(Note memory x) internal pure returns (MemptrAndTokenLib.MemPtr) {
-        return x.tokenAndBackptr.ptr();
-    }
-
     function get(Note[] memory a, uint256 i) internal pure returns (IERC20 retToken, uint256 retAmount) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
@@ -177,68 +172,70 @@ library NotesLib {
         }
     }
 
-    /// This function does *NOT* check whether `x` is already on `a`. If it is, then this will
-    /// result in corruption.
-    function push(Note[] memory a, NotePtr x) internal pure {
+    function initialize(Note[] memory a, NotePtr x) internal pure {
         assembly ("memory-safe") {
-            let len := add(0x01, mload(a))
-            // We don't need to check for overflow or out-of-bounds access here; the checks in `get`
-            // above for token collision handle that for us. It's not possible to `get` more than
-            // `_MAX_TOKENS` tokens
-            mstore(a, len)
-            let x_ptr := add(shl(0x05, len), a)
+            mstore(a, 0x01)
+            let x_ptr := add(0x20, a)
             mstore(x_ptr, x)
 
             let tokenbackptr_ptr := add(0x20, x)
             let tokenbackptr := mload(tokenbackptr_ptr)
-            // The 3 high bytes of `tokenbackptr` must be clear. This is the same as `x` is not in `a`.
             tokenbackptr := or(shl(0xe8, x_ptr), tokenbackptr)
             mstore(tokenbackptr_ptr, tokenbackptr)
         }
     }
 
-    /// This function does *NOT* check whether `x` is already on `a`. If it is, then this will
-    /// result in corruption.
-    function push(Note[] memory a, Note memory x) internal pure {
-        NotePtr x_ptr;
+    function add(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
-            x_ptr := x
-        }
-        return push(a, x_ptr);
-    }
+            let tokenbackptr_ptr := add(0x20, x)
+            let tokenbackptr := mload(tokenbackptr_ptr)
+            if iszero(shr(0xe8, tokenbackptr)) {
+                let len := add(0x01, mload(a))
+                // We don't need to check for overflow or out-of-bounds access here; the checks in
+                // `get` above for token collision handle that for us. It's not possible to `get`
+                // more than `_MAX_TOKENS` tokens
+                mstore(a, len)
+                let x_ptr := add(shl(0x05, len), a)
+                mstore(x_ptr, x)
 
-    // TODO: add a `maybePush` function that combines the backpointer null check with the push
-    // logic; maybe rename `push` to `add`
+                // The 3 high bytes of `tokenbackptr` are clear.
+                tokenbackptr := or(shl(0xe8, x_ptr), tokenbackptr)
+                mstore(tokenbackptr_ptr, tokenbackptr)
+            }
+        }
+    }
 
     /// This function does *NOT* check that `x` is on `a`. If it isn't, depending on whether `a` is
     /// empty, you may get corruption or an OOG.
     function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
-            // Clear the backpointer in the referred-to `Note`
             let x_tokenbackptr_ptr := add(0x20, x)
             let x_tokenbackptr := mload(x_tokenbackptr_ptr)
-            mstore(x_tokenbackptr_ptr, and(_ADDRESS_MASK, x_tokenbackptr))
             let x_ptr := shr(0xe8, x_tokenbackptr)
-            // We do not deallocate `x`
+            if x_ptr {
+                // Clear the backpointer in the referred-to `Note`
+                mstore(x_tokenbackptr_ptr, and(_ADDRESS_MASK, x_tokenbackptr))
+                // We do not deallocate `x`
 
-            // Check if this is a "swap and pop" or just a "pop"
-            let len := mload(a)
-            let end_ptr := add(shl(0x05, len), a)
-            if iszero(eq(end_ptr, x_ptr)) {
-                // Overwrite the vacated indirection pointer `x_ptr` with the one at the end.
-                let end := mload(end_ptr)
-                mstore(x_ptr, end)
+                // Check if this is a "swap and pop" or just a "pop"
+                let len := mload(a)
+                let end_ptr := add(shl(0x05, len), a)
+                if iszero(eq(end_ptr, x_ptr)) {
+                    // Overwrite the vacated indirection pointer `x_ptr` with the one at the end.
+                    let end := mload(end_ptr)
+                    mstore(x_ptr, end)
 
-                // Fix up the backpointer in `end` to point to the new location of the indirection
-                // pointer.
-                let end_tokenbackptr_ptr := add(0x20, end)
-                let end_tokenbackptr := mload(end_tokenbackptr_ptr)
-                end_tokenbackptr := or(shl(0xe8, x_ptr), and(_ADDRESS_MASK, end_tokenbackptr))
-                mstore(end_tokenbackptr_ptr, end_tokenbackptr)
+                    // Fix up the backpointer in `end` to point to the new location of the indirection
+                    // pointer.
+                    let end_tokenbackptr_ptr := add(0x20, end)
+                    let end_tokenbackptr := mload(end_tokenbackptr_ptr)
+                    end_tokenbackptr := or(shl(0xe8, x_ptr), and(_ADDRESS_MASK, end_tokenbackptr))
+                    mstore(end_tokenbackptr_ptr, end_tokenbackptr)
+                }
+
+                // Decrement the length of `a`
+                mstore(a, sub(len, 0x01))
             }
-
-            // Decrement the length of `a`
-            mstore(a, sub(len, 0x01))
         }
     }
 }
@@ -270,7 +267,7 @@ library StateLib {
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
         NotesLib.NotePtr notePtr = notes.get(token, hashMul, hashMod);
-        notes.push(notePtr);
+        notes.initialize(notePtr);
 
         // Here we actually set the pointers into a legal area of memory
         setBuy(state, notePtr);
@@ -579,11 +576,8 @@ abstract contract UniswapV4 is SettlerAbstract {
                 }
             }
 
-            if (!state.buy.backptr().isNull()) {
-                notes.push(state.buy);
-            }
-            if (state.buy.amount == 0) {
-                revert ZeroBuyAmount(state.buy.token());
+            if (state.buy.amount != 0) {
+                notes.add(state.buy);
             }
 
             IERC20 buyToken = IERC20(address(uint160(bytes20(data))));
@@ -639,11 +633,10 @@ abstract contract UniswapV4 is SettlerAbstract {
         private
         returns (uint256 buyAmount)
     {
-        if (!state.buy.backptr().isNull()) {
-            notes.del(state.buy);
-        } else if (state.buy.amount == 0) {
+        if (state.buy.amount == 0) {
             revert ZeroBuyAmount(state.buy.token());
         }
+        notes.del(state.buy);
         if (state.sell.amount == 0) {
             notes.del(state.sell);
         }
