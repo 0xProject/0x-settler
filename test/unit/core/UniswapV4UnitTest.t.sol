@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
 import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {IPoolManager} from "uniswapv4/interfaces/IPoolManager.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -59,6 +60,15 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
         uint256 replaceCount = _replaceAll(poolManagerCode, bytes32(bytes20(uint160(poolManagerSrc))), bytes32(bytes20(uint160(address(POOL_MANAGER)))), bytes32(bytes20(type(uint160).max)));
         console.log("replaced", replaceCount, "occurrences of pool manager immutable address");
         vm.etch(address(POOL_MANAGER), poolManagerCode);
+
+        vm.record();
+        (bool success, bytes memory returndata) = address(POOL_MANAGER).staticcall(abi.encodeWithSignature("owner()"));
+        assert(abi.decode(returndata, (address)) == address(0));
+        (bytes32[] memory readSlots, ) = vm.accesses(address(POOL_MANAGER));
+        assert(readSlots.length == 1);
+        bytes32 ownerSlot = readSlots[0];
+        assert(vm.load(address(POOL_MANAGER), ownerSlot) == bytes32(0));
+        vm.store(address(POOL_MANAGER), ownerSlot, bytes32(uint256(uint160(address(this)))));
     }
 
     function testNothing() public {
