@@ -172,16 +172,12 @@ library NotesLib {
         }
     }
 
-    function initialize(Note[] memory a, NotePtr x) internal pure {
+    function initialize(Note[] memory a, NotePtr x, IERC20 initToken) internal pure {
         assembly ("memory-safe") {
             mstore(a, 0x01)
             let x_ptr := add(0x20, a)
             mstore(x_ptr, x)
-
-            let tokenbackptr_ptr := add(0x20, x)
-            let tokenbackptr := mload(tokenbackptr_ptr)
-            tokenbackptr := or(shl(0xe8, x_ptr), tokenbackptr)
-            mstore(tokenbackptr_ptr, tokenbackptr)
+            mstore(add(0x20, x), or(shl(0xe8, x_ptr), and(_ADDRESS_MASK, initToken)))
         }
     }
 
@@ -267,7 +263,7 @@ library StateLib {
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
         NotesLib.NotePtr notePtr = notes.get(token, hashMul, hashMod);
-        notes.initialize(notePtr);
+        notes.initialize(notePtr, token);
 
         // Here we actually set the pointers into a legal area of memory
         setBuy(state, notePtr);
@@ -602,12 +598,11 @@ abstract contract UniswapV4 is SettlerAbstract {
         (IERC20 sellToken, IERC20 buyToken) = (state.sell.token(), state.buy.token());
         bool zeroForOne = sellToken < buyToken;
         (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (sellToken, buyToken);
-        key.fee = uint24(bytes3(data));
-        data = data[3:];
-        key.tickSpacing = int24(uint24(bytes3(data)));
-        data = data[3:];
-        key.hooks = IHooks.wrap(address(uint160(bytes20(data))));
-        data = data[20:];
+        uint256 packed = uint208(bytes26(data));
+        data = data[26:];
+        key.fee = uint24(packed >> 184);
+        key.tickSpacing = int24(uint24(packed >> 160));
+        key.hooks = IHooks.wrap(address(uint160(packed)));
         return (zeroForOne, data);
     }
 
@@ -622,6 +617,11 @@ abstract contract UniswapV4 is SettlerAbstract {
             let hop := add(0x03, hookData.length)
             retData.offset := add(data.offset, hop)
             retData.length := sub(data.length, hop)
+            if gt(retData.length, 0xffffff) { // length underflow
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // array out-of-bounds
+                revert(0x1c, 0x24)
+            }
         }
     }
 
