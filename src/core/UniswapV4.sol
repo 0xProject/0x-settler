@@ -201,8 +201,6 @@ library NotesLib {
         }
     }
 
-    /// This function does *NOT* check that `x` is on `a`. If it isn't, depending on whether `a` is
-    /// empty, you may get corruption or an OOG.
     function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
             let x_tokenbackptr_ptr := add(0x20, x)
@@ -545,7 +543,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     ///   2 -> sell token becomes the buy token from the previous fill, new buy token is read from `data` (multihop)
     ///   3 -> both sell and buy token are read from `data`
     ///
-    /// This function is also responsible for calling `NotesLib.get(Note[] memory, IERC20, uint256,
+    /// This function is responsible for calling `NotesLib.get(Note[] memory, IERC20, uint256,
     /// uint256)` (via `StateLib.setSell` and `StateLib.setBuy`), which maintains the `notes` array
     /// and heap.
     function _updateState(StateLib.State memory state, NotesLib.Note[] memory notes, bytes calldata data)
