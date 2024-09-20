@@ -386,16 +386,17 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
             mstore(add(0xb3, data), bps)
             mstore(add(0xb1, data), sellToken)
-            mstore(add(0x9d, data), hashMul)
-            mstore(add(0x8d, data), hashMod)
-            mstore(add(0x7d, data), address()) // payer
+            mstore(add(0x9d, data), address()) // payer
+
+            mstore(add(0x88, data), hashMod)
+            mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0x4f, pathLen))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
             mstore(data, add(0x93, pathLen))
-            mstore8(add(0x88, data), feeOnTransfer)
+            mstore8(add(0xa8, data), feeOnTransfer)
 
             mstore(0x40, add(add(0xd3, data), pathLen))
         }
@@ -439,7 +440,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             let pathLen := mload(fills)
             let sigLen := mload(sig)
 
-            let ptr := add(0x112, data)
+            let ptr := add(0x132, data)
             mcopy(ptr, add(0x20, fills), pathLen)
             ptr := add(ptr, pathLen)
             // TODO: encode sig length in 3 bytes instead of 32
@@ -450,18 +451,20 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
 
             mstore(0x40, ptr)
 
-            mstore8(add(0x111, data), isForwarded)
-            mcopy(add(0xd1, data), add(0x20, permit), 0x40)
-            mcopy(add(0x91, data), mload(permit), 0x40)
+            mstore8(add(0x131, data), isForwarded)
+            mcopy(add(0xf1, data), add(0x20, permit), 0x40)
+            mcopy(add(0xb1, data), mload(permit), 0x40) // aliases `payer` on purpose
+            mstore(add(0x9d, data), 0x00) // payer
 
-            mstore(add(0x7d, data), 0x00) // payer
+            mstore(add(0x88, data), hashMod)
+            mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0x132, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
             mstore(data, add(0x176, add(pathLen, sigLen)))
-            mstore8(add(0x89, data), feeOnTransfer)
+            mstore8(add(0xa8, data), feeOnTransfer)
         }
         return abi.decode(
             abi.decode(
@@ -673,7 +676,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         return IPoolManager(_operator()).settle();
     }
 
-    function _setup(bytes calldata data, bool feeOnTransfer, address payer)
+    function _setup(bytes calldata data, bool feeOnTransfer, uint256 hashMul, uint256 hashMod, address payer)
         private
         returns (
             bytes calldata newData,
@@ -685,11 +688,6 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         )
     {
         {
-            uint256 hashMul = uint128(bytes16(data));
-            data = data[16:];
-            uint256 hashMod = uint128(bytes16(data));
-            data = data[16:];
-
             IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
             // We don't advance `data` here because there's a special interaction between `payer`,
             // `sellToken`, and `permit` that's handled below.
@@ -766,6 +764,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         data = data[20:];
         uint256 minBuyAmount = uint128(bytes16(data));
         data = data[16:];
+        uint256 hashMul = uint128(bytes16(data));
+        data = data[16:];
+        uint256 hashMod = uint128(bytes16(data));
+        data = data[16:];
         bool feeOnTransfer = uint8(bytes1(data)) != 0;
         data = data[1:];
 
@@ -782,7 +784,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
             bytes calldata sig
-        ) = _setup(data, feeOnTransfer, payer);
+        ) = _setup(data, feeOnTransfer, hashMul, hashMod, payer);
         data = newData;
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
