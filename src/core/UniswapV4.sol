@@ -174,10 +174,15 @@ library NotesLib {
 
     function initialize(Note[] memory a, NotePtr x, IERC20 initToken) internal pure {
         assembly ("memory-safe") {
-            mstore(a, 0x01)
+            initToken := and(_ADDRESS_MASK, initToken)
+            if iszero(initToken) {
+                mstore(0x00, 0xad1991f5) // selector for `ZeroToken()`
+                revert(0x1c, 0x04)
+            }
+mstore(a, 0x01)
             let x_ptr := add(0x20, a)
             mstore(x_ptr, x)
-            mstore(add(0x20, x), or(shl(0xe8, x_ptr), and(_ADDRESS_MASK, initToken)))
+            mstore(add(0x20, x), or(shl(0xe8, x_ptr), initToken))
         }
     }
 
