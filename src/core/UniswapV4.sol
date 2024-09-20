@@ -540,23 +540,24 @@ abstract contract UniswapV4 is SettlerAbstract {
     // 3 - hook data length
     uint256 private constant _HOP_DATA_LENGTH = 32;
 
-    /// Decode a `PoolKey` from its packed representation in `bytes`. Returns the suffix of the
-    /// bytes that are not consumed in the decoding process. The first byte of `data` describes
-    /// which of the compact representations for the hop is used.
+    /// Update `state` for the next fill packed in `data`. This also may allocate/append `Note`s
+    /// into `notes`. Returns the suffix of the bytes that are not consumed in the decoding
+    /// process. The first byte of `data` describes which of the compact representations for the hop
+    /// is used.
+    ///
     ///   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
     ///   1 -> sell token remains unchanged from the previous fill, buy token is read from `data` (diamond multiplex)
     ///   2 -> sell token becomes the buy token from the previous fill, new buy token is read from `data` (multihop)
     ///   3 -> both sell and buy token are read from `data`
     ///
-    /// This function is also responsible for calling `NotesLib.insert` (via `StateLib.setSell` and
-    /// `StateLib.setBuy`), which maintains the `notes` array and the corresponding mapping in
-    /// transient storage
-    function _getPoolKey(
-        IPoolManager.PoolKey memory key,
+    /// This function is also responsible for calling `NotesLib.get(Note[] memory, IERC20, uint256,
+    /// uint256)` (via `StateLib.setSell` and `StateLib.setBuy`), which maintains the `notes` array
+    /// and heap.
+    function _updateState(
         StateLib.State memory state,
         NotesLib.Note[] memory notes,
         bytes calldata data
-    ) private pure returns (bool, bytes calldata) {
+    ) private pure returns (bytes calldata) {
         uint256 caseKey = uint8(bytes1(data));
         data = data[1:];
         if (caseKey != 0) {
@@ -591,17 +592,22 @@ abstract contract UniswapV4 is SettlerAbstract {
                 revert BoughtSellToken(state.globalSell.token());
             }
         }
+        return data;
+    }
 
-        bool zeroForOne = state.sell.token() < state.buy.token();
-        (key.token0, key.token1) =
-            zeroForOne ? (state.sell.token(), state.buy.token()) : (state.buy.token(), state.sell.token());
+    /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
+    /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
+    /// the decoding process.
+    function _setPoolKey(IPoolManager.PoolKey memory key, StateLib.State memory state, bytes calldata data) private pure returns (bool, bytes calldata) {
+        (IERC20 sellToken, IERC20 buyToken) = (state.sell.token(), state.buy.token());
+        bool zeroForOne = sellToken < buyToken;
+        (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (sellToken, buyToken);
         key.fee = uint24(bytes3(data));
         data = data[3:];
         key.tickSpacing = int24(uint24(bytes3(data)));
         data = data[3:];
         key.hooks = IHooks.wrap(address(uint160(bytes20(data))));
         data = data[20:];
-
         return (zeroForOne, data);
     }
 
@@ -797,8 +803,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
 
+            data = _updateState(state, notes, data);
             bool zeroForOne;
-            (zeroForOne, data) = _getPoolKey(key, state, notes, data);
+            (zeroForOne, data) = _setPoolKey(key, state, data);
             bytes calldata hookData;
             (hookData, data) = _getHookData(data);
 
