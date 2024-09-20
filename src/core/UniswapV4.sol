@@ -184,7 +184,8 @@ library NotesLib {
 
             let note_ptr := add(0x20, x)
             let note := mload(note_ptr)
-            note := or(shl(0xf8, len), and(_AMOUNT_MASK, note))
+            // The 8 high bits of `note` must be clear. This is the same as `x` is not in `a`.
+            note := or(shl(0xf8, len), note)
             mstore(note_ptr, note)
         }
     }
@@ -196,7 +197,7 @@ library NotesLib {
         assembly ("memory-safe") {
             x_ptr := x
         }
-        return push(a, x);
+        return push(a, x_ptr);
     }
 
     /// This function does *NOT* check that `a` is nonempty. If it is, you will get underflow and
