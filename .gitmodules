@@ -13,3 +13,9 @@
 [submodule "lib/uniswap-v4"]
 	path = lib/uniswap-v4
 	url = https://github.com/Uniswap/v4-core.git
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
+[submodule "lib/ds-test"]
+	path = lib/ds-test
+	url = https://github.com/dapphub/ds-test.git
