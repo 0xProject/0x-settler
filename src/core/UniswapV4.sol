@@ -151,12 +151,12 @@ library NotesLib {
 
             // load the old value of the metadata slot so that we can check it
             let x_tokenbackptr_ptr := add(0x20, x)
-            let old_token_backptr := mload(x_tokenbackptr_ptr)
+            let old_tokenbackptr := mload(x_tokenbackptr_ptr)
 
             // check that we haven't encountered a hash collision
-            let old_backptr := shr(0xe8, old_token_backptr)
+            let old_backptr := shr(0xe8, old_tokenbackptr)
             {
-                let old_token := and(_ADDRESS_MASK, old_token_backptr)
+                let old_token := and(_ADDRESS_MASK, old_tokenbackptr)
                 if mul(or(old_backptr, old_token), xor(old_token, newToken)) { // TODO(dekz): check me on this?
                     mstore(0x00, 0x9a62e8b4) // selector for `TokenHashCollision(address,address)`
                     mstore(0x20, old_token)
