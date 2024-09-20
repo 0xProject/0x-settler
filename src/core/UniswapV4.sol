@@ -15,7 +15,8 @@ import {
     DeltaNotNegative,
     ZeroBuyAmount,
     BoughtSellToken,
-    TokenHashCollision
+    TokenHashCollision,
+    ZeroToken
 } from "./SettlerErrors.sol";
 
 import {
@@ -160,6 +161,10 @@ library NotesLib {
                 mstore(0x20, oldToken)
                 mstore(0x40, token)
                 revert(0x1c, 0x44)
+            }
+            if iszero(token) {
+                mstore(0x00, 0xad1991f5) // selector for `ZeroToken()`
+                revert(0x1c, 0x04)
             }
             mstore(x, token)
         }
