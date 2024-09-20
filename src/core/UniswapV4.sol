@@ -126,6 +126,7 @@ library NotesLib {
         return x.tokenAndBackptr.token();
     }
 
+    // TODO: this is a leaky abstraction; remove it
     function backptr(Note memory x) internal pure returns (MemptrAndTokenLib.MemPtr) {
         return x.tokenAndBackptr.ptr();
     }
@@ -205,6 +206,9 @@ library NotesLib {
         }
         return push(a, x_ptr);
     }
+
+    // TODO: add a `maybePush` function that combines the backpointer null check with the push
+    // logic; maybe rename `push` to `add`
 
     /// This function does *NOT* check that `x` is on `a`. If it isn't, depending on whether `a` is
     /// empty, you may get corruption or an OOG.
