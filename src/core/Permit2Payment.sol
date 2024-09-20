@@ -20,7 +20,7 @@ import {Panic} from "../utils/Panic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
 
 import {Context} from "../Context.sol";

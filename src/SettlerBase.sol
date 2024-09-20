@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";

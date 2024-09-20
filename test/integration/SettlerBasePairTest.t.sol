@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
 

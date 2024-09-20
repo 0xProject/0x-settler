@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IUniswapV3Pool, UniswapV3Fork} from "src/core/UniswapV3Fork.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "permit2/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
