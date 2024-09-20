@@ -77,24 +77,23 @@ library IndexAndDeltaLib {
     }
 }
 
-/// This library is a highly-optimized, enumerable mapping from tokens to deltas. It consists of 3
-/// components that must be kept synchronized. There is a transient storage "mapping" that maps
-/// token addresses to `memory` pointers (aka `Note memory`). There is a `memory` array of `Note`
-/// (aka `Note[] memory`) that has up to `_MAX_TOKENS` pre-allocated. And then there is an implicit
-/// heap packed at the end of the array that stores the `Note`s and is prepended with the number of
-/// allocated objects. While the length of the `Notes[]` array grows and shrinks as tokens are added
-/// and retired, the heap never shrinks and is only deallocated when the context of `unlockCallback`
-/// returns. The function `destruct` is used for clearing the transient storage "mapping", but the
-/// array itself is perfectly usable afterwards.
+/// This library is a highly-optimized, enumerable mapping from tokens to deltas. It consists of 2
+/// components that must be kept synchronized. There is a `memory` array of `Note` (aka `Note[]
+/// memory`) that has up to `_MAX_TOKENS` pre-allocated. And there is an implicit heap packed at the
+/// end of the array that stores the `Note`s. While the length of the `Notes[]` array grows and
+/// shrinks as tokens are added and retired, the heap never shrinks and is only deallocated when the
+/// context of `unlockCallback` returns. Looking up the `Note` object corresponding to a token uses
+/// the perfect hash formed by `hashMul` and `hashMod`. Take special note of these parameters. See
+/// further below in `contract UniswapV4` for recommendations on how to select values for them. A
+/// hash collision will result in a revert with signature `TokenHashCollision(address,address)`.
 library NotesLib {
     using IndexAndDeltaLib for IndexAndDeltaLib.IndexAndDelta;
 
     uint256 private constant _AMOUNT_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
-    /// This is the maximum number of tokens that may be involved in a UniV4 action. If more tokens
-    /// than this are involved, then we will Panic with code 0x32 (indicating an out-of-bounds array
-    /// access). Increasing or decreasing this value requires no changes elsewhere in this file.
+    /// This is the maximum number of tokens that may be involved in a UniV4 action. Increasing or
+    /// decreasing this value requires no changes elsewhere in this file.
     uint256 private constant _MAX_TOKENS = 8;
 
     // TODO: swap the fields of this struct; putting `note` first saves a bunch of ADDs
