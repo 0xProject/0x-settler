@@ -655,9 +655,6 @@ abstract contract UniswapV4 is SettlerAbstract {
             IERC20 buyToken;
             (buyToken, buyAmount) = state.buy.get();
             if (buyAmount < minBuyAmount) {
-                if (buyToken == IERC20(address(0))) {
-                    buyToken = ETH_ADDRESS;
-                }
                 revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
             IPoolManager(_operator()).unsafeTake(buyToken, recipient, buyAmount);
@@ -845,7 +842,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         {
             (IERC20 globalSellToken, uint256 globalSellAmount) = state.globalSell.get();
             uint256 globalBuyAmount = _take(state, notes, recipient, minBuyAmount);
-            if (globalSellToken == IERC20(address(0))) {
+            if (globalSellToken == ETH_ADDRESS) {
                 IPoolManager(_operator()).settle{value: globalSellAmount}();
             } else if (feeOnTransfer) {
                 // We've already transferred the sell token to the pool manager and
