@@ -62,7 +62,7 @@ library MemptrAndTokenLib {
 
     function token(MemptrAndToken x) internal pure returns (IERC20 r) {
         assembly ("memory-safe") {
-            r := and(_ADDRESS_MASK, x)
+            r := x
         }
     }
 
@@ -129,7 +129,7 @@ library NotesLib {
     function get(Note[] memory a, uint256 i) internal pure returns (IERC20 retToken, uint256 retAmount) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
-            retToken := and(_ADDRESS_MASK, mload(add(0x20, x)))
+            retToken := mload(add(0x20, x))
             retAmount := mload(x)
         }
     }
