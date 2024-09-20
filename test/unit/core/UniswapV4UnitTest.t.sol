@@ -36,7 +36,7 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
 
             for {
                 let i := add(0x20, haystack)
-                let end := add(padding, add(mload(haystack), i))
+                let end := add(add(0x01, padding), add(mload(haystack), haystack))
             } lt(i, end) {
                 i := add(0x01, i)
             } {
