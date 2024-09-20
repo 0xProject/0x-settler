@@ -555,11 +555,11 @@ abstract contract UniswapV4 is SettlerAbstract {
     /// This function is also responsible for calling `NotesLib.get(Note[] memory, IERC20, uint256,
     /// uint256)` (via `StateLib.setSell` and `StateLib.setBuy`), which maintains the `notes` array
     /// and heap.
-    function _updateState(
-        StateLib.State memory state,
-        NotesLib.Note[] memory notes,
-        bytes calldata data
-    ) private pure returns (bytes calldata) {
+    function _updateState(StateLib.State memory state, NotesLib.Note[] memory notes, bytes calldata data)
+        private
+        pure
+        returns (bytes calldata)
+    {
         uint256 caseKey = uint8(bytes1(data));
         data = data[1:];
         if (caseKey != 0) {
@@ -600,7 +600,11 @@ abstract contract UniswapV4 is SettlerAbstract {
     /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
     /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
     /// the decoding process.
-    function _setPoolKey(IPoolManager.PoolKey memory key, StateLib.State memory state, bytes calldata data) private pure returns (bool, bytes calldata) {
+    function _setPoolKey(IPoolManager.PoolKey memory key, StateLib.State memory state, bytes calldata data)
+        private
+        pure
+        returns (bool, bytes calldata)
+    {
         (IERC20 sellToken, IERC20 buyToken) = (state.sell.token(), state.buy.token());
         bool zeroForOne = sellToken < buyToken;
         (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (sellToken, buyToken);

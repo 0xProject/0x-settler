@@ -111,9 +111,7 @@ library UnsafePoolManager {
             let ptr := mload(0x40)
             mstore(ptr, 0x0b0d9c09) // selector for `take(address,address,uint256)`
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) {
-                token := 0x00
-            }
+            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
             mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token))
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
             mstore(add(0x60, ptr), amount)
@@ -134,14 +132,10 @@ library UnsafePoolManager {
             let ptr := mload(0x40)
             mstore(ptr, 0xf3cd914c) // selector for `swap((address,address,uint24,int24,address),(bool,int256,uint160),bytes)`
             let token := mload(key)
-            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) {
-                token := 0x00
-            }
+            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
             mstore(add(0x20, ptr), token)
             token := mload(add(0x20, key))
-            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) {
-                token := 0x00
-            }
+            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
             mstore(add(0x40, ptr), token)
             mcopy(add(0x60, ptr), add(0x40, key), 0x60)
             mcopy(add(0xc0, ptr), params, 0x60)
