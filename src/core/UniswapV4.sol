@@ -635,6 +635,11 @@ abstract contract UniswapV4 is SettlerAbstract {
     {
         if (!state.buy.backptr().isNull()) {
             notes.del(state.buy);
+        } else if (state.buy.amount == 0) {
+            revert ZeroBuyAmount(state.buy.token());
+        }
+        if (state.sell.amount == 0) {
+            notes.del(state.sell);
         }
 
         uint256 length = notes.length;
