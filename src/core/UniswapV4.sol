@@ -111,7 +111,7 @@ library NotesLib {
     function construct() internal pure returns (Note[] memory r) {
         assembly ("memory-safe") {
             r := mload(0x40)
-            let len := add(0x20, shl(0x05, _MAX_TOKENS))
+            let len := add(0x20, mul(0x60, _MAX_TOKENS))
             // zeroize all the memory required to store the notes
             codecopy(r, codesize(), len)
             // allocate memory
