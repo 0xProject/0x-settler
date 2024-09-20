@@ -151,7 +151,7 @@ library NotesLib {
     function get(Note[] memory a, IERC20 token, uint256 hashMul, uint256 hashMod) internal pure returns (NotePtr x) {
         assembly ("memory-safe") {
             token := and(_ADDRESS_MASK, token)
-            x := add((0x20, shl(0x05, _MAX_TOKENS)), a) // `x` now points at the first `Note` on the heap
+            x := add(add(0x20, shl(0x05, _MAX_TOKENS)), a) // `x` now points at the first `Note` on the heap
             x := add(mod(mulmod(token, hashMul, hashMod), shl(0x06, _MAX_TOKENS)), x) // combine with token hash
             // `x` now points at the exact `Note` object we want; let's check it to be sure, though
             let oldToken := mload(x)
