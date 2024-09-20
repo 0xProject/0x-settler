@@ -253,6 +253,7 @@ library StateLib {
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
         NotesLib.NotePtr notePtr = notes.get(token, hashMul, hashMod);
+        notes.push(notePtr);
 
         // Here we actually set the pointers into a legal area of memory
         setBuy(state, notePtr);
@@ -569,6 +570,10 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
                 }
             }
 
+            if (state.buy.index() == 0) {
+                notes.push(state.buy);
+            }
+
             IERC20 buyToken = IERC20(address(uint160(bytes20(data))));
             data = data[20:];
 
@@ -616,8 +621,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
         if (state.buy.note.index() == notes.length) {
             // TODO: evaluate whether this is actually more gas efficient
             notes.pop();
-        } else {
-            // Guaranteed to exist by the `ZeroBuyAmount` check in the main loop
+        } else if (state.buy.note.index() != 0) {
             notes.del(state.buy);
         }
 
