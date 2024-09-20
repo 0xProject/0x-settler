@@ -80,12 +80,13 @@ library IndexAndDeltaLib {
 /// This library is a highly-optimized, enumerable mapping from tokens to deltas. It consists of 2
 /// components that must be kept synchronized. There is a `memory` array of `Note` (aka `Note[]
 /// memory`) that has up to `_MAX_TOKENS` pre-allocated. And there is an implicit heap packed at the
-/// end of the array that stores the `Note`s. While the length of the `Notes[]` array grows and
-/// shrinks as tokens are added and retired, the heap never shrinks and is only deallocated when the
-/// context of `unlockCallback` returns. Looking up the `Note` object corresponding to a token uses
-/// the perfect hash formed by `hashMul` and `hashMod`. Take special note of these parameters. See
-/// further below in `contract UniswapV4` for recommendations on how to select values for them. A
-/// hash collision will result in a revert with signature `TokenHashCollision(address,address)`.
+/// end of the array that stores the `Note`s. Each `Note` has a backpointer that knows its index
+/// into the `Notes[] memory`. While the length of the `Notes[]` array grows and shrinks as tokens
+/// are added and retired, heap objects are only deallocated when the context of `unlockCallback`
+/// returns. Looking up the `Note` object corresponding to a token uses the perfect hash formed by
+/// `hashMul` and `hashMod`. Take special note of these parameters. See further below in `contract
+/// UniswapV4` for recommendations on how to select values for them. A hash collision will result in
+/// a revert with signature `TokenHashCollision(address,address)`.
 library NotesLib {
     using IndexAndDeltaLib for IndexAndDeltaLib.IndexAndDelta;
 
