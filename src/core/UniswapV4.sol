@@ -73,16 +73,16 @@ library MemptrAndTokenLib {
     }
 }
 
-/// This library is a highly-optimized, enumerable mapping from tokens to deltas. It consists of 2
-/// components that must be kept synchronized. There is a `memory` array of `Note` (aka `Note[]
-/// memory`) that has up to `_MAX_TOKENS` pre-allocated. And there is an implicit heap packed at the
-/// end of the array that stores the `Note`s. Each `Note` has a backpointer that knows its location
-/// in the `Notes[] memory`. While the length of the `Notes[]` array grows and shrinks as tokens are
-/// added and retired, heap objects are only deallocated when the context of `unlockCallback`
-/// returns. Looking up the `Note` object corresponding to a token uses the perfect hash formed by
-/// `hashMul` and `hashMod`. Pay special attention to these parameters. See further below in
-/// `contract UniswapV4` for recommendations on how to select values for them. A hash collision will
-/// result in a revert with signature `TokenHashCollision(address,address)`.
+/// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
+/// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
+/// (aka `Note[] memory`) that has up to `_MAX_TOKENS` pre-allocated. And there is an implicit heap
+/// packed at the end of the array that stores the `Note`s. Each `Note` has a backpointer that knows
+/// its location in the `Notes[] memory`. While the length of the `Notes[]` array grows and shrinks
+/// as tokens are added and retired, heap objects are only cleared/deallocated when the context of
+/// `unlockCallback` returns. Looking up the `Note` object corresponding to a token uses the perfect
+/// hash formed by `hashMul` and `hashMod`. Pay special attention to these parameters. See further
+/// below in `contract UniswapV4` for recommendations on how to select values for them. A hash
+/// collision will result in a revert with signature `TokenHashCollision(address,address)`.
 library NotesLib {
     using MemptrAndTokenLib for MemptrAndTokenLib.MemPtr;
     using MemptrAndTokenLib for MemptrAndTokenLib.MemptrAndToken;
@@ -90,7 +90,7 @@ library NotesLib {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
     /// This is the maximum number of tokens that may be involved in a UniV4 action. Increasing or
-    /// decreasing this value requires no changes elsewhere in this file.
+    /// decreasing this value requires no other changes elsewhere in this file.
     uint256 private constant _MAX_TOKENS = 8;
 
     struct Note {
@@ -523,17 +523,15 @@ abstract contract UniswapV4 is SettlerAbstract {
     //// callback that have nonzero credit. At the end of the fills, all tokens with credit will be
     //// swept back to Settler. These are the global buy token (against which slippage is checked)
     //// and any other multiplex-out tokens. Only the global sell token is allowed to have debt, but
-    //// it is accounted slightly differently from the other tokens. To avoid doing a linear scan
-    //// each time a new token is encountered, the transient storage slot named by each token stores
-    //// the pointer to the corresponding `Note` object. The function `_take` is responsible for
-    //// iterating over the list of tokens and withdrawing any credit to the appropriate recipient.
+    //// it is accounted slightly differently from the other tokens. The function `_take` is
+    //// responsible for iterating over the list of tokens and withdrawing any credit to the
+    //// appropriate recipient.
     ////
-    //// `state` exists to reduce stack pressure and to simplify and gas-optimize the process of
+    //// `state` exists to reduce stack pressure and to simplify/gas-optimize the process of
     //// swapping. By keeping track of the sell and buy token on each hop, we're able to compress
     //// the representation of the fills required to satisfy the swap. Most often in a swap, the
     //// tokens in adjacent fills are somewhat in common. By caching, we avoid having them appear
-    //// multiple times in the calldata. Additionally, this caching helps us avoid having to
-    //// dereference the pointer in transient storage.
+    //// multiple times in the calldata.
 
     // the mandatory fields are
     // 2 - sell bps
@@ -690,6 +688,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         if (payer == address(this)) {
             sellToken.safeTransfer(_operator(), sellAmount);
         } else {
+            // assert(payer == address(0));
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
                 ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
@@ -725,7 +724,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         if (state.globalSell.token() == ETH_ADDRESS) {
             assert(payer == address(this));
-            data = data[20:];
+            data = data[20:]; // advance `data` from decoding `sellToken` above
 
             uint16 bps = uint16(bytes2(data));
             data = data[2:];
@@ -734,7 +733,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
         } else {
             if (payer == address(this)) {
-                data = data[20:];
+                data = data[20:]; // advance `data` from decoding `sellToken` above
 
                 uint16 bps = uint16(bytes2(data));
                 data = data[2:];
@@ -792,8 +791,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         address payer = address(uint160(bytes20(data)));
         data = data[20:];
 
-        // Set up `state` and `notes`. The other values are ancillary and may be used when we need
-        // to settle any debt at the end of swapping.
+        // Set up `state` and `notes`. The other values are ancillary and might be used when we need
+        // to settle global sell token debt at the end of swapping.
         (
             bytes calldata newData,
             StateLib.State memory state,
