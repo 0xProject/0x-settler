@@ -366,6 +366,13 @@ abstract contract UniswapV4 is SettlerAbstract {
     //// for each value, and then selecting randomly from among them. The author recommends using
     //// the 10 largest 64-bit prime numbers: 2^64 - {59, 83, 95, 179, 189, 257, 279, 323, 353,
     //// 363}. `hashMul` can then be selected randomly or via some other optimized method.
+    ////
+    //// Note that in spite of the fact that the pool manager represents Ether (or the native asset
+    //// of the chain) as `address(0)`, we represent Ether as `SettlerAbstract.ETH_ADDRESS` (the
+    //// address of all `e`s) for homogeneity with other parts of the codebase, and because the
+    //// decision to represent Ether as `address(0)` was stupid in the first place. `address(0)`
+    //// represents the absence of a thing, not a special case of the thing. It creates confusion
+    //// with uninitialized memory, storage, and variables.
 
     function sellToUniswapV4(
         address recipient,
