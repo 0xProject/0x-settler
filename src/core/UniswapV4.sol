@@ -382,10 +382,12 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             data := mload(0x40)
 
             let pathLen := mload(fills)
-            mcopy(add(0xb3, data), add(0x20, fills), pathLen)
+            mcopy(add(0xd3, data), add(0x20, fills), pathLen)
 
-            mstore(add(0x93, data), bps)
-            mstore(add(0x91, data), sellToken)
+            mstore(add(0xb3, data), bps)
+            mstore(add(0xb1, data), sellToken)
+            mstore(add(0x9d, data), hashMul)
+            mstore(add(0x8d, data), hashMod)
             mstore(add(0x7d, data), address()) // payer
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
@@ -395,7 +397,7 @@ abstract contract UniswapV4 is SettlerAbstract, FreeMemory {
             mstore(data, add(0x93, pathLen))
             mstore8(add(0x88, data), feeOnTransfer)
 
-            mstore(0x40, add(add(0xb3, data), pathLen))
+            mstore(0x40, add(add(0xd3, data), pathLen))
         }
         return abi.decode(
             abi.decode(
