@@ -151,7 +151,7 @@ library UnsafePoolManager {
     }
 }
 
-IPoolManager constant POOL_MANAGER = IPoolManager(0x000000000000000000000000000000000000dEaD); // TODO: replace with actual deployment address
+IPoolManager constant POOL_MANAGER = IPoolManager(0x4444444444444444444444444444444444444444); // TODO: replace with actual deployment address
 
 /// @notice Interface for the callback executed when an address unlocks the pool manager
 interface IUnlockCallback {
