@@ -410,13 +410,13 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x4f, pathLen))
+            mstore(add(0x44, data), add(0x6f, pathLen))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
-            mstore(data, add(0x93, pathLen))
+            mstore(data, add(0xb3, pathLen))
             mstore8(add(0xa8, data), feeOnTransfer)
 
-            mstore(0x40, add(add(0xd3, data), pathLen))
+            mstore(0x40, add(data, add(0xd3, pathLen)))
         }
         return abi.decode(
             abi.decode(
@@ -458,16 +458,16 @@ abstract contract UniswapV4 is SettlerAbstract {
             let pathLen := mload(fills)
             let sigLen := mload(sig)
 
-            let ptr := add(0x132, data)
-            mcopy(ptr, add(0x20, fills), pathLen)
-            ptr := add(ptr, pathLen)
-            // TODO: encode sig length in 3 bytes instead of 32
-            mcopy(ptr, add(0x20, sig), sigLen)
-            ptr := add(ptr, sigLen)
-            mstore(ptr, sigLen)
-            ptr := add(0x20, ptr)
+            {
+                let ptr := add(0x132, data)
+                mcopy(ptr, add(0x20, fills), pathLen)
+                ptr := add(ptr, pathLen)
+                mstore(sub(add(ptr, sigLen), 0x1d), sigLen)
+                mcopy(ptr, add(0x20, sig), sigLen)
+                ptr := add(0x03, add(ptr, sigLen))
 
-            mstore(0x40, ptr)
+                mstore(0x40, ptr)
+            }
 
             mstore8(add(0x131, data), isForwarded)
             mcopy(add(0xf1, data), add(0x20, permit), 0x40)
@@ -478,10 +478,10 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x132, add(pathLen, sigLen)))
+            mstore(add(0x44, data), add(0xb0, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
-            mstore(data, add(0x176, add(pathLen, sigLen)))
+            mstore(data, add(0xf4, add(pathLen, sigLen)))
             mstore8(add(0xa8, data), feeOnTransfer)
         }
         return abi.decode(
@@ -747,16 +747,24 @@ abstract contract UniswapV4 is SettlerAbstract {
                     permit := sub(data.offset, 0x0c)
                     isForwarded := and(0x01, calldataload(add(0x55, data.offset)))
 
-                    // `sig` is packed at the end of `data`, in "reverse ABIEncoded" fashion
-                    sig.offset := sub(add(data.offset, data.length), 0x20)
-                    // TODO: encode sig as 3 bytes instead of 32
-                    sig.length := calldataload(sig.offset)
+                    // `sig` is packed at the end of `data`, in "reverse ABI-ish encoded" fashion
+                    sig.offset := sub(add(data.offset, data.length), 0x03)
+                    sig.length := and(0xffffff, calldataload(sig.offset))
                     sig.offset := sub(sig.offset, sig.length)
 
                     // Remove `permit` and `isForwarded` from the front of `data`
                     data.offset := add(0x75, data.offset)
+                    if lt(data.offset, sig.offset) {
+                        revert(0x00, 0x00)
+                    }
+
                     // Remove `sig` from the back of `data`
-                    data.length := sub(sub(data.length, 0x95), sig.length)
+                    data.length := sub(sub(data.length, 0x78), sig.length)
+                    if gt(data.length, 0xffffff) { // length underflow
+                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                        mstore(0x20, 0x32) // array out-of-bounds
+                        revert(0x1c, 0x24)
+                    }
                 }
 
                 state.globalSell.amount = _permitToSellAmountCalldata(permit);
