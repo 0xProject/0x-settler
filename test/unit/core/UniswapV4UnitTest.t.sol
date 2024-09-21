@@ -371,6 +371,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length), bound(tokenBIndex, 0, tokens.length));
         fee = uint24(bound(fee, 0, 1_000_000));
         tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
+        sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.MIN_SQRT_PRICE + 1, TickMath.MAX_SQRT_PRICE - 1));
         (IERC20 token0, IERC20 token1) = (tokens[tokenAIndex], tokens[tokenBIndex]);
 
         vm.assume(tokenAIndex != tokenBIndex);
