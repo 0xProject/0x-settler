@@ -16,8 +16,32 @@ import {Test} from "forge-std/Test.sol";
 
 import {console} from "forge-std/console.sol";
 
-contract UniswapV4Dummy is UniswapV4 {
+contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
+
+    function sellToUniswapV4(
+        IERC20 sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external returns (uint256) {
+        return super.sellToUniswapV4(_msgSender(), sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+    }
+
+    function sellToUniswapV4VIP(
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external returns (uint256) {
+        return super.sellToUniswapV4VIP(_msgSender(), feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+    }
 
     // bytes32(uint256(keccak256("operator slot")) - 1)
     bytes32 private constant _OPERATOR_SLOT = 0x009355806b743562f351db2e3726091207f49fa1cdccd5c65a7d4860ce3abbe9;
@@ -65,8 +89,8 @@ contract UniswapV4Dummy is UniswapV4 {
         return false;
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data) internal override returns (bool) {
-        revert("unimplemented"); // TODO:
+    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
     }
 
     function _isRestrictedTarget(address) internal pure override returns (bool) {
@@ -187,6 +211,8 @@ contract UniswapV4Dummy is UniswapV4 {
 contract UniswapV4UnitTest is Test, IUnlockCallback {
     using Revert for bool;
 
+    UniswapV4Stub internal stub;
+
     function unlockCallback(bytes calldata) external view override returns (bytes memory) {
         assert(msg.sender == address(POOL_MANAGER));
         return unicode"Hello, World!";
@@ -224,6 +250,10 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
         }
     }
 
+    function _deployStub() internal {
+        stub = new UniswapV4Stub();
+    }
+
     function _deployPoolManager() internal {
         bytes memory poolManagerCode = vm.getCode("PoolManager.sol:PoolManager");
         address poolManagerSrc;
@@ -253,6 +283,7 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
     }
 
     function setUp() public {
+        _deployStub();
         _deployPoolManager();
     }
 
