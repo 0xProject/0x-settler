@@ -370,7 +370,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
         if (token == IERC20(ETH)) {
             return address(this).balance;
         }
-        try this.getBalanceOf(token) {} catch (bytes memory returndata) {
+        try this.getBalanceOf(token) {}
+        catch (bytes memory returndata) {
             return abi.decode(returndata, (uint256));
         }
         revert();
@@ -391,7 +392,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
         uint256 hashMul = 0;
         uint256 hashMod = 1;
         PoolKey memory poolKey = pools[poolIndex];
-        (IERC20 sellToken, IERC20 buyToken) = zeroForOne ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1))) : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
+        (IERC20 sellToken, IERC20 buyToken) = zeroForOne
+            ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
+            : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
 
         uint256 sellTokenBalanceBefore = _balanceOf(sellToken);
         uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
@@ -401,8 +404,11 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
             value = sellTokenBalanceBefore * bps / 10_000;
         }
         UniswapV4Stub _stub = stub;
-        vm.prank(address(this), address(this));
-        _stub.sellToUniswapV4{value: value}(sellToken, bps, feeOnTransfer, hashMul, hashMod, /* TODO: fills */, 0);
+        vm.startPrank(address(this), address(this));
+        _stub.sellToUniswapV4{value: value}(
+            sellToken, bps, feeOnTransfer, hashMul, hashMod, /* TODO: fills */, 0
+        );
+        vm.stopPrank();
 
         uint256 sellTokenBalanceAfter = _balanceOf(sellToken);
         uint256 buyTokenBalanceAfter = _balanceOf(buyToken);
@@ -419,10 +425,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
 
         excludeSender(ETH);
         {
-            FuzzSelector memory exclusion = FuzzSelector({
-                addr: address(this),
-                selectors: new bytes4[](1)
-            });
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](1)});
             exclusion.selectors[0] = this.getBalanceOf.selector;
             excludeSelector(exclusion);
         }
