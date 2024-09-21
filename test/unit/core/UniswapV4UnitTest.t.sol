@@ -30,13 +30,13 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
                 }
             }
 
-            padding := shr(0x03, padding)
+            padding := add(0x01, shr(0x03, padding))
             needle := and(mask, needle)
             replace := and(mask, replace)
 
             for {
                 let i := add(0x20, haystack)
-                let end := add(add(0x01, padding), add(mload(haystack), haystack))
+                let end := add(padding, add(mload(haystack), haystack))
             } lt(i, end) {
                 i := add(0x01, i)
             } {
@@ -49,7 +49,7 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
         }
     }
 
-    function setUp() public {
+    function _deployPoolManager() internal {
         bytes memory poolManagerCode = vm.getCode("PoolManager.sol:PoolManager");
         address poolManagerSrc;
         assembly ("memory-safe") {
@@ -69,6 +69,10 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
         bytes32 ownerSlot = readSlots[0];
         assert(vm.load(address(POOL_MANAGER), ownerSlot) == bytes32(0));
         vm.store(address(POOL_MANAGER), ownerSlot, bytes32(uint256(uint160(address(this)))));
+    }
+
+    function setUp() public {
+        _deployPoolManager();
     }
 
     function testNothing() public {
