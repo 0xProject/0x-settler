@@ -1,13 +1,156 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+
 import {UniswapV4} from "src/core/UniswapV4.sol";
 import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
 import {IPoolManager} from "uniswapv4/interfaces/IPoolManager.sol";
 
+import {SignatureExpired} from "src/core/SettlerErrors.sol";
+import {Panic} from "src/utils/Panic.sol";
+
 import {Test} from "forge-std/Test.sol";
 
 import {console} from "forge-std/console.sol";
+
+contract UniswapV4Dummy is UniswapV4 {
+    address private immutable _deployer;
+
+    constructor() {
+        _deployer = msg.sender;
+    }
+
+    function _msgSender() internal view override returns (address) {
+        return _deployer;
+    }
+
+    function _isForwarded() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _msgData() internal pure override returns (bytes calldata) {
+        return msg.data;
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        return false;
+    }
+
+    function _dispatch(uint256 i, bytes4 action, bytes calldata data) internal override returns (bool) {
+        revert("unimplemented"); // TODO:
+    }
+
+    function _isRestrictedTarget(address) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _operator() internal view override returns (address) {
+        return msg.sender;
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        pure
+        override
+        returns (uint256)
+    {
+        return permit.permitted.amount;
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
+        internal
+        pure
+        override
+        returns (uint256)
+    {
+        revert("unimplemented");
+    }
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+        internal
+        view
+        override
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
+    {
+        transferDetails.to = recipient;
+        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(permit);
+    }
+
+    function _transferFromIKnowWhatImDoing(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig,
+        bool isForwarded
+    ) internal override {
+        revert("unimplemented");
+    }
+
+    function _transferFromIKnowWhatImDoing(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        address from,
+        bytes32 witness,
+        string memory witnessTypeString,
+        bytes memory sig
+    ) internal override {
+        return _transferFromIKnowWhatImDoing(
+            permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded()
+        );
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        bytes memory sig,
+        bool isForwarded
+    ) internal override {
+        assert(!isForwarded);
+        if (transferDetails.requestedAmount > permit.permitted.amount) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+        if (permit.deadline < block.timestamp) {
+            revert SignatureExpired(permit.deadline);
+        }
+        assert(permit.nonce == 0);
+        IERC20(permit.permitted.token).transferFrom(_msgSender(), transferDetails.to, transferDetails.requestedAmount);
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        bytes memory sig
+    ) internal override {
+        return _transferFrom(permit, transferDetails, sig, _isForwarded());
+    }
+
+    function _setOperatorAndCall(
+        address target,
+        bytes memory data,
+        uint32 selector,
+        function (bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bytes memory) {
+        revert("unimplemented"); // TODO:
+    }
+
+    modifier metaTx(address msgSender, bytes32 witness) override {
+        revert("unimplemented");
+        _;
+    }
+
+    modifier takerSubmitted() override {
+        revert("unimplemented");
+        _;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
+        revert("unimplemented");
+    }
+}
 
 contract UniswapV4UnitTest is Test, IUnlockCallback {
     function unlockCallback(bytes calldata) external view override returns (bytes memory) {
