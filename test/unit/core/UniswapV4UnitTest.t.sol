@@ -97,7 +97,7 @@ contract UniswapV4Dummy is UniswapV4 {
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
-        view
+        pure
         override
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
     {
@@ -106,14 +106,14 @@ contract UniswapV4Dummy is UniswapV4 {
     }
 
     function _transferFromIKnowWhatImDoing(
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        address from,
-        bytes32 witness,
-        string memory witnessTypeString,
-        bytes memory sig,
-        bool isForwarded
-    ) internal override {
+        ISignatureTransfer.PermitTransferFrom memory,
+        ISignatureTransfer.SignatureTransferDetails memory,
+        address,
+        bytes32,
+        string memory,
+        bytes memory,
+        bool
+    ) internal pure override {
         revert("unimplemented");
     }
 
@@ -124,7 +124,7 @@ contract UniswapV4Dummy is UniswapV4 {
         bytes32 witness,
         string memory witnessTypeString,
         bytes memory sig
-    ) internal override {
+    ) internal pure override {
         return _transferFromIKnowWhatImDoing(
             permit, transferDetails, from, witness, witnessTypeString, sig, _isForwarded()
         );
@@ -133,7 +133,7 @@ contract UniswapV4Dummy is UniswapV4 {
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        bytes memory sig,
+        bytes memory,
         bool isForwarded
     ) internal override {
         assert(!isForwarded);
@@ -185,6 +185,8 @@ contract UniswapV4Dummy is UniswapV4 {
 }
 
 contract UniswapV4UnitTest is Test, IUnlockCallback {
+    using Revert for bool;
+
     function unlockCallback(bytes calldata) external view override returns (bytes memory) {
         assert(msg.sender == address(POOL_MANAGER));
         return unicode"Hello, World!";
@@ -192,7 +194,7 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
 
     function _replaceAll(bytes memory haystack, bytes32 needle, bytes32 replace, bytes32 mask)
         internal
-        view
+        pure
         returns (uint256 count)
     {
         assembly ("memory-safe") {
@@ -241,6 +243,7 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
 
         vm.record();
         (bool success, bytes memory returndata) = address(POOL_MANAGER).staticcall(abi.encodeWithSignature("owner()"));
+        success.maybeRevert(returndata);
         assert(abi.decode(returndata, (address)) == address(0));
         (bytes32[] memory readSlots,) = vm.accesses(address(POOL_MANAGER));
         assert(readSlots.length == 1);
