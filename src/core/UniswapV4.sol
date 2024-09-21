@@ -599,8 +599,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         returns (bool, bytes calldata)
     {
         (IERC20 sellToken, IERC20 buyToken) = (state.sell.token(), state.buy.token());
-        bool zeroForOne = sellToken < buyToken;
-        (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (sellToken, buyToken);
+        bool zeroForOne = !((sellToken > buyToken) || (buyToken == ETH_ADDRESS));
+        (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (buyToken, sellToken);
         uint256 packed = uint208(bytes26(data));
         data = data[26:];
         key.fee = uint24(packed >> 184);
