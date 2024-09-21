@@ -10,12 +10,39 @@ import {IPoolManager} from "uniswapv4/interfaces/IPoolManager.sol";
 
 import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
+import {Revert} from "src/utils/Revert.sol";
 
 import {Test} from "forge-std/Test.sol";
 
 import {console} from "forge-std/console.sol";
 
 contract UniswapV4Dummy is UniswapV4 {
+    using Revert for bool;
+
+    // bytes32(uint256(keccak256("operator slot")) - 1)
+    bytes32 private constant _OPERATOR_SLOT = 0x009355806b743562f351db2e3726091207f49fa1cdccd5c65a7d4860ce3abbe9;
+
+    function _setCallback(function (bytes calldata) internal returns (bytes memory) callback) private {
+        assembly ("memory-safe") {
+            tstore(_OPERATOR_SLOT, and(0xffff, callback))
+        }
+    }
+
+    function _getCallback() private returns (function (bytes calldata) internal returns (bytes memory) callback) {
+        assembly ("memory-safe") {
+            callback := and(0xffff, tload(_OPERATOR_SLOT))
+            tstore(_OPERATOR_SLOT, 0x00)
+        }
+    }
+
+    fallback(bytes calldata) external returns (bytes memory) {
+        require(_operator() == address(POOL_MANAGER));
+        bytes calldata data = _msgData();
+        require(bytes4(data) == IPoolManager.unlock.selector);
+        data = data[4:];
+        return _getCallback()(data);
+    }
+
     address private immutable _deployer;
 
     constructor() {
@@ -134,7 +161,12 @@ contract UniswapV4Dummy is UniswapV4 {
         uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
-        revert("unimplemented"); // TODO:
+        require(target == address(POOL_MANAGER));
+        require(selector == uint32(IPoolManager.unlock.selector));
+        _setCallback(callback);
+        (bool success, bytes memory returndata) = target.call(data);
+        success.maybeRevert(returndata);
+        return returndata;
     }
 
     modifier metaTx(address msgSender, bytes32 witness) override {
