@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IUniswapV3Pool, UniswapV3Fork} from "src/core/UniswapV3Fork.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
@@ -12,9 +12,9 @@ import {UnknownForkId} from "src/core/SettlerErrors.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 
 contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
     address internal immutable uniFactory;

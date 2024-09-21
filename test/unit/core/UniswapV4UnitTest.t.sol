@@ -1,23 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
 import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
-import {IPoolManager} from "uniswapv4/interfaces/IPoolManager.sol";
+import {IPoolManager} from "@uniswapv4/interfaces/IPoolManager.sol";
+import {PoolKey} from "@uniswapv4/types/PoolKey.sol";
+import {Currency} from "@uniswapv4/types/Currency.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {Revert} from "src/utils/Revert.sol";
 
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {ERC20} from "@solmate/tokens/ERC20.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
+import {StdInvariant} from "@forge-std/StdInvariant.sol";
 
-import {console} from "forge-std/console.sol";
+import {console} from "@forge-std/console.sol";
 
 contract TestERC20 is ERC20 {
     using ItoA for uint256;

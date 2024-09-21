@@ -9,15 +9,15 @@ import {
     Permit2Payment,
     Permit2PaymentBase
 } from "src/core/Permit2Payment.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 
 abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Payment {
     function considerationWitnessType() external pure returns (string memory) {

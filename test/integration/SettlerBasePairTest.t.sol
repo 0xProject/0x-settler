@@ -3,11 +3,11 @@ pragma solidity ^0.8.25;
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
