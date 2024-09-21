@@ -269,9 +269,8 @@ contract BaseUniswapV4UnitTest is Test {
         stub = new UniswapV4Stub();
     }
 
-    function _deployPoolManager() internal {
+    function _deployPoolManager() internal returns (address poolManagerSrc) {
         bytes memory poolManagerCode = vm.getCode("PoolManager.sol:PoolManager");
-        address poolManagerSrc;
         assembly ("memory-safe") {
             poolManagerSrc := create(0x00, add(0x20, poolManagerCode), mload(poolManagerCode))
         }
@@ -316,21 +315,41 @@ contract BasicUniswapV4UnitTest is BaseUniswapV4UnitTest, IUnlockCallback {
     }
 }
 
-contract UniswapV4InvariantTest is BaseUniswapV4UnitTest {
+contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
     IERC20[] internal tokens;
     mapping(IERC20 => bool) internal isToken;
 
-    function _pushToken() internal returns (IERC20 token) {
+    address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    function pushToken() public returns (IERC20 token) {
         token = IERC20(address(new TestERC20()));
         isToken[token] = true;
         tokens.push(token);
+        token.approve(address(stub), type(uint256).max);
+        excludeContract(address(token));
+    }
+
+    function createPool(uint256 tokenAIndex, uint256 tokenBIndex) public {
+        (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length), bound(tokenBIndex, 0, tokens.length));
+        vm.assume(tokenAIndex != tokenBIndex);
+        (IERC20 token0, IERC20 token1) = (tokens[tokenAIndex], tokens[tokenBIndex]);
+        bool zeroForOne = token0 < token1 && token1 != IERC20(ETH);
+        (token0, token1) = zeroForOne ? (token0, token1) : (token1, token0);
+        /*
+        PoolKey memory poolKey = new PoolKey({
+            currency0: Currency.wrap(address(token0))
+        */
     }
 
     function setUp() public {
         _deployStub();
-        _deployPoolManager();
+        excludeContract(address(stub));
+        excludeContract(_deployPoolManager());
+        excludeContract(address(POOL_MANAGER));
+        excludeSender(ETH);
 
-        _pushToken();
-        _pushToken();
+        tokens.push(IERC20(ETH));
+        pushToken();
+        pushToken();
     }
 }
