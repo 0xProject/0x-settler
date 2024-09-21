@@ -6,10 +6,14 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
 import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {ItoA} from "src/utils/ItoA.sol";
+
 import {IPoolManager} from "@uniswapv4/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswapv4/types/PoolKey.sol";
 import {Currency} from "@uniswapv4/types/Currency.sol";
-import {ItoA} from "src/utils/ItoA.sol";
+import {TickMath} from "@uniswapv4/libraries/TickMath.sol";
+import {IHooks} from "@uniswapv4/interfaces/IHooks.sol";
+import {PoolId, PoolIdLibrary} from "@uniswapv4/types/PoolId.sol";
 
 import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
@@ -316,8 +320,12 @@ contract BasicUniswapV4UnitTest is BaseUniswapV4UnitTest, IUnlockCallback {
 }
 
 contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
+    using PoolIdLibrary for PoolKey;
+
     IERC20[] internal tokens;
     mapping(IERC20 => bool) internal isToken;
+    PoolKey[] internal pools;
+    mapping(PoolId => bool) internal isPool;
 
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -329,16 +337,33 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
         excludeContract(address(token));
     }
 
-    function createPool(uint256 tokenAIndex, uint256 tokenBIndex) public {
+    function pushPool(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
+        public
+    {
         (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length), bound(tokenBIndex, 0, tokens.length));
-        vm.assume(tokenAIndex != tokenBIndex);
+        fee = uint24(bound(fee, 0, 1_000_000));
+        tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
         (IERC20 token0, IERC20 token1) = (tokens[tokenAIndex], tokens[tokenBIndex]);
+
+        vm.assume(tokenAIndex != tokenBIndex);
+
         bool zeroForOne = token0 < token1 && token1 != IERC20(ETH);
         (token0, token1) = zeroForOne ? (token0, token1) : (token1, token0);
-        /*
-        PoolKey memory poolKey = new PoolKey({
-            currency0: Currency.wrap(address(token0))
-        */
+        PoolKey memory poolKey = PoolKey({
+            currency0: Currency.wrap(address(token0)),
+            currency1: Currency.wrap(address(token1)),
+            fee: fee,
+            tickSpacing: tickSpacing,
+            hooks: IHooks(address(0))
+        });
+        PoolId poolId = poolKey.toId();
+        vm.assume(!isPool[poolId]);
+        isPool[poolId] = true;
+        pools.push(poolKey);
+
+        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
+
+        // TODO: add liquidity
     }
 
     function setUp() public {
