@@ -51,7 +51,7 @@ contract UniswapV4Stub is UniswapV4 {
         uint256 hashMod,
         bytes memory fills,
         uint256 amountOutMin
-    ) external returns (uint256) {
+    ) external payable returns (uint256) {
         return super.sellToUniswapV4(_msgSender(), sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
     }
 
@@ -366,12 +366,67 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
         // TODO: add liquidity
     }
 
+    function _balanceOf(IERC20 token) internal view returns (uint256) {
+        if (token == IERC20(ETH)) {
+            return address(this).balance;
+        }
+        try this.getBalanceOf(token) {} catch (bytes memory returndata) {
+            return abi.decode(returndata, (uint256));
+        }
+        revert();
+    }
+
+    function getBalanceOf(IERC20 token) external view {
+        uint256 result = token.balanceOf(address(this));
+        assembly ("memory-safe") {
+            mstore(0x00, result)
+            revert(0x00, 0x20)
+        }
+    }
+
+    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne) public {
+        vm.assume(pools.length > 0);
+        poolIndex = bound(poolIndex, 0, pools.length);
+        bps = bound(bps, 1, 1_000); // up to one tenth
+        uint256 hashMul = 0;
+        uint256 hashMod = 1;
+        PoolKey memory poolKey = pools[poolIndex];
+        (IERC20 sellToken, IERC20 buyToken) = zeroForOne ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1))) : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
+
+        uint256 sellTokenBalanceBefore = _balanceOf(sellToken);
+        uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
+
+        uint256 value;
+        if (sellToken == IERC20(ETH)) {
+            value = sellTokenBalanceBefore * bps / 10_000;
+        }
+        UniswapV4Stub _stub = stub;
+        vm.prank(address(this), address(this));
+        _stub.sellToUniswapV4{value: value}(sellToken, bps, feeOnTransfer, hashMul, hashMod, /* TODO: fills */, 0);
+
+        uint256 sellTokenBalanceAfter = _balanceOf(sellToken);
+        uint256 buyTokenBalanceAfter = _balanceOf(buyToken);
+
+        assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore);
+        assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore);
+    }
+
     function setUp() public {
         _deployStub();
         excludeContract(address(stub));
         excludeContract(_deployPoolManager());
         excludeContract(address(POOL_MANAGER));
+
         excludeSender(ETH);
+        {
+            FuzzSelector memory exclusion = FuzzSelector({
+                addr: address(this),
+                selectors: new bytes4[](1)
+            });
+            exclusion.selectors[0] = this.getBalanceOf.selector;
+            excludeSelector(exclusion);
+        }
+        vm.deal(address(this), 1_000_000_000 ether);
 
         tokens.push(IERC20(ETH));
         pushToken();
