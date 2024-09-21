@@ -232,7 +232,7 @@ contract UniswapV4Stub is UniswapV4 {
     }
 }
 
-contract BaseUniswapV4UnitTest is Test {
+abstract contract BaseUniswapV4UnitTest is Test {
     using Revert for bool;
 
     UniswapV4Stub internal stub;
@@ -319,7 +319,7 @@ contract BasicUniswapV4UnitTest is BaseUniswapV4UnitTest, IUnlockCallback {
     }
 }
 
-contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
+contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
 
     IERC20[] internal tokens;
@@ -335,6 +335,34 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
         tokens.push(token);
         token.approve(address(stub), type(uint256).max);
         excludeContract(address(token));
+    }
+
+    function unlockCallback(bytes calldata data) external override returns (bytes memory) {
+        assert(msg.sender == address(POOL_MANAGER));
+        uint160 sqrtPriceX96 = abi.decode(data, (uint160));
+        PoolKey memory poolKey = pools[pools.length - 1];
+        if (Currency.unwrap(poolKey.currency0) == ETH) {
+            poolKey.currency0 = Currency.wrap(address(0));
+        }
+
+        // TODO: add liquidity
+
+        if (Currency.unwrap(poolKey.currency0) == address(0)) {
+            POOL_MANAGER.settle{value: amount0}();
+        } else {
+            IERC20 token0 = IERC20(Currency.unwrap(poolKey.currency0));
+            POOL_MANAGER.sync(token0);
+            token0.transfer(address(POOL_MANAGER), amount0);
+            POOL_MANAGER.settle();
+        }
+        {
+            IERC20 token1 = IERC20(Currency.unwrap(poolKey.currency1));
+            POOL_MANAGER.sync(token1);
+            token1.transfer(address(POOL_MANAGER), amount1);
+            POOL_MANAGER.settle();
+        }
+
+        return new bytes(0);
     }
 
     function pushPool(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
@@ -363,7 +391,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
 
         IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
 
-        // TODO: add liquidity
+        POOL_MANAGER.unlock(abi.encode(sqrtPriceX96));
     }
 
     function _balanceOf(IERC20 token) internal view returns (uint256) {
@@ -385,8 +413,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
         }
     }
 
-    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne) public {
-        vm.assume(pools.length > 0);
+    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne, bytes calldata hookData) public {
         poolIndex = bound(poolIndex, 0, pools.length);
         bps = bound(bps, 1, 1_000); // up to one tenth
         uint256 hashMul = 0;
@@ -431,8 +458,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest {
         }
         vm.deal(address(this), 1_000_000_000 ether);
 
+        // Make some tokens (making sure to include ETH)
         tokens.push(IERC20(ETH));
         pushToken();
         pushToken();
+
+        // Make some pools; all 1:1 price
+        pushPool(0, 1, 0, 1, 1 << 96);
+        pushPool(1, 2, 0, 1, 1 << 96);
+        pushPool(2, 0, 0, 1, 1 << 96);
     }
 }
