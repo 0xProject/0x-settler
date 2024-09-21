@@ -225,8 +225,8 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
 abstract contract Permit2Payment is Permit2PaymentBase {
     using FullMath for uint256;
 
-    fallback(bytes calldata data) external virtual returns (bytes memory) {
-        return _invokeCallback(data);
+    fallback(bytes calldata) external virtual returns (bytes memory) {
+        return _invokeCallback(_msgData());
     }
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
