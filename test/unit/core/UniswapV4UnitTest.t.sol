@@ -7,14 +7,31 @@ import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol"
 import {UniswapV4} from "src/core/UniswapV4.sol";
 import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
 import {IPoolManager} from "uniswapv4/interfaces/IPoolManager.sol";
+import {ItoA} from "src/utils/ItoA.sol";
 
 import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {Revert} from "src/utils/Revert.sol";
 
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
+
 import {Test} from "forge-std/Test.sol";
 
 import {console} from "forge-std/console.sol";
+
+contract TestERC20 is ERC20 {
+    using ItoA for uint256;
+
+    constructor()
+        ERC20(
+            string.concat("Token#", (uint256(uint160(address(this))) & 0xffffff).itoa()),
+            string.concat("TKN", (uint256(uint160(address(this))) & 0xffffff).itoa()),
+            18
+        )
+    {
+        _mint(msg.sender, 1_000_000_000 * 10 ** decimals);
+    }
+}
 
 contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
@@ -208,15 +225,10 @@ contract UniswapV4Stub is UniswapV4 {
     }
 }
 
-contract UniswapV4UnitTest is Test, IUnlockCallback {
+contract BaseUniswapV4UnitTest is Test {
     using Revert for bool;
 
     UniswapV4Stub internal stub;
-
-    function unlockCallback(bytes calldata) external view override returns (bytes memory) {
-        assert(msg.sender == address(POOL_MANAGER));
-        return unicode"Hello, World!";
-    }
 
     function _replaceAll(bytes memory haystack, bytes32 needle, bytes32 replace, bytes32 mask)
         internal
@@ -281,9 +293,15 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
         assert(vm.load(address(POOL_MANAGER), ownerSlot) == bytes32(0));
         vm.store(address(POOL_MANAGER), ownerSlot, bytes32(uint256(uint160(address(this)))));
     }
+}
+
+contract BasicUniswapV4UnitTest is BaseUniswapV4UnitTest, IUnlockCallback {
+    function unlockCallback(bytes calldata) external view override returns (bytes memory) {
+        assert(msg.sender == address(POOL_MANAGER));
+        return unicode"Hello, World!";
+    }
 
     function setUp() public {
-        _deployStub();
         _deployPoolManager();
     }
 
@@ -292,5 +310,24 @@ contract UniswapV4UnitTest is Test, IUnlockCallback {
             keccak256(POOL_MANAGER.unlock(new bytes(0))),
             0xacaf3289d7b601cbd114fb36c4d29c85bbfd5e133f14cb355c3fd8d99367964f
         );
+    }
+}
+
+contract UniswapV4InvariantTest is BaseUniswapV4UnitTest {
+    IERC20[] internal tokens;
+    mapping(IERC20 => bool) internal isToken;
+
+    function _pushToken() internal returns (IERC20 token) {
+        token = IERC20(address(new TestERC20()));
+        isToken[token] = true;
+        tokens.push(token);
+    }
+
+    function setUp() public {
+        _deployStub();
+        _deployPoolManager();
+
+        _pushToken();
+        _pushToken();
     }
 }
