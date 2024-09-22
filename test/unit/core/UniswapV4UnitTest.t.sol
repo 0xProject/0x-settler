@@ -520,7 +520,11 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function _swapPre(uint256 poolIndex, uint256 sellAmount, bool zeroForOne) private view returns (uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256, uint256) {
+    function _swapPre(uint256 poolIndex, uint256 sellAmount, bool zeroForOne)
+        private
+        view
+        returns (uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256, uint256)
+    {
         poolIndex = bound(poolIndex, 0, pools.length);
         PoolKey memory poolKey = pools[poolIndex];
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
@@ -543,10 +547,27 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 hashMul = 1;
         uint256 hashMod = 8;
 
-        return (poolIndex, sellAmount, poolKey, sellToken, buyToken, sellAmount, sellTokenBalanceBefore, buyTokenBalanceBefore, hashMul, hashMod);
+        return (
+            poolIndex,
+            sellAmount,
+            poolKey,
+            sellToken,
+            buyToken,
+            sellAmount,
+            sellTokenBalanceBefore,
+            buyTokenBalanceBefore,
+            hashMul,
+            hashMod
+        );
     }
 
-    function _swapPost(IERC20 sellToken, IERC20 buyToken, uint256 sellTokenBalanceBefore, uint256 buyTokenBalanceBefore, address _stub) private view returns (uint256, uint256) {
+    function _swapPost(
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 sellTokenBalanceBefore,
+        uint256 buyTokenBalanceBefore,
+        address _stub
+    ) private view returns (uint256, uint256) {
         uint256 sellTokenBalanceAfter = sellToken.balanceOf(address(this));
         uint256 buyTokenBalanceAfter = buyToken.balanceOf(address(this));
 
@@ -558,9 +579,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         return (sellTokenBalanceAfter, buyTokenBalanceAfter);
     }
 
-    function swapSingle(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne, bytes memory hookData)
-        public
-    {
+    function swapSingle(
+        uint256 poolIndex,
+        uint256 sellAmount,
+        bool feeOnTransfer,
+        bool zeroForOne,
+        bytes memory hookData
+    ) public {
         PoolKey memory poolKey;
         IERC20 sellToken;
         IERC20 buyToken;
@@ -568,7 +593,18 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 buyTokenBalanceBefore;
         uint256 hashMul;
         uint256 hashMod;
-        (poolIndex, sellAmount, poolKey, sellToken, buyToken, sellAmount, sellTokenBalanceBefore, buyTokenBalanceBefore, hashMul, hashMod) = _swapPre(poolIndex, sellAmount, zeroForOne);
+        (
+            poolIndex,
+            sellAmount,
+            poolKey,
+            sellToken,
+            buyToken,
+            sellAmount,
+            sellTokenBalanceBefore,
+            buyTokenBalanceBefore,
+            hashMul,
+            hashMod
+        ) = _swapPre(poolIndex, sellAmount, zeroForOne);
 
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
@@ -600,7 +636,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
     }
 
-    function swapSingleVIP(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne, bytes memory hookData, bytes memory sig) public {
+    function swapSingleVIP(
+        uint256 poolIndex,
+        uint256 sellAmount,
+        bool feeOnTransfer,
+        bool zeroForOne,
+        bytes memory hookData,
+        bytes memory sig
+    ) public {
         PoolKey memory poolKey;
         IERC20 sellToken;
         IERC20 buyToken;
@@ -608,14 +651,22 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 buyTokenBalanceBefore;
         uint256 hashMul;
         uint256 hashMod;
-        (poolIndex, sellAmount, poolKey, sellToken, buyToken, sellAmount, sellTokenBalanceBefore, buyTokenBalanceBefore, hashMul, hashMod) = _swapPre(poolIndex, sellAmount, zeroForOne);
+        (
+            poolIndex,
+            sellAmount,
+            poolKey,
+            sellToken,
+            buyToken,
+            sellAmount,
+            sellTokenBalanceBefore,
+            buyTokenBalanceBefore,
+            hashMul,
+            hashMod
+        ) = _swapPre(poolIndex, sellAmount, zeroForOne);
         vm.assume(sellToken != IERC20(ETH));
 
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({
-                token: address(sellToken),
-                amount: sellAmount
-            }),
+            permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: sellAmount}),
             nonce: uint256(keccak256(sig)),
             deadline: block.timestamp + 30 minutes
         });
