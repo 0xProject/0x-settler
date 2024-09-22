@@ -533,7 +533,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function _swapPre(uint256 poolIndex, uint256 sellAmount, bool zeroForOne)
+    function _swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
         private
         view
         returns (uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256, uint256)
@@ -543,6 +543,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
             ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
             : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
+        _invariantAssume(!(sellToken == IERC20(ETH) && feeOnTransfer));
 
         uint256 sellTokenBalanceBefore = _balanceOf(sellToken, address(this));
         uint256 buyTokenBalanceBefore = _balanceOf(buyToken, address(this));
@@ -617,7 +618,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             buyTokenBalanceBefore,
             hashMul,
             hashMod
-        ) = _swapPre(poolIndex, sellAmount, zeroForOne);
+        ) = _swapPre(poolIndex, sellAmount, feeOnTransfer, zeroForOne);
 
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
@@ -675,7 +676,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             buyTokenBalanceBefore,
             hashMul,
             hashMod
-        ) = _swapPre(poolIndex, sellAmount, zeroForOne);
+        ) = _swapPre(poolIndex, sellAmount, feeOnTransfer, zeroForOne);
         _invariantAssume(sellToken != IERC20(ETH));
 
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
