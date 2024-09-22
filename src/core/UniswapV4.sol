@@ -13,6 +13,7 @@ import {
     TooMuchSlippage,
     DeltaNotPositive,
     DeltaNotNegative,
+    ZeroSellAmount,
     ZeroBuyAmount,
     BoughtSellToken,
     TokenHashCollision,
@@ -800,6 +801,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
         }
 
+        if (state.globalSell.amount == 0) {
+            revert ZeroSellAmount(state.globalSell.token());
+        }
         state.globalSellAmount = state.globalSell.amount;
         newData = data;
     }
@@ -877,9 +881,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         {
             (IERC20 globalSellToken, uint256 globalSellAmount) = state.globalSell.get();
             uint256 globalBuyAmount = _take(state, notes, recipient, minBuyAmount);
-            if (globalSellToken == ETH_ADDRESS) {
-                IPoolManager(_operator()).settle{value: globalSellAmount}();
-            } else if (feeOnTransfer) {
+            if (feeOnTransfer) {
                 // We've already transferred the sell token to the pool manager and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // pool manager. We only need to handle the case of incomplete filling.
@@ -894,8 +896,16 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // it.
                 // `globalSellAmount` is _usually_ zero, but if it isn't it represents a partial
                 // fill. This subtraction recovers the actual debt recorded in the pool manager.
+                uint256 debt;
                 unchecked {
-                    uint256 debt = state.globalSellAmount - globalSellAmount;
+                    debt = state.globalSellAmount - globalSellAmount;
+                }
+                if (debt == 0) {
+                    revert ZeroSellAmount(globalSellToken);
+                }
+                if (globalSellToken == ETH_ADDRESS) {
+                    IPoolManager(_operator()).settle{value: globalSellAmount}();
+                } else {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
             }
