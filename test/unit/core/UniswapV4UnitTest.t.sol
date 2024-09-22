@@ -520,7 +520,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne, bytes memory hookData)
+    function swapSingle(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne, bytes memory hookData)
         public
     {
         poolIndex = bound(poolIndex, 0, pools.length);
@@ -530,29 +530,20 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
 
         uint256 sellTokenBalanceBefore = _balanceOf(sellToken);
+        uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
         {
-            // We're not really interested in the extremes of price impact. We're testing
-            // interface-level functionality, not the AMM invariant. Let's filter out those extreme
-            // cases.
-            uint256 bpsHi = TOTAL_SUPPLY * 10 / sellTokenBalanceBefore;
-            if (bpsHi > 10_000) {
-                bpsHi = 10_000;
+            uint256 maxSell = sellTokenBalanceBefore;
+            if (maxSell > TOTAL_SUPPLY / 1_000) {
+                maxSell = TOTAL_SUPPLY / 1_000;
             }
-            assertNotEq(bpsHi, 0);
-            uint256 bpsLo = TOTAL_SUPPLY / (sellTokenBalanceBefore * 100 ether);
-            vm.assume(bpsLo <= 10_000);
-            if (bpsLo == 0) {
-                bpsLo = 1;
-            }
-            // at most 1/1000 of the total supply; at least 1 microtoken
-            bps = bound(bps, bpsLo, bpsHi);
+            // minimum sell amount is 1 microtoken
+            uint256 minSell = 1 ether / 1_000_000;
+            vm.assume(maxSell >= minSell);
+            sellAmount = bound(sellAmount, minSell, maxSell);
         }
+
         uint256 hashMul = 1;
         uint256 hashMod = 8;
-
-        uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
-        uint256 sellAmount = sellTokenBalanceBefore * bps / 10_000;
-
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
             bytes1(0x01),
@@ -573,18 +564,20 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             sellToken.safeTransfer(address(_stub), sellAmount);
         }
         vm.startPrank(address(this), address(this));
-        _stub.sellToUniswapV4{value: value}(sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, 0);
+        _stub.sellToUniswapV4{value: value}(sellToken, 10_000, feeOnTransfer, hashMul, hashMod, fills, 0);
         vm.stopPrank();
 
-        uint256 sellTokenBalanceAfter = _balanceOf(sellToken);
-        uint256 buyTokenBalanceAfter = _balanceOf(buyToken);
+        uint256 sellTokenBalanceAfter = sellToken.balanceOf(address(this));
+        uint256 buyTokenBalanceAfter = buyToken.balanceOf(address(this));
 
         assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore);
         assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore);
+        assertEq(sellToken.balanceOf(address(_stub)), 0);
+        assertEq(buyToken.balanceOf(address(_stub)), 0);
     }
 
     function testSwapSingle() public {
-        swapSingle(1, 10, false, true, new bytes(0));
+        swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
     }
 
     function setUp() public {
