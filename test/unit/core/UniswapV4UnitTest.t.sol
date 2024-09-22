@@ -14,6 +14,8 @@ import {Currency} from "@uniswapv4/types/Currency.sol";
 import {TickMath} from "@uniswapv4/libraries/TickMath.sol";
 import {IHooks} from "@uniswapv4/interfaces/IHooks.sol";
 import {PoolId, PoolIdLibrary} from "@uniswapv4/types/PoolId.sol";
+import {SqrtPriceMath} from "@uniswapv4/libraries/SqrtPriceMath.sol";
+import {BalanceDelta} from "@uniswapv4/types/BalanceDelta.sol";
 
 import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
@@ -26,6 +28,8 @@ import {StdInvariant} from "@forge-std/StdInvariant.sol";
 
 import {console} from "@forge-std/console.sol";
 
+uint256 constant TOTAL_SUPPLY = 1_000_000_000 ether;
+
 contract TestERC20 is ERC20 {
     using ItoA for uint256;
 
@@ -36,7 +40,7 @@ contract TestERC20 is ERC20 {
             18
         )
     {
-        _mint(msg.sender, 1_000_000_000 * 10 ** decimals);
+        _mint(msg.sender, TOTAL_SUPPLY);
     }
 }
 
@@ -329,12 +333,36 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    function pushToken() public returns (IERC20 token) {
+    function pushToken() public returns (IERC20 token, uint256 i) {
         token = IERC20(address(new TestERC20()));
+        i = tokens.length;
         isToken[token] = true;
         tokens.push(token);
         token.approve(address(stub), type(uint256).max);
         excludeContract(address(token));
+    }
+
+    // TODO: this is really low, but this is also the correct value if we want to make sure that we
+    // definitely have enough balance to add full-range liquidity. Maybe we should increase
+    // `TOTAL_SUPPLY`?
+    uint128 internal constant _DEFAULT_LIQUIDITY = 5421214;
+
+    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity) private pure returns (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) {
+        params.tickLower = TickMath.MIN_TICK;
+        params.tickUpper = TickMath.MAX_TICK;
+        params.liquidityDelta = int128(liquidity);
+        amount0 = SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
+        amount1 = SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), sqrtPriceX96, liquidity, true);
+    }
+
+    function testCalculateAmounts() public pure {
+        uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
+        (, uint256 amount0, uint256 amount1) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY);
+        assertEq(amount1, 0);
+        (, uint256 amount0Hi, uint256 amount1Hi) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY + 1);
+        assertEq(amount1Hi, 0);
+        assertLt(amount0, 100_000_000 ether);
+        assertGt(amount0Hi, 100_000_000 ether);
     }
 
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
@@ -345,7 +373,11 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             poolKey.currency0 = Currency.wrap(address(0));
         }
 
-        // TODO: add liquidity
+        (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY);
+        (BalanceDelta callerDelta, BalanceDelta feesAccrued) = IPoolManager(address(POOL_MANAGER)).modifyLiquidity(poolKey, params, new bytes(0));
+        assertEq(uint128(-callerDelta.amount0()), amount0);
+        assertEq(uint128(-callerDelta.amount1()), amount1);
+        assertEq(BalanceDelta.unwrap(feesAccrued), 0);
 
         if (Currency.unwrap(poolKey.currency0) == address(0)) {
             POOL_MANAGER.settle{value: amount0}();
@@ -365,19 +397,25 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         return new bytes(0);
     }
 
-    function pushPool(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
-        public
-    {
-        (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length), bound(tokenBIndex, 0, tokens.length));
-        fee = uint24(bound(fee, 0, 1_000_000));
-        tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
-        sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.MIN_SQRT_PRICE + 1, TickMath.MAX_SQRT_PRICE - 1));
-        (IERC20 token0, IERC20 token1) = (tokens[tokenAIndex], tokens[tokenBIndex]);
+    function _sortTokens(IERC20 token0, IERC20 token1) private pure returns (IERC20, IERC20) {
+        if (token0 == IERC20(ETH)) {
+            return (token0, token1);
+        } else if (token1 == IERC20(ETH)) {
+            return (token1, token0);
+        } else if (token0 > token1) {
+            return (token1, token0);
+        } else {
+            assertNotEq(address(token0), address(token1));
+            return (token0, token1);
+        }
+    }
 
+    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96) private {
         vm.assume(tokenAIndex != tokenBIndex);
+        (IERC20 token0, IERC20 token1) = _sortTokens(tokens[tokenAIndex], tokens[tokenBIndex]);
+        vm.assume(_balanceOf(token0) > TOTAL_SUPPLY / 10);
+        vm.assume(_balanceOf(token1) > TOTAL_SUPPLY / 10);
 
-        bool zeroForOne = token0 < token1 && token1 != IERC20(ETH);
-        (token0, token1) = zeroForOne ? (token0, token1) : (token1, token0);
         PoolKey memory poolKey = PoolKey({
             currency0: Currency.wrap(address(token0)),
             currency1: Currency.wrap(address(token1)),
@@ -390,9 +428,41 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         isPool[poolId] = true;
         pools.push(poolKey);
 
+        if (Currency.unwrap(poolKey.currency0) == ETH) {
+            poolKey.currency0 = Currency.wrap(address(0));
+        }
         IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
 
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96));
+    }
+
+    function pushPool(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
+        public
+    {
+        (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length), bound(tokenBIndex, 0, tokens.length));
+        fee = uint24(bound(fee, 0, 1_000_000));
+        tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
+        sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.MIN_SQRT_PRICE + 1, TickMath.MAX_SQRT_PRICE - 1));
+
+        _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
+    }
+
+    function testPushPool() external {
+        (, uint256 tokenAIndex) = pushToken();
+        (, uint256 tokenBIndex) = pushToken();
+        uint24 fee = 0;
+        int24 tickSpacing = TickMath.MIN_TICK_SPACING;
+        uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
+        _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
+    }
+
+    function testPushPoolEth() external {
+        uint256 tokenAIndex = 0;
+        (, uint256 tokenBIndex) = pushToken();
+        uint24 fee = 0;
+        int24 tickSpacing = TickMath.MIN_TICK_SPACING;
+        uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
+        _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
     }
 
     function _balanceOf(IERC20 token) internal view returns (uint256) {
@@ -434,7 +504,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         UniswapV4Stub _stub = stub;
         vm.startPrank(address(this), address(this));
         _stub.sellToUniswapV4{value: value}(
-            sellToken, bps, feeOnTransfer, hashMul, hashMod, /* TODO: fills */, 0
+            sellToken, bps, feeOnTransfer, hashMul, hashMod, new bytes(0)/* TODO: fills */, 0
         );
         vm.stopPrank();
 
@@ -453,20 +523,25 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         excludeSender(ETH);
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](1)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](5)});
             exclusion.selectors[0] = this.getBalanceOf.selector;
+            exclusion.selectors[1] = this.unlockCallback.selector;
+            exclusion.selectors[2] = this.testCalculateAmounts.selector;
+            exclusion.selectors[3] = this.testPushPool.selector;
+            exclusion.selectors[4] = this.testPushPoolEth.selector;
             excludeSelector(exclusion);
         }
-        vm.deal(address(this), 1_000_000_000 ether);
+        vm.deal(address(this), TOTAL_SUPPLY);
 
         // Make some tokens (making sure to include ETH)
         tokens.push(IERC20(ETH));
+        isToken[IERC20(ETH)] = true;
         pushToken();
         pushToken();
 
         // Make some pools; all 1:1 price
-        pushPool(0, 1, 0, 1, 1 << 96);
-        pushPool(1, 2, 0, 1, 1 << 96);
-        pushPool(2, 0, 0, 1, 1 << 96);
+        _pushPoolRaw(0, 1, 0, 1, 1 << 96);
+        _pushPoolRaw(1, 2, 0, 1, 1 << 96);
+        _pushPoolRaw(2, 0, 0, 1, 1 << 96);
     }
 }
