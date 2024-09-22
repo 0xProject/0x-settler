@@ -58,6 +58,7 @@ contract UniswapV4Stub is UniswapV4 {
         bytes memory fills,
         uint256 amountOutMin
     ) external payable returns (uint256) {
+        require(_operator() == _msgSender());
         return super.sellToUniswapV4(_msgSender(), sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
     }
 
@@ -70,6 +71,7 @@ contract UniswapV4Stub is UniswapV4 {
         bytes memory sig,
         uint256 amountOutMin
     ) external returns (uint256) {
+        require(_operator() == _msgSender());
         return super.sellToUniswapV4VIP(_msgSender(), feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
     }
 
@@ -395,6 +397,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function _sortTokens(IERC20 token0, IERC20 token1) private pure returns (IERC20, IERC20) {
+        assertNotEq(address(token0), address(token1));
         if (token0 == IERC20(ETH)) {
             return (token0, token1);
         } else if (token1 == IERC20(ETH)) {
@@ -402,7 +405,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         } else if (token0 > token1) {
             return (token1, token0);
         } else {
-            assertNotEq(address(token0), address(token1));
             return (token0, token1);
         }
     }
@@ -429,7 +431,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             poolKey.currency0 = Currency.wrap(address(0));
         }
         IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
-
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96));
     }
 
@@ -459,7 +460,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint24 fee = 0;
         int24 tickSpacing = TickMath.MIN_TICK_SPACING;
         uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
+        uint256 ethBefore = address(this).balance;
         _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
+        uint256 ethAfter = address(this).balance;
+        assertLt(ethAfter, ethBefore);
     }
 
     function _balanceOf(IERC20 token) internal view returns (uint256) {
