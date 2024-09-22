@@ -25,6 +25,7 @@ import {ERC20} from "@solmate/tokens/ERC20.sol";
 
 import {Test} from "@forge-std/Test.sol";
 import {StdInvariant} from "@forge-std/StdInvariant.sol";
+import {Vm} from "@forge-std/Vm.sol";
 
 import {console} from "@forge-std/console.sol";
 
@@ -40,6 +41,7 @@ contract TestERC20 is ERC20 {
             18
         )
     {
+        Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).label(address(this), name);
         _mint(msg.sender, TOTAL_SUPPLY);
     }
 }
