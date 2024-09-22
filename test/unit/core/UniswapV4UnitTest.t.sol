@@ -28,7 +28,7 @@ import {StdInvariant} from "@forge-std/StdInvariant.sol";
 
 import {console} from "@forge-std/console.sol";
 
-uint256 constant TOTAL_SUPPLY = 1_000_000_000 ether;
+uint256 constant TOTAL_SUPPLY = 1 ether * 1 ether;
 
 contract TestERC20 is ERC20 {
     using ItoA for uint256;
@@ -342,10 +342,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         excludeContract(address(token));
     }
 
-    // TODO: this is really low, but this is also the correct value if we want to make sure that we
-    // definitely have enough balance to add full-range liquidity. Maybe we should increase
-    // `TOTAL_SUPPLY`?
-    uint128 internal constant _DEFAULT_LIQUIDITY = 5421214;
+    uint128 internal constant _DEFAULT_LIQUIDITY = 5421214632141316;
 
     function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity) private pure returns (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) {
         params.tickLower = TickMath.MIN_TICK;
@@ -361,8 +358,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertEq(amount1, 0);
         (, uint256 amount0Hi, uint256 amount1Hi) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY + 1);
         assertEq(amount1Hi, 0);
-        assertLt(amount0, 100_000_000 ether);
-        assertGt(amount0Hi, 100_000_000 ether);
+        assertLt(amount0, TOTAL_SUPPLY / 10);
+        assertGt(amount0Hi, TOTAL_SUPPLY / 10);
     }
 
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
