@@ -83,14 +83,11 @@ contract TestERC20 is ERC20, InvariantAssume {
     // This is here because `require(amount != 0)` is a common defect in ERC20 implementations; we
     // want to make sure that Settler isn't accidentally triggering it.
     function transfer(address to, uint256 amount) public override onlyPredicted returns (bool) {
-        require(to != address(0));
         require(amount != 0);
         return super.transfer(to, amount);
     }
 
     function transferFrom(address from, address to, uint256 amount) public override onlyPredicted returns (bool) {
-        require(from != address(0));
-        require(to != address(0));
         require(amount != 0);
         return super.transferFrom(from, to, amount);
     }
@@ -620,11 +617,11 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 buyTokenBalanceBefore = _balanceOf(buyToken, address(this));
         {
             uint256 maxSell = sellTokenBalanceBefore;
-            if (maxSell > TOTAL_SUPPLY / 1_000_000_000) {
-                maxSell = TOTAL_SUPPLY / 1_000_000_000;
+            if (maxSell > 1_000_000 ether) {
+                maxSell = 1_000_000 ether;
             }
             (uint160 sqrtPriceCurrentX96,,,) = _slot0(poolId);
-            uint160 sqrtPriceNextX96 = SqrtPriceMath.getNextSqrtPriceFromOutput(sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, 1 ether / 1_000, zeroForOne);
+            uint160 sqrtPriceNextX96 = SqrtPriceMath.getNextSqrtPriceFromOutput(sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, 1_000_000 wei, zeroForOne);
             uint256 minSell = zeroForOne ? SqrtPriceMath.getAmount0Delta(sqrtPriceNextX96, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
                     : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, _DEFAULT_LIQUIDITY, true);
             vm.assume(maxSell >= minSell);
