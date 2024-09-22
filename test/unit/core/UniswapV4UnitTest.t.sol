@@ -208,7 +208,7 @@ contract UniswapV4Stub is UniswapV4 {
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
-        bytes memory,
+        bytes memory sig,
         bool isForwarded
     ) internal override {
         assert(!isForwarded);
@@ -218,7 +218,7 @@ contract UniswapV4Stub is UniswapV4 {
         if (permit.deadline < block.timestamp) {
             revert SignatureExpired(permit.deadline);
         }
-        assert(permit.nonce == 0);
+        assert(permit.nonce == uint256(keccak256(sig)));
         IERC20(permit.permitted.token).safeTransferFrom(
             _msgSender(), transferDetails.to, transferDetails.requestedAmount
         );
@@ -600,6 +600,49 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
     }
 
+    function swapSingleVIP(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne, bytes memory hookData, bytes memory sig) public {
+        PoolKey memory poolKey;
+        IERC20 sellToken;
+        IERC20 buyToken;
+        uint256 sellTokenBalanceBefore;
+        uint256 buyTokenBalanceBefore;
+        uint256 hashMul;
+        uint256 hashMod;
+        (poolIndex, sellAmount, poolKey, sellToken, buyToken, sellAmount, sellTokenBalanceBefore, buyTokenBalanceBefore, hashMul, hashMod) = _swapPre(poolIndex, sellAmount, zeroForOne);
+        vm.assume(sellToken != IERC20(ETH));
+
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({
+                token: address(sellToken),
+                amount: sellAmount
+            }),
+            nonce: uint256(keccak256(sig)),
+            deadline: block.timestamp + 30 minutes
+        });
+
+        bytes memory fills = abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x01),
+            buyToken,
+            poolKey.fee,
+            poolKey.tickSpacing,
+            poolKey.hooks,
+            uint24(hookData.length),
+            hookData
+        );
+        UniswapV4Stub _stub = stub;
+        vm.startPrank(address(this), address(this));
+        _stub.sellToUniswapV4VIP(feeOnTransfer, hashMul, hashMod, fills, permit, sig, 0);
+        vm.stopPrank();
+
+        _swapPost(sellToken, buyToken, sellTokenBalanceBefore, buyTokenBalanceBefore, address(_stub));
+    }
+
+    function testSwapSingleVIP() public {
+        bytes memory sig = unicode"Hello, World!";
+        swapSingleVIP(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0), sig);
+    }
+
     function setUp() public {
         excludeContract(_deployStub());
         excludeContract(_deployPoolManager());
@@ -607,13 +650,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         excludeSender(ETH);
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](6)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](7)});
             exclusion.selectors[0] = this.getBalanceOf.selector;
             exclusion.selectors[1] = this.unlockCallback.selector;
             exclusion.selectors[2] = this.testCalculateAmounts.selector;
             exclusion.selectors[3] = this.testPushPool.selector;
             exclusion.selectors[4] = this.testPushPoolEth.selector;
             exclusion.selectors[5] = this.testSwapSingle.selector;
+            exclusion.selectors[6] = this.testSwapSingleVIP.selector;
             excludeSelector(exclusion);
         }
 
