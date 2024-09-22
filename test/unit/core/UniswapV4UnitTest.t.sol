@@ -38,9 +38,7 @@ address constant stubPrediction = 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f;
 abstract contract InvariantAssume {
     function invariantAssume(bool condition) internal pure {
         assembly ("memory-safe") {
-            if iszero(condition) {
-                stop()
-            }
+            if iszero(condition) { stop() }
         }
     }
 }
@@ -49,7 +47,9 @@ contract TestERC20 is ERC20, InvariantAssume {
     using ItoA for uint256;
 
     modifier onlyPredicted() {
-        invariantAssume(msg.sender == testPrediction || msg.sender == stubPrediction || msg.sender == address(POOL_MANAGER));
+        invariantAssume(
+            msg.sender == testPrediction || msg.sender == stubPrediction || msg.sender == address(POOL_MANAGER)
+        );
         _;
     }
 
@@ -68,15 +68,11 @@ contract TestERC20 is ERC20, InvariantAssume {
         return super.approve(spender, amount);
     }
 
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public override onlyPredicted {
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        public
+        override
+        onlyPredicted
+    {
         return super.permit(owner, spender, value, deadline, v, r, s);
     }
 
@@ -580,7 +576,11 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function _slot0(PoolId poolId) internal view returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) {
+    function _slot0(PoolId poolId)
+        internal
+        view
+        returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee)
+    {
         try this.getSlot0(poolId) {}
         catch (bytes memory returndata) {
             return abi.decode(returndata, (uint160, int24, uint24, uint24));
@@ -589,7 +589,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function getSlot0(PoolId poolId) external view {
-        (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = IPoolManager(address(POOL_MANAGER)).getSlot0(poolId);
+        (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) =
+            IPoolManager(address(POOL_MANAGER)).getSlot0(poolId);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, sqrtPriceX96)
@@ -621,9 +622,12 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
                 maxSell = 1_000_000 ether;
             }
             (uint160 sqrtPriceCurrentX96,,,) = _slot0(poolId);
-            uint160 sqrtPriceNextX96 = SqrtPriceMath.getNextSqrtPriceFromOutput(sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, 1_000_000 wei, zeroForOne);
-            uint256 minSell = zeroForOne ? SqrtPriceMath.getAmount0Delta(sqrtPriceNextX96, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
-                    : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, _DEFAULT_LIQUIDITY, true);
+            uint160 sqrtPriceNextX96 = SqrtPriceMath.getNextSqrtPriceFromOutput(
+                sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, 1_000_000 wei, zeroForOne
+            );
+            uint256 minSell = zeroForOne
+                ? SqrtPriceMath.getAmount0Delta(sqrtPriceNextX96, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
+                : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, _DEFAULT_LIQUIDITY, true);
             vm.assume(maxSell >= minSell);
             sellAmount = bound(sellAmount, minSell, maxSell);
         }
