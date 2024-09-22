@@ -452,8 +452,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     {
         vm.assume(tokenAIndex != tokenBIndex);
         (IERC20 token0, IERC20 token1) = _sortTokens(tokens[tokenAIndex], tokens[tokenBIndex]);
-        vm.assume(_balanceOf(token0) > TOTAL_SUPPLY / 10);
-        vm.assume(_balanceOf(token1) > TOTAL_SUPPLY / 10);
+        vm.assume(_balanceOf(token0, address(this)) > TOTAL_SUPPLY / 10);
+        vm.assume(_balanceOf(token1, address(this)) > TOTAL_SUPPLY / 10);
 
         PoolKey memory poolKey = PoolKey({
             currency0: Currency.wrap(address(token0)),
@@ -506,19 +506,19 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertLt(ethAfter, ethBefore);
     }
 
-    function _balanceOf(IERC20 token) internal view returns (uint256) {
+    function _balanceOf(IERC20 token, address who) internal view returns (uint256) {
         if (token == IERC20(ETH)) {
-            return address(this).balance;
+            return who.balance;
         }
-        try this.getBalanceOf(token) {}
+        try this.getBalanceOf(token, who) {}
         catch (bytes memory returndata) {
             return abi.decode(returndata, (uint256));
         }
         revert();
     }
 
-    function getBalanceOf(IERC20 token) external view {
-        uint256 result = token.balanceOf(address(this));
+    function getBalanceOf(IERC20 token, address who) external view {
+        uint256 result = token.balanceOf(who);
         assembly ("memory-safe") {
             mstore(0x00, result)
             revert(0x00, 0x20)
@@ -544,8 +544,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
             : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
 
-        uint256 sellTokenBalanceBefore = _balanceOf(sellToken);
-        uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
+        uint256 sellTokenBalanceBefore = _balanceOf(sellToken, address(this));
+        uint256 buyTokenBalanceBefore = _balanceOf(buyToken, address(this));
         {
             uint256 maxSell = sellTokenBalanceBefore;
             if (maxSell > TOTAL_SUPPLY / 1_000) {
@@ -581,13 +581,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 buyTokenBalanceBefore,
         address _stub
     ) private view returns (uint256, uint256) {
-        uint256 sellTokenBalanceAfter = sellToken.balanceOf(address(this));
-        uint256 buyTokenBalanceAfter = buyToken.balanceOf(address(this));
+        uint256 sellTokenBalanceAfter = _balanceOf(sellToken, address(this));
+        uint256 buyTokenBalanceAfter = _balanceOf(buyToken, address(this));
 
         assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore);
         assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore);
-        assertEq(sellToken.balanceOf(address(_stub)), 0);
-        assertEq(buyToken.balanceOf(address(_stub)), 0);
+        assertEq(_balanceOf(sellToken, _stub), 0);
+        assertEq(_balanceOf(buyToken, _stub), 0);
 
         return (sellTokenBalanceAfter, buyTokenBalanceAfter);
     }
