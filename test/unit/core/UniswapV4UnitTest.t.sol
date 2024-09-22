@@ -520,9 +520,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function swapSingle(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne, bytes memory hookData)
-        public
-    {
+    function _swapPre(uint256 poolIndex, uint256 sellAmount, bool zeroForOne) private view returns (uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256, uint256) {
         poolIndex = bound(poolIndex, 0, pools.length);
         PoolKey memory poolKey = pools[poolIndex];
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
@@ -544,6 +542,34 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         uint256 hashMul = 1;
         uint256 hashMod = 8;
+
+        return (poolIndex, sellAmount, poolKey, sellToken, buyToken, sellAmount, sellTokenBalanceBefore, buyTokenBalanceBefore, hashMul, hashMod);
+    }
+
+    function _swapPost(IERC20 sellToken, IERC20 buyToken, uint256 sellTokenBalanceBefore, uint256 buyTokenBalanceBefore, address _stub) private view returns (uint256, uint256) {
+        uint256 sellTokenBalanceAfter = sellToken.balanceOf(address(this));
+        uint256 buyTokenBalanceAfter = buyToken.balanceOf(address(this));
+
+        assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore);
+        assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore);
+        assertEq(sellToken.balanceOf(address(_stub)), 0);
+        assertEq(buyToken.balanceOf(address(_stub)), 0);
+
+        return (sellTokenBalanceAfter, buyTokenBalanceAfter);
+    }
+
+    function swapSingle(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne, bytes memory hookData)
+        public
+    {
+        PoolKey memory poolKey;
+        IERC20 sellToken;
+        IERC20 buyToken;
+        uint256 sellTokenBalanceBefore;
+        uint256 buyTokenBalanceBefore;
+        uint256 hashMul;
+        uint256 hashMod;
+        (poolIndex, sellAmount, poolKey, sellToken, buyToken, sellAmount, sellTokenBalanceBefore, buyTokenBalanceBefore, hashMul, hashMod) = _swapPre(poolIndex, sellAmount, zeroForOne);
+
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
             bytes1(0x01),
@@ -567,13 +593,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         _stub.sellToUniswapV4{value: value}(sellToken, 10_000, feeOnTransfer, hashMul, hashMod, fills, 0);
         vm.stopPrank();
 
-        uint256 sellTokenBalanceAfter = sellToken.balanceOf(address(this));
-        uint256 buyTokenBalanceAfter = buyToken.balanceOf(address(this));
-
-        assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore);
-        assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore);
-        assertEq(sellToken.balanceOf(address(_stub)), 0);
-        assertEq(buyToken.balanceOf(address(_stub)), 0);
+        _swapPost(sellToken, buyToken, sellTokenBalanceBefore, buyTokenBalanceBefore, address(_stub));
     }
 
     function testSwapSingle() public {
