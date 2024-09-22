@@ -361,12 +361,18 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     uint128 internal constant _DEFAULT_LIQUIDITY = 5421214632141316;
 
-    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity) private pure returns (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) {
+    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity)
+        private
+        pure
+        returns (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1)
+    {
         params.tickLower = TickMath.MIN_TICK;
         params.tickUpper = TickMath.MAX_TICK;
         params.liquidityDelta = int128(liquidity);
-        amount0 = SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
-        amount1 = SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), sqrtPriceX96, liquidity, true);
+        amount0 =
+            SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
+        amount1 =
+            SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), sqrtPriceX96, liquidity, true);
     }
 
     function testCalculateAmounts() public pure {
@@ -387,8 +393,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             poolKey.currency0 = Currency.wrap(address(0));
         }
 
-        (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY);
-        (BalanceDelta callerDelta, BalanceDelta feesAccrued) = IPoolManager(address(POOL_MANAGER)).modifyLiquidity(poolKey, params, new bytes(0));
+        (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) =
+            _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY);
+        (BalanceDelta callerDelta, BalanceDelta feesAccrued) =
+            IPoolManager(address(POOL_MANAGER)).modifyLiquidity(poolKey, params, new bytes(0));
         assertEq(uint128(-callerDelta.amount0()), amount0);
         assertEq(uint128(-callerDelta.amount1()), amount1);
         assertEq(BalanceDelta.unwrap(feesAccrued), 0);
@@ -426,7 +434,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96) private {
+    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
+        private
+    {
         vm.assume(tokenAIndex != tokenBIndex);
         (IERC20 token0, IERC20 token1) = _sortTokens(tokens[tokenAIndex], tokens[tokenBIndex]);
         vm.assume(_balanceOf(token0) > TOTAL_SUPPLY / 10);
@@ -502,7 +512,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne, bytes calldata hookData) public {
+    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne, bytes calldata hookData)
+        public
+    {
         poolIndex = bound(poolIndex, 0, pools.length);
         bps = bound(bps, 1, 1_000); // up to one tenth
         uint256 hashMul = 0;
