@@ -36,8 +36,21 @@ address constant testPrediction = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
 address constant stubPrediction = 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f;
 
 abstract contract InvariantAssume {
-    function invariantAssume(bool condition) internal pure {
+    uint256 private constant invariantAssumeDisabledSlot = 0x802725342c64629bf019370b6b352d7d6f9d525d72b3bfcc7c8b0f79f510454d;
+
+    constructor() {
+        assert(invariantAssumeDisabledSlot == uint256(keccak256("invariant assume disabled")) - 1);
+    }
+
+    function disableInvariantAssume() internal {
         assembly ("memory-safe") {
+            tstore(invariantAssumeDisabledSlot, 0x01)
+        }
+    }
+
+    function invariantAssume(bool condition) internal view {
+        assembly ("memory-safe") {
+            if tload(invariantAssumeDisabledSlot) { revert(0x00, 0x00) }
             if iszero(condition) { stop() }
         }
     }
@@ -415,6 +428,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     receive() external payable {}
 
     function pushToken() public returns (IERC20 token, uint256 i) {
+        disableInvariantAssume();
         token = IERC20(address(new TestERC20()));
         i = tokens.length;
         isToken[token] = true;
@@ -498,13 +512,15 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
+    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96, bool skipChecks)
         private
     {
-        vm.assume(tokenAIndex != tokenBIndex);
         (IERC20 token0, IERC20 token1) = _sortTokens(tokens[tokenAIndex], tokens[tokenBIndex]);
-        vm.assume(_balanceOf(token0, address(this)) > TOTAL_SUPPLY / 10);
-        vm.assume(_balanceOf(token1, address(this)) > TOTAL_SUPPLY / 10);
+        if (!skipChecks) {
+            invariantAssume(tokenAIndex != tokenBIndex);
+            invariantAssume(_balanceOf(token0, address(this)) > TOTAL_SUPPLY / 10);
+            invariantAssume(_balanceOf(token1, address(this)) > TOTAL_SUPPLY / 10);
+        }
 
         PoolKey memory poolKey = PoolKey({
             currency0: Currency.wrap(address(token0)),
@@ -514,7 +530,11 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             hooks: IHooks(address(0))
         });
         PoolId poolId = poolKey.toIdCompat();
-        vm.assume(!isPool[poolId]);
+        if (!skipChecks) {
+            invariantAssume(!isPool[poolId]);
+        }
+
+        disableInvariantAssume();
         isPool[poolId] = true;
         pools.push(poolKey);
 
@@ -523,6 +543,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
         IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96));
+    }
+
+    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96) private {
+        return _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96, false);
     }
 
     function pushPool(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
@@ -542,7 +566,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint24 fee = 0;
         int24 tickSpacing = TickMath.MIN_TICK_SPACING;
         uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
-        _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
+        _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96, true);
     }
 
     function testPushPoolEth() external {
@@ -552,7 +576,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         int24 tickSpacing = TickMath.MIN_TICK_SPACING;
         uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
         uint256 ethBefore = address(this).balance;
-        _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
+        _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96, true);
         uint256 ethAfter = address(this).balance;
         assertLt(ethAfter, ethBefore);
     }
@@ -628,7 +652,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             uint256 minSell = zeroForOne
                 ? SqrtPriceMath.getAmount0Delta(sqrtPriceNextX96, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
                 : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, _DEFAULT_LIQUIDITY, true);
-            vm.assume(maxSell >= minSell);
+            invariantAssume(maxSell >= minSell);
             sellAmount = bound(sellAmount, minSell, maxSell);
         }
 
@@ -707,6 +731,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         uint256 value;
         UniswapV4Stub _stub = stub;
+        disableInvariantAssume();
+
         if (sellToken == IERC20(ETH)) {
             value = sellAmount;
         } else {
@@ -770,6 +796,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             hookData
         );
         UniswapV4Stub _stub = stub;
+
+        disableInvariantAssume();
         vm.startPrank(address(this), address(this));
         _stub.sellToUniswapV4VIP(feeOnTransfer, hashMul, hashMod, fills, permit, sig, 0);
         vm.stopPrank();
@@ -788,6 +816,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         initialized = true;
 
         assert(address(this) == testPrediction);
+        disableInvariantAssume();
 
         excludeContract(_deployStub());
         assert(address(stub) == stubPrediction);
@@ -819,9 +848,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         pushToken();
 
         // Make some pools; all 1:1 price
-        _pushPoolRaw(0, 1, 0, 1, 1 << 96);
-        _pushPoolRaw(1, 2, 0, 1, 1 << 96);
-        _pushPoolRaw(2, 0, 0, 1, 1 << 96);
+        _pushPoolRaw(0, 1, 0, 1, 1 << 96, true);
+        _pushPoolRaw(1, 2, 0, 1, 1 << 96, true);
+        _pushPoolRaw(2, 0, 0, 1, 1 << 96, true);
     }
 
     function invariant_vacuous() external pure {}
