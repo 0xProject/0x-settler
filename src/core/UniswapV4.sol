@@ -904,7 +904,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     revert ZeroSellAmount(globalSellToken);
                 }
                 if (globalSellToken == ETH_ADDRESS) {
-                    IPoolManager(_operator()).settle{value: globalSellAmount}();
+                    IPoolManager(_operator()).settle{value: debt}();
                 } else {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
