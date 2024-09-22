@@ -259,6 +259,8 @@ contract UniswapV4Stub is UniswapV4 {
     function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
         revert("unimplemented");
     }
+
+    receive() external payable {}
 }
 
 abstract contract BaseUniswapV4UnitTest is Test {
@@ -351,12 +353,15 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     using PoolIdLibrary for PoolKey;
     using SafeTransferLib for IERC20;
 
+    bool internal initialized;
     IERC20[] internal tokens;
     mapping(IERC20 => bool) internal isToken;
     PoolKey[] internal pools;
     mapping(PoolId => bool) internal isPool;
 
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    receive() external payable {}
 
     function pushToken() public returns (IERC20 token, uint256 i) {
         token = IERC20(address(new TestERC20()));
@@ -520,6 +525,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
+    function _invariantAssume(bool condition) private pure {
+        assembly ("memory-safe") {
+            if iszero(condition) {
+                stop()
+            }
+        }
+    }
+
     function _swapPre(uint256 poolIndex, uint256 sellAmount, bool zeroForOne)
         private
         view
@@ -663,7 +676,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             hashMul,
             hashMod
         ) = _swapPre(poolIndex, sellAmount, zeroForOne);
-        vm.assume(sellToken != IERC20(ETH));
+        _invariantAssume(sellToken != IERC20(ETH));
 
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: sellAmount}),
@@ -695,20 +708,25 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function setUp() public {
+        // Foundry is stupid and doesn't obey adding `setUp` to the list of excluded selectors
+        _invariantAssume(!initialized);
+        initialized = true;
+
         excludeContract(_deployStub());
         excludeContract(_deployPoolManager());
         excludeContract(address(POOL_MANAGER));
 
         excludeSender(ETH);
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](7)});
-            exclusion.selectors[0] = this.getBalanceOf.selector;
-            exclusion.selectors[1] = this.unlockCallback.selector;
-            exclusion.selectors[2] = this.testCalculateAmounts.selector;
-            exclusion.selectors[3] = this.testPushPool.selector;
-            exclusion.selectors[4] = this.testPushPoolEth.selector;
-            exclusion.selectors[5] = this.testSwapSingle.selector;
-            exclusion.selectors[6] = this.testSwapSingleVIP.selector;
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](8)});
+            exclusion.selectors[0] = this.setUp.selector;
+            exclusion.selectors[1] = this.getBalanceOf.selector;
+            exclusion.selectors[2] = this.unlockCallback.selector;
+            exclusion.selectors[3] = this.testCalculateAmounts.selector;
+            exclusion.selectors[4] = this.testPushPool.selector;
+            exclusion.selectors[5] = this.testPushPoolEth.selector;
+            exclusion.selectors[6] = this.testSwapSingle.selector;
+            exclusion.selectors[7] = this.testSwapSingleVIP.selector;
             excludeSelector(exclusion);
         }
 
@@ -725,4 +743,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         _pushPoolRaw(1, 2, 0, 1, 1 << 96);
         _pushPoolRaw(2, 0, 0, 1, 1 << 96);
     }
+
+    function invariant_vacuous() external pure {}
 }

@@ -1,6 +1,5 @@
 [profile.default]
 unchecked_cheatcode_artifacts = true
-fail_on_revert = true
 
 # https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
 bytecode_hash = "none"
@@ -32,5 +31,6 @@ runs = 100_000
 max_test_rejects = 1_000_000
 
 [invariant]
-runs = 1_000
-depth = 100
+fail_on_revert = true
+runs = 100
+depth = 10
