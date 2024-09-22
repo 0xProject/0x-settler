@@ -538,7 +538,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         view
         returns (uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256, uint256)
     {
-        poolIndex = bound(poolIndex, 0, pools.length);
+        poolIndex = bound(poolIndex, 0, pools.length - 1);
         PoolKey memory poolKey = pools[poolIndex];
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
             ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
