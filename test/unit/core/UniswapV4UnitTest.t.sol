@@ -44,6 +44,21 @@ contract TestERC20 is ERC20 {
         Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).label(address(this), name);
         _mint(msg.sender, TOTAL_SUPPLY);
     }
+
+    // This is here because `require(amount != 0)` is a common defect in ERC20 implementations; we
+    // want to make sure that Settler isn't accidentally triggering it.
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        require(to != address(0));
+        require(amount != 0);
+        return super.transfer(to, amount);
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        require(from != address(0));
+        require(to != address(0));
+        require(amount != 0);
+        return super.transferFrom(from, to, amount);
+    }
 }
 
 contract UniswapV4Stub is UniswapV4 {
@@ -378,15 +393,17 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertEq(uint128(-callerDelta.amount1()), amount1);
         assertEq(BalanceDelta.unwrap(feesAccrued), 0);
 
-        if (Currency.unwrap(poolKey.currency0) == address(0)) {
-            POOL_MANAGER.settle{value: amount0}();
-        } else {
-            IERC20 token0 = IERC20(Currency.unwrap(poolKey.currency0));
-            POOL_MANAGER.sync(token0);
-            token0.transfer(address(POOL_MANAGER), amount0);
-            POOL_MANAGER.settle();
+        if (amount0 != 0) {
+            if (Currency.unwrap(poolKey.currency0) == address(0)) {
+                POOL_MANAGER.settle{value: amount0}();
+            } else {
+                IERC20 token0 = IERC20(Currency.unwrap(poolKey.currency0));
+                POOL_MANAGER.sync(token0);
+                token0.transfer(address(POOL_MANAGER), amount0);
+                POOL_MANAGER.settle();
+            }
         }
-        {
+        if (amount1 != 0) {
             IERC20 token1 = IERC20(Currency.unwrap(poolKey.currency1));
             POOL_MANAGER.sync(token1);
             token1.transfer(address(POOL_MANAGER), amount1);
