@@ -278,12 +278,9 @@ abstract contract BaseUniswapV4UnitTest is Test {
     }
 
     function _deployPoolManager() internal returns (address poolManagerSrc) {
-        bytes memory poolManagerCode = vm.getCode("PoolManager.sol:PoolManager");
-        assembly ("memory-safe") {
-            poolManagerSrc := create(0x00, add(0x20, poolManagerCode), mload(poolManagerCode))
-        }
+        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager");
         require(poolManagerSrc != address(0));
-        poolManagerCode = poolManagerSrc.code;
+        bytes memory poolManagerCode = poolManagerSrc.code;
         uint256 replaceCount = _replaceAll(
             poolManagerCode,
             bytes32(bytes20(uint160(poolManagerSrc))),
@@ -292,6 +289,7 @@ abstract contract BaseUniswapV4UnitTest is Test {
         );
         console.log("replaced", replaceCount, "occurrences of pool manager immutable address");
         vm.etch(address(POOL_MANAGER), poolManagerCode);
+        vm.label(address(POOL_MANAGER), "PoolManager");
 
         vm.record();
         (bool success, bytes memory returndata) = address(POOL_MANAGER).staticcall(abi.encodeWithSignature("owner()"));
