@@ -36,7 +36,8 @@ address constant testPrediction = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
 address constant stubPrediction = 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f;
 
 abstract contract InvariantAssume {
-    uint256 private constant invariantAssumeDisabledSlot = 0x802725342c64629bf019370b6b352d7d6f9d525d72b3bfcc7c8b0f79f510454d;
+    uint256 private constant invariantAssumeDisabledSlot =
+        0x802725342c64629bf019370b6b352d7d6f9d525d72b3bfcc7c8b0f79f510454d;
 
     constructor() {
         assert(invariantAssumeDisabledSlot == uint256(keccak256("invariant assume disabled")) - 1);
@@ -512,9 +513,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96, bool skipChecks)
-        private
-    {
+    function _pushPoolRaw(
+        uint256 tokenAIndex,
+        uint256 tokenBIndex,
+        uint24 fee,
+        int24 tickSpacing,
+        uint160 sqrtPriceX96,
+        bool skipChecks
+    ) private {
         (IERC20 token0, IERC20 token1) = _sortTokens(tokens[tokenAIndex], tokens[tokenBIndex]);
         if (!skipChecks) {
             invariantAssume(tokenAIndex != tokenBIndex);
@@ -545,7 +551,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96));
     }
 
-    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96) private {
+    function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
+        private
+    {
         return _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96, false);
     }
 
