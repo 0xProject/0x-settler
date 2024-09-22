@@ -179,7 +179,7 @@ library NotesLib {
                 mstore(0x00, 0xad1991f5) // selector for `ZeroToken()`
                 revert(0x1c, 0x04)
             }
-mstore(a, 0x01)
+            mstore(a, 0x01)
             let x_ptr := add(0x20, a)
             mstore(x_ptr, x)
             mstore(add(0x20, x), or(shl(0xe8, x_ptr), initToken))
@@ -605,7 +605,11 @@ abstract contract UniswapV4 is SettlerAbstract {
         assembly ("memory-safe") {
             sellToken := and(_ADDRESS_MASK, sellToken)
             buyToken := and(_ADDRESS_MASK, buyToken)
-            zeroForOne := or(eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee), and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken)))
+            zeroForOne :=
+                or(
+                    eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
+                    and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
+                )
         }
         (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (buyToken, sellToken);
         uint256 packed = uint208(bytes26(data));
@@ -764,9 +768,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                     // Remove `permit` and `isForwarded` from the front of `data`
                     data.offset := add(0x75, data.offset)
-                    if lt(data.offset, sig.offset) {
-                        revert(0x00, 0x00)
-                    }
+                    if lt(data.offset, sig.offset) { revert(0x00, 0x00) }
 
                     // Remove `sig` from the back of `data`
                     data.length := sub(sub(data.length, 0x78), sig.length)

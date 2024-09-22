@@ -219,7 +219,9 @@ contract UniswapV4Stub is UniswapV4 {
             revert SignatureExpired(permit.deadline);
         }
         assert(permit.nonce == 0);
-        IERC20(permit.permitted.token).safeTransferFrom(_msgSender(), transferDetails.to, transferDetails.requestedAmount);
+        IERC20(permit.permitted.token).safeTransferFrom(
+            _msgSender(), transferDetails.to, transferDetails.requestedAmount
+        );
     }
 
     function _transferFrom(
@@ -540,7 +542,16 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         vm.assume(sellAmount >= TOTAL_SUPPLY / 1_000_000 ether);
         vm.assume(sellAmount < TOTAL_SUPPLY / 1_000);
 
-        bytes memory fills = abi.encodePacked(uint16(10_000), bytes1(0x01), buyToken, poolKey.fee, poolKey.tickSpacing, poolKey.hooks, uint24(hookData.length), hookData);
+        bytes memory fills = abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x01),
+            buyToken,
+            poolKey.fee,
+            poolKey.tickSpacing,
+            poolKey.hooks,
+            uint24(hookData.length),
+            hookData
+        );
 
         uint256 value;
         UniswapV4Stub _stub = stub;
@@ -551,9 +562,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             sellToken.safeTransfer(address(_stub), sellAmount);
         }
         vm.startPrank(address(this), address(this));
-        _stub.sellToUniswapV4{value: value}(
-            sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, 0
-        );
+        _stub.sellToUniswapV4{value: value}(sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, 0);
         vm.stopPrank();
 
         uint256 sellTokenBalanceAfter = _balanceOf(sellToken);
