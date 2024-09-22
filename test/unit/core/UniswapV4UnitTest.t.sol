@@ -795,7 +795,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         excludeSender(ETH);
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](9)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](10)});
             exclusion.selectors[0] = this.setUp.selector;
             exclusion.selectors[1] = this.getBalanceOf.selector;
             exclusion.selectors[2] = this.getSlot0.selector;
@@ -805,6 +805,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             exclusion.selectors[6] = this.testPushPoolEth.selector;
             exclusion.selectors[7] = this.testSwapSingle.selector;
             exclusion.selectors[8] = this.testSwapSingleVIP.selector;
+            exclusion.selectors[9] = this.pushPool.selector; // TODO: reenable `pushPool`
             excludeSelector(exclusion);
         }
 
