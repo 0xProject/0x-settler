@@ -527,9 +527,16 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 sellTokenBalanceBefore = _balanceOf(sellToken);
         uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
 
+        // We're not really interested in the extremes of price impact. We're testing
+        // interface-level functionality, not the AMM invariant. Let's filter out those extreme
+        // cases.
+        uint256 sellAmount = sellTokenBalanceBefore * bps / 10_000;
+        vm.assume(sellAmount >= TOTAL_SUPPLY / 1_000_000 ether);
+        vm.assume(sellAmount < TOTAL_SUPPLY / 1_000);
+
         uint256 value;
         if (sellToken == IERC20(ETH)) {
-            value = sellTokenBalanceBefore * bps / 10_000;
+            value = sellAmount;
         }
         UniswapV4Stub _stub = stub;
         vm.startPrank(address(this), address(this));
