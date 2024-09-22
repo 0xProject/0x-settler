@@ -61,6 +61,8 @@ contract TestERC20 is ERC20 {
     }
 }
 
+// TODO: create a FoT token variant
+
 contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
 
@@ -109,7 +111,7 @@ contract UniswapV4Stub is UniswapV4 {
     fallback(bytes calldata) external returns (bytes memory) {
         require(_operator() == address(POOL_MANAGER));
         bytes calldata data = _msgData();
-        require(bytes4(data) == IPoolManager.unlock.selector);
+        require(uint32(bytes4(data)) == uint32(IUnlockCallback.unlockCallback.selector));
         data = data[4:];
         return _getCallback()(data);
     }
@@ -233,7 +235,7 @@ contract UniswapV4Stub is UniswapV4 {
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
         require(target == address(POOL_MANAGER));
-        require(selector == uint32(IPoolManager.unlock.selector));
+        require(selector == uint32(IUnlockCallback.unlockCallback.selector));
         _setCallback(callback);
         (bool success, bytes memory returndata) = target.call(data);
         success.maybeRevert(returndata);
@@ -292,8 +294,9 @@ abstract contract BaseUniswapV4UnitTest is Test {
         }
     }
 
-    function _deployStub() internal {
+    function _deployStub() internal returns (address) {
         stub = new UniswapV4Stub();
+        return address(stub);
     }
 
     function _deployPoolManager() internal returns (address poolManagerSrc) {
@@ -512,7 +515,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne, bytes calldata hookData)
+    function swapSingle(uint256 poolIndex, uint256 bps, bool feeOnTransfer, bool zeroForOne, bytes memory hookData)
         public
     {
         poolIndex = bound(poolIndex, 0, pools.length);
@@ -534,6 +537,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         vm.assume(sellAmount >= TOTAL_SUPPLY / 1_000_000 ether);
         vm.assume(sellAmount < TOTAL_SUPPLY / 1_000);
 
+        bytes memory fills = abi.encodePacked(uint16(10_000), bytes1(0x01), buyToken, poolKey.fee, poolKey.tickSpacing, poolKey.hooks, uint24(hookData.length), hookData);
+
         uint256 value;
         if (sellToken == IERC20(ETH)) {
             value = sellAmount;
@@ -541,7 +546,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         UniswapV4Stub _stub = stub;
         vm.startPrank(address(this), address(this));
         _stub.sellToUniswapV4{value: value}(
-            sellToken, bps, feeOnTransfer, hashMul, hashMod, new bytes(0)/* TODO: fills */, 0
+            sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, 0
         );
         vm.stopPrank();
 
@@ -552,20 +557,24 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore);
     }
 
+    function testSwapSingle() public {
+        swapSingle(1, 9, false, true, new bytes(0));
+    }
+
     function setUp() public {
-        _deployStub();
-        excludeContract(address(stub));
+        excludeContract(_deployStub());
         excludeContract(_deployPoolManager());
         excludeContract(address(POOL_MANAGER));
 
         excludeSender(ETH);
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](5)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](6)});
             exclusion.selectors[0] = this.getBalanceOf.selector;
             exclusion.selectors[1] = this.unlockCallback.selector;
             exclusion.selectors[2] = this.testCalculateAmounts.selector;
             exclusion.selectors[3] = this.testPushPool.selector;
             exclusion.selectors[4] = this.testPushPoolEth.selector;
+            exclusion.selectors[5] = this.testSwapSingle.selector;
             excludeSelector(exclusion);
         }
         vm.deal(address(this), TOTAL_SUPPLY);
