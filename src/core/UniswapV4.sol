@@ -408,6 +408,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(add(0xb3, data), bps)
             mstore(add(0xb1, data), sellToken)
             mstore(add(0x9d, data), address()) // payer
+            // feeOnTransfer (1 byte)
 
             mstore(add(0x88, data), hashMod)
             mstore(add(0x78, data), hashMul)
@@ -463,29 +464,40 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             {
                 let ptr := add(0x132, data)
-                mcopy(ptr, add(0x20, fills), pathLen)
-                ptr := add(ptr, pathLen)
-                mstore(sub(add(ptr, sigLen), 0x1d), sigLen)
-                mcopy(ptr, add(0x20, sig), sigLen)
-                ptr := add(0x03, add(ptr, sigLen))
 
-                mstore(0x40, ptr)
+                // sig length as 3 bytes goes at the end of the callback
+                mstore(sub(add(sigLen, add(pathLen, ptr)), 0x1d), sigLen)
+
+                // fills go at the end of the header
+                mcopy(ptr, add(0x20, fills), pathLen)
+                ptr := add(pathLen, ptr)
+
+                // signature comes after the fills
+                mcopy(ptr, add(0x20, sig), sigLen)
+                ptr := add(sigLen, ptr)
+
+                mstore(0x40, add(0x03, ptr))
             }
 
             mstore8(add(0x131, data), isForwarded)
             mcopy(add(0xf1, data), add(0x20, permit), 0x40)
             mcopy(add(0xb1, data), mload(permit), 0x40) // aliases `payer` on purpose
             mstore(add(0x9d, data), 0x00) // payer
+            // feeOnTransfer (1 byte)
 
             mstore(add(0x88, data), hashMod)
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0xb0, add(pathLen, sigLen)))
+            mstore(add(0x44, data), add(0xd1, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), 0x48c89491) // selector for `unlock(bytes)`
-            mstore(data, add(0xf4, add(pathLen, sigLen)))
+            mstore(data, add(0x115, add(pathLen, sigLen)))
+
             mstore8(add(0xa8, data), feeOnTransfer)
+
+            // TODO: remove
+            if iszero(eq(add(mload(data), add(0x20, data)), mload(0x40))) { revert(0x00, 0x00) }
         }
         return abi.decode(
             abi.decode(
@@ -763,12 +775,12 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                     // `sig` is packed at the end of `data`, in "reverse ABI-ish encoded" fashion
                     sig.offset := sub(add(data.offset, data.length), 0x03)
-                    sig.length := and(0xffffff, calldataload(sig.offset))
+                    sig.length := shr(0xe8, calldataload(sig.offset))
                     sig.offset := sub(sig.offset, sig.length)
 
                     // Remove `permit` and `isForwarded` from the front of `data`
                     data.offset := add(0x75, data.offset)
-                    if lt(data.offset, sig.offset) { revert(0x00, 0x00) }
+                    if gt(data.offset, sig.offset) { revert(0x00, 0x00) }
 
                     // Remove `sig` from the back of `data`
                     data.length := sub(sub(data.length, 0x78), sig.length)
