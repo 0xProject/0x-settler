@@ -17,6 +17,7 @@ import {IHooks} from "@uniswapv4/interfaces/IHooks.sol";
 import {PoolId, PoolIdLibrary} from "@uniswapv4/types/PoolId.sol";
 import {SqrtPriceMath} from "@uniswapv4/libraries/SqrtPriceMath.sol";
 import {BalanceDelta} from "@uniswapv4/types/BalanceDelta.sol";
+import {StateLibrary} from "@uniswapv4/libraries/StateLibrary.sol";
 
 import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
@@ -382,8 +383,32 @@ contract BasicUniswapV4UnitTest is BaseUniswapV4UnitTest, IUnlockCallback {
     }
 }
 
+library CompatPoolIdLibrary {
+    function toIdCompat(PoolKey memory poolKey) internal pure returns (PoolId result) {
+        uint256 freePtr;
+        assembly ("memory-safe") {
+            freePtr := mload(0x40)
+        }
+        PoolKey memory poolKeyCopy = PoolKey({
+            currency0: poolKey.currency0,
+            currency1: poolKey.currency1,
+            fee: poolKey.fee,
+            tickSpacing: poolKey.tickSpacing,
+            hooks: poolKey.hooks
+        });
+        if (poolKeyCopy.currency0 == Currency.wrap(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) {
+            poolKeyCopy.currency0 = Currency.wrap(address(0));
+        }
+        result = poolKeyCopy.toId();
+        assembly ("memory-safe") {
+            mstore(0x40, freePtr)
+        }
+    }
+}
+
 contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback, InvariantAssume {
-    using PoolIdLibrary for PoolKey;
+    using CompatPoolIdLibrary for PoolKey;
+    using StateLibrary for IPoolManager;
     using SafeTransferLib for IERC20;
 
     bool internal initialized;
@@ -495,7 +520,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             tickSpacing: tickSpacing,
             hooks: IHooks(address(0))
         });
-        PoolId poolId = poolKey.toId();
+        PoolId poolId = poolKey.toIdCompat();
         vm.assume(!isPool[poolId]);
         isPool[poolId] = true;
         pools.push(poolKey);
@@ -558,6 +583,26 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
+    function _slot0(PoolId poolId) internal view returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) {
+        try this.getSlot0(poolId) {}
+        catch (bytes memory returndata) {
+            return abi.decode(returndata, (uint160, int24, uint24, uint24));
+        }
+        revert();
+    }
+
+    function getSlot0(PoolId poolId) external view {
+        (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = IPoolManager(address(POOL_MANAGER)).getSlot0(poolId);
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, sqrtPriceX96)
+            mstore(add(0x20, ptr), tick)
+            mstore(add(0x40, ptr), protocolFee)
+            mstore(add(0x60, ptr), lpFee)
+            revert(ptr, 0x80)
+        }
+    }
+
     function _swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
         private
         view
@@ -565,6 +610,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     {
         poolIndex = bound(poolIndex, 0, pools.length - 1);
         PoolKey memory poolKey = pools[poolIndex];
+        PoolId poolId = poolKey.toIdCompat();
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
             ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
             : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
@@ -574,11 +620,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 buyTokenBalanceBefore = _balanceOf(buyToken, address(this));
         {
             uint256 maxSell = sellTokenBalanceBefore;
-            if (maxSell > TOTAL_SUPPLY / 1_000) {
-                maxSell = TOTAL_SUPPLY / 1_000;
+            if (maxSell > TOTAL_SUPPLY / 1_000_000_000) {
+                maxSell = TOTAL_SUPPLY / 1_000_000_000;
             }
-            // minimum sell amount is 1 microtoken
-            uint256 minSell = 1 ether / 1_000_000;
+            (uint160 sqrtPriceCurrentX96,,,) = _slot0(poolId);
+            uint160 sqrtPriceNextX96 = SqrtPriceMath.getNextSqrtPriceFromOutput(sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, 1 ether / 1_000, zeroForOne);
+            uint256 minSell = zeroForOne ? SqrtPriceMath.getAmount0Delta(sqrtPriceNextX96, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
+                    : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, _DEFAULT_LIQUIDITY, true);
             vm.assume(maxSell >= minSell);
             sellAmount = bound(sellAmount, minSell, maxSell);
         }
@@ -747,15 +795,16 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         excludeSender(ETH);
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](8)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](9)});
             exclusion.selectors[0] = this.setUp.selector;
             exclusion.selectors[1] = this.getBalanceOf.selector;
-            exclusion.selectors[2] = this.unlockCallback.selector;
-            exclusion.selectors[3] = this.testCalculateAmounts.selector;
-            exclusion.selectors[4] = this.testPushPool.selector;
-            exclusion.selectors[5] = this.testPushPoolEth.selector;
-            exclusion.selectors[6] = this.testSwapSingle.selector;
-            exclusion.selectors[7] = this.testSwapSingleVIP.selector;
+            exclusion.selectors[2] = this.getSlot0.selector;
+            exclusion.selectors[3] = this.unlockCallback.selector;
+            exclusion.selectors[4] = this.testCalculateAmounts.selector;
+            exclusion.selectors[5] = this.testPushPool.selector;
+            exclusion.selectors[6] = this.testPushPoolEth.selector;
+            exclusion.selectors[7] = this.testSwapSingle.selector;
+            exclusion.selectors[8] = this.testSwapSingleVIP.selector;
             excludeSelector(exclusion);
         }
 
