@@ -899,7 +899,17 @@ abstract contract UniswapV4 is SettlerAbstract {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
             }
-            return abi.encode(abi.encode(globalBuyAmount));
+
+            bytes memory returndata;
+            assembly ("memory-safe") {
+                returndata := mload(0x40)
+                mstore(returndata, 0x60)
+                mstore(add(0x20, returndata), 0x20)
+                mstore(add(0x40, returndata), 0x20)
+                mstore(add(0x60, returndata), globalBuyAmount)
+                mstore(0x40, add(0x80, returndata))
+            }
+            return returndata;
         }
     }
 }
