@@ -134,7 +134,7 @@ library UnsafePoolManager {
             let token0 := mload(key)
             if eq(token0, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token0 := 0x00 }
             mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x40, key), 0x80)
+            mcopy(add(0x40, ptr), add(0x20, key), 0x80)
             mcopy(add(0xc0, ptr), params, 0x60)
             mstore(add(0x120, ptr), 0x120)
             mstore(add(0x140, ptr), hookData.length)

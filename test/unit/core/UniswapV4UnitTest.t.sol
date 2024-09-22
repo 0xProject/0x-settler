@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
@@ -65,6 +66,7 @@ contract TestERC20 is ERC20 {
 
 contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
+    using SafeTransferLib for IERC20;
 
     function sellToUniswapV4(
         IERC20 sellToken,
@@ -217,7 +219,7 @@ contract UniswapV4Stub is UniswapV4 {
             revert SignatureExpired(permit.deadline);
         }
         assert(permit.nonce == 0);
-        IERC20(permit.permitted.token).transferFrom(_msgSender(), transferDetails.to, transferDetails.requestedAmount);
+        IERC20(permit.permitted.token).safeTransferFrom(_msgSender(), transferDetails.to, transferDetails.requestedAmount);
     }
 
     function _transferFrom(
@@ -345,6 +347,7 @@ contract BasicUniswapV4UnitTest is BaseUniswapV4UnitTest, IUnlockCallback {
 
 contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
+    using SafeTransferLib for IERC20;
 
     IERC20[] internal tokens;
     mapping(IERC20 => bool) internal isToken;
@@ -410,14 +413,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             } else {
                 IERC20 token0 = IERC20(Currency.unwrap(poolKey.currency0));
                 POOL_MANAGER.sync(token0);
-                token0.transfer(address(POOL_MANAGER), amount0);
+                token0.safeTransfer(address(POOL_MANAGER), amount0);
                 POOL_MANAGER.settle();
             }
         }
         if (amount1 != 0) {
             IERC20 token1 = IERC20(Currency.unwrap(poolKey.currency1));
             POOL_MANAGER.sync(token1);
-            token1.transfer(address(POOL_MANAGER), amount1);
+            token1.safeTransfer(address(POOL_MANAGER), amount1);
             POOL_MANAGER.settle();
         }
 
@@ -520,8 +523,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     {
         poolIndex = bound(poolIndex, 0, pools.length);
         bps = bound(bps, 1, 1_000); // up to one tenth
-        uint256 hashMul = 0;
-        uint256 hashMod = 1;
+        uint256 hashMul = 1;
+        uint256 hashMod = 8;
         PoolKey memory poolKey = pools[poolIndex];
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
             ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
@@ -540,10 +543,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         bytes memory fills = abi.encodePacked(uint16(10_000), bytes1(0x01), buyToken, poolKey.fee, poolKey.tickSpacing, poolKey.hooks, uint24(hookData.length), hookData);
 
         uint256 value;
+        UniswapV4Stub _stub = stub;
         if (sellToken == IERC20(ETH)) {
             value = sellAmount;
+        } else {
+            // warms sell token and some storage slots; unavoidable
+            sellToken.safeTransfer(address(_stub), sellAmount);
         }
-        UniswapV4Stub _stub = stub;
         vm.startPrank(address(this), address(this));
         _stub.sellToUniswapV4{value: value}(
             sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, 0
@@ -558,7 +564,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function testSwapSingle() public {
-        swapSingle(1, 9, false, true, new bytes(0));
+        swapSingle(1, 10, false, true, new bytes(0));
     }
 
     function setUp() public {

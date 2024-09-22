@@ -590,6 +590,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         return data;
     }
 
+    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+
     /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
     /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
     /// the decoding process.
@@ -599,7 +601,12 @@ abstract contract UniswapV4 is SettlerAbstract {
         returns (bool, bytes calldata)
     {
         (IERC20 sellToken, IERC20 buyToken) = (state.sell.token(), state.buy.token());
-        bool zeroForOne = !(sellToken > buyToken || buyToken == ETH_ADDRESS);
+        bool zeroForOne;
+        assembly ("memory-safe") {
+            sellToken := and(_ADDRESS_MASK, sellToken)
+            buyToken := and(_ADDRESS_MASK, buyToken)
+            zeroForOne := or(eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee), and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken)))
+        }
         (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (buyToken, sellToken);
         uint256 packed = uint208(bytes26(data));
         data = data[26:];
@@ -696,7 +703,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         return IPoolManager(_operator()).settle();
     }
 
-    function _setup(bytes calldata data, bool feeOnTransfer, uint256 hashMul, uint256 hashMod, address payer)
+    function _initialize(bytes calldata data, bool feeOnTransfer, uint256 hashMul, uint256 hashMod, address payer)
         private
         returns (
             bytes calldata newData,
@@ -779,6 +786,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
         }
 
+        state.globalSellAmount = state.globalSell.amount;
         newData = data;
     }
 
@@ -808,7 +816,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
             bytes calldata sig
-        ) = _setup(data, feeOnTransfer, hashMul, hashMod, payer);
+        ) = _initialize(data, feeOnTransfer, hashMul, hashMod, payer);
         data = newData;
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
@@ -877,7 +885,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
             }
-            return abi.encode(globalBuyAmount);
+            return abi.encode(abi.encode(globalBuyAmount));
         }
     }
 }
