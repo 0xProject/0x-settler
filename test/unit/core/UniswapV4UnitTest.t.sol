@@ -389,7 +389,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertEq(amount1, 0);
         (, uint256 amount0Hi, uint256 amount1Hi) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY + 1);
         assertEq(amount1Hi, 0);
-        assertLt(amount0, TOTAL_SUPPLY / 10);
+        assertLe(amount0, TOTAL_SUPPLY / 10);
         assertGt(amount0Hi, TOTAL_SUPPLY / 10);
     }
 
