@@ -524,23 +524,34 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         public
     {
         poolIndex = bound(poolIndex, 0, pools.length);
-        bps = bound(bps, 1, 1_000); // up to one tenth
-        uint256 hashMul = 1;
-        uint256 hashMod = 8;
         PoolKey memory poolKey = pools[poolIndex];
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
             ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
             : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
 
         uint256 sellTokenBalanceBefore = _balanceOf(sellToken);
-        uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
+        {
+            // We're not really interested in the extremes of price impact. We're testing
+            // interface-level functionality, not the AMM invariant. Let's filter out those extreme
+            // cases.
+            uint256 bpsHi = TOTAL_SUPPLY * 10 / sellTokenBalanceBefore;
+            if (bpsHi > 10_000) {
+                bpsHi = 10_000;
+            }
+            assertNotEq(bpsHi, 0);
+            uint256 bpsLo = TOTAL_SUPPLY / (sellTokenBalanceBefore * 100 ether);
+            vm.assume(bpsLo <= 10_000);
+            if (bpsLo == 0) {
+                bpsLo = 1;
+            }
+            // at most 1/1000 of the total supply; at least 1 microtoken
+            bps = bound(bps, bpsLo, bpsHi);
+        }
+        uint256 hashMul = 1;
+        uint256 hashMod = 8;
 
-        // We're not really interested in the extremes of price impact. We're testing
-        // interface-level functionality, not the AMM invariant. Let's filter out those extreme
-        // cases.
+        uint256 buyTokenBalanceBefore = _balanceOf(buyToken);
         uint256 sellAmount = sellTokenBalanceBefore * bps / 10_000;
-        vm.assume(sellAmount >= TOTAL_SUPPLY / 1_000_000 ether);
-        vm.assume(sellAmount < TOTAL_SUPPLY / 1_000);
 
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
@@ -592,6 +603,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             exclusion.selectors[5] = this.testSwapSingle.selector;
             excludeSelector(exclusion);
         }
+
         vm.deal(address(this), TOTAL_SUPPLY);
 
         // Make some tokens (making sure to include ETH)
