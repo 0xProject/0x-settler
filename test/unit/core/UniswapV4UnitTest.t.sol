@@ -31,9 +31,26 @@ import {Vm} from "@forge-std/Vm.sol";
 import {console} from "@forge-std/console.sol";
 
 uint256 constant TOTAL_SUPPLY = 1 ether * 1 ether;
+address constant testPrediction = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
+address constant stubPrediction = 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f;
 
-contract TestERC20 is ERC20 {
+abstract contract InvariantAssume {
+    function invariantAssume(bool condition) internal pure {
+        assembly ("memory-safe") {
+            if iszero(condition) {
+                stop()
+            }
+        }
+    }
+}
+
+contract TestERC20 is ERC20, InvariantAssume {
     using ItoA for uint256;
+
+    modifier onlyPredicted() {
+        invariantAssume(msg.sender == testPrediction || msg.sender == stubPrediction || msg.sender == address(POOL_MANAGER));
+        _;
+    }
 
     constructor()
         ERC20(
@@ -46,15 +63,31 @@ contract TestERC20 is ERC20 {
         _mint(msg.sender, TOTAL_SUPPLY);
     }
 
+    function approve(address spender, uint256 amount) public override onlyPredicted returns (bool) {
+        return super.approve(spender, amount);
+    }
+
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public override onlyPredicted {
+        return super.permit(owner, spender, value, deadline, v, r, s);
+    }
+
     // This is here because `require(amount != 0)` is a common defect in ERC20 implementations; we
     // want to make sure that Settler isn't accidentally triggering it.
-    function transfer(address to, uint256 amount) public override returns (bool) {
+    function transfer(address to, uint256 amount) public override onlyPredicted returns (bool) {
         require(to != address(0));
         require(amount != 0);
         return super.transfer(to, amount);
     }
 
-    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) public override onlyPredicted returns (bool) {
         require(from != address(0));
         require(to != address(0));
         require(amount != 0);
@@ -349,7 +382,7 @@ contract BasicUniswapV4UnitTest is BaseUniswapV4UnitTest, IUnlockCallback {
     }
 }
 
-contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback {
+contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback, InvariantAssume {
     using PoolIdLibrary for PoolKey;
     using SafeTransferLib for IERC20;
 
@@ -525,14 +558,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
-    function _invariantAssume(bool condition) private pure {
-        assembly ("memory-safe") {
-            if iszero(condition) {
-                stop()
-            }
-        }
-    }
-
     function _swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
         private
         view
@@ -543,7 +568,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         (IERC20 sellToken, IERC20 buyToken) = zeroForOne
             ? (IERC20(Currency.unwrap(poolKey.currency0)), IERC20(Currency.unwrap(poolKey.currency1)))
             : (IERC20(Currency.unwrap(poolKey.currency1)), IERC20(Currency.unwrap(poolKey.currency0)));
-        _invariantAssume(!(sellToken == IERC20(ETH) && feeOnTransfer));
+        invariantAssume(!(sellToken == IERC20(ETH) && feeOnTransfer));
 
         uint256 sellTokenBalanceBefore = _balanceOf(sellToken, address(this));
         uint256 buyTokenBalanceBefore = _balanceOf(buyToken, address(this));
@@ -677,7 +702,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             hashMul,
             hashMod
         ) = _swapPre(poolIndex, sellAmount, feeOnTransfer, zeroForOne);
-        _invariantAssume(sellToken != IERC20(ETH));
+        invariantAssume(sellToken != IERC20(ETH));
 
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: address(sellToken), amount: sellAmount}),
@@ -710,10 +735,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     function setUp() public {
         // Foundry is stupid and doesn't obey adding `setUp` to the list of excluded selectors
-        _invariantAssume(!initialized);
+        invariantAssume(!initialized);
         initialized = true;
 
+        assert(address(this) == testPrediction);
+
         excludeContract(_deployStub());
+        assert(address(stub) == stubPrediction);
         excludeContract(_deployPoolManager());
         excludeContract(address(POOL_MANAGER));
 
