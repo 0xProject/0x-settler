@@ -418,7 +418,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     using StateLibrary for IPoolManager;
     using SafeTransferLib for IERC20;
 
-    bool internal initialized;
     IERC20[] internal tokens;
     mapping(IERC20 => bool) internal isToken;
     PoolKey[] internal pools;
