@@ -814,7 +814,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     function testSwapSingleVIP() public {
         bytes memory sig = unicode"Hello, World!";
-        swapSingleVIP(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0), sig);
+        swapSingleVIP(1, 1_000_001 wei, false, true, new bytes(0), sig);
     }
 
     function setUp() public {
