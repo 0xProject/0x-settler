@@ -32,5 +32,5 @@ max_test_rejects = 1_000_000
 
 [invariant]
 fail_on_revert = true
-runs = 100
-depth = 10
+runs = 1_000
+depth = 20

@@ -819,10 +819,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function setUp() public {
-        // Foundry is stupid and doesn't obey adding `setUp` to the list of excluded selectors
-        invariantAssume(!initialized);
-        initialized = true;
-
         assert(address(this) == testPrediction);
         disableInvariantAssume();
 
@@ -832,6 +828,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         excludeContract(address(POOL_MANAGER));
 
         excludeSender(ETH);
+        excludeSender(testPrediction);
+        excludeSender(stubPrediction);
+        excludeSender(address(POOL_MANAGER));
         {
             FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](10)});
             exclusion.selectors[0] = this.setUp.selector;
