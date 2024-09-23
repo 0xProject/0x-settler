@@ -147,16 +147,20 @@ library UnsafePoolManager {
         }
     }
 
-    function unsafeSettle(IPoolManager poolManager) internal returns (uint256 r) {
+    function unsafeSettle(IPoolManager poolManager, uint256 value) internal returns (uint256 r) {
         assembly ("memory-safe") {
             mstore(0x00, 0x11da60b4) // selector for `settle()`
-            if iszero(call(gas(), poolManager, 0x00, 0x1c, 0x04, 0x00, 0x20)) {
+            if iszero(call(gas(), poolManager, value, 0x1c, 0x04, 0x00, 0x20)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
             r := mload(0x00)
         }
+    }
+
+    function unsafeSettle(IPoolManager poolManager) internal returns (uint256) {
+        return unsafeSettle(poolManager, 0);
     }
 }
 
