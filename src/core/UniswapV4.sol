@@ -810,16 +810,27 @@ abstract contract UniswapV4 is SettlerAbstract {
 
     function unlockCallback(bytes calldata data) private returns (bytes memory) {
         // These values are user-supplied
-        address recipient = address(uint160(bytes20(data)));
-        data = data[20:];
-        uint256 minBuyAmount = uint128(bytes16(data));
-        data = data[16:];
-        uint256 hashMul = uint128(bytes16(data));
-        data = data[16:];
-        uint256 hashMod = uint128(bytes16(data));
-        data = data[16:];
-        bool feeOnTransfer = uint8(bytes1(data)) != 0;
-        data = data[1:];
+        address recipient;
+        uint256 minBuyAmount;
+        uint256 hashMul;
+        uint256 hashMod;
+        bool feeOnTransfer;
+        assembly ("memory-safe") {
+            recipient := shr(0x60, calldataload(data.offset))
+            let packed := calldataload(add(0x14, data.offset))
+            minBuyAmount := shr(0x80, packed)
+            hashMul := and(0xffffffffffffffffffffffffffffffff, packed)
+            packed := calldataload(add(0x34, data.offset))
+            hashMod := shr(0x80, packed)
+            feeOnTransfer := iszero(iszero(and(0x1000000000000000000000000000000, packed)))
+            data.offset := add(0x45, data.offset)
+            data.length := sub(data.length, 0x45)
+            if gt(data.length, 0xffffff) { // length underflow
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // array out-of-bounds
+                revert(0x1c, 0x24)
+            }
+        }
 
         // `payer` is special and is authenticated
         address payer = address(uint160(bytes20(data)));
