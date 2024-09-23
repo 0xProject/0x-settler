@@ -717,7 +717,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
-        return IPoolManager(_operator()).settle();
+        return IPoolManager(_operator()).unsafeSettle();
     }
 
     function _initialize(bytes calldata data, bool feeOnTransfer, uint256 hashMul, uint256 hashMod, address payer)
