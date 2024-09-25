@@ -151,6 +151,11 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
             }
         }
     }
+
+    function msgSender() external view returns (address result) {
+        result = _msgSender();
+        require(result != address(0));
+    }
 }
 
 /// @custom:security-contact security@0x.org
