@@ -572,8 +572,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         invariantAssume(tokenAIndex != tokenBIndex);
         fee = uint24(bound(fee, 0, 1_000_000));
         tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
-        sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.getSqrtPriceAtTick(TickMath.MIN_TICK - TickMath.MIN_TICK % tickSpacing),
-                                     TickMath.getSqrtPriceAtTick(TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing)));
+        {
+            int24 initialTickLowerLimit = TickMath.MIN_TICK / 2;
+            initialTickLowerLimit -= initialTickLowerLimit % tickSpacing;
+            int24 initialTickUpperLimit = TickMath.MAX_TICK / 2;
+            initialTickUpperLimit -= initialTickUpperLimit % tickSpacing;
+            sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.getSqrtPriceAtTick(initialTickLowerLimit),
+                                     TickMath.getSqrtPriceAtTick(initialTickUpperLimit)));
+        }
 
         _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
     }
