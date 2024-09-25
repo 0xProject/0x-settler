@@ -439,13 +439,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     uint128 internal constant _DEFAULT_LIQUIDITY = 5421214632141316;
 
-    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity)
+    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity, int24 tickSpacing)
         private
         pure
         returns (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1)
     {
-        params.tickLower = TickMath.MIN_TICK;
-        params.tickUpper = TickMath.MAX_TICK;
+        params.tickLower = TickMath.MIN_TICK - TickMath.MIN_TICK % tickSpacing;
+        params.tickUpper = TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing;
         params.liquidityDelta = int128(liquidity);
         amount0 =
             SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
@@ -455,9 +455,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     function testCalculateAmounts() public pure {
         uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
-        (, uint256 amount0, uint256 amount1) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY);
+        (, uint256 amount0, uint256 amount1) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY, TickMath.MIN_TICK_SPACING);
         assertEq(amount1, 0);
-        (, uint256 amount0Hi, uint256 amount1Hi) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY + 1);
+        (, uint256 amount0Hi, uint256 amount1Hi) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY + 1, TickMath.MIN_TICK_SPACING);
         assertEq(amount1Hi, 0);
         assertLe(amount0, TOTAL_SUPPLY / 10);
         assertGt(amount0Hi, TOTAL_SUPPLY / 10);
@@ -465,14 +465,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
         assert(msg.sender == address(POOL_MANAGER));
-        uint160 sqrtPriceX96 = abi.decode(data, (uint160));
+        (uint160 sqrtPriceX96, int24 tickSpacing) = abi.decode(data, (uint160, int24));
         PoolKey memory poolKey = pools[pools.length - 1];
         if (Currency.unwrap(poolKey.currency0) == ETH) {
             poolKey.currency0 = Currency.wrap(address(0));
         }
 
         (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) =
-            _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY);
+            _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY, tickSpacing);
         (BalanceDelta callerDelta, BalanceDelta feesAccrued) =
             IPoolManager(address(POOL_MANAGER)).modifyLiquidity(poolKey, params, new bytes(0));
         assertEq(uint128(-callerDelta.amount0()), amount0);
@@ -547,7 +547,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             poolKey.currency0 = Currency.wrap(address(0));
         }
         IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
-        POOL_MANAGER.unlock(abi.encode(sqrtPriceX96));
+        POOL_MANAGER.unlock(abi.encode(sqrtPriceX96, tickSpacing));
     }
 
     function _pushPoolRaw(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
@@ -854,9 +854,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         pushToken();
 
         // Make some pools; all 1:1 price
-        _pushPoolRaw(0, 1, 0, 1, 1 << 96, true);
-        _pushPoolRaw(1, 2, 0, 1, 1 << 96, true);
-        _pushPoolRaw(2, 0, 0, 1, 1 << 96, true);
+        _pushPoolRaw(0, 1, 0, TickMath.MAX_TICK_SPACING, 1 << 96, true);
+        _pushPoolRaw(1, 2, 0, TickMath.MAX_TICK_SPACING, 1 << 96, true);
+        _pushPoolRaw(2, 0, 0, TickMath.MAX_TICK_SPACING, 1 << 96, true);
     }
 
     function invariant_vacuous() external pure {}
