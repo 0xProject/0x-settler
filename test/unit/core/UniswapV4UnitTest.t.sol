@@ -447,10 +447,18 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         params.tickLower = TickMath.MIN_TICK - TickMath.MIN_TICK % tickSpacing;
         params.tickUpper = TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing;
         params.liquidityDelta = int128(liquidity);
-        amount0 =
-            SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
-        amount1 =
-            SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), sqrtPriceX96, liquidity, true);
+        int24 tick = TickMath.getTickAtSqrtPrice(sqrtPriceX96);
+        assertGe(tick, params.tickLower);
+        assertLe(tick, params.tickUpper);
+        if (tick == params.tickUpper) {
+            // amount0 = 0;
+            amount1 = SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
+        } else {
+            amount0 =
+                SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
+            amount1 =
+                SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), sqrtPriceX96, liquidity, true);
+        }
     }
 
     function testCalculateAmounts() public pure {
@@ -475,9 +483,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY, tickSpacing);
         (BalanceDelta callerDelta, BalanceDelta feesAccrued) =
             IPoolManager(address(POOL_MANAGER)).modifyLiquidity(poolKey, params, new bytes(0));
+
+        assertEq(BalanceDelta.unwrap(feesAccrued), 0);
         assertEq(uint128(-callerDelta.amount0()), amount0);
         assertEq(uint128(-callerDelta.amount1()), amount1);
-        assertEq(BalanceDelta.unwrap(feesAccrued), 0);
 
         if (amount0 != 0) {
             if (Currency.unwrap(poolKey.currency0) == address(0)) {
@@ -559,10 +568,12 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     function pushPool(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
         public
     {
-        (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length), bound(tokenBIndex, 0, tokens.length));
+        (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length - 1), bound(tokenBIndex, 0, tokens.length - 1));
+        invariantAssume(tokenAIndex != tokenBIndex);
         fee = uint24(bound(fee, 0, 1_000_000));
         tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
-        sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.MIN_SQRT_PRICE + 1, TickMath.MAX_SQRT_PRICE - 1));
+        sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.getSqrtPriceAtTick(TickMath.MIN_TICK - TickMath.MIN_TICK % tickSpacing),
+                                     TickMath.getSqrtPriceAtTick(TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing)));
 
         _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
     }
@@ -833,7 +844,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         excludeSender(stubPrediction);
         excludeSender(address(POOL_MANAGER));
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](10)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](9)});
             exclusion.selectors[0] = this.setUp.selector;
             exclusion.selectors[1] = this.getBalanceOf.selector;
             exclusion.selectors[2] = this.getSlot0.selector;
@@ -843,7 +854,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             exclusion.selectors[6] = this.testPushPoolEth.selector;
             exclusion.selectors[7] = this.testSwapSingle.selector;
             exclusion.selectors[8] = this.testSwapSingleVIP.selector;
-            exclusion.selectors[9] = this.pushPool.selector; // TODO: reenable `pushPool`
             excludeSelector(exclusion);
         }
 
