@@ -589,9 +589,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function _balanceOf(IERC20 token, address who) internal view returns (uint256) {
-        if (token == IERC20(ETH)) {
-            return who.balance;
-        }
         try this.getBalanceOf(token, who) {}
         catch (bytes memory returndata) {
             return abi.decode(returndata, (uint256));
@@ -600,7 +597,12 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function getBalanceOf(IERC20 token, address who) external view {
-        uint256 result = token.balanceOf(who);
+        uint256 result;
+        if (token == IERC20(ETH)) {
+            result = who.balance;
+        } else {
+            result = token.balanceOf(who);
+        }
         assembly ("memory-safe") {
             mstore(0x00, result)
             revert(0x00, 0x20)
