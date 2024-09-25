@@ -452,20 +452,29 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertLe(tick, params.tickUpper);
         if (tick == params.tickUpper) {
             // amount0 = 0;
-            amount1 = SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
+            amount1 = SqrtPriceMath.getAmount1Delta(
+                TickMath.getSqrtPriceAtTick(params.tickLower),
+                TickMath.getSqrtPriceAtTick(params.tickUpper),
+                liquidity,
+                true
+            );
         } else {
-            amount0 =
-                SqrtPriceMath.getAmount0Delta(sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true);
-            amount1 =
-                SqrtPriceMath.getAmount1Delta(TickMath.getSqrtPriceAtTick(params.tickLower), sqrtPriceX96, liquidity, true);
+            amount0 = SqrtPriceMath.getAmount0Delta(
+                sqrtPriceX96, TickMath.getSqrtPriceAtTick(params.tickUpper), liquidity, true
+            );
+            amount1 = SqrtPriceMath.getAmount1Delta(
+                TickMath.getSqrtPriceAtTick(params.tickLower), sqrtPriceX96, liquidity, true
+            );
         }
     }
 
     function testCalculateAmounts() public pure {
         uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
-        (, uint256 amount0, uint256 amount1) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY, TickMath.MIN_TICK_SPACING);
+        (, uint256 amount0, uint256 amount1) =
+            _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY, TickMath.MIN_TICK_SPACING);
         assertEq(amount1, 0);
-        (, uint256 amount0Hi, uint256 amount1Hi) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY + 1, TickMath.MIN_TICK_SPACING);
+        (, uint256 amount0Hi, uint256 amount1Hi) =
+            _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY + 1, TickMath.MIN_TICK_SPACING);
         assertEq(amount1Hi, 0);
         assertLe(amount0, TOTAL_SUPPLY / 10);
         assertGt(amount0Hi, TOTAL_SUPPLY / 10);
@@ -568,7 +577,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     function pushPool(uint256 tokenAIndex, uint256 tokenBIndex, uint24 fee, int24 tickSpacing, uint160 sqrtPriceX96)
         public
     {
-        (tokenAIndex, tokenBIndex) = (bound(tokenAIndex, 0, tokens.length - 1), bound(tokenBIndex, 0, tokens.length - 1));
+        (tokenAIndex, tokenBIndex) =
+            (bound(tokenAIndex, 0, tokens.length - 1), bound(tokenBIndex, 0, tokens.length - 1));
         invariantAssume(tokenAIndex != tokenBIndex);
         fee = uint24(bound(fee, 0, 1_000_000));
         tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
@@ -577,8 +587,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             initialTickLowerLimit -= initialTickLowerLimit % tickSpacing;
             int24 initialTickUpperLimit = TickMath.MAX_TICK / 2;
             initialTickUpperLimit -= initialTickUpperLimit % tickSpacing;
-            sqrtPriceX96 = uint160(bound(sqrtPriceX96, TickMath.getSqrtPriceAtTick(initialTickLowerLimit),
-                                     TickMath.getSqrtPriceAtTick(initialTickUpperLimit)));
+            sqrtPriceX96 = uint160(
+                bound(
+                    sqrtPriceX96,
+                    TickMath.getSqrtPriceAtTick(initialTickLowerLimit),
+                    TickMath.getSqrtPriceAtTick(initialTickUpperLimit)
+                )
+            );
         }
 
         _pushPoolRaw(tokenAIndex, tokenBIndex, fee, tickSpacing, sqrtPriceX96);
