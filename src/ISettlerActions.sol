@@ -49,12 +49,16 @@ interface ISettlerActions {
         address sellToken,
         uint256 bps,
         bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
         bytes memory fills,
         uint256 amountOutMin
     ) external;
     function UNISWAPV4_VIP(
         address recipient,
         bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
         bytes memory fills,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
@@ -63,6 +67,8 @@ interface ISettlerActions {
     function METATXN_UNISWAPV4_VIP(
         address recipient,
         bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
         bytes memory fills,
         ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin

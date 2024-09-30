@@ -69,11 +69,13 @@ abstract contract MainnetMixin is
                 IERC20 sellToken,
                 uint256 bps,
                 bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IPSM, bool, uint256));
@@ -149,13 +151,17 @@ contract MainnetSettler is Settler, MainnetMixin {
             (
                 address recipient,
                 bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
                 bytes memory fills,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bool, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
+            );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, fills, permit, sig, amountOutMin);
+            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
@@ -222,12 +228,16 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             (
                 address recipient,
                 bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
                 bytes memory fills,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bool, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, uint256)
+            );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, fills, permit, sig, amountOutMin);
+            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
                 address recipient,

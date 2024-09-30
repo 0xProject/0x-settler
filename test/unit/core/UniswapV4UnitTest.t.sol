@@ -497,14 +497,14 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         PoolKey memory poolKey = pools[pools.length - 1];
         if (Currency.unwrap(poolKey.currency0) == ETH) {
             poolKey.currency0 = Currency.wrap(address(0));
-
         }
 
         IPoolManager.ModifyLiquidityParams memory params;
         uint256 amount0;
         uint256 amount1;
         if (data.length == 128) {
-            (uint160 sqrtPriceX96, uint128 liquidity, int24 tickLo, int24 tickHi) = abi.decode(data, (uint160, uint128, int24, int24));
+            (uint160 sqrtPriceX96, uint128 liquidity, int24 tickLo, int24 tickHi) =
+                abi.decode(data, (uint160, uint128, int24, int24));
             (params, amount0, amount1) = _calculateAmounts(sqrtPriceX96, liquidity, tickLo, tickHi);
         } else {
             assert(data.length == 64);
@@ -685,9 +685,12 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     uint256 private constant _MAX_TOKENS = 8;
 
     function _getHash(IERC20 token0, IERC20 token1) internal pure returns (uint256, uint256) {
-        for (uint256 hashMod = _MAX_TOKENS; ; hashMod = hashMod.unsafeInc()) {
+        for (uint256 hashMod = _MAX_TOKENS;; hashMod = hashMod.unsafeInc()) {
             for (uint256 hashMul = 1; hashMul < hashMod << 1; hashMul = hashMul.unsafeInc()) {
-                if (mulmod(uint160(address(token0)), hashMul, hashMod) % _MAX_TOKENS != mulmod(uint160(address(token1)), hashMul, hashMod) % _MAX_TOKENS) {
+                if (
+                    mulmod(uint160(address(token0)), hashMul, hashMod) % _MAX_TOKENS
+                        != mulmod(uint160(address(token1)), hashMul, hashMod) % _MAX_TOKENS
+                ) {
                     return (hashMul, hashMod);
                 }
             }
