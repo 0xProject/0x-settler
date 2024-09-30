@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
@@ -30,7 +30,7 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2 {
         assert(block.chainid == 11155111 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase)
@@ -39,7 +39,7 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2 {
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -76,10 +76,10 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2 {
 contract SepoliaSettler is Settler, SepoliaMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -106,7 +106,7 @@ contract SepoliaSettler is Settler, SepoliaMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, SepoliaMixin)
         returns (bool)
@@ -123,7 +123,7 @@ contract SepoliaSettler is Settler, SepoliaMixin {
 contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
     constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override
         DANGEROUS_freeMemory
@@ -131,7 +131,7 @@ contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -148,7 +148,7 @@ contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, SepoliaMixin)
         returns (bool)

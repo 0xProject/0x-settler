@@ -78,7 +78,7 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }
 }
@@ -110,7 +110,7 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
         return super._msgSender();
     }
 
-    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }
 }

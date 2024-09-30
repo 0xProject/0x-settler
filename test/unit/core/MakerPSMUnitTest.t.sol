@@ -27,7 +27,7 @@ contract MakerPSMDummy is MakerPSM {
         revert("unimplemented");
     }
 
-    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }
 

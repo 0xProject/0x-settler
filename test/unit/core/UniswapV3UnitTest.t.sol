@@ -45,7 +45,7 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         return false;
     }
 
-    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }
 
