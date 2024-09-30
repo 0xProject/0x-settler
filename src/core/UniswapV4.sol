@@ -42,38 +42,6 @@ library CreditDebt {
     }
 }
 
-library MemptrAndTokenLib {
-    type MemPtr is uint24;
-    type MemptrAndToken is uint256;
-
-    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-    uint256 private constant _U24_MASK = 0xffffff;
-
-    function construct(uint24 memptr, IERC20 tokenAddr) internal pure returns (MemptrAndToken r) {
-        assembly ("memory-safe") {
-            r := or(shl(0xe8, memptr), and(_ADDRESS_MASK, tokenAddr))
-        }
-    }
-
-    function ptr(MemptrAndToken x) internal pure returns (MemPtr r) {
-        assembly ("memory-safe") {
-            r := shr(0xe8, x)
-        }
-    }
-
-    function token(MemptrAndToken x) internal pure returns (IERC20 r) {
-        assembly ("memory-safe") {
-            r := x
-        }
-    }
-
-    function isNull(MemPtr x) internal pure returns (bool r) {
-        assembly ("memory-safe") {
-            r := iszero(and(_U24_MASK, x))
-        }
-    }
-}
-
 /// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
 /// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
 /// (aka `Note[] memory`) that has up to `_MAX_TOKENS` pre-allocated. And there is an implicit heap
@@ -85,21 +53,20 @@ library MemptrAndTokenLib {
 /// below in `contract UniswapV4` for recommendations on how to select values for them. A hash
 /// collision will result in a revert with signature `TokenHashCollision(address,address)`.
 library NotesLib {
-    using MemptrAndTokenLib for MemptrAndTokenLib.MemPtr;
-    using MemptrAndTokenLib for MemptrAndTokenLib.MemptrAndToken;
-
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
     /// This is the maximum number of tokens that may be involved in a UniV4 action. Increasing or
     /// decreasing this value requires no other changes elsewhere in this file.
     uint256 private constant _MAX_TOKENS = 8;
 
+    type NotePtr is uint256;
+    type NotePtrPtr is uint256;
+
     struct Note {
         uint256 amount;
-        MemptrAndTokenLib.MemptrAndToken tokenAndBackptr;
+        IERC20 token;
+        NotePtrPtr backPtr;
     }
-
-    type NotePtr is uint256;
 
     function construct() internal pure returns (Note[] memory r) {
         assembly ("memory-safe") {
@@ -107,9 +74,9 @@ library NotesLib {
             // set the length of `r` to zero
             mstore(r, 0x00)
             // zeroize the heap
-            codecopy(add(add(0x20, shl(0x05, _MAX_TOKENS)), r), codesize(), shl(0x06, _MAX_TOKENS))
+            codecopy(add(add(0x20, shl(0x05, _MAX_TOKENS)), r), codesize(), mul(0x60, _MAX_TOKENS))
             // allocate memory
-            mstore(0x40, add(add(0x20, mul(0x60, _MAX_TOKENS)), r))
+            mstore(0x40, add(add(0x20, shl(0x07, _MAX_TOKENS)), r))
         }
     }
 
@@ -119,15 +86,7 @@ library NotesLib {
         }
     }
 
-    function get(Note memory x) internal pure returns (IERC20, uint256) {
-        return (x.tokenAndBackptr.token(), x.amount);
-    }
-
-    function token(Note memory x) internal pure returns (IERC20) {
-        return x.tokenAndBackptr.token();
-    }
-
-    function get(Note[] memory a, uint256 i) internal pure returns (IERC20 retToken, uint256 retAmount) {
+    function unsafeGet(Note[] memory a, uint256 i) internal pure returns (IERC20 retToken, uint256 retAmount) {
         assembly ("memory-safe") {
             let x := mload(add(add(0x20, shl(0x05, i)), a))
             retToken := mload(add(0x20, x))
@@ -143,18 +102,15 @@ library NotesLib {
         assembly ("memory-safe") {
             newToken := and(_ADDRESS_MASK, newToken)
             x := add(add(0x20, shl(0x05, _MAX_TOKENS)), a) // `x` now points at the first `Note` on the heap
-            x := add(mod(mulmod(newToken, hashMul, hashMod), shl(0x06, _MAX_TOKENS)), x) // combine with token hash
+            x := add(mod(mulmod(newToken, hashMul, hashMod), mul(0x60, _MAX_TOKENS)), x) // combine with token hash
             // `x` now points at the exact `Note` object we want; let's check it to be sure, though
+            let x_token_ptr := add(0x20, x)
 
-            // load the old value of the metadata slot so that we can check it
-            let x_tokenbackptr_ptr := add(0x20, x)
-            let old_tokenbackptr := mload(x_tokenbackptr_ptr)
-
-            // check that we haven't encountered a hash collision
-            let old_backptr := shr(0xe8, old_tokenbackptr)
+            // check that we haven't encountered a hash collision. checking for a hash collision is
+            // equivalent to checking for array out-of-bounds or overflow.
             {
-                let old_token := and(_ADDRESS_MASK, old_tokenbackptr)
-                if mul(or(old_backptr, old_token), xor(old_token, newToken)) { // TODO(dekz): check me on this?
+                let old_token := mload(x_token_ptr)
+                if mul(or(mload(add(0x40, x)), old_token), xor(old_token, newToken)) { // TODO(dekz): check me on this?
                     mstore(0x00, 0x9a62e8b4) // selector for `TokenHashCollision(address,address)`
                     mstore(0x20, old_token)
                     mstore(0x40, newToken)
@@ -168,68 +124,62 @@ library NotesLib {
                 revert(0x1c, 0x04)
             }
 
-            // initialize the metadata slot
-            mstore(x_tokenbackptr_ptr, or(shl(0xe8, old_backptr), newToken))
+            // initialize the token (possibly redundant)
+            mstore(x_token_ptr, newToken)
         }
     }
 
-    function initialize(Note[] memory a, NotePtr x, IERC20 initToken) internal pure {
+    function initialize(Note[] memory a, NotePtr x) internal pure {
         assembly ("memory-safe") {
             mstore(a, 0x01)
             let x_ptr := add(0x20, a)
             mstore(x_ptr, x)
-            mstore(add(0x20, x), or(shl(0xe8, x_ptr), and(_ADDRESS_MASK, initToken)))
+            mstore(add(0x40, x), x_ptr)
         }
     }
 
     function add(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
-            let tokenbackptr_ptr := add(0x20, x)
-            let tokenbackptr := mload(tokenbackptr_ptr)
-            if iszero(shr(0xe8, tokenbackptr)) {
+            let backptr_ptr := add(0x40, x)
+            let backptr := mload(backptr_ptr)
+            if iszero(backptr) {
                 let len := add(0x01, mload(a))
                 // We don't need to check for overflow or out-of-bounds access here; the checks in
                 // `get` above for token collision handle that for us. It's not possible to `get`
                 // more than `_MAX_TOKENS` tokens
                 mstore(a, len)
-                let x_ptr := add(shl(0x05, len), a)
-                mstore(x_ptr, x)
-
-                // The 3 high bytes of `tokenbackptr` are clear.
-                tokenbackptr := or(shl(0xe8, x_ptr), tokenbackptr)
-                mstore(tokenbackptr_ptr, tokenbackptr)
+                backptr := add(shl(0x05, len), a)
+                mstore(backptr, x)
+                mstore(backptr_ptr, backptr)
             }
         }
     }
 
     function del(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
-            let x_tokenbackptr_ptr := add(0x20, x)
-            let x_tokenbackptr := mload(x_tokenbackptr_ptr)
-            let x_ptr := shr(0xe8, x_tokenbackptr)
-            if x_ptr {
+            let x_backptr_ptr := add(0x40, x)
+            let x_backptr := mload(x_backptr_ptr)
+            if x_backptr {
                 // Clear the backpointer in the referred-to `Note`
-                mstore(x_tokenbackptr_ptr, and(_ADDRESS_MASK, x_tokenbackptr))
+                mstore(x_backptr_ptr, 0x00)
                 // We do not deallocate `x`
 
-                // Check if this is a "swap and pop" or just a "pop"
+                // Decrement the length of `a`
                 let len := mload(a)
+                mstore(a, sub(len, 0x01))
+
+                // Check if this is a "swap and pop" or just a "pop"
                 let end_ptr := add(shl(0x05, len), a)
-                if iszero(eq(end_ptr, x_ptr)) {
-                    // Overwrite the vacated indirection pointer `x_ptr` with the one at the end.
+                if iszero(eq(end_ptr, x_backptr)) {
+                    // Overwrite the vacated indirection pointer `x_backptr` with the value at the end.
                     let end := mload(end_ptr)
-                    mstore(x_ptr, end)
+                    mstore(x_backptr, end)
 
                     // Fix up the backpointer in `end` to point to the new location of the indirection
                     // pointer.
-                    let end_tokenbackptr_ptr := add(0x20, end)
-                    let end_tokenbackptr := mload(end_tokenbackptr_ptr)
-                    end_tokenbackptr := or(shl(0xe8, x_ptr), and(_ADDRESS_MASK, end_tokenbackptr))
-                    mstore(end_tokenbackptr_ptr, end_tokenbackptr)
+                    let end_backptr_ptr := add(0x40, end)
+                    mstore(end_backptr_ptr, x_backptr)
                 }
-
-                // Decrement the length of `a`
-                mstore(a, sub(len, 0x01))
             }
         }
     }
@@ -255,14 +205,14 @@ library StateLib {
     {
         assembly ("memory-safe") {
             // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks solc.
-            if iszero(eq(mload(0x40), add(0x180, state))) { revert(0x00, 0x00) }
+            if iszero(eq(mload(0x40), add(0x1e0, state))) { revert(0x00, 0x00) } // TODO: remove
             mstore(0x40, add(0xc0, state))
         }
         // All the pointers in `state` are now pointing into unallocated memory
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
         NotesLib.NotePtr notePtr = notes.get(token, hashMul, hashMod);
-        notes.initialize(notePtr, token);
+        notes.initialize(notePtr);
 
         // Here we actually set the pointers into a legal area of memory
         setBuy(state, notePtr);
@@ -301,8 +251,6 @@ abstract contract UniswapV4 is SettlerAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using CreditDebt for int256;
-    using MemptrAndTokenLib for MemptrAndTokenLib.MemPtr;
-    using MemptrAndTokenLib for MemptrAndTokenLib.MemptrAndToken;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
@@ -386,8 +334,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         if (bps > BASIS) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        hashMul *= 64;
-        hashMod *= 64;
+        hashMul *= 96;
+        hashMod *= 96;
         if (hashMul > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -442,8 +390,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         if (amountOutMin > uint128(type(int128).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        hashMul *= 64;
-        hashMod *= 64;
+        hashMul *= 96;
+        hashMod *= 96;
         if (hashMul > type(uint128).max) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -593,7 +541,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             state.setBuy(notes, buyToken);
             if (state.buy.eq(state.globalSell)) {
-                revert BoughtSellToken(state.globalSell.token());
+                revert BoughtSellToken(state.globalSell.token);
             }
         }
         return data;
@@ -609,7 +557,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         pure
         returns (bool, bytes calldata)
     {
-        (IERC20 sellToken, IERC20 buyToken) = (state.sell.token(), state.buy.token());
+        (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
         bool zeroForOne;
         assembly ("memory-safe") {
             sellToken := and(_ADDRESS_MASK, sellToken)
@@ -657,7 +605,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         returns (uint256 buyAmount)
     {
         if (state.buy.amount == 0) {
-            revert ZeroBuyAmount(state.buy.token());
+            revert ZeroBuyAmount(state.buy.token);
         }
         notes.del(state.buy);
         if (state.sell.amount == 0) {
@@ -675,11 +623,11 @@ abstract contract UniswapV4 is SettlerAbstract {
                     // The global sell token being in a position other than the 1st would imply that
                     // at some point we _bought_ that token. This is illegal and results in a revert
                     // with reason `BoughtSellToken(address)`.
-                    IPoolManager(_operator()).unsafeTake(firstNote.token(), address(this), firstNote.amount);
+                    IPoolManager(_operator()).unsafeTake(firstNote.token, address(this), firstNote.amount);
                 }
             }
             for (uint256 i = 1; i < length; i = i.unsafeInc()) {
-                (IERC20 token, uint256 amount) = notes.get(i);
+                (IERC20 token, uint256 amount) = notes.unsafeGet(i);
                 IPoolManager(_operator()).unsafeTake(token, address(this), amount);
             }
         }
@@ -687,8 +635,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         // The final token to be bought is considered the global buy token. We bypass `notes` and
         // read it directly from `state`. Check the slippage limit. Transfer to the recipient.
         {
-            IERC20 buyToken;
-            (buyToken, buyAmount) = state.buy.get();
+            IERC20 buyToken = state.buy.token;
+            buyAmount = state.buy.amount;
             if (buyAmount < minBuyAmount) {
                 revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
@@ -742,7 +690,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             sig.length := 0x00
         }
 
-        if (state.globalSell.token() == ETH_ADDRESS) {
+        if (state.globalSell.token == ETH_ADDRESS) {
             assert(payer == address(this));
             data = data[20:]; // advance `data` from decoding `sellToken` above
 
@@ -758,7 +706,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 uint16 bps = uint16(bytes2(data));
                 data = data[2:];
                 unchecked {
-                    state.globalSell.amount = (state.globalSell.token().balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                    state.globalSell.amount = (state.globalSell.token.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
                 }
             } else {
                 assert(payer == address(0));
@@ -793,12 +741,12 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             if (feeOnTransfer) {
                 state.globalSell.amount =
-                    _pay(state.globalSell.token(), payer, state.globalSell.amount, permit, isForwarded, sig);
+                    _pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
             }
         }
 
         if (state.globalSell.amount == 0) {
-            revert ZeroSellAmount(state.globalSell.token());
+            revert ZeroSellAmount(state.globalSell.token);
         }
         state.globalSellAmount = state.globalSell.amount;
         newData = data;
@@ -877,7 +825,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the pool
                 // manager later. We cannot overflow a `uint256`.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.asCredit(state.buy.token());
+                    state.buy.amount += settledBuyAmount.asCredit(state.buy.token);
                 }
             }
         }
@@ -886,7 +834,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         // swaps. Any credit in any token other than `state.buy.token` will be swept to
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
-            (IERC20 globalSellToken, uint256 globalSellAmount) = state.globalSell.get();
+            (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
             uint256 globalBuyAmount = _take(state, notes, recipient, minBuyAmount);
             if (feeOnTransfer) {
                 // We've already transferred the sell token to the pool manager and
