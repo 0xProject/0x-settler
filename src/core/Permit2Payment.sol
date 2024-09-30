@@ -217,7 +217,7 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
         (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
             TransientStorage.getAndClearOperatorAndCallback();
         require(bytes4(data) == selector);
-        require(_operator() == operator);
+        require(msg.sender == operator);
         return callback(data[4:]);
     }
 }

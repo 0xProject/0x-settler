@@ -31,6 +31,12 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add `DODOV2` Dodo V2 action on Mantle
+* Add actions for UniswapV4
+  * `UNISWAPV4`, `UNISWAPV4_VIP`, and `METATXN_UNISWAPV4_VIP`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    encode `fills`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    compute a perfect token hash function
 
 ## 2024-09-09
 

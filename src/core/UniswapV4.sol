@@ -512,8 +512,13 @@ abstract contract UniswapV4 is SettlerAbstract {
         pure
         returns (bytes calldata)
     {
-        uint256 caseKey = uint8(bytes1(data));
-        data = data[1:];
+        bytes32 dataWord;
+        assembly ("memory-safe") {
+            dataWord := calldataload(data.offset)
+        }
+        uint256 dataConsumed = 1;
+
+        uint256 caseKey = uint256(dataWord) >> 248;
         if (caseKey != 0) {
             if (caseKey > 1) {
                 if (state.sell.amount == 0) {
@@ -524,8 +529,13 @@ abstract contract UniswapV4 is SettlerAbstract {
                 } else {
                     assert(caseKey == 3);
 
-                    IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
-                    data = data[20:];
+                    IERC20 sellToken = IERC20(address(uint160(uint256(dataWord) >> 88)));
+                    assembly ("memory-safe") {
+                        dataWord := calldataload(add(0x14, data.offset))
+                    }
+                    unchecked {
+                        dataConsumed += 20;
+                    }
 
                     state.setSell(notes, sellToken);
                 }
@@ -535,14 +545,23 @@ abstract contract UniswapV4 is SettlerAbstract {
                 notes.add(state.buy);
             }
 
-            IERC20 buyToken = IERC20(address(uint160(bytes20(data))));
-            data = data[20:];
+            IERC20 buyToken = IERC20(address(uint160(uint256(dataWord) >> 88)));
+            unchecked {
+                dataConsumed += 20;
+            }
 
             state.setBuy(notes, buyToken);
             if (state.buy.eq(state.globalSell)) {
                 revert BoughtSellToken(state.globalSell.token);
             }
         }
+
+        assembly ("memory-safe") {
+            data.offset := add(dataConsumed, data.offset)
+            data.length := sub(data.length, dataConsumed)
+            // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
+        }
+
         return data;
     }
 
@@ -568,11 +587,20 @@ abstract contract UniswapV4 is SettlerAbstract {
                 )
         }
         (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (buyToken, sellToken);
-        uint256 packed = uint208(bytes26(data));
-        data = data[26:];
+
+        uint256 packed;
+        assembly ("memory-safe") {
+            packed := shr(0x30, calldataload(data.offset))
+
+            data.offset := add(0x1a, data.offset)
+            data.length := sub(data.length, 0x1a)
+            // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
+        }
+
         key.fee = uint24(packed >> 184);
         key.tickSpacing = int24(uint24(packed >> 160));
         key.hooks = IHooks.wrap(address(uint160(packed)));
+
         return (zeroForOne, data);
     }
 
@@ -585,6 +613,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             hookData.length := shr(0xe8, calldataload(data.offset))
             hookData.offset := add(0x03, data.offset)
             let hop := add(0x03, hookData.length)
+
             retData.offset := add(data.offset, hop)
             retData.length := sub(data.length, hop)
             if gt(retData.length, 0xffffff) { // length underflow
@@ -622,12 +651,12 @@ abstract contract UniswapV4 is SettlerAbstract {
                     // The global sell token being in a position other than the 1st would imply that
                     // at some point we _bought_ that token. This is illegal and results in a revert
                     // with reason `BoughtSellToken(address)`.
-                    IPoolManager(_operator()).unsafeTake(firstNote.token, address(this), firstNote.amount);
+                    IPoolManager(msg.sender).unsafeTake(firstNote.token, address(this), firstNote.amount);
                 }
             }
             for (uint256 i = 1; i < length; i = i.unsafeInc()) {
                 (IERC20 token, uint256 amount) = notes.unsafeGet(i);
-                IPoolManager(_operator()).unsafeTake(token, address(this), amount);
+                IPoolManager(msg.sender).unsafeTake(token, address(this), amount);
             }
         }
 
@@ -639,7 +668,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             if (buyAmount < minBuyAmount) {
                 revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
-            IPoolManager(_operator()).unsafeTake(buyToken, recipient, buyAmount);
+            IPoolManager(msg.sender).unsafeTake(buyToken, recipient, buyAmount);
         }
     }
 
@@ -651,16 +680,16 @@ abstract contract UniswapV4 is SettlerAbstract {
         bool isForwarded,
         bytes calldata sig
     ) private returns (uint256) {
-        IPoolManager(_operator()).unsafeSync(sellToken);
+        IPoolManager(msg.sender).unsafeSync(sellToken);
         if (payer == address(this)) {
-            sellToken.safeTransfer(_operator(), sellAmount);
+            sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
             // assert(payer == address(0));
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
-        return IPoolManager(_operator()).unsafeSettle();
+        return IPoolManager(msg.sender).unsafeSettle();
     }
 
     function _initialize(bytes calldata data, bool feeOnTransfer, uint256 hashMul, uint256 hashMod, address payer)
@@ -675,7 +704,10 @@ abstract contract UniswapV4 is SettlerAbstract {
         )
     {
         {
-            IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
+            IERC20 sellToken;
+            assembly ("memory-safe") {
+                sellToken := shr(0x60, calldataload(data.offset))
+            }
             // We don't advance `data` here because there's a special interaction between `payer`,
             // `sellToken`, and `permit` that's handled below.
             notes = state.construct(sellToken, hashMul, hashMod);
@@ -691,19 +723,36 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         if (state.globalSell.token == ETH_ADDRESS) {
             assert(payer == address(this));
-            data = data[20:]; // advance `data` from decoding `sellToken` above
 
-            uint16 bps = uint16(bytes2(data));
-            data = data[2:];
+            uint16 bps;
+            assembly ("memory-safe") {
+                // `data` hasn't been advanced from decoding `sellToken` above. so we have to
+                // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
+
+                bps := shr(0x50, calldataload(data.offset))
+
+                data.offset := add(0x16, data.offset)
+                data.length := sub(data.length, 0x16)
+                // We check for array out-of-bounds below
+            }
+
             unchecked {
                 state.globalSell.amount = (address(this).balance * bps).unsafeDiv(BASIS);
             }
         } else {
             if (payer == address(this)) {
-                data = data[20:]; // advance `data` from decoding `sellToken` above
+                uint16 bps;
+                assembly ("memory-safe") {
+                    // `data` hasn't been advanced from decoding `sellToken` above. so we have to
+                    // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
 
-                uint16 bps = uint16(bytes2(data));
-                data = data[2:];
+                    bps := shr(0x50, calldataload(data.offset))
+
+                    data.offset := add(0x16, data.offset)
+                    data.length := sub(data.length, 0x16)
+                    // We check for array out-of-bounds below
+                }
+
                 unchecked {
                     state.globalSell.amount = (state.globalSell.token.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
                 }
@@ -728,11 +777,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                     // Remove `sig` from the back of `data`
                     data.length := sub(sub(data.length, 0x78), sig.length)
-                    if gt(data.length, 0xffffff) { // length underflow
-                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                        mstore(0x20, 0x32) // array out-of-bounds
-                        revert(0x1c, 0x24)
-                    }
+                    // We check for array out-of-bounds below
                 }
 
                 state.globalSell.amount = _permitToSellAmountCalldata(permit);
@@ -744,6 +789,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
         }
 
+        if (data.length > 16777215) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
         if (state.globalSell.amount == 0) {
             revert ZeroSellAmount(state.globalSell.token);
         }
@@ -766,18 +814,22 @@ abstract contract UniswapV4 is SettlerAbstract {
             packed := calldataload(add(0x34, data.offset))
             hashMod := shr(0x80, packed)
             feeOnTransfer := iszero(iszero(and(0x1000000000000000000000000000000, packed)))
+
+
             data.offset := add(0x45, data.offset)
             data.length := sub(data.length, 0x45)
-            if gt(data.length, 0xffffff) { // length underflow
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // array out-of-bounds
-                revert(0x1c, 0x24)
-            }
+            // we don't check for array out-of-bounds here; we will check it later in `_initialize`
         }
 
         // `payer` is special and is authenticated
-        address payer = address(uint160(bytes20(data)));
-        data = data[20:];
+        address payer;
+        assembly ("memory-safe") {
+            payer := shr(0x60, calldataload(data.offset))
+
+            data.offset := add(0x14, data.offset)
+            data.length := sub(data.length, 0x14)
+            // we don't check for array out-of-bounds here; we will check it later in `_initialize`
+        }
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
         // to settle global sell token debt at the end of swapping.
@@ -796,8 +848,14 @@ abstract contract UniswapV4 is SettlerAbstract {
         IPoolManager.PoolKey memory key;
         IPoolManager.SwapParams memory params;
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps = uint16(bytes2(data));
-            data = data[2:];
+            uint16 bps;
+            assembly ("memory-safe") {
+                bps := shr(0xf0, calldataload(data.offset))
+
+                data.offset := add(0x02, data.offset)
+                data.length := sub(data.length, 0x02)
+                // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
+            }
 
             data = _updateState(state, notes, data);
             bool zeroForOne;
@@ -812,7 +870,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
-            BalanceDelta delta = IPoolManager(_operator()).unsafeSwap(key, params, hookData);
+            BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
             {
                 (int256 settledSellAmount, int256 settledBuyAmount) =
                     zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());
@@ -840,7 +898,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // pool manager. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
-                    IPoolManager(_operator()).unsafeTake(
+                    IPoolManager(msg.sender).unsafeTake(
                         globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount
                     );
                 }
@@ -858,7 +916,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     revert ZeroSellAmount(globalSellToken);
                 }
                 if (globalSellToken == ETH_ADDRESS) {
-                    IPoolManager(_operator()).unsafeSettle(debt);
+                    IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
