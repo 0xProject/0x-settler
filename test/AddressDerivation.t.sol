@@ -5,7 +5,7 @@ import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
-import "forge-std/Test.sol";
+import "@forge-std/Test.sol";
 
 contract Dummy {}
 

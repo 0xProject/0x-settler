@@ -5,10 +5,10 @@ import {Basic} from "src/core/Basic.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 
 contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
     function sellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) public {

@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IPFS} from "src/utils/IPFS.sol";
 
-import "forge-std/Test.sol";
+import "@forge-std/Test.sol";
 
 contract IPFSTest is Test {
     function testF() public {

@@ -19,8 +19,8 @@ import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
 
 import {Context} from "../Context.sol";
@@ -225,8 +225,8 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
 abstract contract Permit2Payment is Permit2PaymentBase {
     using FullMath for uint256;
 
-    fallback(bytes calldata data) external virtual returns (bytes memory) {
-        return _invokeCallback(data);
+    fallback(bytes calldata) external virtual returns (bytes memory) {
+        return _invokeCallback(_msgData());
     }
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
