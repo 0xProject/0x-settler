@@ -439,13 +439,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     uint128 internal constant _DEFAULT_LIQUIDITY = 5421214632141316;
 
-    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity, int24 tickSpacing)
+    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity, int24 tickLo, int24 tickHi)
         private
         pure
         returns (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1)
     {
-        params.tickLower = TickMath.MIN_TICK - TickMath.MIN_TICK % tickSpacing;
-        params.tickUpper = TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing;
+        params.tickLower = tickLo;
+        params.tickUpper = tickHi;
         params.liquidityDelta = int128(liquidity);
         int24 tick = TickMath.getTickAtSqrtPrice(sqrtPriceX96);
         assertGe(tick, params.tickLower);
@@ -468,6 +468,16 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
+    function _calculateAmounts(uint160 sqrtPriceX96, uint128 liquidity, int24 tickSpacing)
+        private
+        pure
+        returns (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1)
+    {
+        int24 tickLo = TickMath.MIN_TICK - TickMath.MIN_TICK % tickSpacing;
+        int24 tickHi = TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing;
+        return _calculateAmounts(sqrtPriceX96, liquidity, tickLo, tickHi);
+    }
+
     function testCalculateAmounts() public pure {
         uint160 sqrtPriceX96 = TickMath.MIN_SQRT_PRICE;
         (, uint256 amount0, uint256 amount1) =
@@ -482,14 +492,24 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
         assert(msg.sender == address(POOL_MANAGER));
-        (uint160 sqrtPriceX96, int24 tickSpacing) = abi.decode(data, (uint160, int24));
         PoolKey memory poolKey = pools[pools.length - 1];
         if (Currency.unwrap(poolKey.currency0) == ETH) {
             poolKey.currency0 = Currency.wrap(address(0));
+
         }
 
-        (IPoolManager.ModifyLiquidityParams memory params, uint256 amount0, uint256 amount1) =
-            _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY, tickSpacing);
+        IPoolManager.ModifyLiquidityParams memory params;
+        uint256 amount0;
+        uint256 amount1;
+        if (data.length == 128) {
+            (uint160 sqrtPriceX96, uint128 liquidity, int24 tickLo, int24 tickHi) = abi.decode(data, (uint160, uint128, int24, int24));
+            (params, amount0, amount1) = _calculateAmounts(sqrtPriceX96, liquidity, tickLo, tickHi);
+        } else {
+            assert(data.length == 64);
+            (uint160 sqrtPriceX96, int24 tickSpacing) = abi.decode(data, (uint160, int24));
+            (params, amount0, amount1) = _calculateAmounts(sqrtPriceX96, _DEFAULT_LIQUIDITY, tickSpacing);
+        }
+
         (BalanceDelta callerDelta, BalanceDelta feesAccrued) =
             IPoolManager(address(POOL_MANAGER)).modifyLiquidity(poolKey, params, new bytes(0));
 
