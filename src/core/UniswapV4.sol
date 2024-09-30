@@ -512,8 +512,13 @@ abstract contract UniswapV4 is SettlerAbstract {
         pure
         returns (bytes calldata)
     {
-        uint256 caseKey = uint8(bytes1(data));
-        data = data[1:];
+        bytes32 dataWord;
+        assembly ("memory-safe") {
+            dataWord := calldataload(data.offset)
+        }
+        uint256 dataConsumed = 1;
+
+        uint256 caseKey = uint256(dataWord) >> 248;
         if (caseKey != 0) {
             if (caseKey > 1) {
                 if (state.sell.amount == 0) {
@@ -524,8 +529,13 @@ abstract contract UniswapV4 is SettlerAbstract {
                 } else {
                     assert(caseKey == 3);
 
-                    IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
-                    data = data[20:];
+                    IERC20 sellToken = IERC20(address(uint160(uint256(dataWord) >> 88)));
+                    assembly ("memory-safe") {
+                        dataWord := calldataload(add(0x14, data.offset))
+                    }
+                    unchecked {
+                        dataConsumed += 20;
+                    }
 
                     state.setSell(notes, sellToken);
                 }
@@ -536,14 +546,27 @@ abstract contract UniswapV4 is SettlerAbstract {
                 notes.add(state.buy);
             }
 
-            IERC20 buyToken = IERC20(address(uint160(bytes20(data))));
-            data = data[20:];
+            IERC20 buyToken = IERC20(address(uint160(uint256(dataWord) >> 88)));
+            unchecked {
+                dataConsumed += 20;
+            }
 
             state.setBuy(notes, buyToken);
             if (state.buy.eq(state.globalSell)) {
                 revert BoughtSellToken(state.globalSell.token);
             }
         }
+
+        assembly ("memory-safe") {
+            data.offset := add(dataConsumed, data.offset)
+            data.length := sub(data.length, dataConsumed)
+            if gt(data.length, 0xffffff) { // length underflow
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // array out-of-bounds
+                revert(0x1c, 0x24)
+            }
+        }
+
         return data;
     }
 
