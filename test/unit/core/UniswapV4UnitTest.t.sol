@@ -22,6 +22,7 @@ import {StateLibrary} from "@uniswapv4/libraries/StateLibrary.sol";
 import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {Revert} from "src/utils/Revert.sol";
+import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 
@@ -417,6 +418,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     using CompatPoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
     using SafeTransferLib for IERC20;
+    using UnsafeMath for uint256;
 
     IERC20[] internal tokens;
     mapping(IERC20 => bool) internal isToken;
@@ -680,6 +682,18 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
     }
 
+    uint256 private constant _MAX_TOKENS = 8;
+
+    function _getHash(IERC20 token0, IERC20 token1) internal pure returns (uint256, uint256) {
+        for (uint256 hashMod = _MAX_TOKENS; ; hashMod = hashMod.unsafeInc()) {
+            for (uint256 hashMul = 1; hashMul < hashMod << 1; hashMul = hashMul.unsafeInc()) {
+                if (mulmod(uint160(address(token0)), hashMul, hashMod) % _MAX_TOKENS != mulmod(uint160(address(token1)), hashMul, hashMod) % _MAX_TOKENS) {
+                    return (hashMul, hashMod);
+                }
+            }
+        }
+    }
+
     function _swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
         private
         view
@@ -708,11 +722,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
                 ? SqrtPriceMath.getAmount0Delta(sqrtPriceNextX96, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
                 : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, _DEFAULT_LIQUIDITY, true);
             invariantAssume(maxSell >= minSell);
+            if (minSell < 1_000_000 wei) {
+                minSell = 1_000_000 wei;
+            }
             sellAmount = bound(sellAmount, minSell, maxSell);
         }
 
-        uint256 hashMul = 1;
-        uint256 hashMod = 8;
+        (uint256 hashMul, uint256 hashMod) = _getHash(sellToken, buyToken);
 
         return (
             poolIndex,
