@@ -711,7 +711,10 @@ abstract contract UniswapV4 is SettlerAbstract {
         )
     {
         {
-            IERC20 sellToken = IERC20(address(uint160(bytes20(data))));
+            IERC20 sellToken;
+            assembly ("memory-safe") {
+                sellToken := shr(0x60, calldataload(data.offset))
+            }
             // We don't advance `data` here because there's a special interaction between `payer`,
             // `sellToken`, and `permit` that's handled below.
             notes = state.construct(sellToken, hashMul, hashMod);
@@ -727,19 +730,44 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         if (state.globalSell.token == ETH_ADDRESS) {
             assert(payer == address(this));
-            data = data[20:]; // advance `data` from decoding `sellToken` above
 
-            uint16 bps = uint16(bytes2(data));
-            data = data[2:];
+            uint16 bps;
+            assembly ("memory-safe") {
+                // `data` hasn't been advanced from decoding `sellToken` above. so we have to
+                // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
+
+                bps := shr(0x50, calldataload(data.offset))
+
+                data.offset := add(0x16, data.offset)
+                data.length := sub(data.length, 0x16)
+                if gt(data.length, 0xffffff) { // length underflow
+                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                    mstore(0x20, 0x32) // array out-of-bounds
+                    revert(0x1c, 0x24)
+                }
+            }
+
             unchecked {
                 state.globalSell.amount = (address(this).balance * bps).unsafeDiv(BASIS);
             }
         } else {
             if (payer == address(this)) {
-                data = data[20:]; // advance `data` from decoding `sellToken` above
+                uint16 bps;
+                assembly ("memory-safe") {
+                    // `data` hasn't been advanced from decoding `sellToken` above. so we have to
+                    // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
 
-                uint16 bps = uint16(bytes2(data));
-                data = data[2:];
+                    bps := shr(0x50, calldataload(data.offset))
+
+                    data.offset := add(0x16, data.offset)
+                    data.length := sub(data.length, 0x16)
+                    if gt(data.length, 0xffffff) { // length underflow
+                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                        mstore(0x20, 0x32) // array out-of-bounds
+                        revert(0x1c, 0x24)
+                    }
+                }
+
                 unchecked {
                     state.globalSell.amount = (state.globalSell.token.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
                 }
