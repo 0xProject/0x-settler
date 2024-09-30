@@ -108,9 +108,14 @@ library UnsafePoolManager {
 
     function unsafeTake(IPoolManager poolManager, IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
+            if iszero(amount) {
+                mstore(0x00, 0x4578dae1) // selector for `ZeroBuyAmount()`
+                mstore(0x20, token)
+                revert(0x1c, 0x24)
+            }
             let ptr := mload(0x40)
             mstore(ptr, 0x0b0d9c09) // selector for `take(address,address,uint256)`
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
             mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token))
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
