@@ -166,7 +166,7 @@ contract ERC1967UUPSTest is Test {
         // the revert string has the arguments backwards here because we get
         // infinite recursion. which order we get depends on the context depth
         // and gas limit on entry.
-        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", newImpl, mock.implementation()));
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
         mock.upgrade(address(newImpl));
     }
 
