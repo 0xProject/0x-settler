@@ -5,20 +5,6 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 type IHooks is address;
 
-/// @notice Returns the key for identifying a pool
-struct PoolKey {
-    /// @notice The lower token of the pool, sorted numerically
-    IERC20 token0;
-    /// @notice The higher token of the pool, sorted numerically
-    IERC20 token1;
-    /// @notice The pool LP fee, capped at 1_000_000. If the highest bit is 1, the pool has a dynamic fee and must be exactly equal to 0x800000
-    uint24 fee;
-    /// @notice Ticks that involve positions must be a multiple of tick spacing
-    int24 tickSpacing;
-    /// @notice The hooks of the pool
-    IHooks hooks;
-}
-
 /// @dev Two `int128` values packed into a single `int256` where the upper 128 bits represent the amount0
 /// and the lower 128 bits represent the amount1.
 type BalanceDelta is int256;
@@ -41,22 +27,26 @@ library BalanceDeltaLibrary {
 }
 
 interface IPoolManager {
-    /// @notice Called by external contracts to access transient storage of the contract
-    /// @param slot Key of slot to tload
-    /// @return value The value of the slot as bytes32
-    function exttload(bytes32 slot) external view returns (bytes32 value);
-
-    /// @notice Called by external contracts to access sparse transient pool state
-    /// @param slots List of slots to tload
-    /// @return values List of loaded values
-    function exttload(bytes32[] calldata slots) external view returns (bytes32[] memory values);
-
     /// @notice All interactions on the contract that account deltas require unlocking. A caller that calls `unlock` must implement
     /// `IUnlockCallback(msg.sender).unlockCallback(data)`, where they interact with the remaining functions on this contract.
     /// @dev The only functions callable without an unlocking are `initialize` and `updateDynamicLPFee`
     /// @param data Any data to pass to the callback, via `IUnlockCallback(msg.sender).unlockCallback(data)`
     /// @return The data returned by the call to `IUnlockCallback(msg.sender).unlockCallback(data)`
     function unlock(bytes calldata data) external returns (bytes memory);
+
+    /// @notice Returns the key for identifying a pool
+    struct PoolKey {
+        /// @notice The lower token of the pool, sorted numerically
+        IERC20 token0;
+        /// @notice The higher token of the pool, sorted numerically
+        IERC20 token1;
+        /// @notice The pool LP fee, capped at 1_000_000. If the highest bit is 1, the pool has a dynamic fee and must be exactly equal to 0x800000
+        uint24 fee;
+        /// @notice Ticks that involve positions must be a multiple of tick spacing
+        int24 tickSpacing;
+        /// @notice The hooks of the pool
+        IHooks hooks;
+    }
 
     struct SwapParams {
         /// Whether to swap token0 for token1 or vice versa
