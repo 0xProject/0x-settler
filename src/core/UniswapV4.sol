@@ -531,8 +531,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 }
             }
 
-            if (state.buy.amount != 0) {
-                // TODO: this is wrong the first time around; `state.sell` is aliasing `state.buy`
+            if (!state.buy.eq(state.globalSell)) {
                 notes.add(state.buy);
             }
 
