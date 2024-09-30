@@ -592,11 +592,23 @@ abstract contract UniswapV4 is SettlerAbstract {
                 )
         }
         (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (buyToken, sellToken);
-        uint256 packed = uint208(bytes26(data));
-        data = data[26:];
+
+        uint256 packed;
+        assembly ("memory-safe") {
+            packed := shr(0x30, calldataload(data.offset))
+            data.offset := add(0x1a, data.offset)
+            data.length := sub(data.length, 0x1a)
+            if gt(data.length, 0xffffff) { // length underflow
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // array out-of-bounds
+                revert(0x1c, 0x24)
+            }
+        }
+
         key.fee = uint24(packed >> 184);
         key.tickSpacing = int24(uint24(packed >> 160));
         key.hooks = IHooks.wrap(address(uint160(packed)));
+
         return (zeroForOne, data);
     }
 
