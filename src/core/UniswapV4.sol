@@ -869,8 +869,18 @@ abstract contract UniswapV4 is SettlerAbstract {
         IPoolManager.PoolKey memory key;
         IPoolManager.SwapParams memory params;
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps = uint16(bytes2(data));
-            data = data[2:];
+            uint16 bps;
+            assembly ("memory-safe") {
+                bps := shr(0xf0, calldataload(data.offset))
+
+                data.offset := add(0x02, data.offset)
+                data.length := sub(data.length, 0x02)
+                if gt(data.length, 0xffffff) { // length underflow
+                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                    mstore(0x20, 0x32) // array out-of-bounds
+                    revert(0x1c, 0x24)
+                }
+            }
 
             data = _updateState(state, notes, data);
             bool zeroForOne;
