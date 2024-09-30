@@ -560,11 +560,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         assembly ("memory-safe") {
             data.offset := add(dataConsumed, data.offset)
             data.length := sub(data.length, dataConsumed)
-            if gt(data.length, 0xffffff) { // length underflow
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // array out-of-bounds
-                revert(0x1c, 0x24)
-            }
+            // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
         }
 
         return data;
@@ -596,13 +592,10 @@ abstract contract UniswapV4 is SettlerAbstract {
         uint256 packed;
         assembly ("memory-safe") {
             packed := shr(0x30, calldataload(data.offset))
+
             data.offset := add(0x1a, data.offset)
             data.length := sub(data.length, 0x1a)
-            if gt(data.length, 0xffffff) { // length underflow
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // array out-of-bounds
-                revert(0x1c, 0x24)
-            }
+            // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
         }
 
         key.fee = uint24(packed >> 184);
@@ -621,6 +614,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             hookData.length := shr(0xe8, calldataload(data.offset))
             hookData.offset := add(0x03, data.offset)
             let hop := add(0x03, hookData.length)
+
             retData.offset := add(data.offset, hop)
             retData.length := sub(data.length, hop)
             if gt(retData.length, 0xffffff) { // length underflow
@@ -740,11 +734,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                 data.offset := add(0x16, data.offset)
                 data.length := sub(data.length, 0x16)
-                if gt(data.length, 0xffffff) { // length underflow
-                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                    mstore(0x20, 0x32) // array out-of-bounds
-                    revert(0x1c, 0x24)
-                }
+                // We check for array out-of-bounds below
             }
 
             unchecked {
@@ -761,11 +751,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                     data.offset := add(0x16, data.offset)
                     data.length := sub(data.length, 0x16)
-                    if gt(data.length, 0xffffff) { // length underflow
-                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                        mstore(0x20, 0x32) // array out-of-bounds
-                        revert(0x1c, 0x24)
-                    }
+                    // We check for array out-of-bounds below
                 }
 
                 unchecked {
@@ -792,11 +778,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                     // Remove `sig` from the back of `data`
                     data.length := sub(sub(data.length, 0x78), sig.length)
-                    if gt(data.length, 0xffffff) { // length underflow
-                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                        mstore(0x20, 0x32) // array out-of-bounds
-                        revert(0x1c, 0x24)
-                    }
+                    // We check for array out-of-bounds below
                 }
 
                 state.globalSell.amount = _permitToSellAmountCalldata(permit);
@@ -808,6 +790,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
         }
 
+        if (data.length > 16777215) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
         if (state.globalSell.amount == 0) {
             revert ZeroSellAmount(state.globalSell.token);
         }
@@ -830,26 +815,21 @@ abstract contract UniswapV4 is SettlerAbstract {
             packed := calldataload(add(0x34, data.offset))
             hashMod := shr(0x80, packed)
             feeOnTransfer := iszero(iszero(and(0x1000000000000000000000000000000, packed)))
+
+
             data.offset := add(0x45, data.offset)
             data.length := sub(data.length, 0x45)
-            if gt(data.length, 0xffffff) { // length underflow
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // array out-of-bounds
-                revert(0x1c, 0x24)
-            }
+            // we don't check for array out-of-bounds here; we will check it later in `_initialize`
         }
 
         // `payer` is special and is authenticated
         address payer;
         assembly ("memory-safe") {
             payer := shr(0x60, calldataload(data.offset))
+
             data.offset := add(0x14, data.offset)
             data.length := sub(data.length, 0x14)
-            if gt(data.length, 0xffffff) { // length underflow
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // array out-of-bounds
-                revert(0x1c, 0x24)
-            }
+            // we don't check for array out-of-bounds here; we will check it later in `_initialize`
         }
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
@@ -875,11 +855,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                 data.offset := add(0x02, data.offset)
                 data.length := sub(data.length, 0x02)
-                if gt(data.length, 0xffffff) { // length underflow
-                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                    mstore(0x20, 0x32) // array out-of-bounds
-                    revert(0x1c, 0x24)
-                }
+                // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
             }
 
             data = _updateState(state, notes, data);
