@@ -359,6 +359,7 @@ abstract contract BaseUniswapV4UnitTest is Test {
         console.log("replaced", replaceCount, "occurrences of pool manager immutable address");
         vm.etch(address(POOL_MANAGER), poolManagerCode);
         vm.label(address(POOL_MANAGER), "PoolManager");
+        console.logBytes(poolManagerCode);
 
         vm.record();
         (bool success, bytes memory returndata) = address(POOL_MANAGER).staticcall(abi.encodeWithSignature("owner()"));
@@ -907,4 +908,71 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function invariant_vacuous() external pure {}
+
+    function testUsdcWeth() external {
+        vm.makePersistent(address(POOL_MANAGER));
+
+        vm.createSelectFork("http://localhost:8545", 20830324);
+
+        IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        IERC20 weth = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        tokens.push(usdc);
+        tokens.push(weth);
+
+        uint160 sqrtPriceX96 = 1560295761254972625831297405286204;
+        int24 tickSpacing = 10;
+        uint24 fee = 500;
+        uint128 liquidity = 12819136140736288855;
+        int24 tickLo = TickMath.getTickAtSqrtPrice(sqrtPriceX96) - 954;
+        tickLo -= tickLo % tickSpacing;
+        int24 tickHi = TickMath.getTickAtSqrtPrice(sqrtPriceX96) + 954;
+        tickHi += tickSpacing - (tickHi % tickSpacing);
+        (, uint256 amountUsdc, uint256 amountWeth) = _calculateAmounts(sqrtPriceX96, liquidity, tickLo, tickHi);
+
+        uint256 usdcBalanceSlot = 9;
+        uint256 wethBalanceSlot = 3;
+        vm.store(address(usdc), keccak256(abi.encode(address(this), usdcBalanceSlot)), bytes32(amountUsdc));
+        vm.store(address(weth), keccak256(abi.encode(address(this), wethBalanceSlot)), bytes32(amountWeth));
+
+        PoolKey memory poolKey = PoolKey({
+            currency0: Currency.wrap(address(usdc)),
+            currency1: Currency.wrap(address(weth)),
+            fee: fee,
+            tickSpacing: tickSpacing,
+            hooks: IHooks(address(0))
+        });
+        pools.push(poolKey);
+
+        vm.record();
+        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
+        POOL_MANAGER.unlock(abi.encode(sqrtPriceX96, liquidity, tickLo, tickHi));
+
+        (, bytes32[] memory writeSlots) = vm.accesses(address(usdc));
+        console.log("usdc");
+        for (uint256 i; i < writeSlots.length; i++) {
+            console.log("key");
+            console.logBytes32(writeSlots[i]);
+            console.log("value");
+            console.logBytes32(vm.load(address(usdc), writeSlots[i]));
+        }
+        (, writeSlots) = vm.accesses(address(weth));
+        console.log("weth");
+        for (uint256 i; i < writeSlots.length; i++) {
+            console.log("key");
+            console.logBytes32(writeSlots[i]);
+            console.log("value");
+            console.logBytes32(vm.load(address(weth), writeSlots[i]));
+        }
+        (, writeSlots) = vm.accesses(address(POOL_MANAGER));
+        console.log("pool manager");
+        for (uint256 i; i < writeSlots.length; i++) {
+            console.log("key");
+            console.logBytes32(writeSlots[i]);
+            console.log("value");
+            console.logBytes32(vm.load(address(POOL_MANAGER), writeSlots[i]));
+        }
+
+        assertEq(usdc.balanceOf(address(this)), 0);
+        assertEq(weth.balanceOf(address(this)), 0);
+    }
 }
