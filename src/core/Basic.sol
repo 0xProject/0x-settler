@@ -15,8 +15,6 @@ abstract contract Basic is SettlerAbstract {
     using FullMath for uint256;
     using Revert for bool;
 
-    IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
     function basicSellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) internal {

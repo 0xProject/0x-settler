@@ -217,7 +217,7 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
         (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
             TransientStorage.getAndClearOperatorAndCallback();
         require(bytes4(data) == selector);
-        require(msg.sender == operator);
+        require(_operator() == operator);
         return callback(data[4:]);
     }
 }
@@ -227,6 +227,21 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 
     fallback(bytes calldata data) external virtual returns (bytes memory) {
         return _invokeCallback(data);
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = permit.permitted.amount;
+        if (sellAmount > type(uint256).max - BASIS) {
+            unchecked {
+                sellAmount -= type(uint256).max - BASIS;
+            }
+            sellAmount = IERC20(permit.permitted.token).balanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+        }
     }
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
