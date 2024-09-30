@@ -813,7 +813,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
 
-            BalanceDelta delta = IPoolManager(_operator()).unsafeSwap(key, params, hookData);
+            BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
             {
                 (int256 settledSellAmount, int256 settledBuyAmount) =
                     zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());
@@ -841,7 +841,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // pool manager. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
-                    IPoolManager(_operator()).unsafeTake(
+                    IPoolManager(msg.sender).unsafeTake(
                         globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount
                     );
                 }
@@ -859,7 +859,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     revert ZeroSellAmount(globalSellToken);
                 }
                 if (globalSellToken == ETH_ADDRESS) {
-                    IPoolManager(_operator()).unsafeSettle(debt);
+                    IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
