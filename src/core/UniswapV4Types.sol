@@ -110,7 +110,7 @@ library UnsafePoolManager {
         assembly ("memory-safe") {
             token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             if iszero(amount) {
-                mstore(0x00, 0x4578dae1) // selector for `ZeroBuyAmount()`
+                mstore(0x00, 0xcbf0dbf5) // selector for `ZeroBuyAmount(address)`
                 mstore(0x20, token)
                 revert(0x1c, 0x24)
             }
