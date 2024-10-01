@@ -708,8 +708,9 @@ abstract contract UniswapV4 is SettlerAbstract {
             assembly ("memory-safe") {
                 sellToken := shr(0x60, calldataload(data.offset))
             }
-            // We don't advance `data` here because there's a special interaction between `payer`,
-            // `sellToken`, and `permit` that's handled below.
+            // We don't advance `data` here because there's a special interaction between `payer`
+            // (which is the 20 bytes in calldata immediately before `data`), `sellToken`, and
+            // `permit` that's handled below.
             notes = state.construct(sellToken, hashMul, hashMod);
         }
 
@@ -814,7 +815,6 @@ abstract contract UniswapV4 is SettlerAbstract {
             packed := calldataload(add(0x34, data.offset))
             hashMod := shr(0x80, packed)
             feeOnTransfer := iszero(iszero(and(0x1000000000000000000000000000000, packed)))
-
 
             data.offset := add(0x45, data.offset)
             data.length := sub(data.length, 0x45)

@@ -89,8 +89,12 @@ interface IPoolManager {
     function settle() external payable returns (uint256 paid);
 }
 
-/// Solc emits an EXTCODESIZE check when an external function doesn't return anything. Obviously, we know that
-/// POOL_MANAGER has code, so this is just here to force solc to omit that check.
+/// Solc emits code that is both gas inefficient and codesize bloated. By reimplementing these
+/// function calls in Yul, we obtain significant improvements. Solc also emits an EXTCODESIZE check
+/// when an external function doesn't return anything (`sync` and `take`). Obviously, we know that
+/// POOL_MANAGER has code, so this omits those checks. Also, for compatibility, these functions
+/// identify `SettlerAbstract.ETH_ADDRESS` (the address of all `e`s) and replace it with
+/// `address(0)`.
 library UnsafePoolManager {
     function unsafeSync(IPoolManager poolManager, IERC20 token) internal {
         // `sync` doesn't need to check whether `token` is `ETH_ADDRESS` because calling `sync` for
@@ -117,7 +121,7 @@ library UnsafePoolManager {
             let ptr := mload(0x40)
             mstore(ptr, 0x0b0d9c09) // selector for `take(address,address,uint256)`
             if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
-            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token))
+            mstore(add(0x20, ptr), token)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
             mstore(add(0x60, ptr), amount)
             if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), 0x64, 0x00, 0x00)) {
