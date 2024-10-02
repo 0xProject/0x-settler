@@ -388,5 +388,14 @@
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
     "etherscanApi": "https://api.mantlescan.xyz/api"
+  },
+  "mode": {
+    "chainId": 34443,
+    "displayName": "Mode",
+    "isShanghai": true,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1
   }
 }
