@@ -793,10 +793,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         uint256 sellTokenBalanceAfter = _balanceOf(sellToken, address(this));
         uint256 buyTokenBalanceAfter = _balanceOf(buyToken, address(this));
 
-        assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore);
-        assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore);
-        assertEq(_balanceOf(sellToken, _stub), 0);
-        assertEq(_balanceOf(buyToken, _stub), 0);
+        assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore, "sell token balance did not decrease");
+        assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore, "buy token balance did not increase");
+        assertEq(_balanceOf(sellToken, _stub), 0, "sell token dust leftover");
+        assertEq(_balanceOf(buyToken, _stub), 0, "buy token dust leftover");
 
         return (sellTokenBalanceAfter, buyTokenBalanceAfter);
     }
@@ -953,6 +953,85 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             fills
         );
         assertEq(buyTokenBalanceAfter, buyTokenBalanceBefore + buyAmount);
+    }
+
+    function testSwapMultiplex() public {
+        PoolKey memory poolKey0 = pools[0];
+        PoolKey memory poolKey1 = pools[2];
+        IERC20 sellToken = IERC20(Currency.unwrap(poolKey0.currency0));
+        bool zeroForOne1 = IERC20(Currency.unwrap(poolKey1.currency0)) == IERC20(Currency.unwrap(poolKey0.currency0));
+        IERC20 buyToken0 = IERC20(Currency.unwrap(poolKey0.currency1));
+        IERC20 buyToken1 = IERC20(Currency.unwrap(zeroForOne1 ? poolKey1.currency1 : poolKey1.currency0));
+        (
+            /* poolIndex */,
+            uint256 sellAmount0,
+            uint256 buyAmount0,
+            /* poolKey0 */,
+            /* sellToken */,
+            /* buyToken */,
+            uint256 sellTokenBalanceBefore,
+            uint256 buyTokenBalanceBefore0,
+            /* hashMul */,
+            /* hashMod */
+        ) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
+        console.log("sellAmount0", sellAmount0);
+        (
+            /* poolIndex */,
+            uint256 sellAmount1,
+            uint256 buyAmount1,
+            /* poolKey1 */,
+            /* sellToken */,
+            /* buyToken */,
+            /* sellTokenBalanceBefore */,
+            uint256 buyTokenBalanceBefore1,
+            /* hashMul */,
+            /* hashMod */
+        ) = _swapPre(2, TOTAL_SUPPLY / 1_000, false, zeroForOne1);
+        console.log("sellAmount1", sellAmount1);
+        uint256 sellAmount = sellAmount0 + sellAmount1;
+        uint256 bps0 = sellAmount0 * 10_000 / sellAmount;
+        assertLt(bps0, 10_000);
+        assertGt(bps0, 0);
+        console.log("bps", bps0);
+
+        IERC20[] memory swapTokens = new IERC20[](3);
+        swapTokens[0] = sellToken;
+        swapTokens[1] = buyToken0;
+        swapTokens[2] = buyToken1;
+        (uint256 hashMul, uint256 hashMod) = _getHash(swapTokens);
+
+        bytes memory fills = abi.encodePacked(
+            uint16(bps0),
+            bytes1(0x01),
+            buyToken0,
+            poolKey0.fee,
+            poolKey0.tickSpacing,
+            poolKey0.hooks,
+            uint24(0),
+            new bytes(0),
+            uint16(10_000),
+            bytes1(0x01),
+            buyToken1,
+            poolKey1.fee,
+            poolKey1.tickSpacing,
+            poolKey1.hooks,
+            uint24(0),
+            new bytes(0)
+        );
+        (, uint256 buyTokenBalanceAfter1) = swapGeneric(
+            sellToken,
+            sellAmount,
+            sellTokenBalanceBefore,
+            false,
+            buyToken1,
+            buyTokenBalanceBefore1,
+            hashMul,
+            hashMod,
+            fills
+        );
+        assertEq(buyTokenBalanceAfter1, buyTokenBalanceBefore1 + buyAmount1);
+        // we're not sweeping the stub, so `buyToken0` is getting stuck in the stub
+        assertEq(_balanceOf(buyToken0, address(stub)), buyAmount0);
     }
 
     function swapSingleVIP(
