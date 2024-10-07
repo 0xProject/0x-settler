@@ -1083,9 +1083,15 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertEq(address(state.sellToken), Currency.unwrap(state.poolKey0.currency0));
         assertEq(address(state.hopToken), Currency.unwrap(state.poolKey0.currency1));
         state.zeroForOne1 = IERC20(Currency.unwrap(state.poolKey1.currency0)) == state.sellToken;
-        assertEq(address(state.buyToken), Currency.unwrap(state.zeroForOne1 ? state.poolKey1.currency1 : state.poolKey1.currency0));
+        assertEq(
+            address(state.buyToken),
+            Currency.unwrap(state.zeroForOne1 ? state.poolKey1.currency1 : state.poolKey1.currency0)
+        );
         state.zeroForOne2 = IERC20(Currency.unwrap(state.poolKey2.currency0)) == state.hopToken;
-        assertEq(address(state.buyToken), Currency.unwrap(state.zeroForOne2 ? state.poolKey2.currency1 : state.poolKey2.currency0));
+        assertEq(
+            address(state.buyToken),
+            Currency.unwrap(state.zeroForOne2 ? state.poolKey2.currency1 : state.poolKey2.currency0)
+        );
 
         (
             /* poolIndex */,
@@ -1139,40 +1145,37 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         }
 
         bytes[] memory fills = new bytes[](3);
-        fills[0] =
-            abi.encodePacked(
-                uint16(state.bps),
-                bytes1(0x01),
-                state.hopToken,
-                state.poolKey0.fee,
-                state.poolKey0.tickSpacing,
-                state.poolKey0.hooks,
-                uint24(0),
-                new bytes(0)
-            );
-        fills[1] =
-            abi.encodePacked(
-                uint16(10_000),
-                bytes1(0x01),
-                state.buyToken,
-                state.poolKey1.fee,
-                state.poolKey1.tickSpacing,
-                state.poolKey1.hooks,
-                uint24(0),
-                new bytes(0)
-            );
-        fills[2] =
-            abi.encodePacked(
-                uint16(10_000),
-                bytes1(0x03),
-                state.hopToken,
-                state.buyToken,
-                state.poolKey2.fee,
-                state.poolKey2.tickSpacing,
-                state.poolKey2.hooks,
-                uint24(0),
-                new bytes(0)
-            );
+        fills[0] = abi.encodePacked(
+            uint16(state.bps),
+            bytes1(0x01),
+            state.hopToken,
+            state.poolKey0.fee,
+            state.poolKey0.tickSpacing,
+            state.poolKey0.hooks,
+            uint24(0),
+            new bytes(0)
+        );
+        fills[1] = abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x01),
+            state.buyToken,
+            state.poolKey1.fee,
+            state.poolKey1.tickSpacing,
+            state.poolKey1.hooks,
+            uint24(0),
+            new bytes(0)
+        );
+        fills[2] = abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x03),
+            state.hopToken,
+            state.buyToken,
+            state.poolKey2.fee,
+            state.poolKey2.tickSpacing,
+            state.poolKey2.hooks,
+            uint24(0),
+            new bytes(0)
+        );
         (, uint256 buyTokenBalanceAfter) = swapGeneric(
             state.sellToken,
             state.sellAmount,
