@@ -620,9 +620,6 @@ abstract contract UniswapV4 is SettlerAbstract {
         private
         returns (uint256 buyAmount)
     {
-        if (state.buy.amount == 0) {
-            revert ZeroBuyAmount(state.buy.token);
-        }
         notes.del(state.buy);
         if (state.sell.amount == 0) {
             notes.del(state.sell);
