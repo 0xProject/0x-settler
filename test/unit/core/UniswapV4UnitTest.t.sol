@@ -1031,6 +1031,162 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         assertEq(_balanceOf(buyToken0, address(stub)), buyAmount0);
     }
 
+    struct SwapDiamondState {
+        PoolKey poolKey0;
+        PoolKey poolKey1;
+        PoolKey poolKey2;
+        IERC20 sellToken;
+        IERC20 hopToken;
+        IERC20 buyToken;
+        bool zeroForOne1;
+        bool zeroForOne2;
+        uint256 sellAmount;
+        uint256 sellAmount0;
+        uint256 sellAmount1;
+        uint256 hopAmount;
+        uint256 allegedHopAmount;
+        uint256 buyAmount;
+        uint256 buyAmount0;
+        uint256 buyAmount1;
+        uint256 sellTokenBalanceBefore;
+        uint256 buyTokenBalanceBefore;
+        uint256 bps;
+        uint256 hashMul;
+        uint256 hashMod;
+    }
+
+    function testSwapDiamond() public {
+        SwapDiamondState memory state = SwapDiamondState({
+            poolKey0: pools[0],
+            poolKey1: pools[2],
+            poolKey2: pools[1],
+            sellToken: tokens[0],
+            hopToken: tokens[1],
+            buyToken: tokens[2],
+            zeroForOne1: false,
+            zeroForOne2: false,
+            sellAmount: 0,
+            sellAmount0: 0,
+            sellAmount1: 0,
+            hopAmount: 0,
+            allegedHopAmount: 0,
+            buyAmount: 0,
+            buyAmount0: 0,
+            buyAmount1: 0,
+            sellTokenBalanceBefore: 0,
+            buyTokenBalanceBefore: 0,
+            bps: 0,
+            hashMul: 0,
+            hashMod: 0
+        });
+
+        assertEq(address(state.sellToken), Currency.unwrap(state.poolKey0.currency0));
+        assertEq(address(state.hopToken), Currency.unwrap(state.poolKey0.currency1));
+        state.zeroForOne1 = IERC20(Currency.unwrap(state.poolKey1.currency0)) == state.sellToken;
+        assertEq(address(state.buyToken), Currency.unwrap(state.zeroForOne1 ? state.poolKey1.currency1 : state.poolKey1.currency0));
+        state.zeroForOne2 = IERC20(Currency.unwrap(state.poolKey2.currency0)) == state.hopToken;
+        assertEq(address(state.buyToken), Currency.unwrap(state.zeroForOne2 ? state.poolKey2.currency1 : state.poolKey2.currency0));
+
+        (
+            /* poolIndex */,
+            state.sellAmount0,
+            state.hopAmount,
+            /* poolKey0 */,
+            /* sellToken */,
+            /* buyToken */,
+            state.sellTokenBalanceBefore,
+            /* hopTokenBalanceBefore */,
+            /* hashMul */,
+            /* hashMod */
+        ) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
+        (
+            /* poolIndex */,
+            state.sellAmount1,
+            state.buyAmount0,
+            /* poolKey1 */,
+            /* sellToken */,
+            /* buyToken */,
+            /* sellTokenBalanceBefore */,
+            state.buyTokenBalanceBefore,
+            /* hashMul */,
+            /* hashMod */
+        ) = _swapPre(2, TOTAL_SUPPLY / 1_000, false, state.zeroForOne1);
+        (
+            /* poolIndex */,
+            state.allegedHopAmount,
+            state.buyAmount1,
+            /* poolKey2 */,
+            /* sellToken */,
+            /* buyToken */,
+            /* sellTokenBalanceBefore */,
+            /* buyTokenBalanceBefore */,
+            /* hashMul */,
+            /* hashMod */
+        ) = _swapPre(1, state.hopAmount, false, state.zeroForOne2);
+        assertEq(state.allegedHopAmount, state.hopAmount);
+        state.sellAmount = state.sellAmount0 + state.sellAmount1;
+        state.buyAmount = state.buyAmount0 + state.buyAmount1;
+        state.bps = state.sellAmount0 * 10_000 / state.sellAmount;
+        assertLt(state.bps, 10_000);
+        assertGt(state.bps, 0);
+
+        {
+            IERC20[] memory swapTokens = new IERC20[](3);
+            swapTokens[0] = state.sellToken;
+            swapTokens[1] = state.hopToken;
+            swapTokens[2] = state.buyToken;
+            (state.hashMul, state.hashMod) = _getHash(swapTokens);
+        }
+
+        bytes[] memory fills = new bytes[](3);
+        fills[0] =
+            abi.encodePacked(
+                uint16(state.bps),
+                bytes1(0x01),
+                state.hopToken,
+                state.poolKey0.fee,
+                state.poolKey0.tickSpacing,
+                state.poolKey0.hooks,
+                uint24(0),
+                new bytes(0)
+            );
+        fills[1] =
+            abi.encodePacked(
+                uint16(10_000),
+                bytes1(0x01),
+                state.buyToken,
+                state.poolKey1.fee,
+                state.poolKey1.tickSpacing,
+                state.poolKey1.hooks,
+                uint24(0),
+                new bytes(0)
+            );
+        fills[2] =
+            abi.encodePacked(
+                uint16(10_000),
+                bytes1(0x03),
+                state.hopToken,
+                state.buyToken,
+                state.poolKey2.fee,
+                state.poolKey2.tickSpacing,
+                state.poolKey2.hooks,
+                uint24(0),
+                new bytes(0)
+            );
+        (, uint256 buyTokenBalanceAfter) = swapGeneric(
+            state.sellToken,
+            state.sellAmount,
+            state.sellTokenBalanceBefore,
+            false,
+            state.buyToken,
+            state.buyTokenBalanceBefore,
+            state.hashMul,
+            state.hashMod,
+            bytes.concat(fills[0], fills[1], fills[2])
+        );
+        assertEq(buyTokenBalanceAfter, state.buyTokenBalanceBefore + state.buyAmount);
+    }
+
     function swapSingleVIP(
         uint256 poolIndex,
         uint256 sellAmount,
@@ -1105,7 +1261,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         excludeSender(stubPrediction);
         excludeSender(address(POOL_MANAGER));
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](11)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](12)});
             exclusion.selectors[0] = this.setUp.selector;
             exclusion.selectors[1] = this.getBalanceOf.selector;
             exclusion.selectors[2] = this.getSlot0.selector;
@@ -1117,6 +1273,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             exclusion.selectors[8] = this.testSwapSingleVIP.selector;
             exclusion.selectors[9] = this.testSwapMultihop.selector;
             exclusion.selectors[10] = this.testSwapMultiplex.selector;
+            exclusion.selectors[11] = this.testSwapDiamond.selector;
             excludeSelector(exclusion);
         }
 
