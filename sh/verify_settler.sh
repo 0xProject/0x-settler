@@ -137,6 +137,13 @@ declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
 
+# calls encoded as operation (always zero) 1 byte
+#                  target address          20 bytes
+#                  value                   32 bytes
+#                  data length             32 bytes
+#                  data                    variable
+declare -r multisend_sig='multiSend(bytes)'
+
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'

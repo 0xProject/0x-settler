@@ -18,8 +18,37 @@ Master list of UniV3 forks:
   15. Thick
   16. KinetixV3
   17. MetavaultV3
+  18. BlasterV3
+  19. MonoSwapV3
+  20. RogueXV1
 
 ---
+
+## [Unreleased]
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add `DODOV2` Dodo V2 action on Mantle
+
+## 2024-09-09
+
+### Breaking changes
+
+* Upgrade Bnb chain deployment to Cancun (Tycho) hardfork
+  * This changes the `AllowanceHolder` address on that chain to
+    `0x0000000000001fF3684f28c67538d4D072C22734`
+
+### Non-breaking changes
+
+* Add BlasterV3 UniV3 fork to Blast
+* Add MonoSwapV3 UniV3 fork to Blast
+* Add RogueXV1 UniV3 fork to Blast
+  * This UniV3 fork has unusual integrations with perpetual futures; it may
+    revert when a "normal" UniV3 fork wouldn't
+
+## 2024-08-26
 
 ### Breaking changes
 
@@ -27,9 +56,9 @@ Master list of UniV3 forks:
   * Note that for the "normal" PSM ("MCD PSM USDC A",
     0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A), `amountOutMin` _**MUST**_ be
     zeroed, otherwise you will get an out-of-gas
-* Special case a permitted (sell) amount of `type(uint256).max` -- this
-  introspects the taker's balance of the sell token and attempts to sell all of
-  it
+* Special case a permitted (sell) amount of `type(uint256).max - 9_999` and
+  above -- this introspects the taker's balance of the sell token and attempts
+  to sell a proportion of it
 
 ### Non-breaking changes
 

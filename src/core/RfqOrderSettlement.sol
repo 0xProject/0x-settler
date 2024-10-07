@@ -79,6 +79,11 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
             _permitToTransferDetails(makerPermit, recipient);
+        // In theory, the taker permit could invoke the balance-proportional sell amount logic. However,
+        // because we hash the sell amount computed here into the maker's consideration (witness) only a
+        // balance-proportional sell amount that corresponds exactly to the signed order would avoid a
+        // revert. In other words, no unexpected behavior is possible. It's pointless to prohibit the
+        // use of that logic.
         (ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails, uint256 takerAmount) =
             _permitToTransferDetails(takerPermit, maker);
 
