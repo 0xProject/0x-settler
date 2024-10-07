@@ -891,34 +891,67 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         bool zeroForOne1 = IERC20(Currency.unwrap(poolKey1.currency0)) == IERC20(Currency.unwrap(poolKey0.currency1));
         IERC20 buyToken = IERC20(Currency.unwrap(zeroForOne1 ? poolKey1.currency1 : poolKey1.currency0));
         IERC20 hopToken = IERC20(Currency.unwrap(zeroForOne1 ? poolKey1.currency0 : poolKey1.currency1));
-        ( /* poolIndex */, uint256 sellAmount, uint256 buyAmount, /* poolKey0 */, /* sellToken */, /* buyToken */, uint256 sellTokenBalanceBefore, /* buyTokenBalanceBefore */, /* hashMul */, /* hashMod */) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
+        (
+            /* poolIndex */,
+            uint256 sellAmount,
+            uint256 buyAmount,
+            /* poolKey0 */,
+            /* sellToken */,
+            /* buyToken */,
+            uint256 sellTokenBalanceBefore,
+            /* buyTokenBalanceBefore */,
+            /* hashMul */,
+            /* hashMod */
+        ) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
         uint256 buyTokenBalanceBefore;
-        ( /* poolIndex */, /* sellAmount */, buyAmount, /* poolKey1 */, /* sellToken */, /* buyToken */, /* sellTokenBalanceBefore */, buyTokenBalanceBefore, /* hashMul */, /* hashMod */) = _swapPre(0, buyAmount, false, zeroForOne1);
+        (
+            /* poolIndex */,
+            /* sellAmount */,
+            buyAmount,
+            /* poolKey1 */,
+            /* sellToken */,
+            /* buyToken */,
+            /* sellTokenBalanceBefore */,
+            buyTokenBalanceBefore,
+            /* hashMul */,
+            /* hashMod */
+        ) = _swapPre(1, buyAmount, false, zeroForOne1);
 
-        IERC20[] memory tokens = new IERC20[](3);
-        tokens[0] = sellToken;
-        tokens[1] = hopToken;
-        tokens[2] = buyToken;
-        (uint256 hashMul, uint256 hashMod) = _getHash(tokens);
+        IERC20[] memory swapTokens = new IERC20[](3);
+        swapTokens[0] = sellToken;
+        swapTokens[1] = hopToken;
+        swapTokens[2] = buyToken;
+        (uint256 hashMul, uint256 hashMod) = _getHash(swapTokens);
 
         bytes memory fills = abi.encodePacked(
-                                              uint16(10_000),
-                                              bytes1(0x01),
-                                              hopToken,
-                                              poolKey0.fee,
-                                              poolKey0.tickSpacing,
-                                              poolKey0.hooks,
-                                              uint24(0),
-                                              new bytes(0),
-                                              uint16(10_000),
-                                              bytes1(0x02),
-                                              buyToken,
-                                              poolKey1.fee,
-                                              poolKey1.tickSpacing,
-                                              poolKey1.hooks,
-                                              uint24(0),
-                                              new bytes(0));
-        (, uint256 buyTokenBalanceAfter) = swapGeneric(sellToken, sellAmount, sellTokenBalanceBefore, false, buyToken, buyTokenBalanceBefore, hashMul, hashMod, fills);
+            uint16(10_000),
+            bytes1(0x01),
+            hopToken,
+            poolKey0.fee,
+            poolKey0.tickSpacing,
+            poolKey0.hooks,
+            uint24(0),
+            new bytes(0),
+            uint16(10_000),
+            bytes1(0x02),
+            buyToken,
+            poolKey1.fee,
+            poolKey1.tickSpacing,
+            poolKey1.hooks,
+            uint24(0),
+            new bytes(0)
+        );
+        (, uint256 buyTokenBalanceAfter) = swapGeneric(
+            sellToken,
+            sellAmount,
+            sellTokenBalanceBefore,
+            false,
+            buyToken,
+            buyTokenBalanceBefore,
+            hashMul,
+            hashMod,
+            fills
+        );
         assertEq(buyTokenBalanceAfter, buyTokenBalanceBefore + buyAmount);
     }
 
@@ -996,7 +1029,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         excludeSender(stubPrediction);
         excludeSender(address(POOL_MANAGER));
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](9)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](10)});
             exclusion.selectors[0] = this.setUp.selector;
             exclusion.selectors[1] = this.getBalanceOf.selector;
             exclusion.selectors[2] = this.getSlot0.selector;
@@ -1006,6 +1039,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             exclusion.selectors[6] = this.testPushPoolEth.selector;
             exclusion.selectors[7] = this.testSwapSingle.selector;
             exclusion.selectors[8] = this.testSwapSingleVIP.selector;
+            exclusion.selectors[9] = this.testSwapMultihop.selector;
             excludeSelector(exclusion);
         }
 
