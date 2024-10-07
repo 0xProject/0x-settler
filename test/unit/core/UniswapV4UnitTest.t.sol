@@ -699,6 +699,32 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         revert();
     }
 
+    function _getHash(IERC20[] memory tokens) internal pure returns (uint256, uint256) {
+        for (uint256 hashMod = _MAX_TOKENS;; hashMod = hashMod.unsafeInc()) {
+            for (uint256 hashMul = 1; hashMul < hashMod << 1; hashMul = hashMul.unsafeInc()) {
+                bool collision;
+                for (uint256 i; i < tokens.length - 1; i = i.unsafeInc()) {
+                    for (uint256 j = i + 1; j < tokens.length; j = j.unsafeInc()) {
+                        if (
+                            mulmod(uint160(address(tokens[i])), hashMul, hashMod) % _MAX_TOKENS
+                                == mulmod(uint160(address(tokens[j])), hashMul, hashMod) % _MAX_TOKENS
+                        ) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                    if (collision) {
+                        break;
+                    }
+                }
+                if (!collision) {
+                    return (hashMul, hashMod);
+                }
+            }
+        }
+        revert();
+    }
+
     function _swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
         private
         view
@@ -775,13 +801,41 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         return (sellTokenBalanceAfter, buyTokenBalanceAfter);
     }
 
+    function swapGeneric(
+        IERC20 sellToken,
+        uint256 sellAmount,
+        uint256 sellTokenBalanceBefore,
+        bool feeOnTransfer,
+        IERC20 buyToken,
+        uint256 buyTokenBalanceBefore,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills
+    ) internal returns (uint256, uint256) {
+        uint256 value;
+        UniswapV4Stub _stub = stub;
+        disableInvariantAssume();
+
+        if (sellToken == IERC20(ETH)) {
+            value = sellAmount;
+        } else {
+            // warms sell token and some storage slots; unavoidable
+            sellToken.safeTransfer(address(_stub), sellAmount);
+        }
+        vm.startPrank(address(this), address(this));
+        _stub.sellToUniswapV4{value: value}(sellToken, 10_000, feeOnTransfer, hashMul, hashMod, fills, 0);
+        vm.stopPrank();
+
+        return _swapPost(sellToken, buyToken, sellTokenBalanceBefore, buyTokenBalanceBefore, address(_stub));
+    }
+
     function swapSingle(
         uint256 poolIndex,
         uint256 sellAmount,
         bool feeOnTransfer,
         bool zeroForOne,
         bytes memory hookData
-    ) public {
+    ) public returns (uint256, uint256) {
         PoolKey memory poolKey;
         IERC20 sellToken;
         IERC20 buyToken;
@@ -813,25 +867,59 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             hookData
         );
 
-        uint256 value;
-        UniswapV4Stub _stub = stub;
-        disableInvariantAssume();
-
-        if (sellToken == IERC20(ETH)) {
-            value = sellAmount;
-        } else {
-            // warms sell token and some storage slots; unavoidable
-            sellToken.safeTransfer(address(_stub), sellAmount);
-        }
-        vm.startPrank(address(this), address(this));
-        _stub.sellToUniswapV4{value: value}(sellToken, 10_000, feeOnTransfer, hashMul, hashMod, fills, 0);
-        vm.stopPrank();
-
-        _swapPost(sellToken, buyToken, sellTokenBalanceBefore, buyTokenBalanceBefore, address(_stub));
+        return swapGeneric(
+            sellToken,
+            sellAmount,
+            sellTokenBalanceBefore,
+            feeOnTransfer,
+            buyToken,
+            buyTokenBalanceBefore,
+            hashMul,
+            hashMod,
+            fills
+        );
     }
 
     function testSwapSingle() public {
         swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
+    }
+
+    function testSwapMultihop() public {
+        PoolKey memory poolKey0 = pools[0];
+        PoolKey memory poolKey1 = pools[1];
+        IERC20 sellToken = IERC20(Currency.unwrap(poolKey0.currency0));
+        bool zeroForOne1 = IERC20(Currency.unwrap(poolKey1.currency0)) == IERC20(Currency.unwrap(poolKey0.currency1));
+        IERC20 buyToken = IERC20(Currency.unwrap(zeroForOne1 ? poolKey1.currency1 : poolKey1.currency0));
+        IERC20 hopToken = IERC20(Currency.unwrap(zeroForOne1 ? poolKey1.currency0 : poolKey1.currency1));
+        ( /* poolIndex */, uint256 sellAmount, uint256 buyAmount, /* poolKey0 */, /* sellToken */, /* buyToken */, uint256 sellTokenBalanceBefore, /* buyTokenBalanceBefore */, /* hashMul */, /* hashMod */) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
+        uint256 buyTokenBalanceBefore;
+        ( /* poolIndex */, /* sellAmount */, buyAmount, /* poolKey1 */, /* sellToken */, /* buyToken */, /* sellTokenBalanceBefore */, buyTokenBalanceBefore, /* hashMul */, /* hashMod */) = _swapPre(0, buyAmount, false, zeroForOne1);
+
+        IERC20[] memory tokens = new IERC20[](3);
+        tokens[0] = sellToken;
+        tokens[1] = hopToken;
+        tokens[2] = buyToken;
+        (uint256 hashMul, uint256 hashMod) = _getHash(tokens);
+
+        bytes memory fills = abi.encodePacked(
+                                              uint16(10_000),
+                                              bytes1(0x01),
+                                              hopToken,
+                                              poolKey0.fee,
+                                              poolKey0.tickSpacing,
+                                              poolKey0.hooks,
+                                              uint24(0),
+                                              new bytes(0),
+                                              uint16(10_000),
+                                              bytes1(0x02),
+                                              buyToken,
+                                              poolKey1.fee,
+                                              poolKey1.tickSpacing,
+                                              poolKey1.hooks,
+                                              uint24(0),
+                                              new bytes(0));
+        (, uint256 buyTokenBalanceAfter) = swapGeneric(sellToken, sellAmount, sellTokenBalanceBefore, false, buyToken, buyTokenBalanceBefore, hashMul, hashMod, fills);
+        assertEq(buyTokenBalanceAfter, buyTokenBalanceBefore + buyAmount);
     }
 
     function swapSingleVIP(
