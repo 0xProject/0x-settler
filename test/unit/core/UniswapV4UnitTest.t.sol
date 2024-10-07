@@ -16,6 +16,7 @@ import {TickMath} from "@uniswapv4/libraries/TickMath.sol";
 import {IHooks} from "@uniswapv4/interfaces/IHooks.sol";
 import {PoolId, PoolIdLibrary} from "@uniswapv4/types/PoolId.sol";
 import {SqrtPriceMath} from "@uniswapv4/libraries/SqrtPriceMath.sol";
+import {SwapMath} from "@uniswapv4/libraries/SwapMath.sol";
 import {BalanceDelta} from "@uniswapv4/types/BalanceDelta.sol";
 import {StateLibrary} from "@uniswapv4/libraries/StateLibrary.sol";
 
@@ -700,7 +701,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     function _swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
         private
         view
-        returns (uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256, uint256)
+        returns (uint256, uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256)
     {
         poolIndex = bound(poolIndex, 0, pools.length - 1);
         PoolKey memory poolKey = pools[poolIndex];
@@ -712,6 +713,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         uint256 sellTokenBalanceBefore = _balanceOf(sellToken, address(this));
         uint256 buyTokenBalanceBefore = _balanceOf(buyToken, address(this));
+        uint256 buyAmount;
         {
             uint256 maxSell = sellTokenBalanceBefore;
             if (maxSell > 1_000_000 ether) {
@@ -729,6 +731,13 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
                 minSell = 1_000_000 wei;
             }
             sellAmount = bound(sellAmount, minSell, maxSell);
+            (,, buyAmount,) = SwapMath.computeSwapStep(
+                sqrtPriceCurrentX96,
+                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
+                _DEFAULT_LIQUIDITY,
+                -int256(sellAmount),
+                poolKey.fee
+            );
         }
 
         (uint256 hashMul, uint256 hashMod) = _getHash(sellToken, buyToken);
@@ -736,10 +745,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         return (
             poolIndex,
             sellAmount,
+            buyAmount,
             poolKey,
             sellToken,
             buyToken,
-            sellAmount,
             sellTokenBalanceBefore,
             buyTokenBalanceBefore,
             hashMul,
@@ -782,10 +791,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         (
             poolIndex,
             sellAmount,
+            /* buyAmount */,
             poolKey,
             sellToken,
             buyToken,
-            sellAmount,
             sellTokenBalanceBefore,
             buyTokenBalanceBefore,
             hashMul,
@@ -842,10 +851,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         (
             poolIndex,
             sellAmount,
+            /* buyAmount */,
             poolKey,
             sellToken,
             buyToken,
-            sellAmount,
             sellTokenBalanceBefore,
             buyTokenBalanceBefore,
             hashMul,
