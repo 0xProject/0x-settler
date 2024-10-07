@@ -699,15 +699,15 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         revert();
     }
 
-    function _getHash(IERC20[] memory tokens) internal pure returns (uint256, uint256) {
+    function _getHash(IERC20[] memory t) internal pure returns (uint256, uint256) {
         for (uint256 hashMod = _MAX_TOKENS;; hashMod = hashMod.unsafeInc()) {
             for (uint256 hashMul = 1; hashMul < hashMod << 1; hashMul = hashMul.unsafeInc()) {
                 bool collision;
-                for (uint256 i; i < tokens.length - 1; i = i.unsafeInc()) {
-                    for (uint256 j = i + 1; j < tokens.length; j = j.unsafeInc()) {
+                for (uint256 i; i < t.length - 1; i = i.unsafeInc()) {
+                    for (uint256 j = i + 1; j < t.length; j = j.unsafeInc()) {
                         if (
-                            mulmod(uint160(address(tokens[i])), hashMul, hashMod) % _MAX_TOKENS
-                                == mulmod(uint160(address(tokens[j])), hashMul, hashMod) % _MAX_TOKENS
+                            mulmod(uint160(address(t[i])), hashMul, hashMod) % _MAX_TOKENS
+                                == mulmod(uint160(address(t[j])), hashMul, hashMod) % _MAX_TOKENS
                         ) {
                             collision = true;
                             break;
