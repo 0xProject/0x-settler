@@ -974,7 +974,6 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             /* hashMul */,
             /* hashMod */
         ) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
-        console.log("sellAmount0", sellAmount0);
         (
             /* poolIndex */,
             uint256 sellAmount1,
@@ -987,12 +986,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             /* hashMul */,
             /* hashMod */
         ) = _swapPre(2, TOTAL_SUPPLY / 1_000, false, zeroForOne1);
-        console.log("sellAmount1", sellAmount1);
         uint256 sellAmount = sellAmount0 + sellAmount1;
         uint256 bps0 = sellAmount0 * 10_000 / sellAmount;
         assertLt(bps0, 10_000);
         assertGt(bps0, 0);
-        console.log("bps", bps0);
 
         IERC20[] memory swapTokens = new IERC20[](3);
         swapTokens[0] = sellToken;
@@ -1108,7 +1105,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         excludeSender(stubPrediction);
         excludeSender(address(POOL_MANAGER));
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](10)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](11)});
             exclusion.selectors[0] = this.setUp.selector;
             exclusion.selectors[1] = this.getBalanceOf.selector;
             exclusion.selectors[2] = this.getSlot0.selector;
@@ -1119,6 +1116,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             exclusion.selectors[7] = this.testSwapSingle.selector;
             exclusion.selectors[8] = this.testSwapSingleVIP.selector;
             exclusion.selectors[9] = this.testSwapMultihop.selector;
+            exclusion.selectors[10] = this.testSwapMultiplex.selector;
             excludeSelector(exclusion);
         }
 
