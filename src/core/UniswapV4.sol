@@ -129,15 +129,6 @@ library NotesLib {
         }
     }
 
-    function initialize(Note[] memory a, NotePtr x) internal pure {
-        assembly ("memory-safe") {
-            mstore(a, 0x01)
-            let x_ptr := add(0x20, a)
-            mstore(x_ptr, x)
-            mstore(add(0x40, x), x_ptr)
-        }
-    }
-
     function add(Note[] memory a, Note memory x) internal pure {
         assembly ("memory-safe") {
             let backptr_ptr := add(0x40, x)
@@ -212,7 +203,6 @@ library StateLib {
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
         NotesLib.NotePtr notePtr = notes.get(token, hashMul, hashMod);
-        notes.initialize(notePtr);
 
         // Here we actually set the pointers into a legal area of memory
         setBuy(state, notePtr);
@@ -520,6 +510,8 @@ abstract contract UniswapV4 is SettlerAbstract {
 
         uint256 caseKey = uint256(dataWord) >> 248;
         if (caseKey != 0) {
+            notes.add(state.buy);
+
             if (caseKey > 1) {
                 if (state.sell.amount == 0) {
                     notes.del(state.sell);
@@ -539,10 +531,6 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                     state.setSell(notes, sellToken);
                 }
-            }
-
-            if (!state.buy.eq(state.globalSell)) {
-                notes.add(state.buy);
             }
 
             IERC20 buyToken = IERC20(address(uint160(uint256(dataWord) >> 88)));
