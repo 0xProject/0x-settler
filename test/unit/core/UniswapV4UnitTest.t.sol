@@ -696,6 +696,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
                 }
             }
         }
+        revert();
     }
 
     function _swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
