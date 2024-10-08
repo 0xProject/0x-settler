@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Script} from "forge-std/Script.sol";
+import {Script} from "@forge-std/Script.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
 import {Deployer, Feature} from "src/deployer/Deployer.sol";

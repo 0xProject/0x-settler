@@ -6,9 +6,9 @@ import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {Context} from "src/Context.sol";
 
 import {Utils} from "../Utils.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 
 contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
     function sell(
@@ -26,7 +26,7 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
         return false;
     }
 
-    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }
 }

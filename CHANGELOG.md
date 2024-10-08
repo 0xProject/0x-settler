@@ -27,6 +27,19 @@ Master list of UniV3 forks:
 
 ---
 
+## [Unreleased]
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add actions for UniswapV4
+  * `UNISWAPV4`, `UNISWAPV4_VIP`, and `METATXN_UNISWAPV4_VIP`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    encode `fills`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    compute a perfect token hash function
+
 ## 2024-10-08
 
 ### Breaking changes
