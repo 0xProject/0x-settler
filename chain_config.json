@@ -397,6 +397,9 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "deployment": {
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    },
     "blockscoutApi": "https://explorer.mode.network/api"
   }
 }
