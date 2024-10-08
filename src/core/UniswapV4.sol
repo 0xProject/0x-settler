@@ -110,7 +110,7 @@ library NotesLib {
             // equivalent to checking for array out-of-bounds or overflow.
             {
                 let old_token := mload(x_token_ptr)
-                if mul(or(mload(add(0x40, x)), old_token), xor(old_token, newToken)) { // TODO(dekz): check me on this?
+                if mul(or(mload(add(0x40, x)), old_token), xor(old_token, newToken)) {
                     mstore(0x00, 0x9a62e8b4) // selector for `TokenHashCollision(address,address)`
                     mstore(0x20, old_token)
                     mstore(0x40, newToken)
@@ -196,7 +196,6 @@ library StateLib {
     {
         assembly ("memory-safe") {
             // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks solc.
-            if iszero(eq(mload(0x40), add(0x1e0, state))) { revert(0x00, 0x00) } // TODO: remove
             mstore(0x40, add(0xc0, state))
         }
         // All the pointers in `state` are now pointing into unallocated memory
@@ -429,9 +428,6 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(data, add(0x115, add(pathLen, sigLen)))
 
             mstore8(add(0xa8, data), feeOnTransfer)
-
-            // TODO: remove
-            if iszero(eq(add(mload(data), add(0x20, data)), mload(0x40))) { revert(0x00, 0x00) }
         }
         return abi.decode(
             abi.decode(
