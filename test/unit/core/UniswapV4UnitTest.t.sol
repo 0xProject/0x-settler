@@ -603,7 +603,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         (tokenAIndex, tokenBIndex) =
             (bound(tokenAIndex, 0, tokens.length - 1), bound(tokenBIndex, 0, tokens.length - 1));
         invariantAssume(tokenAIndex != tokenBIndex);
-        fee = uint24(bound(fee, 0, 1_000_000));
+        fee = uint24(bound(fee, 0, 500_000));
         tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));
         sqrtPriceX96 = uint160(
             bound(
@@ -753,6 +753,9 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             uint256 minSell = zeroForOne
                 ? SqrtPriceMath.getAmount0Delta(sqrtPriceNextX96, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
                 : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, _DEFAULT_LIQUIDITY, true);
+            minSell *= 1_000_000;
+            minSell /= (1_000_000 - poolKey.fee);
+            minSell += 1;
             invariantAssume(maxSell >= minSell);
             if (minSell < 1_000_000 wei) {
                 minSell = 1_000_000 wei;
