@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 type IHooks is address;
 
@@ -89,8 +89,12 @@ interface IPoolManager {
     function settle() external payable returns (uint256 paid);
 }
 
-/// Solc emits an EXTCODESIZE check when an external function doesn't return anything. Obviously, we know that
-/// POOL_MANAGER has code, so this is just here to force solc to omit that check.
+/// Solc emits code that is both gas inefficient and codesize bloated. By reimplementing these
+/// function calls in Yul, we obtain significant improvements. Solc also emits an EXTCODESIZE check
+/// when an external function doesn't return anything (`sync` and `take`). Obviously, we know that
+/// POOL_MANAGER has code, so this omits those checks. Also, for compatibility, these functions
+/// identify `SettlerAbstract.ETH_ADDRESS` (the address of all `e`s) and replace it with
+/// `address(0)`.
 library UnsafePoolManager {
     function unsafeSync(IPoolManager poolManager, IERC20 token) internal {
         // `sync` doesn't need to check whether `token` is `ETH_ADDRESS` because calling `sync` for
@@ -108,11 +112,16 @@ library UnsafePoolManager {
 
     function unsafeTake(IPoolManager poolManager, IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
+            if iszero(amount) {
+                mstore(0x00, 0xcbf0dbf5) // selector for `ZeroBuyAmount(address)`
+                mstore(0x20, token)
+                revert(0x1c, 0x24)
+            }
             let ptr := mload(0x40)
             mstore(ptr, 0x0b0d9c09) // selector for `take(address,address,uint256)`
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
             if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
-            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token))
+            mstore(add(0x20, ptr), token)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
             mstore(add(0x60, ptr), amount)
             if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), 0x64, 0x00, 0x00)) {
@@ -131,13 +140,10 @@ library UnsafePoolManager {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0xf3cd914c) // selector for `swap((address,address,uint24,int24,address),(bool,int256,uint160),bytes)`
-            let token := mload(key)
-            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
-            mstore(add(0x20, ptr), token)
-            token := mload(add(0x20, key))
-            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
-            mstore(add(0x40, ptr), token)
-            mcopy(add(0x60, ptr), add(0x40, key), 0x60)
+            let token0 := mload(key)
+            if eq(token0, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token0 := 0x00 }
+            mstore(add(0x20, ptr), token0)
+            mcopy(add(0x40, ptr), add(0x20, key), 0x80)
             mcopy(add(0xc0, ptr), params, 0x60)
             mstore(add(0x120, ptr), 0x120)
             mstore(add(0x140, ptr), hookData.length)
@@ -149,9 +155,25 @@ library UnsafePoolManager {
             r := mload(0x00)
         }
     }
+
+    function unsafeSettle(IPoolManager poolManager, uint256 value) internal returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x11da60b4) // selector for `settle()`
+            if iszero(call(gas(), poolManager, value, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+        }
+    }
+
+    function unsafeSettle(IPoolManager poolManager) internal returns (uint256) {
+        return unsafeSettle(poolManager, 0);
+    }
 }
 
-IPoolManager constant POOL_MANAGER = IPoolManager(0x000000000000000000000000000000000000dEaD); // TODO: replace with actual deployment address
+IPoolManager constant POOL_MANAGER = IPoolManager(0x4444444444444444444444444444444444444444); // TODO: replace with actual deployment address
 
 /// @notice Interface for the callback executed when an address unlocks the pool manager
 interface IUnlockCallback {

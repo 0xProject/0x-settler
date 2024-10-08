@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -342,7 +342,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
 
     function _pay(address payer, uint256 amount, bytes calldata permit2Data) private {
         if (payer == address(this)) {
-            IERC20(address(uint160(bytes20(permit2Data)))).safeTransfer(_operator(), amount);
+            IERC20(address(uint160(bytes20(permit2Data)))).safeTransfer(msg.sender, amount);
         } else {
             assert(payer == address(0));
             ISignatureTransfer.PermitTransferFrom calldata permit;
@@ -358,7 +358,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 sig.length := sub(permit2Data.length, 0x75)
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: amount});
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
     }

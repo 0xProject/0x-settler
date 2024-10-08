@@ -21,8 +21,36 @@ Master list of UniV3 forks:
   18. BlasterV3
   19. MonoSwapV3
   20. RogueXV1
+  21. SupSwapV3
+  22. Kim (Algebra-like)
+  23. SwapMode
 
 ---
+
+## [Unreleased]
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add actions for UniswapV4
+  * `UNISWAPV4`, `UNISWAPV4_VIP`, and `METATXN_UNISWAPV4_VIP`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    encode `fills`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    compute a perfect token hash function
+
+## 2024-10-08
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add `DODOV2` Dodo V2 action on Mantle
+* Deploy Settler to Mode network
+  * Add SupSwapV3 UniV3 fork to Mode
+  * Add Kim UniV3 (Algebra style) fork to Mode
+  * Add SwapModeV3 UniV3 fork to Mode
 
 ## 2024-09-09
 

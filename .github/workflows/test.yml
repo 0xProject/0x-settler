@@ -23,6 +23,9 @@ jobs:
       - name: Check contract sizes
         run: forge build --sizes
 
+      - name: Build UniswapV4
+        run: forge build lib/v4-core/src/PoolManager.sol
+
       - name: Run tests
         run: forge test
         env:

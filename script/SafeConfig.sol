@@ -20,6 +20,7 @@ library SafeConfig {
                 || block.chainid == 137 // polygon
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
+                || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 59144 // linea
@@ -41,6 +42,7 @@ library SafeConfig {
                 || block.chainid == 137 // polygon
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
+                || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 59144 // linea

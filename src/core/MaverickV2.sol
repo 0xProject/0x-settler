@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -258,7 +258,7 @@ abstract contract MaverickV2 is SettlerAbstract {
         }
         assert(tokenIn == IERC20(permit.permitted.token));
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: amountIn});
+            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn});
         _transferFrom(permit, transferDetails, data, isForwarded);
     }
 }

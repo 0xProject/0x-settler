@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
@@ -34,7 +34,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase {
         assert(block.chainid == 10 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override
@@ -80,7 +80,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase {
 contract OptimismSettler is Settler, OptimismMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
 
@@ -94,7 +94,7 @@ contract OptimismSettler is Settler, OptimismMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, OptimismMixin)
         returns (bool)
@@ -111,7 +111,7 @@ contract OptimismSettler is Settler, OptimismMixin {
 contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
     constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override
         DANGEROUS_freeMemory
@@ -121,7 +121,7 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, OptimismMixin)
         returns (bool)

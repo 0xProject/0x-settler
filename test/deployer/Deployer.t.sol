@@ -8,7 +8,7 @@ import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
 import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
 
-import "forge-std/Test.sol";
+import "@forge-std/Test.sol";
 
 contract Dummy {}
 

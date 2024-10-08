@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -168,7 +168,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
             deadline: deadline
         });
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: _operator(), requestedAmount: sellAmount});
+            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
         _transferFrom(permit, transferDetails, sig, isForwarded);
     }
 }
