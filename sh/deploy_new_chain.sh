@@ -158,19 +158,6 @@ metatransaction_description="$(jq -MRs < "$project_root"/sh/initial_description_
 metatransaction_description="${metatransaction_description:1:$((${#metatransaction_description} - 2))}"
 declare -r metatransaction_description
 
-# not quite so secret-s
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
-
 # safe constants
 declare safe_factory
 safe_factory="$(get_config safe.factory)"
