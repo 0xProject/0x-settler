@@ -23,6 +23,7 @@ Master list of UniV3 forks:
   20. RogueXV1
   21. SupSwapV3
   22. Kim (Algebra-like)
+  23. SwapMode
 
 ---
 
@@ -36,6 +37,7 @@ Master list of UniV3 forks:
 * Deploy Settler to Mode network
   * Add SupSwapV3 UniV3 fork to Mode
   * Add Kim UniV3 (Algebra style) fork to Mode
+  * Add SwapModeV3 UniV3 fork to Mode
 
 ## 2024-09-09
 
