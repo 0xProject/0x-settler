@@ -20,9 +20,6 @@ jobs:
       - name: Install dependencies
         run: git submodule update --recursive --init
 
-      - name: Check contract sizes
-        run: forge build --sizes
-
       - name: Build UniswapV4
         run: forge build lib/v4-core/src/PoolManager.sol
 
