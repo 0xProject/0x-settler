@@ -10,6 +10,13 @@ import {FreeMemory} from "../utils/FreeMemory.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
+import {
+    supSwapV3Factory,
+    supSwapV3InitHash,
+    supSwapV3ForkId,
+    ISupSwapV3Callback
+} from "../core/univ3forks/SupSwapV3.sol";
+
 import {MODE_SFS} from "./IModeSFS.sol";
 
 // Solidity inheritance is stupid
@@ -33,7 +40,7 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
     {
         return target == address(MODE_SFS);
     }
-    
+
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal
         virtual
@@ -48,9 +55,15 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
         internal
         pure
         override
-        returns (address, bytes32, uint32)
+        returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        revert UnknownForkId(forkId);
+        if (forkId == supSwapV3ForkId) {
+            factory = supSwapV3Factory;
+            initHash = supSwapV3InitHash;
+            callbackSelector = uint32(ISupSwapV3Callback.supV3SwapCallback.selector);
+        } else {
+            revert UnknownForkId(forkId);
+        }
     }
 }
 
@@ -106,7 +119,7 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
     {
         return ModeMixin._isRestrictedTarget(target) || Permit2PaymentBase._isRestrictedTarget(target);
     }
-    
+
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, bytes4 action, bytes calldata data)
         internal

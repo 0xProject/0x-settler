@@ -21,6 +21,7 @@ Master list of UniV3 forks:
   18. BlasterV3
   19. MonoSwapV3
   20. RogueXV1
+  21. SupSwapV3
 
 ---
 
@@ -31,6 +32,7 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add `DODOV2` Dodo V2 action on Mantle
+* Add SupSwapV3 UniV3 fork to Mode
 
 ## 2024-09-09
 
