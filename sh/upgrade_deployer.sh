@@ -198,8 +198,12 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
     sleep 60
 
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
-    if (( chainid != 81457 )) && (( chainid != 59144 )); then # sourcify doesn't support Blast or Linea
+    if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
+        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    else
+        forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
+    fi
+    if (( chainid != 81457 )); then # sourcify doesn't support Blast
         forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
     fi
 fi

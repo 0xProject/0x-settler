@@ -170,7 +170,7 @@ else
     forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 fi
 
-if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
+if (( chainid != 81457 )) ; then # sourcify doesn't support Blast
     forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 fi
 
