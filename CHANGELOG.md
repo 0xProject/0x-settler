@@ -39,6 +39,7 @@ Master list of UniV3 forks:
     encode `fills`
   * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
     compute a perfect token hash function
+* Add `msgSender()(address)` accessor on Base to retrieve the current taker
 
 ## 2024-10-08
 
