@@ -1327,7 +1327,7 @@ declare txid
 # you might need to add the `--gas-price` and/or `--gas-limit` flags here; some chains are weird about that
 txid="$(cast send --json --rpc-url "$rpc_url" --chain $chainid --from $deployer_eoa --create "$(forge inspect src/ChainCompatibility.sol:ChainCompatibility bytecode)" | jq -rM .transactionHash)"
 declare -r txid
-cast receipt --json --rpc-url "$rpc_url" --chain $chainid $txid | jq -r '.logs[] | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }'
+cast receipt --json --rpc-url "$rpc_url" $txid | jq -r '.logs[] | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }'
 ```
 
 The `stage` fields should be in order (0 through 3). Stage 0 is

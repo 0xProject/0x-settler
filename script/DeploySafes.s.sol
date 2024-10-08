@@ -227,7 +227,7 @@ contract DeploySafes is Script {
             (
                 takerSubmittedFeature,
                 bytes.concat(
-                    vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "Settler")), constructorArgs
+                    vm.getCode(string.concat(chainDisplayName, "Flat.sol:", chainDisplayName, "Settler")), constructorArgs
                 )
             )
         );
