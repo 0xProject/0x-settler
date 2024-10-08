@@ -1155,8 +1155,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             state.poolKey0.fee,
             state.poolKey0.tickSpacing,
             state.poolKey0.hooks,
-            uint24(0),
-            new bytes(0)
+            uint24(0)
         );
         fills[1] = abi.encodePacked(
             uint16(10_000),
@@ -1165,8 +1164,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             state.poolKey1.fee,
             state.poolKey1.tickSpacing,
             state.poolKey1.hooks,
-            uint24(0),
-            new bytes(0)
+            uint24(0)
         );
         fills[2] = abi.encodePacked(
             uint16(10_000),
@@ -1176,9 +1174,36 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             state.poolKey2.fee,
             state.poolKey2.tickSpacing,
             state.poolKey2.hooks,
-            uint24(0),
-            new bytes(0)
+            uint24(0)
         );
+        bytes memory fillsCat;
+        // This is basically `fillsCat = bytes.concat(fills[0], fills[1], fills[2])`, but it doesn't
+        // cause a stack-too-deep error
+        assembly ("memory-safe") {
+            fillsCat := mload(0x40)
+            mstore(
+                fillsCat,
+                add(mload(mload(add(0x20, fills))), add(mload(mload(add(0x40, fills))), mload(mload(add(0x60, fills)))))
+            )
+            mcopy(add(0x20, fillsCat), add(0x20, mload(add(0x20, fills))), mload(mload(add(0x20, fills))))
+            mcopy(
+                add(mload(mload(add(0x20, fills))), add(0x20, fillsCat)),
+                add(0x20, mload(add(0x40, fills))),
+                mload(mload(add(0x40, fills)))
+            )
+            mcopy(
+                add(mload(mload(add(0x40, fills))), add(mload(mload(add(0x20, fills))), add(0x20, fillsCat))),
+                add(0x20, mload(add(0x60, fills))),
+                mload(mload(add(0x60, fills)))
+            )
+            mstore(
+                0x40,
+                add(
+                    mload(mload(add(0x60, fills))),
+                    add(mload(mload(add(0x40, fills))), add(mload(mload(add(0x20, fills))), add(0x20, fillsCat)))
+                )
+            )
+        }
         (, uint256 buyTokenBalanceAfter) = swapGeneric(
             state.sellToken,
             state.sellAmount,
@@ -1188,7 +1213,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             state.buyTokenBalanceBefore,
             state.hashMul,
             state.hashMod,
-            bytes.concat(fills[0], fills[1], fills[2])
+            fillsCat
         );
         assertEq(buyTokenBalanceAfter, state.buyTokenBalanceBefore + state.buyAmount);
     }
