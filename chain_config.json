@@ -396,6 +396,7 @@
     "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
-    "minGasPriceGwei": 1
+    "minGasPriceGwei": 1,
+    "blockscoutApi": "https://explorer.mode.network/api"
   }
 }
