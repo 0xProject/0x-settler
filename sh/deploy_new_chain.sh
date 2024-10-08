@@ -294,21 +294,11 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     echo 'Verifying pause Safe module' >&2
 
-    if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
-        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
-    else
-        forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
-    fi
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    verify_contract "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
     echo 'Verified Safe module -- now verifying Deployer implementation' >&2
 
-    if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
-        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" "$deployer_impl" --constructor-args "$(cast abi-encode 'constructor(uint256)' 1)" src/deployer/Deployer.sol:Deployer
-    else
-        forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" "$deployer_impl" --constructor-args "$(cast abi-encode 'constructor(uint256)' 1)" src/deployer/Deployer.sol:Deployer
-    fi
-    forge verify-contract --watch --chain $chainid --verifier sourcify "$deployer_impl" src/deployer/Deployer.sol:Deployer
+    verify_contract "$(cast abi-encode 'constructor(uint256)' 1)" "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
     echo 'Run ./sh/verify_settler.sh to verify newly-deployed Settlers' >&2
 fi

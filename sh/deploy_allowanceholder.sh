@@ -152,15 +152,7 @@ forge create --from "$(get_secret allowanceHolder deployer)" --private-key "$(ge
 
 sleep 1m
 
-if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
-    forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-else
-    forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-fi
-
-if (( chainid != 81457 )) ; then # sourcify doesn't support Blast
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-fi
+verify_contract 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
