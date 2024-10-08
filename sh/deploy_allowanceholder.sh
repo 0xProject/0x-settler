@@ -167,11 +167,11 @@ sleep 1m
 if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
     forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 else
-    forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+    forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 fi
 
 if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain $chainid --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 fi
 
 echo 'Deployment is complete' >&2
