@@ -48,7 +48,7 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
         internal
         pure
         override
-        returns (address factory, bytes32 initHash, uint32 callbackSelector)
+        returns (address, bytes32, uint32)
     {
         revert UnknownForkId(forkId);
     }
