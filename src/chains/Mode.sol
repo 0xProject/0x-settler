@@ -16,6 +16,12 @@ import {
     supSwapV3ForkId,
     ISupSwapV3Callback
 } from "../core/univ3forks/SupSwapV3.sol";
+import {
+    kimFactory,
+    kimInitHash,
+    kimForkId
+} from "../core/univ3forks/Kim.sol";
+import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 
 import {MODE_SFS} from "./IModeSFS.sol";
 
@@ -61,6 +67,10 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
             factory = supSwapV3Factory;
             initHash = supSwapV3InitHash;
             callbackSelector = uint32(ISupSwapV3Callback.supV3SwapCallback.selector);
+        } else if (forkId == kimForkId) {
+            factory = kimFactory;
+            initHash = kimInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
