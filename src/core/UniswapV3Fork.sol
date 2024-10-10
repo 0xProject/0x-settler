@@ -334,8 +334,15 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     /// @param amount1Delta Token1 amount owed.
     /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: payer, sellToken, (optionally: permit[0x20:], isForwarded, sig)
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) private {
-        address payer = address(uint160(bytes20(data)));
-        data = data[0x14:];
+        address payer;
+        assembly ("memory-safe") {
+            payer := shr(0x60, calldataload(data.offset))
+            data.length := sub(data.length, 0x14)
+            data.offset := add(0x14, data.offset)
+            // We don't check for underflow/array-out-of-bounds here because the trusted inithash
+            // ensures that `data` was passed unmodified from `_updateSwapCallbackData`. Therefore,
+            // it is at least 40 bytes long.
+        }
         uint256 sellAmount = amount0Delta > 0 ? uint256(amount0Delta) : uint256(amount1Delta);
         _pay(payer, sellAmount, data);
     }
