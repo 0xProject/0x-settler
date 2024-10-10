@@ -54,7 +54,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     ///      same name in `IAllowanceHolder`. The arguments and return value
     ///      have the same meaning as documented there.
     function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
-        internal
+        private
         returns (bytes memory result)
     {
         // This contract has no special privileges, except for the allowances it
@@ -93,7 +93,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     /// @dev This provides the implementation of the function of the same name
     ///      in `IAllowanceHolder`. The arguments have the same meaning as
     ///      documented there.
-    function transferFrom(address token, address owner, address recipient, uint256 amount) internal {
+    function transferFrom(address token, address owner, address recipient, uint256 amount) private {
         // `msg.sender` is the assumed and later validated `operator`.
         TSlot allowance = _ephemeralAllowance(msg.sender, owner, token);
         // We validate the ephemeral allowance for the 3-tuple of `operator`
