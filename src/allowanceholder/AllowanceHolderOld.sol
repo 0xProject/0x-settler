@@ -6,17 +6,6 @@ import {TransientStorageMock} from "./TransientStorageMock.sol";
 
 /// @custom:security-contact security@0x.org
 contract AllowanceHolder is TransientStorageMock, AllowanceHolderBase {
-    /// @inheritdoc AllowanceHolderBase
-    function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
-        internal
-        override
-        returns (bytes memory)
-    {
-        (bytes memory result,, TSlot allowance) = _exec(operator, token, amount, target, data);
-        _set(allowance, 0);
-        return result;
-    }
-
     // This is here as a deploy-time check that AllowanceHolder doesn't have any
     // state. If it did, it would interfere with TransientStorageMock.
     bytes32 private _sentinel;
