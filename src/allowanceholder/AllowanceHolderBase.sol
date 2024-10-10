@@ -76,14 +76,14 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             calldatacopy(result, data.offset, data.length)
             // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
             mstore(add(result, data.length), shl(0x60, sender))
-            let success := call(gas(), target, callvalue(), result, add(data.length, 0x14), 0x00, 0x00)
-            let ptr := add(result, 0x20)
+            let success := call(gas(), target, callvalue(), result, add(0x14, data.length), 0x00, 0x00)
+            let ptr := add(0x20, result)
             returndatacopy(ptr, 0x00, returndatasize())
             switch success
             case 0 { revert(ptr, returndatasize()) }
             default {
                 mstore(result, returndatasize())
-                mstore(0x40, add(ptr, returndatasize()))
+                mstore(0x40, add(returndatasize(), ptr))
             }
         }
 
