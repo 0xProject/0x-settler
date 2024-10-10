@@ -188,7 +188,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             // balanceOf(address) reverts with a single byte of returndata,
             // making it more gas efficient to pass the `_rejectERC20` check
             assembly ("memory-safe") {
-                revert(0x00, 0x01)
+                return(0x00, 0x01)
             }
         } else {
             // emulate standard Solidity behavior
