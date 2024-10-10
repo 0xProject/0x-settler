@@ -179,6 +179,8 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             // return result;
             assembly ("memory-safe") {
                 let returndata := sub(result, 0x20)
+                // This is technically not "memory-safe", but manual examination
+                // of the compiled bytecode shows that it's OK
                 mstore(returndata, 0x20)
                 return(returndata, add(0x40, mload(result)))
             }
