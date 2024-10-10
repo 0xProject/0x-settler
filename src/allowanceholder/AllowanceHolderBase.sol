@@ -21,9 +21,14 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         // (e.g. tokens with blacklists), we choose to copy the first argument
         // out of `data` and mask it as an address. If there isn't enough
         // `data`, we use 0xdead instead.
-        address target;
-        if (data.length > 0x10) {
-            target = address(uint160(bytes20(data[0x10:])));
+        address target; // = address(uint160(bytes20(data[0x10:])));
+        assembly ("memory-safe") {
+            target := calldataload(data.offset)
+            // `shl(0x08, data.length)` can't overflow because we're going to
+            // `calldatacopy(..., data.length)` later. It would OOG.
+            let mask := shr(shl(0x08, data.length), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            // Zero the low bits of `target` if `data` is short
+            target := and(not(mask), target)
         }
         // EIP-1352 (not adopted) specifies 0xffff as the maximum precompile
         if (target <= address(0xffff)) {
