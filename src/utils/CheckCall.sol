@@ -48,10 +48,11 @@ library CheckCall {
                         // Check whether the call reverted due to out-of-gas.
                         // https://eips.ethereum.org/EIPS/eip-150
                         // https://ronan.eth.limo/blog/ethereum-gas-dangers/
-                        // We apply the "all but one 64th" rule twice because `target` could
-                        // plausibly be a proxy. We apply it only twice because we assume only a
-                        // single level of indirection.
+                        // We apply the "all but one 64th" rule three times because `target` could
+                        // plausibly be a proxy. We apply it only three because we assume only two
+                        // levels of indirection.
                         let remainingGas := shr(0x06, beforeGas)
+                        remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
                         remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
                         if iszero(lt(remainingGas, afterGas)) {
                             // The call failed due to not enough gas left. We deliberately consume
