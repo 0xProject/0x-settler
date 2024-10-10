@@ -349,7 +349,11 @@ abstract contract UniswapV3Fork is SettlerAbstract {
 
     function _pay(address payer, uint256 amount, bytes calldata permit2Data) private {
         if (payer == address(this)) {
-            IERC20(address(uint160(bytes20(permit2Data)))).safeTransfer(msg.sender, amount);
+            IERC20 token;
+            assembly ("memory-safe") {
+                token := shr(0x60, calldataload(permit2Data.offset))
+            }
+            token.safeTransfer(msg.sender, amount);
         } else {
             assert(payer == address(0));
             ISignatureTransfer.PermitTransferFrom calldata permit;
