@@ -49,8 +49,8 @@ library CheckCall {
                         // https://eips.ethereum.org/EIPS/eip-150
                         // https://ronan.eth.limo/blog/ethereum-gas-dangers/
                         // We apply the "all but one 64th" rule three times because `target` could
-                        // plausibly be a proxy. We apply it only three because we assume only two
-                        // levels of indirection.
+                        // plausibly be a proxy. We apply it only three times because we assume only
+                        // two levels of indirection.
                         let remainingGas := shr(0x06, beforeGas)
                         remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
                         remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
