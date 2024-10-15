@@ -90,7 +90,7 @@ abstract contract Velodrome is SettlerAbstract {
                         }
                         // `y + 1` does not give us the condition `k >= xy`, so we have to do at
                         // least 1 more iteration to find a satisfactory `y` value
-                        dy = 1;
+                        dy = 2;
                     }
                     y += dy;
                 } else {
@@ -108,7 +108,13 @@ abstract contract Velodrome is SettlerAbstract {
                             // As a result, we can't return `y - 1` even it's closer to the correct answer
                             return y;
                         }
-                        dy = 1;
+                        if (k_next == xy) {
+                            return y - 1;
+                        }
+                        // It's possible that `y - 1` is the correct answer. To know that, we must
+                        // check that `y - 2` gives `k < xy`. We must do at least 1 more iteration
+                        // to determine this.
+                        dy = 2;
                     }
                     y -= dy;
                 }
