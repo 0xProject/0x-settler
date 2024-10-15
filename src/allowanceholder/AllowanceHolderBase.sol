@@ -190,7 +190,17 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
                 // This is technically not "memory-safe", but manual examination
                 // of the compiled bytecode shows that it's OK.
                 mstore(returndata, 0x20)
-                return(returndata, add(0x40, mload(result)))
+
+                // Pad `returndata` to a multiple of 32 bytes.
+                let len := mload(result)
+                let m := and(0x1f, len)
+                if m {
+                    mstore(add(len, add(0x20, result)), 0x00)
+                    len := add(sub(0x20, m), len)
+                }
+
+                // Return the ABIEncoding of `result`.
+                return(returndata, add(0x40, len))
             }
         } else if (selector == uint256(uint32(IERC20.balanceOf.selector))) {
             // `balanceOf(address)` returns a single byte of returndata, making
