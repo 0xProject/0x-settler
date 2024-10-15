@@ -635,7 +635,7 @@ comparison.
 
 | DODO V1 | DEX     | Pair      | Gas    | %     |
 | ------- | ------- | --------- | ------ | ----- |
-| Settler | DODO V1 | USDC/WETH | 308591 | 0.00% |
+| Settler | DODO V1 | USDC/WETH | 308618 | 0.00% |
 |         |         |           |        |       |
 |         |         |           |        |       |
 |         |         |           |        |       |
@@ -677,7 +677,7 @@ comparison.
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
 | no fee                          | RFQ | USDC/WETH | 106502 | 0.00%  |
-| proportional fee                | RFQ | USDC/WETH | 154459 | 45.03% |
+| proportional fee                | RFQ | USDC/WETH | 154456 | 45.03% |
 | fixed fee                       | RFQ | USDC/WETH | 122775 | 15.28% |
 |                                 |     |           |        |        |
 | no fee                          | RFQ | DAI/WETH  | 87028  | 0.00%  |
