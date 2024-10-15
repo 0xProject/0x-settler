@@ -21,6 +21,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         // (e.g. tokens with blacklists), we choose to copy the first argument
         // out of `data` and mask it as an address. If there isn't enough
         // `data`, we use 0xdead instead.
+
         address target; // = address(uint160(bytes20(data[0x10:])));
         if (data.length >= 4) {
             assembly ("memory-safe") {
@@ -41,7 +42,15 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             target = address(0xdead);
         }
 
-        bytes memory testData = abi.encodeCall(IERC20.balanceOf, target);
+        bytes memory testData; // = abi.encodeCall(IERC20.balanceOf, target);
+        assembly ("memory-safe") {
+            testData := mload(0x40)
+            mstore(add(0x04, testData), 0x70a08231)
+            mstore(add(0x24, testData), and(0xffffffffffffffffffffffffffffffffffffffff, target))
+            mstore(testData, 0x24)
+            mstore(0x40, add(0x60, testData))
+        }
+
         if (maybeERC20.checkCall(testData, 0x20)) revert ConfusedDeputy();
     }
 
@@ -77,7 +86,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         assembly ("memory-safe") {
             result := mload(0x40)
             calldatacopy(result, data.offset, data.length)
-            // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+            // ERC-2771 style `msgSender` forwarding https://eips.ethereum.org/EIPS/eip-2771
             mstore(add(result, data.length), shl(0x60, sender))
             let success := call(gas(), target, callvalue(), result, add(0x14, data.length), 0x00, 0x00)
             let ptr := add(0x20, result)
