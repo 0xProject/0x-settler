@@ -51,7 +51,12 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             mstore(0x40, add(0x60, testData))
         }
 
-        if (maybeERC20.checkCall(testData, 0x20)) revert ConfusedDeputy();
+        if (maybeERC20.checkCall(testData, 0x20)) {
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe758b8d5) // Selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
+        }
     }
 
     function _msgSender() private view returns (address sender) {
