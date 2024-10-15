@@ -83,15 +83,13 @@ abstract contract Velodrome is SettlerAbstract {
                     //         In this case, we need to increase y by 1
                     uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
                     if (dy == 0) {
-                        if (k == xy) {
-                            // We found the correct answer. Return y
-                            return y;
-                        }
-                        if (_k(x0, y + 1, x0_squared) > xy) {
-                            // If _k(x0, y + 1) > xy, then we are close to the correct answer.
+                        if (_k(x0, y + 1, x0_squared) >= xy) {
+                            // If _k(x0, y + 1) >= xy, then we are close to the correct answer.
                             // There's no closer answer than y + 1
                             return y + 1;
                         }
+                        // `y + 1` does not give us the condition `k >= xy`, so we have to do at
+                        // least 1 more iteration to find a satisfactory `y` value
                         dy = 1;
                     }
                     y += dy;
