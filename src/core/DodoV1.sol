@@ -289,8 +289,12 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
 
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
-        IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).safeApprove(0xC9f93163c99695c6526b799EbcA2207Fdf7D61aD, type(uint256).max);
-        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48).safeApprove(0xC9f93163c99695c6526b799EbcA2207Fdf7D61aD, type(uint256).max);
+        IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).safeApprove(
+            0xC9f93163c99695c6526b799EbcA2207Fdf7D61aD, type(uint256).max
+        );
+        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48).safeApprove(
+            0xC9f93163c99695c6526b799EbcA2207Fdf7D61aD, type(uint256).max
+        );
     }
 
     function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)

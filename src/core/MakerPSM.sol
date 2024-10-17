@@ -42,7 +42,9 @@ abstract contract MakerPSM is SettlerAbstract {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
         DAI.safeApprove(0xf6e72Db5454dd049d0788e411b06CfAF16853042, type(uint256).max);
-        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48).safeApprove(IPSM(0xf6e72Db5454dd049d0788e411b06CfAF16853042).gemJoin(), type(uint256).max);
+        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48).safeApprove(
+            IPSM(0xf6e72Db5454dd049d0788e411b06CfAF16853042).gemJoin(), type(uint256).max
+        );
     }
 
     function sellToMakerPsm(
