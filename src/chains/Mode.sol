@@ -11,16 +11,9 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
-    supSwapV3Factory,
-    supSwapV3InitHash,
-    supSwapV3ForkId,
-    ISupSwapV3Callback
+    supSwapV3Factory, supSwapV3InitHash, supSwapV3ForkId, ISupSwapV3Callback
 } from "../core/univ3forks/SupSwapV3.sol";
-import {
-    kimFactory,
-    kimInitHash,
-    kimForkId
-} from "../core/univ3forks/Kim.sol";
+import {kimFactory, kimInitHash, kimForkId} from "../core/univ3forks/Kim.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {swapModeV3Factory, swapModeV3InitHash, swapModeV3ForkId} from "../core/univ3forks/SwapModeV3.sol";
 import {IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
@@ -91,12 +84,7 @@ contract ModeSettler is Settler, ModeMixin {
         return super._dispatchVIP(action, data);
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        override(Settler, ModeMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure override(Settler, ModeMixin) returns (bool) {
         return ModeMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
     }
 

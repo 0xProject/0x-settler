@@ -126,14 +126,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
                 ISettlerActions.MAKERPSM,
-                (
-                    FROM,
-                    address(USDC),
-                    10_000,
-                    address(makerPsm()),
-                    makerPsmBuyGem(),
-                    amountOut()
-                )
+                (FROM, address(USDC), 10_000, address(makerPsm()), makerPsmBuyGem(), amountOut())
             )
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
@@ -166,14 +159,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
             abi.encodeCall(
                 ISettlerActions.MAKERPSM,
-                (
-                    FROM,
-                    address(USDC),
-                    10_000,
-                    address(makerPsm()),
-                    makerPsmBuyGem(),
-                    amountOut()
-                )
+                (FROM, address(USDC), 10_000, address(makerPsm()), makerPsmBuyGem(), amountOut())
             )
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
