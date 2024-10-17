@@ -147,6 +147,9 @@ contract MakerPSMUnitTest is Utils, Test {
     address TOKEN = _createNamedRejectionDummy("TOKEN");
 
     function setUp() public {
+        address litepsm = 0xf6e72Db5454dd049d0788e411b06CfAF16853042;
+        _mockExpectCall(address(DAI), abi.encodeWithSelector(IERC20.approve.selector, litepsm, type(uint256).max), abi.encode(true));
+        _mockExpectCall(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, abi.encodeWithSelector(IERC20.approve.selector, litepsm, type(uint256).max), abi.encode(true));
         psm = new MakerPSMDummy();
     }
 

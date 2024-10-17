@@ -43,7 +43,7 @@ abstract contract MakerPSM is SettlerAbstract {
         assert(block.chainid == 1 || block.chainid == 31337);
         DAI.safeApprove(0xf6e72Db5454dd049d0788e411b06CfAF16853042, type(uint256).max);
         IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48).safeApprove(
-            IPSM(0xf6e72Db5454dd049d0788e411b06CfAF16853042).gemJoin(), type(uint256).max
+            0xf6e72Db5454dd049d0788e411b06CfAF16853042 /* LitePSM is its own join */, type(uint256).max
         );
     }
 
@@ -79,7 +79,7 @@ abstract contract MakerPSM is SettlerAbstract {
                 assembly ("memory-safe") {
                     // `returndatacopy` causes an exceptional revert if there's an out-of-bounds access.
                     // "LitePSM USDC A" (0xf6e72Db5454dd049d0788e411b06CfAF16853042) returns the amount out
-                    // "MCD PSM USDC A" (0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A) returns nothing
+                    // "MCD PSM USDC A" (0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A, no longer in use) returns nothing
                     // When interacting with "MCD PSM USDC A", `amountOutMin` must be zero
                     returndatacopy(0x00, 0x00, 0x20)
                     buyAmount := mload(0x00)
