@@ -316,7 +316,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         uint256 hashMod,
         bytes memory fills,
         uint256 amountOutMin
-    ) internal returns (uint256) {
+    ) internal returns (uint256 buyAmount) {
         if (amountOutMin > uint128(type(int128).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -355,15 +355,16 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore(0x40, add(data, add(0xd3, pathLen)))
         }
-        return abi.decode(
-            abi.decode(
-                _setOperatorAndCall(
-                    address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
-                ),
-                (bytes)
-            ),
-            (uint256)
+        bytes memory encodedBuyAmount = _setOperatorAndCall(
+            address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
+        // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
+        assembly ("memory-safe") {
+            // We can skip all the checks performed by `abi.decode` because we know that this is the
+            // verbatim result from `unlockCallback` and that `unlockCallback` encoded the buy
+            // amount correctly.
+            buyAmount := mload(add(0x60, encodedBuyAmount))
+        }
     }
 
     function sellToUniswapV4VIP(
@@ -375,7 +376,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
-    ) internal returns (uint256) {
+    ) internal returns (uint256 buyAmount) {
         if (amountOutMin > uint128(type(int128).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -429,15 +430,16 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             mstore8(add(0xa8, data), feeOnTransfer)
         }
-        return abi.decode(
-            abi.decode(
-                _setOperatorAndCall(
-                    address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
-                ),
-                (bytes)
-            ),
-            (uint256)
+        bytes memory encodedBuyAmount = _setOperatorAndCall(
+            address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
+        // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
+        assembly ("memory-safe") {
+            // We can skip all the checks performed by `abi.decode` because we know that this is the
+            // verbatim result from `unlockCallback` and that `unlockCallback` encoded the buy
+            // amount correctly.
+            buyAmount := mload(add(0x60, encodedBuyAmount))
+        }
     }
 
     function _uniV4Callback(bytes calldata data) private returns (bytes memory) {
