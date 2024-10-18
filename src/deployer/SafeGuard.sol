@@ -54,6 +54,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     event TimelockUpdated(uint256 oldDelay, uint256 newDelay);
     event SafeTransactionQueued(
         bytes32 indexed txHash,
+        uint256 timelockEnd,
         address to,
         uint256 value,
         bytes data,
@@ -67,10 +68,11 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     );
 
     error PermissionDenied();
-    error TimelockNotElapsed(uint256 timelockEnd);
+    error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
+    error NotQueued(bytes32 txHash);
 
     uint256 public delay;
-    mapping(bytes32 => uint256) public queuedAt;
+    mapping(bytes32 => uint256) public timelockEnd;
 
     ISafeMinimal public immutable safe;
     bytes32 internal constant evmVersionDummyInitHash = bytes32(0); // TODO: ensure London hardfork
@@ -122,11 +124,15 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         unchecked {
             nonce = _safe.nonce() - 1;
         }
-        uint256 timelockEnd = queuedAt[_safe.getTransactionHash(
+        bytes32 txHash = _safe.getTransactionHash(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
-        )] + delay;
-        if (block.timestamp >= timelockEnd) {
-            revert TimelockNotElapsed(timelockEnd);
+        );
+        uint256 _timelockEnd = timelockEnd[txHash];
+        if (_timelockEnd == 0) {
+            revert NotQueued(txHash);
+        }
+        if (block.timestamp <= _timelockEnd) {
+            revert TimelockNotElapsed(txHash, _timelockEnd);
         }
     }
 
@@ -148,9 +154,10 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         bytes32 txHash = _safe.getTransactionHash(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
-        queuedAt[txHash] = block.timestamp;
+        uint256 _timelockEnd = block.timestamp + delay;
+        timelockEnd[txHash] = _timelockEnd;
         emit SafeTransactionQueued(
-            txHash, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
+            txHash, _timelockEnd, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
     }
 
