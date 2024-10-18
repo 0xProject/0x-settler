@@ -7,7 +7,7 @@ enum Operation {
 }
 
 interface ISafeMinimal {
-    function getTransactionHash(
+    function encodeTransactionData(
         address to,
         uint256 value,
         bytes calldata data,
@@ -18,11 +18,38 @@ interface ISafeMinimal {
         address gasToken,
         address payable refundReceiver,
         uint256 nonce
-    ) external view returns (bytes32);
+    ) external view returns (bytes memory);
 
     function nonce() external view returns (uint256);
 
     function isOwner(address) external view returns (bool);
+}
+
+library SafeLib {
+    function getTransactionHash(
+        ISafeMinimal safe,
+        address to,
+        uint256 value,
+        bytes calldata data,
+        Operation operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address payable refundReceiver,
+        uint256 nonce
+    ) internal view returns (bytes32) {
+        return getTransactionHash(
+            safe,
+            safe.encodeTransactionData(
+                to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
+            )
+        );
+    }
+
+    function getTransactionHash(ISafeMinimal, bytes memory signingData) internal pure returns (bytes32) {
+        return keccak256(signingData);
+    }
 }
 
 interface IGuard {
@@ -53,6 +80,8 @@ contract EvmVersionDummy {
 }
 
 contract ZeroExSettlerDeployerSafeGuard is IGuard {
+    using SafeLib for ISafeMinimal;
+
     event TimelockUpdated(uint256 oldDelay, uint256 newDelay);
     event SafeTransactionQueued(
         bytes32 indexed txHash,
