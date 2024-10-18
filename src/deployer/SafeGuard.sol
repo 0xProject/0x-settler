@@ -16,8 +16,8 @@ interface ISafeMinimal {
         uint256 baseGas,
         uint256 gasPrice,
         address gasToken,
-        address refundReceiver,
-        uint256 _nonce
+        address payable refundReceiver,
+        uint256 nonce
     ) external view returns (bytes32);
 
     function nonce() external view returns (uint256);
@@ -130,7 +130,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
     }
 
-    function checkAfterExecution(bytes32 txHash, bool success) external override onlySafe {}
+    function checkAfterExecution(bytes32 txHash, bool success) external view override onlySafe {}
 
     function queue(
         address to,
