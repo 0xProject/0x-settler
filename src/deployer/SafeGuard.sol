@@ -199,6 +199,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
                 if (selector == uint32(this.unlock.selector)) {
                     uint256 ownerCount = abi.decode(_safe.getStorageAt(_OWNER_COUNT_SLOT, 1), (uint256));
                     require(!_safe.isOwner(address(this)));
+                    // `txHashData` is used here for an outdated, nonstandard variant of nested
+                    // ERC1271 signatures that passes the signing hash as `bytes` instead of as
+                    // `bytes32`
                     _safe.checkNSignatures(txHash, txHashData, signatures, ownerCount);
                     return;
                 }
