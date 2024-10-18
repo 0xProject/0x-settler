@@ -165,6 +165,12 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         _;
     }
 
+    function _requiredLockedDown() private view {
+        if (lockedDownBy == address(0)) {
+            revert NotLockedDown();
+        }
+    }
+
     function checkTransaction(
         address to,
         uint256 value,
@@ -179,6 +185,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address // msgSender
     ) external view override onlySafe /* notLockedDown is on checkAfterExecution */ {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
+        // The nonce has already been incremented past the value used in the currently-executing
+        // transaction. We decrement it to get the value that was hashed to get the `txHash`.
         uint256 nonce;
         unchecked {
             nonce = _safe.nonce() - 1;
@@ -187,6 +196,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
         bytes32 txHash = _safe.getTransactionHash(txHashData);
+
+        // There are 2 special cases to handle (transactions that don't require doing through the
+        // timelock). A transaction that queues another transaction, and unlocking after a lockdown.
         if (to == address(this)) {
             if (data.length >= 4) {
                 uint256 selector;
@@ -197,8 +209,19 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
                     return;
                 }
                 if (selector == uint32(this.unlock.selector)) {
-                    uint256 ownerCount = abi.decode(_safe.getStorageAt(_OWNER_COUNT_SLOT, 1), (uint256));
+                    // We have to check that we're locked down bother here *and* in `unlock()` to
+                    // ensure that the stored approved hash that is registered prior to calling
+                    // `lockDown()` can't be wasted before `lockDown()` is actually called.
+                    _requiredLockedDown();
+
+                    // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to
+                    // the owner count. The owner who called `lockDown()` has already signed (to
+                    // prevent griefing). Due to a quirk of how `checkNSignatures` works (sometimes
+                    // validating `msg.sender` for gas optimization), we could end up in a bizarre
+                    // situation if `address(this)` is an owner. Let's just prohibit that entirely.
                     require(!_safe.isOwner(address(this)));
+                    uint256 ownerCount = abi.decode(_safe.getStorageAt(_OWNER_COUNT_SLOT, 1), (uint256));
+
                     // `txHashData` is used here for an outdated, nonstandard variant of nested
                     // ERC1271 signatures that passes the signing hash as `bytes` instead of as
                     // `bytes32`
@@ -295,9 +318,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function unlock() external onlySafe {
-        if (lockedDownBy == address(0)) {
-            revert NotLockedDown();
-        }
+        _requiredLockedDown();
         delete lockedDownBy;
         emit Unlocked();
     }
