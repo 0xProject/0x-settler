@@ -21,6 +21,8 @@ interface ISafeMinimal {
     ) external view returns (bytes32);
 
     function nonce() external view returns (uint256);
+
+    function isOwner(address) external view returns (bool);
 }
 
 interface IGuard {
@@ -66,9 +68,11 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver,
         uint256 nonce
     );
+    event SafeTransactionCanceled(bytes32 indexed txHash);
 
     error PermissionDenied();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
+    error TimelockElapsed(bytes32 txHash, uint256 timelockEnd);
     error NotQueued(bytes32 txHash);
 
     uint256 public delay;
@@ -92,6 +96,17 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
     modifier onlySafe() {
         _requireSafe();
+        _;
+    }
+
+    function _requireOwner() private view {
+        if (!safe.isOwner(msg.sender)) {
+            revert PermissionDenied();
+        }
+    }
+
+    modifier onlyOwner() {
+        _requireOwner();
         _;
     }
 
@@ -166,5 +181,17 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     function setDelay(uint256 newDelay) external onlySafe {
         emit TimelockUpdated(delay, newDelay);
         delay = newDelay;
+    }
+
+    function cancel(bytes32 txHash) external onlyOwner {
+        uint256 _timelockEnd = timelockEnd[txHash];
+        if (_timelockEnd == 0) {
+            revert NotQueued(txHash);
+        }
+        if (block.timestamp > _timelockEnd) {
+            revert TimelockElapsed(txHash, _timelockEnd);
+        }
+        delete timelockEnd[txHash];
+        emit SafeTransactionCanceled(txHash);
     }
 }
