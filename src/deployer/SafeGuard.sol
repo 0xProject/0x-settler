@@ -261,8 +261,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             }
         }
 
-        // We're not in 1 of the 2 special cases. The checks that need to be performed here are 1)
-        // that the transaction was previously queued through `enqueue` and 2) that `delay` has
+        // We're not in either of the 2 special cases. The checks that need to be performed here are
+        // 1) that the transaction was previously queued through `enqueue` and 2) that `delay` has
         // elapsed since `enqueue` was called.
         {
             (bytes32 txHash,) =
