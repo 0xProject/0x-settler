@@ -329,9 +329,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         require(!safe.isOwner(address(this)));
 
         bytes32 txHash = lockDownTxHash();
+
+        // By requiring that the locker has preapproved the `txHash` for the call to `unlock`, we
+        // prevent a single rogue signer from bricking the Safe.
         if (safe.approvedHashes(msg.sender, txHash) != 1) {
             revert UnlockHashNotApproved(txHash);
         }
+
         lockedDownBy = msg.sender;
         emit LockDown(msg.sender, txHash);
     }
