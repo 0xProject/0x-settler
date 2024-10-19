@@ -171,7 +171,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         _;
     }
 
-    function _requiredLockedDown() private view {
+    function _requireLockedDown() private view {
         if (lockedDownBy == address(0)) {
             revert NotLockedDown();
         }
@@ -237,7 +237,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
                 // We have to check that we're locked down both here *and* in `unlock()` to
                 // ensure that the stored approved hash that is registered prior to calling
                 // `lockDown()` can't be wasted before `lockDown()` is actually called.
-                _requiredLockedDown();
+                _requireLockedDown();
 
                 // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to the
                 // owner count. The owner who called `lockDown()` has already signed (to prevent
@@ -368,7 +368,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function unlock() external onlySafe {
-        _requiredLockedDown();
+        _requireLockedDown();
         delete lockedDownBy;
         emit Unlocked();
     }
