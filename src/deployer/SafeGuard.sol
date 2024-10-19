@@ -131,11 +131,11 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     bytes32 internal constant _EVM_VERSION_DUMMY_INITHASH = bytes32(0); // TODO: ensure London hardfork
     uint256 internal constant _OWNER_COUNT_SLOT = 3;
 
-    constructor(address _safe) {
+    constructor(address _safe, uint256 _delay) {
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         safe = ISafeMinimal(_safe);
-        delay = 1 weeks;
-        emit TimelockUpdated(0, 1 weeks);
+        delay = _delay;
+        emit TimelockUpdated(0, _delay);
     }
 
     function _requireSafe() private view {
