@@ -20,6 +20,19 @@ interface ISafeMinimal {
         uint256 nonce
     ) external view returns (bytes memory);
 
+    function getTransactionHash(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        Operation operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address payable refundReceiver,
+        uint256 nonce
+    ) external view returns (bytes32);
+
     function checkNSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures, uint256 requiredSignatures)
         external
         view;
@@ -31,33 +44,6 @@ interface ISafeMinimal {
     function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
 
     function approvedHashes(address owner, bytes32 txHash) external view returns (uint256);
-}
-
-library SafeLib {
-    function getTransactionHash(
-        ISafeMinimal safe,
-        address to,
-        uint256 value,
-        bytes memory data,
-        Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address payable refundReceiver,
-        uint256 nonce
-    ) internal view returns (bytes32) {
-        return getTransactionHash(
-            safe,
-            safe.encodeTransactionData(
-                to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
-            )
-        );
-    }
-
-    function getTransactionHash(ISafeMinimal, bytes memory signingData) internal pure returns (bytes32) {
-        return keccak256(signingData);
-    }
 }
 
 interface IGuard {
@@ -88,8 +74,6 @@ contract EvmVersionDummy {
 }
 
 contract ZeroExSettlerDeployerSafeGuard is IGuard {
-    using SafeLib for ISafeMinimal;
-
     event TimelockUpdated(uint256 oldDelay, uint256 newDelay);
     event SafeTransactionEnqueued(
         bytes32 indexed txHash,
@@ -177,30 +161,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
     }
 
-    function _hashThisTx(
-        ISafeMinimal _safe,
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address payable refundReceiver
-    ) private view returns (bytes32 txHash, bytes memory txHashData) {
-        // The nonce has already been incremented past the value used in the currently-executing
-        // transaction. We decrement it to get the value that was hashed to get the `txHash`.
-        uint256 nonce;
-        unchecked {
-            nonce = _safe.nonce() - 1;
-        }
-        txHashData = _safe.encodeTransactionData(
-            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
-        );
-        txHash = _safe.getTransactionHash(txHashData);
-    }
-
     function checkTransaction(
         address to,
         uint256 value,
@@ -248,11 +208,21 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
                 // is an owner. Let's just prohibit that entirely.
                 require(!_safe.isOwner(address(this))); // TODO: the copy of this check in `lockDown()` may be sufficient
 
-                // `txHashData` is used here for an outdated, nonstandard variant of nested
-                // ERC1271 signatures that passes the signing hash as `bytes` instead of as
-                // `bytes32`
-                (bytes32 txHash, bytes memory txHashData) = _hashThisTx(
-                    _safe, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver
+                // The nonce has already been incremented past the value used in the
+                // currently-executing transaction. We decrement it to get the value that was hashed
+                // to get the `txHash`.
+                uint256 nonce = _safe.nonce() - 1;
+
+                // `txHashData` is used here for an outdated, nonstandard variant of nested ERC1271
+                // signatures that passes the signing hash as `bytes` instead of as
+                // `bytes32`. `txHash == keccak256(txHashData)`, but we would rather not make
+                // assumptions about the relationship than gas optimize. Perhaps in some bizarre
+                // world, the Safe may be upgraded so that this relationship no longer holds.
+                bytes32 txHash = _safe.getTransactionHash(
+                    to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
+                );
+                bytes memory txHashData = _safe.encodeTransactionData(
+                    to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
                 );
                 _safe.checkNSignatures(txHash, txHashData, signatures, ownerCount);
 
@@ -260,13 +230,16 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             }
         }
 
-        // We're not in either of the 2 special cases. The checks that need to be performed here are
-        // 1) that the safe is not locked down, 2) that the transaction was previously queued
-        // through `enqueue` and 3) that `delay` has elapsed since `enqueue` was called.
+        // We're not in either of the 2 special cases. This is the "normal" case. The checks that
+        // need to be performed here are 1) that the safe is not locked down, 2) that the
+        // transaction was previously queued through `enqueue` and 3) that `delay` has elapsed since
+        // `enqueue` was called.
         {
             _requireNotLockedDown();
-            (bytes32 txHash,) =
-                _hashThisTx(_safe, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver);
+            uint256 nonce = _safe.nonce() - 1;
+            bytes32 txHash = _safe.getTransactionHash(
+                to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
+            );
             if (txHash != nextTransaction.txHash) {
                 revert NotQueued(txHash);
             }
@@ -294,8 +267,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     ) external onlySafe {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
-        // This is not the same as `_hashThisTx` because we're hashing the _next_ transaction to be
-        // executed by the Safe, not the transaction _currently_ executing.
         uint256 nonce = _safe.nonce();
         bytes32 txHash = _safe.getTransactionHash(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
