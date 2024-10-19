@@ -203,11 +203,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
                 // griefing).
                 uint256 ownerCount = abi.decode(_safe.getStorageAt(_OWNER_COUNT_SLOT, 1), (uint256));
 
-                // Due to a quirk of how `checkNSignatures` works (sometimes validating `msg.sender`
-                // for gas optimization), we could end up in a bizarre situation if `address(this)`
-                // is an owner. Let's just prohibit that entirely.
-                require(!_safe.isOwner(address(this))); // TODO: the copy of this check in `lockDown()` may be sufficient
-
                 // The nonce has already been incremented past the value used in the
                 // currently-executing transaction. We decrement it to get the value that was hashed
                 // to get the `txHash`.
@@ -327,7 +322,12 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function lockDown() external onlyOwner notLockedDown {
+        // Due to a quirk of how `checkNSignatures` works (called as a precondition to `unlock`;
+        // sometimes it validates `msg.sender` instead of a signature, for gas optimization), we
+        // could end up in a bizarre situation if `address(this)` is an owner. Let's just prohibit
+        // that entirely.
         require(!safe.isOwner(address(this)));
+
         bytes32 txHash = lockDownTxHash();
         if (safe.approvedHashes(msg.sender, txHash) != 1) {
             revert UnlockHashNotApproved(txHash);
