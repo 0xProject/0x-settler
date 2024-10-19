@@ -213,7 +213,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver,
         bytes calldata signatures,
         address // msgSender
-    ) external override onlySafe /* `notLockedDown` is on `checkAfterExecution(...)` */ {
+    ) external override onlySafe {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
         // There are 2 special cases to handle (transactions that don't require doing through the
@@ -225,8 +225,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             }
             uint256 selector = uint32(bytes4(data));
             if (selector == uint32(this.enqueue.selector)) {
-                // A simple call to `enqueue` is always allowed. This is harmless and any additional
-                // checks will be performed when the queue'd call is attempted.
+                _requireNotLockedDown();
                 return;
             }
             if (selector == uint32(this.unlock.selector)) {
@@ -262,9 +261,10 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
 
         // We're not in either of the 2 special cases. The checks that need to be performed here are
-        // 1) that the transaction was previously queued through `enqueue` and 2) that `delay` has
-        // elapsed since `enqueue` was called.
+        // 1) that the safe is not locked down, 2) that the transaction was previously queued
+        // through `enqueue` and 3) that `delay` has elapsed since `enqueue` was called.
         {
+            _requireNotLockedDown();
             (bytes32 txHash,) =
                 _hashThisTx(_safe, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver);
             if (txHash != nextTransaction.txHash) {
@@ -279,9 +279,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         delete nextTransaction;
     }
 
-    // The `notLockedDown` modifier prevents all transactions while the Safe is in lockdown _except_
-    // the call to `unlock`.
-    function checkAfterExecution(bytes32, bool) external view override onlySafe notLockedDown {}
+    function checkAfterExecution(bytes32, bool) external view override onlySafe {}
 
     function enqueue(
         address to,
