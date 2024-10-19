@@ -91,7 +91,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     using SafeLib for ISafeMinimal;
 
     event TimelockUpdated(uint256 oldDelay, uint256 newDelay);
-    event SafeTransactionQueued(
+    event SafeTransactionEnqueued(
         bytes32 indexed txHash,
         uint256 timelockEnd,
         address to,
@@ -110,15 +110,21 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     event Unlocked();
 
     error PermissionDenied();
+    error NoDelegateToGuard();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
     error TimelockElapsed(bytes32 txHash, uint256 timelockEnd);
     error NotQueued(bytes32 txHash);
     error LockedDown(address lockedDownBy);
     error NotLockedDown();
-    error UnlockHashedNotApproved(bytes32 txHash);
+    error UnlockHashNotApproved(bytes32 txHash);
+
+    struct NextTransaction {
+        bytes32 txHash;
+        uint256 timelockEnd;
+    }
 
     uint256 public delay;
-    mapping(bytes32 => uint256) public timelockEnd;
+    NextTransaction public nextTransaction;
     address public lockedDownBy;
 
     ISafeMinimal public immutable safe;
@@ -171,6 +177,30 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
     }
 
+    function _hashThisTx(
+        ISafeMinimal _safe,
+        address to,
+        uint256 value,
+        bytes calldata data,
+        Operation operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address payable refundReceiver
+    ) private view returns (bytes32 txHash, bytes memory txHashData) {
+        // The nonce has already been incremented past the value used in the currently-executing
+        // transaction. We decrement it to get the value that was hashed to get the `txHash`.
+        uint256 nonce;
+        unchecked {
+            nonce = _safe.nonce() - 1;
+        }
+        txHashData = _safe.encodeTransactionData(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
+        );
+        txHash = _safe.getTransactionHash(txHashData);
+    }
+
     function checkTransaction(
         address to,
         uint256 value,
@@ -183,66 +213,77 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver,
         bytes calldata signatures,
         address // msgSender
-    ) external view override onlySafe /* notLockedDown is on checkAfterExecution */ {
+    ) external override onlySafe /* `notLockedDown` is on `checkAfterExecution(...)` */ {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
-        // The nonce has already been incremented past the value used in the currently-executing
-        // transaction. We decrement it to get the value that was hashed to get the `txHash`.
-        uint256 nonce;
-        unchecked {
-            nonce = _safe.nonce() - 1;
-        }
-        bytes memory txHashData = _safe.encodeTransactionData(
-            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
-        );
-        bytes32 txHash = _safe.getTransactionHash(txHashData);
-
         // There are 2 special cases to handle (transactions that don't require doing through the
-        // timelock). A transaction that queues another transaction, and unlocking after a lockdown.
+        // timelock). A transaction that enqueues another transaction, and unlocking after a
+        // lockdown.
         if (to == address(this)) {
-            if (data.length >= 4) {
-                uint256 selector;
-                assembly ("memory-safe") {
-                    selector := shr(0xe0, calldataload(data.offset))
-                }
-                if (selector == uint32(this.queue.selector)) {
-                    return;
-                }
-                if (selector == uint32(this.unlock.selector)) {
-                    // We have to check that we're locked down bother here *and* in `unlock()` to
-                    // ensure that the stored approved hash that is registered prior to calling
-                    // `lockDown()` can't be wasted before `lockDown()` is actually called.
-                    _requiredLockedDown();
+            if (operation != Operation.Call) {
+                revert NoDelegateToGuard();
+            }
+            uint256 selector = uint32(bytes4(data));
+            if (selector == uint32(this.enqueue.selector)) {
+                // A simple call to `enqueue` is always allowed. This is harmless and any additional
+                // checks will be performed when the queue'd call is attempted.
+                return;
+            }
+            if (selector == uint32(this.unlock.selector)) {
+                // A call to `unlock` does not go through the timelock, but we require additional
+                // signatures in order for the lockdown functionality to be effective, as a
+                // protocol.
 
-                    // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to
-                    // the owner count. The owner who called `lockDown()` has already signed (to
-                    // prevent griefing). Due to a quirk of how `checkNSignatures` works (sometimes
-                    // validating `msg.sender` for gas optimization), we could end up in a bizarre
-                    // situation if `address(this)` is an owner. Let's just prohibit that entirely.
-                    require(!_safe.isOwner(address(this)));
-                    uint256 ownerCount = abi.decode(_safe.getStorageAt(_OWNER_COUNT_SLOT, 1), (uint256));
+                // We have to check that we're locked down both here *and* in `unlock()` to
+                // ensure that the stored approved hash that is registered prior to calling
+                // `lockDown()` can't be wasted before `lockDown()` is actually called.
+                _requiredLockedDown();
 
-                    // `txHashData` is used here for an outdated, nonstandard variant of nested
-                    // ERC1271 signatures that passes the signing hash as `bytes` instead of as
-                    // `bytes32`
-                    _safe.checkNSignatures(txHash, txHashData, signatures, ownerCount);
-                    return;
-                }
+                // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to the
+                // owner count. The owner who called `lockDown()` has already signed (to prevent
+                // griefing).
+                uint256 ownerCount = abi.decode(_safe.getStorageAt(_OWNER_COUNT_SLOT, 1), (uint256));
+
+                // Due to a quirk of how `checkNSignatures` works (sometimes validating `msg.sender`
+                // for gas optimization), we could end up in a bizarre situation if `address(this)`
+                // is an owner. Let's just prohibit that entirely.
+                require(!_safe.isOwner(address(this))); // TODO: the copy of this check in `lockDown()` may be sufficient
+
+                // `txHashData` is used here for an outdated, nonstandard variant of nested
+                // ERC1271 signatures that passes the signing hash as `bytes` instead of as
+                // `bytes32`
+                (bytes32 txHash, bytes memory txHashData) = _hashThisTx(
+                    _safe, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver
+                );
+                _safe.checkNSignatures(txHash, txHashData, signatures, ownerCount);
+
+                return;
             }
         }
 
-        uint256 _timelockEnd = timelockEnd[txHash];
-        if (_timelockEnd == 0) {
-            revert NotQueued(txHash);
+        // We're not in 1 of the 2 special cases. The checks that need to be performed here are 1)
+        // that the transaction was previously queued through `enqueue` and 2) that `delay` has
+        // elapsed since `enqueue` was called.
+        {
+            (bytes32 txHash,) =
+                _hashThisTx(_safe, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver);
+            if (txHash != nextTransaction.txHash) {
+                revert NotQueued(txHash);
+            }
+            uint256 timelockEnd = nextTransaction.timelockEnd;
+            if (block.timestamp <= timelockEnd) {
+                revert TimelockNotElapsed(txHash, timelockEnd);
+            }
         }
-        if (block.timestamp <= _timelockEnd) {
-            revert TimelockNotElapsed(txHash, _timelockEnd);
-        }
+
+        delete nextTransaction;
     }
 
+    // The `notLockedDown` modifier prevents all transactions while the Safe is in lockdown _except_
+    // the call to `unlock`.
     function checkAfterExecution(bytes32, bool) external view override onlySafe notLockedDown {}
 
-    function queue(
+    function enqueue(
         address to,
         uint256 value,
         bytes calldata data,
@@ -254,15 +295,20 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver
     ) external onlySafe {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
+        // This is not the same as `_hashThisTx` because we're hashing the _next_ transaction to be
+        // executed by the Safe, not the transaction _currently_ executing.
         uint256 nonce = _safe.nonce();
         bytes32 txHash = _safe.getTransactionHash(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
-        uint256 _timelockEnd = block.timestamp + delay;
-        timelockEnd[txHash] = _timelockEnd;
-        emit SafeTransactionQueued(
+
+        uint256 timelockEnd = block.timestamp + delay;
+        (nextTransaction.txHash, nextTransaction.timelockEnd) = (txHash, timelockEnd);
+
+        emit SafeTransactionEnqueued(
             txHash,
-            _timelockEnd,
+            timelockEnd,
             to,
             value,
             data,
@@ -276,29 +322,28 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         );
     }
 
-    /// It's totally possible to brick the timelock (and consequently, the
-    /// entire safe) if you set the delay too long. Don't do that.
+    /// It's totally possible to brick the timelock (and consequently, the entire safe) if you set
+    /// the delay too long. Don't do that.
     function setDelay(uint256 newDelay) external onlySafe {
         emit TimelockUpdated(delay, newDelay);
         delay = newDelay;
     }
 
     function cancel(bytes32 txHash) external onlyOwner {
-        uint256 _timelockEnd = timelockEnd[txHash];
-        if (_timelockEnd == 0) {
+        if (txHash != nextTransaction.txHash) {
             revert NotQueued(txHash);
         }
-        if (block.timestamp > _timelockEnd) {
-            revert TimelockElapsed(txHash, _timelockEnd);
+        uint256 timelockEnd = nextTransaction.timelockEnd;
+        if (block.timestamp > timelockEnd) {
+            revert TimelockElapsed(txHash, timelockEnd);
         }
-        delete timelockEnd[txHash];
+        delete nextTransaction;
         emit SafeTransactionCanceled(txHash);
     }
 
-    function lockDown() external onlyOwner notLockedDown {
-        require(!safe.isOwner(address(this)));
+    function lockDownTxHash() public view returns (bytes32) {
         uint256 nonce = safe.nonce();
-        bytes32 txHash = safe.getTransactionHash(
+        return safe.getTransactionHash(
             address(this),
             0 ether,
             abi.encodeCall(this.unlock, ()),
@@ -310,8 +355,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             payable(address(0)),
             nonce
         );
+    }
+
+    function lockDown() external onlyOwner notLockedDown {
+        require(!safe.isOwner(address(this)));
+        bytes32 txHash = lockDownTxHash();
         if (safe.approvedHashes(msg.sender, txHash) != 1) {
-            revert UnlockHashedNotApproved(txHash);
+            revert UnlockHashNotApproved(txHash);
         }
         lockedDownBy = msg.sender;
         emit LockDown(msg.sender, txHash);
