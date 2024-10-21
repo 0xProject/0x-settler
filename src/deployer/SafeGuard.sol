@@ -170,11 +170,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     error UnlockHashNotApproved(bytes32 txHash);
     error UnexpectedUpgrade(address newSingleton);
 
-    struct NextTransaction {
-        bytes32 txHash;
-        uint256 timelockEnd;
-    }
-
     uint256 public delay;
     mapping(bytes32 => uint256) public timelockEnd;
     address public lockedDownBy;
