@@ -20,6 +20,8 @@ interface ISafeMinimal {
     function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
 
     function approvedHashes(address owner, bytes32 txHash) external view returns (uint256);
+
+    function masterCopy() external view returns (address);
 }
 
 library SafeLib {
@@ -79,10 +81,12 @@ library SafeLib {
         return keccak256(txHashData);
     }
 
-    uint256 private constant _OWNER_COUNT_SLOT = 3;
+    function OWNER_COUNT_SLOT(ISafeMinimal) internal pure returns (uint256) {
+        return 3;
+    }
 
     function ownerCount(ISafeMinimal safe) internal view returns (uint256) {
-        return abi.decode(safe.getStorageAt(_OWNER_COUNT_SLOT, 1), (uint256));
+        return abi.decode(safe.getStorageAt(OWNER_COUNT_SLOT(safe), 1), (uint256));
     }
 
     function DOMAIN_SEPARATOR_TYPEHASH(ISafeMinimal) internal pure returns (bytes32) {
@@ -103,10 +107,13 @@ library SafeLib {
         return 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;
     }
 
-    uint256 private constant _SINGLETON_SLOT = 0;
+    function GUARD_SLOT(ISafeMinimal) internal pure returns (uint256) {
+        // keccak256("guard_manager.guard.address")
+        return 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
+    }
 
-    function singleton(ISafeMinimal safe) internal view returns (address) {
-        return abi.decode(safe.getStorageAt(_SINGLETON_SLOT, 1), (address));
+    function getGuard(ISafeMinimal safe) internal view returns (address) {
+        return abi.decode(safe.getStorageAt(GUARD_SLOT(safe), 1), (address));
     }
 }
 
@@ -162,6 +169,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
     error PermissionDenied();
     error NoDelegateToGuard();
+    error GuardNotInstalled();
+    error GuardIsOwner();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
     error TimelockElapsed(bytes32 txHash, uint256 timelockEnd);
     error NotQueued(bytes32 txHash);
@@ -175,14 +184,18 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     address public lockedDownBy;
 
     ISafeMinimal public immutable safe;
-    bytes32 internal constant _EVM_VERSION_DUMMY_INITHASH = bytes32(0); // TODO: ensure London hardfork
-    address internal constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
+    bytes32 private constant _EVM_VERSION_DUMMY_INITHASH = bytes32(0); // TODO: ensure London hardfork
+    address private constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
+    bytes32 private constant _SAFE_PROXY_CODEHASH = 0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
+    address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
 
-    constructor(address _safe, uint256 _delay) {
+    constructor() {
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
-        safe = ISafeMinimal(_safe);
-        delay = _delay;
-        emit TimelockUpdated(0, _delay);
+        assert(msg.sender == _SAFE_SINGLETON_FACTORY);
+        assert(address(safe).codehash == _SAFE_PROXY_CODEHASH);
+        assert(safe.masterCopy() == _SINGLETON);
+        assert(safe.getGuard() == address(this));
+        assert(!safe.isOwner(address(this)));
     }
 
     function _requireSafe() private view {
@@ -222,6 +235,32 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         if (lockedDownBy == address(0)) {
             revert NotLockedDown();
         }
+    }
+
+    modifier lockedDown() {
+        _requireLockedDown();
+        _;
+    }
+
+    function _safetyChecks() private view {
+        require(address(safe).codehash == _SAFE_PROXY_CODEHASH); // metamorphism
+        {
+            address singleton = safe.masterCopy();
+            if (singleton != _SINGLETON) {
+                revert UnexpectedUpgrade(singleton);
+            }
+        }
+        if (safe.getGuard() != address(this)) {
+            revert GuardNotInstalled();
+        }
+        if (safe.isOwner(address(this))) {
+            revert GuardIsOwner();
+        }
+    }
+
+    modifier safetyChecks() {
+        _safetyChecks();
+        _;
     }
 
     function checkTransaction(
@@ -302,16 +341,21 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     function checkAfterExecution(bytes32, bool) external view override onlySafe notLockedDown {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
+        // Unlike the `safetyChecks` modifier, we permit `_safe.getGuard()` to be values other than
+        // `address(this)`. This allows removal of the guard (through the timelock, obviously) to
+        // later permit upgrades to other singleton implementation contracts.
+
         // Due to a quirk of how `checkNSignatures` works (called as a precondition to `unlock`;
         // sometimes it validates `msg.sender` instead of a signature, for gas optimization), we
         // could end up in a bizarre situation if `address(this)` is an owner. This would make our
         // introspection checks wrong. Let's just prohibit that entirely.
-        require(!_safe.isOwner(address(this)));
+        if (_safe.isOwner(address(this))) {
+            revert GuardIsOwner();
+        }
 
-        // A malicious upgrade could lie to us about this. We're not trying to prevent that. We're
-        // trying to prevent an unexpected upgrade that may break our ability to reliably introspect
-        // the aspects of the Safe that are required for the correct function of this guard.
-        address singleton = _safe.singleton();
+        // Prevent an unexpected upgrade that may break our ability to reliably introspect the
+        // aspects of the Safe that are required for the correct function of this guard.
+        address singleton = _safe.masterCopy();
         if (singleton != _SINGLETON) {
             revert UnexpectedUpgrade(singleton);
         }
@@ -329,7 +373,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver,
         uint256 nonce,
         bytes calldata signatures
-    ) external {
+    ) external safetyChecks {
         bytes memory txHashData = safe.encodeTransactionData(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
@@ -375,7 +419,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         emit SafeTransactionCanceled(txHash);
     }
 
-    function lockDownTxHash() public view notLockedDown returns (bytes32) {
+    function lockDownTxHash() public view notLockedDown safetyChecks returns (bytes32) {
         uint256 nonce = safe.nonce();
         return safe.getTransactionHash(
             address(this),
@@ -404,8 +448,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         emit LockDown(msg.sender, txHash);
     }
 
-    function unlock() external onlySafe {
-        _requireLockedDown();
+    function unlock() external onlySafe lockedDown {
         delete lockedDownBy;
         emit Unlocked();
     }
