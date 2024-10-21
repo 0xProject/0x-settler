@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
+// This enum is derived from the code deployed to 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
 enum Operation {
     Call,
     DelegateCall
 }
 
+// This interface is excerpted from the contract at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
 interface ISafeMinimal {
     function checkNSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures, uint256 requiredSignatures)
         external
@@ -21,9 +23,14 @@ interface ISafeMinimal {
 
     function approvedHashes(address owner, bytes32 txHash) external view returns (uint256);
 
+    // This function is not part of the interface at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+    // . It's part of the implicit interface on the proxy contract(s) created by the factory at
+    // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc .
     function masterCopy() external view returns (address);
 }
 
+// This library is a reimplementation of the functionality of the functions by the same name in
+// 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
 library SafeLib {
     function encodeTransactionData(
         ISafeMinimal safe,
@@ -117,6 +124,7 @@ library SafeLib {
     }
 }
 
+// This interface is excerpted from `GuardManager.sol` in 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
 interface IGuard {
     function checkTransaction(
         address to,
