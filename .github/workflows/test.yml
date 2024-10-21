@@ -26,6 +26,12 @@ jobs:
       - name: Build contracts
         run: forge build --skip UniswapV4UnitTest.t.sol
 
+      - name: Build Safe Guard
+        run: forge build src/deployer/SafeGuard.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 200
+
       - name: Run tests
         run: forge test
         env:
