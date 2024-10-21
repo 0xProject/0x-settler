@@ -195,7 +195,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     ISafeMinimal public constant safe = ISafeMinimal(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH = bytes32(0); // TODO: ensure London hardfork
     address private constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
-    bytes32 private constant _SAFE_PROXY_CODEHASH = 0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
 
     constructor() safetyChecks {
@@ -206,13 +205,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // this process. If the Guard is installed in a Safe where these checks fail, the Safe is
         // bricked. Once the Guard is successfully deployed, the behavior ought to be sane, even in
         // bizarre and outrageous circumstances.
-
-        // Because the hardcoded `safe` address is computed using the `CREATE2` pattern from trusted
-        // initcode, we know that once deployed, it cannot be redeployed with different code. We do
-        // not need to recheck this ever. If it is ever `SELFDESTRUCT`'d, we may encounter bizarre
-        // behavior with the value of `safe.masterCopy()` changing out from under us while we aren't
-        // watching. We try our best to deal with this, but are limited in what is possible.
-        assert(address(safe).codehash == _SAFE_PROXY_CODEHASH);
 
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         assert(msg.sender == _SAFE_SINGLETON_FACTORY);
@@ -264,9 +256,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function _safetyChecks() private view {
-        // The computation of the hardcoded `safe` address from trusted initcode provides a toehold
-        // of trust that we can extend to perform some very stringent safety checks that ensure the
-        // behavior of the system as a whole is as expected.
+        // Because the hardcoded `safe` address is computed using the `CREATE2` pattern from trusted
+        // initcode, we know that once deployed, it cannot be redeployed with different code. This
+        // provides a toehold of trust that we can extend to perform some very stringent safety
+        // checks that ensure the behavior of the system as a whole is as expected. We do not need
+        // to recheck this, ever. If the Safe is ever `SELFDESTRUCT`'d, we may encounter bizarre
+        // behavior with the value of `safe.masterCopy()` changing out from under us while we aren't
+        // watching. We try our best to deal with this, but are limited in what is possible.
 
         // Once we've established that the code in `safe` is expected (provided that it exists), we
         // can be sure that the result of calling `masterCopy()` is trustworthy. The address
