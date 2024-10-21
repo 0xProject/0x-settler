@@ -319,8 +319,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         if (_safe.masterCopy() != _SINGLETON) {
             // Either the Safe has been `SELFDESTRUCT`'d and recreated at the same address (without
             // the Guard) and then upgraded to a new singleton/implementation, or the Guard has been
-            // removed. Either way, we cannot know anything about the state of the Safe or the
-            // environment in which we're executing. We prefer to fail open rather than brick.
+            // removed and then the Safe upgraded. Either way, we cannot know anything about the
+            // state of the Safe or the environment in which we're executing. We prefer to fail open
+            // rather than brick.
             //
             // We cannot be guaranteed to be able to detect the former case. We do as much as we
             // can, but the design of the EVM frustrates further surety.
