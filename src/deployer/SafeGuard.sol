@@ -60,7 +60,7 @@ library SafeLib {
                 nonce
             )
         );
-        return abi.encodePacked(hex"1901", domainSeparator(safe), safeTxHash);
+        return abi.encodePacked(bytes2(0x1901), domainSeparator(safe), safeTxHash);
     }
 
     function getTransactionHash(
