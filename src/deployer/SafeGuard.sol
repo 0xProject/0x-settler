@@ -151,7 +151,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     event SafeTransactionEnqueued(
         bytes32 indexed txHash,
         uint256 timelockEnd,
-        address to,
+        address indexed to,
         uint256 value,
         bytes data,
         Operation operation,
@@ -160,7 +160,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         uint256 gasPrice,
         address gasToken,
         address payable refundReceiver,
-        uint256 nonce,
+        uint256 indexed nonce,
         bytes signatures
     );
     event SafeTransactionCanceled(bytes32 indexed txHash);
