@@ -193,9 +193,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     bool private _guardRemoved;
 
     ISafeMinimal public constant safe = ISafeMinimal(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
-    bytes32 private constant _EVM_VERSION_DUMMY_INITHASH = bytes32(0); // TODO: ensure London hardfork
+
     address private constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+
+    // This is the correct hash only if this contract has been compiled for the London hardfork
+    bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
+        0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
     constructor() safetyChecks {
         // The checks applied by the `safetyChecks` modifier ensure that the Guard is safely
