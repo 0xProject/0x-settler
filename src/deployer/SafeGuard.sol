@@ -179,8 +179,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     error UnlockHashNotApproved(bytes32 txHash);
     error UnexpectedUpgrade(address newSingleton);
 
-    uint256 public delay;
     mapping(bytes32 => uint256) public timelockEnd;
+    uint40 public delay;
     address public lockedDownBy;
     bool private _guardRemoved;
 
@@ -233,8 +233,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function _requireNotLockedDown() private view {
-        if (lockedDownBy != address(0)) {
-            revert LockedDown(lockedDownBy);
+        address locker = lockedDownBy;
+        if (locker != address(0)) {
+            revert LockedDown(locker);
         }
     }
 
@@ -473,7 +474,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
     /// It's totally possible to brick the timelock (and consequently, the entire Safe) if you set
     /// the delay too long. Don't do that.
-    function setDelay(uint256 newDelay) external onlySafe {
+    function setDelay(uint40 newDelay) external onlySafe {
         emit TimelockUpdated(delay, newDelay);
         delay = newDelay;
     }
