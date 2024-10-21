@@ -401,8 +401,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function checkAfterExecution(bytes32, bool) external override onlySafe {
-        ISafeMinimal _safe = ISafeMinimal(msg.sender);
-
         if (_guardRemoved) {
             // See comment in the same branch of `checkTransaction`.
             return;
@@ -415,6 +413,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // This is here instead of using the `notLockedDown` modifier so that we avoid bricking if
         // there's unexpected metamorphism or if the Guard is uninstalled.
         _requireNotLockedDown();
+
+        ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
         // Prevent an unexpected upgrade that may break our ability to reliably introspect the
         // aspects of the Safe that are required for the correct function of this guard.
