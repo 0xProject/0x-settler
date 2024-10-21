@@ -182,20 +182,32 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     uint256 public delay;
     mapping(bytes32 => uint256) public timelockEnd;
     address public lockedDownBy;
+    bool private _guardRemoved;
 
-    ISafeMinimal public immutable safe;
+    ISafeMinimal public constant safe = ISafeMinimal(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH = bytes32(0); // TODO: ensure London hardfork
     address private constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
     bytes32 private constant _SAFE_PROXY_CODEHASH = 0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
 
-    constructor() {
+    constructor() safetyChecks {
+        // The checks applied by the `safetyChecks` modifier ensure that the Guard is safely
+        // installed in the Safe _at the time it is deployed_. The author knows of no way to enforce
+        // that the Guard is installed atomic with its deployment. This introduces a TOCTOU
+        // vulnerability. Therefore, extensive simulation and excessive caution are imperative in
+        // this process. If the Guard is installed in a Safe where these checks fail, the Safe is
+        // bricked. Once the Guard is successfully deployed, the behavior ought to be sane, even in
+        // bizarre and outrageous circumstances.
+
+        // Because the hardcoded `safe` address is computed using the `CREATE2` pattern from trusted
+        // initcode, we know that once deployed, it cannot be redeployed with different code. We do
+        // not need to recheck this ever. If it is ever `SELFDESTRUCT`'d, we may encounter bizarre
+        // behavior with the value of `safe.masterCopy()` changing out from under us while we aren't
+        // watching. We try our best to deal with this, but are limited in what is possible.
+        assert(address(safe).codehash == _SAFE_PROXY_CODEHASH);
+
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         assert(msg.sender == _SAFE_SINGLETON_FACTORY);
-        assert(address(safe).codehash == _SAFE_PROXY_CODEHASH);
-        assert(safe.masterCopy() == _SINGLETON);
-        assert(safe.getGuard() == address(this));
-        assert(!safe.isOwner(address(this)));
     }
 
     function _requireSafe() private view {
@@ -243,16 +255,33 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function _safetyChecks() private view {
-        require(address(safe).codehash == _SAFE_PROXY_CODEHASH); // metamorphism
+        // The computation of the hardcoded `safe` address from trusted initcode provides a toehold
+        // of trust that we can extend to perform some very stringent safety checks that ensure the
+        // behavior of the system as a whole is as expected.
+
+        // Once we've established that the code in `safe` is expected (provided that it exists), we
+        // can be sure that the result of calling `masterCopy()` is trustworthy. The address
+        // `_SINGLETON` is computed using the `CREATE2` pattern from trusted initcode (this does not
+        // use Nick's Method for deployment, so it's not permissionless, but it is trustless). So if
+        // the result of `masterCopy()` is the expected value, we can also trust the
+        // implementation's behavior for further checks.
         {
             address singleton = safe.masterCopy();
             if (singleton != _SINGLETON) {
                 revert UnexpectedUpgrade(singleton);
             }
         }
-        if (safe.getGuard() != address(this)) {
+
+        // If the Guard is uninstalled, it is now useless. Signal that to anybody who might care by
+        // reverting.
+        if (safe.getGuard() != address(this) || _guardRemoved) {
             revert GuardNotInstalled();
         }
+
+        // Due to a quirk of how `checkNSignatures` works (called as a guarded precondition to
+        // `unlock`; sometimes it validates `msg.sender` instead of a signature, for gas
+        // optimization), we could end up in a bizarre situation if `address(this)` is an
+        // owner. This would make our introspection checks wrong. Let's just prohibit that entirely.
         if (safe.isOwner(address(this))) {
             revert GuardIsOwner();
         }
@@ -275,8 +304,34 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver,
         bytes calldata signatures,
         address // msgSender
-    ) external view override onlySafe {
+    ) external override onlySafe {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
+        if (_safe.masterCopy() != _SINGLETON) {
+            // Either the Safe has been `SELFDESTRUCT`'d and recreated at the same address (without
+            // the Guard) and then upgraded to a new singleton/implementation, or the Guard has been
+            // removed. Either way, we cannot know anything about the state of the Safe or the
+            // environment in which we're executing. We prefer to fail open rather than brick.
+            //
+            // We cannot be guaranteed to be able to detect the former case. We do as much as we
+            // can, but the design of the EVM frustrates further surety.
+            _guardRemoved = true;
+        }
+
+        if (_guardRemoved) {
+            // There are three ways for this branch to be reached. The first is that Safe has been
+            // `SELFDESTRUCT`'d and recreated. In this case, we can assume nothing about the
+            // behavior of the Safe. The second case is if the Guard is uninstalled and then
+            // reinstalled. Unfortunately, we can't distinguish this case from the third case. To
+            // avoid applying restrictions in circumstances we can't be completely certain about, we
+            // prefer to fail open rather than accidentally brick something. The third case is that
+            // the Guard has been uninstalled and now the Safe is calling `checkTransaction` through
+            // `execute`. Because `execute` provides complete freedom in the calls that may be
+            // performed both before and after this call, we cannot safely clear `_guardRemoved`
+            // because we don't know that the post-conditions in `checkAfterExecution` will be
+            // enforced.
+            return;
+        }
 
         // The nonce has already been incremented past the value used in the
         // currently-executing transaction. We decrement it to get the value that was hashed
@@ -335,29 +390,45 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
     }
 
-    // We check that the Safe is not locked down twice. We have to check it here to ensure that the
-    // call to `unlock()` can't revert and burn signatures (increase the nonce), resulting in a
-    // bricked/griefing attack by a malicious owner.
-    function checkAfterExecution(bytes32, bool) external view override onlySafe notLockedDown {
+    function checkAfterExecution(bytes32, bool) external override onlySafe {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
-        // Unlike the `safetyChecks` modifier, we permit `_safe.getGuard()` to be values other than
-        // `address(this)`. This allows removal of the guard (through the timelock, obviously) to
-        // later permit upgrades to other singleton implementation contracts.
+        if (_guardRemoved) {
+            // See comment in the same branch of `checkTransaction`.
+            return;
+        }
 
-        // Due to a quirk of how `checkNSignatures` works (called as a precondition to `unlock`;
-        // sometimes it validates `msg.sender` instead of a signature, for gas optimization), we
-        // could end up in a bizarre situation if `address(this)` is an owner. This would make our
-        // introspection checks wrong. Let's just prohibit that entirely.
+        // We check that the Safe is not locked down twice. We have to check it here to ensure that
+        // the call to `unlock()` can't revert and burn signatures (increase the nonce), resulting
+        // in a bricked/griefing attack by a malicious owner.
+        //
+        // This is here instead of using the `notLockedDown` modifier so that we avoid bricking if
+        // there's unexpected metamorphism or if the Guard is uninstalled.
+        _requireNotLockedDown();
+
+        // Prevent an unexpected upgrade that may break our ability to reliably introspect the
+        // aspects of the Safe that are required for the correct function of this guard.
+        {
+            address singleton = _safe.masterCopy();
+            if (singleton != _SINGLETON) {
+                revert UnexpectedUpgrade(singleton);
+            }
+        }
+
+        // Due to a quirk of how `checkNSignatures` works (called as a guarded precondition to
+        // `unlock`; sometimes it validates `msg.sender` instead of a signature, for gas
+        // optimization), we could end up in a bizarre situation if `address(this)` is an
+        // owner. This would make our introspection checks wrong. Let's just prohibit that entirely.
         if (_safe.isOwner(address(this))) {
             revert GuardIsOwner();
         }
 
-        // Prevent an unexpected upgrade that may break our ability to reliably introspect the
-        // aspects of the Safe that are required for the correct function of this guard.
-        address singleton = _safe.masterCopy();
-        if (singleton != _SINGLETON) {
-            revert UnexpectedUpgrade(singleton);
+        // Unlike the `safetyChecks` modifier, we permit `_safe.getGuard()` to be values other than
+        // `address(this)`. This allows uninstallation of the guard (through the timelock,
+        // obviously) to later permit upgrades to other singleton implementation contracts. It is
+        // not possible to un-set `_guardRemoved` once set. This completely disables the guard.
+        if (_safe.getGuard() != address(this)) {
+            _guardRemoved = true;
         }
     }
 
