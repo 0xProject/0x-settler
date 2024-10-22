@@ -227,6 +227,11 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         assert(msg.sender == _SAFE_SINGLETON_FACTORY);
     }
 
+    function setDelay(uint24 newDelay) external onlySafe {
+        emit TimelockUpdated(delay, newDelay);
+        delay = newDelay;
+    }
+
     function _requireSafe() private view {
         if (msg.sender != address(safe)) {
             revert PermissionDenied();
@@ -314,8 +319,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         bytes calldata signatures,
         address // msgSender
     ) external override onlySafe {
-        ISafeMinimal _safe = ISafeMinimal(msg.sender);
-
         if (_guardRemoved) {
             // There are two ways for this branch to be reached. The first way is if the Guard is
             // uninstalled and then reinstalled. Unfortunately, we can't distinguish this case from
@@ -355,6 +358,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             revert NoDelegateCall();
         }
 
+        ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
         // The nonce has already been incremented past the value used in the
         // currently-executing transaction. We decrement it to get the value that was hashed
         // to get the `txHash`.
@@ -369,20 +374,17 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         bytes32 txHash = _safe.getTransactionHash(txHashData);
 
         // The call to `this.unlock()` is special-cased.
-        if (to == address(this)) {
-            if (uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector))) {
-                // A call to `unlock` does not go through the timelock, but we require additional
-                // signatures in order for the lockdown functionality to be effective, as a
-                // protocol.
+        if (to == address(this) && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector))) {
+            // A call to `unlock` does not go through the timelock, but we require additional
+            // signatures in order for the lockdown functionality to be effective, as a protocol.
 
-                // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to the
-                // owner count. We go beyond the usual requirement of just the threshold. The owner
-                // who called `lockDown()` has already signed (to prevent griefing).
-                uint256 ownerCount = _safe.ownerCount();
-                _safe.checkNSignatures(txHash, txHashData, signatures, ownerCount);
+            // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to the owner
+            // count. We go beyond the usual requirement of just the threshold. The owner who called
+            // `lockDown()` has already signed (to prevent griefing).
+            uint256 ownerCount = _safe.ownerCount();
+            _safe.checkNSignatures(txHash, txHashData, signatures, ownerCount);
 
-                return;
-            }
+            return;
         }
         // Fall through to the "normal" case, where we're doing anything except calling
         // `this.unlock()`. The checks that need to be performed here are 1) that the Safe is not
@@ -428,7 +430,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // constraining it to be an address also deployed via `CREATE2` with trusted initcode gives
         // us a full complement of function selectors that can be used for postcondition checks.
         //
-        // None of the above deployments use a "Nick's Method" deployment, so while these
+        // None of the aforementioned deployments use a "Nick's Method" deployment, so while these
         // assumptions are trustless, they are _*NOT*_ permissionless.
         {
             address singleton = _safe.masterCopy();
@@ -504,11 +506,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             nonce,
             signatures
         );
-    }
-
-    function setDelay(uint24 newDelay) external onlySafe {
-        emit TimelockUpdated(delay, newDelay);
-        delay = newDelay;
     }
 
     function unlockTxHash() public view notLockedDown notRemoved returns (bytes32) {
