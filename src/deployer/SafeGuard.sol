@@ -483,6 +483,11 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         uint256 nonce,
         bytes calldata signatures
     ) external notRemoved {
+        // See comment in `checkTransaction`
+        if (operation != Operation.Call) {
+            revert NoDelegateCall();
+        }
+
         bytes memory txHashData = safe.encodeTransactionData(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
