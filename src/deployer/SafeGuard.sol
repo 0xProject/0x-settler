@@ -172,7 +172,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         bytes signatures
     );
     event SafeTransactionCanceled(bytes32 indexed txHash);
-    event LockDown(address indexed lockedDownBy, bytes32 indexed unlockTxHash);
+    event LockDown(address indexed lockedDownBy);
     event Unlocked();
 
     error PermissionDenied();
@@ -298,6 +298,20 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
     modifier safetyChecks() {
         _safetyChecks();
+        _;
+    }
+
+    function _requireApprovedUnlock() private view onlyOwner {
+        // By requiring that the Safe owner has preapproved the `txHash` for the call to `unlock`,
+        // we prevent a single rogue signer from bricking the Safe.
+        bytes32 txHash = unlockTxHash();
+        if (safe.approvedHashes(msg.sender, txHash) != 1) {
+            revert UnlockHashNotApproved(txHash);
+        }
+    }
+
+    modifier antiGriefing() {
+        _requireApprovedUnlock();
         _;
     }
 
@@ -488,19 +502,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         delay = newDelay;
     }
 
-    function cancel(bytes32 txHash) external onlyOwner {
-        uint256 _timelockEnd = timelockEnd[txHash];
-        if (_timelockEnd == 0) {
-            revert NotQueued(txHash);
-        }
-        if (block.timestamp > _timelockEnd) {
-            revert TimelockElapsed(txHash, _timelockEnd);
-        }
-        timelockEnd[txHash] = type(uint256).max;
-        emit SafeTransactionCanceled(txHash);
-    }
-
-    function lockDownTxHash() public view notLockedDown safetyChecks returns (bytes32) {
+    function unlockTxHash() public view notLockedDown safetyChecks returns (bytes32) {
         uint256 nonce = safe.nonce();
         return safe.getTransactionHash(
             address(this),
@@ -516,17 +518,21 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         );
     }
 
-    function lockDown() external onlyOwner {
-        bytes32 txHash = lockDownTxHash();
-
-        // By requiring that the locker has preapproved the `txHash` for the call to `unlock`, we
-        // prevent a single rogue signer from bricking the Safe.
-        if (safe.approvedHashes(msg.sender, txHash) != 1) {
-            revert UnlockHashNotApproved(txHash);
+    function cancel(bytes32 txHash) external antiGriefing {
+        uint256 _timelockEnd = timelockEnd[txHash];
+        if (_timelockEnd == 0) {
+            revert NotQueued(txHash);
         }
+        if (block.timestamp > _timelockEnd) {
+            revert TimelockElapsed(txHash, _timelockEnd);
+        }
+        timelockEnd[txHash] = type(uint256).max;
+        emit SafeTransactionCanceled(txHash);
+    }
 
+    function lockDown() external antiGriefing {
         lockedDownBy = msg.sender;
-        emit LockDown(msg.sender, txHash);
+        emit LockDown(msg.sender);
     }
 
     function unlock() external onlySafe lockedDown {

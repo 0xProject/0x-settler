@@ -112,7 +112,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
 
     function cancel(bytes32 txHash) external;
 
-    function lockDownTxHash() external view returns (bytes32);
+    function unlockTxHash() external view returns (bytes32);
 
     function lockDown() external;
 
