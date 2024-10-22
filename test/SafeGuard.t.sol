@@ -83,6 +83,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     error GuardIsOwner();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
     error TimelockElapsed(bytes32 txHash, uint256 timelockEnd);
+    error AlreadyQueued(bytes32 txHash);
     error NotQueued(bytes32 txHash);
     error LockedDown(address lockedDownBy);
     error NotLockedDown();
@@ -246,6 +247,23 @@ contract TestSafeGuard is Test {
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(signer1, txHash);
         signatures = abi.encodePacked(r0, s0, v0, r1, s1, v1);
 
+        vm.expectEmit(true, true, true, true, address(guard));
+        emit IZeroExSettlerDeployerSafeGuard.SafeTransactionEnqueued(
+            txHash,
+            guard.delay() + vm.getBlockTimestamp(),
+            to,
+            value,
+            data,
+            operation,
+            safeTxGas,
+            baseGas,
+            gasPrice,
+            gasToken,
+            refundReceiver,
+            nonce,
+            signatures
+        );
+
         guard.enqueue(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce, signatures
         );
@@ -294,7 +312,11 @@ contract TestSafeGuard is Test {
 
         vm.warp(vm.getBlockTimestamp() + guard.delay());
 
-        vm.expectRevert(abi.encodeWithSignature("TimelockNotElapsed(bytes32,uint256)", txHash, vm.getBlockTimestamp()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IZeroExSettlerDeployerSafeGuard.TimelockNotElapsed.selector, txHash, vm.getBlockTimestamp()
+            )
+        );
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
