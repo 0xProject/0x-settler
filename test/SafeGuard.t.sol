@@ -78,7 +78,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     event Unlocked();
 
     error PermissionDenied();
-    error NoDelegateToGuard();
+    error NoDelegateCall();
     error GuardNotInstalled();
     error GuardIsOwner();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
@@ -88,6 +88,8 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     error NotLockedDown();
     error UnlockHashNotApproved(bytes32 txHash);
     error UnexpectedUpgrade(address newSingleton);
+    error Reentrancy();
+    error ModuleInstalled(address module);
 
     function timelockEnd(bytes32) external view returns (uint256);
     function lockedDownBy() external view returns (address);
