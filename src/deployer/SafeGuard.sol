@@ -186,9 +186,12 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     error NotLockedDown();
     error UnlockHashNotApproved(bytes32 txHash);
     error UnexpectedUpgrade(address newSingleton);
+    error OnlyAsGuard();
+    error UnsafeDelegateCall(address to);
 
     mapping(bytes32 => uint256) public timelockEnd;
-    uint40 public delay;
+    uint24 public delay;
+    uint64 private _cachedNonce;
     address public lockedDownBy;
     bool private _guardRemoved;
 
@@ -196,6 +199,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
     address private constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+    address private constant _MULTI_SEND_CALL_ONLY = 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B;
 
     // This is the correct hash only if this contract has been compiled for the London hardfork
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
@@ -212,6 +216,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         assert(msg.sender == _SAFE_SINGLETON_FACTORY);
+
+        _cachedNonce = uint64(safe.nonce()); // overflow is not practically possible
     }
 
     function _requireSafe() private view {
@@ -362,6 +368,10 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // to get the `txHash`.
         uint256 nonce = _safe.nonce() - 1;
 
+        if (uint64(nonce) != _cachedNonce) {
+            revert OnlyAsGuard();
+        }
+
         // `txHashData` is used here for an outdated, nonstandard variant of nested ERC1271
         // signatures that passes the signing hash as `bytes` instead of as `bytes32`. This only
         // matters for the `checkNSignatures` call when validating before `unlock()`.
@@ -404,6 +414,10 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // MultiSendCallOnly.
         _requireNotLockedDown();
 
+        if (operation == Operation.DelegateCall && to != _MULTI_SEND_CALL_ONLY) {
+            revert UnsafeDelegateCall(to);
+        }
+
         uint256 _timelockEnd = timelockEnd[txHash];
 
         if (_timelockEnd == 0) {
@@ -420,6 +434,15 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             return;
         }
 
+        ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
+        if (uint64(_safe.nonce() - 1) != _cachedNonce) {
+            revert OnlyAsGuard();
+        }
+        unchecked {
+            _cachedNonce++; // overflow is not practically possible
+        }
+
         // We check that the Safe is not locked down twice. We have to check it here to ensure that
         // the call to `unlock()` can't revert and burn signatures (increase the nonce), resulting
         // in a bricked/griefing attack by a malicious owner.
@@ -427,8 +450,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // This is here instead of using the `notLockedDown` modifier so that we avoid bricking if
         // there's unexpected metamorphism or if the Guard is uninstalled.
         _requireNotLockedDown();
-
-        ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
         // Prevent an unexpected upgrade that may break our ability to reliably introspect the
         // aspects of the Safe that are required for the correct function of this guard.
@@ -495,9 +516,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         );
     }
 
-    /// It's totally possible to brick the timelock (and consequently, the entire Safe) if you set
-    /// the delay too long. Don't do that.
-    function setDelay(uint40 newDelay) external onlySafe {
+    function setDelay(uint24 newDelay) external onlySafe {
         emit TimelockUpdated(delay, newDelay);
         delay = newDelay;
     }

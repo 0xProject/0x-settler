@@ -90,7 +90,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     error UnexpectedUpgrade(address newSingleton);
 
     function timelockEnd(bytes32) external view returns (uint256);
-    function delay() external view returns (uint40);
+    function delay() external view returns (uint24);
     function lockedDownBy() external view returns (address);
     function safe() external view returns (address);
 
@@ -108,7 +108,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
         bytes calldata signatures
     ) external;
 
-    function setDelay(uint40) external;
+    function setDelay(uint24) external;
 
     function cancel(bytes32 txHash) external;
 
@@ -170,7 +170,7 @@ contract TestSafeGuard is Test {
         assertEq(address(uint160(bytes20(returndata))), address(guard));
 
         vm.prank(address(_safe));
-        guard.setDelay(uint40(1 weeks));
+        guard.setDelay(uint24(1 weeks));
     }
 
     function poke() external returns (uint256) {
