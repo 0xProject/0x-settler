@@ -125,6 +125,7 @@ contract TestSafeGuard is Test {
     address internal constant factory = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
     ISafe internal constant safe = ISafe(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
     IZeroExSettlerDeployerSafeGuard internal guard;
+    uint256 internal pokeCounter;
 
     Vm.Wallet[] internal owners;
 
@@ -172,28 +173,44 @@ contract TestSafeGuard is Test {
         guard.setDelay(uint40(1 weeks));
     }
 
-    function theSecret() external pure returns (string memory) {
-        return "Hello, World!";
+    function poke() external returns (uint256) {
+        return ++pokeCounter;
     }
 
-    function testHappyPath() external {
+    function _enqueuePoke()
+        internal
+        returns (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            uint256 nonce,
+            bytes32 txHash,
+            bytes memory signatures
+        )
+    {
         Vm.Wallet storage signer0 = owners[0];
         Vm.Wallet storage signer1 = owners[1];
         if (signer0.addr > signer1.addr) {
             (signer0, signer1) = (signer1, signer0);
         }
-        address to = address(this);
-        uint256 value = 0 ether;
-        bytes memory data = abi.encodeCall(this.theSecret, ());
-        Operation operation = Operation.Call;
-        uint256 safeTxGas = 0;
-        uint256 baseGas = 0;
-        uint256 gasPrice = 0;
-        address gasToken = address(0);
-        address payable refundReceiver = payable(address(0));
-        uint256 nonce = 8;
+        to = address(this);
+        value = 0 ether;
+        data = abi.encodeCall(this.poke, ());
+        operation = Operation.Call;
+        safeTxGas = 0;
+        baseGas = 0;
+        gasPrice = 0;
+        gasToken = address(0);
+        refundReceiver = payable(address(0));
+        nonce = 8;
 
-        bytes32 signingHash = keccak256(
+        txHash = keccak256(
             bytes.concat(
                 hex"1901",
                 keccak256(
@@ -221,24 +238,57 @@ contract TestSafeGuard is Test {
             )
         );
 
-        (uint8 v0, bytes32 r0, bytes32 s0) = vm.sign(signer0, signingHash);
-        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(signer1, signingHash);
-        bytes memory signatures = abi.encodePacked(r0, s0, v0, r1, s1, v1);
+        (uint8 v0, bytes32 r0, bytes32 s0) = vm.sign(signer0, txHash);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(signer1, txHash);
+        signatures = abi.encodePacked(r0, s0, v0, r1, s1, v1);
 
         guard.enqueue(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce, signatures
         );
+    }
 
-        vm.warp(vm.getBlockTimestamp() + guard.delay());
+    function testHappyPath() external {
+        (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            ,
+            ,
+            bytes memory signatures
+        ) = _enqueuePoke();
 
-        vm.expectRevert(
-            abi.encodeWithSignature("TimelockNotElapsed(bytes32,uint256)", signingHash, vm.getBlockTimestamp())
-        );
+        vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
+
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
+    }
 
-        vm.warp(vm.getBlockTimestamp() + 1 seconds);
+    function testTimelockNonExpiry() external {
+        (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            ,
+            bytes32 txHash,
+            bytes memory signatures
+        ) = _enqueuePoke();
+
+        vm.warp(vm.getBlockTimestamp() + guard.delay());
+
+        vm.expectRevert(abi.encodeWithSignature("TimelockNotElapsed(bytes32,uint256)", txHash, vm.getBlockTimestamp()));
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
