@@ -23,16 +23,19 @@ jobs:
       - name: Build UniswapV4
         run: forge build lib/v4-core/src/PoolManager.sol
 
-      - name: Build contracts
-        run: forge build --skip UniswapV4UnitTest.t.sol
-
       - name: Build Safe Guard
         run: forge build src/deployer/SafeGuard.sol
         env:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 200
 
+      - name: Build all other contracts
+        run: forge build --skip UniswapV4UnitTest.t.sol --skip SafeGuard.sol
+
+      - name: Build UniswapV4 unit test
+        run: forge build --skip SafeGuard.sol
+
       - name: Run tests
-        run: forge test
+        run: forge test --skip SafeGuard.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
