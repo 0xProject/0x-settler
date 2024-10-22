@@ -23,6 +23,8 @@ interface ISafeMinimal {
 
     function approvedHashes(address owner, bytes32 txHash) external view returns (uint256);
 
+    function getModulesPaginated(address start, uint256 pageSize) external view returns (address[] memory array, address next);
+
     // This function is not part of the interface at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
     // . It's part of the implicit interface on the proxy contract(s) created by the factory at
     // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc .
@@ -176,7 +178,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     event Unlocked();
 
     error PermissionDenied();
-    error NoDelegateToGuard();
+    error NoDelegateCall();
     error GuardNotInstalled();
     error GuardIsOwner();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
@@ -186,38 +188,43 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     error NotLockedDown();
     error UnlockHashNotApproved(bytes32 txHash);
     error UnexpectedUpgrade(address newSingleton);
-    error OnlyAsGuard();
-    error UnsafeDelegateCall(address to);
+    error Reentrancy();
+    error ModuleInstalled(address module);
 
     mapping(bytes32 => uint256) public timelockEnd;
-    uint24 public delay;
-    uint64 private _cachedNonce;
     address public lockedDownBy;
+    uint24 public delay;
+    bool private _reentrancyGuard;
     bool private _guardRemoved;
 
     ISafeMinimal public constant safe = ISafeMinimal(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
 
     address private constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
-    address private constant _MULTI_SEND_CALL_ONLY = 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B;
 
     // This is the correct hash only if this contract has been compiled for the London hardfork
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
-    constructor() safetyChecks {
-        // The checks applied by the `safetyChecks` modifier ensure that the Guard is safely
-        // installed in the Safe _at the time it is deployed_. The author knows of no way to enforce
-        // that the Guard is installed atomic with its deployment. This introduces a TOCTOU
-        // vulnerability. Therefore, extensive simulation and excessive caution are imperative in
-        // this process. If the Guard is installed in a Safe where these checks fail, the Safe is
-        // bricked. Once the Guard is successfully deployed, the behavior ought to be sane, even in
-        // bizarre and outrageous circumstances.
+    constructor() {
+        // These checks ensure that the Guard is safely installed in the Safe at the time it is
+        // deployed, with the exception of the installation and subsequent concealment of a
+        // malicious Safe module. The author knows of no way to enforce that the Guard is installed
+        // atomic with its deployment. This introduces a TOCTOU vulnerability. Therefore, extensive
+        // simulation and excessive caution are imperative in this process. If the Guard is
+        // installed in a Safe where these checks fail, the Safe is bricked. Once the Guard is
+        // successfully deployed, the behavior ought to be sane, even in bizarre and outrageous
+        // circumstances.
+        assert(safe.masterCopy() == _SINGLETON);
+        assert(!safe.isOwner(address(this)));
+        assert(safe.getGuard() == address(this));
+        {
+            (address[] memory modules, ) = safe.getModulesPaginated(address(1), 1);
+            assert(modules.length == 0);
+        }
 
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         assert(msg.sender == _SAFE_SINGLETON_FACTORY);
-
-        _cachedNonce = uint64(safe.nonce()); // overflow is not practically possible
     }
 
     function _requireSafe() private view {
@@ -265,45 +272,18 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         _;
     }
 
-    function _safetyChecks() private view {
-        // Because the hardcoded `safe` address is computed using the `CREATE2` pattern from trusted
-        // initcode, we know that once deployed, it cannot be redeployed with different code. This
-        // provides a toehold of trust that we can extend to perform some very stringent safety
-        // checks that ensure the behavior of the system as a whole is as expected. We do not need
-        // to recheck this, ever. If the Safe is ever `SELFDESTRUCT`'d, we may encounter bizarre
-        // behavior with the value of `safe.masterCopy()` changing out from under us while we aren't
-        // watching. We try our best to deal with this, but are limited in what is possible.
-
-        // Once we've established that the code in `safe` is expected (provided that it exists), we
-        // can be sure that the result of calling `masterCopy()` is trustworthy. The address
-        // `_SINGLETON` is computed using the `CREATE2` pattern from trusted initcode (this does not
-        // use Nick's Method for deployment, so it's not permissionless, but it is trustless). So if
-        // the result of `masterCopy()` is the expected value, we can also trust the
-        // implementation's behavior for further checks.
-        {
-            address singleton = safe.masterCopy();
-            if (singleton != _SINGLETON) {
-                revert UnexpectedUpgrade(singleton);
-            }
-        }
-
-        // If the Guard is uninstalled, it is now useless. Signal that to anybody who might care by
-        // reverting.
-        if (safe.getGuard() != address(this) || _guardRemoved) {
+    function _requireNotRemoved() private view {
+        // If the guard has been removed, it's possible that the Safe may have been subsequently
+        // `SELFDESTRUCT`'d through a `DELEGATECALL` or any number of other, unsafe state
+        // modifications (including installation of Module). Consequently, we can perform no other
+        // checks or make other assumptions about the state of the Safe.
+        if (_guardRemoved) {
             revert GuardNotInstalled();
-        }
-
-        // Due to a quirk of how `checkNSignatures` works (called as a guarded precondition to
-        // `unlock`; sometimes it validates `msg.sender` instead of a signature, for gas
-        // optimization), we could end up in a bizarre situation if `address(this)` is an
-        // owner. This would make our introspection checks wrong. Let's just prohibit that entirely.
-        if (safe.isOwner(address(this))) {
-            revert GuardIsOwner();
         }
     }
 
-    modifier safetyChecks() {
-        _safetyChecks();
+    modifier notRemoved() {
+        _requireNotRemoved();
         _;
     }
 
@@ -336,41 +316,49 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     ) external override onlySafe {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
-        if (_safe.masterCopy() != _SINGLETON) {
-            // Either the Safe has been `SELFDESTRUCT`'d and recreated at the same address (without
-            // the Guard) and then upgraded to a new singleton/implementation, or the Guard has been
-            // removed and then the Safe upgraded. Either way, we cannot know anything about the
-            // state of the Safe or the environment in which we're executing. We prefer to fail open
-            // rather than brick.
-            //
-            // We cannot be guaranteed to be able to detect the former case. We do as much as we
-            // can, but the design of the EVM frustrates further surety.
-            _guardRemoved = true;
+        if (_guardRemoved) {
+            // There are two ways for this branch to be reached. The first way is if the Guard is
+            // uninstalled and then reinstalled. Unfortunately, we can't distinguish this case from
+            // the second way. To avoid applying restrictions in circumstances we can't be
+            // completely certain about, we prefer to fail open rather than accidentally brick
+            // something. The second way is that the Guard has been uninstalled and now the Safe is
+            // calling `checkTransaction` through `execute`. Because `execute` provides complete
+            // freedom in the calls that may be performed both before and after this call, we cannot
+            // safely clear `_guardRemoved` because we don't know that the post-conditions in
+            // `checkAfterExecution` will be enforced.
+            return;
         }
 
-        if (_guardRemoved) {
-            // There are three ways for this branch to be reached. The first is that Safe has been
-            // `SELFDESTRUCT`'d and recreated. In this case, we can assume nothing about the
-            // behavior of the Safe. The second case is if the Guard is uninstalled and then
-            // reinstalled. Unfortunately, we can't distinguish this case from the third case. To
-            // avoid applying restrictions in circumstances we can't be completely certain about, we
-            // prefer to fail open rather than accidentally brick something. The third case is that
-            // the Guard has been uninstalled and now the Safe is calling `checkTransaction` through
-            // `execute`. Because `execute` provides complete freedom in the calls that may be
-            // performed both before and after this call, we cannot safely clear `_guardRemoved`
-            // because we don't know that the post-conditions in `checkAfterExecution` will be
-            // enforced.
-            return;
+        if (_reentrancyGuard) {
+            revert Reentrancy();
+        }
+        _reentrancyGuard = true;
+
+        // At this point, we can be confident that we are executing inside of a call to
+        // `execTransaction`. We can rely on `checkAfterExecution` to enforce its postconditions.
+
+        // After extensive consideration, the ability to do `DELEGATECALL`'s to other contracts,
+        // including narrowly limiting that to the use of the Safe-approved `MultiCallSendOnly`
+        // contract (0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B), creates ways to brick/compromise
+        // the Safe in ways that cannot be detected by simple pre-/post-conditions applied in
+        // `checkTransaction` and `checkAfterExecution`. For example, allowing `MultiCallSendOnly`
+        // creates the possibility of the installation of a malicious Module through `addModule`,
+        // execution of a `DELEGATECALL` to an attacker-controlled contract through
+        // `execTransactionFromModule`, and then removing that malicious module from the ability of
+        // `getModulesPaginated` (or any other mechanism) to enumerate (i.e. setting slot
+        // 0xcc69885fda6bcc1a4ace058b4a62bf5e179ea78fd58a1ccd71c22cc9b688792f to 1) all in a single
+        // atomic transaction that will pass the postconditions.
+        //
+        // Therefore, due to a complete inability to secure the Safe against malicious/incompetent
+        // owners, `Operation.DelegateCall` is prohibited.
+        if (operation != Operation.Call) {
+            revert NoDelegateCall();
         }
 
         // The nonce has already been incremented past the value used in the
         // currently-executing transaction. We decrement it to get the value that was hashed
         // to get the `txHash`.
         uint256 nonce = _safe.nonce() - 1;
-
-        if (uint64(nonce) != _cachedNonce) {
-            revert OnlyAsGuard();
-        }
 
         // `txHashData` is used here for an outdated, nonstandard variant of nested ERC1271
         // signatures that passes the signing hash as `bytes` instead of as `bytes32`. This only
@@ -382,9 +370,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
         // The call to `this.unlock()` is special-cased.
         if (to == address(this)) {
-            if (operation != Operation.Call) {
-                revert NoDelegateToGuard();
-            }
             if (uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector))) {
                 // A call to `unlock` does not go through the timelock, but we require additional
                 // signatures in order for the lockdown functionality to be effective, as a
@@ -412,14 +397,11 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // We check that the Safe is not locked down twice. We have to check it here to ensure that
         // we're not smuggling a call to `unlock()` through (e.g.) a delegatecall to
         // MultiSendCallOnly.
+        //
+        // TODO: This check may no longer be necessary
         _requireNotLockedDown();
 
-        if (operation == Operation.DelegateCall && to != _MULTI_SEND_CALL_ONLY) {
-            revert UnsafeDelegateCall(to);
-        }
-
         uint256 _timelockEnd = timelockEnd[txHash];
-
         if (_timelockEnd == 0) {
             revert NotQueued(txHash);
         }
@@ -434,14 +416,10 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             return;
         }
 
-        ISafeMinimal _safe = ISafeMinimal(msg.sender);
-
-        if (uint64(_safe.nonce() - 1) != _cachedNonce) {
-            revert OnlyAsGuard();
+        if (!_reentrancyGuard) {
+            revert Reentrancy();
         }
-        unchecked {
-            _cachedNonce++; // overflow is not practically possible
-        }
+        _reentrancyGuard = false;
 
         // We check that the Safe is not locked down twice. We have to check it here to ensure that
         // the call to `unlock()` can't revert and burn signatures (increase the nonce), resulting
@@ -451,12 +429,34 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // there's unexpected metamorphism or if the Guard is uninstalled.
         _requireNotLockedDown();
 
-        // Prevent an unexpected upgrade that may break our ability to reliably introspect the
-        // aspects of the Safe that are required for the correct function of this guard.
+        ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
+        // The knowledge that the hardcoded `safe` address is computed using the `CREATE2` pattern
+        // from trusted initcode (and a factory likewise deployed by trusted initcode) gives us a
+        // pretty strong toehold of trust. We do not need to recheck this, ever. Furthermore,
+        // introspecting the proxy's implementation contract via the trustworthy `masterCopy()`
+        // accessor (which bypasses the implementation and only executes proxy bytecode) and
+        // constraining it to be an address also deployed via `CREATE2` with trusted initcode gives
+        // us a full complement of function selectors that can be used for postcondition checks.
+        //
+        // None of the above deployments use a "Nick's Method" deployment, so while these
+        // assumptions are trustless, they are _*NOT*_ permissionless.
         {
             address singleton = _safe.masterCopy();
             if (singleton != _SINGLETON) {
                 revert UnexpectedUpgrade(singleton);
+            }
+        }
+
+        // The presence of a Module means that the state of the Safe may be modified in
+        // unpredictable ways in between the enforcement of the pre-/post-conditions applied by
+        // `checkTransaction` and `checkAfterExecution`. Namely, it could cause a `DELEGATECALL` and
+        // consequently arbitrary modification of the state of the proxy (including
+        // `SELFDESTRUCT`). Therefore, we prohibit the installation of modules.
+        {
+            (address[] memory modules, ) = _safe.getModulesPaginated(address(1), 1);
+            if (modules.length != 0) {
+                revert ModuleInstalled(modules[0]);
             }
         }
 
@@ -468,10 +468,11 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             revert GuardIsOwner();
         }
 
-        // Unlike the `safetyChecks` modifier, we permit `_safe.getGuard()` to be values other than
-        // `address(this)`. This allows uninstallation of the guard (through the timelock,
-        // obviously) to later permit upgrades to other singleton implementation contracts. It is
-        // not possible to un-set `_guardRemoved` once set. This completely disables the guard.
+        // We do not revert if `_safe.getGuard()` returns a value other than `address(this)`. This
+        // allows uninstallation of the guard (through the timelock, obviously) to later permit
+        // upgrades to other singleton implementation contracts. However, we do set the
+        // `_guardRemoved` flag, which disables all Guard functionality (failing open). It is not
+        // possible to un-set `_guardRemoved` once set.
         if (_safe.getGuard() != address(this)) {
             _guardRemoved = true;
         }
@@ -489,7 +490,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver,
         uint256 nonce,
         bytes calldata signatures
-    ) external safetyChecks {
+    ) external notRemoved {
         bytes memory txHashData = safe.encodeTransactionData(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
@@ -521,7 +522,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         delay = newDelay;
     }
 
-    function unlockTxHash() public view notLockedDown safetyChecks returns (bytes32) {
+    function unlockTxHash() public view notLockedDown notRemoved returns (bytes32) {
         uint256 nonce = safe.nonce();
         return safe.getTransactionHash(
             address(this),

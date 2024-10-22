@@ -90,8 +90,8 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     error UnexpectedUpgrade(address newSingleton);
 
     function timelockEnd(bytes32) external view returns (uint256);
-    function delay() external view returns (uint24);
     function lockedDownBy() external view returns (address);
+    function delay() external view returns (uint24);
     function safe() external view returns (address);
 
     function enqueue(
