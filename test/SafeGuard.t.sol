@@ -175,6 +175,7 @@ contract TestSafeGuard is Test {
     }
 
     function poke() external returns (uint256) {
+        require(msg.sender == address(safe));
         return ++pokeCounter;
     }
 
@@ -269,6 +270,8 @@ contract TestSafeGuard is Test {
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
+
+        assertEq(pokeCounter, 1);
     }
 
     function testTimelockNonExpiry() external {
