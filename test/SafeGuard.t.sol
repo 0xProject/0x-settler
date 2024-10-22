@@ -153,8 +153,9 @@ contract TestSafeGuard is Test {
 
         oldOwners = _safe.getOwners();
         console.log(oldOwners.length, "owners");
-        for (uint256 i; i < oldOwners.length; i++) {
-            console.log("Owner #", i, oldOwners[i]);
+        for (uint256 i = oldOwners.length; i > 0;) {
+            i--;
+            console.log("Owner", oldOwners[i]);
         }
 
         bytes memory creationCode = vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuard");
