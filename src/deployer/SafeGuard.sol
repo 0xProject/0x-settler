@@ -183,6 +183,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     error GuardIsOwner();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
     error TimelockElapsed(bytes32 txHash, uint256 timelockEnd);
+    error AlreadyQueued(bytes32 txHash);
     error NotQueued(bytes32 txHash);
     error LockedDown(address lockedDownBy);
     error NotLockedDown();
@@ -489,6 +490,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         safe.checkSignatures(txHash, txHashData, signatures);
 
         uint256 _timelockEnd = block.timestamp + delay;
+        if (timelockEnd[txHash] != 0) {
+            revert AlreadyQueued(txHash);
+        }
         timelockEnd[txHash] = _timelockEnd;
 
         emit SafeTransactionEnqueued(
