@@ -375,11 +375,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
                 // signatures in order for the lockdown functionality to be effective, as a
                 // protocol.
 
-                // We have to check that we're locked down both here *and* in `unlock()` to
-                // ensure that the stored approved hash that is registered prior to calling
-                // `lockDown()` can't be wasted before `lockDown()` is actually called.
-                _requireLockedDown();
-
                 // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to the
                 // owner count. We go beyond the usual requirement of just the threshold. The owner
                 // who called `lockDown()` has already signed (to prevent griefing).
@@ -393,13 +388,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // `this.unlock()`. The checks that need to be performed here are 1) that the Safe is not
         // locked down, 2) that the transaction was previously queued through `enqueue` and 3) that
         // `delay` has elapsed since `enqueue` was called.
-
-        // We check that the Safe is not locked down twice. We have to check it here to ensure that
-        // we're not smuggling a call to `unlock()` through (e.g.) a delegatecall to
-        // MultiSendCallOnly.
-        //
-        // TODO: This check may no longer be necessary
-        _requireNotLockedDown();
 
         uint256 _timelockEnd = timelockEnd[txHash];
         if (_timelockEnd == 0) {
@@ -421,12 +409,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
         _reentrancyGuard = false;
 
-        // We check that the Safe is not locked down twice. We have to check it here to ensure that
-        // the call to `unlock()` can't revert and burn signatures (increase the nonce), resulting
-        // in a bricked/griefing attack by a malicious owner.
+        // We have to check that we're not locked down here (instead of in `checkTransaction`) to
+        // ensure that the call to `unlock()` can't revert and burn the stored signatures
+        // (`safe.approvedHashes(...)`; i.e. increase the nonce), resulting in a bricked Safe via a
+        // griefing attack by a malicious owner.
         //
         // This is here instead of using the `notLockedDown` modifier so that we avoid bricking if
-        // there's unexpected metamorphism or if the Guard is uninstalled.
+        // the Guard is uninstalled.
         _requireNotLockedDown();
 
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
