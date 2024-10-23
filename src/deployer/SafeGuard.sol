@@ -21,7 +21,7 @@ interface ISafeMinimal {
 
     function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
 
-    function approvedHashes(address owner, bytes32 txHash) external view returns (uint256);
+    function approvedHashes(address owner, bytes32 txHash) external view returns (bool);
 
     function getModulesPaginated(address start, uint256 pageSize) external view returns (address[] memory array, address next);
 
@@ -174,7 +174,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         bytes signatures
     );
     event SafeTransactionCanceled(bytes32 indexed txHash, address indexed canceledBy);
-    event LockDown(address indexed lockedDownBy);
+    event LockDown(address indexed lockedDownBy, bytes32 indexed unlockTxHash);
     event Unlocked();
 
     error PermissionDenied();
@@ -297,7 +297,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // By requiring that the Safe owner has preapproved the `txHash` for the call to `unlock`,
         // we prevent a single rogue signer from bricking the Safe.
         bytes32 txHash = unlockTxHash();
-        if (safe.approvedHashes(msg.sender, txHash) != 1) {
+        if (!safe.approvedHashes(msg.sender, txHash)) {
             revert UnlockHashNotApproved(txHash);
         }
     }
@@ -339,7 +339,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         _reentrancyGuard = true;
 
         // At this point, we can be confident that we are executing inside of a call to
-        // `execTransaction`. We can rely on `checkAfterExecution` to enforce its postconditions.
+        // `execTransaction`, but not inside `execute`. We can rely on `checkAfterExecution` to
+        // enforce its postconditions.
 
         // After extensive consideration, the ability to do `DELEGATECALL`'s to other contracts,
         // including narrowly limiting that to the use of the Safe-approved `MultiCallSendOnly`
@@ -546,8 +547,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     }
 
     function lockDown() external antiGriefing {
+        emit LockDown(msg.sender, unlockTxHash());
         lockedDownBy = msg.sender;
-        emit LockDown(msg.sender);
     }
 
     function unlock() external onlySafe lockedDown {

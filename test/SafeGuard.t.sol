@@ -394,6 +394,46 @@ contract TestSafeGuard is Test {
         guard.cancel(txHash);
     }
 
+    function testLockDownHappyPath() external {
+        (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            ,
+            ,
+            bytes memory signatures
+        ) = _enqueuePoke();
+
+        bytes32 unlockTxHash = guard.unlockTxHash();
+
+        vm.startPrank(owners[owners.length - 1].addr);
+
+        vm.expectEmit(true, true, true, true, address(safe));
+        emit ISafe.ApproveHash(unlockTxHash, owners[owners.length - 1].addr);
+        safe.approveHash(unlockTxHash);
+
+        vm.expectEmit(true, true, true, true, address(guard));
+        emit IZeroExSettlerDeployerSafeGuard.LockDown(owners[owners.length - 1].addr, unlockTxHash);
+        guard.lockDown();
+
+        vm.stopPrank();
+
+        vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.LockedDown.selector, owners[owners.length - 1].addr)
+        );
+        safe.execTransaction(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        );
+    }
+
     IMulticall internal constant _MULTICALL = IMulticall(0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B);
 
     function _encodeMulticallPoke()
