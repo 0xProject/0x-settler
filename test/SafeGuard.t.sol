@@ -360,6 +360,7 @@ contract TestSafeGuard is Test {
         vm.expectEmit(true, true, true, true, address(guard));
         emit IZeroExSettlerDeployerSafeGuard.SafeTransactionCanceled(txHash, owners[owners.length - 1].addr);
         guard.cancel(txHash);
+
         vm.stopPrank();
 
         vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
@@ -372,6 +373,25 @@ contract TestSafeGuard is Test {
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
+    }
+
+    function testCancelNoApprove() external {
+        (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
+
+        bytes32 unlockTxHash = guard.unlockTxHash();
+
+        vm.prank(owners[owners.length - 1].addr);
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.UnlockHashNotApproved.selector, unlockTxHash)
+        );
+        guard.cancel(txHash);
+    }
+
+    function testCancelNotOwner() external {
+        (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
+
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.PermissionDenied.selector));
+        guard.cancel(txHash);
     }
 
     IMulticall internal constant _MULTICALL = IMulticall(0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B);
