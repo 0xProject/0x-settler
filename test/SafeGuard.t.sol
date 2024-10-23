@@ -185,11 +185,33 @@ contract TestSafeGuard is Test {
 
         vm.prank(address(_safe));
         guard.setDelay(uint24(1 weeks));
+
+        // Heck yeah, bubble sort
+        {
+            Vm.Wallet memory tmp;
+            for (uint256 i = 1; i < owners.length; i++) {
+                for (uint256 j = i; j > 0; j--) {
+                    if (owners[j - 1].addr > owners[j].addr) {
+                        tmp = owners[j - 1];
+                        owners[j - 1] = owners[j];
+                        owners[j] = tmp;
+                    }
+                }
+            }
+            for (uint256 i; i < owners.length - 1; i++) {
+                assertLt(uint160(owners[i].addr), uint160(owners[i + 1].addr));
+            }
+        }
     }
 
     function poke() external returns (uint256) {
         require(msg.sender == address(safe));
         return ++pokeCounter;
+    }
+
+    function _signSafeEncoded(Vm.Wallet storage signer, bytes32 hash) internal returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signer, hash);
+        return abi.encodePacked(r, s, v);
     }
 
     function _enqueuePoke()
@@ -209,12 +231,6 @@ contract TestSafeGuard is Test {
             bytes memory signatures
         )
     {
-        Vm.Wallet storage signer0 = owners[0];
-        Vm.Wallet storage signer1 = owners[1];
-        if (signer0.addr > signer1.addr) {
-            (signer0, signer1) = (signer1, signer0);
-        }
-
         to = address(this);
         value = 0 ether;
         data = abi.encodeCall(this.poke, ());
@@ -254,9 +270,7 @@ contract TestSafeGuard is Test {
             )
         );
 
-        (uint8 v0, bytes32 r0, bytes32 s0) = vm.sign(signer0, txHash);
-        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(signer1, txHash);
-        signatures = abi.encodePacked(r0, s0, v0, r1, s1, v1);
+        signatures = abi.encodePacked(_signSafeEncoded(owners[0], txHash), _signSafeEncoded(owners[1], txHash));
 
         vm.expectEmit(true, true, true, true, address(guard));
         emit IZeroExSettlerDeployerSafeGuard.SafeTransactionEnqueued(
@@ -280,7 +294,7 @@ contract TestSafeGuard is Test {
         );
     }
 
-    function testHappyPath() external {
+    function testHappyPath() public {
         (
             address to,
             uint256 value,
@@ -394,8 +408,9 @@ contract TestSafeGuard is Test {
         guard.cancel(txHash);
     }
 
-    function testLockDownHappyPath() external {
-        (
+    function testLockDownHappyPath()
+        public
+        returns (
             address to,
             uint256 value,
             bytes memory data,
@@ -405,10 +420,12 @@ contract TestSafeGuard is Test {
             uint256 gasPrice,
             address gasToken,
             address payable refundReceiver,
-            ,
-            ,
+            bytes32 txHash,
             bytes memory signatures
-        ) = _enqueuePoke();
+        )
+    {
+        (to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver,, txHash, signatures) =
+            _enqueuePoke();
 
         bytes32 unlockTxHash = guard.unlockTxHash();
 
@@ -434,6 +451,91 @@ contract TestSafeGuard is Test {
         );
     }
 
+    function testUnlockHappyPath() external {
+        (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            ,
+            bytes memory signatures
+        ) = testLockDownHappyPath();
+
+        {
+            address unlockTo = address(guard);
+            uint256 unlockValue = 0 ether;
+            bytes memory unlockData = abi.encodeCall(guard.unlock, ());
+            Operation unlockOperation = Operation.Call;
+            uint256 unlockSafeTxGas = 0;
+            uint256 unlockBaseGas = 0;
+            uint256 unlockGasPrice = 0;
+            address unlockGasToken = address(0);
+            address payable unlockRefundReceiver = payable(address(0));
+
+            bytes32 unlockTxHash = keccak256(
+                bytes.concat(
+                    hex"1901",
+                    keccak256(
+                        abi.encode(
+                            keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, safe
+                        )
+                    ),
+                    keccak256(
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            unlockTo,
+                            unlockValue,
+                            keccak256(unlockData),
+                            unlockOperation,
+                            unlockSafeTxGas,
+                            unlockBaseGas,
+                            unlockGasPrice,
+                            unlockGasToken,
+                            unlockRefundReceiver,
+                            safe.nonce()
+                        )
+                    )
+                )
+            );
+
+            bytes memory unlockSignatures = abi.encodePacked(
+                _signSafeEncoded(owners[0], unlockTxHash),
+                _signSafeEncoded(owners[1], unlockTxHash),
+                _signSafeEncoded(owners[2], unlockTxHash),
+                _signSafeEncoded(owners[3], unlockTxHash),
+                uint256(uint160(owners[4].addr)),
+                bytes32(0),
+                uint8(1)
+            );
+            safe.execTransaction(
+                unlockTo,
+                unlockValue,
+                unlockData,
+                unlockOperation,
+                unlockSafeTxGas,
+                unlockBaseGas,
+                unlockGasPrice,
+                unlockGasToken,
+                unlockRefundReceiver,
+                unlockSignatures
+            );
+        }
+
+        vm.expectRevert("GS026");
+        safe.execTransaction(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        );
+
+        testHappyPath();
+    }
+
     IMulticall internal constant _MULTICALL = IMulticall(0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B);
 
     function _encodeMulticallPoke()
@@ -453,12 +555,6 @@ contract TestSafeGuard is Test {
             bytes memory signatures
         )
     {
-        Vm.Wallet storage signer0 = owners[0];
-        Vm.Wallet storage signer1 = owners[1];
-        if (signer0.addr > signer1.addr) {
-            (signer0, signer1) = (signer1, signer0);
-        }
-
         to = address(_MULTICALL);
         value = 0 ether;
         data = abi.encodeCall(this.poke, ());
@@ -502,9 +598,7 @@ contract TestSafeGuard is Test {
             )
         );
 
-        (uint8 v0, bytes32 r0, bytes32 s0) = vm.sign(signer0, txHash);
-        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(signer1, txHash);
-        signatures = abi.encodePacked(r0, s0, v0, r1, s1, v1);
+        signatures = abi.encodePacked(_signSafeEncoded(owners[0], txHash), _signSafeEncoded(owners[1], txHash));
     }
 
     function testMulticall0() external {
