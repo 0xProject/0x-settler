@@ -37,6 +37,10 @@ interface ISafe {
         bytes memory signatures
     ) external payable returns (bool);
 
+    event ExecutionFailure(bytes32 txHash, uint256 payment);
+
+    event ExecutionSuccess(bytes32 txHash, uint256 payment);
+
     function nonce() external view returns (uint256);
 
     function approveHash(bytes32 hashToApprove) external;
@@ -306,12 +310,14 @@ contract TestSafeGuard is Test {
             address gasToken,
             address payable refundReceiver,
             ,
-            ,
+            bytes32 txHash,
             bytes memory signatures
         ) = _enqueuePoke();
 
         vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
 
+        vm.expectEmit(true, true, true, true, address(safe));
+        emit ISafe.ExecutionSuccess(txHash, 0);
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
@@ -512,6 +518,9 @@ contract TestSafeGuard is Test {
                 bytes32(0),
                 uint8(1)
             );
+
+            vm.expectEmit(true, true, true, true, address(safe));
+            emit ISafe.ExecutionSuccess(unlockTxHash, 0);
             safe.execTransaction(
                 unlockTo,
                 unlockValue,
@@ -585,6 +594,24 @@ contract TestSafeGuard is Test {
         );
 
         vm.expectRevert("GS020");
+        safe.execTransaction(
+            unlockTo,
+            unlockValue,
+            unlockData,
+            unlockOperation,
+            unlockSafeTxGas,
+            unlockBaseGas,
+            unlockGasPrice,
+            unlockGasToken,
+            unlockRefundReceiver,
+            unlockSignatures
+        );
+
+        // This just validates that the signatures as encoded are otherwise
+        // valid in the absence of the guard's checks
+        vm.store(address(safe), 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8, bytes32(0));
+        vm.expectEmit(true, true, true, true, address(safe));
+        emit ISafe.ExecutionSuccess(unlockTxHash, 0);
         safe.execTransaction(
             unlockTo,
             unlockValue,
