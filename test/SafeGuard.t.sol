@@ -368,11 +368,11 @@ contract TestSafeGuard is Test {
         vm.startPrank(owners[owners.length - 1].addr);
 
         vm.expectEmit(true, true, true, true, address(safe));
-        emit ISafe.ApproveHash(unlockTxHash, owners[owners.length - 1].addr);
+        emit ISafe.ApproveHash(unlockTxHash, owners[4].addr);
         safe.approveHash(unlockTxHash);
 
         vm.expectEmit(true, true, true, true, address(guard));
-        emit IZeroExSettlerDeployerSafeGuard.SafeTransactionCanceled(txHash, owners[owners.length - 1].addr);
+        emit IZeroExSettlerDeployerSafeGuard.SafeTransactionCanceled(txHash, owners[4].addr);
         guard.cancel(txHash);
 
         vm.stopPrank();
@@ -394,7 +394,7 @@ contract TestSafeGuard is Test {
 
         bytes32 unlockTxHash = guard.unlockTxHash();
 
-        vm.prank(owners[owners.length - 1].addr);
+        vm.prank(owners[4].addr);
         vm.expectRevert(
             abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.UnlockHashNotApproved.selector, unlockTxHash)
         );
@@ -429,23 +429,21 @@ contract TestSafeGuard is Test {
 
         bytes32 unlockTxHash = guard.unlockTxHash();
 
-        vm.startPrank(owners[owners.length - 1].addr);
+        vm.startPrank(owners[4].addr);
 
         vm.expectEmit(true, true, true, true, address(safe));
-        emit ISafe.ApproveHash(unlockTxHash, owners[owners.length - 1].addr);
+        emit ISafe.ApproveHash(unlockTxHash, owners[4].addr);
         safe.approveHash(unlockTxHash);
 
         vm.expectEmit(true, true, true, true, address(guard));
-        emit IZeroExSettlerDeployerSafeGuard.LockDown(owners[owners.length - 1].addr, unlockTxHash);
+        emit IZeroExSettlerDeployerSafeGuard.LockDown(owners[4].addr, unlockTxHash);
         guard.lockDown();
 
         vm.stopPrank();
 
         vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.LockedDown.selector, owners[owners.length - 1].addr)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.LockedDown.selector, owners[4].addr));
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
