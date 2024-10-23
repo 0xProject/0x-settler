@@ -38,6 +38,10 @@ interface ISafe {
     ) external payable returns (bool);
 
     function nonce() external view returns (uint256);
+
+    function approveHash(bytes32 hashToApprove) external;
+
+    event ApproveHash(bytes32 indexed approvedHash, address indexed owner);
 }
 
 interface IGuard {
@@ -322,6 +326,47 @@ contract TestSafeGuard is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IZeroExSettlerDeployerSafeGuard.TimelockNotElapsed.selector, txHash, vm.getBlockTimestamp()
+            )
+        );
+        safe.execTransaction(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        );
+    }
+
+    function testCancelHappyPath() external {
+        (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            ,
+            bytes32 txHash,
+            bytes memory signatures
+        ) = _enqueuePoke();
+
+        bytes32 unlockTxHash = guard.unlockTxHash();
+
+        vm.startPrank(owners[owners.length - 1].addr);
+
+        vm.expectEmit(true, true, true, true, address(safe));
+        emit ISafe.ApproveHash(unlockTxHash, owners[owners.length - 1].addr);
+        safe.approveHash(unlockTxHash);
+
+        vm.expectEmit(true, true, true, true, address(guard));
+        emit IZeroExSettlerDeployerSafeGuard.SafeTransactionCanceled(txHash, owners[owners.length - 1].addr);
+        guard.cancel(txHash);
+        vm.stopPrank();
+
+        vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IZeroExSettlerDeployerSafeGuard.TimelockNotElapsed.selector, txHash, type(uint256).max
             )
         );
         safe.execTransaction(
