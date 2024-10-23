@@ -168,13 +168,6 @@ contract TestSafeGuard is Test {
         }
         vm.stopPrank();
 
-        oldOwners = _safe.getOwners();
-        console.log(oldOwners.length, "owners");
-        for (uint256 i = oldOwners.length; i > 0;) {
-            i--;
-            console.log("Owner", oldOwners[i]);
-        }
-
         bytes memory creationCode = vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuard");
         guard = IZeroExSettlerDeployerSafeGuard(
             AddressDerivation.deriveDeterministicContract(factory, bytes32(0), keccak256(creationCode))
