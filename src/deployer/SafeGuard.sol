@@ -262,20 +262,10 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
     }
 
-    modifier notLockedDown() {
-        _requireNotLockedDown();
-        _;
-    }
-
     function _requireLockedDown() private view {
         if (lockedDownBy == address(0)) {
             revert NotLockedDown();
         }
-    }
-
-    modifier lockedDown() {
-        _requireLockedDown();
-        _;
     }
 
     function _requireNotRemoved() private view {
@@ -288,8 +278,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         }
     }
 
-    modifier notRemoved() {
+    modifier normalOperation() {
         _requireNotRemoved();
+        _requireNotLockedDown();
         _;
     }
 
@@ -483,7 +474,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         address payable refundReceiver,
         uint256 nonce,
         bytes calldata signatures
-    ) external notRemoved {
+    ) external normalOperation {
         // See comment in `checkTransaction`
         if (operation != Operation.Call) {
             revert NoDelegateCall();
@@ -518,7 +509,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         );
     }
 
-    function unlockTxHash() public view notLockedDown notRemoved returns (bytes32) {
+    function unlockTxHash() public view normalOperation returns (bytes32) {
         uint256 nonce = safe.nonce();
         return safe.getTransactionHash(
             address(this),
@@ -546,12 +537,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         emit SafeTransactionCanceled(txHash, msg.sender);
     }
 
-    function lockDown() external antiGriefing {
+    function lockDown() external normalOperation antiGriefing {
         emit LockDown(msg.sender, unlockTxHash());
         lockedDownBy = msg.sender;
     }
 
-    function unlock() external onlySafe lockedDown {
+    function unlock() external onlySafe {
+        _requireLockedDown();
         delete lockedDownBy;
         emit Unlocked();
     }
