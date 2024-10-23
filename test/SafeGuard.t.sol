@@ -36,6 +36,8 @@ interface ISafe {
         address payable refundReceiver,
         bytes memory signatures
     ) external payable returns (bool);
+
+    function nonce() external view returns (uint256);
 }
 
 interface IGuard {
@@ -122,6 +124,10 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     function unlock() external;
 }
 
+interface IMulticall {
+    function multiSend(bytes memory transactions) external payable;
+}
+
 contract TestSafeGuard is Test {
     using ItoA for uint256;
 
@@ -204,6 +210,7 @@ contract TestSafeGuard is Test {
         if (signer0.addr > signer1.addr) {
             (signer0, signer1) = (signer1, signer0);
         }
+
         to = address(this);
         value = 0 ether;
         data = abi.encodeCall(this.poke, ());
@@ -213,7 +220,7 @@ contract TestSafeGuard is Test {
         gasPrice = 0;
         gasToken = address(0);
         refundReceiver = payable(address(0));
-        nonce = 8;
+        nonce = safe.nonce();
 
         txHash = keccak256(
             bytes.concat(
@@ -317,6 +324,123 @@ contract TestSafeGuard is Test {
                 IZeroExSettlerDeployerSafeGuard.TimelockNotElapsed.selector, txHash, vm.getBlockTimestamp()
             )
         );
+        safe.execTransaction(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        );
+    }
+
+    IMulticall internal constant _MULTICALL = IMulticall(0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B);
+
+    function _encodeMulticallPoke()
+        internal
+        returns (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            uint256 nonce,
+            bytes32 txHash,
+            bytes memory signatures
+        )
+    {
+        Vm.Wallet storage signer0 = owners[0];
+        Vm.Wallet storage signer1 = owners[1];
+        if (signer0.addr > signer1.addr) {
+            (signer0, signer1) = (signer1, signer0);
+        }
+
+        to = address(_MULTICALL);
+        value = 0 ether;
+        data = abi.encodeCall(this.poke, ());
+        data = abi.encodeCall(
+            _MULTICALL.multiSend,
+            (abi.encodePacked(uint8(Operation.Call), address(this), uint256(0 ether), uint256(data.length), data))
+        );
+        operation = Operation.DelegateCall;
+        safeTxGas = 0;
+        baseGas = 0;
+        gasPrice = 0;
+        gasToken = address(0);
+        refundReceiver = payable(address(0));
+        nonce = safe.nonce();
+
+        txHash = keccak256(
+            bytes.concat(
+                hex"1901",
+                keccak256(
+                    abi.encode(
+                        keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, safe
+                    )
+                ),
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                        ),
+                        to,
+                        value,
+                        keccak256(data),
+                        operation,
+                        safeTxGas,
+                        baseGas,
+                        gasPrice,
+                        gasToken,
+                        refundReceiver,
+                        nonce
+                    )
+                )
+            )
+        );
+
+        (uint8 v0, bytes32 r0, bytes32 s0) = vm.sign(signer0, txHash);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(signer1, txHash);
+        signatures = abi.encodePacked(r0, s0, v0, r1, s1, v1);
+    }
+
+    function testMulticall0() external {
+        (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            uint256 nonce,
+            ,
+            bytes memory signatures
+        ) = _encodeMulticallPoke();
+
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.NoDelegateCall.selector));
+        guard.enqueue(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce, signatures
+        );
+    }
+
+    function testMulticall1() external {
+        (
+            address to,
+            uint256 value,
+            bytes memory data,
+            Operation operation,
+            uint256 safeTxGas,
+            uint256 baseGas,
+            uint256 gasPrice,
+            address gasToken,
+            address payable refundReceiver,
+            ,
+            ,
+            bytes memory signatures
+        ) = _encodeMulticallPoke();
+
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.NoDelegateCall.selector));
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
