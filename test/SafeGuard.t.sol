@@ -534,6 +534,71 @@ contract TestSafeGuard is Test {
         testHappyPath();
     }
 
+    function testUnlockNotUnanimous() external {
+        testLockDownHappyPath();
+
+        address unlockTo = address(guard);
+        uint256 unlockValue = 0 ether;
+        bytes memory unlockData = abi.encodeCall(guard.unlock, ());
+        Operation unlockOperation = Operation.Call;
+        uint256 unlockSafeTxGas = 0;
+        uint256 unlockBaseGas = 0;
+        uint256 unlockGasPrice = 0;
+        address unlockGasToken = address(0);
+        address payable unlockRefundReceiver = payable(address(0));
+
+        bytes32 unlockTxHash = keccak256(
+            bytes.concat(
+                hex"1901",
+                keccak256(
+                    abi.encode(
+                        keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, safe
+                    )
+                ),
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                        ),
+                        unlockTo,
+                        unlockValue,
+                        keccak256(unlockData),
+                        unlockOperation,
+                        unlockSafeTxGas,
+                        unlockBaseGas,
+                        unlockGasPrice,
+                        unlockGasToken,
+                        unlockRefundReceiver,
+                        safe.nonce()
+                    )
+                )
+            )
+        );
+
+        bytes memory unlockSignatures = abi.encodePacked(
+            _signSafeEncoded(owners[1], unlockTxHash),
+            _signSafeEncoded(owners[2], unlockTxHash),
+            _signSafeEncoded(owners[3], unlockTxHash),
+            uint256(uint160(owners[4].addr)),
+            bytes32(0),
+            uint8(1)
+        );
+
+        vm.expectRevert("GS020");
+        safe.execTransaction(
+            unlockTo,
+            unlockValue,
+            unlockData,
+            unlockOperation,
+            unlockSafeTxGas,
+            unlockBaseGas,
+            unlockGasPrice,
+            unlockGasToken,
+            unlockRefundReceiver,
+            unlockSignatures
+        );
+    }
+
     IMulticall internal constant _MULTICALL = IMulticall(0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B);
 
     function _encodeMulticallPoke()
