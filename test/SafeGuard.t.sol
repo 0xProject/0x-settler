@@ -73,7 +73,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
         uint256 indexed nonce,
         bytes signatures
     );
-    event SafeTransactionCanceled(bytes32 indexed txHash);
+    event SafeTransactionCanceled(bytes32 indexed txHash, address indexed canceledBy);
     event LockDown(address indexed lockedDownBy, bytes32 indexed unlockTxHash);
     event Unlocked();
 

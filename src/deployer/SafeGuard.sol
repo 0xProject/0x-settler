@@ -173,7 +173,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         uint256 indexed nonce,
         bytes signatures
     );
-    event SafeTransactionCanceled(bytes32 indexed txHash);
+    event SafeTransactionCanceled(bytes32 indexed txHash, address indexed canceledBy);
     event LockDown(address indexed lockedDownBy);
     event Unlocked();
 
@@ -542,7 +542,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             revert TimelockElapsed(txHash, _timelockEnd);
         }
         timelockEnd[txHash] = type(uint256).max;
-        emit SafeTransactionCanceled(txHash);
+        emit SafeTransactionCanceled(txHash, msg.sender);
     }
 
     function lockDown() external antiGriefing {
