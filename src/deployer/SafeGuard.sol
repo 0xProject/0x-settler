@@ -420,8 +420,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // pretty strong toehold of trust. We do not need to recheck this, ever. Furthermore,
         // introspecting the proxy's implementation contract via the trustworthy `masterCopy()`
         // accessor (which bypasses the implementation and only executes proxy bytecode) and
-        // constraining it to be an address also deployed via `CREATE2` with trusted initcode gives
-        // us a full complement of function selectors that can be used for postcondition checks.
+        // constraining it to be another address deployed from trusted initcode gives us a full
+        // complement of function selectors that can be used for postcondition checks.
         //
         // None of the aforementioned deployments use a "Nick's Method" deployment, so while these
         // assumptions are trustless, they are _*NOT*_ permissionless.
