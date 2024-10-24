@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -27,6 +28,7 @@ interface IVelodromePair {
 
 abstract contract Velodrome is SettlerAbstract {
     using UnsafeMath for uint256;
+    using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
     uint256 internal constant _VELODROME_NEWTON_BASIS = 1 ether * 1 gwei;
@@ -47,7 +49,7 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return (x * y / _VELODROME_NEWTON_BASIS) * (x_squared + y_squared) / _VELODROME_NEWTON_BASIS;
+            return (x * y / _VELODROME_NEWTON_BASIS).mulDiv(x_squared + y_squared, _VELODROME_NEWTON_BASIS);
         }
     }
 
@@ -79,13 +81,13 @@ abstract contract Velodrome is SettlerAbstract {
                 uint256 k = _k(x0, y, x0_squared, y_squared);
                 uint256 d = _d(y, three_x0, x0_cubed, y_squared);
                 if (k < xy) {
-                    uint256 dy = (xy - k) * _VELODROME_NEWTON_BASIS / d;
+                    uint256 dy = (xy - k).mulDiv(_VELODROME_NEWTON_BASIS, d);
                     y += dy;
                     if (dy < _VELODROME_NEWTON_EPS) {
                         return y + (_VELODROME_NEWTON_EPS - 1);
                     }
                 } else {
-                    uint256 dy = (k - xy) * _VELODROME_NEWTON_BASIS / d;
+                    uint256 dy = (k - xy).mulDiv(_VELODROME_NEWTON_BASIS, d);
                     y -= dy;
                     if (dy < _VELODROME_NEWTON_EPS) {
                         return y + (_VELODROME_NEWTON_EPS - 1);
