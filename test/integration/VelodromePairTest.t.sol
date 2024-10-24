@@ -223,14 +223,20 @@ contract VelodromePairTest is BasePairTest {
         uint256 y_basis = 1000000;
         uint256 x_reserve = 3294771369917525;
         uint256 y_reserve = 25493740;
+        uint256 x_transfer = 24990000000000;
 
+        uint256 fee_bps = 5;
+        uint256 _FEE_BASIS = 10_000;
         uint256 _BASIS = 1 ether;
 
-        uint256 dx = 24990000000000 * _BASIS / x_basis;
+        uint256 dx = x_transfer;
+        dx -= dx * fee_bps / _FEE_BASIS;
+        dx *= _BASIS;
+        dx /= x_basis;
         uint256 x = x_reserve * _BASIS / x_basis;
         uint256 y = y_reserve * _BASIS / y_basis;
 
         VelodromeConvergenceDummy dummy = new VelodromeConvergenceDummy();
-        dummy.checkConvergence(x, dx, y);
+        dummy.checkConvergence(x, dx, y) * y_basis / _BASIS;
     }
 }
