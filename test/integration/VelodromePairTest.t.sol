@@ -134,10 +134,13 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function checkConvergence(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
-        uint256 k = _k(x, y);
-        dy = y - _get_y(x + dx, k, y);
-        assert(_k(x + dx, y - dy) >= k);
+    function get_y(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
+        dy = dx * y / (x + dx);
+        return y - _get_y(x + dx, _k(x, y), y - dy);
+    }
+
+    function k(uint256 x, uint256 y) external pure returns (uint256) {
+        return _k(x, y);
     }
 
     function VELODROME_NEWTON_BASIS() external pure returns (uint256) {
@@ -146,6 +149,10 @@ contract VelodromeConvergenceDummy is Velodrome {
 
     function VELODROME_NEWTON_EPS() external pure returns (uint256) {
         return _VELODROME_NEWTON_EPS;
+    }
+
+    function VELODROME_MAX_BALANCE() external pure returns (uint256) {
+        return _VELODROME_MAX_BALANCE;
     }
 }
 
@@ -157,6 +164,7 @@ contract VelodromePairTest is BasePairTest {
     Settler internal settler;
     IAllowanceHolder internal allowanceHolder;
     uint256 private _amount;
+    VelodromeConvergenceDummy private dummy;
 
     function setUp() public override {
         // the pool specified below doesn't have very much liquidity, so we only swap a small amount
@@ -180,6 +188,10 @@ contract VelodromePairTest is BasePairTest {
         // warming storage.
         assertGe(fromToken().balanceOf(FROM), amount());
         assertGe(fromToken().allowance(FROM, address(PERMIT2)), amount());
+
+        if (velodromePool() != address(0)) {
+            dummy = new VelodromeConvergenceDummy();
+        }
     }
 
     function fromToken() internal pure override returns (IERC20) {
@@ -228,9 +240,7 @@ contract VelodromePairTest is BasePairTest {
         assertGt(afterBalance, beforeBalance);
     }
 
-    function testVelodrome_convergence() public skipIf(velodromePool() == address(0)) {
-        VelodromeConvergenceDummy dummy = new VelodromeConvergenceDummy();
-
+    function testVelodrome_convergence() public skipIf(address(dummy) == address(0)) {
         uint256 x_basis = 1000000000000000000;
         uint256 y_basis = 1000000;
         uint256 x_reserve = 3294771369917525;
@@ -248,6 +258,24 @@ contract VelodromePairTest is BasePairTest {
         uint256 x = x_reserve * _VELODROME_NEWTON_BASIS / x_basis;
         uint256 y = y_reserve * _VELODROME_NEWTON_BASIS / y_basis;
 
-        dummy.checkConvergence(x, dx, y) * y_basis / _VELODROME_NEWTON_BASIS;
+        dummy.get_y(x, dx, y) * y_basis / _VELODROME_NEWTON_BASIS;
+    }
+
+    function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) public skipIf(address(dummy) == address(0)) {
+        uint256 _VELODROME_NEWTON_BASIS = dummy.VELODROME_NEWTON_BASIS();
+        uint256 _VELODROME_NEWTON_EPS = dummy.VELODROME_NEWTON_EPS();
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() / 2;
+
+        x = bound(x, _VELODROME_NEWTON_BASIS, _VELODROME_MAX_BALANCE);
+        dx = bound(dx, _VELODROME_NEWTON_BASIS, _VELODROME_MAX_BALANCE);
+        y = bound(y, _VELODROME_NEWTON_BASIS, _VELODROME_MAX_BALANCE);
+
+        uint256 k = dummy.k(x, y);
+        assertGe(k, _VELODROME_NEWTON_BASIS);
+
+        uint256 dy = y - dummy.get_y(x, dx, y);
+
+        assertGe(dummy.k(x + dx, y - dy), k);
+        assertLt(dummy.k(x + dx, y - dy - 2 * _VELODROME_NEWTON_EPS), k - _VELODROME_NEWTON_EPS);
     }
 }

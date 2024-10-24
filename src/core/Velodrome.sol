@@ -10,6 +10,8 @@ import {Panic} from "../utils/Panic.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
+import {console} from "@forge-std/console.sol";
+
 interface IVelodromePair {
     function metadata()
         external
@@ -31,8 +33,26 @@ abstract contract Velodrome is SettlerAbstract {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
-    uint256 internal constant _VELODROME_NEWTON_BASIS = 1 ether * 1 gwei;
+    // This is approximately 135818 greater (more precise) than the basis used
+    // to compute `k` in the AMM. Using additional precision helps us avoid
+    // breakdown in the numerical approximation of the solution to AMM's bonding
+    // curve (constant function) in the face of loss-of-precision due to the use
+    // of fixnums. Using a basis that is _only_ this much greater than the
+    // original is the largest basis that allows us to use only a single
+    // `FullMath.mulDiv` in the solution to the curve, while retaining the full
+    // range of acceptable values from the original implementation.
+    uint256 internal constant _VELODROME_NEWTON_BASIS = 135818791312945910842575;
+
+    // This is one half ulp _in the original AMM_. Once we are within this
+    // bound, there's no need to optimize further. The solution is guaranteed to
+    // be precise enough to satisfy the AMM.
     uint256 internal constant _VELODROME_NEWTON_EPS = _VELODROME_NEWTON_BASIS / 2 ether;
+
+    // The maximum balance in the original implementation is `b` such that `b *
+    // b / 1 ether * b / 1 ether * b` does not overflow. This that same `b` but
+    // with a basis of `_VELODROME_NEWTON_BASIS` instead of `1 ether` (rounding
+    // down).
+    uint256 internal constant _VELODROME_MAX_BALANCE = 2505414483750479311864124350066916;
 
     // This is the `k = x^3 * y + y^3 * x` constant function
     function _k(uint256 x, uint256 y) internal pure returns (uint256) {
@@ -89,15 +109,15 @@ abstract contract Velodrome is SettlerAbstract {
                 if (k < xy) {
                     uint256 dy = (xy - k).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
                     y += dy;
-                    if (dy < _VELODROME_NEWTON_EPS) {
-                        return y + (_VELODROME_NEWTON_EPS - 1);
+                    if (dy <= _VELODROME_NEWTON_EPS) {
+                        return y + dy;
                     }
                 } else {
                     uint256 dy = (k - xy).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
-                    y -= dy;
-                    if (dy < _VELODROME_NEWTON_EPS) {
-                        return y + (_VELODROME_NEWTON_EPS - 1);
+                    if (dy <= _VELODROME_NEWTON_EPS) {
+                        return y;
                     }
+                    y -= dy;
                 }
             }
             revert NotConverged();
@@ -147,31 +167,39 @@ abstract contract Velodrome is SettlerAbstract {
             if (sellAmount == 0 || sellTokenHasFee) {
                 sellAmount = sellToken.balanceOf(address(pair)) - sellReserve;
             }
-            // Apply the fee
-            sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
 
-            // Convert everything from native units to `_VELODROME_NEWTON_BASIS`
+            // Convert reserves from native units to `_VELODROME_NEWTON_BASIS`
             sellReserve = (sellReserve * _VELODROME_NEWTON_BASIS).unsafeDiv(sellBasis);
             buyReserve = (buyReserve * _VELODROME_NEWTON_BASIS).unsafeDiv(buyBasis);
-            sellAmount = (sellAmount * _VELODROME_NEWTON_BASIS).unsafeDiv(sellBasis);
 
             // Check for overflow
-            if (buyReserve > 1 ether * _VELODROME_NEWTON_BASIS) {
+            if (buyReserve > _VELODROME_MAX_BALANCE) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
-            if (sellAmount + sellReserve > 1 ether * _VELODROME_NEWTON_BASIS) {
+            if (sellReserve + (sellAmount * _VELODROME_NEWTON_BASIS).unsafeDiv(sellBasis) > _VELODROME_MAX_BALANCE) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
 
+            // Apply the fee in native units
+            sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
+            // Convert sell amount from native units to `_VELODROME_NEWTON_BASIS`
+            sellAmount = (sellAmount * _VELODROME_NEWTON_BASIS).unsafeDiv(sellBasis);
+
             // Solve the constant function numerically to get `buyAmount` from `sellAmount`
-            uint256 k = _k(sellReserve, buyReserve);
-            buyAmount = buyReserve - _get_y(sellAmount + sellReserve, k, buyReserve);
-            // TODO: remove assertions
-            assert(_k(sellReserve + sellAmount, buyReserve - buyAmount) >= k);
-            assert(_k(sellReserve + sellAmount, buyReserve - buyAmount - 2 * _VELODROME_NEWTON_EPS) < k - _VELODROME_NEWTON_EPS);
+            // Initially estimate the buy amount using the constant-product formula
+            buyAmount = (sellAmount * buyReserve).unsafeDiv(sellReserve + sellAmount);
+            // Refine the estimate using Newton-Raphson iterations of the SolidlyV1 curve
+            buyAmount = buyReserve - _get_y(sellReserve + sellAmount, _k(sellReserve, buyReserve), buyReserve - buyAmount);
 
             // Convert `buyAmount` from `_VELODROME_NEWTON_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _VELODROME_NEWTON_BASIS;
+
+            console.log("sell reserve", sellReserve * sellBasis / _VELODROME_NEWTON_BASIS);
+            console.log("buy reserve", buyReserve * buyBasis / _VELODROME_NEWTON_BASIS);
+            console.log("sell amount", sellAmount * sellBasis / _VELODROME_NEWTON_BASIS);
+            console.log("buy amount", buyAmount);
+            console.log("k before", k * 1 ether / _VELODROME_NEWTON_BASIS);
+            console.log("k after", k_after * 1 ether / _VELODROME_NEWTON_BASIS);
         }
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
