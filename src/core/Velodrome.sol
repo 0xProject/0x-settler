@@ -31,7 +31,7 @@ abstract contract Velodrome is SettlerAbstract {
     uint256 private constant _BASIS = 1 ether;
 
     // This is the `k = x^3 * y + y^3 * x` constant function
-    function _k(uint256 x, uint256 y) private pure returns (uint256) {
+    function _k(uint256 x, uint256 y) internal pure returns (uint256) {
         unchecked {
             return _k(x, y, x * x / _BASIS);
         }
@@ -67,7 +67,7 @@ abstract contract Velodrome is SettlerAbstract {
 
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x0, new_y) >=
     // xy`. As a function of `y`, we find the root of `_k(x0, y) - xy`.
-    function _get_y(uint256 x0, uint256 xy, uint256 y) private pure returns (uint256) {
+    function _get_y(uint256 x0, uint256 xy, uint256 y) internal pure returns (uint256) {
         unchecked {
             uint256 three_x0 = 3 * x0;
             uint256 x0_squared = x0 * x0 / _BASIS;

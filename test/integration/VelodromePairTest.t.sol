@@ -10,8 +10,134 @@ import {BaseSettler as Settler} from "src/chains/Base.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
+import {Velodrome} from "src/core/Velodrome.sol";
+
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+
+contract VelodromeConvergenceDummy is Velodrome {
+    function _msgSender() internal pure override returns (address) {
+        revert("unimplemented");
+    }
+
+    function _msgData() internal pure override returns (bytes calldata) {
+        revert("unimplemented");
+    }
+
+    function _isForwarded() internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _hasMetaTxn() internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _isRestrictedTarget(address) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _operator() internal pure override returns (address) {
+        revert("unimplemented");
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata)
+        internal
+        pure
+        override
+        returns (uint256)
+    {
+        revert("unimplemented");
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
+        internal
+        pure
+        override
+        returns (uint256)
+    {
+        revert("unimplemented");
+    }
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory, address)
+        internal
+        pure
+        override
+        returns (ISignatureTransfer.SignatureTransferDetails memory, uint256)
+    {
+        revert("unimplemented");
+    }
+
+    function _transferFromIKnowWhatImDoing(
+        ISignatureTransfer.PermitTransferFrom memory,
+        ISignatureTransfer.SignatureTransferDetails memory,
+        address,
+        bytes32,
+        string memory,
+        bytes memory,
+        bool
+    ) internal pure override {
+        revert("unimplemented");
+    }
+
+    function _transferFromIKnowWhatImDoing(
+        ISignatureTransfer.PermitTransferFrom memory,
+        ISignatureTransfer.SignatureTransferDetails memory,
+        address,
+        bytes32,
+        string memory,
+        bytes memory
+    ) internal pure override {
+        revert("unimplemented");
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory,
+        ISignatureTransfer.SignatureTransferDetails memory,
+        bytes memory,
+        bool
+    ) internal pure override {
+        revert("unimplemented");
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory,
+        ISignatureTransfer.SignatureTransferDetails memory,
+        bytes memory
+    ) internal pure override {
+        revert("unimplemented");
+    }
+
+    function _setOperatorAndCall(
+        address,
+        bytes memory,
+        uint32,
+        function (bytes calldata) internal returns (bytes memory)
+    ) internal pure override returns (bytes memory) {
+        revert("unimplemented");
+    }
+
+    modifier metaTx(address, bytes32) override {
+        revert("unimplemented");
+        _;
+    }
+
+    modifier takerSubmitted() override {
+        revert("unimplemented");
+        _;
+    }
+
+    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
+        revert("unimplemented");
+    }
+
+    function checkConvergence(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
+        return y - _get_y(x + dx, _k(x, y), y);
+    }
+}
 
 contract VelodromePairTest is BasePairTest {
     function testName() internal pure override returns (string memory) {
@@ -90,5 +216,21 @@ contract VelodromePairTest is BasePairTest {
         uint256 afterBalance = toToken().balanceOf(FROM);
 
         assertGt(afterBalance, beforeBalance);
+    }
+
+    function testVelodrome_convergence() public skipIf(velodromePool() == address(0)) {
+        uint256 x_basis = 1000000000000000000;
+        uint256 y_basis = 1000000;
+        uint256 x_reserve = 3294771369917525;
+        uint256 y_reserve = 25493740;
+
+        uint256 _BASIS = 1 ether;
+
+        uint256 dx = 24990000000000 * _BASIS / x_basis;
+        uint256 x = x_reserve * _BASIS / x_basis;
+        uint256 y = y_reserve * _BASIS / y_basis;
+
+        VelodromeConvergenceDummy dummy = new VelodromeConvergenceDummy();
+        dummy.checkConvergence(x, dx, y);
     }
 }
