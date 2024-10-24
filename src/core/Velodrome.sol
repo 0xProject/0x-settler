@@ -52,7 +52,7 @@ abstract contract Velodrome is SettlerAbstract {
     // b / 1 ether * b / 1 ether * b` does not overflow. This that same `b` but
     // with a basis of `_VELODROME_NEWTON_BASIS` instead of `1 ether` (rounding
     // down).
-    uint256 internal constant _VELODROME_MAX_BALANCE = 2505414483750479311864124350066916;
+    uint256 internal constant _VELODROME_MAX_BALANCE = 2505414483750479311864124350066916; // 1358187913129459108425750000000000
 
     // This is the `k = x^3 * y + y^3 * x` constant function
     function _k(uint256 x, uint256 y) internal pure returns (uint256) {
