@@ -49,7 +49,7 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return (x * y / _VELODROME_NEWTON_BASIS).mulDiv(x_squared + y_squared, _VELODROME_NEWTON_BASIS);
+            return (x * y / _VELODROME_NEWTON_BASIS).unsafeMulDiv(x_squared + y_squared, _VELODROME_NEWTON_BASIS);
         }
     }
 
@@ -81,13 +81,13 @@ abstract contract Velodrome is SettlerAbstract {
                 uint256 k = _k(x0, y, x0_squared, y_squared);
                 uint256 d = _d(y, three_x0, x0_cubed, y_squared);
                 if (k < xy) {
-                    uint256 dy = (xy - k).mulDiv(_VELODROME_NEWTON_BASIS, d);
+                    uint256 dy = (xy - k).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
                     y += dy;
                     if (dy < _VELODROME_NEWTON_EPS) {
                         return y + (_VELODROME_NEWTON_EPS - 1);
                     }
                 } else {
-                    uint256 dy = (k - xy).mulDiv(_VELODROME_NEWTON_BASIS, d);
+                    uint256 dy = (k - xy).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
                     y -= dy;
                     if (dy < _VELODROME_NEWTON_EPS) {
                         return y + (_VELODROME_NEWTON_EPS - 1);
