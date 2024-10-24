@@ -641,10 +641,8 @@ contract TestSafeGuard is Test {
         to = address(_MULTICALL);
         value = 0 ether;
         data = abi.encodeCall(this.poke, ());
-        data = abi.encodeCall(
-            _MULTICALL.multiSend,
-            (abi.encodePacked(uint8(Operation.Call), address(this), uint256(0 ether), uint256(data.length), data))
-        );
+        data = abi.encodePacked(uint8(Operation.Call), address(this), uint256(0 ether), uint256(data.length), data);
+        data = abi.encodeCall(_MULTICALL.multiSend, (data));
         operation = Operation.DelegateCall;
         safeTxGas = 0;
         baseGas = 0;
