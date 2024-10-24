@@ -136,7 +136,7 @@ contract VelodromeConvergenceDummy is Velodrome {
 
     function get_y(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
         dy = dx * y / (x + dx);
-        return y - _get_y(x + dx, _k(x, y), y - dy);
+        dy = y - _get_y(x + dx, _k(x, y), y - dy);
     }
 
     function k(uint256 x, uint256 y) external pure returns (uint256) {
@@ -267,13 +267,18 @@ contract VelodromePairTest is BasePairTest {
         uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() / 2;
 
         x = bound(x, _VELODROME_NEWTON_BASIS, _VELODROME_MAX_BALANCE);
-        dx = bound(dx, _VELODROME_NEWTON_BASIS, x * 10 < _VELODROME_MAX_BALANCE ? x * 10 : _VELODROME_MAX_BALANCE);
         y = bound(y, _VELODROME_NEWTON_BASIS, _VELODROME_MAX_BALANCE);
+        uint256 max_dx = x * 10;
+        if (max_dx > _VELODROME_MAX_BALANCE - x) {
+            max_dx = _VELODROME_MAX_BALANCE - x;
+        }
+        vm.assume(max_dx >= _VELODROME_NEWTON_BASIS);
+        dx = bound(dx, _VELODROME_NEWTON_BASIS, max_dx);
 
         uint256 k = dummy.k(x, y);
         assertGe(k, _VELODROME_NEWTON_BASIS);
 
-        uint256 dy = y - dummy.get_y(x, dx, y);
+        uint256 dy = dummy.get_y(x, dx, y);
 
         //assertGe(dummy.k(x + dx, y - dy), k);
         //assertLt(dummy.k(x + dx, y - dy - 2 * _VELODROME_NEWTON_EPS), k - _VELODROME_NEWTON_EPS);
