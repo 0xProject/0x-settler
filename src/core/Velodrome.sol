@@ -10,8 +10,6 @@ import {Panic} from "../utils/Panic.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {console} from "@forge-std/console.sol";
-
 interface IVelodromePair {
     function metadata()
         external
@@ -193,13 +191,6 @@ abstract contract Velodrome is SettlerAbstract {
 
             // Convert `buyAmount` from `_VELODROME_NEWTON_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _VELODROME_NEWTON_BASIS;
-
-            console.log("sell reserve", sellReserve * sellBasis / _VELODROME_NEWTON_BASIS);
-            console.log("buy reserve", buyReserve * buyBasis / _VELODROME_NEWTON_BASIS);
-            console.log("sell amount", sellAmount * sellBasis / _VELODROME_NEWTON_BASIS);
-            console.log("buy amount", buyAmount);
-            console.log("k before", k * 1 ether / _VELODROME_NEWTON_BASIS);
-            console.log("k after", k_after * 1 ether / _VELODROME_NEWTON_BASIS);
         }
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
