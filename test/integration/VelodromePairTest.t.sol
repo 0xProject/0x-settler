@@ -135,7 +135,17 @@ contract VelodromeConvergenceDummy is Velodrome {
     }
 
     function checkConvergence(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
-        return y - _get_y(x + dx, _k(x, y), y);
+        uint256 k = _k(x, y);
+        dy = y - _get_y(x + dx, k, y);
+        assert(_k(x + dx, y - dy) >= k);
+    }
+
+    function VELODROME_NEWTON_BASIS() external pure returns (uint256) {
+        return _VELODROME_NEWTON_BASIS;
+    }
+
+    function VELODROME_NEWTON_EPS() external pure returns (uint256) {
+        return _VELODROME_NEWTON_EPS;
     }
 }
 
@@ -219,6 +229,8 @@ contract VelodromePairTest is BasePairTest {
     }
 
     function testVelodrome_convergence() public skipIf(velodromePool() == address(0)) {
+        VelodromeConvergenceDummy dummy = new VelodromeConvergenceDummy();
+
         uint256 x_basis = 1000000000000000000;
         uint256 y_basis = 1000000;
         uint256 x_reserve = 3294771369917525;
@@ -227,16 +239,15 @@ contract VelodromePairTest is BasePairTest {
 
         uint256 fee_bps = 5;
         uint256 _FEE_BASIS = 10_000;
-        uint256 _BASIS = 1 ether;
+        uint256 _VELODROME_NEWTON_BASIS = dummy.VELODROME_NEWTON_BASIS();
 
         uint256 dx = x_transfer;
         dx -= dx * fee_bps / _FEE_BASIS;
-        dx *= _BASIS;
+        dx *= _VELODROME_NEWTON_BASIS;
         dx /= x_basis;
-        uint256 x = x_reserve * _BASIS / x_basis;
-        uint256 y = y_reserve * _BASIS / y_basis;
+        uint256 x = x_reserve * _VELODROME_NEWTON_BASIS / x_basis;
+        uint256 y = y_reserve * _VELODROME_NEWTON_BASIS / y_basis;
 
-        VelodromeConvergenceDummy dummy = new VelodromeConvergenceDummy();
-        dummy.checkConvergence(x, dx, y) * y_basis / _BASIS;
+        dummy.checkConvergence(x, dx, y) * y_basis / _VELODROME_NEWTON_BASIS;
     }
 }

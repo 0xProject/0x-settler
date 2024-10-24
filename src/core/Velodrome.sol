@@ -5,6 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {Panic} from "../utils/Panic.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
@@ -28,24 +29,25 @@ abstract contract Velodrome is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
-    uint256 private constant _BASIS = 1 ether;
+    uint256 internal constant _VELODROME_NEWTON_BASIS = 1 ether * 1 gwei;
+    uint256 internal constant _VELODROME_NEWTON_EPS = _VELODROME_NEWTON_BASIS / 2 ether;
 
     // This is the `k = x^3 * y + y^3 * x` constant function
     function _k(uint256 x, uint256 y) internal pure returns (uint256) {
         unchecked {
-            return _k(x, y, x * x / _BASIS);
+            return _k(x, y, x * x / _VELODROME_NEWTON_BASIS);
         }
     }
 
     function _k(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
         unchecked {
-            return _k(x, y, x_squared, y * y / _BASIS);
+            return _k(x, y, x_squared, y * y / _VELODROME_NEWTON_BASIS);
         }
     }
 
     function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return x * y / _BASIS * (x_squared + y_squared) / _BASIS;
+            return (x * y / _VELODROME_NEWTON_BASIS) * (x_squared + y_squared) / _VELODROME_NEWTON_BASIS;
         }
     }
 
@@ -53,13 +55,13 @@ abstract contract Velodrome is SettlerAbstract {
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`.
     function _d(uint256 y, uint256 three_x0, uint256 x0_cubed) private pure returns (uint256) {
         unchecked {
-            return _d(y, three_x0, x0_cubed, y * y / _BASIS);
+            return _d(y, three_x0, x0_cubed, y * y / _VELODROME_NEWTON_BASIS);
         }
     }
 
     function _d(uint256, uint256 three_x0, uint256 x0_cubed, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return y_squared * three_x0 / _BASIS + x0_cubed;
+            return y_squared * three_x0 / _VELODROME_NEWTON_BASIS + x0_cubed;
         }
     }
 
@@ -70,45 +72,24 @@ abstract contract Velodrome is SettlerAbstract {
     function _get_y(uint256 x0, uint256 xy, uint256 y) internal pure returns (uint256) {
         unchecked {
             uint256 three_x0 = 3 * x0;
-            uint256 x0_squared = x0 * x0 / _BASIS;
-            uint256 x0_cubed = x0_squared * x0 / _BASIS;
+            uint256 x0_squared = x0 * x0 / _VELODROME_NEWTON_BASIS;
+            uint256 x0_cubed = x0_squared * x0 / _VELODROME_NEWTON_BASIS;
             for (uint256 i; i < 255; i++) {
-                uint256 y_squared = y * y / _BASIS;
+                uint256 y_squared = y * y / _VELODROME_NEWTON_BASIS;
                 uint256 k = _k(x0, y, x0_squared, y_squared);
+                uint256 d = _d(y, three_x0, x0_cubed, y_squared);
                 if (k < xy) {
-                    // there are two cases where dy == 0
-                    // case 1: The y is converged and we find the correct answer
-                    // case 2: _d(x0, y) is too large compare to (xy - k) and the rounding error
-                    //         screwed us.
-                    //         In this case, we need to increase y by 1
-                    uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
-                    if (dy == 0) {
-                        if (k == xy) {
-                            // We found the correct answer. Return y
-                            return y;
-                        }
-                        if (_k(x0, y + 1, x0_squared) > xy) {
-                            // If _k(x0, y + 1) > xy, then we are close to the correct answer.
-                            // There's no closer answer than y + 1
-                            return y + 1;
-                        }
-                        dy = 1;
-                    }
+                    uint256 dy = (xy - k) * _VELODROME_NEWTON_BASIS / d;
                     y += dy;
-                } else {
-                    uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
-                    if (dy == 0) {
-                        if (k == xy || _k(x0, y - 1, x0_squared) < xy) {
-                            // Likewise, if k == xy, we found the correct answer.
-                            // If _k(x0, y - 1) < xy, then we are close to the correct answer.
-                            // There's no closer answer than "y"
-                            // It's worth mentioning that we need to find y where _k(x0, y) >= xy
-                            // As a result, we can't return y - 1 even it's closer to the correct answer
-                            return y;
-                        }
-                        dy = 1;
+                    if (dy < _VELODROME_NEWTON_EPS) {
+                        return y + (_VELODROME_NEWTON_EPS - 1);
                     }
+                } else {
+                    uint256 dy = (k - xy) * _VELODROME_NEWTON_BASIS / d;
                     y -= dy;
+                    if (dy < _VELODROME_NEWTON_EPS) {
+                        return y + (_VELODROME_NEWTON_EPS - 1);
+                    }
                 }
             }
             revert NotConverged();
@@ -146,7 +127,7 @@ abstract contract Velodrome is SettlerAbstract {
             // Compute sell amount in native units
             uint256 sellAmount;
             if (bps != 0) {
-                // It must be possible to square the sell token balance of the pool, otherwise it
+                // It must be possible to cube the sell token balance of the pool, otherwise it
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
                 // a "reasonable" `bps` value could overflow. We don't care to protect against
                 // unreasonable `bps` values because that just means the taker is griefing themself.
@@ -161,16 +142,25 @@ abstract contract Velodrome is SettlerAbstract {
             // Apply the fee
             sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
 
-            // Convert everything from native units to `_BASIS`
-            sellReserve = (sellReserve * _BASIS).unsafeDiv(sellBasis);
-            buyReserve = (buyReserve * _BASIS).unsafeDiv(buyBasis);
-            sellAmount = (sellAmount * _BASIS).unsafeDiv(sellBasis);
+            // Convert everything from native units to `_VELODROME_NEWTON_BASIS`
+            sellReserve = (sellReserve * _VELODROME_NEWTON_BASIS).unsafeDiv(sellBasis);
+            buyReserve = (buyReserve * _VELODROME_NEWTON_BASIS).unsafeDiv(buyBasis);
+            sellAmount = (sellAmount * _VELODROME_NEWTON_BASIS).unsafeDiv(sellBasis);
+
+            // Check for overflow
+            if (buyReserve > 1 ether * _VELODROME_NEWTON_BASIS) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
+            if (sellAmount + sellReserve > 1 ether * _VELODROME_NEWTON_BASIS) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
 
             // Solve the constant function numerically to get `buyAmount` from `sellAmount`
-            buyAmount = buyReserve - _get_y(sellAmount + sellReserve, _k(sellReserve, buyReserve), buyReserve);
+            uint256 k = _k(sellReserve, buyReserve);
+            buyAmount = buyReserve - _get_y(sellAmount + sellReserve, k, buyReserve);
 
-            // Convert `buyAmount` from `_BASIS` to native units
-            buyAmount = buyAmount * buyBasis / _BASIS;
+            // Convert `buyAmount` from `_VELODROME_NEWTON_BASIS` to native units
+            buyAmount = buyAmount * buyBasis / _VELODROME_NEWTON_BASIS;
         }
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
