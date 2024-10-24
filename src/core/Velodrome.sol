@@ -55,6 +55,12 @@ abstract contract Velodrome is SettlerAbstract {
 
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`.
+    function _d(uint256 y, uint256 x0) internal pure returns (uint256) {
+        unchecked {
+            return _d(y, 3 * x0, x0 * x0 / _VELODROME_NEWTON_BASIS * x0 / _VELODROME_NEWTON_BASIS);
+        }
+    }
+
     function _d(uint256 y, uint256 three_x0, uint256 x0_cubed) private pure returns (uint256) {
         unchecked {
             return _d(y, three_x0, x0_cubed, y * y / _VELODROME_NEWTON_BASIS);
