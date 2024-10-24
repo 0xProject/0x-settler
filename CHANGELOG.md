@@ -40,6 +40,13 @@ Master list of UniV3 forks:
   * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
     compute a perfect token hash function
 * Add `msgSender()(address)` accessor on Base to retrieve the current taker
+* Add DodoV1 actions to more chains
+  * Add `DODOV1` action to Arbitrum
+  * Add `DODOV1` action to Bnb
+  * Add `DODOV1` action to Linea
+  * Add `DODOV1` action to Mantle
+  * Add `DODOV1` action to Polygon
+  * Add `DODOV1` action to Scroll
 
 ## 2024-10-08
 
