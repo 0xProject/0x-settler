@@ -31,6 +31,9 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Remove `gemToken` and `psm` arguments from `MAKERPSM` action
+  * This specializes and gas optimizes the action for the Lite PSM (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
+
 ### Non-breaking changes
 
 * Add actions for UniswapV4
