@@ -43,11 +43,14 @@ abstract contract MakerPSM is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
+    uint256 private immutable USDC_basis;
+
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
         DAI.safeApprove(address(LitePSM), type(uint256).max);
         // LitePSM is its own join
         USDC.safeApprove(address(LitePSM), type(uint256).max);
+        USDC_basis = 10 ** USDC.decimals();
     }
 
     function sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin)
@@ -60,7 +63,7 @@ abstract contract MakerPSM is SettlerAbstract {
             unchecked {
                 uint256 feeDivisor = LitePSM.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
                 // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
-                buyAmount = (sellAmount * 10 ** uint256(USDC.decimals())).unsafeDiv(feeDivisor);
+                buyAmount = (sellAmount * USDC_basis).unsafeDiv(feeDivisor);
                 if (buyAmount < amountOutMin) {
                     revert TooMuchSlippage(USDC, amountOutMin, buyAmount);
                 }
