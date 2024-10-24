@@ -166,6 +166,9 @@ abstract contract Velodrome is SettlerAbstract {
             // Solve the constant function numerically to get `buyAmount` from `sellAmount`
             uint256 k = _k(sellReserve, buyReserve);
             buyAmount = buyReserve - _get_y(sellAmount + sellReserve, k, buyReserve);
+            // TODO: remove assertions
+            assert(_k(sellReserve + sellAmount, buyReserve - buyAmount) >= k);
+            assert(_k(sellReserve + sellAmount, buyReserve - buyAmount - 2 * _VELODROME_NEWTON_EPS) < k - _VELODROME_NEWTON_EPS);
 
             // Convert `buyAmount` from `_VELODROME_NEWTON_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _VELODROME_NEWTON_BASIS;
