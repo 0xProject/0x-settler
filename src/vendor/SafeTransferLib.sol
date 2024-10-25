@@ -41,9 +41,7 @@ library SafeTransferLib {
                 revert(ptr, returndatasize())
             }
             // Check for short calldata and missing code
-            if iszero(gt(returndatasize(), 0x1f)) {
-                revert(0x00, 0x00)
-            }
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
 
             r := mload(0x00)
         }

@@ -147,8 +147,12 @@ contract MakerPSMUnitTest is Utils, Test {
     address USDC = _etchNamedRejectionDummy("USDC", 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
     function setUp() public {
-        _mockExpectCall(address(DAI), abi.encodeWithSelector(IERC20.approve.selector, PSM, type(uint256).max), abi.encode(true));
-        _mockExpectCall(address(USDC), abi.encodeWithSelector(IERC20.approve.selector, PSM, type(uint256).max), abi.encode(true));
+        _mockExpectCall(
+            address(DAI), abi.encodeWithSelector(IERC20.approve.selector, PSM, type(uint256).max), abi.encode(true)
+        );
+        _mockExpectCall(
+            address(USDC), abi.encodeWithSelector(IERC20.approve.selector, PSM, type(uint256).max), abi.encode(true)
+        );
         _mockExpectCall(address(USDC), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         psm = new MakerPSMDummy();
     }
@@ -157,7 +161,9 @@ contract MakerPSMUnitTest is Utils, Test {
         uint256 bps = 10_000;
         uint256 amount = 99999;
 
-        _mockExpectCall(DAI, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount * 1 ether / 1e6));
+        _mockExpectCall(
+            DAI, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount * 1 ether / 1e6)
+        );
         //_mockExpectCall(DAI, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
         //_mockExpectCall(USDC, abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
