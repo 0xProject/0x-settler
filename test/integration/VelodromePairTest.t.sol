@@ -142,13 +142,15 @@ contract VelodromeConvergenceDummy is Velodrome {
         return _k(x, y);
     }
 
-    function VELODROME_NEWTON_BASIS() external pure returns (uint256) {
-        return _VELODROME_NEWTON_BASIS;
+    function VELODROME_TOKEN_BASIS() external pure returns (uint256) {
+        return _VELODROME_TOKEN_BASIS;
     }
 
+    /*
     function VELODROME_NEWTON_EPS() external pure returns (uint256) {
         return _VELODROME_NEWTON_EPS;
     }
+    */
 
     function VELODROME_MAX_BALANCE() external pure returns (uint256) {
         return _VELODROME_MAX_BALANCE;
@@ -248,38 +250,38 @@ contract VelodromePairTest is BasePairTest {
 
         uint256 fee_bps = 5;
         uint256 _FEE_BASIS = 10_000;
-        uint256 _VELODROME_NEWTON_BASIS = dummy.VELODROME_NEWTON_BASIS();
+        uint256 _VELODROME_TOKEN_BASIS = dummy.VELODROME_TOKEN_BASIS();
 
         uint256 dx = x_transfer;
         dx -= dx * fee_bps / _FEE_BASIS;
-        dx *= _VELODROME_NEWTON_BASIS;
+        dx *= _VELODROME_TOKEN_BASIS;
         dx /= x_basis;
-        uint256 x = x_reserve * _VELODROME_NEWTON_BASIS / x_basis;
-        uint256 y = y_reserve * _VELODROME_NEWTON_BASIS / y_basis;
+        uint256 x = x_reserve * _VELODROME_TOKEN_BASIS / x_basis;
+        uint256 y = y_reserve * _VELODROME_TOKEN_BASIS / y_basis;
 
         dummy.get_y(x, dx, y);
     }
 
     function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) public skipIf(address(dummy) == address(0)) {
-        uint256 _VELODROME_NEWTON_BASIS = dummy.VELODROME_NEWTON_BASIS();
-        uint256 _VELODROME_NEWTON_EPS = dummy.VELODROME_NEWTON_EPS();
+        uint256 _VELODROME_TOKEN_BASIS = dummy.VELODROME_TOKEN_BASIS();
+        //uint256 _VELODROME_NEWTON_EPS = dummy.VELODROME_NEWTON_EPS();
         uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() / 2;
 
-        x = bound(x, _VELODROME_NEWTON_BASIS, _VELODROME_MAX_BALANCE);
-        y = bound(y, _VELODROME_NEWTON_BASIS, _VELODROME_MAX_BALANCE);
+        x = bound(x, _VELODROME_TOKEN_BASIS, _VELODROME_MAX_BALANCE);
+        y = bound(y, _VELODROME_TOKEN_BASIS, _VELODROME_MAX_BALANCE);
         uint256 max_dx = x * 10;
         if (max_dx > _VELODROME_MAX_BALANCE - x) {
             max_dx = _VELODROME_MAX_BALANCE - x;
         }
-        vm.assume(max_dx >= _VELODROME_NEWTON_BASIS);
-        dx = bound(dx, _VELODROME_NEWTON_BASIS, max_dx);
+        vm.assume(max_dx >= _VELODROME_TOKEN_BASIS);
+        dx = bound(dx, _VELODROME_TOKEN_BASIS, max_dx);
+
 
         uint256 k = dummy.k(x, y);
-        assertGe(k, _VELODROME_NEWTON_BASIS);
-
+        assertGe(k, _VELODROME_TOKEN_BASIS);
         uint256 dy = dummy.get_y(x, dx, y);
 
-        //assertGe(dummy.k(x + dx, y - dy), k);
-        //assertLt(dummy.k(x + dx, y - dy - 2 * _VELODROME_NEWTON_EPS), k - _VELODROME_NEWTON_EPS);
+        assertGe(dummy.k(x + dx, y - dy), k);
+        assertLt(dummy.k(x + dx, y - dy - 1), k);
     }
 }
