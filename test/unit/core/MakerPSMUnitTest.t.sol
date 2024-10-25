@@ -153,28 +153,28 @@ contract MakerPSMUnitTest is Utils, Test {
         psm = new MakerPSMDummy();
     }
 
+    function testMakerPSMBuy() public {
+        uint256 bps = 10_000;
+        uint256 amount = 99999;
+
+        _mockExpectCall(DAI, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount * 1 ether / 1e6));
+        //_mockExpectCall(DAI, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
+        //_mockExpectCall(USDC, abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.buyGem.selector, RECIPIENT, 99998), abi.encode(amount));
+
+        psm.buyFromPool(RECIPIENT, bps);
+    }
+
     function testMakerPSMSell() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
 
         _mockExpectCall(USDC, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
         //_mockExpectCall(USDC, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
-        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.gemJoin.selector), abi.encode(PSM));
-        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(true));
+        //_mockExpectCall(PSM, abi.encodeWithSelector(IPSM.gemJoin.selector), abi.encode(PSM));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(99998));
 
         psm.sellToPool(RECIPIENT, bps);
-    }
-
-    function testMakerPSMBuy() public {
-        uint256 bps = 10_000;
-        uint256 amount = 99999;
-
-        _mockExpectCall(DAI, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
-        //_mockExpectCall(DAI, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
-        //_mockExpectCall(USDC, abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
-        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
-        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.buyGem.selector, RECIPIENT, 99998), abi.encode(true));
-
-        psm.buyFromPool(RECIPIENT, bps);
     }
 }
