@@ -128,9 +128,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
                 ISettlerActions.MAKERPSM,
                 (
                     FROM,
-                    address(USDC),
                     10_000,
-                    address(makerPsm()),
                     makerPsmBuyGem(),
                     amountOut()
                 )
@@ -168,9 +166,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
                 ISettlerActions.MAKERPSM,
                 (
                     FROM,
-                    address(USDC),
                     10_000,
-                    address(makerPsm()),
                     makerPsmBuyGem(),
                     amountOut()
                 )

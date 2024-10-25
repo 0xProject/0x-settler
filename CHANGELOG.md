@@ -31,6 +31,9 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Remove `gemToken` and `psm` arguments from `MAKERPSM` action
+  * This specializes and gas optimizes the action for the Lite PSM (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
+
 ### Non-breaking changes
 
 * Add actions for UniswapV4
@@ -41,6 +44,13 @@ Master list of UniV3 forks:
     compute a perfect token hash function
 * Add `msgSender()(address)` accessor on Base to retrieve the current taker
 * Improve accuracy, gas, and convergence region coverage in SolidlyV1/VelodromeV2 action (`VELODROME`)
+* Add DodoV1 actions to more chains
+  * Add `DODOV1` action to Arbitrum
+  * Add `DODOV1` action to Bnb
+  * Add `DODOV1` action to Linea
+  * Add `DODOV1` action to Mantle
+  * Add `DODOV1` action to Polygon
+  * Add `DODOV1` action to Scroll
 
 ## 2024-10-08
 

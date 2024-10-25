@@ -77,10 +77,10 @@ abstract contract MainnetMixin is
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
-            (address recipient, IERC20 gemToken, uint256 bps, IPSM psm, bool buyGem, uint256 amountOutMin) =
-                abi.decode(data, (address, IERC20, uint256, IPSM, bool, uint256));
+            (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) =
+                abi.decode(data, (address, uint256, bool, uint256));
 
-            sellToMakerPsm(recipient, gemToken, bps, psm, buyGem, amountOutMin);
+            sellToMakerPsm(recipient, bps, buyGem, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
