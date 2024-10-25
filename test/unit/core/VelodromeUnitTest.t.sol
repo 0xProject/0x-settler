@@ -191,4 +191,29 @@ contract VelodromeUnitTest is Test {
         assertGe(dummy.k(x + dx, y - dy), k);
         assertLt(dummy.k(x + dx, y - dy - 1), k);
     }
+
+    function solidly_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
+        return
+            (x * ((((y * y) / 1e18) * y) / 1e18)) /
+            1e18 +
+            (((((x * x) / 1e18) * x) / 1e18) * y) /
+            1e18;
+    }
+
+    function velodrome_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
+        uint256 _a = (x * y) / 1e18;
+        uint256 _b = ((x * x) / 1e18 + (y * y) / 1e18);
+        return (_a * _b) / 1e18;
+    }
+
+    function testVelodrome_fuzzK(uint256 x, uint256 y) external view {
+        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+
+        uint256 k = dummy.k(x, y);
+        assertGe(k, solidly_ref_k(x, y), "SolidlyV1 reference implementation");
+        assertGe(k, velodrome_ref_k(x, y), "VelodromeV2 reference implementation");
+    }
 }
