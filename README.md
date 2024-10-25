@@ -594,13 +594,13 @@ comparison.
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
 | ---------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 208118 | 0.00%   |
-| Settler          | Uniswap V3 | USDC/WETH | 170464 | -18.09% |
+| Settler          | Uniswap V3 | USDC/WETH | 170401 | -18.12% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 195552 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 153842 | -21.33% |
+| Settler          | Uniswap V3 | DAI/WETH  | 153779 | -21.36% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 198359 | 0.00%   |
-| Settler          | Uniswap V3 | USDT/WETH | 160509 | -19.08% |
+| Settler          | Uniswap V3 | USDT/WETH | 160446 | -19.11% |
 |                  |            |           |        |         |
 
 | RFQ             | DEX     | Pair      | Gas    | %       |
