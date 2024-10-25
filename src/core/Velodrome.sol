@@ -31,8 +31,8 @@ abstract contract Velodrome is SettlerAbstract {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
-    // This is approximately 135818 greater (more precise) than the basis used
-    // to compute `k` in the AMM. Using additional precision helps us avoid
+    // This is approximately 135818 times greater (more precise) than the basis
+    // used to compute `k` in the AMM. Using additional precision helps us avoid
     // breakdown in the numerical approximation of the solution to AMM's bonding
     // curve (constant function) in the face of loss-of-precision due to the use
     // of fixnums. Using a basis that is _only_ this much greater than the
@@ -93,25 +93,30 @@ abstract contract Velodrome is SettlerAbstract {
 
     error NotConverged();
 
-    // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x0, new_y) >=
-    // xy`. As a function of `y`, we find the root of `_k(x0, y) - xy`.
-    function _get_y(uint256 x0, uint256 xy, uint256 y) internal pure returns (uint256) {
+    // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
+    // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
+    function _get_y(uint256 x, uint256 dx, uint256 y) internal pure returns (uint256) {
         unchecked {
-            uint256 three_x0 = 3 * x0;
-            uint256 x0_squared = x0 * x0 / _VELODROME_NEWTON_BASIS;
-            uint256 x0_cubed = x0_squared * x0 / _VELODROME_NEWTON_BASIS;
+            uint256 k_orig = _k(x, y);
+            x += dx;
+            y -= dx * y / x;
+
+            uint256 three_x = 3 * x;
+            uint256 x_squared = x * x / _VELODROME_NEWTON_BASIS;
+            uint256 x_cubed = x_squared * x / _VELODROME_NEWTON_BASIS;
+
             for (uint256 i; i < 255; i++) {
                 uint256 y_squared = y * y / _VELODROME_NEWTON_BASIS;
-                uint256 k = _k(x0, y, x0_squared, y_squared);
-                uint256 d = _d(y, three_x0, x0_cubed, y_squared);
-                if (k < xy) {
-                    uint256 dy = (xy - k).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
+                uint256 k = _k(x, y, x_squared, y_squared);
+                uint256 d = _d(y, three_x, x_cubed, y_squared);
+                if (k < k_orig) {
+                    uint256 dy = (k_orig - k).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
                     y += dy;
                     if (dy <= _VELODROME_NEWTON_EPS) {
                         return y + dy;
                     }
                 } else {
-                    uint256 dy = (k - xy).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
+                    uint256 dy = (k - k_orig).unsafeMulDiv(_VELODROME_NEWTON_BASIS, d);
                     if (dy <= _VELODROME_NEWTON_EPS) {
                         return y;
                     }
@@ -184,10 +189,7 @@ abstract contract Velodrome is SettlerAbstract {
             sellAmount = (sellAmount * _VELODROME_NEWTON_BASIS).unsafeDiv(sellBasis);
 
             // Solve the constant function numerically to get `buyAmount` from `sellAmount`
-            // Initially estimate the buy amount using the constant-product formula
-            buyAmount = (sellAmount * buyReserve).unsafeDiv(sellReserve + sellAmount);
-            // Refine the estimate using Newton-Raphson iterations of the SolidlyV1 curve
-            buyAmount = buyReserve - _get_y(sellReserve + sellAmount, _k(sellReserve, buyReserve), buyReserve - buyAmount);
+            buyAmount = buyReserve - _get_y(sellReserve, sellAmount, buyReserve);
 
             // Convert `buyAmount` from `_VELODROME_NEWTON_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _VELODROME_NEWTON_BASIS;

@@ -135,8 +135,7 @@ contract VelodromeConvergenceDummy is Velodrome {
     }
 
     function get_y(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
-        dy = dx * y / (x + dx);
-        dy = y - _get_y(x + dx, _k(x, y), y - dy);
+        return y - _get_y(x, dx, y);
     }
 
     function k(uint256 x, uint256 y) external pure returns (uint256) {
@@ -258,7 +257,7 @@ contract VelodromePairTest is BasePairTest {
         uint256 x = x_reserve * _VELODROME_NEWTON_BASIS / x_basis;
         uint256 y = y_reserve * _VELODROME_NEWTON_BASIS / y_basis;
 
-        dummy.get_y(x, dx, y) * y_basis / _VELODROME_NEWTON_BASIS;
+        dummy.get_y(x, dx, y);
     }
 
     function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) public skipIf(address(dummy) == address(0)) {
