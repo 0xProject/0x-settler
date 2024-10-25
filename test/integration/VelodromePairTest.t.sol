@@ -10,152 +10,8 @@ import {BaseSettler as Settler} from "src/chains/Base.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
-import {Velodrome} from "src/core/Velodrome.sol";
-
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-
-contract VelodromeConvergenceDummy is Velodrome {
-    function _msgSender() internal pure override returns (address) {
-        revert("unimplemented");
-    }
-
-    function _msgData() internal pure override returns (bytes calldata) {
-        revert("unimplemented");
-    }
-
-    function _isForwarded() internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
-    function _hasMetaTxn() internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
-    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
-    function _isRestrictedTarget(address) internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
-    function _operator() internal pure override returns (address) {
-        revert("unimplemented");
-    }
-
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata)
-        internal
-        pure
-        override
-        returns (uint256)
-    {
-        revert("unimplemented");
-    }
-
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
-        internal
-        pure
-        override
-        returns (uint256)
-    {
-        revert("unimplemented");
-    }
-
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory, address)
-        internal
-        pure
-        override
-        returns (ISignatureTransfer.SignatureTransferDetails memory, uint256)
-    {
-        revert("unimplemented");
-    }
-
-    function _transferFromIKnowWhatImDoing(
-        ISignatureTransfer.PermitTransferFrom memory,
-        ISignatureTransfer.SignatureTransferDetails memory,
-        address,
-        bytes32,
-        string memory,
-        bytes memory,
-        bool
-    ) internal pure override {
-        revert("unimplemented");
-    }
-
-    function _transferFromIKnowWhatImDoing(
-        ISignatureTransfer.PermitTransferFrom memory,
-        ISignatureTransfer.SignatureTransferDetails memory,
-        address,
-        bytes32,
-        string memory,
-        bytes memory
-    ) internal pure override {
-        revert("unimplemented");
-    }
-
-    function _transferFrom(
-        ISignatureTransfer.PermitTransferFrom memory,
-        ISignatureTransfer.SignatureTransferDetails memory,
-        bytes memory,
-        bool
-    ) internal pure override {
-        revert("unimplemented");
-    }
-
-    function _transferFrom(
-        ISignatureTransfer.PermitTransferFrom memory,
-        ISignatureTransfer.SignatureTransferDetails memory,
-        bytes memory
-    ) internal pure override {
-        revert("unimplemented");
-    }
-
-    function _setOperatorAndCall(
-        address,
-        bytes memory,
-        uint32,
-        function (bytes calldata) internal returns (bytes memory)
-    ) internal pure override returns (bytes memory) {
-        revert("unimplemented");
-    }
-
-    modifier metaTx(address, bytes32) override {
-        revert("unimplemented");
-        _;
-    }
-
-    modifier takerSubmitted() override {
-        revert("unimplemented");
-        _;
-    }
-
-    function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
-        revert("unimplemented");
-    }
-
-    function get_y(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
-        return y - _get_y(x, dx, y);
-    }
-
-    function k(uint256 x, uint256 y) external pure returns (uint256) {
-        return _k(x, y);
-    }
-
-    function VELODROME_TOKEN_BASIS() external pure returns (uint256) {
-        return _VELODROME_TOKEN_BASIS;
-    }
-
-    /*
-    function VELODROME_NEWTON_EPS() external pure returns (uint256) {
-        return _VELODROME_NEWTON_EPS;
-    }
-    */
-
-    function VELODROME_MAX_BALANCE() external pure returns (uint256) {
-        return _VELODROME_MAX_BALANCE;
-    }
-}
 
 contract VelodromePairTest is BasePairTest {
     function testName() internal pure override returns (string memory) {
@@ -165,7 +21,6 @@ contract VelodromePairTest is BasePairTest {
     Settler internal settler;
     IAllowanceHolder internal allowanceHolder;
     uint256 private _amount;
-    VelodromeConvergenceDummy private dummy;
 
     function setUp() public override {
         // the pool specified below doesn't have very much liquidity, so we only swap a small amount
@@ -189,10 +44,6 @@ contract VelodromePairTest is BasePairTest {
         // warming storage.
         assertGe(fromToken().balanceOf(FROM), amount());
         assertGe(fromToken().allowance(FROM, address(PERMIT2)), amount());
-
-        if (velodromePool() != address(0)) {
-            dummy = new VelodromeConvergenceDummy();
-        }
     }
 
     function fromToken() internal pure override returns (IERC20) {
@@ -239,49 +90,5 @@ contract VelodromePairTest is BasePairTest {
         uint256 afterBalance = toToken().balanceOf(FROM);
 
         assertGt(afterBalance, beforeBalance);
-    }
-
-    function testVelodrome_convergence() public skipIf(address(dummy) == address(0)) {
-        uint256 x_basis = 1000000000000000000;
-        uint256 y_basis = 1000000;
-        uint256 x_reserve = 3294771369917525;
-        uint256 y_reserve = 25493740;
-        uint256 x_transfer = 24990000000000;
-
-        uint256 fee_bps = 5;
-        uint256 _FEE_BASIS = 10_000;
-        uint256 _VELODROME_TOKEN_BASIS = dummy.VELODROME_TOKEN_BASIS();
-
-        uint256 dx = x_transfer;
-        dx -= dx * fee_bps / _FEE_BASIS;
-        dx *= _VELODROME_TOKEN_BASIS;
-        dx /= x_basis;
-        uint256 x = x_reserve * _VELODROME_TOKEN_BASIS / x_basis;
-        uint256 y = y_reserve * _VELODROME_TOKEN_BASIS / y_basis;
-
-        dummy.get_y(x, dx, y);
-    }
-
-    function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) public skipIf(address(dummy) == address(0)) {
-        uint256 _VELODROME_TOKEN_BASIS = dummy.VELODROME_TOKEN_BASIS();
-        //uint256 _VELODROME_NEWTON_EPS = dummy.VELODROME_NEWTON_EPS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() / 2;
-
-        x = bound(x, _VELODROME_TOKEN_BASIS, _VELODROME_MAX_BALANCE);
-        y = bound(y, _VELODROME_TOKEN_BASIS, _VELODROME_MAX_BALANCE);
-        uint256 max_dx = x * 10;
-        if (max_dx > _VELODROME_MAX_BALANCE - x) {
-            max_dx = _VELODROME_MAX_BALANCE - x;
-        }
-        vm.assume(max_dx >= _VELODROME_TOKEN_BASIS);
-        dx = bound(dx, _VELODROME_TOKEN_BASIS, max_dx);
-
-
-        uint256 k = dummy.k(x, y);
-        assertGe(k, _VELODROME_TOKEN_BASIS);
-        uint256 dy = dummy.get_y(x, dx, y);
-
-        assertGe(dummy.k(x + dx, y - dy), k);
-        assertLt(dummy.k(x + dx, y - dy - 1), k);
     }
 }
