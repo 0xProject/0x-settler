@@ -137,6 +137,9 @@ abstract contract Velodrome is SettlerAbstract {
                         dy = 2;
                     }
                     y += dy;
+                    if (y > _VELODROME_MAX_BALANCE) {
+                        y = _VELODROME_MAX_BALANCE;
+                    }
                 } else {
                     uint256 dy = (k - k_orig).unsafeDiv(d);
                     if (dy == 0) {
