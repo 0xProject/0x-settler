@@ -138,8 +138,8 @@ abstract contract Velodrome is SettlerAbstract {
                     //         error screwed us.
                     //         In this case, we need to increase `y` by 1
                     if (dy == 0) {
-                        uint256 k_next = _k(x, y + 1, x_squared_raw);
-                        if (k_next >= k_orig) {
+                        uint256 k_next = _k(x, y + 1, x_squared_raw) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
+                        if (k_next >= k_target) {
                             // If `_k(x, y + 1) >= k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y + 1`
                             return y + 1;
@@ -155,7 +155,7 @@ abstract contract Velodrome is SettlerAbstract {
                 } else {
                     uint256 dy = (k - k_orig).unsafeDiv(d);
                     if (dy == 0) {
-                        if (k == k_orig) {
+                        if (k / _VELODROME_INTERNAL_TO_TOKEN_RATIO == k_target) {
                             // Likewise, if `k == k_orig`, we found the correct answer.
                             return y;
                         }
