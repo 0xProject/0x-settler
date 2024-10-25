@@ -94,7 +94,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function MAKERPSM(address recipient, address gemToken, uint256 bps, address psm, bool buyGem, uint256 amountOutMin)
+    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin)
         external;
 
     function CURVE_TRICRYPTO_VIP(
