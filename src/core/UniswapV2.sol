@@ -2,7 +2,6 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -20,7 +19,6 @@ interface IUniV2Pair {
 }
 
 abstract contract UniswapV2 is SettlerAbstract {
-    using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
     // bytes4(keccak256("getReserves()"))
@@ -62,7 +60,7 @@ abstract contract UniswapV2 is SettlerAbstract {
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = (IERC20(sellToken).fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * bps / BASIS;
             }
         }
         assembly ("memory-safe") {
