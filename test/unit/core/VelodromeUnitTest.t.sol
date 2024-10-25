@@ -173,11 +173,11 @@ contract VelodromeUnitTest is Test {
 
     function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) external view {
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() / 2;
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
 
         x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
-        uint256 max_dx = x * 10;
+        uint256 max_dx = x * 100;
         if (max_dx > _VELODROME_MAX_BALANCE - x) {
             max_dx = _VELODROME_MAX_BALANCE - x;
         }
