@@ -6,7 +6,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
-import {Panic} from "../utils/Panic.sol";
+//import {Panic} from "../utils/Panic.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
@@ -232,6 +232,10 @@ abstract contract Velodrome is SettlerAbstract {
             sellReserve = (sellReserve * _VELODROME_TOKEN_BASIS).unsafeDiv(sellBasis);
             buyReserve = (buyReserve * _VELODROME_TOKEN_BASIS).unsafeDiv(buyBasis);
 
+            // This check is commented because values that are too large will
+            // result in reverts inside the pool anyways. We don't need to
+            // bother.
+            /*
             // Check for overflow
             if (buyReserve > _VELODROME_MAX_BALANCE) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -239,6 +243,7 @@ abstract contract Velodrome is SettlerAbstract {
             if (sellReserve + (sellAmount * _VELODROME_TOKEN_BASIS).unsafeDiv(sellBasis) > _VELODROME_MAX_BALANCE) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
+            */
 
             // Apply the fee in native units
             sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
