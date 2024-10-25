@@ -28,7 +28,7 @@ abstract contract DodoV2 is SettlerAbstract {
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         if (bps != 0) {
-            uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, BASIS);
+            uint256 sellAmount = sellToken.fastBalanceOf(address(this)).mulDiv(bps, BASIS);
             sellToken.safeTransfer(address(dodo), sellAmount);
         }
         if (quoteForBase) {

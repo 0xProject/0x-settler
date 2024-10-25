@@ -27,6 +27,24 @@ library SafeTransferLib {
                             ERC20 OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
+    function fastBalanceOf(IERC20 token, address acct) internal view returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x14, acct)
+            mstore(0x00, 0x70a08231000000000000000000000000)
+
+            if iszero(staticcall(gas(), token, 0x10, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if iszero(gt(returndatasize(), 0x1f)) {
+                revert(0x00, 0x00)
+            }
+
+            r := mload(0x00)
+        }
+    }
+
     function safeTransferFrom(IERC20 token, address from, address to, uint256 amount) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40) // Cache the free memory pointer.

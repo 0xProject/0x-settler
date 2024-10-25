@@ -736,7 +736,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 }
 
                 unchecked {
-                    state.globalSell.amount = (state.globalSell.token.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                    state.globalSell.amount = (state.globalSell.token.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
                 }
             } else {
                 assert(payer == address(0));

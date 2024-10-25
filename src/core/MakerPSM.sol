@@ -53,7 +53,7 @@ abstract contract MakerPSM is SettlerAbstract {
     ) internal {
         if (buyGem) {
             // phantom overflow can't happen here because DAI has decimals = 18
-            uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+            uint256 sellAmount = (DAI.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             unchecked {
                 uint256 feeDivisor = psm.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
                 // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
@@ -67,7 +67,7 @@ abstract contract MakerPSM is SettlerAbstract {
             }
         } else {
             // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
-            uint256 sellAmount = (gemToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+            uint256 sellAmount = (gemToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             gemToken.safeApproveIfBelow(psm.gemJoin(), sellAmount);
             psm.sellGem(recipient, sellAmount);
             if (amountOutMin != 0) {

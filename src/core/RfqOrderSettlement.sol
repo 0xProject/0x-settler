@@ -152,7 +152,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
 
         // Now we adjust the transfer amounts to compensate for encountered slippage. Rounding is
         // performed in the maker's favor.
-        uint256 takerAmount = takerToken.balanceOf(address(this));
+        uint256 takerAmount = takerToken.fastBalanceOf(address(this));
         if (takerAmount > maxTakerAmount) {
             takerAmount = maxTakerAmount;
         }
