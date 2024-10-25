@@ -131,7 +131,7 @@ contract VelodromeConvergenceDummy is Velodrome {
     }
 
     function k(uint256 x, uint256 y) external pure returns (uint256) {
-        return _k(x, y);
+        return _k(x, y) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
     }
 
     function VELODROME_BASIS() external pure returns (uint256) {

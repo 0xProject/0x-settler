@@ -41,6 +41,8 @@ abstract contract Velodrome is SettlerAbstract {
     // `_VELODROME_TOKEN_BASIS` basis. Convenient *and* accurate.
     uint256 private constant _VELODROME_INTERNAL_BASIS = _VELODROME_TOKEN_BASIS * _VELODROME_TOKEN_BASIS;
 
+    uint256 internal constant _VELODROME_INTERNAL_TO_TOKEN_RATIO = _VELODROME_INTERNAL_BASIS / _VELODROME_TOKEN_BASIS;
+
     // When computing `d` we need to compute the cube of a token quantity and format the result with
     // `_VELODROME_TOKEN_BASIS`. In order to avoid overflow, we must divide the squared token
     // quantity by this before multiplying again by the token quantity. Setting this value as small
@@ -107,9 +109,18 @@ abstract contract Velodrome is SettlerAbstract {
     function _get_y(uint256 x, uint256 dx, uint256 y) internal pure returns (uint256) {
         unchecked {
             uint256 k_orig = _k(x, y);
-            x += dx;
-            y -= dx * y / x;
+            // `k_orig` has a basis much greater than is actually required for correctness. To
+            // achieve wei-level accuracy, we perform our final comparisons agains `k_target`
+            // instead, which has the same precision as the AMM itself.
+            uint256 k_target = k_orig / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
 
+            // Now that we have `k` computed, we offset `x` to account for the sell amount and use
+            // the constant-product formula to compute an initial estimate for `y`.
+            x += dx;
+            y -= (dx * y).unsafeDiv(x);
+
+            // These intermediate values do not change throughout the Newton-Raphson iterations, so
+            // precomputing and caching them saves us gas.
             uint256 three_x = 3 * x;
             uint256 x_squared_raw = x * x;
             uint256 x_cubed = x_squared_raw / _VELODROME_SQUARE_STEP_BASIS * x / _VELODROME_CUBE_STEP_BASIS;
@@ -127,7 +138,8 @@ abstract contract Velodrome is SettlerAbstract {
                     //         error screwed us.
                     //         In this case, we need to increase `y` by 1
                     if (dy == 0) {
-                        if (_k(x, y + 1, x_squared_raw) >= k_orig) {
+                        uint256 k_next = _k(x, y + 1, x_squared_raw);
+                        if (k_next >= k_orig) {
                             // If `_k(x, y + 1) >= k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y + 1`
                             return y + 1;
@@ -147,8 +159,8 @@ abstract contract Velodrome is SettlerAbstract {
                             // Likewise, if `k == k_orig`, we found the correct answer.
                             return y;
                         }
-                        uint256 k_next = _k(x, y - 1, x_squared_raw);
-                        if (k_next < k_orig) {
+                        uint256 k_next = _k(x, y - 1, x_squared_raw) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
+                        if (k_next < k_target) {
                             // If `_k(x, y - 1) < k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y`
                             // It's worth mentioning that we need to find `y` where `_k(x, y) >=
@@ -157,7 +169,7 @@ abstract contract Velodrome is SettlerAbstract {
                             // answer
                             return y;
                         }
-                        if (k_next == k_orig) {
+                        if (k_next == k_target) {
                             return y - 1;
                         }
                         // It's possible that `y - 1` is the correct answer. To know that, we must
