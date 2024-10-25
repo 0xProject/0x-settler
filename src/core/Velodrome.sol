@@ -77,7 +77,7 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return (x * y).unsafeMulDiv(x_squared + y_squared, _VELODROME_INTERNAL_BASIS);
+            return (x * y).unsafeMulDivAlt(x_squared + y_squared, _VELODROME_INTERNAL_BASIS);
         }
     }
 
