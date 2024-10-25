@@ -193,11 +193,7 @@ contract VelodromeUnitTest is Test {
     }
 
     function solidly_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
-        return
-            (x * ((((y * y) / 1e18) * y) / 1e18)) /
-            1e18 +
-            (((((x * x) / 1e18) * x) / 1e18) * y) /
-            1e18;
+        return (x * ((((y * y) / 1e18) * y) / 1e18)) / 1e18 + (((((x * x) / 1e18) * x) / 1e18) * y) / 1e18;
     }
 
     function velodrome_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
