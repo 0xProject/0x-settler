@@ -158,6 +158,10 @@ contract VelodromeConvergenceDummy is Velodrome {
     function MAX_BALANCE() external pure returns (uint256) {
         return _VELODROME_MAX_BALANCE;
     }
+
+    function FUDGE() external pure returns (uint256) {
+        return _VELODROME_K_FUDGE;
+    }
 }
 
 contract VelodromeUnitTest is Test {
@@ -220,13 +224,13 @@ contract VelodromeUnitTest is Test {
         x = dummy.from_compat(x);
         dx = dummy.from_compat(dx);
         y = dummy.from_compat(y);
-        
+
         uint256 new_y = dummy.new_y(x, dx, y);
         new_y = dummy.from_compat(dummy.to_compat_down(new_y));
 
         assertGe(dummy.k(x + dx, new_y), dummy.k(x, y));
     }
-    
+
     function solidly_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
         return (x * ((((y * y) / 1e18) * y) / 1e18)) / 1e18 + (((((x * x) / 1e18) * x) / 1e18) * y) / 1e18;
     }
@@ -235,6 +239,22 @@ contract VelodromeUnitTest is Test {
         uint256 _a = (x * y) / 1e18;
         uint256 _b = ((x * x) / 1e18 + (y * y) / 1e18);
         return (_a * _b) / 1e18;
+    }
+
+    function testVelodrome_fudge(uint256 x, uint256 y) external {
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE() * 2 / 3;
+        _MAX_BALANCE = dummy.to_compat_down(_MAX_BALANCE);
+        uint256 _FUDGE = dummy.FUDGE();
+
+        x = bound(x, 1 ether, _MAX_BALANCE);
+        y = bound(y, 1 ether, _MAX_BALANCE);
+
+        uint256 k = dummy.k(dummy.from_compat(x), dummy.from_compat(y));
+        uint256 k_solidly = dummy.from_compat_k(solidly_ref_k(x, y));
+        uint256 k_velodrome = dummy.from_compat_k(velodrome_ref_k(x, y));
+
+        assertGe(k + _FUDGE, k_solidly);
+        assertGe(k + _FUDGE, k_velodrome);
     }
 
     /*

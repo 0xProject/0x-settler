@@ -54,6 +54,8 @@ abstract contract Velodrome is SettlerAbstract {
 
     uint256 private constant _VELODROME_CUBE_STEP_BASIS = 40102661528000751844725189540569819478;
 
+    uint256 internal constant _VELODROME_K_FUDGE = 2e39;
+
     // When computing `k`, to minimize rounding error, we use a significantly larger basis. This
     // also allows us to save work in the Newton-Raphson step because dividing a quantity with this
     // basis by a quantity with `_VELODROME_TOKEN_BASIS` basis gives that same
