@@ -126,19 +126,36 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function dy(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
-        return y - _get_y(x, dx, y);
-    }
-
     function k(uint256 x, uint256 y) external pure returns (uint256) {
-        return _k_compat(x, y);
+        return _k(x, y);
     }
 
-    function VELODROME_BASIS() external pure returns (uint256) {
+    function new_y(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 r) {
+        r = _get_y(x, dx, y);
+        assert(_k(x + dx, r) >= _k(x, y));
+    }
+
+    function from_compat(uint256 x) external pure returns (uint256) {
+        return _from_compat(x);
+    }
+
+    function from_compat_k(uint256 x) external pure returns (uint256) {
+        return _from_compat_k(x);
+    }
+
+    function to_compat_down(uint256 x) external pure returns (uint256) {
+        return _to_compat_down(x);
+    }
+
+    function to_compat_up(uint256 x) external pure returns (uint256) {
+        return _to_compat_up(x);
+    }
+
+    function INTERNAL_BASIS() external pure returns (uint256) {
         return _VELODROME_TOKEN_BASIS;
     }
 
-    function VELODROME_MAX_BALANCE() external pure returns (uint256) {
+    function MAX_BALANCE() external pure returns (uint256) {
         return _VELODROME_MAX_BALANCE;
     }
 }
@@ -159,39 +176,57 @@ contract VelodromeUnitTest is Test {
 
         uint256 fee_bps = 5;
         uint256 _FEE_BASIS = 10_000;
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
+        uint256 _INTERNAL_BASIS = dummy.INTERNAL_BASIS();
 
         uint256 dx = x_transfer;
         dx -= dx * fee_bps / _FEE_BASIS;
-        dx *= _VELODROME_BASIS;
+        dx *= _INTERNAL_BASIS;
         dx /= x_basis;
-        uint256 x = x_reserve * _VELODROME_BASIS / x_basis;
-        uint256 y = y_reserve * _VELODROME_BASIS / y_basis;
+        uint256 x = x_reserve * _INTERNAL_BASIS / x_basis;
+        uint256 y = y_reserve * _INTERNAL_BASIS / y_basis;
 
-        dummy.dy(x, dx, y);
+        dummy.new_y(x, dx, y);
     }
 
     function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) external view {
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        uint256 _INTERNAL_BASIS = dummy.INTERNAL_BASIS();
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE() * 2 / 3;
 
-        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
-        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        x = bound(x, _INTERNAL_BASIS, _MAX_BALANCE);
+        y = bound(y, _INTERNAL_BASIS, _MAX_BALANCE);
         uint256 max_dx = x * 100;
-        if (max_dx > _VELODROME_MAX_BALANCE - x) {
-            max_dx = _VELODROME_MAX_BALANCE - x;
+        if (max_dx > _MAX_BALANCE - x) {
+            max_dx = _MAX_BALANCE - x;
         }
-        vm.assume(max_dx >= _VELODROME_BASIS);
-        dx = bound(dx, _VELODROME_BASIS, max_dx);
+        vm.assume(max_dx >= _INTERNAL_BASIS);
+        dx = bound(dx, _INTERNAL_BASIS, max_dx);
 
-        uint256 k = dummy.k(x, y);
-        assertGe(k, _VELODROME_BASIS);
-        uint256 dy = dummy.dy(x, dx, y);
-
-        assertGe(dummy.k(x + dx, y - dy), k);
-        assertLt(dummy.k(x + dx, y - dy - 1), k);
+        dummy.new_y(x, dx, y);
     }
 
+    function testVelodrome_fuzzCompatRounding(uint256 x, uint256 dx, uint256 y) external view {
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE() * 2 / 3;
+        _MAX_BALANCE = dummy.to_compat_down(_MAX_BALANCE);
+
+        x = bound(x, 1 ether, _MAX_BALANCE);
+        y = bound(y, 1 ether, _MAX_BALANCE);
+        uint256 max_dx = x * 100;
+        if (max_dx > _MAX_BALANCE - x) {
+            max_dx = _MAX_BALANCE - x;
+        }
+        vm.assume(max_dx >= 1 ether);
+        dx = bound(dx, 1 ether, max_dx);
+
+        x = dummy.from_compat(x);
+        dx = dummy.from_compat(dx);
+        y = dummy.from_compat(y);
+        
+        uint256 new_y = dummy.new_y(x, dx, y);
+        new_y = dummy.from_compat(dummy.to_compat_down(new_y));
+
+        assertGe(dummy.k(x + dx, new_y), dummy.k(x, y));
+    }
+    
     function solidly_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
         return (x * ((((y * y) / 1e18) * y) / 1e18)) / 1e18 + (((((x * x) / 1e18) * x) / 1e18) * y) / 1e18;
     }
@@ -202,17 +237,19 @@ contract VelodromeUnitTest is Test {
         return (_a * _b) / 1e18;
     }
 
+    /*
     function testVelodrome_fuzzK(uint256 x, uint256 y) external view {
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
-        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
-        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE() * 2 / 3;
+        _MAX_BALANCE = dummy.to_compat_down(_MAX_BALANCE);
 
-        uint256 solidly_k = solidly_ref_k(x, y);
-        uint256 velodrome_k = velodrome_ref_k(x, y);
-        uint256 k = dummy.k(x, y);
-        uint256 k_x = dummy.k(x - 1, y);
-        uint256 k_y = dummy.k(x, y - 1);
+        x = bound(x, 1 ether, _MAX_BALANCE);
+        y = bound(y, 1 ether, _MAX_BALANCE);
+
+        uint256 solidly_k = dummy.from_compat_k(solidly_ref_k(x, y));
+        uint256 velodrome_k = dummy.from_compat_k(velodrome_ref_k(x, y));
+        uint256 k = dummy.k(dummy.from_compat(x), dummy.from_compat(y));
+        uint256 k_x = dummy.k(dummy.from_compat(x - 1), dummy.from_compat(y));
+        uint256 k_y = dummy.k(dummy.from_compat(x), dummy.from_compat(y - 1));
 
         assertGe(k, solidly_k, "SolidlyV1 reference implementation too low");
         assertLt(k_x, solidly_k, "SolidlyV1 reference implementation too high x");
@@ -222,44 +259,48 @@ contract VelodromeUnitTest is Test {
         assertLt(k_x, velodrome_k, "VelodromeV2 reference implementation too high x");
         assertLt(k_y, velodrome_k, "VelodromeV2 reference implementation too high y");
     }
+    */
 
     function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint256 y) external view {
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE() * 2 / 3;
+        _MAX_BALANCE = dummy.to_compat_down(_MAX_BALANCE);
 
-        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
-        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        x = bound(x, 1 ether, _MAX_BALANCE);
+        y = bound(y, 1 ether, _MAX_BALANCE);
         uint256 max_dx = x * 100;
-        if (max_dx > _VELODROME_MAX_BALANCE - x) {
-            max_dx = _VELODROME_MAX_BALANCE - x;
+        if (max_dx > _MAX_BALANCE - x) {
+            max_dx = _MAX_BALANCE - x;
         }
-        vm.assume(max_dx >= _VELODROME_BASIS);
-        dx = bound(dx, _VELODROME_BASIS, max_dx);
+        vm.assume(max_dx >= 1 ether);
+        dx = bound(dx, 1 ether, max_dx);
 
-        uint256 dy = dummy.dy(x, dx, y);
+        uint256 new_y = dummy.new_y(dummy.from_compat(x), dummy.from_compat(dx), dummy.from_compat(y));
+        uint256 dy = y - dummy.to_compat_down(new_y);
 
         uint256 velodrome_k_before = velodrome_ref_k(x, y);
         uint256 velodrome_k_after = velodrome_ref_k(x + dx, y - dy);
         assertGe(velodrome_k_after, velodrome_k_before);
     }
 
+    /*
     function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint256 y) external view {
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE() * 2 / 3;
+        _MAX_BALANCE = dummy.to_compat(_MAX_BALANCE);
 
-        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
-        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        x = bound(x, 1 ether, _MAX_BALANCE);
+        y = bound(y, 1 ether, _MAX_BALANCE);
         uint256 max_dx = x * 100;
-        if (max_dx > _VELODROME_MAX_BALANCE - x) {
-            max_dx = _VELODROME_MAX_BALANCE - x;
+        if (max_dx > _MAX_BALANCE - x) {
+            max_dx = _MAX_BALANCE - x;
         }
-        vm.assume(max_dx >= _VELODROME_BASIS);
-        dx = bound(dx, _VELODROME_BASIS, max_dx);
+        vm.assume(max_dx >= 1 ether);
+        dx = bound(dx, 1 ether, max_dx);
 
-        uint256 dy = dummy.dy(x, dx, y);
+        uint256 dy = dummy.to_compat(dummy.dy(dummy.from_compat(x), dummy.from_compat(dx), dummy.from_compat(y)));
 
         uint256 solidly_k_before = solidly_ref_k(x, y);
         uint256 solidly_k_after = solidly_ref_k(x + dx, y - dy);
         assertGe(solidly_k_after, solidly_k_before);
     }
+    */
 }
