@@ -41,7 +41,7 @@ abstract contract Velodrome is SettlerAbstract {
     // `_VELODROME_TOKEN_BASIS` basis. Convenient *and* accurate.
     uint256 private constant _VELODROME_INTERNAL_BASIS = _VELODROME_TOKEN_BASIS * _VELODROME_TOKEN_BASIS;
 
-    uint256 internal constant _VELODROME_INTERNAL_TO_TOKEN_RATIO = _VELODROME_INTERNAL_BASIS / _VELODROME_TOKEN_BASIS;
+    uint256 private constant _VELODROME_INTERNAL_TO_TOKEN_RATIO = _VELODROME_INTERNAL_BASIS / _VELODROME_TOKEN_BASIS;
 
     // When computing `d` we need to compute the cube of a token quantity and format the result with
     // `_VELODROME_TOKEN_BASIS`. In order to avoid overflow, we must divide the squared token
@@ -63,7 +63,7 @@ abstract contract Velodrome is SettlerAbstract {
 
     // This is the `k = x^3 * y + y^3 * x` constant function. Unlike the original formulation, the
     // result has a basis of `_VELODROME_INTERNAL_BASIS` instead of `_VELODROME_TOKEN_BASIS`
-    function _k(uint256 x, uint256 y) internal pure returns (uint256) {
+    function _k(uint256 x, uint256 y) private pure returns (uint256) {
         unchecked {
             return _k(x, y, x * x);
         }
@@ -81,10 +81,16 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
+    function _k_compat(uint256 x, uint256 y) internal pure returns (uint256) {
+        unchecked {
+            return (x * y).unsafeMulDivAlt(x * x + y * y, _VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+        }
+    }
+
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`. The result has a basis of
     // `_VELODROME_TOKEN_BASIS`.
-    function _d(uint256 y, uint256 x) internal pure returns (uint256) {
+    function _d(uint256 y, uint256 x) private pure returns (uint256) {
         unchecked {
             return _d(y, 3 * x, x * x / _VELODROME_SQUARE_STEP_BASIS * x / _VELODROME_CUBE_STEP_BASIS);
         }

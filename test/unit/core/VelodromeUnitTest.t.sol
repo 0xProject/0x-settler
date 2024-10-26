@@ -126,12 +126,12 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function get_y(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
+    function dy(uint256 x, uint256 dx, uint256 y) external pure returns (uint256 dy) {
         return y - _get_y(x, dx, y);
     }
 
     function k(uint256 x, uint256 y) external pure returns (uint256) {
-        return _k(x, y) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
+        return _k_compat(x, y);
     }
 
     function VELODROME_BASIS() external pure returns (uint256) {
@@ -168,7 +168,7 @@ contract VelodromeUnitTest is Test {
         uint256 x = x_reserve * _VELODROME_BASIS / x_basis;
         uint256 y = y_reserve * _VELODROME_BASIS / y_basis;
 
-        dummy.get_y(x, dx, y);
+        dummy.dy(x, dx, y);
     }
 
     function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) external view {
@@ -186,7 +186,7 @@ contract VelodromeUnitTest is Test {
 
         uint256 k = dummy.k(x, y);
         assertGe(k, _VELODROME_BASIS);
-        uint256 dy = dummy.get_y(x, dx, y);
+        uint256 dy = dummy.dy(x, dx, y);
 
         assertGe(dummy.k(x + dx, y - dy), k);
         assertLt(dummy.k(x + dx, y - dy - 1), k);
@@ -208,8 +208,58 @@ contract VelodromeUnitTest is Test {
         x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
 
+        uint256 solidly_k = solidly_ref_k(x, y);
+        uint256 velodrome_k = velodrome_ref_k(x, y);
         uint256 k = dummy.k(x, y);
-        assertGe(k, solidly_ref_k(x, y), "SolidlyV1 reference implementation");
-        assertGe(k, velodrome_ref_k(x, y), "VelodromeV2 reference implementation");
+        uint256 k_x = dummy.k(x - 1, y);
+        uint256 k_y = dummy.k(x, y - 1);
+
+        assertGe(k, solidly_k, "SolidlyV1 reference implementation too low");
+        assertLt(k_x, solidly_k, "SolidlyV1 reference implementation too high x");
+        assertLt(k_y, solidly_k, "SolidlyV1 reference implementation too high y");
+
+        assertGe(k, velodrome_k, "VelodromeV2 reference implementation too low");
+        assertLt(k_x, velodrome_k, "VelodromeV2 reference implementation too high x");
+        assertLt(k_y, velodrome_k, "VelodromeV2 reference implementation too high y");
+    }
+
+    function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint256 y) external view {
+        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+
+        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        uint256 max_dx = x * 100;
+        if (max_dx > _VELODROME_MAX_BALANCE - x) {
+            max_dx = _VELODROME_MAX_BALANCE - x;
+        }
+        vm.assume(max_dx >= _VELODROME_BASIS);
+        dx = bound(dx, _VELODROME_BASIS, max_dx);
+
+        uint256 dy = dummy.dy(x, dx, y);
+
+        uint256 velodrome_k_before = velodrome_ref_k(x, y);
+        uint256 velodrome_k_after = velodrome_ref_k(x + dx, y - dy);
+        assertGe(velodrome_k_after, velodrome_k_before);
+    }
+
+    function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint256 y) external view {
+        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+
+        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        uint256 max_dx = x * 100;
+        if (max_dx > _VELODROME_MAX_BALANCE - x) {
+            max_dx = _VELODROME_MAX_BALANCE - x;
+        }
+        vm.assume(max_dx >= _VELODROME_BASIS);
+        dx = bound(dx, _VELODROME_BASIS, max_dx);
+
+        uint256 dy = dummy.dy(x, dx, y);
+
+        uint256 solidly_k_before = solidly_ref_k(x, y);
+        uint256 solidly_k_after = solidly_ref_k(x + dx, y - dy);
+        assertGe(solidly_k_after, solidly_k_before);
     }
 }
