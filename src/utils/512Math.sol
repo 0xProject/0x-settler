@@ -163,7 +163,7 @@ library Lib512Math {
                 // Divide denominator by power of two
                 y := div(y, twos)
 
-                // Divide [prod1 prod0] by the factors of two
+                // Divide [x_hi x_lo] by the factors of two
                 x_lo := div(x_lo, twos)
                 // Shift in bits from x_hi into x_lo. For this we need to flip `twos`
                 // such that it is 2**256 / twos.
@@ -173,7 +173,6 @@ library Lib512Math {
                 x_lo := or(x_lo, mul(x_hi, twosInv))
                 x_hi := div(x_hi, twos)
             }
-
 
             // Invert the denominator mod 2**512
             // Now that y is an odd number, it has an inverse modulo 2**512 such
