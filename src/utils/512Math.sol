@@ -176,6 +176,15 @@ library Lib512Math {
         r_out = omul(r, r, y);
     }
 
+    function mod(uint512 memory n, uint256 d) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            let x_hi := mload(n)
+            let x_lo := mload(add(0x20, n))
+            r := mulmod(x_hi, sub(0x00, d), d)
+            r := addmod(x_lo, r, d)
+        }
+    }
+
     function odiv(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
 
