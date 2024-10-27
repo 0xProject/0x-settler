@@ -1,0 +1,295 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+struct uint512 {
+    uint256 hi;
+    uint256 lo;
+}
+
+library Lib512Math {
+    function from(uint512 memory r, uint256 x) internal pure {
+        assembly ("memory-safe") {
+            mstore(r, 0x00)
+            mstore(add(0x20, r), x)
+        }
+    }
+
+    function into(uint512 memory x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mload(add(0x20, x))
+        }
+    }
+
+    function oadd(uint512 memory r, uint256 x, uint256 y) internal pure {
+        assembly ("memory-safe") {
+            let r_lo := add(x, y)
+            let r_hi := lt(r_lo, x)
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function oadd(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let r_lo := add(x_lo, y)
+            let r_hi := add(x_hi, lt(r_lo, x_lo))
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function iadd(uint512 memory r, uint256 y) internal pure {
+        oadd(r, r, y);
+    }
+
+    function oadd(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let y_hi := mload(y)
+            let y_lo := mload(add(0x20, y))
+            let r_lo := add(x_lo, y_lo)
+            let r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function iadd(uint512 memory r, uint512 memory y) internal pure {
+        oadd(r, r, y);
+    }
+
+    function osub(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let r_lo := sub(x_lo, y)
+            let r_hi := sub(x_hi, gt(y, x_lo))
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function isub(uint512 memory r, uint256 y) internal pure {
+        osub(r, r, y);
+    }
+
+    function osub(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let y_hi := mload(y)
+            let y_lo := mload(add(0x20, y))
+            let r_lo := sub(x_lo, y_lo)
+            let r_hi := sub(sub(x_hi, y_hi), gt(y_lo, x_lo))
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function isub(uint512 memory r, uint512 memory y) internal pure {
+        osub(r, r, y);
+    }
+
+    function omul(uint512 memory r, uint256 x, uint256 y) internal pure {
+        assembly ("memory-safe") {
+            let mm := mulmod(x, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let r_lo := mul(x, y)
+            let r_hi := sub(sub(mm, r_lo), lt(mm, r_lo))
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function omul(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let mm := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let r_lo := mul(x_lo, y)
+            let r_hi := add(mul(x_hi, y), sub(sub(mm, r_lo), lt(mm, r_lo)))
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function imul(uint512 memory r, uint256 y) internal pure {
+        omul(r, r, y);
+    }
+
+    function omul(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+        assembly ("memory-safe") {
+            let y_hi := mload(y)
+            let y_lo := mload(add(0x20, y))
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let r_lo := mul(x_lo, y_lo)
+            let r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function imul(uint512 memory r, uint512 memory y) internal pure {
+        omul(r, r, y);
+    }
+
+    function odiv(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+        // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
+        // The original code was released under the MIT license.
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+
+            // Get the remainder [x_hi x_lo] % y (< 2**256)
+            // 2**256 % y == -y % 2**256 % y
+            let rem := mulmod(x_hi, sub(0x00, y), y)
+            rem := addmod(x_lo, rem, y)
+
+            // Make division exact by rounding [x_hi x_lo] down to a multiple of y
+            // Subtract 256 bit number from 512 bit number.
+            x_hi := sub(x_hi, gt(rem, x_lo))
+            x_lo := sub(x_lo, rem)
+
+            // Factor powers of two out of denominator
+            {
+                // Compute largest power of two divisor of denominator
+                // Always >= 1.
+                let twos := and(sub(0x00, y), y)
+
+                // Divide denominator by power of two
+                y := div(y, twos)
+
+                // Divide [prod1 prod0] by the factors of two
+                x_lo := div(x_lo, twos)
+                // Shift in bits from x_hi into x_lo. For this we need to flip `twos`
+                // such that it is 2**256 / twos.
+                // 2**256 / twos == -twos % 2**256 / twos + 1
+                // If twos is zero, then it becomes one
+                let twosInv := add(div(sub(0x00, twos), twos), 0x01)
+                x_lo := or(x_lo, mul(x_hi, twosInv))
+                x_hi := div(x_hi, twos)
+            }
+
+            // Invert the denominator mod 2**256
+            // Now that y is an odd number, it has an inverse modulo 2**256 such
+            // that y * inv = 1 mod 2**256.
+            // Compute the inverse by starting with a seed that is correct
+            // correct for four bits. That is, y * inv = 1 mod 2**4.
+            inv := xor(mul(0x03, y), 0x02)
+
+            // Now use Newton-Raphson iteration to improve the precision
+            // Thanks to Hensel's lifting lemma, this also works in modular
+            // arithmetic, doubling the correct bits in each step.
+            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**8
+            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**16
+            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**32
+            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**64
+            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**128
+            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**256
+
+            // Because the division is now exact we can divide by multiplying
+            // with the modular inverse of the denominator. This will give us
+            // the correct result modulo 2**256.
+            let r_lo := mul(x_lo, inv)
+            let r_hi := mul(x_hi, inv) // TODO: WRONG
+            mstore(r, r_hi)
+            mstore(add(0x20, r), r_lo)
+        }
+    }
+
+    function idiv(uint512 memory r, uint256 y) internal pure {
+        odiv(r, r, y);
+    }
+
+    function odiv(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+        revert("unimplemented");
+    }
+
+    function idiv(uint512 memory r, uint512 memory y) internal pure {
+        odiv(r, r, y);
+    }
+
+    function eq(uint512 memory x, uint256 y) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            r := and(iszero(x_hi), eq(x_lo, y))
+        }
+    }
+
+    function gt(uint512 memory x, uint256 y) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            r := or(gt(x_hi, 0x00), gt(x_lo, y))
+        }
+    }
+
+    function lt(uint512 memory x, uint256 y) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            r := and(iszero(x_hi), lt(x_lo, y))
+        }
+    }
+
+    function ne(uint512 memory x, uint256 y) internal pure returns (bool) {
+        return !eq(x, y);
+    }
+
+    function ge(uint512 memory x, uint256 y) internal pure returns (bool) {
+        return !lt(x, y);
+    }
+
+    function le(uint512 memory x, uint256 y) internal pure returns (bool) {
+        return !gt(x, y);
+    }
+
+    function eq(uint512 memory x, uint512 memory y) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let y_hi := mload(y)
+            let y_lo := mload(add(0x20, y))
+            r := and(eq(x_hi, y_hi), eq(x_lo, y_lo))
+        }
+    }
+
+    function gt(uint512 memory x, uint512 memory y) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let y_hi := mload(y)
+            let y_lo := mload(add(0x20, y))
+            r := or(gt(x_hi, y_hi), and(eq(x_hi, y_hi), gt(x_lo, y_lo)))
+        }
+    }
+
+    function lt(uint512 memory x, uint512 memory y) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            let x_hi := mload(x)
+            let x_lo := mload(add(0x20, x))
+            let y_hi := mload(y)
+            let y_lo := mload(add(0x20, y))
+            r := or(lt(x_hi, y_hi), and(eq(x_hi, y_hi), lt(x_lo, y_lo)))
+        }
+    }
+
+    function ne(uint512 memory x, uint512 memory y) internal pure returns (bool) {
+        return !eq(x, y);
+    }
+
+    function ge(uint512 memory x, uint512 memory y) internal pure returns (bool) {
+        return !lt(x, y);
+    }
+
+    function le(uint512 memory x, uint512 memory y) internal pure returns (bool) {
+        return !gt(x, y);
+    }
+}
+
+using Lib512Math for uint512 global;
