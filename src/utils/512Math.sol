@@ -174,28 +174,66 @@ library Lib512Math {
                 x_hi := div(x_hi, twos)
             }
 
-            // Invert the denominator mod 2**256
-            // Now that y is an odd number, it has an inverse modulo 2**256 such
-            // that y * inv = 1 mod 2**256.
-            // Compute the inverse by starting with a seed that is correct
-            // correct for four bits. That is, y * inv = 1 mod 2**4.
-            inv := xor(mul(0x03, y), 0x02)
 
-            // Now use Newton-Raphson iteration to improve the precision
-            // Thanks to Hensel's lifting lemma, this also works in modular
-            // arithmetic, doubling the correct bits in each step.
-            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**8
-            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**16
-            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**32
-            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**64
-            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**128
-            inv := mul(inv, sub(0x02, mul(y, inv))) // inverse mod 2**256
+            // Invert the denominator mod 2**512
+            // Now that y is an odd number, it has an inverse modulo 2**512 such
+            // that y * inv = 1 mod 2**512.
+            // We use Newton-Raphson iterations compute inv.  Thanks to Hensel's
+            // lifting lemma, this also works in modular arithmetic, doubling
+            // the correct bits in each step. The Newton-Raphson-Hensel step is:
+            //    inv_{n+1} = inv_n*(2-y*inv_n)
 
-            // Because the division is now exact we can divide by multiplying
-            // with the modular inverse of the denominator. This will give us
-            // the correct result modulo 2**256.
-            let r_lo := mul(x_lo, inv)
-            let r_hi := mul(x_hi, inv) // TODO: WRONG
+            // These are pure-Yul reimplementations of the corresponding
+            // functions above. They're needed here as helper functions for
+            // nrhStep.
+            function mul256x256(a, b) -> o_hi, o_lo {
+                let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+                o_lo := mul(a, b)
+                o_hi := sub(sub(mm, o_lo), lt(mm, o_lo))
+            }
+
+            function mul512x256(a_hi, a_lo, b) -> o_hi, o_lo {
+                o_hi, o_lo := mul256x256(a_lo, b)
+                o_hi := add(mul(a_hi, b), o_hi)
+            }
+
+            function mul512x512(a_hi, a_lo, b_hi, b_lo) -> o_hi, o_lo {
+                o_hi, o_lo := mul512x256(a_hi, a_lo, b_lo)
+                o_hi := add(mul(a_lo, b_hi), o_hi)
+            }
+
+            // This is the Newton-Raphson-Hensel step:
+            //    inv_{n+1} = inv_n*(2-y*inv_n)
+            function nrhStep(a_hi, a_lo, b) -> o_hi, o_lo {
+                o_hi, o_lo := mul512x256(a_hi, a_lo, b)
+                o_hi := sub(sub(0x00, o_hi), gt(o_lo, 0x02))
+                o_lo := sub(0x02, o_lo)
+                o_hi, o_lo := mul512x512(a_hi, a_lo, o_hi, o_lo)
+            }
+
+            // To kick off Newton-Raphson-Hensel iterations, we start with a
+            // seed of the inverse that is correct correct for four bits. That
+            // is, y * inv = 1 mod 2**4.
+            let inv_hi, inv_lo := mul256x256(0x03, y)
+            inv_lo := xor(0x02, inv_lo)
+
+            // Each application of nrhStep doubles the number of correct bits in
+            // inv. After 7 iterations, full convergence is guaranteed.
+            // TODO: see if this is faster if the loop is re-rolled
+            // TODO: can we go back to the "old", 256-bit version for all but the final step?
+            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y) // inverse mod 2**8
+            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y) // inverse mod 2**16
+            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y) // inverse mod 2**32
+            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y) // inverse mod 2**64
+            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y) // inverse mod 2**128
+            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y) // inverse mod 2**256
+            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y) // inverse mod 2**512
+
+            // Because the division is now exact (we subtracted the remainder at
+            // the beginning), we can divide by multiplying with the modular
+            // inverse of the denominator. This will give us the correct result
+            // modulo 2**512.
+            let r_hi, r_lo := mul512x512(x_hi, x_lo, inv_hi, inv_lo)
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
         }
