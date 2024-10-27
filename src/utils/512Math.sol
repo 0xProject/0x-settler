@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 struct uint512 {
     uint256 hi;
@@ -14,37 +14,54 @@ library Lib512Math {
         }
     }
 
-    function into(uint512 memory x) internal pure returns (uint256 r) {
+    function into(uint512 memory x) internal pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            r := mload(add(0x20, x))
+            r_hi := mload(x)
+            r_lo := mload(add(0x20, x))
         }
     }
 
-    function oadd(uint512 memory r, uint256 x, uint256 y) internal pure {
+    function _deallocate(uint512 memory r) private pure {
+        assembly ("memory-safe") {
+            let ptr := sub(mload(0x40), 0x40)
+            if iszero(eq(ptr, r)) { revert(0x00, 0x00) }
+            mstore(0x40, ptr)
+        }
+    }
+
+    function oadd(uint512 memory r, uint256 x, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let r_lo := add(x, y)
             let r_hi := lt(r_lo, x)
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function oadd(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+    function oadd(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
             let r_lo := add(x_lo, y)
             let r_hi := add(x_hi, lt(r_lo, x_lo))
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function iadd(uint512 memory r, uint256 y) internal pure {
-        oadd(r, r, y);
+    function iadd(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = oadd(r, r, y);
     }
 
-    function oadd(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+    function oadd(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
@@ -52,31 +69,39 @@ library Lib512Math {
             let y_lo := mload(add(0x20, y))
             let r_lo := add(x_lo, y_lo)
             let r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function iadd(uint512 memory r, uint512 memory y) internal pure {
-        oadd(r, r, y);
+    function iadd(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = oadd(r, r, y);
     }
 
-    function osub(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+    function osub(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
             let r_lo := sub(x_lo, y)
             let r_hi := sub(x_hi, gt(y, x_lo))
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function isub(uint512 memory r, uint256 y) internal pure {
-        osub(r, r, y);
+    function isub(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = osub(r, r, y);
     }
 
-    function osub(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+    function osub(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
@@ -84,42 +109,53 @@ library Lib512Math {
             let y_lo := mload(add(0x20, y))
             let r_lo := sub(x_lo, y_lo)
             let r_hi := sub(sub(x_hi, y_hi), gt(y_lo, x_lo))
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function isub(uint512 memory r, uint512 memory y) internal pure {
-        osub(r, r, y);
+    function isub(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = osub(r, r, y);
     }
 
-    function omul(uint512 memory r, uint256 x, uint256 y) internal pure {
+    function omul(uint512 memory r, uint256 x, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let mm := mulmod(x, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             let r_lo := mul(x, y)
             let r_hi := sub(sub(mm, r_lo), lt(mm, r_lo))
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function omul(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+    function omul(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
             let mm := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             let r_lo := mul(x_lo, y)
             let r_hi := add(mul(x_hi, y), sub(sub(mm, r_lo), lt(mm, r_lo)))
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function imul(uint512 memory r, uint256 y) internal pure {
-        omul(r, r, y);
+    function imul(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = omul(r, r, y);
     }
 
-    function omul(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+    function omul(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             let y_hi := mload(y)
             let y_lo := mload(add(0x20, y))
@@ -128,16 +164,21 @@ library Lib512Math {
             let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             let r_lo := mul(x_lo, y_lo)
             let r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function imul(uint512 memory r, uint512 memory y) internal pure {
-        omul(r, r, y);
+    function imul(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = omul(r, r, y);
     }
 
-    function odiv(uint512 memory r, uint512 memory x, uint256 y) internal pure {
+    function odiv(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
         // The original code was released under the MIT license.
         assembly ("memory-safe") {
@@ -233,21 +274,26 @@ library Lib512Math {
             // inverse of the denominator. This will give us the correct result
             // modulo 2**512.
             let r_hi, r_lo := mul512x512(x_hi, x_lo, inv_hi, inv_lo)
+
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
+            r_out := r
         }
     }
 
-    function idiv(uint512 memory r, uint256 y) internal pure {
-        odiv(r, r, y);
+    function idiv(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = odiv(r, r, y);
     }
 
-    function odiv(uint512 memory r, uint512 memory x, uint512 memory y) internal pure {
+    function odiv(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         revert("unimplemented");
     }
 
-    function idiv(uint512 memory r, uint512 memory y) internal pure {
-        odiv(r, r, y);
+    function idiv(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = odiv(r, r, y);
     }
 
     function eq(uint512 memory x, uint256 y) internal pure returns (bool r) {
@@ -326,6 +372,16 @@ library Lib512Math {
 
     function le(uint512 memory x, uint512 memory y) internal pure returns (bool) {
         return !gt(x, y);
+    }
+}
+
+function tmp_uint512() pure returns (uint512 memory r) {
+    assembly ("memory-safe") {
+        let ptr := sub(mload(0x40), 0x40)
+        if iszero(eq(ptr, r)) { revert(0x00, 0x00) }
+        mstore(0x40, ptr)
+
+        r := 0x00
     }
 }
 
