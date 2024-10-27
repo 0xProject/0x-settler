@@ -49,4 +49,14 @@ contract Lib512MathTest is Test {
         assertEq(r_hi, e_hi);
         assertEq(r_lo, e_lo);
     }
+
+    function test512Math_osubForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
+        vm.assume(x_hi > 0 || x_lo >= y);
+         uint512 memory x;
+        x.from(x_hi, x_lo);
+        (uint256 r_hi, uint256 r_lo) = tmp_uint512().osub(x, y).into();
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullSub(x_lo, x_hi, y, 0);
+        assertEq(r_hi, e_hi);
+        assertEq(r_lo, e_lo);
+    }
 }
