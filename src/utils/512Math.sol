@@ -7,10 +7,29 @@ struct uint512 {
 }
 
 library Lib512Math {
-    function from(uint512 memory r, uint256 x) internal pure {
+    function _deallocate(uint512 memory r) private pure {
+        assembly ("memory-safe") {
+            let ptr := sub(mload(0x40), 0x40)
+            if iszero(eq(ptr, r)) { revert(0x00, 0x00) }
+            mstore(0x40, ptr)
+        }
+    }
+
+    function from(uint512 memory r, uint256 x) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
         assembly ("memory-safe") {
             mstore(r, 0x00)
             mstore(add(0x20, r), x)
+            r_out := r
+        }
+    }
+
+    function from(uint512 memory r, uint256 x_hi, uint256 x_lo) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        assembly ("memory-safe") {
+            mstore(r, x_hi)
+            mstore(add(0x20, r), x_lo)
+            r_out := r
         }
     }
 
@@ -18,14 +37,6 @@ library Lib512Math {
         assembly ("memory-safe") {
             r_hi := mload(x)
             r_lo := mload(add(0x20, x))
-        }
-    }
-
-    function _deallocate(uint512 memory r) private pure {
-        assembly ("memory-safe") {
-            let ptr := sub(mload(0x40), 0x40)
-            if iszero(eq(ptr, r)) { revert(0x00, 0x00) }
-            mstore(0x40, ptr)
         }
     }
 
