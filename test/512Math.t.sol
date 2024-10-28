@@ -133,6 +133,15 @@ contract Lib512MathTest is Test {
         assertEq(r_lo, e_lo);
     }
 
+    function test512Math_mod(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
+        vm.assume(y != 0);
+        uint256 r = tmp_uint512().from(x_hi, x_lo).mod(y);
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullDiv(x_lo, x_hi, y);
+        (e_lo, e_hi) = SlowMath.fullMul(e_lo, e_hi, y, 0);
+        (e_lo, e_hi) = SlowMath.fullSub(x_lo, x_hi, e_lo, e_hi);
+        assertEq(r, e_lo);
+    }
+
     function test512Math_div(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
         vm.assume(y != 0);
         uint256 r_lo = tmp_uint512().from(x_hi, x_lo).div(y);
