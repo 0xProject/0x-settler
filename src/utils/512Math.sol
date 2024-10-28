@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
+import {Panic} from "./Panic.sol";
+
 struct uint512 {
     uint256 hi;
     uint256 lo;
@@ -199,6 +201,10 @@ library Lib512Math {
     }
 
     function div(uint512 memory n, uint256 d) internal pure returns (uint256 q) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
         // The original code was released under the MIT license.
         assembly ("memory-safe") {
@@ -269,6 +275,10 @@ library Lib512Math {
 
     function odiv(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
+
+        if (y == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
 
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
         // The original code was released under the MIT license.
