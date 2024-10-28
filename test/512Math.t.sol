@@ -133,6 +133,13 @@ contract Lib512MathTest is Test {
         assertEq(r_lo, e_lo);
     }
 
+    function test512Math_div(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
+        vm.assume(y != 0);
+        uint256 r_lo = tmp_uint512().from(x_hi, x_lo).div(y);
+        (uint256 e_lo,) = SlowMath.fullDiv(x_lo, x_hi, y);
+        assertEq(r_lo, e_lo);
+    }
+
     function test512Math_odivForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
         vm.assume(y != 0);
         uint512 memory x;

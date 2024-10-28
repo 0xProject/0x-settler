@@ -198,6 +198,72 @@ library Lib512Math {
         }
     }
 
+    function div(uint512 memory n, uint256 d) internal pure returns (uint256 q) {
+        // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
+        // The original code was released under the MIT license.
+        assembly ("memory-safe") {
+            let n_hi := mload(n)
+            let n_lo := mload(add(0x20, n))
+
+            // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶)
+            // 2**256 % d = -d % 2**256 % d
+            let rem := mulmod(n_hi, sub(0x00, d), d)
+            rem := addmod(n_lo, rem, d)
+
+            // Make division exact by rounding [n_hi n_lo] down to a multiple of d
+            // Subtract 256-bit number from 512-bit number.
+            n_hi := sub(n_hi, gt(rem, n_lo))
+            n_lo := sub(n_lo, rem)
+
+            // Factor powers of two out of the denominator
+            {
+                // Compute largest power of two divisor of the denominator
+                // Always ≥ 1.
+                let twos := and(sub(0x00, d), d)
+
+                // Divide d by the power of two
+                d := div(d, twos)
+
+                // Divide [n_hi n_lo] by the power of two
+                n_lo := div(n_lo, twos)
+                // Shift in bits from n_hi into n_lo. For this we need to flip `twos`
+                // such that it is 2²⁵⁶ / twos.
+                //     2**256 / twos = -twos % 2**256 / twos + 1
+                // If twos is zero, then it becomes one (not possible)
+                let twosInv := add(div(sub(0x00, twos), twos), 0x01)
+                n_lo := or(n_lo, mul(n_hi, twosInv))
+            }
+
+            // Invert the denominator mod 2²⁵⁶
+            // Now that d is an odd number, it has an inverse modulo 2²⁵⁶ such
+            // that d * inv ≡ 1 mod 2²⁵⁶.
+            // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
+            // lifting lemma, this also works in modular arithmetic, doubling
+            // the correct bits in each step. The Newton-Raphson-Hensel step is:
+            //    inv_{n+1} = inv_n * (2 - d*inv_n) % 2**512
+
+            // To kick off Newton-Raphson-Hensel iterations, we start with a
+            // seed of the inverse that is correct correct for four bits.
+            //     d * inv ≡ 1 mod 2⁴
+            let inv := xor(mul(0x03, d), 0x02)
+
+            // Each Newton-Raphson-Hensel step doubles the number of correct
+            // bits in inv. After 6 iterations, full convergence is guaranteed.
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁸
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹⁶
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2³²
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁶⁴
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹²⁸
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2²⁵⁶
+
+            // Because the division is now exact (we subtracted the remainder at
+            // the beginning), we can divide by multiplying with the modular
+            // inverse of the denominator. This will give us the correct result
+            // modulo 2²⁵⁶.
+            q := mul(n_lo, inv)
+        }
+    }
+
     function odiv(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
 
