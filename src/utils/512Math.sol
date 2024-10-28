@@ -421,13 +421,13 @@ library Lib512Math {
                 // Subtract the remainder from the numerator so that it is a
                 // multiple of the denominator. This makes the division exact
                 {
-                    // Get the remainder [x_hi x_lo] % [y_hi y_lo] (< 2⁵¹²)
-                    // We use the MODEXP (5) precompile with an exponent of
-                    // 1. We encode the arguments to the precompile at the
-                    // beginning of free memory without allocating.
-                    // Conveniently, r_out already points to this memory
-                    // region. Arguments are encoded as [64 32 64 x_hi x_lo 1
-                    // y_hi y_lo]
+                    // Get the remainder [x_hi x_lo] % [y_hi y_lo] (< 2⁵¹²) We
+                    // use the MODEXP (5) precompile with an exponent of 1.  We
+                    // encode the arguments to the precompile at the beginning
+                    // of free memory without allocating.  Conveniently, r_out
+                    // already points to this memory region. Arguments are
+                    // encoded as:
+                    //     [64 32 64 x_hi x_lo 1 y_hi y_lo]
                     mstore(r_out, 0x40)
                     mstore(add(0x20, r_out), 0x20)
                     mstore(add(0x40, r_out), 0x40)
@@ -475,9 +475,10 @@ library Lib512Math {
                 // Invert the denominator mod 2⁵¹²
                 // Now that [y_hi y_lo] is an odd number, it has an inverse
                 // modulo 2⁵¹² such that y * inv ≡ 1 mod 2⁵¹².
-                // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
-                // lifting lemma, this also works in modular arithmetic, doubling
-                // the correct bits in each step. The Newton-Raphson-Hensel step is:
+                // We use Newton-Raphson iterations compute inv. Thanks to
+                // Hensel's lifting lemma, this also works in modular
+                // arithmetic, doubling the correct bits in each step. The
+                // Newton-Raphson-Hensel step is:
                 //    inv_{n+1} = inv_n * (2 - y*inv_n) % 2**512
 
                 // These are pure-Yul reimplementations of the corresponding
@@ -515,8 +516,9 @@ library Lib512Math {
                 let inv_hi, inv_lo := mul512x256(y_hi, y_lo, 0x03)
                 inv_lo := xor(0x02, inv_lo)
 
-                // Each application of nrhStep doubles the number of correct bits in
-                // inv. After 7 iterations, full convergence is guaranteed.
+                // Each application of nrhStep doubles the number of correct
+                // bits in inv. After 7 iterations, full convergence is
+                // guaranteed.
                 // TODO: see if this is faster if the loop is re-rolled
                 // TODO: can we go back to the "old", 256-bit version for all but the final step?
                 inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y_hi, y_lo) // inverse mod 2⁸
@@ -527,10 +529,10 @@ library Lib512Math {
                 inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y_hi, y_lo) // inverse mod 2²⁵⁶
                 inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, y_hi, y_lo) // inverse mod 2⁵¹²
 
-                // Because the division is now exact (we subtracted the remainder at
-                // the beginning), we can divide by multiplying with the modular
-                // inverse of the denominator. This will give us the correct result
-                // modulo 2⁵¹².
+                // Because the division is now exact (we subtracted the
+                // remainder at the beginning), we can divide by multiplying
+                // with the modular inverse of the denominator. This will give
+                // us the correct result modulo 2⁵¹².
                 {
                     let r_hi, r_lo := mul512x512(x_hi, x_lo, inv_hi, inv_lo)
 
