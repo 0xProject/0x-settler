@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: CC-BY-NC-ND-4.0
 pragma solidity ^0.8.25;
 
-import {Vm} from "@forge-std/Vm.sol";
 import {Panic} from "src/utils/Panic.sol";
 
 /// @author Duncan Townsend (https://github.com/duncancmt)
@@ -13,20 +12,6 @@ import {Panic} from "src/utils/Panic.sol";
 ///      terms of the license at the top of this file (CC-BY-NC-ND-4.0
 ///      https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.txt)
 library SlowMath {
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    
-    function abs(int256 x) internal pure returns (int256 s, uint256 a) {
-        if (x >= 0) {
-            s = 1;
-            a = uint256(x);
-        } else {
-            s = -1;
-            unchecked {
-                a = uint256(x) * uint256(s);
-            }
-        }
-    }
-
     function fullMul(uint256 a, uint256 b) internal pure returns (uint256 r0, uint256 r1) {
         uint256 mask = 0xffffffffffffffffffffffffffffffff;
         uint256 shift = 0x80;
@@ -65,7 +50,23 @@ library SlowMath {
         }
     }
 
-    function fullAdd(uint256 lLo, uint256 lHi, uint256 rLo, uint256 rHi) internal pure returns (uint256 lo, uint256 hi) {
+    function fullMul(uint256 aLo, uint256 aHi, uint256 bLo, uint256 bHi)
+        internal
+        pure
+        returns (uint256 r0, uint256 r1)
+    {
+        (r0, r1) = fullMul(aLo, bLo);
+        unchecked {
+            r1 += aHi * bLo;
+            r1 += bHi * aLo;
+        }
+    }
+
+    function fullAdd(uint256 lLo, uint256 lHi, uint256 rLo, uint256 rHi)
+        internal
+        pure
+        returns (uint256 lo, uint256 hi)
+    {
         unchecked {
             lo = lLo + rLo;
         }
@@ -77,10 +78,13 @@ library SlowMath {
                 hi++;
             }
         }
-        vm.assume(hi >= lHi);
     }
 
-    function fullSub(uint256 lLo, uint256 lHi, uint256 rLo, uint256 rHi) internal pure returns (uint256 lo, uint256 hi) {
+    function fullSub(uint256 lLo, uint256 lHi, uint256 rLo, uint256 rHi)
+        internal
+        pure
+        returns (uint256 lo, uint256 hi)
+    {
         // we don't check that l >= r; that is assumed
         unchecked {
             lo = lLo - rLo;
@@ -108,7 +112,7 @@ library SlowMath {
             r := mod(sub(0x00, a), a)
         }
     }
-    
+
     function fullDiv(uint256 n0, uint256 n1, uint256 d) internal pure returns (uint256, uint256) {
         // Stolen from https://2π.com/17/512-bit-division/
         if (d == 0) {
