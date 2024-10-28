@@ -206,14 +206,17 @@ library Lib512Math {
             let n_lo := mload(add(0x20, n))
 
             // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶)
-            // 2**256 % d = -d % 2**256 % d
-            let rem := mulmod(n_hi, sub(0x00, d), d)
-            rem := addmod(n_lo, rem, d)
+            {
+                // 2**256 % d = -d % 2**256 % d
+                let rem := mulmod(n_hi, sub(0x00, d), d)
+                rem := addmod(n_lo, rem, d)
 
-            // Make division exact by rounding [n_hi n_lo] down to a multiple of d
-            // Subtract 256-bit number from 512-bit number.
-            n_hi := sub(n_hi, gt(rem, n_lo))
-            n_lo := sub(n_lo, rem)
+                // Make division exact by rounding [n_hi n_lo] down to a
+                // multiple of d
+                // Subtract 256-bit number from 512-bit number.
+                n_hi := sub(n_hi, gt(rem, n_lo))
+                n_lo := sub(n_lo, rem)
+            }
 
             // Factor powers of two out of the denominator
             {
@@ -274,14 +277,17 @@ library Lib512Math {
             let x_lo := mload(add(0x20, x))
 
             // Get the remainder [x_hi x_lo] % y (< 2²⁵⁶)
-            // 2**256 % y = -y % 2**256 % y
-            let rem := mulmod(x_hi, sub(0x00, y), y)
-            rem := addmod(x_lo, rem, y)
+            {
+                // 2**256 % y = -y % 2**256 % y
+                let rem := mulmod(x_hi, sub(0x00, y), y)
+                rem := addmod(x_lo, rem, y)
 
-            // Make division exact by rounding [x_hi x_lo] down to a multiple of y
-            // Subtract 256-bit number from 512-bit number.
-            x_hi := sub(x_hi, gt(rem, x_lo))
-            x_lo := sub(x_lo, rem)
+                // Make division exact by rounding [x_hi x_lo] down to a
+                // multiple of y
+                // Subtract 256-bit number from 512-bit number.
+                x_hi := sub(x_hi, gt(rem, x_lo))
+                x_lo := sub(x_lo, rem)
+            }
 
             // Factor powers of two out of the denominator
             {
