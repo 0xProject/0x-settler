@@ -256,13 +256,34 @@ library Lib512Arithmetic {
     //// adapted from Remco Bloemen's work https://2π.com/17/full-mul/ .
     //// The original code was released under the MIT license.
 
-    function omul(uint512 memory r, uint256 x, uint256 y) internal pure returns (uint512 memory r_out) {
-        _deallocate(r_out);
+    function _mul(uint256 x, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             let mm := mulmod(x, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let r_lo := mul(x, y)
-            let r_hi := sub(sub(mm, r_lo), lt(mm, r_lo))
+            r_lo := mul(x, y)
+            r_hi := sub(sub(mm, r_lo), lt(mm, r_lo))
+        }
+    }
 
+    function _mul(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            let mm := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            r_lo := mul(x_lo, y)
+            r_hi := add(mul(x_hi, y), sub(sub(mm, r_lo), lt(mm, r_lo)))
+        }
+    }
+
+    function _mul(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            r_lo := mul(x_lo, y_lo)
+            r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
+        }
+    }
+
+    function omul(uint512 memory r, uint256 x, uint256 y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        (uint256 r_hi, uint256 r_lo) = _mul(x, y);
+        assembly ("memory-safe") {
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
             r_out := r
@@ -271,13 +292,14 @@ library Lib512Arithmetic {
 
     function omul(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
+        uint256 x_hi;
+        uint256 x_lo;
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let mm := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let r_lo := mul(x_lo, y)
-            let r_hi := add(mul(x_hi, y), sub(sub(mm, r_lo), lt(mm, r_lo)))
-
+            x_hi := mload(x)
+            x_lo := mload(add(0x20, x))
+        }
+        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y);
+        assembly ("memory-safe") {
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
             r_out := r
@@ -291,15 +313,18 @@ library Lib512Arithmetic {
 
     function omul(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
+        uint256 x_hi;
+        uint256 x_lo;
+        uint256 y_hi;
+        uint256 y_lo;
         assembly ("memory-safe") {
-            let y_hi := mload(y)
-            let y_lo := mload(add(0x20, y))
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let r_lo := mul(x_lo, y_lo)
-            let r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
-
+            x_hi := mload(x)
+            x_lo := mload(add(0x20, x))
+            y_hi := mload(y)
+            y_lo := mload(add(0x20, y))
+        }
+        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
+        assembly ("memory-safe") {
             mstore(r, r_hi)
             mstore(add(0x20, r), r_lo)
             r_out := r
@@ -509,16 +534,17 @@ library Lib512Arithmetic {
 
         // To extend this to the inverse mod 2⁵¹², we perform a more elaborate
         // 7th Newton-Raphson-Hensel iteration with 512 bits of precision.
+
+        // tmp = d * inv % 2**512
+        (uint256 tmp_hi, uint256 tmp_lo) = _mul(d, inv_lo);
+
         assembly ("memory-safe") {
-            // tmp = (2 - d * inv) % 2**512
-            let mm := mulmod(inv_lo, d, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let tmp_lo := mul(inv_lo, d)
-            let tmp_hi := sub(sub(mm, tmp_lo), lt(mm, tmp_lo))
+            // tmp = 2 - tmp % 2**512
             tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
             tmp_lo := sub(0x02, tmp_lo)
 
             // inv_hi = inv * tmp / 2**256 % 2**256
-            mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
         }
     }
@@ -529,16 +555,17 @@ library Lib512Arithmetic {
 
         // To extend this to the inverse mod 2⁵¹², we perform a more elaborate
         // 7th Newton-Raphson-Hensel iteration with 512 bits of precision.
+
+        // tmp = d * inv % 2**512
+        (uint256 tmp_hi, uint256 tmp_lo) = _mul(d_hi, d_lo, inv_lo);
+
         assembly ("memory-safe") {
-            // tmp = (2 - d * inv) % 2**512
-            let mm := mulmod(inv_lo, d_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let tmp_lo := mul(inv_lo, d_lo)
-            let tmp_hi := add(sub(sub(mm, tmp_lo), lt(mm, tmp_lo)), mul(d_hi, inv_lo))
+            // tmp = 2 - tmp % 2**512
             tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
             tmp_lo := sub(0x02, tmp_lo)
 
             // inv_hi = inv * tmp / 2**256 % 2**256
-            mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
         }
     }
