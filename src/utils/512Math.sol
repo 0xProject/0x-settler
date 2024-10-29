@@ -577,7 +577,7 @@ library Lib512Arithmetic {
     }
 
 
-    function div(uint512 memory n, uint256 d) internal pure returns (uint256 q) {
+    function div(uint512 memory n, uint256 d) internal pure returns (uint256) {
         if (d == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
@@ -589,6 +589,7 @@ library Lib512Arithmetic {
             n_lo := mload(add(0x20, n))
         }
         if (n_hi == 0) {
+            uint256 q;
             assembly ("memory-safe") {
                 q := div(n_lo, d)
             }
@@ -608,15 +609,15 @@ library Lib512Arithmetic {
         // exists. Compute that inverse
         d = _invert256(d);
 
-        assembly ("memory-safe") {
+        unchecked {
             // Because the division is now exact (we rounded n down to a
             // multiple of d), we perform it by multiplying with the modular
             // inverse of the denominator. This is the correct result mod 2²⁵⁶.
-            q := mul(n_lo, d)
+            return n_lo * d;
         }
     }
 
-    function div(uint512 memory n, uint512 memory d) internal view returns (uint256 q) {
+    function div(uint512 memory n, uint512 memory d) internal view returns (uint256) {
         uint256 d_hi;
         uint256 d_lo;
         assembly ("memory-safe") {
@@ -632,6 +633,7 @@ library Lib512Arithmetic {
             n_hi := mload(n)
         }
         if (d_lo == 0) {
+            uint256 q;
             assembly ("memory-safe") {
                 q := div(n_hi, d_hi)
             }
@@ -639,7 +641,7 @@ library Lib512Arithmetic {
         }
         if (n_hi == 0) {
             // TODO: this optimization may not be overall optimizing
-            return q; // zero
+            return 0;
         }
         uint256 n_lo;
         assembly ("memory-safe") {
@@ -660,11 +662,11 @@ library Lib512Arithmetic {
         // exists. Compute that inverse
         d_lo = _invert256(d_lo);
 
-        assembly ("memory-safe") {
+        unchecked {
             // Because the division is now exact (we rounded n down to a
             // multiple of d), we perform it by multiplying with the modular
             // inverse of the denominator. This is the correct result mod 2²⁵⁶.
-            q := mul(n_lo, d_lo)
+            return n_lo * d_lo;
         }
     }
 
