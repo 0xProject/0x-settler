@@ -18,6 +18,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -276,6 +277,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 
 abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
     using FullMath for uint256;
+    using SafeTransferLib for IERC20;
 
     constructor() {
         assert(!_hasMetaTxn());
@@ -292,7 +294,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             unchecked {
                 sellAmount -= type(uint256).max - BASIS;
             }
-            sellAmount = IERC20(permit.permitted.token).balanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 
@@ -307,7 +309,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             unchecked {
                 sellAmount -= type(uint256).max - BASIS;
             }
-            sellAmount = IERC20(permit.permitted.token).balanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 

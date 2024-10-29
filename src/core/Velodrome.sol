@@ -225,13 +225,13 @@ abstract contract Velodrome is SettlerAbstract {
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
                 // a "reasonable" `bps` value could overflow. We don't care to protect against
                 // unreasonable `bps` values because that just means the taker is griefing themself.
-                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
             if (sellAmount != 0) {
                 sellToken.safeTransfer(address(pair), sellAmount);
             }
             if (sellAmount == 0 || sellTokenHasFee) {
-                sellAmount = sellToken.balanceOf(address(pair)) - sellReserve;
+                sellAmount = sellToken.fastBalanceOf(address(pair)) - sellReserve;
             }
 
             // Convert reserves from native units to `_VELODROME_TOKEN_BASIS`

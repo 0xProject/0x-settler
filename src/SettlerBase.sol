@@ -88,7 +88,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
                 }
                 payable(recipient).safeTransferETH(amountOut);
             } else {
-                uint256 amountOut = buyToken.balanceOf(address(this));
+                uint256 amountOut = buyToken.fastBalanceOf(address(this));
                 if (amountOut < minAmountOut) {
                     revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
                 }
@@ -145,7 +145,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
                     }
                 }
             } else {
-                uint256 balance = token.balanceOf(address(this));
+                uint256 balance = token.fastBalanceOf(address(this));
                 if (balance > expectedAmount) {
                     unchecked {
                         token.safeTransfer(recipient, balance - expectedAmount);
