@@ -158,32 +158,29 @@ library Lib512Arithmetic {
 
     function oadd(uint512 memory r, uint256 x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
+        uint256 r_hi;
+        uint256 r_lo;
         assembly ("memory-safe") {
-            let r_lo := add(x, y)
+            r_lo := add(x, y)
             // lt(r_lo, x) indicates overflow in the lower addition. We can add
             // the bool directly to the integer to perform carry
-            let r_hi := lt(r_lo, x)
-
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
+            r_hi := lt(r_lo, x)
         }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function oadd(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        uint256 r_hi;
+        uint256 r_lo;
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let r_lo := add(x_lo, y)
+            r_lo := add(x_lo, y)
             // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
             // in the high limb is simply ignored
-            let r_hi := add(x_hi, lt(r_lo, x_lo))
-
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
+            r_hi := add(x_hi, lt(r_lo, x_lo))
         }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function iadd(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
@@ -193,20 +190,17 @@ library Lib512Arithmetic {
 
     function oadd(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        uint256 r_hi;
+        uint256 r_lo;
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let y_hi := mload(y)
-            let y_lo := mload(add(0x20, y))
-            let r_lo := add(x_lo, y_lo)
+            r_lo := add(x_lo, y_lo)
             // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
             // in the high limb is simply ignored
-            let r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
-
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
+            r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
         }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function iadd(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
@@ -216,18 +210,16 @@ library Lib512Arithmetic {
 
     function osub(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        uint256 r_hi;
+        uint256 r_lo;
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
             // gt(y, x_lo) indicates underflow in the lower subtraction. We can
             // subtract the bool directly from the integer to perform carry
-            let r_lo := sub(x_lo, y)
-            let r_hi := sub(x_hi, gt(y, x_lo))
-
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
+            r_lo := sub(x_lo, y)
+            r_hi := sub(x_hi, gt(y, x_lo))
         }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function isub(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
@@ -235,22 +227,21 @@ library Lib512Arithmetic {
         r_out = osub(r, r, y);
     }
 
-    function osub(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
-        _deallocate(r_out);
+    function _sub(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let y_hi := mload(y)
-            let y_lo := mload(add(0x20, y))
             // gt(y_lo, x_lo) indicates underflow in the lower subtraction.
             // Underflow in the high limb is simply ignored
-            let r_lo := sub(x_lo, y_lo)
-            let r_hi := sub(sub(x_hi, y_hi), gt(y_lo, x_lo))
-
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
+            r_lo := sub(x_lo, y_lo)
+            r_hi := sub(sub(x_hi, y_hi), gt(y_lo, x_lo))
         }
+    }
+
+    function osub(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        (uint256 r_hi, uint256 r_lo) = _sub(x_hi, x_lo, y_hi, y_lo);
+        r_out = r.from(r_hi, r_lo);
     }
 
     function isub(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
@@ -289,27 +280,14 @@ library Lib512Arithmetic {
     function omul(uint512 memory r, uint256 x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
         (uint256 r_hi, uint256 r_lo) = _mul(x, y);
-        assembly ("memory-safe") {
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
-        }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function omul(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
-        uint256 x_hi;
-        uint256 x_lo;
-        assembly ("memory-safe") {
-            x_hi := mload(x)
-            x_lo := mload(add(0x20, x))
-        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
         (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y);
-        assembly ("memory-safe") {
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
-        }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function imul(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
@@ -319,22 +297,10 @@ library Lib512Arithmetic {
 
     function omul(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
-        uint256 x_hi;
-        uint256 x_lo;
-        uint256 y_hi;
-        uint256 y_lo;
-        assembly ("memory-safe") {
-            x_hi := mload(x)
-            x_lo := mload(add(0x20, x))
-            y_hi := mload(y)
-            y_lo := mload(add(0x20, y))
-        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
         (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
-        assembly ("memory-safe") {
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
-        }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function imul(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
@@ -343,16 +309,17 @@ library Lib512Arithmetic {
     }
 
     function mod(uint512 memory n, uint256 d) internal pure returns (uint256 r) {
+        (uint256 n_hi, uint256 n_lo) = n.into();
         assembly ("memory-safe") {
-            let x_hi := mload(n)
-            let x_lo := mload(add(0x20, n))
-            r := mulmod(x_hi, sub(0x00, d), d)
-            r := addmod(x_lo, r, d)
+            r := mulmod(n_hi, sub(0x00, d), d)
+            r := addmod(n_lo, r, d)
         }
     }
 
     function omod(uint512 memory r, uint512 memory x, uint512 memory y) internal view returns (uint512 memory r_out) {
         _deallocate(r_out);
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
         assembly ("memory-safe") {
             // We use the MODEXP (5) precompile with an exponent of 1. We encode
             // the arguments to the precompile at the beginning of free memory
@@ -363,11 +330,11 @@ library Lib512Arithmetic {
             mstore(add(0x20, r_out), 0x20)
             mstore(add(0x40, r_out), 0x40)
             // See comment in `from` about why `mload`/`mstore` is more efficient
-            mstore(add(0x60, r_out), mload(x))
-            mstore(add(0x80, r_out), mload(add(0x20, x)))
+            mstore(add(0x60, r_out), x_hi)
+            mstore(add(0x80, r_out), x_lo)
             mstore(add(0xa0, r_out), 0x01)
-            mstore(add(0xc0, r_out), mload(y))
-            mstore(add(0xe0, r_out), mload(add(0x20, y)))
+            mstore(add(0xc0, r_out), y_hi)
+            mstore(add(0xe0, r_out), y_lo)
             // We write the result of MODEXP directly into the output space r.
             // The MODEXP precompile can only fail due to out-of-gas.
             // There is no returndata in the event of failure.
@@ -401,34 +368,32 @@ library Lib512Arithmetic {
     }
 
     function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d_hi, uint256 d_lo) private view returns (uint256 r_hi, uint256 r_lo) {
+        uint512 memory r;
+        _deallocate(r);
         assembly ("memory-safe") {
             // Get the remainder [x_hi x_lo] % [d_hi d_lo] (< 2⁵¹²)
             // We use the MODEXP (5) precompile with an exponent of 1. We encode
             // the arguments to the precompile at the beginning of free memory
-            // without allocating. Arguments are encoded as:
+            // without allocating. Conveniently, r already points to this memory
+            // region. Arguments are encoded as:
             //     [64 32 64 x_hi x_lo 1 d_hi d_lo]
-            let ptr := mload(0x40)
-            mstore(ptr, 0x40)
-            mstore(add(0x20, ptr), 0x20)
-            mstore(add(0x40, ptr), 0x40)
-            mstore(add(0x60, ptr), x_hi)
-            mstore(add(0x80, ptr), x_lo)
-            mstore(add(0xa0, ptr), 0x01)
-            mstore(add(0xc0, ptr), d_hi)
-            mstore(add(0xe0, ptr), d_lo)
+            mstore(r, 0x40)
+            mstore(add(0x20, r), 0x20)
+            mstore(add(0x40, r), 0x40)
+            mstore(add(0x60, r), x_hi)
+            mstore(add(0x80, r), x_lo)
+            mstore(add(0xa0, r), 0x01)
+            mstore(add(0xc0, r), d_hi)
+            mstore(add(0xe0, r), d_lo)
             // The MODEXP precompile can only fail due to out-of-gas.
             // There is no returndata in the event of failure.
-            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, ptr, 0x100, ptr, 0x40))) {
+            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r, 0x100, r, 0x40))) {
                 revert(0x00, 0x00)
             }
-
-            let rem_hi := mload(ptr)
-            let rem_lo := mload(add(0x20, ptr))
-            // Round down by subtracting the remainder from the numerator
-            // Subtract 512-bit number from 512-bit number.
-            r_hi := sub(sub(x_hi, rem_hi), gt(rem_lo, x_lo))
-            r_lo := sub(x_lo, rem_lo)
         }
+        (uint256 rem_hi, uint256 rem_lo) = r.into();
+        // Round down by subtracting the remainder from the numerator
+        (r_hi, r_lo) = _sub(x_hi, x_lo, rem_hi, rem_lo);
     }
 
     function _twos(uint256 x) private pure returns (uint256 twos, uint256 twosInv) {
@@ -684,12 +649,11 @@ library Lib512Arithmetic {
             x_lo := mload(add(0x20, x))
         }
         if (x_hi == 0) {
+            uint256 r_lo;
             assembly ("memory-safe") {
-                let r_lo := div(x_lo, y)
-                mstore(r, 0x00)
-                mstore(add(0x20, r), r_lo)
-                r_out := r
+                r_lo := div(x_lo, y)
             }
+            r_out = r.from(0, r_lo);
             return r_out;
         }
 
@@ -705,17 +669,17 @@ library Lib512Arithmetic {
         // exists. Compute that inverse
         (uint256 inv_hi, uint256 inv_lo) = _invert512(y);
 
+        uint256 r_hi;
+        uint256 r_lo;
         assembly ("memory-safe") {
             // Because the division is now exact (we rounded x down to a
             // multiple of y), we perform it by multiplying with the modular
             // inverse of the denominator.
             let mm := mulmod(x_lo, inv_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let r_lo := mul(x_lo, inv_lo)
-            let r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, inv_lo), mul(x_lo, inv_hi)))
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
+            r_lo := mul(x_lo, inv_lo)
+            r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, inv_lo), mul(x_lo, inv_hi)))
         }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function idiv(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
@@ -750,13 +714,7 @@ library Lib512Arithmetic {
         }
         if (x_hi == 0) {
             // TODO: this optimization may not be overall optimizing
-            assembly ("memory-safe") {
-                // See comment in `from` about why `mstore` is more efficient
-                // than `codecopy(r, codesize(), 0x00)`
-                mstore(r, 0x00)
-                mstore(add(0x20, r), 0x00)
-                r_out := r
-            }
+            r_out = r.from(0, 0);
             return r_out;
         }
         uint256 x_lo;
@@ -776,17 +734,17 @@ library Lib512Arithmetic {
         // exists. Compute that inverse
         (y_hi, y_lo) = _invert512(y_hi, y_lo);
 
+        uint256 r_hi;
+        uint256 r_lo;
         assembly ("memory-safe") {
             // Because the division is now exact (we rounded x down to a
             // multiple of y), we perform it by multiplying with the modular
             // inverse of the denominator.
             let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let r_lo := mul(x_lo, y_lo)
-            let r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
-            mstore(r, r_hi)
-            mstore(add(0x20, r), r_lo)
-            r_out := r
+            r_lo := mul(x_lo, y_lo)
+            r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
         }
+        r_out = r.from(r_hi, r_lo);
     }
 
     function idiv(uint512 memory r, uint512 memory y) internal view returns (uint512 memory r_out) {
