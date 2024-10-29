@@ -387,6 +387,32 @@ library Lib512Math {
         }
     }
 
+    function _invert256(uint256 d) private pure returns (uint256 inv) {
+        assembly ("memory-safe") {
+            // Invert d mod 2²⁵⁶
+            // d is an odd number (from _toOdd*). It has an inverse modulo 2²⁵⁶
+            // such that d * inv ≡ 1 mod 2²⁵⁶.
+            // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
+            // lifting lemma, this also works in modular arithmetic, doubling
+            // the correct bits in each step. The Newton-Raphson-Hensel step is:
+            //    inv_{n+1} = inv_n * (2 - d*inv_n) % 2**512
+
+            // To kick off Newton-Raphson-Hensel iterations, we start with a
+            // seed of the inverse that is correct correct for four bits.
+            //     d * inv ≡ 1 mod 2⁴
+            inv := xor(mul(0x03, d), 0x02)
+
+            // Each Newton-Raphson-Hensel step doubles the number of correct
+            // bits in inv. After 6 iterations, full convergence is guaranteed.
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁸
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹⁶
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2³²
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁶⁴
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹²⁸
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2²⁵⁶
+        }
+    }
+
     function div(uint512 memory n, uint256 d) internal pure returns (uint256 q) {
         if (d == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
@@ -413,36 +439,16 @@ library Lib512Math {
         // After this we can discard x_hi because our result is only 256 bits
         (n_lo, d) = _toOdd256(n_hi, n_lo, d);
 
-        // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
-        // The original code was released under the MIT license.
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2²⁵⁶. Since d is odd, this inverse
+        // exists. Compute that inverse
+        d = _invert256(d);
+
         assembly ("memory-safe") {
-            // Invert the denominator mod 2²⁵⁶
-            // Now that d is an odd number, it has an inverse modulo 2²⁵⁶ such
-            // that d * inv ≡ 1 mod 2²⁵⁶.
-            // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
-            // lifting lemma, this also works in modular arithmetic, doubling
-            // the correct bits in each step. The Newton-Raphson-Hensel step is:
-            //    inv_{n+1} = inv_n * (2 - d*inv_n) % 2**512
-
-            // To kick off Newton-Raphson-Hensel iterations, we start with a
-            // seed of the inverse that is correct correct for four bits.
-            //     d * inv ≡ 1 mod 2⁴
-            let inv := xor(mul(0x03, d), 0x02)
-
-            // Each Newton-Raphson-Hensel step doubles the number of correct
-            // bits in inv. After 6 iterations, full convergence is guaranteed.
-            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁸
-            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹⁶
-            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2³²
-            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁶⁴
-            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹²⁸
-            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2²⁵⁶
-
-            // Because the division is now exact (we subtracted the remainder at
-            // the beginning), we can divide by multiplying with the modular
-            // inverse of the denominator. This will give us the correct result
-            // modulo 2²⁵⁶.
-            q := mul(n_lo, inv)
+            // Because the division is now exact (we rounded n down to a
+            // multiple of d), we perform it by multiplying with the modular
+            // inverse of the denominator. This is the correct result mod 2²⁵⁶.
+            q := mul(n_lo, d)
         }
     }
 
@@ -485,36 +491,18 @@ library Lib512Math {
         // 256 bits
         (n_lo, d_lo) = _toOdd256(n_hi, n_lo, d_hi, d_lo);
 
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2²⁵⁶. Since d is odd, this inverse
+        // exists. Compute that inverse
+        d_lo = _invert256(d_lo);
+
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
         // The original code was released under the MIT license.
         assembly ("memory-safe") {
-            // Invert the denominator mod 2²⁵⁶
-            // Now that d_lo is an odd number, it has an inverse modulo 2²⁵⁶ such
-            // that d_lo * inv ≡ 1 mod 2²⁵⁶.
-            // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
-            // lifting lemma, this also works in modular arithmetic, doubling
-            // the correct bits in each step. The Newton-Raphson-Hensel step is:
-            //    inv_{n+1} = inv_n * (2 - d_lo*inv_n) % 2**512
-
-            // To kick off Newton-Raphson-Hensel iterations, we start with a
-            // seed of the inverse that is correct correct for four bits.
-            //     d_lo * inv ≡ 1 mod 2⁴
-            let inv := xor(mul(0x03, d_lo), 0x02)
-
-            // Each Newton-Raphson-Hensel step doubles the number of correct
-            // bits in inv. After 6 iterations, full convergence is guaranteed.
-            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁸
-            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹⁶
-            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2³²
-            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁶⁴
-            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹²⁸
-            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2²⁵⁶
-
-            // Because the division is now exact (we subtracted the remainder at
-            // the beginning), we can divide by multiplying with the modular
-            // inverse of the denominator. This will give us the correct result
-            // modulo 2²⁵⁶.
-            q := mul(n_lo, inv)
+            // Because the division is now exact (we rounded n down to a
+            // multiple of d), we perform it by multiplying with the modular
+            // inverse of the denominator. This is the correct result mod 2²⁵⁶.
+            q := mul(n_lo, d_lo)
         }
     }
 
