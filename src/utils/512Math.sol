@@ -304,22 +304,28 @@ library Lib512Math {
         }
     }
 
-    function _toOdd256(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 x_lo_out, uint256 y_out) {
+    function _twos(uint256 x) private pure returns (uint256 twos, uint256 twosInv) {
         assembly ("memory-safe") {
-            // Factor powers of two out of y and apply the same shift to [x_hi
-            // x_lo]
-            // Compute largest power of two divisor of y. y is nonzero, so this
+            // Compute largest power of two divisor of x. x is nonzero, so this
             // is always ≥ 1.
-            let twos := and(sub(0x00, y), y)
+            twos := and(sub(0x00, x), x)
 
-            // Divide y by the power of two
-            y_out := div(y, twos)
-
-            // Shift in bits from x_hi into x_lo. For this we need to flip `twos`
-            // such that it is 2²⁵⁶ / twos.
+            // To shift up (bits from the high limb into the low limb) we need
+            // the inverse of `twos`. That is, 2²⁵⁶ / twos.
             //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
             // If twos is zero, then twosInv becomes one (not possible)
-            let twosInv := add(div(sub(0x00, twos), twos), 0x01)
+            twosInv := add(div(sub(0x00, twos), twos), 0x01)
+        }
+    }
+
+
+    function _toOdd256(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 x_lo_out, uint256 y_out) {
+        // Factor powers of two out of y and apply the same shift to [x_hi x_lo]
+        (uint256 twos, uint256 twosInv) = _twos(y);
+
+        assembly ("memory-safe") {
+            // Divide y by the power of two
+            y_out := div(y, twos)
 
             // Divide [x_hi x_lo] by the power of two
             x_lo_out := div(x_lo, twos)
@@ -328,45 +334,27 @@ library Lib512Math {
     }
 
     function _toOdd256(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 x_lo_out, uint256 y_lo_out) {
+        // Factor powers of two out of y_lo and apply the same shift to x_lo
+        (uint256 twos, uint256 twosInv) = _twos(y_lo);
+
         assembly ("memory-safe") {
-            // Factor powers of two out of [y_hi y_lo] and apply the same shift
-            // to [x_hi x_lo]
-            // Compute largest power of two divisor of y_lo. y_lo is nonzero, so
-            // this is always ≥ 1.
-            let twos := and(sub(0x00, y_lo), y_lo)
-
-            // Shift in bits from *_hi into *_lo. For this we need to flip `twos`
-            // such that it is 2²⁵⁶ / twos.
-            //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
-            // If twos is zero, then twosInv becomes one (not possible)
-            let twosInv := add(div(sub(0x00, twos), twos), 0x01)
-
-            // Divide [y_hi y_lo] by the power of two
+            // Divide [y_hi y_lo] by the power of two, returning only the low limb
             y_lo_out := div(y_lo, twos)
             y_lo_out := or(y_lo_out, mul(y_hi, twosInv))
 
-            // Divide [x_hi x_lo] by the power of two
+            // Divide [x_hi x_lo] by the power of two, returning only the low limb
             x_lo_out := div(x_lo, twos)
             x_lo_out := or(x_lo_out, mul(x_hi, twosInv))
         }
     }
 
     function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_out) {
-        assembly ("memory-safe") {
-            // Factor powers of two out of y and apply the same shift to [x_hi
-            // x_lo]
-            // Compute largest power of two divisor of y. y is nonzero, so this
-            // is always ≥ 1.
-            let twos := and(sub(0x00, y), y)
+        // Factor powers of two out of y and apply the same shift to [x_hi x_lo]
+        (uint256 twos, uint256 twosInv) = _twos(y);
 
+        assembly ("memory-safe") {
             // Divide y by the power of two
             y_out := div(y, twos)
-
-            // Shift in bits from x_hi into x_lo. For this we need to flip `twos`
-            // such that it is 2²⁵⁶ / twos.
-            //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
-            // If twos is zero, then twosInv becomes one (not possible)
-            let twosInv := add(div(sub(0x00, twos), twos), 0x01)
 
             // Divide [x_hi x_lo] by the power of two
             x_hi_out := div(x_hi, twos)
@@ -376,19 +364,11 @@ library Lib512Math {
     }
 
     function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_hi_out, uint256 y_lo_out) {
+        // Factor powers of two out of [y_hi y_lo] and apply the same shift to
+        // [x_hi x_lo] and [y_hi y_lo]
+        (uint256 twos, uint256 twosInv) = _twos(y_lo);
+
         assembly ("memory-safe") {
-            // Factor powers of two out of [y_hi y_lo] and apply the same shift
-            // to [x_hi x_lo]
-            // Compute largest power of two divisor of y_lo. y_lo is nonzero, so
-            // this is always ≥ 1.
-            let twos := and(sub(0x00, y_lo), y_lo)
-
-            // Shift in bits from *_hi into *_lo. For this we need to flip `twos`
-            // such that it is 2²⁵⁶ / twos.
-            //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
-            // If twos is zero, then twosInv becomes one (not possible)
-            let twosInv := add(div(sub(0x00, twos), twos), 0x01)
-
             // Divide [y_hi y_lo] by the power of two
             y_hi_out := div(y_hi, twos)
             y_lo_out := div(y_lo, twos)
