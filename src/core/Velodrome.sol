@@ -47,20 +47,21 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
         }
     }
 
+    function _d(uint512 memory r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
+        unchecked {
+            r.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
+        }
+    }
+
     function nrStep(uint512 memory k_new, uint512 memory k_orig, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) private view DANGEROUS_freeMemory returns (uint256 new_y) {
         unchecked {
-            uint512 memory n;
-            _k(n, x, x_basis, y, y_basis);
-            if (n.lt(k_orig)) {
-                n.osub(k_orig, n);
-                uint512 memory d;
-                d.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
-                new_y = y + n.div(d);
+            uint512 memory d;
+            _k(k_new, x, x_basis, y, y_basis);
+            _d(d, x, x_basis, y, y_basis);
+            if (k_new.lt(k_orig)) {
+                new_y = y + tmp().osub(k_orig, k_new).div(d);
             } else {
-                n.isub(k_orig);
-                uint512 memory d;
-                d.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
-                new_y = y - n.div(d);
+                new_y = y - tmp().osub(k_new, k_orig).div(d);
             }
         }
     }
@@ -87,11 +88,12 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
                 if (k_new.ge(k_orig)) {
                     return new_y;
                 }
-                _k(k_new, x, x_basis, new_y + 1, y_basis);
+                new_y++;
+                _k(k_new, x, x_basis, new_y, y_basis);
                 if (k_new.ge(k_orig)) {
-                    return new_y + 1;
+                    return new_y;
                 }
-                new_y += 2;
+                new_y++;
             }
             if (new_y > max) {
                 y = max;

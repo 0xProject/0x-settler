@@ -127,7 +127,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) external view returns (uint512 memory k_out) {
+    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) external pure returns (uint512 memory k_out) {
         _k(k_out, x, x_basis, y, y_basis);
     }
 
