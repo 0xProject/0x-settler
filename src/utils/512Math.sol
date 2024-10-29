@@ -497,16 +497,10 @@ library Lib512Math {
             // These are pure-Yul reimplementations of the corresponding
             // functions above. They're needed here as helper functions for
             // nrhStep.
-            // TODO: this function is unused, factor it into mul512x256
-            function mul256x256(a, b) -> o_hi, o_lo {
-                let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-                o_lo := mul(a, b)
-                o_hi := sub(sub(mm, o_lo), lt(mm, o_lo))
-            }
-
             function mul512x256(a_hi, a_lo, b) -> o_hi, o_lo {
-                o_hi, o_lo := mul256x256(a_lo, b)
-                o_hi := add(mul(a_hi, b), o_hi)
+                let mm := mulmod(a_lo, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+                o_lo := mul(a_lo, b)
+                o_hi := add(sub(sub(mm, o_lo), lt(mm, o_lo)), mul(a_hi, b))
             }
 
             function mul512x512(a_hi, a_lo, b_hi, b_lo) -> o_hi, o_lo {
