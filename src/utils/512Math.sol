@@ -801,7 +801,7 @@ library Lib512Math {
     }
 }
 
-function tmp_uint512() pure returns (uint512 memory r) {
+function tmp() pure returns (uint512 memory r) {
     assembly ("memory-safe") {
         let ptr := sub(mload(0x40), 0x40)
         if iszero(eq(ptr, r)) { revert(0x00, 0x00) }
