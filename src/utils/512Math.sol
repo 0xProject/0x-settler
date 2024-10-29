@@ -67,25 +67,22 @@ library Lib512Comparisons {
     }
 
     function eq(uint512 memory x, uint256 y) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
             r := and(iszero(x_hi), eq(x_lo, y))
         }
     }
 
     function gt(uint512 memory x, uint256 y) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
             r := or(gt(x_hi, 0x00), gt(x_lo, y))
         }
     }
 
     function lt(uint512 memory x, uint256 y) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
             r := and(iszero(x_hi), lt(x_lo, y))
         }
     }
@@ -103,6 +100,8 @@ library Lib512Comparisons {
     }
 
     function eq(uint512 memory x, uint512 memory y) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
         assembly ("memory-safe") {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
@@ -113,21 +112,17 @@ library Lib512Comparisons {
     }
 
     function gt(uint512 memory x, uint512 memory y) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let y_hi := mload(y)
-            let y_lo := mload(add(0x20, y))
             r := or(gt(x_hi, y_hi), and(eq(x_hi, y_hi), gt(x_lo, y_lo)))
         }
     }
 
     function lt(uint512 memory x, uint512 memory y) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let y_hi := mload(y)
-            let y_lo := mload(add(0x20, y))
             r := or(lt(x_hi, y_hi), and(eq(x_hi, y_hi), lt(x_lo, y_lo)))
         }
     }
