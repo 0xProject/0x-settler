@@ -76,37 +76,45 @@ abstract contract Velodrome is SettlerAbstract {
                 uint256 y_squared = y * y / _BASIS;
                 uint256 k = _k(x0, y, x0_squared, y_squared);
                 if (k < xy) {
-                    // there are two cases where dy == 0
-                    // case 1: The y is converged and we find the correct answer
-                    // case 2: _d(x0, y) is too large compare to (xy - k) and the rounding error
+                    // there are two cases where `dy == 0`
+                    // case 1: The `y` is converged and we find the correct answer
+                    // case 2: `_d(x0, y)` is too large compare to `(xy - k)` and the rounding error
                     //         screwed us.
-                    //         In this case, we need to increase y by 1
+                    //         In this case, we need to increase `y` by 1
                     uint256 dy = ((xy - k) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
                     if (dy == 0) {
-                        if (k == xy) {
-                            // We found the correct answer. Return y
-                            return y;
-                        }
-                        if (_k(x0, y + 1, x0_squared) > xy) {
-                            // If _k(x0, y + 1) > xy, then we are close to the correct answer.
-                            // There's no closer answer than y + 1
+                        if (_k(x0, y + 1, x0_squared) >= xy) {
+                            // If `_k(x0, y + 1) >= xy`, then we are close to the correct answer.
+                            // There's no closer answer than `y + 1`
                             return y + 1;
                         }
-                        dy = 1;
+                        // `y + 1` does not give us the condition `k >= xy`, so we have to do at
+                        // least 1 more iteration to find a satisfactory `y` value
+                        dy = 2;
                     }
                     y += dy;
                 } else {
                     uint256 dy = ((k - xy) * _BASIS).unsafeDiv(_d(y, three_x0, x0_cubed, y_squared));
                     if (dy == 0) {
-                        if (k == xy || _k(x0, y - 1, x0_squared) < xy) {
-                            // Likewise, if k == xy, we found the correct answer.
-                            // If _k(x0, y - 1) < xy, then we are close to the correct answer.
-                            // There's no closer answer than "y"
-                            // It's worth mentioning that we need to find y where _k(x0, y) >= xy
-                            // As a result, we can't return y - 1 even it's closer to the correct answer
+                        if (k == xy) {
+                            // Likewise, if `k == xy`, we found the correct answer.
                             return y;
                         }
-                        dy = 1;
+                        uint256 k_next = _k(x0, y - 1, x0_squared);
+                        if (k_next < xy) {
+                            // If `_k(x0, y - 1) < xy`, then we are close to the correct answer.
+                            // There's no closer answer than `y`
+                            // It's worth mentioning that we need to find `y` where `_k(x0, y) >= xy`
+                            // As a result, we can't return `y - 1` even it's closer to the correct answer
+                            return y;
+                        }
+                        if (k_next == xy) {
+                            return y - 1;
+                        }
+                        // It's possible that `y - 1` is the correct answer. To know that, we must
+                        // check that `y - 2` gives `k < xy`. We must do at least 1 more iteration
+                        // to determine this.
+                        dy = 2;
                     }
                     y -= dy;
                 }
