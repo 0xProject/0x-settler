@@ -156,6 +156,10 @@ library Lib512Math {
         r_out = osub(r, r, y);
     }
 
+    //// The technique implemented in the following functions for multiplication is
+    //// adapted from Remco Bloemen's work https://2π.com/17/full-mul/ .
+    //// The original code was released under the MIT license.
+
     function omul(uint512 memory r, uint256 x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
         assembly ("memory-safe") {
@@ -260,7 +264,7 @@ library Lib512Math {
     function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶)
-            // 2**256 % d = -d % 2**256 % d
+            // 2**256 % d = -d % 2**256 % d -- https://2π.com/17/512-bit-division/
             let rem := mulmod(x_hi, sub(0x00, d), d)
             rem := addmod(x_lo, rem, d)
 
@@ -313,7 +317,7 @@ library Lib512Math {
 
             // Shift in bits from x_hi into x_lo. For this we need to flip `twos`
             // such that it is 2²⁵⁶ / twos.
-            //     2**256 / twos = -twos % 2**256 / twos + 1
+            //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
             // If twos is zero, then twosInv becomes one (not possible)
             let twosInv := add(div(sub(0x00, twos), twos), 0x01)
 
@@ -333,7 +337,7 @@ library Lib512Math {
 
             // Shift in bits from *_hi into *_lo. For this we need to flip `twos`
             // such that it is 2²⁵⁶ / twos.
-            //     2**256 / twos = -twos % 2**256 / twos + 1
+            //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
             // If twos is zero, then twosInv becomes one (not possible)
             let twosInv := add(div(sub(0x00, twos), twos), 0x01)
 
@@ -360,7 +364,7 @@ library Lib512Math {
 
             // Shift in bits from x_hi into x_lo. For this we need to flip `twos`
             // such that it is 2²⁵⁶ / twos.
-            //     2**256 / twos = -twos % 2**256 / twos + 1
+            //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
             // If twos is zero, then twosInv becomes one (not possible)
             let twosInv := add(div(sub(0x00, twos), twos), 0x01)
 
@@ -381,7 +385,7 @@ library Lib512Math {
 
             // Shift in bits from *_hi into *_lo. For this we need to flip `twos`
             // such that it is 2²⁵⁶ / twos.
-            //     2**256 / twos = -twos % 2**256 / twos + 1
+            //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
             // If twos is zero, then twosInv becomes one (not possible)
             let twosInv := add(div(sub(0x00, twos), twos), 0x01)
 
@@ -399,7 +403,7 @@ library Lib512Math {
 
     function _invert256(uint256 d) private pure returns (uint256 inv) {
         assembly ("memory-safe") {
-            // Invert d mod 2²⁵⁶
+            // Invert d mod 2²⁵⁶ -- https://2π.com/18/multiplitcative-inverses/
             // d is an odd number (from _toOdd*). It has an inverse modulo 2²⁵⁶
             // such that d * inv ≡ 1 mod 2²⁵⁶.
             // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
@@ -425,7 +429,7 @@ library Lib512Math {
 
     function _invert512(uint256 d) private pure returns (uint256 inv_hi, uint256 inv_lo) {
         assembly ("memory-safe") {
-            // Invert d mod 2⁵¹²
+            // Invert d mod 2⁵¹² -- https://2π.com/18/multiplitcative-inverses/
             // d is an odd number (from _toOdd*). It has an inverse modulo 2⁵¹²
             // such that d * [inv_hi inv_lo] ≡ 1 mod 2⁵¹².
             // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
@@ -483,7 +487,7 @@ library Lib512Math {
 
     function _invert512(uint256 d_hi, uint256 d_lo) private pure returns (uint256 inv_hi, uint256 inv_lo) {
         assembly ("memory-safe") {
-            // Invert [d_hi d_lo] mod 2⁵¹²
+            // Invert [d_hi d_lo] mod 2⁵¹² -- https://2π.com/18/multiplitcative-inverses/
             // d is an odd number (from _toOdd*). It has an inverse modulo 2⁵¹²
             // such that [d_hi d_lo] * [inv_hi inv_lo] ≡ 1 mod 2⁵¹².
             // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
