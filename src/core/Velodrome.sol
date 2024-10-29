@@ -6,6 +6,8 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {uint512, tmp} from "../utils/512Math.sol";
+import {FreeMemory} from "../utils/FreeMemory.sol";
 //import {Panic} from "../utils/Panic.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -26,197 +28,75 @@ interface IVelodromePair {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
-abstract contract Velodrome is SettlerAbstract {
+abstract contract Velodrome is SettlerAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
-
-    //The original token may have fewer decimals, in
-    // which case we scale up by the appropriate factor to give this basis.
-
     // This is the basis used for token balances.
-    uint256 internal constant _VELODROME_TOKEN_BASIS = 13043817825332782212349571806;
+    uint256 internal constant _VELODROME_TOKEN_BASIS = 1 ether;
 
-    uint256 private constant _VELODROME_K_BASIS = 1 ether * 1 ether;
+    // The maximum balance in the AMM's implementation of `k` is `b` such that
+    // `b * b / 1 ether * b / 1 ether * b` does not overflow. This that
+    // quantity, `b`.
+    uint256 internal constant _VELODROME_MAX_BALANCE = 18446744073709551616000000000;
 
-    uint256 private constant _VELODROME_COMPAT_BASIS = 1 ether;
-
-    uint256 private constant _VELODROME_TOKEN4_TO_K_RATIO = 28948022309329048855892746249930419163720158292024628361319205081380880796972;
-
-    //uint256 private constant _VELODROME_K_TO_TOKEN_RATIO = 54210109;
-
-    uint256 internal constant _VELODROME_TOKEN_TO_COMPAT_RATIO = 13043817826;
-
-    uint256 private constant _VELODROME_K_TO_COMPAT_RATIO = _VELODROME_K_BASIS / _VELODROME_COMPAT_BASIS;
-
-    uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 721847907504013534635101317390953555459;
-
-    uint256 private constant _VELODROME_CUBE_STEP_BASIS = 40102661528000751844725189540569819478;
-
-    uint256 internal constant _VELODROME_K_FUDGE = 2e39;
-
-    // When computing `k`, to minimize rounding error, we use a significantly larger basis. This
-    // also allows us to save work in the Newton-Raphson step because dividing a quantity with this
-    // basis by a quantity with `_VELODROME_TOKEN_BASIS` basis gives that same
-    // `_VELODROME_TOKEN_BASIS` basis. Convenient *and* accurate.
-    //uint256 private constant _VELODROME_INTERNAL_BASIS = 0;
-
-    //uint256 private constant _VELODROME_INTERNAL_TO_TOKEN_RATIO = _VELODROME_INTERNAL_BASIS / _VELODROME_TOKEN_BASIS;
-
-    // When computing `d` we need to compute the cube of a token quantity and format the result with
-    // `_VELODROME_TOKEN_BASIS`. In order to avoid overflow, we must divide the squared token
-    // quantity by this before multiplying again by the token quantity. Setting this value as small
-    // as possible preserves precision. This gives a result in an awkward basis, but we'll correct
-    // that with `_VELODROME_CUBE_STEP_BASIS` after the cubing
-    //uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 54210109;
-
-    // After squaring a token quantity (in `_VELODROME_TOKEN_BASIS`), we need to multiply again by a
-    // token quantity and then divide out the awkward basis to get back to
-    // `_VELODROME_TOKEN_BASIS`. This constant is what gets us back to the original token quantity
-    // basis. `_VELODROME_TOKEN_BASIS * _VELODROME_TOKEN_BASIS / _VELODROME_SQUARE_STEP_BASIS *
-    // _VELODROME_TOKEN_BASIS / _VELODROME_CUBE_STEP_BASIS == _VELODROME_TOKEN_BASIS`
-    //uint256 private constant _VELODROME_CUBE_STEP_BASIS = 18446743945857035631490798146;
-
-    // The maximum balance in the AMM's implementation of `k` is `b` such that `b * b / 1 ether * b
-    // / 1 ether * b` does not overflow. This that quantity, `b`, but with a basis of
-    // `_VELODROME_TOKEN_BASIS` instead of `1 ether` (rounding down to ensure no overflow).
-    uint256 internal constant _VELODROME_MAX_BALANCE = 240615969168004511545033772472967099669;
-
-    // This is the `k = x^3 * y + y^3 * x` constant function. Unlike the original formulation, the
-    // result has a basis of `_VELODROME_K_BASIS` instead of `_VELODROME_COMPAT_BASIS`
-    function _k(uint256 x, uint256 y) internal pure returns (uint256) {
-        return _k(x, y, x * x);
-    }
-
-    function _k(uint256 x, uint256 y, uint256 x_squared_raw) private pure returns (uint256) {
-        return _k(x, y, x_squared_raw, y * y);
-    }
-
-    function _k(uint256 x, uint256 y, uint256 x_squared_raw, uint256 y_squared_raw) private pure returns (uint256) {
-        uint256 l = x * y;
-        uint256 r = x_squared_raw + y_squared_raw;
-        return (l).mulDiv(r, _VELODROME_TOKEN4_TO_K_RATIO);
-        /*
-        uint256 l = x * y;
-        uint256 r = x_squared_raw + y_squared_raw; // TODO: overflow is possible
-        uint256 lo;
+    function _k(uint512 memory r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
         unchecked {
-            lo = l * r;
+            r.omul(x * x, y_basis * y_basis).iadd(tmp().omul(y * y, x_basis * x_basis)).imul(x * y);
         }
-        uint256 mm = mulmod(l, r, type(uint256).max);
-        uint256 hi;
+    }
+
+    function nrStep(uint512 memory k_new, uint512 memory k_orig, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) private view DANGEROUS_freeMemory returns (uint256 new_y) {
         unchecked {
-            hi = mm - lo;
+            uint512 memory n;
+            _k(n, x, x_basis, y, y_basis);
+            if (n.lt(k_orig)) {
+                n.osub(k_orig, n);
+                uint512 memory d;
+                d.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
+                new_y = y + n.div(d);
+            } else {
+                n.isub(k_orig);
+                uint512 memory d;
+                d.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
+                new_y = y - n.div(d);
+            }
         }
-        assembly ("memory-safe") {
-            hi := sub(hi, lt(mm, lo))
-        }
-        return hi;
-        */
-    }
-
-    function _from_compat(uint256 x) internal pure returns (uint256) {
-        return x * _VELODROME_TOKEN_BASIS / _VELODROME_COMPAT_BASIS;
-    }
-
-    function _from_compat_k(uint256 k) internal pure returns (uint256) {
-        return k * _VELODROME_K_TO_COMPAT_RATIO;
-    }
-
-    function _to_compat_down(uint256 x) internal pure returns (uint256) {
-        return x * _VELODROME_COMPAT_BASIS / _VELODROME_TOKEN_BASIS;
-    }
-
-    function _to_compat_up(uint256 x) internal pure returns (uint256) {
-        return (x * _VELODROME_COMPAT_BASIS).unsafeDivUp(_VELODROME_TOKEN_BASIS);
-    }
-
-    // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
-    // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`. The result has a basis of
-    // `_VELODROME_TOKEN_BASIS`.
-    function _d(uint256 y, uint256 x) private pure returns (uint256) {
-        return _d(y, 3 * x, (x * x / _VELODROME_SQUARE_STEP_BASIS) * x);
-    }
-
-    function _d(uint256 y, uint256 three_x, uint256 x_cubed_raw) private pure returns (uint256) {
-        return _d(y, three_x, x_cubed_raw, y * y);
-    }
-
-    function _d(uint256, uint256 three_x, uint256 x_cubed_raw, uint256 y_squared_raw) private pure returns (uint256) {
-        return (y_squared_raw / _VELODROME_SQUARE_STEP_BASIS * three_x + x_cubed_raw) / _VELODROME_CUBE_STEP_BASIS;
     }
 
     error NotConverged();
 
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
     // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
-    function _get_y(uint256 x, uint256 dx, uint256 y) internal pure returns (uint256) {
-        uint256 k_orig = _k(x, y);
+    function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) internal view DANGEROUS_freeMemory returns (uint256) {
+        uint512 memory k_orig;
+        _k(k_orig, x, x_basis, y, y_basis);
+        uint512 memory k_new;
+
+        uint256 max = _VELODROME_MAX_BALANCE * y_basis / 1 ether;
 
         // Now that we have `k` computed, we offset `x` to account for the sell amount and use
         // the constant-product formula to compute an initial estimate for `y`.
         x += dx;
         y -= (dx * y).unsafeDiv(x);
 
-        // These intermediate values do not change throughout the Newton-Raphson iterations, so
-        // precomputing and caching them saves us gas.
-        uint256 three_x = 3 * x;
-        uint256 x_squared_raw = x * x;
-        uint256 x_cubed_raw = x_squared_raw / _VELODROME_SQUARE_STEP_BASIS * x;
-
         for (uint256 i; i < 255; i++) {
-            uint256 y_squared_raw = y * y;
-            uint256 k = _k(x, y, x_squared_raw, y_squared_raw);
-            uint256 d = _d(y, three_x, x_cubed_raw, y_squared_raw);
-
-            if (k < k_orig) {
-                uint256 dy = (k_orig - k).unsafeDiv(d);
-                // there are two cases where `dy == 0`
-                // case 1: The `y` is converged and we find the correct answer
-                // case 2: `_d(y, x)` is too large compare to `(k_orig - k)` and the rounding
-                //         error screwed us.
-                //         In this case, we need to increase `y` by 1
-                if (dy == 0) {
-                    if (_k(x, y + 1, x_squared_raw) >= k_orig) {
-                        // If `_k(x, y + 1) >= k_orig`, then we are close to the correct answer.
-                        // There's no closer answer than `y + 1`
-                        return y + 1;
-                    }
-                    // `y + 1` does not give us the condition `k >= k_orig`, so we have to do at
-                    // least 1 more iteration to find a satisfactory `y` value
-                    dy = 2;
+            uint256 new_y = nrStep(k_new, k_orig, x, x_basis, y, y_basis);
+            if (new_y == y) {
+                if (k_new.ge(k_orig)) {
+                    return new_y;
                 }
-                y += dy;
-                if (y > _VELODROME_MAX_BALANCE) {
-                    y = _VELODROME_MAX_BALANCE;
+                _k(k_new, x, x_basis, new_y + 1, y_basis);
+                if (k_new.ge(k_orig)) {
+                    return new_y + 1;
                 }
+                new_y += 2;
+            }
+            if (new_y > max) {
+                y = max;
             } else {
-                uint256 dy = (k - k_orig).unsafeDiv(d);
-                if (dy == 0) {
-                    if (k == k_orig) {
-                        // Likewise, if `k == k_orig`, we found the correct answer.
-                        return y;
-                    }
-                    uint256 k_next = _k(x, y - 1, x_squared_raw);
-                    if (k_next < k_orig) {
-                        // If `_k(x, y - 1) < k_orig`, then we are close to the correct answer.
-                        // There's no closer answer than `y`
-                        // It's worth mentioning that we need to find `y` where `_k(x, y) >=
-                        // k_orig`
-                        // As a result, we can't return `y - 1` even it's closer to the correct
-                        // answer
-                        return y;
-                    }
-                    if (k_next == k_orig) {
-                        return y - 1;
-                    }
-                    // It's possible that `y - 1` is the correct answer. To know that, we must
-                    // check that `y - 2` gives `k < k_orig`. We must do at least 1 more
-                    // iteration to determine this.
-                    dy = 2;
-                }
-                y -= dy;
+                y = new_y;
             }
         }
         revert NotConverged();
@@ -266,10 +146,6 @@ abstract contract Velodrome is SettlerAbstract {
                 sellAmount = sellToken.balanceOf(address(pair)) - sellReserve;
             }
 
-            // Convert reserves from native units to `_VELODROME_TOKEN_BASIS`
-            sellReserve = (sellReserve * _VELODROME_TOKEN_BASIS).unsafeDiv(sellBasis);
-            buyReserve = (buyReserve * _VELODROME_TOKEN_BASIS).unsafeDiv(buyBasis);
-
             // This check is commented because values that are too large will
             // result in reverts inside the pool anyways. We don't need to
             // bother.
@@ -285,14 +161,9 @@ abstract contract Velodrome is SettlerAbstract {
 
             // Apply the fee in native units
             sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
-            // Convert sell amount from native units to `_VELODROME_TOKEN_BASIS`
-            sellAmount = (sellAmount * _VELODROME_TOKEN_BASIS).unsafeDiv(sellBasis);
 
             // Solve the constant function numerically to get `buyAmount` from `sellAmount`
-            buyAmount = buyReserve - _get_y(sellReserve, sellAmount, buyReserve);
-
-            // Convert `buyAmount` from `_VELODROME_TOKEN_BASIS` to native units
-            buyAmount = buyAmount * buyBasis / _VELODROME_TOKEN_BASIS;
+            buyAmount = buyReserve - _get_y(sellReserve, sellAmount, sellBasis, buyReserve, buyBasis);
         }
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
