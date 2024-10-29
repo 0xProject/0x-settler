@@ -292,19 +292,44 @@ library Lib512Math {
 
     function _toOdd(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 x_lo_out, uint256 y_out) {
         assembly ("memory-safe") {
-            // Factor powers of two out of y and apply the same shift to [x_hi x_lo]
-            // Compute largest power of two divisor of y. y is nonzero so this
+            // Factor powers of two out of y and apply the same shift to [x_hi
+            // x_lo]
+            // Compute largest power of two divisor of y. y is nonzero, so this
             // is always ≥ 1.
             let twos := and(sub(0x00, y), y)
 
             // Divide y by the power of two
             y_out := div(y, twos)
 
-            // Shift in bits from n_hi into n_lo. For this we need to flip `twos`
+            // Shift in bits from x_hi into x_lo. For this we need to flip `twos`
             // such that it is 2²⁵⁶ / twos.
             //     2**256 / twos = -twos % 2**256 / twos + 1
             // If twos is zero, then twosInv becomes one (not possible)
             let twosInv := add(div(sub(0x00, twos), twos), 0x01)
+
+            // Divide [x_hi x_lo] by the power of two
+            x_lo_out := div(x_lo, twos)
+            x_lo_out := or(x_lo_out, mul(x_hi, twosInv))
+        }
+    }
+
+    function _toOdd(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 x_lo_out, uint256 y_lo_out) {
+        assembly ("memory-safe") {
+            // Factor powers of two out of [y_hi y_lo] and apply the same shift
+            // to [x_hi x_lo]
+            // Compute largest power of two divisor of y_lo. y_lo is nonzero, so
+            // this is always ≥ 1.
+            let twos := and(sub(0x00, y_lo), y_lo)
+
+            // Shift in bits from *_hi into *_lo. For this we need to flip `twos`
+            // such that it is 2²⁵⁶ / twos.
+            //     2**256 / twos = -twos % 2**256 / twos + 1
+            // If twos is zero, then twosInv becomes one (not possible)
+            let twosInv := add(div(sub(0x00, twos), twos), 0x01)
+
+            // Divide [y_hi y_lo] by the power of two
+            y_lo_out := div(y_lo, twos)
+            y_lo_out := or(y_lo_out, mul(y_hi, twosInv))
 
             // Divide [x_hi x_lo] by the power of two
             x_lo_out := div(x_lo, twos)
@@ -335,7 +360,7 @@ library Lib512Math {
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
 
         // Make d odd so that it has a multiplicative inverse mod 2²⁵⁶
-        // After this we can discard x_hi
+        // After this we can discard x_hi because our result is only 256 bits
         (n_lo, d) = _toOdd(n_hi, n_lo, d);
 
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
@@ -405,33 +430,14 @@ library Lib512Math {
         // the division exact without affecting the result.
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
 
+        // Make d_lo odd so that it has a multiplicative inverse mod 2²⁵⁶
+        // After this we can discard n_hi and d_hi because our result is only
+        // 256 bits
+        (n_lo, d_lo) = _toOdd(n_hi, n_lo, d_hi, d_lo);
 
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
         // The original code was released under the MIT license.
         assembly ("memory-safe") {
-            // Factor powers of two out of the denominator
-            {
-                // Compute largest power of two divisor of the denominator
-                // d_lo is nonzero, so this is always ≥1.
-                let twos := and(sub(0x00, d_lo), d_lo)
-                // Shift in bits from n_hi into n_lo and from d_hi into
-                // d_lo. For this we need to flip `twos` such that it is
-                // 2²⁵⁶ / twos.
-                //     2**256 / twos = -twos % 2**256 / twos + 1
-                // If twos is zero, then it becomes one (not possible)
-                let twosInv := add(div(sub(0x00, twos), twos), 0x01)
-
-                // Divide [d_hi d_lo] by the power of two
-                d_lo := div(d_lo, twos)
-                d_lo := or(d_lo, mul(d_hi, twosInv))
-                // Our result is only 256 bits, so we can discard d_hi after this
-
-                // Divide [n_hi n_lo] by the power of two
-                n_lo := div(n_lo, twos)
-                n_lo := or(n_lo, mul(n_hi, twosInv))
-                // Our result is only 256 bits, so we can discard n_hi after this
-            }
-
             // Invert the denominator mod 2²⁵⁶
             // Now that d_lo is an odd number, it has an inverse modulo 2²⁵⁶ such
             // that d_lo * inv ≡ 1 mod 2²⁵⁶.
