@@ -473,7 +473,6 @@ library Lib512Math {
 
             // Each application of nrhStep doubles the number of correct bits in
             // inv. After 7 iterations, full convergence is guaranteed.
-            // TODO: see if this is faster if the loop is re-rolled
             // TODO: can we go back to the "old", 256-bit version for all but the final step?
             inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2⁸
             inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2¹⁶
@@ -533,7 +532,6 @@ library Lib512Math {
             // Each application of nrhStep doubles the number of correct
             // bits in inv. After 7 iterations, full convergence is
             // guaranteed.
-            // TODO: see if this is faster if the loop is re-rolled
             // TODO: can we go back to the "old", 256-bit version for all but the final step?
             inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d_hi, d_lo) // inverse mod 2⁸
             inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d_hi, d_lo) // inverse mod 2¹⁶
