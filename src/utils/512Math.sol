@@ -456,25 +456,18 @@ library Lib512Math {
             inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2¹²⁸
             inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2²⁵⁶
 
-            // These are pure-Yul reimplementations of the corresponding
-            // functions above. They're needed here for the final 512-bit
-            // Newton-Raphson-Hensel iteration.
-            function mul256x256(a, b) -> o_hi, o_lo {
-                let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-                o_lo := mul(a, b)
-                o_hi := sub(sub(mm, o_lo), lt(mm, o_lo))
-            }
-            function mul512x256(a_hi, a_lo, b) -> o_hi, o_lo {
-                o_hi, o_lo := mul256x256(a_lo, b)
-                o_hi := add(mul(a_hi, b), o_hi)
-            }
-
             // inverse mod 2⁵¹²
             {
-                let tmp_hi, tmp_lo := mul256x256(inv_lo, d)
+                // tmp = (2 - d * inv) % 2**512
+                let mm := mulmod(inv_lo, d, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+                let tmp_lo := mul(inv_lo, d)
+                let tmp_hi := sub(sub(mm, tmp_lo), lt(mm, tmp_lo))
                 tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
                 tmp_lo := sub(0x02, tmp_lo)
-                inv_hi, inv_lo := mul512x256(tmp_hi, tmp_lo, inv_lo)
+
+                // inv_hi = inv * tmp / 2**256 % 2**256
+                mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+                inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
             }
         }
     }
