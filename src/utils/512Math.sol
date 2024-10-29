@@ -103,10 +103,6 @@ library Lib512Comparisons {
         (uint256 x_hi, uint256 x_lo) = x.into();
         (uint256 y_hi, uint256 y_lo) = y.into();
         assembly ("memory-safe") {
-            let x_hi := mload(x)
-            let x_lo := mload(add(0x20, x))
-            let y_hi := mload(y)
-            let y_lo := mload(add(0x20, y))
             r := and(eq(x_hi, y_hi), eq(x_lo, y_lo))
         }
     }
