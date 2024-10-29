@@ -140,6 +140,7 @@ contract Lib512MathTest is Test {
         (e_lo, e_hi) = SlowMath.fullMul(e_lo, e_hi, y, 0);
         (e_lo, e_hi) = SlowMath.fullSub(x_lo, x_hi, e_lo, e_hi);
         assertEq(r, e_lo);
+        assertEq(e_hi, 0);
     }
 
     // omod and imod don't have test cases because I don't have a way to derive
