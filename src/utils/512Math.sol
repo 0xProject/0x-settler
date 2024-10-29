@@ -62,6 +62,8 @@ library Lib512Math {
         _deallocate(r_out);
         assembly ("memory-safe") {
             let r_lo := add(x, y)
+            // lt(r_lo, x) indicates overflow in the lower addition. We can add
+            // the bool directly to the integer to perform carry
             let r_hi := lt(r_lo, x)
 
             mstore(r, r_hi)
@@ -76,6 +78,8 @@ library Lib512Math {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
             let r_lo := add(x_lo, y)
+            // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
+            // in the high limb is simply ignored
             let r_hi := add(x_hi, lt(r_lo, x_lo))
 
             mstore(r, r_hi)
@@ -97,6 +101,8 @@ library Lib512Math {
             let y_hi := mload(y)
             let y_lo := mload(add(0x20, y))
             let r_lo := add(x_lo, y_lo)
+            // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
+            // in the high limb is simply ignored
             let r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
 
             mstore(r, r_hi)
@@ -246,6 +252,10 @@ library Lib512Math {
         _deallocate(r_out);
         r_out = omod(r, r, y);
     }
+
+    //// The technique implemented in the following functions for division is
+    //// adapted from Remco Bloemen's work https://2π.com/21/muldiv/ .
+    //// The original code was released under the MIT license.
 
     function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
@@ -615,8 +625,6 @@ library Lib512Math {
         // exists. Compute that inverse
         d_lo = _invert256(d_lo);
 
-        // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
-        // The original code was released under the MIT license.
         assembly ("memory-safe") {
             // Because the division is now exact (we rounded n down to a
             // multiple of d), we perform it by multiplying with the modular
@@ -660,8 +668,6 @@ library Lib512Math {
         // exists. Compute that inverse
         (uint256 inv_hi, uint256 inv_lo) = _invert512(y);
 
-        // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
-        // The original code was released under the MIT license.
         assembly ("memory-safe") {
             // Because the division is now exact (we rounded x down to a
             // multiple of y), we perform it by multiplying with the modular
@@ -733,8 +739,6 @@ library Lib512Math {
         // exists. Compute that inverse
         (y_hi, y_lo) = _invert512(y_hi, y_lo);
 
-        // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
-        // The original code was released under the MIT license.
         assembly ("memory-safe") {
             // Because the division is now exact (we rounded x down to a
             // multiple of y), we perform it by multiplying with the modular
