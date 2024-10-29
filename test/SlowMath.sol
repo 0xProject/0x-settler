@@ -125,7 +125,7 @@ library SlowMath {
         uint256 r = _mod256(d);
         uint256 x0;
         uint256 x1;
-        for (uint256 i; i < 256; i++) {
+        for (uint256 i; i < 1024; i++) {
             if (n1 == 0) {
                 return fullAdd(x0, x1, n0 / d, 0);
             }
