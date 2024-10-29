@@ -566,7 +566,7 @@ library Lib512Arithmetic {
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
 
         // Make d odd so that it has a multiplicative inverse mod 2²⁵⁶
-        // After this we can discard x_hi because our result is only 256 bits
+        // After this we can discard n_hi because our result is only 256 bits
         (n_lo, d) = _toOdd256(n_hi, n_lo, d);
 
         // We perform division by multiplying by the multiplicative inverse of
@@ -669,17 +669,13 @@ library Lib512Arithmetic {
         // exists. Compute that inverse
         (uint256 inv_hi, uint256 inv_lo) = _invert512(y);
 
-        uint256 r_hi;
-        uint256 r_lo;
-        assembly ("memory-safe") {
-            // Because the division is now exact (we rounded x down to a
-            // multiple of y), we perform it by multiplying with the modular
-            // inverse of the denominator.
-            let mm := mulmod(x_lo, inv_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            r_lo := mul(x_lo, inv_lo)
-            r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, inv_lo), mul(x_lo, inv_hi)))
+        // Because the division is now exact (we rounded x down to a multiple of
+        // y), we perform it by multiplying with the modular inverse of the
+        // denominator.
+        {
+            (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, inv_hi, inv_lo);
+            r_out = r.from(r_hi, r_lo);
         }
-        r_out = r.from(r_hi, r_lo);
     }
 
     function idiv(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
@@ -734,17 +730,13 @@ library Lib512Arithmetic {
         // exists. Compute that inverse
         (y_hi, y_lo) = _invert512(y_hi, y_lo);
 
-        uint256 r_hi;
-        uint256 r_lo;
-        assembly ("memory-safe") {
-            // Because the division is now exact (we rounded x down to a
-            // multiple of y), we perform it by multiplying with the modular
-            // inverse of the denominator.
-            let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            r_lo := mul(x_lo, y_lo)
-            r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
+        // Because the division is now exact (we rounded x down to a multiple of
+        // y), we perform it by multiplying with the modular inverse of the
+        // denominator.
+        {
+            (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
+            r_out = r.from(r_hi, r_lo);
         }
-        r_out = r.from(r_hi, r_lo);
     }
 
     function idiv(uint512 memory r, uint512 memory y) internal view returns (uint512 memory r_out) {
