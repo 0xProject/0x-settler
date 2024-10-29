@@ -437,50 +437,45 @@ library Lib512Math {
             // the correct bits in each step. The Newton-Raphson-Hensel step is:
             //    inv_{n+1} = inv_n * (2 - d*inv_n) % 2**512
 
+            // To kick off Newton-Raphson-Hensel iterations, we start with a
+            // seed of the inverse that is correct correct for four bits.
+            //     d * inv ≡ 1 mod 2⁴
+            inv_lo := xor(mul(0x03, d), 0x02)
+
+            // Each Newton-Raphson-Hensel step doubles the number of correct
+            // bits in [inv_hi inv_lo]. After 6 iterations, we obtain the
+            // correct result mod 2²⁵⁶ (inv_lo), which is half of the bits we
+            // need. These first 6 iterations are simplified because we have not
+            // built up enough precision to require 512-bit operations. A more
+            // elaborate 7th iteration is required to obtain the result mod
+            // 2⁵¹².
+            inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2⁸
+            inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2¹⁶
+            inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2³²
+            inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2⁶⁴
+            inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2¹²⁸
+            inv_lo := mul(inv_lo, sub(0x02, mul(d, inv_lo))) // inverse mod 2²⁵⁶
+
             // These are pure-Yul reimplementations of the corresponding
-            // functions above. They're needed here as helper functions for
-            // nrhStep.
+            // functions above. They're needed here for the final 512-bit
+            // Newton-Raphson-Hensel iteration.
             function mul256x256(a, b) -> o_hi, o_lo {
                 let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
                 o_lo := mul(a, b)
                 o_hi := sub(sub(mm, o_lo), lt(mm, o_lo))
             }
-
             function mul512x256(a_hi, a_lo, b) -> o_hi, o_lo {
                 o_hi, o_lo := mul256x256(a_lo, b)
                 o_hi := add(mul(a_hi, b), o_hi)
             }
 
-            function mul512x512(a_hi, a_lo, b_hi, b_lo) -> o_hi, o_lo {
-                o_hi, o_lo := mul512x256(a_hi, a_lo, b_lo)
-                o_hi := add(mul(a_lo, b_hi), o_hi)
+            // inverse mod 2⁵¹²
+            {
+                let tmp_hi, tmp_lo := mul256x256(inv_lo, d)
+                tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
+                tmp_lo := sub(0x02, tmp_lo)
+                inv_hi, inv_lo := mul512x256(tmp_hi, tmp_lo, inv_lo)
             }
-
-            // This is the Newton-Raphson-Hensel step:
-            //    inv_{n+1} = inv_n * (2 - d*inv_n) % 2**512
-            function nrhStep(a_hi, a_lo, b) -> o_hi, o_lo {
-                o_hi, o_lo := mul512x256(a_hi, a_lo, b)
-                o_hi := sub(sub(0x00, o_hi), gt(o_lo, 0x02))
-                o_lo := sub(0x02, o_lo)
-                o_hi, o_lo := mul512x512(a_hi, a_lo, o_hi, o_lo)
-            }
-
-            // To kick off Newton-Raphson-Hensel iterations, we start with a
-            // seed of the inverse that is correct correct for four bits.
-            //     d * inv ≡ 1 mod 2⁴
-            inv_hi, inv_lo := mul256x256(0x03, d)
-            inv_lo := xor(0x02, inv_lo)
-
-            // Each application of nrhStep doubles the number of correct bits in
-            // inv. After 7 iterations, full convergence is guaranteed.
-            // TODO: can we go back to the "old", 256-bit version for all but the final step?
-            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2⁸
-            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2¹⁶
-            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2³²
-            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2⁶⁴
-            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2¹²⁸
-            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2²⁵⁶
-            inv_hi, inv_lo := nrhStep(inv_hi, inv_lo, d) // inverse mod 2⁵¹²
         }
     }
 
