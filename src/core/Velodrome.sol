@@ -262,6 +262,7 @@ abstract contract Velodrome is SettlerAbstract {
             // Convert `buyAmount` from `_VELODROME_TOKEN_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _VELODROME_TOKEN_BASIS;
         }
+        buyAmount--;
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
         }

@@ -237,6 +237,9 @@ contract VelodromeUnitTest is Test {
         dx = bound(dx, _VELODROME_BASIS, max_dx);
 
         uint256 dy = dummy.dy(x, dx, y);
+        if (dy != 0) {
+            dy--;
+        }
 
         uint256 velodrome_k_before = velodrome_ref_k(x, y);
         uint256 velodrome_k_after = velodrome_ref_k(x + dx, y - dy);
@@ -257,6 +260,9 @@ contract VelodromeUnitTest is Test {
         dx = bound(dx, _VELODROME_BASIS, max_dx);
 
         uint256 dy = dummy.dy(x, dx, y);
+        if (dy != 0) {
+            dy--;
+        }
 
         uint256 solidly_k_before = solidly_ref_k(x, y);
         uint256 solidly_k_after = solidly_ref_k(x + dx, y - dy);
