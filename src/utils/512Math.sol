@@ -40,7 +40,13 @@ library Lib512Math {
     function from(uint512 memory r, uint512 memory x) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
         assembly ("memory-safe") {
-            mcopy(r, x, 0x40)
+            // Paradoxically, using `mload` and `mstore` here produces more
+            // optimal code because it gives solc the opportunity to
+            // optimize-out the use of memory in typical usage. As a happy side
+            // effect, it also means that we don't have to deal with Cancun
+            // hardfork compatibility issues
+            mstore(r, mload(x))
+            mstore(add(0x20, r), mload(add(0x20, x)))
             r_out := r
         }
     }
@@ -219,9 +225,12 @@ library Lib512Math {
             mstore(r_out, 0x40)
             mstore(add(0x20, r_out), 0x20)
             mstore(add(0x40, r_out), 0x40)
-            mcopy(add(0x60, r_out), x, 0x40)
+            // See comment in `from` about why `mload`/`mstore` is more efficient
+            mstore(add(0x60, r_out), mload(x))
+            mstore(add(0x80, r_out), mload(add(0x20, x)))
             mstore(add(0xa0, r_out), 0x01)
-            mcopy(add(0xc0, r_out), y, 0x40)
+            mstore(add(0xc0, r_out), mload(y))
+            mstore(add(0xe0, r_out), mload(add(0x20, y)))
             // We write the result of MODEXP directly into the output space r.
             // The MODEXP precompile can only fail due to out-of-gas.
             // There is no returndata in the event of failure.
@@ -238,86 +247,120 @@ library Lib512Math {
         r_out = omod(r, r, y);
     }
 
+    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶)
+            // 2**256 % d = -d % 2**256 % d
+            let rem := mulmod(x_hi, sub(0x00, d), d)
+            rem := addmod(x_lo, rem, d)
+
+            r_hi := sub(x_hi, gt(rem, x_lo))
+            r_lo := sub(x_lo, rem)
+        }
+    }
+
+    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d_hi, uint256 d_lo) private view returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            // Get the remainder [x_hi x_lo] % [d_hi d_lo] (< 2⁵¹²)
+            // We use the MODEXP (5) precompile with an exponent of 1. We encode
+            // the arguments to the precompile at the beginning of free memory
+            // without allocating. Arguments are encoded as:
+            //     [64 32 64 x_hi x_lo 1 d_hi d_lo]
+            let ptr := mload(0x40)
+            mstore(ptr, 0x40)
+            mstore(add(0x20, ptr), 0x20)
+            mstore(add(0x40, ptr), 0x40)
+            mstore(add(0x60, ptr), x_hi)
+            mstore(add(0x80, ptr), x_lo)
+            mstore(add(0xa0, ptr), 0x01)
+            mstore(add(0xc0, ptr), d_hi)
+            mstore(add(0xe0, ptr), d_lo)
+            // The MODEXP precompile can only fail due to out-of-gas.
+            // There is no returndata in the event of failure.
+            if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x05, ptr, 0x100, ptr, 0x40))) {
+                revert(0x00, 0x00)
+            }
+
+            let rem_hi := mload(ptr)
+            let rem_lo := mload(add(0x20, ptr))
+            // Round down by subtracting the remainder from the numerator
+            // Subtract 512-bit number from 512-bit number.
+            r_hi := sub(sub(x_hi, rem_hi), gt(rem_lo, x_lo))
+            r_lo := sub(x_lo, rem_lo)
+        }
+    }
+
     function div(uint512 memory n, uint256 d) internal pure returns (uint256 q) {
         if (d == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
 
+        uint256 n_hi;
+        uint256 n_lo;
+        assembly ("memory-safe") {
+            n_hi := mload(n)
+            n_lo := mload(add(0x20, n))
+        }
+        if (n_hi == 0) {
+            assembly ("memory-safe") {
+                q := div(n_lo, d)
+            }
+            return q;
+        }
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result.
+        (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
+
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
         // The original code was released under the MIT license.
         assembly ("memory-safe") {
-            let n_hi := mload(n)
-            let n_lo := mload(add(0x20, n))
+            // Factor powers of two out of the denominator
+            {
+                // Compute largest power of two divisor of the denominator
+                // Always ≥ 1.
+                let twos := and(sub(0x00, d), d)
 
-            for {} 1 {} {
-                if iszero(n_hi) {
-                    q := div(n_lo, d)
-                    break
-                }
+                // Divide d by the power of two
+                d := div(d, twos)
 
-                // Subtract the remainder from the numerator so that it is a
-                // multiple of the denominator. This makes the division exact
-                {
-                    // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶)
-                    // 2**256 % d = -d % 2**256 % d
-                    let rem := mulmod(n_hi, sub(0x00, d), d)
-                    rem := addmod(n_lo, rem, d)
-
-                    // Make division exact by rounding [n_hi n_lo] down to a
-                    // multiple of d
-                    // Subtract 256-bit number from 512-bit number.
-                    n_hi := sub(n_hi, gt(rem, n_lo))
-                    n_lo := sub(n_lo, rem)
-                }
-
-                // Factor powers of two out of the denominator
-                {
-                    // Compute largest power of two divisor of the denominator
-                    // Always ≥ 1.
-                    let twos := and(sub(0x00, d), d)
-
-                    // Divide d by the power of two
-                    d := div(d, twos)
-
-                    // Divide [n_hi n_lo] by the power of two
-                    n_lo := div(n_lo, twos)
-                    // Shift in bits from n_hi into n_lo. For this we need to flip `twos`
-                    // such that it is 2²⁵⁶ / twos.
-                    //     2**256 / twos = -twos % 2**256 / twos + 1
-                    // If twos is zero, then it becomes one (not possible)
-                    let twosInv := add(div(sub(0x00, twos), twos), 0x01)
-                    n_lo := or(n_lo, mul(n_hi, twosInv))
-                }
-
-                // Invert the denominator mod 2²⁵⁶
-                // Now that d is an odd number, it has an inverse modulo 2²⁵⁶ such
-                // that d * inv ≡ 1 mod 2²⁵⁶.
-                // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
-                // lifting lemma, this also works in modular arithmetic, doubling
-                // the correct bits in each step. The Newton-Raphson-Hensel step is:
-                //    inv_{n+1} = inv_n * (2 - d*inv_n) % 2**512
-
-                // To kick off Newton-Raphson-Hensel iterations, we start with a
-                // seed of the inverse that is correct correct for four bits.
-                //     d * inv ≡ 1 mod 2⁴
-                let inv := xor(mul(0x03, d), 0x02)
-
-                // Each Newton-Raphson-Hensel step doubles the number of correct
-                // bits in inv. After 6 iterations, full convergence is guaranteed.
-                inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁸
-                inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹⁶
-                inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2³²
-                inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁶⁴
-                inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹²⁸
-                inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2²⁵⁶
-
-                // Because the division is now exact (we subtracted the remainder at
-                // the beginning), we can divide by multiplying with the modular
-                // inverse of the denominator. This will give us the correct result
-                // modulo 2²⁵⁶.
-                q := mul(n_lo, inv)
-                break
+                // Divide [n_hi n_lo] by the power of two
+                n_lo := div(n_lo, twos)
+                // Shift in bits from n_hi into n_lo. For this we need to flip `twos`
+                // such that it is 2²⁵⁶ / twos.
+                //     2**256 / twos = -twos % 2**256 / twos + 1
+                // If twos is zero, then it becomes one (not possible)
+                let twosInv := add(div(sub(0x00, twos), twos), 0x01)
+                n_lo := or(n_lo, mul(n_hi, twosInv))
             }
+
+            // Invert the denominator mod 2²⁵⁶
+            // Now that d is an odd number, it has an inverse modulo 2²⁵⁶ such
+            // that d * inv ≡ 1 mod 2²⁵⁶.
+            // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
+            // lifting lemma, this also works in modular arithmetic, doubling
+            // the correct bits in each step. The Newton-Raphson-Hensel step is:
+            //    inv_{n+1} = inv_n * (2 - d*inv_n) % 2**512
+
+            // To kick off Newton-Raphson-Hensel iterations, we start with a
+            // seed of the inverse that is correct correct for four bits.
+            //     d * inv ≡ 1 mod 2⁴
+            let inv := xor(mul(0x03, d), 0x02)
+
+            // Each Newton-Raphson-Hensel step doubles the number of correct
+            // bits in inv. After 6 iterations, full convergence is guaranteed.
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁸
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹⁶
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2³²
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁶⁴
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹²⁸
+            inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2²⁵⁶
+
+            // Because the division is now exact (we subtracted the remainder at
+            // the beginning), we can divide by multiplying with the modular
+            // inverse of the denominator. This will give us the correct result
+            // modulo 2²⁵⁶.
+            q := mul(n_lo, inv)
         }
     }
 
@@ -327,107 +370,83 @@ library Lib512Math {
             return div(n, d_lo);
         }
 
+        uint256 n_hi;
+        assembly ("memory-safe") {
+            n_hi := mload(n)
+        }
+        if (d_lo == 0) {
+            assembly ("memory-safe") {
+                q := div(n_hi, d_hi)
+            }
+            return q;
+        }
+        if (n_hi == 0) {
+            // TODO: this optimization may not be overall optimizing
+            return q; // zero
+        }
+        uint256 n_lo;
+        assembly ("memory-safe") {
+            n_lo := mload(add(0x20, n))
+        }
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result.
+        (n_hi, n_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
+
+
         // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
         // The original code was released under the MIT license.
         assembly ("memory-safe") {
-            for {} 1 {} {
-                let n_hi := mload(n)
+            // Factor powers of two out of the denominator
+            {
+                // Compute largest power of two divisor of the denominator
+                // d_lo is nonzero, so this is always ≥1.
+                let twos := and(sub(0x00, d_lo), d_lo)
+                // Shift in bits from n_hi into n_lo and from d_hi into
+                // d_lo. For this we need to flip `twos` such that it is
+                // 2²⁵⁶ / twos.
+                //     2**256 / twos = -twos % 2**256 / twos + 1
+                // If twos is zero, then it becomes one (not possible)
+                let twosInv := add(div(sub(0x00, twos), twos), 0x01)
 
-                if iszero(d_lo) {
-                    q := div(n_hi, d_hi)
-                    break
-                }
+                // Divide [d_hi d_lo] by the power of two
+                d_lo := div(d_lo, twos)
+                d_lo := or(d_lo, mul(d_hi, twosInv))
+                // Our result is only 256 bits, so we can discard d_hi after this
 
-                let n_lo := mload(add(0x20, n))
-
-                // TODO: this optimization may not be overall optimizing
-                if iszero(n_hi) {
-                    break
-                }
-
-                // Subtract the remainder from the numerator so that it is a
-                // multiple of the denominator. This makes the division exact
-                {
-                    // Get the remainder [n_hi n_lo] % [d_hi d_lo] (< 2⁵¹²) We
-                    // use the MODEXP (5) precompile with an exponent of 1.  We
-                    // encode the arguments to the precompile at the beginning
-                    // of free memory without allocating. Arguments are encoded
-                    // as:
-                    //     [64 32 64 n_hi n_lo 1 d_hi d_lo]
-                    let ptr := mload(0x40)
-                    mstore(ptr, 0x40)
-                    mstore(add(0x20, ptr), 0x20)
-                    mstore(add(0x40, ptr), 0x40)
-                    mcopy(add(0x60, ptr), n, 0x40)
-                    mstore(add(0xa0, ptr), 0x01)
-                    mcopy(add(0xc0, ptr), d, 0x40)
-                    // The MODEXP precompile can only fail due to out-of-gas.
-                    // There is no returndata in the event of failure.
-                    if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x05, ptr, 0x100, ptr, 0x40))) {
-                        revert(0x00, 0x00)
-                    }
-                    let rem_hi := mload(ptr)
-                    let rem_lo := mload(add(0x20, ptr))
-
-                    // Make division exact by rounding [n_hi n_lo] down to a
-                    // multiple of [d_hi d_lo]
-                    // Subtract 512-bit number from 512-bit number.
-                    n_hi := sub(sub(n_hi, rem_hi), gt(rem_lo, n_lo))
-                    n_lo := sub(n_lo, rem_lo)
-                }
-
-                // Factor powers of two out of the denominator
-                {
-                    // Compute largest power of two divisor of the denominator
-                    // d_lo is nonzero, so this is always ≥1.
-                    let twos := and(sub(0x00, d_lo), d_lo)
-                    // Shift in bits from n_hi into n_lo and from d_hi into
-                    // d_lo. For this we need to flip `twos` such that it is
-                    // 2²⁵⁶ / twos.
-                    //     2**256 / twos = -twos % 2**256 / twos + 1
-                    // If twos is zero, then it becomes one (not possible)
-                    let twosInv := add(div(sub(0x00, twos), twos), 0x01)
-
-                    // Divide [d_hi d_lo] by the power of two
-                    d_lo := div(d_lo, twos)
-                    d_lo := or(d_lo, mul(d_hi, twosInv))
-                    // Our result is only 256 bits, so we can discard d_hi after this
-
-                    // Divide [n_hi n_lo] by the power of two
-                    n_lo := div(n_lo, twos)
-                    n_lo := or(n_lo, mul(n_hi, twosInv))
-                    // Our result is only 256 bits, so we can discard n_hi after this
-                }
-
-                // Invert the denominator mod 2²⁵⁶
-                // Now that d_lo is an odd number, it has an inverse modulo 2²⁵⁶ such
-                // that d_lo * inv ≡ 1 mod 2²⁵⁶.
-                // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
-                // lifting lemma, this also works in modular arithmetic, doubling
-                // the correct bits in each step. The Newton-Raphson-Hensel step is:
-                //    inv_{n+1} = inv_n * (2 - d_lo*inv_n) % 2**512
-
-                // To kick off Newton-Raphson-Hensel iterations, we start with a
-                // seed of the inverse that is correct correct for four bits.
-                //     d_lo * inv ≡ 1 mod 2⁴
-                let inv := xor(mul(0x03, d_lo), 0x02)
-
-                // Each Newton-Raphson-Hensel step doubles the number of correct
-                // bits in inv. After 6 iterations, full convergence is guaranteed.
-                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁸
-                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹⁶
-                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2³²
-                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁶⁴
-                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹²⁸
-                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2²⁵⁶
-
-                // Because the division is now exact (we subtracted the remainder at
-                // the beginning), we can divide by multiplying with the modular
-                // inverse of the denominator. This will give us the correct result
-                // modulo 2²⁵⁶.
-                q := mul(n_lo, inv)
-                break
+                // Divide [n_hi n_lo] by the power of two
+                n_lo := div(n_lo, twos)
+                n_lo := or(n_lo, mul(n_hi, twosInv))
+                // Our result is only 256 bits, so we can discard n_hi after this
             }
+
+            // Invert the denominator mod 2²⁵⁶
+            // Now that d_lo is an odd number, it has an inverse modulo 2²⁵⁶ such
+            // that d_lo * inv ≡ 1 mod 2²⁵⁶.
+            // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
+            // lifting lemma, this also works in modular arithmetic, doubling
+            // the correct bits in each step. The Newton-Raphson-Hensel step is:
+            //    inv_{n+1} = inv_n * (2 - d_lo*inv_n) % 2**512
+
+            // To kick off Newton-Raphson-Hensel iterations, we start with a
+            // seed of the inverse that is correct correct for four bits.
+            //     d_lo * inv ≡ 1 mod 2⁴
+            let inv := xor(mul(0x03, d_lo), 0x02)
+
+            // Each Newton-Raphson-Hensel step doubles the number of correct
+            // bits in inv. After 6 iterations, full convergence is guaranteed.
+            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁸
+            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹⁶
+            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2³²
+            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁶⁴
+            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹²⁸
+            inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2²⁵⁶
+
+            // Because the division is now exact (we subtracted the remainder at
+            // the beginning), we can divide by multiplying with the modular
+            // inverse of the denominator. This will give us the correct result
+            // modulo 2²⁵⁶.
+            q := mul(n_lo, inv)
         }
     }
 
