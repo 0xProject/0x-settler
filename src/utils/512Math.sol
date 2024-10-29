@@ -273,6 +273,116 @@ library Lib512Math {
         }
     }
 
+    function div(uint512 memory n, uint512 memory d) internal view returns (uint256 q) {
+        (uint256 d_hi, uint256 d_lo) = (d.hi, d.lo);
+        if (d_hi == 0) {
+            return div(n, d_lo);
+        }
+
+        // This function is mostly stolen from Remco Bloemen https://2π.com/21/muldiv/ .
+        // The original code was released under the MIT license.
+        assembly ("memory-safe") {
+            for {} 1 {} {
+                let n_hi := mload(n)
+
+                if iszero(d_lo) {
+                    q := div(n_hi, d_hi)
+                    break
+                }
+
+                let n_lo := mload(add(0x20, n))
+
+                // TODO: this optimization may not be overall optimizing
+                if iszero(n_hi) {
+                    break
+                }
+
+                // Subtract the remainder from the numerator so that it is a
+                // multiple of the denominator. This makes the division exact
+                {
+                    // Get the remainder [n_hi n_lo] % [d_hi d_lo] (< 2⁵¹²) We
+                    // use the MODEXP (5) precompile with an exponent of 1.  We
+                    // encode the arguments to the precompile at the beginning
+                    // of free memory without allocating. Arguments are encoded
+                    // as:
+                    //     [64 32 64 n_hi n_lo 1 d_hi d_lo]
+                    let ptr := mload(0x40)
+                    mstore(ptr, 0x40)
+                    mstore(add(0x20, ptr), 0x20)
+                    mstore(add(0x40, ptr), 0x40)
+                    mcopy(add(0x60, ptr), n, 0x40)
+                    mstore(add(0xa0, ptr), 0x01)
+                    mcopy(add(0xc0, ptr), d, 0x40)
+                    // The MODEXP precompile can only fail due to out-of-gas.
+                    // There is no returndata in the event of failure.
+                    if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x05, ptr, 0x100, ptr, 0x40))) {
+                        revert(0x00, 0x00)
+                    }
+                    let rem_hi := mload(ptr)
+                    let rem_lo := mload(add(0x20, ptr))
+
+                    // Make division exact by rounding [n_hi n_lo] down to a
+                    // multiple of [d_hi d_lo]
+                    // Subtract 512-bit number from 512-bit number.
+                    n_hi := sub(sub(n_hi, rem_hi), gt(rem_lo, n_lo))
+                    n_lo := sub(n_lo, rem_lo)
+                }
+
+                // Factor powers of two out of the denominator
+                {
+                    // Compute largest power of two divisor of the denominator
+                    // d_lo is nonzero, so this is always ≥1.
+                    let twos := and(sub(0x00, d_lo), d_lo)
+                    // Shift in bits from n_hi into n_lo and from d_hi into
+                    // d_lo. For this we need to flip `twos` such that it is
+                    // 2²⁵⁶ / twos.
+                    //     2**256 / twos = -twos % 2**256 / twos + 1
+                    // If twos is zero, then it becomes one (not possible)
+                    let twosInv := add(div(sub(0x00, twos), twos), 0x01)
+
+                    // Divide [d_hi d_lo] by the power of two
+                    d_lo := div(d_lo, twos)
+                    d_lo := or(d_lo, mul(d_hi, twosInv))
+                    // Our result is only 256 bits, so we can discard d_hi after this
+
+                    // Divide [n_hi n_lo] by the power of two
+                    n_lo := div(n_lo, twos)
+                    n_lo := or(n_lo, mul(n_hi, twosInv))
+                    // Our result is only 256 bits, so we can discard n_hi after this
+                }
+
+                // Invert the denominator mod 2²⁵⁶
+                // Now that d_lo is an odd number, it has an inverse modulo 2²⁵⁶ such
+                // that d_lo * inv ≡ 1 mod 2²⁵⁶.
+                // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
+                // lifting lemma, this also works in modular arithmetic, doubling
+                // the correct bits in each step. The Newton-Raphson-Hensel step is:
+                //    inv_{n+1} = inv_n * (2 - d_lo*inv_n) % 2**512
+
+                // To kick off Newton-Raphson-Hensel iterations, we start with a
+                // seed of the inverse that is correct correct for four bits.
+                //     d_lo * inv ≡ 1 mod 2⁴
+                let inv := xor(mul(0x03, d_lo), 0x02)
+
+                // Each Newton-Raphson-Hensel step doubles the number of correct
+                // bits in inv. After 6 iterations, full convergence is guaranteed.
+                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁸
+                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹⁶
+                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2³²
+                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2⁶⁴
+                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2¹²⁸
+                inv := mul(inv, sub(0x02, mul(d_lo, inv))) // inverse mod 2²⁵⁶
+
+                // Because the division is now exact (we subtracted the remainder at
+                // the beginning), we can divide by multiplying with the modular
+                // inverse of the denominator. This will give us the correct result
+                // modulo 2²⁵⁶.
+                q := mul(n_lo, inv)
+                break
+            }
+        }
+    }
+
     function odiv(uint512 memory r, uint512 memory x, uint256 y) internal pure returns (uint512 memory r_out) {
         _deallocate(r_out);
 
@@ -390,7 +500,7 @@ library Lib512Math {
         r_out = odiv(r, r, y);
     }
 
-    function odiv(uint512 memory r, uint512 memory x, uint512 memory y) internal pure returns (uint512 memory r_out) {
+    function odiv(uint512 memory r, uint512 memory x, uint512 memory y) internal view returns (uint512 memory r_out) {
         _deallocate(r_out);
         (uint256 y_hi, uint256 y_lo) = (y.hi, y.lo);
         if (y_hi == 0) {
@@ -545,7 +655,7 @@ library Lib512Math {
         }
     }
 
-    function idiv(uint512 memory r, uint512 memory y) internal pure returns (uint512 memory r_out) {
+    function idiv(uint512 memory r, uint512 memory y) internal view returns (uint512 memory r_out) {
         _deallocate(r_out);
         r_out = odiv(r, r, y);
     }
