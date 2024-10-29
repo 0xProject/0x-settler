@@ -37,6 +37,14 @@ library Lib512Math {
         }
     }
 
+    function from(uint512 memory r, uint512 memory x) internal pure returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        assembly ("memory-safe") {
+            mcopy(r, x, 0x40)
+            r_out := r
+        }
+    }
+
     function into(uint512 memory x) internal pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_hi := mload(x)
