@@ -43,6 +43,7 @@ Master list of UniV3 forks:
   * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
     compute a perfect token hash function
 * Add `msgSender()(address)` accessor on Base to retrieve the current taker
+* Improve accuracy, gas, and convergence region coverage in SolidlyV1/VelodromeV2 action (`VELODROME`)
 * Add DodoV1 actions to more chains
   * Add `DODOV1` action to Arbitrum
   * Add `DODOV1` action to Bnb
