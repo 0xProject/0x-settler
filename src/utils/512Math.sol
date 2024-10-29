@@ -208,6 +208,36 @@ library Lib512Math {
         }
     }
 
+    function omod(uint512 memory r, uint512 memory x, uint512 memory y) internal view returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        assembly ("memory-safe") {
+            // We use the MODEXP (5) precompile with an exponent of 1. We encode
+            // the arguments to the precompile at the beginning of free memory
+            // without allocating. Conveniently, r_out already points to this
+            // memory region. Arguments are encoded as:
+            //     [64 32 64 x_hi x_lo 1 y_hi y_lo]
+            mstore(r_out, 0x40)
+            mstore(add(0x20, r_out), 0x20)
+            mstore(add(0x40, r_out), 0x40)
+            mcopy(add(0x60, r_out), x, 0x40)
+            mstore(add(0xa0, r_out), 0x01)
+            mcopy(add(0xc0, r_out), y, 0x40)
+            // We write the result of MODEXP directly into the output space r.
+            // The MODEXP precompile can only fail due to out-of-gas.
+            // There is no returndata in the event of failure.
+            if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x05, r_out, 0x100, r, 0x40))) {
+                revert(0x00, 0x00)
+            }
+
+            r_out := r
+        }
+    }
+
+    function imod(uint512 memory r, uint512 memory y) internal view returns (uint512 memory r_out) {
+        _deallocate(r_out);
+        r_out = omod(r, r, y);
+    }
+
     function div(uint512 memory n, uint256 d) internal pure returns (uint256 q) {
         if (d == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);

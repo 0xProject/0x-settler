@@ -142,6 +142,9 @@ contract Lib512MathTest is Test {
         assertEq(r, e_lo);
     }
 
+    // omod and imod don't have test cases because I don't have a way to derive
+    // a reference implementation without using 512Math's division routines
+
     function test512Math_divForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
         vm.assume(y != 0);
         uint256 r_lo = tmp_uint512().from(x_hi, x_lo).div(y);
