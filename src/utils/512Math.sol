@@ -213,6 +213,8 @@ library Lib512Arithmetic {
         assembly ("memory-safe") {
             let x_hi := mload(x)
             let x_lo := mload(add(0x20, x))
+            // gt(y, x_lo) indicates underflow in the lower subtraction. We can
+            // subtract the bool directly from the integer to perform carry
             let r_lo := sub(x_lo, y)
             let r_hi := sub(x_hi, gt(y, x_lo))
 
@@ -234,6 +236,8 @@ library Lib512Arithmetic {
             let x_lo := mload(add(0x20, x))
             let y_hi := mload(y)
             let y_lo := mload(add(0x20, y))
+            // gt(y_lo, x_lo) indicates underflow in the lower subtraction.
+            // Underflow in the high limb is simply ignored
             let r_lo := sub(x_lo, y_lo)
             let r_hi := sub(sub(x_hi, y_hi), gt(y_lo, x_lo))
 
