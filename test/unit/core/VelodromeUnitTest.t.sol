@@ -239,10 +239,9 @@ contract VelodromeUnitTest is Test {
         dx = bound(dx, x_basis, max_dx);
 
         uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
-        uint256 dy = y - new_y;
 
         uint256 velodrome_k_before = velodrome_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
-        uint256 velodrome_k_after = velodrome_ref_k((x + dx) * _VELODROME_BASIS / x_basis, (y - dy) * _VELODROME_BASIS / y_basis);
+        uint256 velodrome_k_after = velodrome_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
         assertGe(velodrome_k_after, velodrome_k_before);
     }
 
@@ -265,10 +264,9 @@ contract VelodromeUnitTest is Test {
         dx = bound(dx, x_basis, max_dx);
 
         uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
-        uint256 dy = y - new_y;
 
         uint256 solidly_k_before = solidly_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
-        uint256 solidly_k_after = solidly_ref_k((x + dx) * _VELODROME_BASIS / x_basis, (y - dy) * _VELODROME_BASIS / y_basis);
+        uint256 solidly_k_after = solidly_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
         assertGe(solidly_k_after, solidly_k_before);
     }
 }
