@@ -60,6 +60,12 @@ library Lib512Accessors {
 }
 
 library Lib512Comparisons {
+    function iszero(uint512 memory x) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := iszero(or(mload(x), mload(add(0x20, x))))
+        }
+    }
+
     function eq(uint512 memory x, uint256 y) internal pure returns (bool r) {
         assembly ("memory-safe") {
             let x_hi := mload(x)
