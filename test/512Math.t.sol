@@ -156,11 +156,11 @@ contract Lib512MathTest is Test {
         uint512 memory y;
         y.from(y_hi, y_lo);
         uint256 q = x.div(y);
-        (uint256 rounded_lo, uint256 rounded_hi) = SlowMath.fullMul(y_lo, y_hi, q, 0);
-        uint512 memory rounded;
-        rounded.from(rounded_hi, rounded_lo);
-        assertTrue(rounded.le(x));
-        assertTrue((q == 0 && x.lt(y)) || rounded.gt(tmp_uint512().osub(x, y)));
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, q, 0);
+        uint512 memory e;
+        e.from(e_hi, e_lo);
+        assertTrue(e.le(x));
+        assertTrue((q == 0 && x.lt(y)) || e.gt(tmp_uint512().osub(x, y)));
     }
 
     function test512Math_odivForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
@@ -179,5 +179,21 @@ contract Lib512MathTest is Test {
         (uint256 e_lo, uint256 e_hi) = SlowMath.fullDiv(x_lo, x_hi, y);
         assertEq(r_hi, e_hi);
         assertEq(r_lo, e_lo);
+    }
+
+    function test512Math_odivNative(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 memory x;
+        x.from(x_hi, x_lo);
+        uint512 memory y;
+        y.from(y_hi, y_lo);
+        (uint256 r_hi, uint256 r_lo) = tmp_uint512().odiv(x, y).into();
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, r_lo, r_hi);
+        uint512 memory e;
+        e.from(e_hi, e_lo);
+        assertTrue(e.le(x));
+        assertTrue((r_hi == 0 && r_lo == 0 && x.lt(y)) || e.gt(tmp_uint512().osub(x, y)));
     }
 }
