@@ -371,7 +371,7 @@ library Lib512Arithmetic {
             // We write the result of MODEXP directly into the output space r.
             // The MODEXP precompile can only fail due to out-of-gas.
             // There is no returndata in the event of failure.
-            if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x05, r_out, 0x100, r, 0x40))) {
+            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r_out, 0x100, r, 0x40))) {
                 revert(0x00, 0x00)
             }
 
@@ -418,7 +418,7 @@ library Lib512Arithmetic {
             mstore(add(0xe0, ptr), d_lo)
             // The MODEXP precompile can only fail due to out-of-gas.
             // There is no returndata in the event of failure.
-            if or(iszero(returndatasize()), iszero(staticcall(gas(), 0x05, ptr, 0x100, ptr, 0x40))) {
+            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, ptr, 0x100, ptr, 0x40))) {
                 revert(0x00, 0x00)
             }
 
