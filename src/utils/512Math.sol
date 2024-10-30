@@ -324,7 +324,7 @@ library Lib512Arithmetic {
             mstore(r_out, 0x40)
             mstore(add(0x20, r_out), 0x20)
             mstore(add(0x40, r_out), 0x40)
-            // See comment in `from` about why `mload`/`mstore` is more efficient
+            // See comment in `from` about why `mstore` is more efficient than `mcopy`
             mstore(add(0x60, r_out), x_hi)
             mstore(add(0x80, r_out), x_lo)
             mstore(add(0xa0, r_out), 0x01)
@@ -495,7 +495,7 @@ library Lib512Arithmetic {
         // To extend this to the inverse mod 2⁵¹², we perform a more elaborate
         // 7th Newton-Raphson-Hensel iteration with 512 bits of precision.
 
-        // tmp = d * inv % 2**512
+        // tmp = d * inv_lo % 2**512
         (uint256 tmp_hi, uint256 tmp_lo) = _mul(d, inv_lo);
 
         assembly ("memory-safe") {
@@ -503,7 +503,7 @@ library Lib512Arithmetic {
             tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
             tmp_lo := sub(0x02, tmp_lo)
 
-            // inv_hi = inv * tmp / 2**256 % 2**256
+            // inv_hi = inv_lo * tmp / 2**256 % 2**256
             let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
         }
@@ -516,7 +516,7 @@ library Lib512Arithmetic {
         // To extend this to the inverse mod 2⁵¹², we perform a more elaborate
         // 7th Newton-Raphson-Hensel iteration with 512 bits of precision.
 
-        // tmp = d * inv % 2**512
+        // tmp = d * inv_lo % 2**512
         (uint256 tmp_hi, uint256 tmp_lo) = _mul(d_hi, d_lo, inv_lo);
 
         assembly ("memory-safe") {
@@ -524,7 +524,7 @@ library Lib512Arithmetic {
             tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
             tmp_lo := sub(0x02, tmp_lo)
 
-            // inv_hi = inv * tmp / 2**256 % 2**256
+            // inv_hi = inv_lo * tmp / 2**256 % 2**256
             let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
         }
