@@ -70,34 +70,36 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
     // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
     function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) internal view returns (uint256) {
-        uint512 memory k_orig;
-        _k(k_orig, x, x_basis, y, y_basis);
-        uint512 memory k_new;
+        unchecked {
+            uint512 memory k_orig;
+            _k(k_orig, x, x_basis, y, y_basis);
+            uint512 memory k_new;
 
-        uint256 max = _VELODROME_MAX_BALANCE * y_basis / 1 ether;
+            uint256 max = _VELODROME_MAX_BALANCE * y_basis / 1 ether;
 
-        // Now that we have `k` computed, we offset `x` to account for the sell amount and use
-        // the constant-product formula to compute an initial estimate for `y`.
-        x += dx;
-        y -= (dx * y).unsafeDiv(x);
+            // Now that we have `k` computed, we offset `x` to account for the sell amount and use
+            // the constant-product formula to compute an initial estimate for `y`.
+            x += dx;
+            y -= (dx * y).unsafeDiv(x);
 
-        for (uint256 i; i < 255; i++) {
-            uint256 new_y = nrStep(k_new, k_orig, x, x_basis, y, y_basis);
-            if (new_y == y) {
-                if (k_new.ge(k_orig)) {
-                    return new_y;
+            for (uint256 i; i < 255; i++) {
+                uint256 new_y = nrStep(k_new, k_orig, x, x_basis, y, y_basis);
+                if (new_y == y) {
+                    if (k_new.ge(k_orig)) {
+                        return new_y;
+                    }
+                    new_y++;
+                    _k(k_new, x, x_basis, new_y, y_basis);
+                    if (k_new.ge(k_orig)) {
+                        return new_y;
+                    }
+                    new_y++;
                 }
-                new_y++;
-                _k(k_new, x, x_basis, new_y, y_basis);
-                if (k_new.ge(k_orig)) {
-                    return new_y;
+                if (new_y > max) {
+                    y = max;
+                } else {
+                    y = new_y;
                 }
-                new_y++;
-            }
-            if (new_y > max) {
-                y = max;
-            } else {
-                y = new_y;
             }
         }
         revert NotConverged();
