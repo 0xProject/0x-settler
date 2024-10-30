@@ -415,8 +415,7 @@ library Lib512Arithmetic {
             y_out := div(y, twos)
 
             // Divide [x_hi x_lo] by the power of two
-            x_lo_out := div(x_lo, twos)
-            x_lo_out := or(x_lo_out, mul(x_hi, twosInv))
+            x_lo_out := or(div(x_lo, twos), mul(x_hi, twosInv))
         }
     }
 
@@ -426,12 +425,10 @@ library Lib512Arithmetic {
 
         assembly ("memory-safe") {
             // Divide [y_hi y_lo] by the power of two, returning only the low limb
-            y_lo_out := div(y_lo, twos)
-            y_lo_out := or(y_lo_out, mul(y_hi, twosInv))
+            y_lo_out := or(div(y_lo, twos), mul(y_hi, twosInv))
 
             // Divide [x_hi x_lo] by the power of two, returning only the low limb
-            x_lo_out := div(x_lo, twos)
-            x_lo_out := or(x_lo_out, mul(x_hi, twosInv))
+            x_lo_out := or(div(x_lo, twos), mul(x_hi, twosInv))
         }
     }
 
@@ -445,8 +442,7 @@ library Lib512Arithmetic {
 
             // Divide [x_hi x_lo] by the power of two
             x_hi_out := div(x_hi, twos)
-            x_lo_out := div(x_lo, twos)
-            x_lo_out := or(x_lo_out, mul(x_hi, twosInv))
+            x_lo_out := or(div(x_lo, twos), mul(x_hi, twosInv))
         }
     }
 
@@ -458,13 +454,11 @@ library Lib512Arithmetic {
         assembly ("memory-safe") {
             // Divide [y_hi y_lo] by the power of two
             y_hi_out := div(y_hi, twos)
-            y_lo_out := div(y_lo, twos)
-            y_lo_out := or(y_lo_out, mul(y_hi, twosInv))
+            y_lo_out := or(div(y_lo, twos), mul(y_hi, twosInv))
 
             // Divide [x_hi x_lo] by the power of two
             x_hi_out := div(x_hi, twos)
-            x_lo_out := div(x_lo, twos)
-            x_lo_out := or(x_lo_out, mul(x_hi, twosInv))
+            x_lo_out := or(div(x_lo, twos), mul(x_hi, twosInv))
         }
     }
 
