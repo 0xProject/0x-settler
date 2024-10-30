@@ -222,7 +222,11 @@ library Lib512Arithmetic {
         r_out = osub(r, r, y);
     }
 
-    function _sub(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _sub(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
             // gt(y_lo, x_lo) indicates underflow in the lower subtraction.
             // Underflow in the high limb is simply ignored
@@ -264,7 +268,11 @@ library Lib512Arithmetic {
         }
     }
 
-    function _mul(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _mul(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
             let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             r_lo := mul(x_lo, y_lo)
@@ -333,9 +341,7 @@ library Lib512Arithmetic {
             // We write the result of MODEXP directly into the output space r.
             // The MODEXP precompile can only fail due to out-of-gas.
             // There is no returndata in the event of failure.
-            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r_out, 0x100, r, 0x40))) {
-                revert(0x00, 0x00)
-            }
+            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r_out, 0x100, r, 0x40))) { revert(0x00, 0x00) }
 
             r_out := r
         }
@@ -362,7 +368,11 @@ library Lib512Arithmetic {
         }
     }
 
-    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d_hi, uint256 d_lo) private view returns (uint256 r_hi, uint256 r_lo) {
+    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d_hi, uint256 d_lo)
+        private
+        view
+        returns (uint256 r_hi, uint256 r_lo)
+    {
         uint512 memory r;
         _deallocate(r);
         assembly ("memory-safe") {
@@ -382,9 +392,7 @@ library Lib512Arithmetic {
             mstore(add(0xe0, r), d_lo)
             // The MODEXP precompile can only fail due to out-of-gas.
             // There is no returndata in the event of failure.
-            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r, 0x100, r, 0x40))) {
-                revert(0x00, 0x00)
-            }
+            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r, 0x100, r, 0x40))) { revert(0x00, 0x00) }
         }
         (uint256 rem_hi, uint256 rem_lo) = r.into();
         // Round down by subtracting the remainder from the numerator
@@ -405,7 +413,6 @@ library Lib512Arithmetic {
         }
     }
 
-
     function _toOdd256(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 x_lo_out, uint256 y_out) {
         // Factor powers of two out of y and apply the same shift to [x_hi x_lo]
         (uint256 twos, uint256 twosInv) = _twos(y);
@@ -419,7 +426,11 @@ library Lib512Arithmetic {
         }
     }
 
-    function _toOdd256(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 x_lo_out, uint256 y_lo_out) {
+    function _toOdd256(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 x_lo_out, uint256 y_lo_out)
+    {
         // Factor powers of two out of y_lo and apply the same shift to x_lo
         (uint256 twos, uint256 twosInv) = _twos(y_lo);
 
@@ -432,7 +443,11 @@ library Lib512Arithmetic {
         }
     }
 
-    function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_out) {
+    function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y)
+        private
+        pure
+        returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_out)
+    {
         // Factor powers of two out of y and apply the same shift to [x_hi x_lo]
         (uint256 twos, uint256 twosInv) = _twos(y);
 
@@ -446,7 +461,11 @@ library Lib512Arithmetic {
         }
     }
 
-    function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_hi_out, uint256 y_lo_out) {
+    function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_hi_out, uint256 y_lo_out)
+    {
         // Factor powers of two out of [y_hi y_lo] and apply the same shift to
         // [x_hi x_lo] and [y_hi y_lo]
         (uint256 twos, uint256 twosInv) = _twos(y_lo);
@@ -529,7 +548,6 @@ library Lib512Arithmetic {
             inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
         }
     }
-
 
     function div(uint512 memory n, uint256 d) internal pure returns (uint256) {
         if (d == 0) {
