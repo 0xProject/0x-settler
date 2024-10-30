@@ -336,5 +336,31 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
     "blockscoutApi": "https://explorer.mode.network/api"
+  },
+  "unichain": {
+    "chainId": null,
+    "displayName": "Unichain",
+    "isShanghai": true,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "singleton": null,
+      "factory": null,
+      "fallback": null,
+      "multiCall": null,
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": null,
+      "deploymentSafe": null,
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
+    },
+    "etherscanApi": null
   }
 }
