@@ -27,6 +27,10 @@ interface IDodoV1 {
     function getExpectedTarget() external view returns (uint256 baseTarget, uint256 quoteTarget);
 
     function getOraclePrice() external view returns (uint256);
+
+    function _BASE_TOKEN_() external view returns (IERC20);
+
+    function _QUOTE_TOKEN_() external view returns (IERC20);
 }
 
 library Math {
@@ -286,12 +290,12 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)
         internal
     {
-        uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, BASIS);
+        uint256 sellAmount = sellToken.fastBalanceOf(address(this)).mulDiv(bps, BASIS);
         sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(dodo, sellAmount);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(sellToken, minBuyAmount, buyAmount);
+                revert TooMuchSlippage(dodo._BASE_TOKEN_(), minBuyAmount, buyAmount);
             }
             dodo.buyBaseToken(buyAmount, sellAmount, new bytes(0));
         } else {

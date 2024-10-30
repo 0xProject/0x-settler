@@ -100,9 +100,9 @@ library UnsafePoolManager {
         // `sync` doesn't need to check whether `token` is `ETH_ADDRESS` because calling `sync` for
         // Ether is never necessary
         assembly ("memory-safe") {
-            mstore(0x00, 0xa5841194) // selector for `sync(address)`
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
-            if iszero(call(gas(), poolManager, 0x00, 0x1c, 0x24, 0x00, 0x00)) {
+            mstore(0x14, token)
+            mstore(0x00, 0xa5841194000000000000000000000000) // selector for `sync(address)`
+            if iszero(call(gas(), poolManager, 0x00, 0x10, 0x24, 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
