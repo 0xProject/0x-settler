@@ -62,8 +62,9 @@ library Lib512Accessors {
 
 library Lib512Comparisons {
     function iszero(uint512 memory x) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
-            r := iszero(or(mload(x), mload(add(0x20, x))))
+            r := iszero(or(x_hi, x_lo))
         }
     }
 
@@ -541,12 +542,7 @@ library Lib512Arithmetic {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
 
-        uint256 n_hi;
-        uint256 n_lo;
-        assembly ("memory-safe") {
-            n_hi := mload(n)
-            n_lo := mload(add(0x20, n))
-        }
+        (uint256 n_hi, uint256 n_lo) = n.into();
         if (n_hi == 0) {
             return n_lo.unsafeDiv(d);
         }
@@ -573,12 +569,7 @@ library Lib512Arithmetic {
     }
 
     function div(uint512 memory n, uint512 memory d) internal view returns (uint256) {
-        uint256 d_hi;
-        uint256 d_lo;
-        assembly ("memory-safe") {
-            d_hi := mload(d)
-            d_lo := mload(add(0x20, d))
-        }
+        (uint256 d_hi, uint256 d_lo) = d.into();
         if (d_hi == 0) {
             return div(n, d_lo);
         }
@@ -628,12 +619,7 @@ library Lib512Arithmetic {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
 
-        uint256 x_hi;
-        uint256 x_lo;
-        assembly ("memory-safe") {
-            x_hi := mload(x)
-            x_lo := mload(add(0x20, x))
-        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
         if (x_hi == 0) {
             r_out = r.from(0, x_lo.unsafeDiv(y));
             return r_out;
@@ -667,12 +653,7 @@ library Lib512Arithmetic {
 
     function odiv(uint512 memory r, uint512 memory x, uint512 memory y) internal view returns (uint512 memory r_out) {
         _deallocate(r_out);
-        uint256 y_hi;
-        uint256 y_lo;
-        assembly ("memory-safe") {
-            y_hi := mload(y)
-            y_lo := mload(add(0x20, y))
-        }
+        (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
             return odiv(r, x, y_lo);
         }
