@@ -69,7 +69,7 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
 
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
     // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
-    function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) internal view DANGEROUS_freeMemory returns (uint256) {
+    function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) internal view returns (uint256) {
         uint512 memory k_orig;
         _k(k_orig, x, x_basis, y, y_basis);
         uint512 memory k_new;
