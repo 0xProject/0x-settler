@@ -75,7 +75,7 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
             _k(k_orig, x, x_basis, y, y_basis);
             uint512 memory k_new;
 
-            uint256 max = _VELODROME_MAX_BALANCE * y_basis / 1 ether;
+            uint256 max = _VELODROME_MAX_BALANCE * y_basis / _VELODROME_TOKEN_BASIS;
 
             // Now that we have `k` computed, we offset `x` to account for the sell amount and use
             // the constant-product formula to compute an initial estimate for `y`.
