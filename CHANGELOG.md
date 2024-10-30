@@ -51,6 +51,8 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Mantle
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
+* Deploy Settler to Unichain network
+  * Add UniswapV3 UniV3 fork to Unichain
 
 ## 2024-10-08
 
