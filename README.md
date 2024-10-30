@@ -742,8 +742,8 @@ do multiple Permit2 interactions in the same Settler call.
 
 # Risk
 
-Since Settler has no outstanding allowances, and no usage of `transferFrom` or
-arbitrary calls, overall risk of user funds loss is greatly reduced.
+Since Settler has no outstanding allowances, and no usage of
+`IERC20.transferFrom`, overall risk of user funds loss is greatly reduced.
 
 Permit2 allowances (with short dated expiration) still has some risk. Namely,
 `Alice` permit2 being intercepted and a malicious transaction from `Mallory`,
