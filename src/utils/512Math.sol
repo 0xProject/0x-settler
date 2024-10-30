@@ -634,10 +634,8 @@ library Lib512Arithmetic {
         // Because the division is now exact (we rounded x down to a multiple of
         // y), we perform it by multiplying with the modular inverse of the
         // denominator.
-        {
-            (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, inv_hi, inv_lo);
-            r_out = r.from(r_hi, r_lo);
-        }
+        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, inv_hi, inv_lo);
+        r_out = r.from(r_hi, r_lo);
     }
 
     function idiv(uint512 memory r, uint256 y) internal pure returns (uint512 memory r_out) {
@@ -685,10 +683,8 @@ library Lib512Arithmetic {
         // Because the division is now exact (we rounded x down to a multiple of
         // y), we perform it by multiplying with the modular inverse of the
         // denominator.
-        {
-            (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
-            r_out = r.from(r_hi, r_lo);
-        }
+        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
+        r_out = r.from(r_hi, r_lo);
     }
 
     function idiv(uint512 memory r, uint512 memory y) internal view returns (uint512 memory r_out) {
