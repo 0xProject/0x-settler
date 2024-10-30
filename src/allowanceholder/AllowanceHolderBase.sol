@@ -45,8 +45,8 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         bytes memory testData; // = abi.encodeCall(IERC20.balanceOf, target);
         assembly ("memory-safe") {
             testData := mload(0x40)
-            mstore(add(0x04, testData), 0x70a08231)
-            mstore(add(0x24, testData), and(0xffffffffffffffffffffffffffffffffffffffff, target))
+            mstore(add(0x24, testData), target)
+            mstore(add(0x10, testData), 0x70a08231000000000000000000000000)
             mstore(testData, 0x24)
             mstore(0x40, add(0x60, testData))
         }
