@@ -148,8 +148,8 @@ contract Lib512MathTest is Test {
         uint256 q = x.div(y);
         (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, q, 0);
         uint512 e = alloc().from(e_hi, e_lo);
-        assertTrue(e.le(x));
-        assertTrue((q == 0 && x.lt(y)) || e.gt(tmp().osub(x, y)));
+        assertTrue(e <= x);
+        assertTrue((q == 0 && x < y) || e > tmp().osub(x, y));
     }
 
     function test512Math_odivForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
@@ -178,8 +178,8 @@ contract Lib512MathTest is Test {
 
         (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, r_lo, r_hi);
         uint512 e = alloc().from(e_hi, e_lo);
-        assertTrue(e.le(x));
-        assertTrue((r_hi == 0 && r_lo == 0 && x.lt(y)) || e.gt(tmp().osub(x, y)));
+        assertTrue(e <= x);
+        assertTrue((r_hi == 0 && r_lo == 0 && x < y) || e > tmp().osub(x, y));
     }
 
     function test512Math_idivNative(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
@@ -191,7 +191,7 @@ contract Lib512MathTest is Test {
 
         (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, r_lo, r_hi);
         uint512 e = alloc().from(e_hi, e_lo);
-        assertTrue(e.le(x));
-        assertTrue((r_hi == 0 && r_lo == 0 && x.lt(y)) || e.gt(tmp().osub(x, y)));
+        assertTrue(e <= x);
+        assertTrue((r_hi == 0 && r_lo == 0 && x < y) || e > tmp().osub(x, y));
     }
 }

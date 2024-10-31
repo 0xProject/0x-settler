@@ -70,6 +70,8 @@ library Lib512Accessors {
     }
 }
 
+using Lib512Accessors for uint512 global;
+
 library Lib512Comparisons {
     function iszero(uint512 x) internal pure returns (bool r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
@@ -147,6 +149,34 @@ library Lib512Comparisons {
         return !gt(x, y);
     }
 }
+
+using Lib512Comparisons for uint512 global;
+
+function __eq(uint512 x, uint512 y) pure returns (bool) {
+    return x.eq(y);
+}
+
+function __gt(uint512 x, uint512 y) pure returns (bool) {
+    return x.gt(y);
+}
+
+function __lt(uint512 x, uint512 y) pure returns (bool r) {
+    return x.lt(y);
+}
+
+function __ne(uint512 x, uint512 y) pure returns (bool) {
+    return x.ne(y);
+}
+
+function __ge(uint512 x, uint512 y) pure returns (bool) {
+    return x.ge(y);
+}
+
+function __le(uint512 x, uint512 y) pure returns (bool) {
+    return x.le(y);
+}
+
+using {__eq as ==, __gt as >, __lt as <, __ne as !=, __ge as >=, __le as <=} for uint512 global;
 
 library Lib512Arithmetic {
     using UnsafeMath for uint256;
@@ -701,6 +731,4 @@ library Lib512Arithmetic {
     }
 }
 
-using Lib512Accessors for uint512 global;
-using Lib512Comparisons for uint512 global;
 using Lib512Arithmetic for uint512 global;
