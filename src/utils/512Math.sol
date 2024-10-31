@@ -338,10 +338,14 @@ library Lib512Arithmetic {
             mstore(add(0xa0, r_out), 0x01)
             mstore(add(0xc0, r_out), y_hi)
             mstore(add(0xe0, r_out), y_lo)
+
             // We write the result of MODEXP directly into the output space r.
-            // The MODEXP precompile can only fail due to out-of-gas.
-            // There is no returndata in the event of failure.
-            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r_out, 0x100, r, 0x40))) { revert(0x00, 0x00) }
+            pop(staticcall(gas(), 0x05, r_out, 0x100, r, 0x40))
+            // The MODEXP precompile can only fail due to out-of-gas. This call
+            // consumes only 200 gas, so if it failed, there is only 4 gas
+            // remaining in this context. Therefore, we will out-of-gas
+            // immediately when we attempt to read the result. We don't bother
+            // to check for failure.
 
             r_out := r
         }
@@ -390,9 +394,13 @@ library Lib512Arithmetic {
             mstore(add(0xa0, r), 0x01)
             mstore(add(0xc0, r), d_hi)
             mstore(add(0xe0, r), d_lo)
-            // The MODEXP precompile can only fail due to out-of-gas.
-            // There is no returndata in the event of failure.
-            if iszero(mul(returndatasize(), staticcall(gas(), 0x05, r, 0x100, r, 0x40))) { revert(0x00, 0x00) }
+
+            // The MODEXP precompile can only fail due to out-of-gas. This call
+            // consumes only 200 gas, so if it failed, there is only 4 gas
+            // remaining in this context. Therefore, we will out-of-gas
+            // immediately when we attempt to read the result. We don't bother
+            // to check for failure.
+            pop(staticcall(gas(), 0x05, r, 0x100, r, 0x40))
         }
         (uint256 rem_hi, uint256 rem_lo) = r.into();
         // Round down by subtracting the remainder from the numerator
