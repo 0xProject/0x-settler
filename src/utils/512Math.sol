@@ -762,24 +762,6 @@ library Lib512Arithmetic {
         }
     }
 
-    /// @notice Copied from Solady (https://github.com/Vectorized/solady/blob/main/src/utils/LibBit.sol)
-    /// @dev Count leading zeros.
-    /// Returns the number of zeros preceding the most significant one bit.
-    /// If `x` is zero, returns 256.
-    function clz(uint256 x) internal pure returns (uint256 r) {
-        /// @solidity memory-safe-assembly
-        assembly {
-            r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
-            r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
-            r := or(r, shl(5, lt(0xffffffff, shr(r, x))))
-            r := or(r, shl(4, lt(0xffff, shr(r, x))))
-            r := or(r, shl(3, lt(0xff, shr(r, x))))
-            // forgefmt: disable-next-item
-            r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff)), iszero(x))
-        }
-    }
-
     function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
@@ -814,8 +796,7 @@ library Lib512Arithmetic {
             // y is 4 limbs, x is 4 limbs, quotient is 1 limb
 
             // normalize. ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently y_hi >= 2**255)
-            //uint256 d = uint256(type(uint128).max).unsafeDiv(y_hi >> 128);
-            uint256 d = 1 << (clz(y_hi >> 128) - 128);
+            uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128) + 1);
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
