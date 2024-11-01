@@ -817,7 +817,7 @@ library Lib512Arithmetic {
                     && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) + (x_hi & type(uint128).max))
             ) {
                 q--;
-                r_hat += d_approx;
+                //r_hat += d_approx;
             }
 
             {
