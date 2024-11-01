@@ -233,10 +233,10 @@ library Lib512Arithmetic {
         uint256 r_hi;
         uint256 r_lo;
         assembly ("memory-safe") {
-            // gt(y, x_lo) indicates underflow in the lower subtraction. We can
-            // subtract the bool directly from the integer to perform carry
             r_lo := sub(x_lo, y)
-            r_hi := sub(x_hi, gt(y, x_lo))
+            // gt(r_lo, x_lo) indicates underflow in the lower subtraction. We can
+            // subtract the bool directly from the integer to perform carry
+            r_hi := sub(x_hi, gt(r_lo, x_lo))
         }
         return r.from(r_hi, r_lo);
     }
@@ -251,10 +251,10 @@ library Lib512Arithmetic {
         returns (uint256 r_hi, uint256 r_lo)
     {
         assembly ("memory-safe") {
-            // gt(y_lo, x_lo) indicates underflow in the lower subtraction.
-            // Underflow in the high limb is simply ignored
             r_lo := sub(x_lo, y_lo)
-            r_hi := sub(sub(x_hi, y_hi), gt(y_lo, x_lo))
+            // gt(r_lo, x_lo) indicates underflow in the lower subtraction.
+            // Underflow in the high limb is simply ignored
+            r_hi := sub(sub(x_hi, y_hi), gt(r_lo, x_lo))
         }
     }
 
