@@ -302,7 +302,11 @@ library Lib512Arithmetic {
     }
 
     /// Multiply 512-bit [x_hi x_lo] by 128-bit [y] giving 640-bit [r_ex r_hi r_lo]
-    function _mul640(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+    function _mul640(uint256 x_hi, uint256 x_lo, uint256 y)
+        private
+        pure
+        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
             let mm0 := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             r_lo := mul(x_lo, y)
@@ -744,15 +748,17 @@ library Lib512Arithmetic {
         return odiv(r, r, y);
     }
 
-    function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
+    function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (bool r)
+    {
         assembly ("memory-safe") {
-            r := or(
-                    or(
-                        gt(x_ex, y_ex),
-                        and(eq(x_ex, y_ex), gt(x_hi, y_hi))
-                    ),
+            r :=
+                or(
+                    or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
                     and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
-            )
+                )
         }
     }
 
@@ -773,7 +779,6 @@ library Lib512Arithmetic {
                 0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff)), iszero(x))
         }
     }
-
 
     function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
@@ -826,7 +831,10 @@ library Lib512Arithmetic {
                 q--;
                 r_hat += d_approx;
             }
-            if (r_hat >> 128 == 0 && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) + (x_hi & type(uint128).max))) {
+            if (
+                r_hat >> 128 == 0
+                    && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) + (x_hi & type(uint128).max))
+            ) {
                 q--;
                 r_hat += d_approx;
             }
