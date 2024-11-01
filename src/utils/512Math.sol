@@ -228,6 +228,16 @@ library Lib512Arithmetic {
         return oadd(r, r, y);
     }
 
+    function _add(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_lo := add(x_lo, y_lo)
+            let carry := lt(r_lo, x_lo)
+            r_hi := add(add(x_hi, y_hi), carry)
+            carry := or(lt(r_hi, x_hi), and(eq(r_hi, x_hi), carry))
+            r_ex := add(x_ex, carry)
+        }
+    }
+
     function osub(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
         (uint256 x_hi, uint256 x_lo) = x.into();
         uint256 r_hi;
@@ -267,6 +277,17 @@ library Lib512Arithmetic {
 
     function isub(uint512 r, uint512 y) internal pure returns (uint512) {
         return osub(r, r, y);
+    }
+
+    function _sub(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            // TODO: this is very ugly. surely it can be simplified
+            r_lo := sub(x_lo, y_lo)
+            let carry := gt(r_lo, x_lo)
+            r_hi := sub(sub(x_hi, y_hi), carry)
+            carry := or(gt(r_hi, x_hi), and(eq(r_hi, x_hi), carry))
+            r_ex := sub(sub(x_ex, y_ex), carry)
+        }
     }
 
     //// The technique implemented in the following functions for multiplication is
@@ -814,7 +835,7 @@ library Lib512Arithmetic {
             }
             if (
                 r_hat >> 128 == 0
-                    && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) + (x_hi & type(uint128).max))
+                    && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max))
             ) {
                 q--;
                 //r_hat += d_approx;
@@ -823,12 +844,14 @@ library Lib512Arithmetic {
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
-                //(x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
+                (x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
                 if (neg) {
                     q--;
-                    //(x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, y_hi, y_lo);
+                    (x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, y_hi, y_lo);
                 }
             }
+
+            assert(x_ex == 0);
         } else {
             // y is 3 limbs
 
@@ -836,13 +859,19 @@ library Lib512Arithmetic {
             uint256 d = uint256(1 << 128).unsafeDiv(y_hi + 1);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
+            assert(y_hi >= 2 ** 127);
+
             if (x_hi >> 128 != 0) {
                 // x is 4 limbs, quotient is 2 limbs
+
+                // continue to normalize
                 uint256 x_ex;
                 (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
                 revert("unimplemented");
             } else {
                 // x is 3 limbs, quotient is 1 limb
+
+                // continue to normalize
                 (x_hi, x_lo) = _mul(x_hi, x_lo, d);
 
                 q = x_hi.unsafeDiv(y_hi);
@@ -854,10 +883,10 @@ library Lib512Arithmetic {
                 }
                 if (
                     r_hat >> 128 == 0
-                        && (q == 1 << 128 || q * (y_lo >> 128) > (r_hat << 128) + (x_lo >> 128))
+                        && (q == 1 << 128 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
                 ) {
                     q--;
-                    //r_hat += y_hi;
+                    r_hat += y_hi;
                 }
 
                 {
