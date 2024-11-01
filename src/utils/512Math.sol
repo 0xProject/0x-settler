@@ -769,6 +769,12 @@ library Lib512Arithmetic {
         return odiv(r, r, y);
     }
 
+    function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := or(gt(x_hi, y_hi), and(eq(x_hi, y_hi), gt(x_lo, y_lo)))
+        }
+    }
+
     function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
         private
         pure
@@ -910,9 +916,8 @@ library Lib512Arithmetic {
                 q = _correctQ(q, r_hat, (x_lo >> 128), y_hi, (y_lo >> 128));
 
                 {
-                    // TODO: use the shorter `_mul` here
-                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
-                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, 0, x_hi, x_lo);
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
+                    bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
                     if (neg) {
                         q--;
                     }
