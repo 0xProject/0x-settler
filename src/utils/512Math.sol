@@ -848,7 +848,7 @@ library Lib512Arithmetic {
             q = n_approx.unsafeDiv(d_approx);
             uint256 r_hat = n_approx.unsafeMod(d_approx);
 
-            q = _correctQ(q, r_hat, (x_hi & type(uint128).max), d_approx, (y_hi & type(uint128).max));
+            q = _correctQ(q, r_hat, x_hi & type(uint128).max, d_approx, y_hi & type(uint128).max);
 
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
@@ -893,7 +893,7 @@ library Lib512Arithmetic {
                 q_hat = x_hi.unsafeDiv(y_hi);
                 r_hat = x_hi.unsafeMod(y_hi);
 
-                q_hat = _correctQ(q_hat, r_hat, (x_lo >> 128), y_hi, (y_lo >> 128));
+                q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
 
                 {
                     (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat);
@@ -913,7 +913,7 @@ library Lib512Arithmetic {
                 q = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                q = _correctQ(q, r_hat, (x_lo >> 128), y_hi, (y_lo >> 128));
+                q = _correctQ(q, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
 
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
