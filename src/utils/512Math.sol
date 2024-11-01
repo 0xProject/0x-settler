@@ -827,13 +827,13 @@ library Lib512Arithmetic {
             q = n_approx.unsafeDiv(d_approx);
             uint256 r_hat = n_approx.unsafeMod(d_approx);
 
-            if (q >> 128 == 1 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max)) {
+            if (q >> 128 != 0 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max)) {
                 q--;
                 r_hat += d_approx;
             }
             if (
                 r_hat >> 128 == 0
-                    && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max))
+                    && (q >> 128 != 0 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max))
             ) {
                 q--;
             }
@@ -863,13 +863,13 @@ library Lib512Arithmetic {
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
-                if (q_hat >> 128 == 1 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max)) {
+                if (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max)) {
                     q_hat--;
                     r_hat += y_hi;
                 }
                 if (
                     r_hat >> 128 == 0
-                        && (q_hat == 1 << 128 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max))
+                        && (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max))
                 ) {
                     q_hat--;
                 }
@@ -890,13 +890,13 @@ library Lib512Arithmetic {
                 q_hat = x_hi.unsafeDiv(y_hi);
                 r_hat = x_hi.unsafeMod(y_hi);
 
-                if (q_hat >> 128 == 1 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
+                if (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
                     q_hat--;
                     r_hat += y_hi;
                 }
                 if (
                     r_hat >> 128 == 0
-                        && (q_hat == 1 << 128 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
+                        && (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
                 ) {
                     q_hat--;
                 }
@@ -919,13 +919,13 @@ library Lib512Arithmetic {
                 q = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                if (q >> 128 == 1 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
+                if (q >> 128 != 0 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
                     q--;
                     r_hat += y_hi;
                 }
                 if (
                     r_hat >> 128 == 0
-                        && (q == 1 << 128 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
+                        && (q >> 128 != 0 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
                 ) {
                     q--;
                 }
