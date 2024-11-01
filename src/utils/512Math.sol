@@ -867,7 +867,64 @@ library Lib512Arithmetic {
                 // continue to normalize
                 uint256 x_ex;
                 (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
-                revert("unimplemented");
+
+                uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+                uint256 q_hat = n_approx.unsafeDiv(y_hi);
+                uint256 r_hat = n_approx.unsafeMod(y_hi);
+
+                if (q_hat >> 128 == 1 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max)) {
+                    q_hat--;
+                    r_hat += y_hi;
+                }
+                if (
+                    r_hat >> 128 == 0
+                        && (q_hat == 1 << 128 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max))
+                ) {
+                    q_hat--;
+                    r_hat += y_hi;
+                }
+
+                {
+                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat << 128);
+                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                    (x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
+                    if (neg) {
+                        q_hat--;
+                        // TODO: this can probably be a smaller-width `_add` because we discard `x_ex` after this
+                        (x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, (y_hi << 128) | (y_lo >> 128), y_lo << 128);
+                    }
+                }
+
+                assert(x_ex == 0);
+
+                q = q_hat << 128;
+
+                q_hat = x_hi.unsafeDiv(y_hi);
+                r_hat = x_hi.unsafeMod(y_hi);
+
+                if (q_hat >> 128 == 1 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
+                    q_hat--;
+                    r_hat += y_hi;
+                }
+                if (
+                    r_hat >> 128 == 0
+                        && (q_hat == 1 << 128 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
+                ) {
+                    q_hat--;
+                    r_hat += y_hi;
+                }
+
+                {
+                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat);
+                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                    (x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
+                    if (neg) {
+                        q_hat--;
+                        (x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, y_hi, y_lo);
+                    }
+                }
+
+                q |= q_hat;
             } else {
                 // x is 3 limbs, quotient is 1 limb
 
