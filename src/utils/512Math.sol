@@ -783,6 +783,21 @@ library Lib512Arithmetic {
         }
     }
 
+    function _correctQ(uint256 q, uint256 r, uint256 x_next, uint256 y, uint256 y_next) private pure returns (uint256) {
+        if (q >> 128 != 0 || q * y_next > (r << 128) | x_next) {
+            q--;
+            r += y;
+        }
+        if (
+            r >> 128 == 0
+            && (q >> 128 != 0 || q * y_next > (r << 128) | x_next)
+        ) {
+            q--;
+        }
+        return q;
+    }
+
+
     function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
@@ -827,16 +842,7 @@ library Lib512Arithmetic {
             q = n_approx.unsafeDiv(d_approx);
             uint256 r_hat = n_approx.unsafeMod(d_approx);
 
-            if (q >> 128 != 0 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max)) {
-                q--;
-                r_hat += d_approx;
-            }
-            if (
-                r_hat >> 128 == 0
-                    && (q >> 128 != 0 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max))
-            ) {
-                q--;
-            }
+            q = _correctQ(q, r_hat, (x_hi & type(uint128).max), d_approx, (y_hi & type(uint128).max));
 
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
@@ -863,16 +869,7 @@ library Lib512Arithmetic {
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
-                if (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max)) {
-                    q_hat--;
-                    r_hat += y_hi;
-                }
-                if (
-                    r_hat >> 128 == 0
-                        && (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max))
-                ) {
-                    q_hat--;
-                }
+                q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_hi, y_lo >> 128);
 
                 {
                     (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat << 128);
@@ -890,16 +887,7 @@ library Lib512Arithmetic {
                 q_hat = x_hi.unsafeDiv(y_hi);
                 r_hat = x_hi.unsafeMod(y_hi);
 
-                if (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
-                    q_hat--;
-                    r_hat += y_hi;
-                }
-                if (
-                    r_hat >> 128 == 0
-                        && (q_hat >> 128 != 0 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
-                ) {
-                    q_hat--;
-                }
+                q_hat = _correctQ(q_hat, r_hat, (x_lo >> 128), y_hi, (y_lo >> 128));
 
                 {
                     (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat);
@@ -919,16 +907,7 @@ library Lib512Arithmetic {
                 q = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                if (q >> 128 != 0 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
-                    q--;
-                    r_hat += y_hi;
-                }
-                if (
-                    r_hat >> 128 == 0
-                        && (q >> 128 != 0 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
-                ) {
-                    q--;
-                }
+                q = _correctQ(q, r_hat, (x_lo >> 128), y_hi, (y_lo >> 128));
 
                 {
                     // TODO: use the shorter `_mul` here
