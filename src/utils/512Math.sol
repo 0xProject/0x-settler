@@ -654,21 +654,19 @@ library Lib512Arithmetic {
         if (d_hi == 0) {
             return div(n, d_lo);
         }
-
-        uint256 n_hi;
-        assembly ("memory-safe") {
-            n_hi := mload(n)
-        }
+        (uint256 n_hi, uint256 n_lo) = n.into();
         if (d_lo == 0) {
             return n_hi.unsafeDiv(d_hi);
         }
-        if (n_hi == 0) {
-            // TODO: this optimization may not be overall optimizing
-            return 0;
-        }
-        uint256 n_lo;
-        assembly ("memory-safe") {
-            n_lo := mload(add(0x20, n))
+        {
+            bool d_gt_n;
+            assembly ("memory-safe") {
+                d_gt_n := or(gt(d_hi, n_hi), and(eq(d_hi, n_hi), gt(d_lo, n_lo)))
+            }
+            if (d_gt_n) {
+                // TODO: this optimization may not be overall optimizing
+                return 0;
+            }
         }
 
         // Round the numerator down to a multiple of the denominator. This makes
@@ -731,21 +729,19 @@ library Lib512Arithmetic {
         if (y_hi == 0) {
             return odiv(r, x, y_lo);
         }
-
-        uint256 x_hi;
-        assembly ("memory-safe") {
-            x_hi := mload(x)
-        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
         if (y_lo == 0) {
             return r.from(0, x_hi.unsafeDiv(y_hi));
         }
-        if (x_hi == 0) {
-            // TODO: this optimization may not be overall optimizing
-            return r.from(0, 0);
-        }
-        uint256 x_lo;
-        assembly ("memory-safe") {
-            x_lo := mload(add(0x20, x))
+        {
+            bool y_gt_x;
+            assembly ("memory-safe") {
+                y_gt_x := or(gt(y_hi, x_hi), and(eq(y_hi, x_hi), gt(y_lo, x_lo)))
+            }
+            if (y_gt_x) {
+                // TODO: this optimization may not be overall optimizing
+                return r.from(0, 0);
+            }
         }
 
         // Round the numerator down to a multiple of the denominator. This makes
