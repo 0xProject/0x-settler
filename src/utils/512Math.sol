@@ -6,8 +6,8 @@ import {UnsafeMath} from "./UnsafeMath.sol";
 
 /// The type uint512 behaves as if it were declared as
 ///     struct uint512 {
-///         uint512 hi;
-///         uint512 lo;
+///         uint256 hi;
+///         uint256 lo;
 ///     }
 /// However, returning `memory` references from internal functions is impossible
 /// to do efficiently, especially when the functions are small and are called
