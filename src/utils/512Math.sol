@@ -829,12 +829,46 @@ library Lib512Arithmetic {
                     //(x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, y_hi, y_lo);
                 }
             }
-        } else if (x_hi >> 128 != 0) {
-            // y is 3 limbs, x is 4 limbs, quotient is 2 limbs
-            revert("unimplemented");
         } else {
-            // y is 3 limbs, x is 3 limbs, quotient is 1 limb
-            revert("unimplemented");
+            // y is 3 limbs
+
+            // normalize. ensure the uppermost limb of y ≥ 2¹²⁷
+            uint256 d = uint256(1 << 128).unsafeDiv(y_hi + 1);
+            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+
+            if (x_hi >> 128 != 0) {
+                // x is 4 limbs, quotient is 2 limbs
+                uint256 x_ex;
+                (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
+                revert("unimplemented");
+            } else {
+                // x is 3 limbs, quotient is 1 limb
+                (x_hi, x_lo) = _mul(x_hi, x_lo, d);
+
+                q = x_hi.unsafeDiv(y_hi);
+                uint256 r_hat = x_hi.unsafeMod(y_hi);
+
+                if (q >> 128 == 1 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128)) {
+                    q--;
+                    r_hat += y_hi;
+                }
+                if (
+                    r_hat >> 128 == 0
+                        && (q == 1 << 128 || q * (y_lo >> 128) > (r_hat << 128) + (x_lo >> 128))
+                ) {
+                    q--;
+                    //r_hat += y_hi;
+                }
+
+                {
+                    // TODO: use the shorter `_mul` here
+                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
+                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, 0, x_hi, x_lo);
+                    if (neg) {
+                        q--;
+                    }
+                }
+            }
         }
         // all other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently y_hi != 0) and that x ≥ y
 
