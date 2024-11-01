@@ -822,8 +822,6 @@ library Lib512Arithmetic {
             (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
-            //assert(y_hi >= 2 ** 255);
-
             uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
             uint256 d_approx = y_hi >> 128;
             q = n_approx.unsafeDiv(d_approx);
@@ -838,20 +836,15 @@ library Lib512Arithmetic {
                     && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max))
             ) {
                 q--;
-                //r_hat += d_approx;
             }
 
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
-                (x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
                 if (neg) {
                     q--;
-                    (x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, y_hi, y_lo);
                 }
             }
-
-            assert(x_ex == 0);
         } else {
             // y is 3 limbs
 
@@ -859,12 +852,10 @@ library Lib512Arithmetic {
             uint256 d = uint256(1 << 128).unsafeDiv(y_hi + 1);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
-            assert(y_hi >= 2 ** 127);
-
             if (x_hi >> 128 != 0) {
                 // x is 4 limbs, quotient is 2 limbs
 
-                // continue to normalize
+                // finish normalizing
                 uint256 x_ex;
                 (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
 
@@ -881,7 +872,6 @@ library Lib512Arithmetic {
                         && (q_hat == 1 << 128 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_hi & type(uint128).max))
                 ) {
                     q_hat--;
-                    r_hat += y_hi;
                 }
 
                 {
@@ -894,8 +884,6 @@ library Lib512Arithmetic {
                         (x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, (y_hi << 128) | (y_lo >> 128), y_lo << 128);
                     }
                 }
-
-                assert(x_ex == 0);
 
                 q = q_hat << 128;
 
@@ -911,16 +899,13 @@ library Lib512Arithmetic {
                         && (q_hat == 1 << 128 || q_hat * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
                 ) {
                     q_hat--;
-                    r_hat += y_hi;
                 }
 
                 {
                     (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat);
                     bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
-                    (x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
                     if (neg) {
                         q_hat--;
-                        (x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, y_hi, y_lo);
                     }
                 }
 
@@ -928,7 +913,7 @@ library Lib512Arithmetic {
             } else {
                 // x is 3 limbs, quotient is 1 limb
 
-                // continue to normalize
+                // finish normalizing
                 (x_hi, x_lo) = _mul(x_hi, x_lo, d);
 
                 q = x_hi.unsafeDiv(y_hi);
@@ -943,7 +928,6 @@ library Lib512Arithmetic {
                         && (q == 1 << 128 || q * (y_lo >> 128) > (r_hat << 128) | (x_lo >> 128))
                 ) {
                     q--;
-                    r_hat += y_hi;
                 }
 
                 {
