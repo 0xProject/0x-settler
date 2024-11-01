@@ -210,17 +210,19 @@ library Lib512Arithmetic {
         return oadd(r, r, y);
     }
 
-    function oadd(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        (uint256 y_hi, uint256 y_lo) = y.into();
-        uint256 r_hi;
-        uint256 r_lo;
+    function _add(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_lo := add(x_lo, y_lo)
             // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
             // in the high limb is simply ignored
             r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
         }
+    }
+
+    function oadd(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        (uint256 r_hi, uint256 r_lo) = _add(x_hi, x_lo, y_hi, y_lo);
         return r.from(r_hi, r_lo);
     }
 
@@ -880,11 +882,10 @@ library Lib512Arithmetic {
                 {
                     (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat << 128);
                     bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
-                    (x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
+                    (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
                     if (neg) {
                         q_hat--;
-                        // TODO: this can probably be a smaller-width `_add` because we discard `x_ex` after this
-                        (x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, (y_hi << 128) | (y_lo >> 128), y_lo << 128);
+                        (x_hi, x_lo) = _add(x_hi, x_lo, (y_hi << 128) | (y_lo >> 128), y_lo << 128);
                     }
                 }
 
@@ -897,7 +898,7 @@ library Lib512Arithmetic {
 
                 {
                     (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat);
-                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, 0, x_hi, x_lo);
                     if (neg) {
                         q_hat--;
                     }
