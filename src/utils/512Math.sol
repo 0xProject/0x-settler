@@ -301,6 +301,20 @@ library Lib512Arithmetic {
         }
     }
 
+    /// Multiply 512-bit [x_hi x_lo] by 128-bit [y] giving 640-bit [r_ex r_hi r_lo]
+    function _mul640(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            let mm0 := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            r_lo := mul(x_lo, y)
+            let mm1 := mulmod(x_hi, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let r_partial := mul(x_hi, y)
+            r_ex := sub(sub(mm1, r_partial), lt(mm1, r_partial))
+
+            r_hi := add(sub(sub(mm0, r_lo), lt(mm0, r_lo)), r_partial)
+            r_ex := add(r_ex, lt(r_hi, r_partial))
+        }
+    }
+
     function omul(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         (uint256 r_hi, uint256 r_lo) = _mul(x, y);
         return r.from(r_hi, r_lo);
@@ -728,6 +742,114 @@ library Lib512Arithmetic {
 
     function idiv(uint512 r, uint512 y) internal view returns (uint512) {
         return odiv(r, r, y);
+    }
+
+    function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := or(
+                    or(
+                        gt(x_ex, y_ex),
+                        and(eq(x_ex, y_ex), gt(x_hi, y_hi))
+                    ),
+                    and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
+            )
+        }
+    }
+
+    /// @notice Copied from Solady (https://github.com/Vectorized/solady/blob/main/src/utils/LibBit.sol)
+    /// @dev Count leading zeros.
+    /// Returns the number of zeros preceding the most significant one bit.
+    /// If `x` is zero, returns 256.
+    function clz(uint256 x) internal pure returns (uint256 r) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
+            r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
+            r := or(r, shl(5, lt(0xffffffff, shr(r, x))))
+            r := or(r, shl(4, lt(0xffff, shr(r, x))))
+            r := or(r, shl(3, lt(0xff, shr(r, x))))
+            // forgefmt: disable-next-item
+            r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff)), iszero(x))
+        }
+    }
+
+
+    function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            // TODO: `odivAlt(uint512,uint512,uint256)`; this is the only case where we can have a 2-word quotient
+            return odiv(r, x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            return r.from(0, x_hi.unsafeDiv(y_hi));
+        }
+        {
+            bool y_gt_x;
+            assembly ("memory-safe") {
+                y_gt_x := or(gt(y_hi, x_hi), and(eq(y_hi, x_hi), gt(y_lo, x_lo)))
+            }
+            if (y_gt_x) {
+                // TODO: this optimization may not be overall optimizing
+                return r.from(0, 0);
+            }
+        }
+
+        // At this point, we know that both x and y are fully represented by 2
+        // limbs. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+
+        // we treat [x_hi x_lo] and [y_hi y_lo] each as a ≤4-limb bigint where
+        // each limb is half a machine word (128 bits). This lets us perform
+        // limb × limb multiplications without checking for overflow.
+
+        uint256 q;
+        if (y_hi >> 128 != 0) {
+            // y is 4 limbs, x is 4 limbs, quotient is 1 limb
+
+            // normalize. ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently y_hi >= 2**255)
+            //uint256 d = uint256(type(uint128).max).unsafeDiv(y_hi >> 128);
+            uint256 d = 1 << (clz(y_hi >> 128) - 128);
+            uint256 x_ex;
+            (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
+            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+
+            //assert(y_hi >= 2 ** 255);
+
+            uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+            uint256 d_approx = y_hi >> 128;
+            q = n_approx.unsafeDiv(d_approx);
+            uint256 r_hat = n_approx.unsafeMod(d_approx);
+
+            if (q >> 128 == 1 || q * (y_hi & type(uint128).max) > (r_hat << 128) | (x_hi & type(uint128).max)) {
+                q--;
+                r_hat += d_approx;
+            }
+            if (r_hat >> 128 == 0 && (q == 1 << 128 || q * (y_hi & type(uint128).max) > (r_hat << 128) + (x_hi & type(uint128).max))) {
+                q--;
+                r_hat += d_approx;
+            }
+
+            {
+                (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
+                bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                //(x_ex, x_hi, x_lo) = _sub(x_ex, x_hi, x_lo, tmp_ex, tmp_hi, tmp_lo);
+                if (neg) {
+                    q--;
+                    //(x_ex, x_hi, x_lo) = _add(x_ex, x_hi, x_lo, y_hi, y_lo);
+                }
+            }
+        } else if (x_hi >> 128 != 0) {
+            // y is 3 limbs, x is 4 limbs, quotient is 2 limbs
+            revert("unimplemented");
+        } else {
+            // y is 3 limbs, x is 3 limbs, quotient is 1 limb
+            revert("unimplemented");
+        }
+        // all other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently y_hi != 0) and that x ≥ y
+
+        return r.from(0, q);
     }
 }
 

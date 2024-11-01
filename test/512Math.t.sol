@@ -194,4 +194,18 @@ contract Lib512MathTest is Test {
         assertTrue(e <= x);
         assertTrue((r_hi == 0 && r_lo == 0 && x < y) || e > tmp().osub(x, y));
     }
+
+    function test512Math_odivAlt_branch1(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi > type(uint128).max);
+        vm.assume(y_lo != 0);
+        vm.assume(x_hi > y_hi || (x_hi == y_hi && x_lo > y_lo));
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+        (uint256 r_hi, uint256 r_lo) = tmp().odivAlt(x, y).into();
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, r_lo, r_hi);
+        uint512 e = alloc().from(e_hi, e_lo);
+        assertTrue(e <= x);
+        assertTrue(e > tmp().osub(x, y));
+    }
 }
