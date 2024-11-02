@@ -247,7 +247,11 @@ library Lib512Arithmetic {
         return oadd(r, r, y);
     }
 
-    function _add(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _add(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
             r_lo := add(x_lo, y_lo)
             // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
@@ -267,7 +271,11 @@ library Lib512Arithmetic {
         return oadd(r, r, y);
     }
 
-    function _add(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+    function _add(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
             r_lo := add(x_lo, y_lo)
             let carry := lt(r_lo, x_lo)
@@ -322,7 +330,11 @@ library Lib512Arithmetic {
         return osub(r, y, r);
     }
 
-    function _sub(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+    function _sub(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
             // TODO: this is very ugly. surely it can be simplified
             r_lo := sub(x_lo, y_lo)
@@ -843,7 +855,11 @@ library Lib512Arithmetic {
     /// and
     /// https://ridiculousfish.com/blog/posts/labor-of-division-episode-v.html .
 
-    function _correctQ(uint256 q, uint256 r, uint256 x_next, uint256 y_next, uint256 y_whole) private pure returns (uint256 q_out) {
+    function _correctQ(uint256 q, uint256 r, uint256 x_next, uint256 y_next, uint256 y_whole)
+        private
+        pure
+        returns (uint256 q_out)
+    {
         assembly ("memory-safe") {
             let c1 := mul(q, y_next)
             let c2 := or(shl(0x80, r), x_next)
