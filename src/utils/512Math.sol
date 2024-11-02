@@ -21,6 +21,31 @@ import {UnsafeMath} from "./UnsafeMath.sol";
 /// IF YOU REALLY WANTED TO DO THAT (ADVANCED USAGE) THEN FOR CLARITY, WRITE THE
 /// FOLLOWING:
 ///     uint512 x = tmp();
+///
+/// While user-defined arithmetic operations (i.e. +, -, *, %, /) are provided
+/// for `uint512`, they are not gas-optimal, full-featured, or composable. You
+/// will get a revert upon incorrect usage. Their primary usage is when a simple
+/// arithmetic operation needs to be performed followed by a comparison (e.g. <,
+/// >, ==, etc.) or conversion to a pair of `uint256`s (i.e. `.into()`). The use
+/// of the user-defined arithmetic operations is not composable with the usage
+/// of `tmp()`.
+///
+/// In general, correct usage of `uint512` requires always specifying the output
+/// location of each operation. For each `o*` operation (mnemonic:
+/// out-of-place), the first argument is the output location and the remaining
+/// arguments are the input. For each `i*` operation (mnemonic: in-place), the
+/// first argument is both input and output and the remaining arguments are
+/// purely input.
+///
+/// All provided arithmetic operations behave as if they were inside an
+/// `unchecked` block. That is, overflow causes truncation, not a
+/// revert. Division or modulo by zero causes a panic revert with code 18
+/// (identical behavior to "normal" unchecked arithmetic).
+///
+/// Two additional arithmetic operations are provided, bare `mod` and
+/// `div`. These are provided for use when it is known that the result of the
+/// operation will fit into 256 bits. This fact is not checked, but more
+/// efficient algoriths are employed assuming this. The result is a `uint256`.
 type uint512 is bytes32;
 
 function alloc() pure returns (uint512 r) {
@@ -324,8 +349,8 @@ library Lib512Arithmetic {
         }
     }
 
-    /// Multiply 512-bit [x_hi x_lo] by 128-bit [y] giving 640-bit [r_ex r_hi r_lo]
-    function _mul640(uint256 x_hi, uint256 x_lo, uint256 y)
+    /// Multiply 512-bit [x_hi x_lo] by 256-bit [y] giving 768-bit [r_ex r_hi r_lo]
+    function _mul768(uint256 x_hi, uint256 x_lo, uint256 y)
         private
         pure
         returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
@@ -787,6 +812,10 @@ library Lib512Arithmetic {
         }
     }
 
+    /// The technique implemented in the following functions for division is
+    /// adapted from Donald Knuth, The Art of Computer Programming (TAOCP)
+    /// Volume 2, Section 4.3.1, Algorithm D.
+
     function _correctQ(uint256 q, uint256 r, uint256 x_next, uint256 y, uint256 y_next) private pure returns (uint256) {
         if (q >> 128 != 0 || q * y_next > (r << 128) | x_next) {
             q--;
@@ -800,7 +829,6 @@ library Lib512Arithmetic {
         }
         return q;
     }
-
 
     function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
@@ -824,21 +852,28 @@ library Lib512Arithmetic {
         }
 
         // At this point, we know that both x and y are fully represented by 2
-        // limbs. There is no simpler representation for the problem. We must
+        // words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
 
-        // we treat [x_hi x_lo] and [y_hi y_lo] each as a ≤4-limb bigint where
+        // We treat [x_hi x_lo] and [y_hi y_lo] each as a ≤4-limb bigint where
         // each limb is half a machine word (128 bits). This lets us perform
-        // limb × limb multiplications without checking for overflow.
+        // 2-limb ÷ 1-limb divisions as a single operation (`div`) as required
+        // by Algorithm D.
 
         uint256 q;
         if (y_hi >> 128 != 0) {
-            // y is 4 limbs, x is 4 limbs, quotient is 1 limb
+            // y is 4 limbs, x is 4 limbs, q is 1 limb
 
-            // normalize. ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently y_hi >= 2**255)
+            // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
+            // y_hi >= 2**255)
+            // The author's edition of TAOCP (3rd) states to set `d = (2 ** 128
+            // - 1) // y_hi`, however this is incorrect. Setting `d` in this
+            // fashion may result in overflow in the subsequent `_mul`. Setting
+            // `d` as implemented below still satisfies the postcondition (`y_hi
+            // >> 128 >= 1 << 127`) but never results in overflow.
             uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128) + 1);
             uint256 x_ex;
-            (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
+            (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
             uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
@@ -849,7 +884,7 @@ library Lib512Arithmetic {
             q = _correctQ(q, r_hat, x_hi & type(uint128).max, d_approx, y_hi & type(uint128).max);
 
             {
-                (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q);
+                (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
                 if (neg) {
                     q--;
@@ -858,16 +893,17 @@ library Lib512Arithmetic {
         } else {
             // y is 3 limbs
 
-            // normalize. ensure the uppermost limb of y ≥ 2¹²⁷
+            // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷
+            // See above comment about the error in TAOCP.
             uint256 d = uint256(1 << 128).unsafeDiv(y_hi + 1);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
             if (x_hi >> 128 != 0) {
-                // x is 4 limbs, quotient is 2 limbs
+                // x is 4 limbs, q is 2 limbs
 
-                // finish normalizing
+                // Finish normalizing
                 uint256 x_ex;
-                (x_ex, x_hi, x_lo) = _mul640(x_hi, x_lo, d);
+                (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
@@ -876,11 +912,12 @@ library Lib512Arithmetic {
                 q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_hi, y_lo >> 128);
 
                 {
-                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul640(y_hi, y_lo, q_hat << 128);
+                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q_hat << 128);
                     bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
                     (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
                     if (neg) {
                         q_hat--;
+                        // This branch is quite rare, so it's poorly optimized
                         (x_hi, x_lo) = _add(x_hi, x_lo, (y_hi << 128) | (y_lo >> 128), y_lo << 128);
                     }
                 }
@@ -902,9 +939,9 @@ library Lib512Arithmetic {
 
                 q |= q_hat;
             } else {
-                // x is 3 limbs, quotient is 1 limb
+                // x is 3 limbs, q is 1 limb
 
-                // finish normalizing
+                // Finish normalizing
                 (x_hi, x_lo) = _mul(x_hi, x_lo, d);
 
                 q = x_hi.unsafeDiv(y_hi);
@@ -921,7 +958,8 @@ library Lib512Arithmetic {
                 }
             }
         }
-        // all other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently y_hi != 0) and that x ≥ y
+        // All other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently
+        // y_hi != 0) and that x ≥ y
 
         return r.from(0, q);
     }
