@@ -913,7 +913,8 @@ library Lib512Arithmetic {
             uint256 d = uint256(1 << 128).unsafeDiv(y_hi + 1);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
             // y_whole is the 2 most-significant, nonzero, normalized limbs of y (needed for _correctQ)
-            uint256 y_whole = (y_hi << 128) | (y_lo >> 128);
+            uint256 y_next = y_lo >> 128;
+            uint256 y_whole = (y_hi << 128) | y_next;
 
             if (x_hi >> 128 != 0) {
                 // x is 4 limbs, q is 2 limbs
@@ -926,25 +927,28 @@ library Lib512Arithmetic {
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
-                q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_lo >> 128, y_whole);
+                q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_next, y_whole);
+                q = q_hat << 128;
 
                 {
-                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q_hat << 128);
+                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
                     bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
                     (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
                     if (neg) {
-                        // This branch is quite rare, so it's poorly optimized
-                        q_hat = q_hat.unsafeDec();
+                        // This branch is quite rare, so it's gas-advantageous
+                        // to actually branch and usually skip the costly `_add`
+                        unchecked {
+                            q += 1 << 128;
+                        }
                         (x_hi, x_lo) = _add(x_hi, x_lo, y_whole, y_lo << 128);
                     }
                 }
-
-                q = q_hat << 128;
+                // x_ex is now zero (implicitly)
 
                 q_hat = x_hi.unsafeDiv(y_hi);
                 r_hat = x_hi.unsafeMod(y_hi);
 
-                q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_lo >> 128, y_whole);
+                q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
 
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
@@ -964,7 +968,7 @@ library Lib512Arithmetic {
                 q = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                q = _correctQ(q, r_hat, x_lo >> 128, y_lo >> 128, y_whole);
+                q = _correctQ(q, r_hat, x_lo >> 128, y_next, y_whole);
 
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
