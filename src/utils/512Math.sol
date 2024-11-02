@@ -893,7 +893,7 @@ library Lib512Arithmetic {
             // fashion may result in overflow in the subsequent `_mul`. Setting
             // `d` as implemented below still satisfies the postcondition (`y_hi
             // >> 128 >= 1 << 127`) but never results in overflow.
-            uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128) + 1);
+            uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128).unsafeInc());
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
@@ -917,7 +917,7 @@ library Lib512Arithmetic {
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷
             // See above comment about the error in TAOCP.
-            uint256 d = uint256(1 << 128).unsafeDiv(y_hi + 1);
+            uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
             // y_whole is the 2 most-significant, nonzero, normalized limbs of y (needed for _correctQ)
             uint256 y_next = y_lo >> 128;
