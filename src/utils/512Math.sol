@@ -848,7 +848,7 @@ library Lib512Arithmetic {
     function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
-            // TODO: `odivAlt(uint512,uint512,uint256)`; this is the only case where we can have a 2-word quotient
+            // This is the only case where we can have a 2-word quotient
             return odiv(r, x, y_lo);
         }
         (uint256 x_hi, uint256 x_lo) = x.into();
