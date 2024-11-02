@@ -35,7 +35,9 @@ import {UnsafeMath} from "./UnsafeMath.sol";
 /// out-of-place), the first argument is the output location and the remaining
 /// arguments are the input. For each `i*` operation (mnemonic: in-place), the
 /// first argument is both input and output and the remaining arguments are
-/// purely input.
+/// purely input. For each `ir*` operation (mnemonic: in-place reverse), the
+/// last argument is both input and output and the remaining arguments are
+/// purely input (only `irsub`, `irmod`, and `irdiv` exist).
 ///
 /// All provided arithmetic operations behave as if they were inside an
 /// `unchecked` block. That is, overflow causes truncation, not a
@@ -306,6 +308,10 @@ library Lib512Arithmetic {
         return osub(r, r, y);
     }
 
+    function irsub(uint512 y, uint512 r) internal pure returns (uint512) {
+        return osub(r, y, r);
+    }
+
     function _sub(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             // TODO: this is very ugly. surely it can be simplified
@@ -433,6 +439,10 @@ library Lib512Arithmetic {
 
     function imod(uint512 r, uint512 y) internal view returns (uint512) {
         return omod(r, r, y);
+    }
+
+    function irmod(uint512 y, uint512 r) internal view returns (uint512) {
+        return omod(r, y, r);
     }
 
     //// The technique implemented in the following functions for division is
@@ -790,6 +800,10 @@ library Lib512Arithmetic {
 
     function idiv(uint512 r, uint512 y) internal view returns (uint512) {
         return odiv(r, r, y);
+    }
+
+    function irdiv(uint512 y, uint512 r) internal view returns (uint512) {
+        return odiv(r, y, r);
     }
 
     function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
