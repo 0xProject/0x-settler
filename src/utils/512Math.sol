@@ -938,7 +938,10 @@ library Lib512Arithmetic {
                 q = q_hat << 128;
 
                 {
-                    (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
+                    uint256 tmp_ex = tmp_hi >> 128;
+                    tmp_hi = (tmp_hi << 128) | (tmp_lo >> 128);
+                    tmp_lo <<= 128;
                     bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
                     (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
                     if (neg) {
