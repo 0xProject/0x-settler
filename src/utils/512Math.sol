@@ -826,6 +826,22 @@ library Lib512Arithmetic {
         }
     }
 
+    /// The technique implemented in the following helper function for Knuth
+    /// Algorithm D (a modification of the citation further below) is adapted
+    /// from ridiculous fish's (aka corydoras) work
+    /// https://ridiculousfish.com/blog/posts/labor-of-division-episode-iv.html
+    /// and
+    /// https://ridiculousfish.com/blog/posts/labor-of-division-episode-v.html .
+
+    function _correctQAlt(uint256 q, uint256 r, uint256 x_next, uint256 y, uint256 y_next) private pure returns (uint256) {
+        uint256 c1 = q * y_next;
+        uint256 c2 = (r << 128) | x_next;
+        if (c1 > c2) {
+            q -= (c1 - c2 > (y << 128) | y_next) ? 2 : 1;
+        }
+        return q;
+    }
+
     /// The technique implemented in the following functions for division is
     /// adapted from Donald Knuth, The Art of Computer Programming (TAOCP)
     /// Volume 2, Section 4.3.1, Algorithm D.
@@ -895,7 +911,8 @@ library Lib512Arithmetic {
             q = n_approx.unsafeDiv(d_approx);
             uint256 r_hat = n_approx.unsafeMod(d_approx);
 
-            q = _correctQ(q, r_hat, x_hi & type(uint128).max, d_approx, y_hi & type(uint128).max);
+            //q = _correctQ(q, r_hat, x_hi & type(uint128).max, d_approx, y_hi & type(uint128).max);
+            q = _correctQAlt(q, r_hat, x_hi & type(uint128).max, d_approx, y_hi & type(uint128).max);
 
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
@@ -923,7 +940,8 @@ library Lib512Arithmetic {
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
-                q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_hi, y_lo >> 128);
+                //q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_hi, y_lo >> 128);
+                q_hat = _correctQAlt(q_hat, r_hat, x_hi & type(uint128).max, y_hi, y_lo >> 128);
 
                 {
                     (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q_hat << 128);
@@ -941,7 +959,8 @@ library Lib512Arithmetic {
                 q_hat = x_hi.unsafeDiv(y_hi);
                 r_hat = x_hi.unsafeMod(y_hi);
 
-                q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
+                //q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
+                q_hat = _correctQAlt(q_hat, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
 
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
@@ -961,7 +980,8 @@ library Lib512Arithmetic {
                 q = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                q = _correctQ(q, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
+                //q = _correctQ(q, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
+                q = _correctQAlt(q, r_hat, x_lo >> 128, y_hi, y_lo >> 128);
 
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
