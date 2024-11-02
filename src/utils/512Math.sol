@@ -706,6 +706,26 @@ library Lib512Arithmetic {
         }
     }
 
+    function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := or(gt(x_hi, y_hi), and(eq(x_hi, y_hi), gt(x_lo, y_lo)))
+        }
+    }
+
+    function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (bool r)
+    {
+        assembly ("memory-safe") {
+            r :=
+                or(
+                    or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
+                    and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
+                )
+        }
+    }
+
     function div(uint512 n, uint512 d) internal view returns (uint256) {
         (uint256 d_hi, uint256 d_lo) = d.into();
         if (d_hi == 0) {
@@ -715,15 +735,9 @@ library Lib512Arithmetic {
         if (d_lo == 0) {
             return n_hi.unsafeDiv(d_hi);
         }
-        {
-            bool d_gt_n;
-            assembly ("memory-safe") {
-                d_gt_n := or(gt(d_hi, n_hi), and(eq(d_hi, n_hi), gt(d_lo, n_lo)))
-            }
-            if (d_gt_n) {
-                // TODO: this optimization may not be overall optimizing
-                return 0;
-            }
+        if (_gt(d_hi, d_lo, n_hi, n_lo)) {
+            // TODO: this optimization may not be overall optimizing
+            return 0;
         }
 
         // Round the numerator down to a multiple of the denominator. This makes
@@ -790,15 +804,9 @@ library Lib512Arithmetic {
         if (y_lo == 0) {
             return r.from(0, x_hi.unsafeDiv(y_hi));
         }
-        {
-            bool y_gt_x;
-            assembly ("memory-safe") {
-                y_gt_x := or(gt(y_hi, x_hi), and(eq(y_hi, x_hi), gt(y_lo, x_lo)))
-            }
-            if (y_gt_x) {
-                // TODO: this optimization may not be overall optimizing
-                return r.from(0, 0);
-            }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            // TODO: this optimization may not be overall optimizing
+            return r.from(0, 0);
         }
 
         // Round the numerator down to a multiple of the denominator. This makes
@@ -826,26 +834,6 @@ library Lib512Arithmetic {
 
     function irdiv(uint512 y, uint512 r) internal view returns (uint512) {
         return odiv(r, y, r);
-    }
-
-    function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
-        assembly ("memory-safe") {
-            r := or(gt(x_hi, y_hi), and(eq(x_hi, y_hi), gt(x_lo, y_lo)))
-        }
-    }
-
-    function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
-        private
-        pure
-        returns (bool r)
-    {
-        assembly ("memory-safe") {
-            r :=
-                or(
-                    or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
-                    and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
-                )
-        }
     }
 
     /// The technique implemented in the following helper function for Knuth
@@ -881,15 +869,8 @@ library Lib512Arithmetic {
         if (y_lo == 0) {
             return r.from(0, x_hi.unsafeDiv(y_hi));
         }
-        {
-            bool y_gt_x;
-            assembly ("memory-safe") {
-                y_gt_x := or(gt(y_hi, x_hi), and(eq(y_hi, x_hi), gt(y_lo, x_lo)))
-            }
-            if (y_gt_x) {
-                // TODO: this optimization may not be overall optimizing
-                return r.from(0, 0);
-            }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return r.from(0, 0);
         }
 
         // At this point, we know that both x and y are fully represented by 2
