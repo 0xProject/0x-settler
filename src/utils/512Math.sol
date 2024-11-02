@@ -901,8 +901,8 @@ library Lib512Arithmetic {
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
-                if (neg) {
-                    q--;
+                assembly ("memory-safe") {
+                    q := sub(q, neg)
                 }
             }
         } else {
@@ -933,9 +933,9 @@ library Lib512Arithmetic {
                     bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
                     (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
                     if (neg) {
-                        q_hat--;
                         // This branch is quite rare, so it's poorly optimized
-                        (x_hi, x_lo) = _add(x_hi, x_lo, (y_hi << 128) | (y_lo >> 128), y_lo << 128);
+                        q_hat = q_hat.unsafeDec();
+                        (x_hi, x_lo) = _add(x_hi, x_lo, y_whole, y_lo << 128);
                     }
                 }
 
@@ -949,8 +949,8 @@ library Lib512Arithmetic {
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
                     bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
-                    if (neg) {
-                        q_hat--;
+                    assembly ("memory-safe") {
+                        q_hat := sub(q_hat, neg)
                     }
                 }
 
@@ -969,8 +969,8 @@ library Lib512Arithmetic {
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
                     bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
-                    if (neg) {
-                        q--;
+                    assembly ("memory-safe") {
+                        q := sub(q, neg)
                     }
                 }
             }
