@@ -4,6 +4,16 @@ pragma solidity =0.8.25;
 import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
 
+/*
+
+WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
+  ***                                                                     ***
+WARNING                     This code is unaudited                      WARNING
+  ***                                                                     ***
+WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
+
+*/
+
 /// The type uint512 behaves as if it were declared as
 ///     struct uint512 {
 ///         uint512 hi;
