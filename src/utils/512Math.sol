@@ -964,7 +964,7 @@ library Lib512Arithmetic {
                         // This branch is quite rare, so it's gas-advantageous
                         // to actually branch and usually skip the costly `_add`
                         unchecked {
-                            q += 1 << 128;
+                            q -= 1 << 128;
                         }
                         (x_hi, x_lo) = _add(x_hi, x_lo, y_whole, y_lo << 128);
                     }
