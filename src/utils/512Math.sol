@@ -833,13 +833,12 @@ library Lib512Arithmetic {
     /// and
     /// https://ridiculousfish.com/blog/posts/labor-of-division-episode-v.html .
 
-    function _correctQ(uint256 q, uint256 r, uint256 x_next, uint256 y_next, uint256 y_whole) private pure returns (uint256) {
-        uint256 c1 = q * y_next;
-        uint256 c2 = (r << 128) | x_next;
-        if (c1 > c2) {
-            q -= (c1 - c2 > y_whole) ? 2 : 1;
+    function _correctQ(uint256 q, uint256 r, uint256 x_next, uint256 y_next, uint256 y_whole) private pure returns (uint256 q_out) {
+        assembly ("memory-safe") {
+            let c1 := mul(q, y_next)
+            let c2 := or(shl(0x80, r), x_next)
+            q_out := sub(q, shl(gt(sub(c1, c2), y_whole), gt(c1, c2)))
         }
-        return q;
     }
 
     /// The technique implemented in the following function for division is
