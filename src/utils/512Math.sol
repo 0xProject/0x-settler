@@ -887,7 +887,7 @@ library Lib512Arithmetic {
             // y is 4 limbs, x is 4 limbs, q is 1 limb
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
-            // y_hi >= 2**255)
+            // y_hi >= 2**255). This is step D1 of Algorithm D
             // The author's edition of TAOCP (3rd) states to set `d = (2 ** 128
             // - 1) // y_hi`, however this is incorrect. Setting `d` in this
             // fashion may result in overflow in the subsequent `_mul`. Setting
@@ -898,13 +898,28 @@ library Lib512Arithmetic {
             (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
+            // n_approx is the 2 most-significant limbs of x, after normalization
             uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+            // d_approx is the most significant limb of y, after normalization
             uint256 d_approx = y_hi >> 128;
+            // Normalization ensures that result of this division is an
+            // approximation of the most significant (and only) limb of the
+            // quotient and is too high by at most 3. This is the "Calculate
+            // q-hat" (D3) step of Algorithm D. (did you know that U+0302,
+            // COMBINING CIRCUMFLEX ACCENT cannot be combined with q? shameful)
             q = n_approx.unsafeDiv(d_approx);
             uint256 r_hat = n_approx.unsafeMod(d_approx);
 
+            // The process of _correctQ subtracts up to 2 from q, to make it
+            // more accurate. This is still part of the "Calculate q-hat" (D3)
+            // step of Algorithm D.
             q = _correctQ(q, r_hat, x_hi & type(uint128).max, y_hi & type(uint128).max, y_hi);
 
+            // This final, low-probability, computationally-expensive correction
+            // subtracts 1 from q to make it exactly the most-significant limb
+            // of the quotient. This is the "Multiply and subtract" (D3), "Test
+            // remainder" (D4), and "Add back" (D5) steps of Algorithm D, with
+            // substantial shortcutting
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
@@ -927,24 +942,33 @@ library Lib512Arithmetic {
             if (x_hi >> 128 != 0) {
                 // x is 4 limbs, q is 2 limbs
 
-                // Finish normalizing
+                // Finish normalizing (step D1)
                 uint256 x_ex;
                 (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+                // As before, q_hat is the uppermost limb of the quotient and
+                // too high by at most 3 (step D3)
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
+                // Subtract up to 2 from q_hat, improving our estimate (step D3)
                 q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_next, y_whole);
                 q = q_hat << 128;
 
                 {
+                    // "Multiply and subtract" (D4) step of Algorithm D
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
                     uint256 tmp_ex = tmp_hi >> 128;
                     tmp_hi = (tmp_hi << 128) | (tmp_lo >> 128);
                     tmp_lo <<= 128;
+
+                    // "Test remainder" (D5) step of Algorithm D
                     bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                    // Finish step D4
                     (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+
+                    // "Add back" (D6) step of Algorithm D
                     if (neg) {
                         // This branch is quite rare, so it's gas-advantageous
                         // to actually branch and usually skip the costly `_add`
@@ -956,6 +980,8 @@ library Lib512Arithmetic {
                 }
                 // x_ex is now zero (implicitly)
 
+                // Run another loop (steps D3 through D6) of Algorithm D to get
+                // the lower limb of the quotient
                 q_hat = x_hi.unsafeDiv(y_hi);
                 r_hat = x_hi.unsafeMod(y_hi);
 
