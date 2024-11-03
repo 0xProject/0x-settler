@@ -919,8 +919,9 @@ library Lib512Arithmetic {
             // See above comment about the error in TAOCP.
             uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
-            // y_whole is the 2 most-significant, nonzero, normalized limbs of y (needed for _correctQ)
+            // y_next is the second-most-significant, nonzero, normalized limb of y
             uint256 y_next = y_lo >> 128;
+            // y_whole is the 2 most-significant, nonzero, normalized limbs of y
             uint256 y_whole = (y_hi << 128) | y_next;
 
             if (x_hi >> 128 != 0) {
