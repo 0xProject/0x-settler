@@ -917,8 +917,8 @@ library Lib512Arithmetic {
 
             // This final, low-probability, computationally-expensive correction
             // subtracts 1 from q to make it exactly the most-significant limb
-            // of the quotient. This is the "Multiply and subtract" (D3), "Test
-            // remainder" (D4), and "Add back" (D5) steps of Algorithm D, with
+            // of the quotient. This is the "Multiply and subtract" (D4), "Test
+            // remainder" (D5), and "Add back" (D6) steps of Algorithm D, with
             // substantial shortcutting
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
@@ -930,7 +930,7 @@ library Lib512Arithmetic {
         } else {
             // y is 3 limbs
 
-            // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷
+            // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
             // See above comment about the error in TAOCP.
             uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
@@ -947,8 +947,8 @@ library Lib512Arithmetic {
                 (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
-                // As before, q_hat is the uppermost limb of the quotient and
-                // too high by at most 3 (step D3)
+                // As before, q_hat is the most significant limb of the quotient
+                // and too high by at most 3 (step D3)
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
@@ -999,14 +999,19 @@ library Lib512Arithmetic {
             } else {
                 // x is 3 limbs, q is 1 limb
 
-                // Finish normalizing
+                // Finish normalizing (step D1)
                 (x_hi, x_lo) = _mul(x_hi, x_lo, d);
 
+                // q is the most significant (and only) limb of the quotient and
+                // too high by at most 3 (step D3)
                 q = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
+                // Subtract up to 2 from q, improving our estimate (step D3)
                 q = _correctQ(q, r_hat, x_lo >> 128, y_next, y_whole);
 
+                // Subtract up to 1 from q to make it exact (steps D4 through
+                // D6)
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
                     bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
