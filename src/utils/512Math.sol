@@ -1028,6 +1028,14 @@ library Lib512Arithmetic {
 
         return r.from(0, q);
     }
+
+    function idivAlt(uint512 r, uint512 y) internal view returns (uint512) {
+        return odivAlt(r, r, y);
+    }
+
+    function irdivAlt(uint512 y, uint512 r) internal view returns (uint512) {
+        return odivAlt(r, y, r);
+    }
 }
 
 using Lib512Arithmetic for uint512 global;
