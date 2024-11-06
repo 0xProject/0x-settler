@@ -112,7 +112,7 @@ library Lib512Accessors {
 using Lib512Accessors for uint512 global;
 
 library Lib512Comparisons {
-    function iszero(uint512 x) internal pure returns (bool r) {
+    function isZero(uint512 x) internal pure returns (bool r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
             r := iszero(or(x_hi, x_lo))
