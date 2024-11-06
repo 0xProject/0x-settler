@@ -50,9 +50,11 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// purely input (only `irsub`, `irmod`, and `irdiv` exist).
 ///
 /// All provided arithmetic operations behave as if they were inside an
-/// `unchecked` block. That is, overflow causes truncation, not a
-/// revert. Division or modulo by zero causes a panic revert with code 18
-/// (identical behavior to "normal" unchecked arithmetic).
+/// `unchecked` block. We assume that because you're reaching for 512-bit math,
+/// you have domain knowledge about the range of values that you will
+/// encounter. Overflow causes truncation, not a revert. Division or modulo by
+/// zero causes a panic revert with code 18 (identical behavior to "normal"
+/// unchecked arithmetic).
 ///
 /// Two additional arithmetic operations are provided, bare `mod` and
 /// `div`. These are provided for use when it is known that the result of the
@@ -88,11 +90,11 @@ library Lib512Accessors {
 
     function from(uint512 r, uint512 x) internal pure returns (uint512 r_out) {
         assembly ("memory-safe") {
-            // Paradoxically, using `mload` and `mstore` here produces more
-            // optimal code because it gives solc the opportunity to
-            // optimize-out the use of memory entirely, in typical usage. As a
-            // happy side effect, it also means that we don't have to deal with
-            // Cancun hardfork compatibility issues
+            // Paradoxically, using `mload` and `mstore` here (instead of
+            // `mcopy`) produces more optimal code because it gives solc the
+            // opportunity to optimize-out the use of memory entirely, in
+            // typical usage. As a happy side effect, it also means that we
+            // don't have to deal with Cancun hardfork compatibility issues
             mstore(r, mload(x))
             mstore(add(0x20, r), mload(add(0x20, x)))
             r_out := r
