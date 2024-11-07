@@ -127,13 +127,21 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) external pure returns (uint512_external memory) {
+    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis)
+        external
+        pure
+        returns (uint512_external memory)
+    {
         uint512 k_out = alloc();
         _k(k_out, x, x_basis, y, y_basis);
         return k_out.toExternal();
     }
 
-    function new_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) external view returns (uint256 r) {
+    function new_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis)
+        external
+        view
+        returns (uint256 r)
+    {
         r = _get_y(x, dx, x_basis, y, y_basis);
     }
 
@@ -222,7 +230,10 @@ contract VelodromeUnitTest is Test {
         return (_a * _b) / 1e18;
     }
 
-    function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals) external view {
+    function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
+        external
+        view
+    {
         x_decimals = uint8(bound(x_decimals, 0, 18));
         y_decimals = uint8(bound(y_decimals, 0, 18));
         uint256 x_basis = 10 ** x_decimals;
@@ -243,11 +254,15 @@ contract VelodromeUnitTest is Test {
         uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + 1;
 
         uint256 velodrome_k_before = velodrome_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
-        uint256 velodrome_k_after = velodrome_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
+        uint256 velodrome_k_after =
+            velodrome_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
         assertGe(velodrome_k_after, velodrome_k_before);
     }
 
-    function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals) external view {
+    function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
+        external
+        view
+    {
         x_decimals = uint8(bound(x_decimals, 0, 18));
         y_decimals = uint8(bound(y_decimals, 0, 18));
         uint256 x_basis = 10 ** x_decimals;
@@ -268,7 +283,8 @@ contract VelodromeUnitTest is Test {
         uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + 1;
 
         uint256 solidly_k_before = solidly_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
-        uint256 solidly_k_after = solidly_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
+        uint256 solidly_k_after =
+            solidly_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
         assertGe(solidly_k_after, solidly_k_before);
     }
 }

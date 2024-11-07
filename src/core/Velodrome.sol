@@ -45,22 +45,13 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
-    function _k_alt(uint512 r, uint256 x, uint256 xbasis_squared, uint256 y, uint256 ybasis_squared)
-        private
-        pure
-    {
+    function _k_alt(uint512 r, uint256 x, uint256 xbasis_squared, uint256 y, uint256 ybasis_squared) private pure {
         unchecked {
             r.omul(x * x, ybasis_squared).iadd(tmp().omul(y * y, xbasis_squared)).imul(x * y);
         }
     }
 
-    function _k(
-        uint512 r,
-        uint256 x,
-        uint512 x_ybasis_squared,
-        uint256 y,
-        uint512 y_xbasis_squared
-    ) private pure {
+    function _k(uint512 r, uint256 x, uint512 x_ybasis_squared, uint256 y, uint512 y_xbasis_squared) private pure {
         unchecked {
             r.oadd(x_ybasis_squared, y_xbasis_squared).imul(x * y);
         }
@@ -72,10 +63,7 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
-    function _d(uint512 r, uint256 x, uint512 x_ybasis_squared, uint512 y_xbasis_squared)
-        private
-        pure
-    {
+    function _d(uint512 r, uint256 x, uint512 x_ybasis_squared, uint512 y_xbasis_squared) private pure {
         unchecked {
             r.oadd(x_ybasis_squared, tmp().omul(y_xbasis_squared, 3)).imul(x);
         }
