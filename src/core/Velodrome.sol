@@ -34,11 +34,11 @@ abstract contract Velodrome is SettlerAbstract {
     // This is the basis used for token balances.
     uint256 internal constant _VELODROME_TOKEN_BASIS = 1 ether;
 
-    // The maximum balance in the AMM's implementation of `k` is `b` such that
-    // `b * b / 1 ether * b / 1 ether * b * 2` does not overflow. This that
-    // quantity, `b`.
+    // The maximum balance in the AMM's implementation of `k` is `b` such that `b * b / 1 ether * b
+    // / 1 ether * b * 2` does not overflow. This that quantity, `b`.
     uint256 internal constant _VELODROME_MAX_BALANCE = 15511800964685064948225197537;
 
+    // k = x³y+y³x
     function _k(uint512 r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
         unchecked {
             r.omul(x * x, y_basis * y_basis).iadd(tmp().omul(y * y, x_basis * x_basis)).imul(x * y);
@@ -63,6 +63,7 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
+    // d = ∂k/∂y = 3*x*y² + x³
     function _d(uint512 r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
         unchecked {
             r.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
@@ -76,13 +77,16 @@ abstract contract Velodrome is SettlerAbstract {
     }
 
     function nrStep(
+        // output parameters
         uint512 k_new,
         uint512 d,
+        // input parameters
         uint512 k_orig,
         uint256 x,
         uint512 x_ybasis_squared,
         uint256 xbasis_squared,
         uint256 y,
+        // scratch space
         uint512 y_xbasis_squared
     ) private view returns (uint256 new_y) {
         unchecked {
@@ -99,8 +103,8 @@ abstract contract Velodrome is SettlerAbstract {
 
     error NotConverged();
 
-    // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
-    // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
+    // Using Newton-Raphson iterations, compute the smallest `new_y` such that `k(x + dx, new_y) >=
+    // k(x, y)`. As a function of `new_y`, we find the root of `k(x + dx, new_y) - k(x, y)`.
     function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis)
         internal
         view
@@ -108,18 +112,19 @@ abstract contract Velodrome is SettlerAbstract {
     {
         unchecked {
             // Because uint512's live in memory, we preallocate them here to avoid allocating in the loop
-            uint512 k_orig = alloc();
-            uint512 x_ybasis_squared = alloc();
-            uint512 y_xbasis_squared = alloc();
-            uint512 d = alloc();
+            uint512 k_orig = alloc(); // the target value for `k` after swapping
+            uint512 k_new = alloc(); // the current value of `k`, for this iteration
+            uint512 x_ybasis_squared = alloc(); // x² * y_basis²; cached
+            uint512 y_xbasis_squared = alloc(); // y² * x_basis²; updated on each loop
+            uint512 d = alloc(); // ∂k/∂y = 3*x*y² + x³
             uint256 xbasis_squared;
             {
                 xbasis_squared = x_basis * x_basis;
                 uint256 ybasis_squared = y_basis * y_basis;
                 _k_alt(k_orig, x, xbasis_squared, y, ybasis_squared);
 
-                // Now that we have `k` computed, we offset `x` to account for the sell amount and use
-                // the constant-product formula to compute an initial estimate for `y`.
+                // Now that we have `k` computed, we offset `x` to account for the sell amount and
+                // use the constant-product formula to compute an initial estimate for `y`.
                 x += dx;
                 y -= (dx * y).unsafeDiv(x);
 
@@ -129,7 +134,6 @@ abstract contract Velodrome is SettlerAbstract {
 
             uint256 max = _VELODROME_MAX_BALANCE * y_basis / _VELODROME_TOKEN_BASIS;
 
-            uint512 k_new = alloc();
             for (uint256 i; i < 255; i++) {
                 uint256 new_y = nrStep(k_new, d, k_orig, x, x_ybasis_squared, xbasis_squared, y, y_xbasis_squared);
                 if (new_y == y) {
@@ -208,8 +212,8 @@ abstract contract Velodrome is SettlerAbstract {
             // Solve the constant function numerically to get `buyAmount` from `sellAmount`
             buyAmount = buyReserve - _get_y(sellReserve, sellAmount, sellBasis, buyReserve, buyBasis);
         }
-        // Correct for the fact that the implementation in the pool is inexact
-        // and sometimes requires a smaller buy amount to be satisfied.
+        // Correct for the fact that the implementation in the pool is inexact and sometimes
+        // requires a smaller buy amount to be satisfied.
         buyAmount--;
 
         if (buyAmount < minAmountOut) {
