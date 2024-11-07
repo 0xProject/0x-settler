@@ -634,12 +634,10 @@ library Lib512Arithmetic {
 
         // tmp = d * inv_lo % 2**512
         (uint256 tmp_hi, uint256 tmp_lo) = _mul(d, inv_lo);
+        // tmp = 2 - tmp % 2**512
+        (tmp_hi, tmp_lo) = _sub(0, 2, tmp_hi, tmp_lo);
 
         assembly ("memory-safe") {
-            // tmp = 2 - tmp % 2**512
-            tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
-            tmp_lo := sub(0x02, tmp_lo)
-
             // inv_hi = inv_lo * tmp / 2**256 % 2**256
             let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
@@ -655,12 +653,10 @@ library Lib512Arithmetic {
 
         // tmp = d * inv_lo % 2**512
         (uint256 tmp_hi, uint256 tmp_lo) = _mul(d_hi, d_lo, inv_lo);
+        // tmp = 2 - tmp % 2**512
+        (tmp_hi, tmp_lo) = _sub(0, 2, tmp_hi, tmp_lo);
 
         assembly ("memory-safe") {
-            // tmp = 2 - tmp % 2**512
-            tmp_hi := sub(sub(0x00, tmp_hi), gt(tmp_lo, 0x02))
-            tmp_lo := sub(0x02, tmp_lo)
-
             // inv_hi = inv_lo * tmp / 2**256 % 2**256
             let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
