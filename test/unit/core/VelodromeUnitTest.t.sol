@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {Velodrome} from "src/core/Velodrome.sol";
-import {uint512} from "src/utils/512Math.sol";
+import {uint512, uint512_external, alloc} from "src/utils/512Math.sol";
 
 import {Test} from "@forge-std/Test.sol";
 
@@ -127,8 +127,10 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) external pure returns (uint512 memory k_out) {
+    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) external pure returns (uint512_external memory) {
+        uint512 k_out = alloc();
         _k(k_out, x, x_basis, y, y_basis);
+        return k_out.toExternal();
     }
 
     function new_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) external view returns (uint256 r) {
@@ -203,9 +205,9 @@ contract VelodromeUnitTest is Test {
 
         uint256 new_y = dummy.new_y(x, dx, _VELODROME_BASIS, y, _VELODROME_BASIS);
 
-        uint512 memory k_before = dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS);
-        uint512 memory k_after = dummy.k(x + dx, _VELODROME_BASIS, new_y, _VELODROME_BASIS);
-        uint512 memory k_less = dummy.k(x + dx, _VELODROME_BASIS, new_y - 1, _VELODROME_BASIS);
+        uint512 k_before = dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS).into();
+        uint512 k_after = dummy.k(x + dx, _VELODROME_BASIS, new_y, _VELODROME_BASIS).into();
+        uint512 k_less = dummy.k(x + dx, _VELODROME_BASIS, new_y - 1, _VELODROME_BASIS).into();
         assertTrue(k_after.ge(k_before));
         assertTrue(k_less.lt(k_before));
     }

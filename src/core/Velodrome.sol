@@ -6,7 +6,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
-import {uint512, tmp} from "../utils/512Math.sol";
+import {uint512, tmp, alloc} from "../utils/512Math.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
@@ -39,13 +39,13 @@ abstract contract Velodrome is SettlerAbstract {
     // quantity, `b`.
     uint256 internal constant _VELODROME_MAX_BALANCE = 18446744073709551616000000000;
 
-    function _k(uint512 memory r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
+    function _k(uint512 r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
         unchecked {
             r.omul(x * x, y_basis * y_basis).iadd(tmp().omul(y * y, x_basis * x_basis)).imul(x * y);
         }
     }
 
-    function _k_alt(uint512 memory r, uint256 x, uint256 xbasis_squared, uint256 y, uint256 ybasis_squared)
+    function _k_alt(uint512 r, uint256 x, uint256 xbasis_squared, uint256 y, uint256 ybasis_squared)
         private
         pure
     {
@@ -55,24 +55,24 @@ abstract contract Velodrome is SettlerAbstract {
     }
 
     function _k(
-        uint512 memory r,
+        uint512 r,
         uint256 x,
-        uint512 memory x_ybasis_squared,
+        uint512 x_ybasis_squared,
         uint256 y,
-        uint512 memory y_xbasis_squared
+        uint512 y_xbasis_squared
     ) private pure {
         unchecked {
             r.oadd(x_ybasis_squared, y_xbasis_squared).imul(x * y);
         }
     }
 
-    function _d(uint512 memory r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
+    function _d(uint512 r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
         unchecked {
             r.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
         }
     }
 
-    function _d(uint512 memory r, uint256 x, uint512 memory x_ybasis_squared, uint512 memory y_xbasis_squared)
+    function _d(uint512 r, uint256 x, uint512 x_ybasis_squared, uint512 y_xbasis_squared)
         private
         pure
     {
@@ -82,14 +82,14 @@ abstract contract Velodrome is SettlerAbstract {
     }
 
     function nrStep(
-        uint512 memory k_new,
-        uint512 memory d,
-        uint512 memory k_orig,
+        uint512 k_new,
+        uint512 d,
+        uint512 k_orig,
         uint256 x,
-        uint512 memory x_ybasis_squared,
+        uint512 x_ybasis_squared,
         uint256 xbasis_squared,
         uint256 y,
-        uint512 memory y_xbasis_squared
+        uint512 y_xbasis_squared
     ) private view returns (uint256 new_y) {
         unchecked {
             y_xbasis_squared.omul(y * y, xbasis_squared);
@@ -114,10 +114,10 @@ abstract contract Velodrome is SettlerAbstract {
     {
         unchecked {
             // Because uint512's live in memory, we preallocate them here to avoid allocating in the loop
-            uint512 memory k_orig;
-            uint512 memory x_ybasis_squared;
-            uint512 memory y_xbasis_squared;
-            uint512 memory d;
+            uint512 k_orig = alloc();
+            uint512 x_ybasis_squared = alloc();
+            uint512 y_xbasis_squared = alloc();
+            uint512 d = alloc();
             uint256 xbasis_squared;
             {
                 xbasis_squared = x_basis * x_basis;
@@ -135,7 +135,7 @@ abstract contract Velodrome is SettlerAbstract {
 
             uint256 max = _VELODROME_MAX_BALANCE * y_basis / _VELODROME_TOKEN_BASIS;
 
-            uint512 memory k_new;
+            uint512 k_new = alloc();
             for (uint256 i; i < 255; i++) {
                 uint256 new_y = nrStep(k_new, d, k_orig, x, x_ybasis_squared, xbasis_squared, y, y_xbasis_squared);
                 if (new_y == y) {
