@@ -45,13 +45,22 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
-    function _k_alt(uint512 memory r, uint256 x, uint256 xbasis_squared, uint256 y, uint256 ybasis_squared) private pure {
+    function _k_alt(uint512 memory r, uint256 x, uint256 xbasis_squared, uint256 y, uint256 ybasis_squared)
+        private
+        pure
+    {
         unchecked {
             r.omul(x * x, ybasis_squared).iadd(tmp().omul(y * y, xbasis_squared)).imul(x * y);
         }
     }
 
-    function _k(uint512 memory r, uint256 x, uint512 memory x_ybasis_squared, uint256 y, uint512 memory y_xbasis_squared) private pure {
+    function _k(
+        uint512 memory r,
+        uint256 x,
+        uint512 memory x_ybasis_squared,
+        uint256 y,
+        uint512 memory y_xbasis_squared
+    ) private pure {
         unchecked {
             r.oadd(x_ybasis_squared, y_xbasis_squared).imul(x * y);
         }
@@ -63,13 +72,25 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
-    function _d(uint512 memory r, uint256 x, uint512 memory x_ybasis_squared, uint512 memory y_xbasis_squared) private pure {
+    function _d(uint512 memory r, uint256 x, uint512 memory x_ybasis_squared, uint512 memory y_xbasis_squared)
+        private
+        pure
+    {
         unchecked {
             r.oadd(x_ybasis_squared, tmp().omul(y_xbasis_squared, 3)).imul(x);
         }
     }
 
-    function nrStep(uint512 memory k_new, uint512 memory d, uint512 memory k_orig, uint256 x, uint512 memory x_ybasis_squared, uint256 xbasis_squared, uint256 y, uint512 memory y_xbasis_squared) private view returns (uint256 new_y) {
+    function nrStep(
+        uint512 memory k_new,
+        uint512 memory d,
+        uint512 memory k_orig,
+        uint256 x,
+        uint512 memory x_ybasis_squared,
+        uint256 xbasis_squared,
+        uint256 y,
+        uint512 memory y_xbasis_squared
+    ) private view returns (uint256 new_y) {
         unchecked {
             y_xbasis_squared.omul(y * y, xbasis_squared);
             _k(k_new, x, x_ybasis_squared, y, y_xbasis_squared);
@@ -86,7 +107,11 @@ abstract contract Velodrome is SettlerAbstract {
 
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
     // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
-    function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) internal view returns (uint256) {
+    function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis)
+        internal
+        view
+        returns (uint256)
+    {
         unchecked {
             // Because uint512's live in memory, we preallocate them here to avoid allocating in the loop
             uint512 memory k_orig;
