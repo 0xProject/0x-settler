@@ -46,8 +46,8 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// arguments are the input. For each `i*` operation (mnemonic: in-place), the
 /// first argument is both input and output and the remaining arguments are
 /// purely input. For each `ir*` operation (mnemonic: in-place reverse), the
-/// last argument is both input and output and the remaining arguments are
-/// purely input (only `irsub`, `irmod`, and `irdiv` exist).
+/// last argument is both input and output and the other arguments are purely
+/// input (only `irsub`, `irmod`, `irdiv`, and `irdivAlt` exist).
 ///
 /// All provided arithmetic operations behave as if they were inside an
 /// `unchecked` block. We assume that because you're reaching for 512-bit math,
@@ -494,7 +494,7 @@ library Lib512Arithmetic {
             // MODEXP (5) precompile with an exponent of 1. We encode the
             // arguments to the precompile at the beginning of free memory
             // without allocating. Conveniently, r already points to this
-            // region. Arguments are encoded as. Arguments are encoded as:
+            // region. Arguments are encoded as:
             //     [64 32 64 x_hi x_lo 1 d_hi d_lo]
             mstore(r, 0x40)
             mstore(add(0x20, r), 0x20)
@@ -865,10 +865,10 @@ library Lib512Arithmetic {
         // words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
 
-        // We treat [x_hi x_lo] and [y_hi y_lo] each as a ≤4-limb bigint where
-        // each limb is half a machine word (128 bits). This lets us perform
-        // 2-limb ÷ 1-limb divisions as a single operation (`div`) as required
-        // by Algorithm D.
+        // We treat x and x each as ≤4-limb bigints where each limb is half a
+        // machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
+        // divisions as a single operation (`div`) as required by Algorithm
+        // D. It also simplifies/optimizes some of the multiplications.
 
         uint256 q;
         if (y_hi >> 128 != 0) {
@@ -876,8 +876,8 @@ library Lib512Arithmetic {
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
             // y_hi >= 2**255). This is step D1 of Algorithm D
-            // The author's edition of TAOCP (3rd) states to set `d = (2 ** 128
-            // - 1) // y_hi`, however this is incorrect. Setting `d` in this
+            // The author's copy of TAOCP (3rd edition) states to set `d = (2 **
+            // 128 - 1) // y_hi`, however this is incorrect. Setting `d` in this
             // fashion may result in overflow in the subsequent `_mul`. Setting
             // `d` as implemented below still satisfies the postcondition (`y_hi
             // >> 128 >= 1 << 127`) but never results in overflow.
@@ -904,10 +904,10 @@ library Lib512Arithmetic {
             q = _correctQ(q, r_hat, x_hi & type(uint128).max, y_hi & type(uint128).max, y_hi);
 
             // This final, low-probability, computationally-expensive correction
-            // subtracts 1 from q to make it exactly the most-significant limb
-            // of the quotient. This is the "Multiply and subtract" (D4), "Test
-            // remainder" (D5), and "Add back" (D6) steps of Algorithm D, with
-            // substantial shortcutting
+            // conditionally subtracts 1 from q to make it exactly the
+            // most-significant limb of the quotient. This is the "Multiply and
+            // subtract" (D4), "Test remainder" (D5), and "Add back" (D6) steps
+            // of Algorithm D, with substantial shortcutting
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
