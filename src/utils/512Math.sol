@@ -71,7 +71,7 @@ function alloc() pure returns (uint512 r) {
 
 function tmp() pure returns (uint512 r) {}
 
-library Lib512Accessors {
+library Lib512MathAccessors {
     function from(uint512 r, uint256 x) internal pure returns (uint512 r_out) {
         assembly ("memory-safe") {
             mstore(r, 0x00)
@@ -109,9 +109,9 @@ library Lib512Accessors {
     }
 }
 
-using Lib512Accessors for uint512 global;
+using Lib512MathAccessors for uint512 global;
 
-library Lib512Comparisons {
+library Lib512MathComparisons {
     function isZero(uint512 x) internal pure returns (bool r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
@@ -189,7 +189,7 @@ library Lib512Comparisons {
     }
 }
 
-using Lib512Comparisons for uint512 global;
+using Lib512MathComparisons for uint512 global;
 
 function __eq(uint512 x, uint512 y) pure returns (bool) {
     return x.eq(y);
@@ -217,7 +217,7 @@ function __le(uint512 x, uint512 y) pure returns (bool) {
 
 using {__eq as ==, __gt as >, __lt as <, __ne as !=, __ge as >=, __le as <=} for uint512 global;
 
-library Lib512Arithmetic {
+library Lib512MathArithmetic {
     using UnsafeMath for uint256;
 
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
@@ -1024,7 +1024,7 @@ library Lib512Arithmetic {
     }
 }
 
-using Lib512Arithmetic for uint512 global;
+using Lib512MathArithmetic for uint512 global;
 
 library Lib512MathUserDefinedHelpers {
     function checkNull(uint512 x, uint512 y) internal pure {
