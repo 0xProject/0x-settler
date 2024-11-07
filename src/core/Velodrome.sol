@@ -46,17 +46,37 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
         }
     }
 
+    function _k_alt(uint512 memory r, uint256 x, uint256 xbasis_squared, uint256 y, uint256 ybasis_squared) private pure {
+        unchecked {
+            r.omul(x * x, ybasis_squared).iadd(tmp().omul(y * y, xbasis_squared)).imul(x * y);
+        }
+    }
+
+    function _k(uint512 memory r, uint256 x, uint512 memory x_ybasis_squared, uint256 y, uint512 memory y_xbasis_squared) private pure {
+        unchecked {
+            r.oadd(x_ybasis_squared, y_xbasis_squared).imul(x * y);
+        }
+    }
+
     function _d(uint512 memory r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
         unchecked {
             r.omul(x * x, y_basis * y_basis).iadd(tmp().omul(3 * y * y, x_basis * x_basis)).imul(x);
         }
     }
 
-    function nrStep(uint512 memory k_new, uint512 memory k_orig, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) private view DANGEROUS_freeMemory returns (uint256 new_y) {
+    function _d(uint512 memory r, uint256 x, uint512 memory x_ybasis_squared, uint512 memory y_xbasis_squared) private pure {
+        unchecked {
+            r.oadd(x_ybasis_squared, tmp().omul(y_xbasis_squared, 3)).imul(x);
+        }
+    }
+
+    function nrStep(uint512 memory k_new, uint512 memory k_orig, uint256 x, uint512 memory x_ybasis_squared, uint256 xbasis_squared, uint256 y) private view DANGEROUS_freeMemory returns (uint256 new_y) {
         unchecked {
             uint512 memory d;
-            _k(k_new, x, x_basis, y, y_basis);
-            _d(d, x, x_basis, y, y_basis);
+            uint512 memory y_xbasis_squared;
+            y_xbasis_squared.omul(y * y, xbasis_squared);
+            _k(k_new, x, x_ybasis_squared, y, y_xbasis_squared);
+            _d(d, x, x_ybasis_squared, y_xbasis_squared);
             if (k_new.lt(k_orig)) {
                 new_y = y + tmp().osub(k_orig, k_new).div(d);
             } else {
@@ -72,18 +92,28 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
     function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) internal view returns (uint256) {
         unchecked {
             uint512 memory k_orig;
-            _k(k_orig, x, x_basis, y, y_basis);
-            uint512 memory k_new;
+            uint512 memory x_ybasis_squared;
+            uint256 xbasis_squared;
+            {
+                xbasis_squared = x_basis * x_basis;
+                uint256 ybasis_squared = y_basis * y_basis;
+                _k_alt(k_orig, x, xbasis_squared, y, ybasis_squared);
+
+
+                // Now that we have `k` computed, we offset `x` to account for the sell amount and use
+                // the constant-product formula to compute an initial estimate for `y`.
+                x += dx;
+                y -= (dx * y).unsafeDiv(x);
+
+                // This value remains constant throughout the iterations, so we precompute
+                x_ybasis_squared.omul(x * x, ybasis_squared);
+            }
 
             uint256 max = _VELODROME_MAX_BALANCE * y_basis / _VELODROME_TOKEN_BASIS;
 
-            // Now that we have `k` computed, we offset `x` to account for the sell amount and use
-            // the constant-product formula to compute an initial estimate for `y`.
-            x += dx;
-            y -= (dx * y).unsafeDiv(x);
-
+            uint512 memory k_new;
             for (uint256 i; i < 255; i++) {
-                uint256 new_y = nrStep(k_new, k_orig, x, x_basis, y, y_basis);
+                uint256 new_y = nrStep(k_new, k_orig, x, x_ybasis_squared, xbasis_squared, y);
                 if (new_y == y) {
                     if (k_new.ge(k_orig)) {
                         return new_y;
