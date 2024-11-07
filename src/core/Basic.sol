@@ -44,7 +44,7 @@ abstract contract Basic is SettlerAbstract {
             // TODO: check for zero `bps`
             if (offset != 0) revert InvalidOffset();
         } else {
-            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, BASIS);
+            uint256 amount = sellToken.fastBalanceOf(address(this)).mulDiv(bps, BASIS);
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }

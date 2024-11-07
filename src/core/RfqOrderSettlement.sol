@@ -76,7 +76,9 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
+        if (!_hasMetaTxn()) {
+            assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
+        }
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
             _permitToTransferDetails(makerPermit, recipient);
         // In theory, the taker permit could invoke the balance-proportional sell amount logic. However,
@@ -126,7 +128,9 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         IERC20 takerToken,
         uint256 maxTakerAmount
     ) internal {
-        assert(permit.permitted.amount <= type(uint256).max - BASIS);
+        if (!_hasMetaTxn()) {
+            assert(permit.permitted.amount <= type(uint256).max - BASIS);
+        }
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered
         // slippage.
@@ -152,7 +156,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
 
         // Now we adjust the transfer amounts to compensate for encountered slippage. Rounding is
         // performed in the maker's favor.
-        uint256 takerAmount = takerToken.balanceOf(address(this));
+        uint256 takerAmount = takerToken.fastBalanceOf(address(this));
         if (takerAmount > maxTakerAmount) {
             takerAmount = maxTakerAmount;
         }

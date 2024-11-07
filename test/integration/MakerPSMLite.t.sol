@@ -124,17 +124,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(
-                ISettlerActions.MAKERPSM,
-                (
-                    FROM,
-                    address(USDC),
-                    10_000,
-                    address(makerPsm()),
-                    makerPsmBuyGem(),
-                    amountOut()
-                )
-            )
+            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut()))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
@@ -164,17 +154,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
-            abi.encodeCall(
-                ISettlerActions.MAKERPSM,
-                (
-                    FROM,
-                    address(USDC),
-                    10_000,
-                    address(makerPsm()),
-                    makerPsmBuyGem(),
-                    amountOut()
-                )
-            )
+            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut()))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});

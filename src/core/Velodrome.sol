@@ -194,13 +194,13 @@ abstract contract Velodrome is SettlerAbstract {
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
                 // a "reasonable" `bps` value could overflow. We don't care to protect against
                 // unreasonable `bps` values because that just means the taker is griefing themself.
-                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
             if (sellAmount != 0) {
                 sellToken.safeTransfer(address(pair), sellAmount);
             }
             if (sellAmount == 0 || sellTokenHasFee) {
-                sellAmount = sellToken.balanceOf(address(pair)) - sellReserve;
+                sellAmount = sellToken.fastBalanceOf(address(pair)) - sellReserve;
             }
 
             // Apply the fee in native units
@@ -209,6 +209,10 @@ abstract contract Velodrome is SettlerAbstract {
             // Solve the constant function numerically to get `buyAmount` from `sellAmount`
             buyAmount = buyReserve - _get_y(sellReserve, sellAmount, sellBasis, buyReserve, buyBasis);
         }
+        // Correct for the fact that the implementation in the pool is inexact
+        // and sometimes requires a smaller buy amount to be satisfied.
+        buyAmount--;
+
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
         }

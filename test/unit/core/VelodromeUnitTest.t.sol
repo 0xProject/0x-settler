@@ -240,7 +240,7 @@ contract VelodromeUnitTest is Test {
         vm.assume(max_dx >= x_basis);
         dx = bound(dx, 1, max_dx);
 
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
+        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + 1;
 
         uint256 velodrome_k_before = velodrome_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
         uint256 velodrome_k_after = velodrome_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
@@ -265,7 +265,7 @@ contract VelodromeUnitTest is Test {
         vm.assume(max_dx >= x_basis);
         dx = bound(dx, 1, max_dx);
 
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
+        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + 1;
 
         uint256 solidly_k_before = solidly_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
         uint256 solidly_k_after = solidly_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);

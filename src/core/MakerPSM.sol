@@ -21,12 +21,14 @@ interface IPSM {
     /// @dev Sell USDC for DAI
     /// @param usr The address of the account trading USDC for DAI.
     /// @param gemAmt The amount of USDC to sell in USDC base units
-    function sellGem(address usr, uint256 gemAmt) external;
+    /// @return daiOutWad The amount of Dai bought.
+    function sellGem(address usr, uint256 gemAmt) external returns (uint256 daiOutWad);
 
     /// @dev Buy USDC for DAI
     /// @param usr The address of the account trading DAI for USDC
     /// @param gemAmt The amount of USDC to buy in USDC base units
-    function buyGem(address usr, uint256 gemAmt) external;
+    /// @return daiInWad The amount of Dai required to sell.
+    function buyGem(address usr, uint256 gemAmt) external returns (uint256 daiInWad);
 }
 
 // Maker units https://github.com/makerdao/dss/blob/master/DEVELOPING.md
@@ -34,55 +36,48 @@ interface IPSM {
 uint256 constant WAD = 10 ** 18;
 
 IERC20 constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+IPSM constant LitePSM = IPSM(0xf6e72Db5454dd049d0788e411b06CfAF16853042);
 
 abstract contract MakerPSM is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
+    uint256 private immutable USDC_basis;
+
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
+        DAI.safeApprove(address(LitePSM), type(uint256).max);
+        // LitePSM is its own join
+        USDC.safeApprove(address(LitePSM), type(uint256).max);
+        USDC_basis = 10 ** USDC.decimals();
     }
 
-    function sellToMakerPsm(
-        address recipient,
-        IERC20 gemToken,
-        uint256 bps,
-        IPSM psm,
-        bool buyGem,
-        uint256 amountOutMin
-    ) internal {
+    function sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin)
+        internal
+        returns (uint256 buyAmount)
+    {
         if (buyGem) {
             // phantom overflow can't happen here because DAI has decimals = 18
-            uint256 sellAmount = (DAI.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+            uint256 sellAmount = (DAI.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             unchecked {
-                uint256 feeDivisor = psm.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
+                uint256 feeDivisor = LitePSM.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
                 // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
-                uint256 buyAmount = (sellAmount * 10 ** uint256(gemToken.decimals())).unsafeDiv(feeDivisor);
+                buyAmount = (sellAmount * USDC_basis).unsafeDiv(feeDivisor);
                 if (buyAmount < amountOutMin) {
-                    revert TooMuchSlippage(gemToken, amountOutMin, buyAmount);
+                    revert TooMuchSlippage(USDC, amountOutMin, buyAmount);
                 }
 
-                DAI.safeApproveIfBelow(address(psm), sellAmount);
-                psm.buyGem(recipient, buyAmount);
+                // DAI.safeApproveIfBelow(address(LitePSM), sellAmount);
+                LitePSM.buyGem(recipient, buyAmount);
             }
         } else {
             // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
-            uint256 sellAmount = (gemToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
-            gemToken.safeApproveIfBelow(psm.gemJoin(), sellAmount);
-            psm.sellGem(recipient, sellAmount);
-            if (amountOutMin != 0) {
-                uint256 buyAmount;
-                assembly ("memory-safe") {
-                    // `returndatacopy` causes an exceptional revert if there's an out-of-bounds access.
-                    // "LitePSM USDC A" (0xf6e72Db5454dd049d0788e411b06CfAF16853042) returns the amount out
-                    // "MCD PSM USDC A" (0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A) returns nothing
-                    // When interacting with "MCD PSM USDC A", `amountOutMin` must be zero
-                    returndatacopy(0x00, 0x00, 0x20)
-                    buyAmount := mload(0x00)
-                }
-                if (buyAmount < amountOutMin) {
-                    revert TooMuchSlippage(DAI, amountOutMin, buyAmount);
-                }
+            uint256 sellAmount = (USDC.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+            // USDC.safeApproveIfBelow(LitePSM.gemJoin(), sellAmount);
+            buyAmount = LitePSM.sellGem(recipient, sellAmount);
+            if (buyAmount < amountOutMin) {
+                revert TooMuchSlippage(DAI, amountOutMin, buyAmount);
             }
         }
     }
