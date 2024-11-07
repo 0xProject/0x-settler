@@ -700,20 +700,6 @@ library Lib512Arithmetic {
         }
     }
 
-    function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
-        private
-        pure
-        returns (bool r)
-    {
-        assembly ("memory-safe") {
-            r :=
-                or(
-                    or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
-                    and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
-                )
-        }
-    }
-
     function div(uint512 n, uint512 d) internal view returns (uint256) {
         (uint256 d_hi, uint256 d_lo) = d.into();
         if (d_hi == 0) {
@@ -822,6 +808,20 @@ library Lib512Arithmetic {
 
     function irdiv(uint512 y, uint512 r) internal view returns (uint512) {
         return odiv(r, y, r);
+    }
+
+    function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (bool r)
+    {
+        assembly ("memory-safe") {
+            r :=
+                or(
+                    or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
+                    and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
+                )
+        }
     }
 
     /// The technique implemented in the following helper function for Knuth
