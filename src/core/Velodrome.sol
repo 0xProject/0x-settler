@@ -134,14 +134,19 @@ abstract contract Velodrome is SettlerAbstract {
                 uint256 new_y = nrStep(k_new, d, k_orig, x, x_ybasis_squared, xbasis_squared, y, y_xbasis_squared);
                 if (new_y == y) {
                     if (k_new.ge(k_orig)) {
-                        return new_y;
+                        _k(k_new, x, x_ybasis_squared, xbasis_squared, new_y - 1);
+                        if (k_new.lt(k_orig)) {
+                            return new_y;
+                        }
+                        new_y--;
+                    } else {
+                        new_y++;
+                        _k(k_new, x, x_ybasis_squared, xbasis_squared, new_y);
+                        if (k_new.ge(k_orig)) {
+                            return new_y;
+                        }
+                        new_y++;
                     }
-                    new_y++;
-                    _k(k_new, x, x_ybasis_squared, xbasis_squared, new_y);
-                    if (k_new.ge(k_orig)) {
-                        return new_y;
-                    }
-                    new_y++;
                 }
                 if (new_y > max) {
                     y = max;
