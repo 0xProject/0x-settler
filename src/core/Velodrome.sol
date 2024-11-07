@@ -7,7 +7,6 @@ import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
 import {uint512, tmp} from "../utils/512Math.sol";
-import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
@@ -27,7 +26,7 @@ interface IVelodromePair {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
-abstract contract Velodrome is SettlerAbstract, FreeMemory {
+abstract contract Velodrome is SettlerAbstract {
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
@@ -70,10 +69,8 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
         }
     }
 
-    function nrStep(uint512 memory k_new, uint512 memory k_orig, uint256 x, uint512 memory x_ybasis_squared, uint256 xbasis_squared, uint256 y) private view DANGEROUS_freeMemory returns (uint256 new_y) {
+    function nrStep(uint512 memory k_new, uint512 memory d, uint512 memory k_orig, uint256 x, uint512 memory x_ybasis_squared, uint256 xbasis_squared, uint256 y, uint512 memory y_xbasis_squared) private view returns (uint256 new_y) {
         unchecked {
-            uint512 memory d;
-            uint512 memory y_xbasis_squared;
             y_xbasis_squared.omul(y * y, xbasis_squared);
             _k(k_new, x, x_ybasis_squared, y, y_xbasis_squared);
             _d(d, x, x_ybasis_squared, y_xbasis_squared);
@@ -91,14 +88,16 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
     // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
     function _get_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) internal view returns (uint256) {
         unchecked {
+            // Because uint512's live in memory, we preallocate them here to avoid allocating in the loop
             uint512 memory k_orig;
             uint512 memory x_ybasis_squared;
+            uint512 memory y_xbasis_squared;
+            uint512 memory d;
             uint256 xbasis_squared;
             {
                 xbasis_squared = x_basis * x_basis;
                 uint256 ybasis_squared = y_basis * y_basis;
                 _k_alt(k_orig, x, xbasis_squared, y, ybasis_squared);
-
 
                 // Now that we have `k` computed, we offset `x` to account for the sell amount and use
                 // the constant-product formula to compute an initial estimate for `y`.
@@ -113,7 +112,7 @@ abstract contract Velodrome is SettlerAbstract, FreeMemory {
 
             uint512 memory k_new;
             for (uint256 i; i < 255; i++) {
-                uint256 new_y = nrStep(k_new, k_orig, x, x_ybasis_squared, xbasis_squared, y);
+                uint256 new_y = nrStep(k_new, d, k_orig, x, x_ybasis_squared, xbasis_squared, y, y_xbasis_squared);
                 if (new_y == y) {
                     if (k_new.ge(k_orig)) {
                         return new_y;
