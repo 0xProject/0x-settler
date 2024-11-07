@@ -164,6 +164,7 @@ contract VelodromeUnitTest is Test {
     uint256 internal constant _MIN_BALANCE = 100;
     uint256 internal constant _MAX_SWAP_SIZE = 10_000;
     uint256 internal constant _MAX_IMBALANCE = 1_000;
+    uint8 internal constant _MAX_DECIMALS = 27;
 
     function testVelodrome_convergence() external view {
         uint256 x_basis = 1000000000000000000;
@@ -253,8 +254,8 @@ contract VelodromeUnitTest is Test {
         external
         view
     {
-        x_decimals = uint8(bound(x_decimals, 0, 18));
-        y_decimals = uint8(bound(y_decimals, 0, 18));
+        x_decimals = uint8(bound(x_decimals, 0, _MAX_DECIMALS));
+        y_decimals = uint8(bound(y_decimals, 0, _MAX_DECIMALS));
         uint256 x_basis = 10 ** x_decimals;
         uint256 y_basis = 10 ** y_decimals;
 
@@ -295,8 +296,8 @@ contract VelodromeUnitTest is Test {
         external
         view
     {
-        x_decimals = uint8(bound(x_decimals, 0, 18));
-        y_decimals = uint8(bound(y_decimals, 0, 18));
+        x_decimals = uint8(bound(x_decimals, 0, _MAX_DECIMALS));
+        y_decimals = uint8(bound(y_decimals, 0, _MAX_DECIMALS));
         uint256 x_basis = 10 ** x_decimals;
         uint256 y_basis = 10 ** y_decimals;
 
