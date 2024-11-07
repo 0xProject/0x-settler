@@ -35,9 +35,9 @@ abstract contract Velodrome is SettlerAbstract {
     uint256 internal constant _VELODROME_TOKEN_BASIS = 1 ether;
 
     // The maximum balance in the AMM's implementation of `k` is `b` such that
-    // `b * b / 1 ether * b / 1 ether * b` does not overflow. This that
+    // `b * b / 1 ether * b / 1 ether * b * 2` does not overflow. This that
     // quantity, `b`.
-    uint256 internal constant _VELODROME_MAX_BALANCE = 18446744073709551616000000000;
+    uint256 internal constant _VELODROME_MAX_BALANCE = 15511800964685064948225197537;
 
     function _k(uint512 r, uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) internal pure {
         unchecked {

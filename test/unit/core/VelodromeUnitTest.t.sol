@@ -230,6 +230,21 @@ contract VelodromeUnitTest is Test {
         return (_a * _b) / 1e18;
     }
 
+    function testVelodrome_bounds_refVelodrome() external view {
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
+        velodrome_ref_k(_MAX_BALANCE, _MAX_BALANCE);
+    }
+
+    function testFailVelodrome_bounds_refVelodrome() external view {
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE() + 1;
+        velodrome_ref_k(_MAX_BALANCE, _MAX_BALANCE);
+    }
+
+    function testVelodrome_bounds_refSolidly() external view {
+        uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
+        solidly_ref_k(_MAX_BALANCE, _MAX_BALANCE);
+    }
+
     function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
         external
         view
