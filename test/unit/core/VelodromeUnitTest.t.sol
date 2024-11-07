@@ -164,12 +164,15 @@ contract VelodromeUnitTest is Test {
     uint256 internal constant _MIN_BALANCE = 100;
     uint256 internal constant _MAX_SWAP_SIZE_REL = 10_000;
     uint256 internal constant _MAX_IMBALANCE = 1_000;
-    uint8 internal constant _MIN_DECIMALS = 6;
+    uint8 internal constant _MIN_DECIMALS = 0;
     uint8 internal constant _MAX_DECIMALS = 18;
     uint256 internal constant _ROUNDING_FUDGE = 1;
 
-    function _fudge(uint256 x_basis, uint256 y_basis) private pure returns (uint256) {
-        return _ROUNDING_FUDGE;
+    function _fudge(uint256 x_basis, uint256 y_basis) private pure returns (uint256 r) {
+        r = y_basis / x_basis / 1_000_000_000;
+        if (r < _ROUNDING_FUDGE) {
+            r = _ROUNDING_FUDGE;
+        }
     }
 
     function testVelodrome_convergence() external view {
@@ -292,8 +295,12 @@ contract VelodromeUnitTest is Test {
             vm.assume(max_dx >= _MIN_BALANCE);
             dx = bound(dx, 1, max_dx);
         }
+        assertLe(x + dx, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
 
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + _fudge(x_basis, y_basis);
+        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
+        assertLe(new_y, _MAX_BALANCE * y_basis / _VELODROME_BASIS);
+        new_y += _fudge(x_basis, y_basis);
+        vm.assume(new_y <= _MAX_BALANCE * y_basis / _VELODROME_BASIS);
 
         uint256 velodrome_k_before = velodrome_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
         uint256 velodrome_k_after =
@@ -337,8 +344,12 @@ contract VelodromeUnitTest is Test {
             vm.assume(max_dx >= _MIN_BALANCE);
             dx = bound(dx, 1, max_dx);
         }
+        assertLe(x + dx, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
 
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + _fudge(x_basis, y_basis);
+        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
+        assertLe(new_y, _MAX_BALANCE * y_basis / _VELODROME_BASIS);
+        new_y += _fudge(x_basis, y_basis);
+        vm.assume(new_y <= _MAX_BALANCE * y_basis / _VELODROME_BASIS);
 
         uint256 solidly_k_before = solidly_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
         uint256 solidly_k_after =
