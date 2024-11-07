@@ -377,7 +377,7 @@ library Lib512Arithmetic {
         assembly ("memory-safe") {
             let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             r_lo := mul(x_lo, y_lo)
-            r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
+            r_hi := add(add(mul(x_hi, y_lo), mul(x_lo, y_hi)), sub(sub(mm, r_lo), lt(mm, r_lo)))
         }
     }
 
@@ -640,7 +640,7 @@ library Lib512Arithmetic {
         assembly ("memory-safe") {
             // inv_hi = inv_lo * tmp / 2**256 % 2**256
             let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
+            inv_hi := add(mul(inv_lo, tmp_hi), sub(sub(mm, inv_lo), lt(mm, inv_lo)))
         }
     }
 
@@ -659,7 +659,7 @@ library Lib512Arithmetic {
         assembly ("memory-safe") {
             // inv_hi = inv_lo * tmp / 2**256 % 2**256
             let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            inv_hi := add(sub(sub(mm, inv_lo), lt(mm, inv_lo)), mul(inv_lo, tmp_hi))
+            inv_hi := add(mul(inv_lo, tmp_hi), sub(sub(mm, inv_lo), lt(mm, inv_lo)))
         }
     }
 
