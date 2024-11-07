@@ -332,21 +332,6 @@ library Lib512Arithmetic {
         return osub(r, y, r);
     }
 
-    function _sub(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
-        private
-        pure
-        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
-    {
-        assembly ("memory-safe") {
-            // TODO: this is very ugly. surely it can be simplified
-            r_lo := sub(x_lo, y_lo)
-            let carry := gt(r_lo, x_lo)
-            r_hi := sub(sub(x_hi, y_hi), carry)
-            carry := or(gt(r_hi, x_hi), and(eq(r_hi, x_hi), carry))
-            r_ex := sub(sub(x_ex, y_ex), carry)
-        }
-    }
-
     //// The technique implemented in the following functions for multiplication is
     //// adapted from Remco Bloemen's work https://2π.com/17/full-mul/ .
     //// The original code was released under the MIT license.
