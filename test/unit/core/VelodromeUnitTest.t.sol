@@ -234,8 +234,8 @@ contract VelodromeUnitTest is Test {
         x = bound(x, 100, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
         y = bound(y, 100, _MAX_BALANCE * y_basis / _VELODROME_BASIS);
         uint256 max_dx = x * 10_000;
-        if (max_dx > _MAX_BALANCE - x) {
-            max_dx = _MAX_BALANCE - x;
+        if (max_dx > _MAX_BALANCE * x_basis / _VELODROME_BASIS - x) {
+            max_dx = _MAX_BALANCE * x_basis / _VELODROME_BASIS - x;
         }
         vm.assume(max_dx >= x_basis);
         dx = bound(dx, 1, max_dx);
@@ -259,8 +259,8 @@ contract VelodromeUnitTest is Test {
         x = bound(x, 100, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
         y = bound(y, 100, _MAX_BALANCE * y_basis / _VELODROME_BASIS);
         uint256 max_dx = x * 10_000;
-        if (max_dx > _MAX_BALANCE - x) {
-            max_dx = _MAX_BALANCE - x;
+        if (max_dx > _MAX_BALANCE * x_basis / _VELODROME_BASIS - x) {
+            max_dx = _MAX_BALANCE * x_basis / _VELODROME_BASIS - x;
         }
         vm.assume(max_dx >= x_basis);
         dx = bound(dx, 1, max_dx);
