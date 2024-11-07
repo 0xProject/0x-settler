@@ -1081,3 +1081,36 @@ function __div(uint512 x, uint512 y) pure returns (uint512 r) {
 }
 
 using {__add as +, __sub as -, __mul as *, __mod as %, __div as / } for uint512 global;
+
+struct uint512_external {
+    uint256 hi;
+    uint256 lo;
+}
+
+library Lib512MathExternal {
+    function from(uint512 r, uint512_external memory x) internal pure returns (uint512) {
+        assembly ("memory-safe") {
+            mstore(r, mload(x))
+            mstore(add(0x20, r), mload(add(0x20, x)))
+        }
+        return r;
+    }
+
+    function into(uint512_external memory x) internal pure returns (uint512 r) {
+        assembly ("memory-safe") {
+            r := x
+        }
+    }
+
+    function toExternal(uint512 x) internal pure returns (uint512_external memory r) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            if iszero(eq(ptr, add(0x40, r))) { revert(0x00, 0x00) }
+            mstore(0x40, r)
+            r := x
+        }
+    }
+}
+
+using Lib512MathExternal for uint512 global;
+using Lib512MathExternal for uint512_external global;
