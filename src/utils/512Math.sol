@@ -1026,7 +1026,7 @@ library Lib512Arithmetic {
 
 using Lib512Arithmetic for uint512 global;
 
-library Lib512UserDefinedHelpers {
+library Lib512MathUserDefinedHelpers {
     function checkNull(uint512 x, uint512 y) internal pure {
         assembly ("memory-safe") {
             if iszero(mul(x, y)) {
@@ -1056,28 +1056,28 @@ library Lib512UserDefinedHelpers {
 }
 
 function __add(uint512 x, uint512 y) pure returns (uint512 r) {
-    Lib512UserDefinedHelpers.checkNull(x, y);
+    Lib512MathUserDefinedHelpers.checkNull(x, y);
     r.oadd(x, y);
 }
 
 function __sub(uint512 x, uint512 y) pure returns (uint512 r) {
-    Lib512UserDefinedHelpers.checkNull(x, y);
+    Lib512MathUserDefinedHelpers.checkNull(x, y);
     r.osub(x, y);
 }
 
 function __mul(uint512 x, uint512 y) pure returns (uint512 r) {
-    Lib512UserDefinedHelpers.checkNull(x, y);
+    Lib512MathUserDefinedHelpers.checkNull(x, y);
     r.omul(x, y);
 }
 
 function __mod(uint512 x, uint512 y) pure returns (uint512 r) {
-    Lib512UserDefinedHelpers.checkNull(x, y);
-    Lib512UserDefinedHelpers.smuggleToPure(Lib512UserDefinedHelpers.omod)(r, x, y);
+    Lib512MathUserDefinedHelpers.checkNull(x, y);
+    Lib512MathUserDefinedHelpers.smuggleToPure(Lib512MathUserDefinedHelpers.omod)(r, x, y);
 }
 
 function __div(uint512 x, uint512 y) pure returns (uint512 r) {
-    Lib512UserDefinedHelpers.checkNull(x, y);
-    Lib512UserDefinedHelpers.smuggleToPure(Lib512UserDefinedHelpers.odiv)(r, x, y);
+    Lib512MathUserDefinedHelpers.checkNull(x, y);
+    Lib512MathUserDefinedHelpers.smuggleToPure(Lib512MathUserDefinedHelpers.odiv)(r, x, y);
 }
 
 using {__add as +, __sub as -, __mul as *, __mod as %, __div as / } for uint512 global;
