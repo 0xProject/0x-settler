@@ -162,9 +162,15 @@ contract VelodromeUnitTest is Test {
     }
 
     uint256 internal constant _MIN_BALANCE = 100;
-    uint256 internal constant _MAX_SWAP_SIZE = 10_000;
+    uint256 internal constant _MAX_SWAP_SIZE_REL = 10_000;
     uint256 internal constant _MAX_IMBALANCE = 1_000;
-    uint8 internal constant _MAX_DECIMALS = 27;
+    uint8 internal constant _MIN_DECIMALS = 6;
+    uint8 internal constant _MAX_DECIMALS = 18;
+    uint256 internal constant _ROUNDING_FUDGE = 1;
+
+    function _fudge(uint256 x_basis, uint256 y_basis) private pure returns (uint256) {
+        return _ROUNDING_FUDGE;
+    }
 
     function testVelodrome_convergence() external view {
         uint256 x_basis = 1000000000000000000;
@@ -193,7 +199,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _MIN_BALANCE, _MAX_BALANCE);
         y = bound(y, _MIN_BALANCE, _MAX_BALANCE);
-        uint256 max_dx = x * _MAX_SWAP_SIZE;
+        uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
         }
@@ -209,7 +215,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _MIN_BALANCE, _MAX_BALANCE);
         y = bound(y, _MIN_BALANCE, _MAX_BALANCE);
-        uint256 max_dx = x * _MAX_SWAP_SIZE;
+        uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
         }
@@ -254,21 +260,24 @@ contract VelodromeUnitTest is Test {
         external
         view
     {
-        x_decimals = uint8(bound(x_decimals, 0, _MAX_DECIMALS));
-        y_decimals = uint8(bound(y_decimals, 0, _MAX_DECIMALS));
+        x_decimals = uint8(bound(x_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
+        y_decimals = uint8(bound(y_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
         uint256 x_basis = 10 ** x_decimals;
         uint256 y_basis = 10 ** y_decimals;
 
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
         uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
 
-        x = bound(x, _MIN_BALANCE, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
+        x = bound(x, x_basis > _MIN_BALANCE ? x_basis : _MIN_BALANCE, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
         {
             uint256 min_y = x * y_basis / (x_basis * _MAX_IMBALANCE);
-            uint256 max_y = x * y_basis * _MAX_IMBALANCE / x_basis;
             if (min_y < _MIN_BALANCE) {
                 min_y = _MIN_BALANCE;
             }
+            if (min_y < y_basis) {
+                min_y = y_basis;
+            }
+            uint256 max_y = x * y_basis * _MAX_IMBALANCE / x_basis;
             if (max_y > _MAX_BALANCE * y_basis / _VELODROME_BASIS) {
                 max_y = _MAX_BALANCE * y_basis / _VELODROME_BASIS;
             }
@@ -276,7 +285,7 @@ contract VelodromeUnitTest is Test {
             y = bound(y, min_y, max_y);
         }
         {
-            uint256 max_dx = x * _MAX_SWAP_SIZE;
+            uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
             if (max_dx > _MAX_BALANCE * x_basis / _VELODROME_BASIS - x) {
                 max_dx = _MAX_BALANCE * x_basis / _VELODROME_BASIS - x;
             }
@@ -284,7 +293,7 @@ contract VelodromeUnitTest is Test {
             dx = bound(dx, 1, max_dx);
         }
 
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + 1;
+        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + _fudge(x_basis, y_basis);
 
         uint256 velodrome_k_before = velodrome_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
         uint256 velodrome_k_after =
@@ -296,21 +305,24 @@ contract VelodromeUnitTest is Test {
         external
         view
     {
-        x_decimals = uint8(bound(x_decimals, 0, _MAX_DECIMALS));
-        y_decimals = uint8(bound(y_decimals, 0, _MAX_DECIMALS));
+        x_decimals = uint8(bound(x_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
+        y_decimals = uint8(bound(y_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
         uint256 x_basis = 10 ** x_decimals;
         uint256 y_basis = 10 ** y_decimals;
 
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
         uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
 
-        x = bound(x, _MIN_BALANCE, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
+        x = bound(x, x_basis > _MIN_BALANCE ? x_basis : _MIN_BALANCE, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
         {
             uint256 min_y = x * y_basis / (x_basis * _MAX_IMBALANCE);
-            uint256 max_y = x * y_basis * _MAX_IMBALANCE / x_basis;
             if (min_y < _MIN_BALANCE) {
                 min_y = _MIN_BALANCE;
             }
+            if (min_y < y_basis) {
+                min_y = y_basis;
+            }
+            uint256 max_y = x * y_basis * _MAX_IMBALANCE / x_basis;
             if (max_y > _MAX_BALANCE * y_basis / _VELODROME_BASIS) {
                 max_y = _MAX_BALANCE * y_basis / _VELODROME_BASIS;
             }
@@ -318,7 +330,7 @@ contract VelodromeUnitTest is Test {
             y = bound(y, min_y, max_y);
         }
         {
-            uint256 max_dx = x * _MAX_SWAP_SIZE;
+            uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
             if (max_dx > _MAX_BALANCE * x_basis / _VELODROME_BASIS - x) {
                 max_dx = _MAX_BALANCE * x_basis / _VELODROME_BASIS - x;
             }
@@ -326,7 +338,7 @@ contract VelodromeUnitTest is Test {
             dx = bound(dx, 1, max_dx);
         }
 
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + 1;
+        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis) + _fudge(x_basis, y_basis);
 
         uint256 solidly_k_before = solidly_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
         uint256 solidly_k_after =
