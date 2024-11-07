@@ -287,16 +287,18 @@ library Lib512Arithmetic {
         }
     }
 
-    function osub(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        uint256 r_hi;
-        uint256 r_lo;
+    function _sub(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_lo := sub(x_lo, y)
             // gt(r_lo, x_lo) indicates underflow in the lower subtraction. We can
             // subtract the bool directly from the integer to perform carry
             r_hi := sub(x_hi, gt(r_lo, x_lo))
         }
+    }
+
+    function osub(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _sub(x_hi, x_lo, y);
         return r.from(r_hi, r_lo);
     }
 
@@ -344,12 +346,27 @@ library Lib512Arithmetic {
         }
     }
 
+    function omul(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
+        (uint256 r_hi, uint256 r_lo) = _mul(x, y);
+        return r.from(r_hi, r_lo);
+    }
+
     function _mul(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             let mm := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             r_lo := mul(x_lo, y)
             r_hi := add(mul(x_hi, y), sub(sub(mm, r_lo), lt(mm, r_lo)))
         }
+    }
+
+    function omul(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y);
+        return r.from(r_hi, r_lo);
+    }
+
+    function imul(uint512 r, uint256 y) internal pure returns (uint512) {
+        return omul(r, r, y);
     }
 
     function _mul(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
@@ -362,39 +379,6 @@ library Lib512Arithmetic {
             r_lo := mul(x_lo, y_lo)
             r_hi := add(sub(sub(mm, r_lo), lt(mm, r_lo)), add(mul(x_hi, y_lo), mul(x_lo, y_hi)))
         }
-    }
-
-    /// Multiply 512-bit [x_hi x_lo] by 256-bit [y] giving 768-bit [r_ex r_hi r_lo]
-    function _mul768(uint256 x_hi, uint256 x_lo, uint256 y)
-        private
-        pure
-        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
-    {
-        assembly ("memory-safe") {
-            let mm0 := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            r_lo := mul(x_lo, y)
-            let mm1 := mulmod(x_hi, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            let r_partial := mul(x_hi, y)
-            r_ex := sub(sub(mm1, r_partial), lt(mm1, r_partial))
-
-            r_hi := add(sub(sub(mm0, r_lo), lt(mm0, r_lo)), r_partial)
-            r_ex := add(r_ex, lt(r_hi, r_partial))
-        }
-    }
-
-    function omul(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
-        (uint256 r_hi, uint256 r_lo) = _mul(x, y);
-        return r.from(r_hi, r_lo);
-    }
-
-    function omul(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y);
-        return r.from(r_hi, r_lo);
-    }
-
-    function imul(uint512 r, uint256 y) internal pure returns (uint512) {
-        return omul(r, r, y);
     }
 
     function omul(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
@@ -452,6 +436,27 @@ library Lib512Arithmetic {
 
     function irmod(uint512 y, uint512 r) internal view returns (uint512) {
         return omod(r, y, r);
+    }
+
+    /// Multiply 512-bit [x_hi x_lo] by 256-bit [y] giving 768-bit [r_ex r_hi r_lo]
+    function _mul768(uint256 x_hi, uint256 x_lo, uint256 y)
+        private
+        pure
+        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
+    {
+        assembly ("memory-safe") {
+            let mm0 := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            r_lo := mul(x_lo, y)
+            let mm1 := mulmod(x_hi, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let r_partial := mul(x_hi, y)
+            r_ex := sub(sub(mm1, r_partial), lt(mm1, r_partial))
+
+            r_hi := add(r_partial, sub(sub(mm0, r_lo), lt(mm0, r_lo)))
+            // lt(r_hi, r_partial) indicates overflow in the addition to form
+            // r_hi. We can add the bool directly to the integer to perform
+            // carry
+            r_ex := add(r_ex, lt(r_hi, r_partial))
+        }
     }
 
     //// The technique implemented in the following functions for division is
