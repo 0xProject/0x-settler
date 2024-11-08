@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {TooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 import {uint512, tmp, alloc} from "../utils/512Math.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -100,8 +100,6 @@ abstract contract Velodrome is SettlerAbstract {
             }
         }
     }
-
-    error NotConverged();
 
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `k(x + dx, new_y) >=
     // k(x, y)`. As a function of `new_y`, we find the root of `k(x + dx, new_y) - k(x, y)`.

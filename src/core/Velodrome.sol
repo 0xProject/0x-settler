@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {TooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 //import {Panic} from "../utils/Panic.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -107,8 +107,6 @@ abstract contract Velodrome is SettlerAbstract {
             return y_squared * three_x / _VELODROME_CUBE_STEP_BASIS + x_cubed;
         }
     }
-
-    error NotConverged();
 
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
     // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
