@@ -209,7 +209,9 @@ abstract contract Velodrome is SettlerAbstract {
             // Apply the fee in native units
             sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
 
-            // Clamp the precision in which we work to 1e18
+            // Clamp the precision in which we work to 1e18. This makes sure that we're quantizing
+            // (rounding down) the same as the AMM and it ensures that we don't encounter overflow
+            // in scenarious where the AMM wouldn't.
             if (sellBasis > _VELODROME_TOKEN_BASIS) {
                 uint256 scaleDown = sellBasis.unsafeDiv(_VELODROME_TOKEN_BASIS);
                 sellAmount = sellAmount.unsafeDiv(scaleDown);
@@ -224,7 +226,7 @@ abstract contract Velodrome is SettlerAbstract {
                 buyReserve = buyReserve.unsafeDiv(scaleDown);
 
                 // Solve the constant function numerically to get `buyAmount` from `sellAmount`,
-                // with a precision of `scaleDown`
+                // with a quantum of `scaleDown` in the buy token's native units
                 buyAmount = buyReserve - _get_y(sellReserve, sellAmount, sellBasis, buyReserve, _VELODROME_TOKEN_BASIS);
                 // Correct for the fact that the implementation in the pool is inexact and sometimes
                 // requires a smaller buy amount to be satisfied.
