@@ -127,6 +127,10 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
+    function _div512to256(uint512 n, uint512 d) internal view override returns (uint256) {
+        return n.div(d);
+    }
+
     function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis)
         external
         pure

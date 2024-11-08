@@ -5,11 +5,13 @@ import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
+import {FreeMemory} from "../utils/FreeMemory.sol";
+import {uint512} from "../utils/512Math.sol";
+
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
 import {DodoV1, IDodoV1} from "../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
-import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -33,6 +35,16 @@ import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2 {
     constructor() {
         assert(block.chainid == 534352 || block.chainid == 31337);
+    }
+
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        virtual
+        override(SettlerAbstract, SettlerBase)
+        returns (uint256)
+    {
+        return n.divAlt(d);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
@@ -124,6 +136,15 @@ contract ScrollSettler is Settler, ScrollMixin {
     }
 
     // Solidity inheritance is stupid
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        override(ScrollMixin, SettlerAbstract, SettlerBase)
+        returns (uint256)
+    {
+        return super._div512to256(n, d);
+    }
+
     function _isRestrictedTarget(address target)
         internal
         pure
@@ -175,6 +196,15 @@ contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
     }
 
     // Solidity inheritance is stupid
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        override(ScrollMixin, SettlerAbstract, SettlerBase)
+        returns (uint256)
+    {
+        return super._div512to256(n, d);
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, ScrollMixin)

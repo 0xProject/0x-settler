@@ -5,6 +5,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+import {uint512} from "./utils/512Math.sol";
+
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
@@ -64,6 +66,10 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         } else {
             assert(gitCommit == bytes20(0));
         }
+    }
+
+    function _div512to256(uint512 n, uint512 d) internal view virtual override returns (uint256) {
+        return n.div(d);
     }
 
     struct AllowedSlippage {
