@@ -209,12 +209,37 @@ abstract contract Velodrome is SettlerAbstract {
             // Apply the fee in native units
             sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
 
-            // Solve the constant function numerically to get `buyAmount` from `sellAmount`
-            buyAmount = buyReserve - _get_y(sellReserve, sellAmount, sellBasis, buyReserve, buyBasis);
+            // Clamp the precision in which we work to 1e18
+            if (sellBasis > _VELODROME_TOKEN_BASIS) {
+                uint256 scaleDown = sellBasis.unsafeDiv(_VELODROME_TOKEN_BASIS);
+                sellAmount = sellAmount.unsafeDiv(scaleDown);
+                sellReserve = sellReserve.unsafeDiv(scaleDown);
+                sellBasis = _VELODROME_TOKEN_BASIS;
+            }
+
+            if (buyBasis > _VELODROME_TOKEN_BASIS) {
+                // Internally to the AMM, the quantum is `scaleDown`, so we ensure that our solution
+                // lies exactly on that quantum.
+                uint256 scaleDown = buyBasis.unsafeDiv(_VELODROME_TOKEN_BASIS);
+                buyReserve = buyReserve.unsafeDiv(scaleDown);
+
+                // Solve the constant function numerically to get `buyAmount` from `sellAmount`,
+                // with a precision of `scaleDown`
+                buyAmount = buyReserve - _get_y(sellReserve, sellAmount, sellBasis, buyReserve, _VELODROME_TOKEN_BASIS);
+                // Correct for the fact that the implementation in the pool is inexact and sometimes
+                // requires a smaller buy amount to be satisfied.
+                buyAmount--;
+
+                // Scale the `buyAmount` back up to the buy token's native units
+                buyAmount *= scaleDown;
+            } else {
+                // Solve the constant function numerically to get `buyAmount` from `sellAmount`
+                buyAmount = buyReserve - _get_y(sellReserve, sellAmount, sellBasis, buyReserve, buyBasis);
+                // Correct for the fact that the implementation in the pool is inexact and sometimes
+                // requires a smaller buy amount to be satisfied.
+                buyAmount--;
+            }
         }
-        // Correct for the fact that the implementation in the pool is inexact and sometimes
-        // requires a smaller buy amount to be satisfied.
-        buyAmount--;
 
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
