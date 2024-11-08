@@ -48,18 +48,17 @@ abstract contract Velodrome is SettlerAbstract {
     // quantity by this before multiplying again by the token quantity. Setting this value as small
     // as possible preserves precision. This gives a result in an awkward basis, but we'll correct
     // that with `_VELODROME_CUBE_STEP_BASIS` after the cubing
-    uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 54210109;
+    uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 32233524;
 
     // After squaring a token quantity (in `_VELODROME_TOKEN_BASIS`), we need to multiply again by a
     // token quantity and then divide out the awkward basis to get back to
     // `_VELODROME_TOKEN_BASIS`. This constant is what gets us back to the original token quantity
     // basis. `_VELODROME_TOKEN_BASIS * _VELODROME_TOKEN_BASIS / _VELODROME_SQUARE_STEP_BASIS *
     // _VELODROME_TOKEN_BASIS / _VELODROME_CUBE_STEP_BASIS == _VELODROME_TOKEN_BASIS`
-    uint256 private constant _VELODROME_CUBE_STEP_BASIS = 18446743945857035631490798146;
+    uint256 private constant _VELODROME_CUBE_STEP_BASIS = 31023601390899735319042373399;
 
     // The maximum balance in the AMM's implementation of `k` is `b` such that `b * b / 1 ether * b
     // / 1 ether * b * 2` does not overflow. This that quantity, `b`.
-    // TODO: carry this change through to `_VELODROME_SQUARE_STEP_BASIS` and from there to `_VELODROME_CUBE_STEP_BASIS`
     uint256 internal constant _VELODROME_MAX_BALANCE = 15511800964685064948225197537;
 
     // This is the `k = x^3 * y + y^3 * x` constant function. Unlike the original formulation, the
