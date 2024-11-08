@@ -847,30 +847,12 @@ library Lib512MathArithmetic {
     /// adapted from Donald Knuth, The Art of Computer Programming (TAOCP)
     /// Volume 2, Section 4.3.1, Algorithm D.
 
-    function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
-        (uint256 y_hi, uint256 y_lo) = y.into();
-        if (y_hi == 0) {
-            // This is the only case where we can have a 2-word quotient
-            return odiv(r, x, y_lo);
-        }
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        if (y_lo == 0) {
-            return r.from(0, x_hi.unsafeDiv(y_hi));
-        }
-        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
-            return r.from(0, 0);
-        }
-
-        // At this point, we know that both x and y are fully represented by 2
-        // words. There is no simpler representation for the problem. We must
-        // use Knuth's Algorithm D.
-
+    function _algorithmD(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 q) {
         // We treat x and x each as ≤4-limb bigints where each limb is half a
         // machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
         // divisions as a single operation (`div`) as required by Algorithm
         // D. It also simplifies/optimizes some of the multiplications.
 
-        uint256 q;
         if (y_hi >> 128 != 0) {
             // y is 4 limbs, x is 4 limbs, q is 1 limb
 
@@ -1011,7 +993,26 @@ library Lib512MathArithmetic {
         }
         // All other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently
         // y_hi != 0) and that x ≥ y
+    }
 
+    function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            // This is the only case where we can have a 2-word quotient
+            return odiv(r, x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            return r.from(0, x_hi.unsafeDiv(y_hi));
+        }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return r.from(0, 0);
+        }
+
+        // At this point, we know that both x and y are fully represented by 2
+        // words. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
         return r.from(0, q);
     }
 
@@ -1021,6 +1022,37 @@ library Lib512MathArithmetic {
 
     function irdivAlt(uint512 y, uint512 r) internal view returns (uint512) {
         return odivAlt(r, y, r);
+    }
+
+    function divAlt(uint512 x, uint512 y) internal view returns (uint256) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            return div(x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            return x_hi.unsafeDiv(y_hi);
+        }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return 0;
+        }
+
+        // At this point, we know that both x and y are fully represented by 2
+        // words. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+        return _algorithmD(x_hi, x_lo, y_hi, y_lo);
+    }
+
+    function omodAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+        revert("unimplemented");
+    }
+
+    function imodAlt(uint512 r, uint512 y) internal view returns (uint512) {
+        return omodAlt(r, r, y);
+    }
+
+    function irmodAlt(uint512 y, uint512 r) internal view returns (uint512) {
+        return omodAlt(r, y, r);
     }
 }
 
