@@ -172,14 +172,6 @@ contract VelodromeUnitTest is Test {
     uint8 internal constant _MAX_DECIMALS = 27;
     uint256 internal constant _ROUNDING_FUDGE = 1;
 
-    function _fudge(uint256 basis) private view returns (uint256) {
-        uint256 fudge = basis / dummy.VELODROME_BASIS();
-        if (fudge < _ROUNDING_FUDGE) {
-            fudge = _ROUNDING_FUDGE;
-        }
-        return fudge;
-    }
-
     function testVelodrome_convergence() external view {
         uint256 x_basis = 1000000000000000000;
         uint256 y_basis = 1000000;
@@ -264,10 +256,14 @@ contract VelodromeUnitTest is Test {
         solidly_ref_k(_MAX_BALANCE, _MAX_BALANCE);
     }
 
-    function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
-        external
-        view
-    {
+    function _fuzzRef(
+        uint256 x,
+        uint256 dx,
+        uint8 x_decimals,
+        uint256 y,
+        uint8 y_decimals,
+        function (uint256, uint256) internal pure returns (uint256) ref_k
+    ) internal view {
         x_decimals = uint8(bound(x_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
         y_decimals = uint8(bound(y_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
         uint256 x_basis = 10 ** x_decimals;
@@ -281,7 +277,6 @@ contract VelodromeUnitTest is Test {
         if (x_basis > _VELODROME_BASIS) {
             x = x / (x_basis / _VELODROME_BASIS) * (x_basis / _VELODROME_BASIS);
         }
-        x -= _fudge(x_basis);
         {
             uint256 min_y = x * y_basis / (x_basis * _MAX_IMBALANCE);
             if (min_y < _MIN_BALANCE) {
@@ -311,72 +306,41 @@ contract VelodromeUnitTest is Test {
                 dx = dx / (x_basis / _VELODROME_BASIS) * (x_basis / _VELODROME_BASIS);
             }
         }
-        dx -= _fudge(x_basis);
         assertLe(x + dx, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
 
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
-        assertLe(new_y, _MAX_BALANCE * y_basis / _VELODROME_BASIS);
+        uint256 new_y = dummy.new_y(
+            x_basis > _VELODROME_BASIS ? x / (x_basis / _VELODROME_BASIS) : x,
+            x_basis > _VELODROME_BASIS ? dx / (x_basis / _VELODROME_BASIS) : dx,
+            x_basis > _VELODROME_BASIS ? _VELODROME_BASIS : x_basis,
+            y_basis > _VELODROME_BASIS ? y / (y_basis / _VELODROME_BASIS) : y,
+            y_basis > _VELODROME_BASIS ? _VELODROME_BASIS : y_basis
+        );
+        assertLe(
+            y_basis > _VELODROME_BASIS ? new_y * (y_basis / _VELODROME_BASIS) : new_y,
+            _MAX_BALANCE * y_basis / _VELODROME_BASIS
+        );
+        new_y += _ROUNDING_FUDGE;
         if (y_basis > _VELODROME_BASIS) {
-            new_y = ((new_y - 1) / (y_basis / _VELODROME_BASIS) + 1) * (y_basis / _VELODROME_BASIS);
+            new_y *= y_basis / _VELODROME_BASIS;
         }
-        new_y += _fudge(y_basis);
         vm.assume(new_y <= _MAX_BALANCE * y_basis / _VELODROME_BASIS);
 
-        uint256 velodrome_k_before = velodrome_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
-        uint256 velodrome_k_after =
-            velodrome_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
-        assertGe(velodrome_k_after, velodrome_k_before);
+        uint256 k_before = ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
+        uint256 k_after = ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
+        assertGe(k_after, k_before);
     }
 
-    /*
+    function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
+        external
+        view
+    {
+        _fuzzRef(x, dx, x_decimals, y, y_decimals, velodrome_ref_k);
+    }
+
     function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
         external
         view
     {
-        x_decimals = uint8(bound(x_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
-        y_decimals = uint8(bound(y_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
-        uint256 x_basis = 10 ** x_decimals;
-        uint256 y_basis = 10 ** y_decimals;
-
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
-
-        uint256 min_x = x_basis > _MIN_BALANCE ? x_basis : _MIN_BALANCE;
-        x = bound(x, min_x, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
-        {
-            uint256 min_y = x * y_basis / (x_basis * _MAX_IMBALANCE);
-            if (min_y < _MIN_BALANCE) {
-                min_y = _MIN_BALANCE;
-            }
-            if (min_y < y_basis) {
-                min_y = y_basis;
-            }
-            uint256 max_y = x * y_basis * _MAX_IMBALANCE / x_basis;
-            if (max_y > _MAX_BALANCE * y_basis / _VELODROME_BASIS) {
-                max_y = _MAX_BALANCE * y_basis / _VELODROME_BASIS;
-            }
-            vm.assume(min_y <= max_y);
-            y = bound(y, min_y, max_y);
-        }
-        {
-            uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
-            if (max_dx > _MAX_BALANCE * x_basis / _VELODROME_BASIS - x) {
-                max_dx = _MAX_BALANCE * x_basis / _VELODROME_BASIS - x;
-            }
-            vm.assume(min_x <= max_dx);
-            dx = bound(dx, min_x, max_dx);
-        }
-        assertLe(x + dx, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
-
-        uint256 new_y = dummy.new_y(x, dx, x_basis, y, y_basis);
-        assertLe(new_y, _MAX_BALANCE * y_basis / _VELODROME_BASIS);
-        new_y += _fudge(x_basis, y_basis);
-        vm.assume(new_y <= _MAX_BALANCE * y_basis / _VELODROME_BASIS);
-
-        uint256 solidly_k_before = solidly_ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
-        uint256 solidly_k_after =
-            solidly_ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
-        assertGe(solidly_k_after, solidly_k_before);
+        _fuzzRef(x, dx, x_decimals, y, y_decimals, solidly_ref_k);
     }
-    */
 }
