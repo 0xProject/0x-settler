@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
-import {Velodrome} from "src/core/Velodrome.sol";
+import {Velodrome} from "src/core/VelodromeAlt.sol";
 import {uint512, uint512_external, alloc} from "src/utils/512Math.sol";
 
 import {Test} from "@forge-std/Test.sol";
