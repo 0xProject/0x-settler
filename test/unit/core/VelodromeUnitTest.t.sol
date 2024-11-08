@@ -169,8 +169,9 @@ contract VelodromeUnitTest is Test {
     uint256 internal constant _MAX_SWAP_SIZE_REL = 10_000;
     uint256 internal constant _MAX_IMBALANCE = 1_000;
     uint8 internal constant _MIN_DECIMALS = 0;
-    uint8 internal constant _MAX_DECIMALS = 27;
+    uint8 internal constant _MAX_DECIMALS = 31;
     uint256 internal constant _ROUNDING_FUDGE = 1;
+    uint256 internal constant _MIN_BALANCE_TOKENS_RECIP = 3;
 
     function testVelodrome_convergence() external view {
         uint256 x_basis = 1000000000000000000;
@@ -272,18 +273,16 @@ contract VelodromeUnitTest is Test {
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
         uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
 
-        uint256 min_x = x_basis > _MIN_BALANCE ? x_basis : _MIN_BALANCE;
+        uint256 min_x =
+            x_basis / _MIN_BALANCE_TOKENS_RECIP > _MIN_BALANCE ? x_basis / _MIN_BALANCE_TOKENS_RECIP : _MIN_BALANCE;
         x = bound(x, min_x, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
-        if (x_basis > _VELODROME_BASIS) {
-            x = x / (x_basis / _VELODROME_BASIS) * (x_basis / _VELODROME_BASIS);
-        }
         {
             uint256 min_y = x * y_basis / (x_basis * _MAX_IMBALANCE);
             if (min_y < _MIN_BALANCE) {
                 min_y = _MIN_BALANCE;
             }
-            if (min_y < y_basis) {
-                min_y = y_basis;
+            if (min_y < y_basis / _MIN_BALANCE_TOKENS_RECIP) {
+                min_y = y_basis / _MIN_BALANCE_TOKENS_RECIP;
             }
             uint256 max_y = x * y_basis * _MAX_IMBALANCE / x_basis;
             if (max_y > _MAX_BALANCE * y_basis / _VELODROME_BASIS) {
@@ -291,9 +290,6 @@ contract VelodromeUnitTest is Test {
             }
             vm.assume(min_y <= max_y);
             y = bound(y, min_y, max_y);
-            if (y_basis > _VELODROME_BASIS) {
-                y = y / (y_basis / _VELODROME_BASIS) * (y_basis / _VELODROME_BASIS);
-            }
         }
         {
             uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
@@ -302,9 +298,6 @@ contract VelodromeUnitTest is Test {
             }
             vm.assume(min_x <= max_dx);
             dx = bound(dx, min_x, max_dx);
-            if (x_basis > _VELODROME_BASIS) {
-                dx = dx / (x_basis / _VELODROME_BASIS) * (x_basis / _VELODROME_BASIS);
-            }
         }
         assertLe(x + dx, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
 
