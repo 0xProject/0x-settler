@@ -995,6 +995,196 @@ library Lib512MathArithmetic {
         // y_hi != 0) and that x ≥ y
     }
 
+    // This function is a combination of the techniques that have been
+    // implemented so far in this library. We use a tweak of Knuth's Algorithm D
+    // from before to compute the normalized remainder and then use the 512-bit
+    // ÷ 256-bit division from Remco Bloemen's work to un-normalize.
+
+    function _algorithmDRemainder(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256, uint256) {
+        // We treat x and x each as ≤4-limb bigints where each limb is half a
+        // machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
+        // divisions as a single operation (`div`) as required by Algorithm
+        // D. It also simplifies/optimizes some of the multiplications.
+
+        if (y_hi >> 128 != 0) {
+            // y is 4 limbs, x is 4 limbs, q is 1 limb
+
+            // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
+            // y_hi >= 2**255). This is step D1 of Algorithm D
+            // The author's copy of TAOCP (3rd edition) states to set `d = (2 **
+            // 128 - 1) // y_hi`, however this is incorrect. Setting `d` in this
+            // fashion may result in overflow in the subsequent `_mul`. Setting
+            // `d` as implemented below still satisfies the postcondition (`y_hi
+            // >> 128 >= 1 << 127`) but never results in overflow.
+            uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128).unsafeInc());
+            uint256 x_ex;
+            (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
+            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+
+            // n_approx is the 2 most-significant limbs of x, after normalization
+            uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+            // d_approx is the most significant limb of y, after normalization
+            uint256 d_approx = y_hi >> 128;
+            // Normalization ensures that result of this division is an
+            // approximation of the most significant (and only) limb of the
+            // quotient and is too high by at most 3. This is the "Calculate
+            // q-hat" (D3) step of Algorithm D. (did you know that U+0302,
+            // COMBINING CIRCUMFLEX ACCENT cannot be combined with q? shameful)
+            uint256 q_hat = n_approx.unsafeDiv(d_approx);
+            uint256 r_hat = n_approx.unsafeMod(d_approx);
+
+            // The process of _correctQ subtracts up to 2 from q_hat, to make it
+            // more accurate. This is still part of the "Calculate q-hat" (D3)
+            // step of Algorithm D.
+            q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_hi & type(uint128).max, y_hi);
+
+            {
+                // This penultimate correction subtracts q-hat × y from x to
+                // obtain the normalized remainder. This is the "Multiply and
+                // subtract" (D4) and "Test remainder" (D5) steps of Algorithm
+                // D, with substantial shortcutting
+                (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q_hat);
+                bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+                // x_ex is now implicitly zero (or signals a carry that we will
+                // clear in the next step)
+
+                // Because q_hat may be too high by 1, we have to detect
+                // underflow from the previous step and correct it. This is the
+                // "Add back" (D6) step of Algorithm D
+                if (neg) {
+                    (x_hi, x_lo) = _add(x_hi, x_lo, y_hi, y_lo);
+                }
+            }
+
+            // [x_hi x_lo] now represents remainder × d; we divide by d to
+            // obtain the result. Because d is a single machine word, this
+            // reduces to the case that we already know how to solve
+            // efficiently: make d odd, compute the multiplicative inverse,
+            // multiply through. The round down step is not required because we
+            // constructed [x_hi x_lo] as an exact multiple of d during the
+            // normalization step.
+            (x_hi, x_lo, d) = _toOdd512(x_hi, x_lo, d);
+            (uint256 inv_hi, inv_lo) = _invert512(d);
+            return _mul(x_hi, x_lo, inv_hi, inv_lo);
+        } else {
+            // y is 3 limbs
+
+            // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
+            // See above comment about the error in TAOCP.
+            uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
+            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+            // y_next is the second-most-significant, nonzero, normalized limb of y
+            uint256 y_next = y_lo >> 128;
+            // y_whole is the 2 most-significant, nonzero, normalized limbs of y
+            uint256 y_whole = (y_hi << 128) | y_next;
+
+            if (x_hi >> 128 != 0) {
+                // x is 4 limbs, q is 2 limbs
+
+                // Finish normalizing (step D1)
+                uint256 x_ex;
+                (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
+
+                uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+                // As before, q_hat is the most significant limb of the quotient
+                // and too high by at most 3 (step D3)
+                uint256 q_hat = n_approx.unsafeDiv(y_hi);
+                uint256 r_hat = n_approx.unsafeMod(y_hi);
+
+                // Subtract up to 2 from q_hat, improving our estimate (step D3)
+                q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_next, y_whole);
+
+                // Subtract up to 1 from q-hat to make it exactly the
+                // most-significant limb of the quotient and subtract q-hat × y
+                // from x to clear the most-significant limb of x.
+                {
+                    // "Multiply and subtract" (D4) step of Algorithm D
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
+                    uint256 tmp_ex = tmp_hi >> 128;
+                    tmp_hi = (tmp_hi << 128) | (tmp_lo >> 128);
+                    tmp_lo <<= 128;
+
+                    // "Test remainder" (D5) step of Algorithm D
+                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                    // Finish step D4
+                    (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+
+                    // "Add back" (D6) step of Algorithm D. We implicitly
+                    // subtract 1 from q_hat, but elide that step because q_hat
+                    // is no longer needed.
+                    if (neg) {
+                        // This branch is quite rare, so it's gas-advantageous
+                        // to actually branch and usually skip the costly `_add`
+                        (x_hi, x_lo) = _add(x_hi, x_lo, y_whole, y_lo << 128);
+                    }
+                }
+                // x_ex is now zero (implicitly)
+                // [x_hi x_lo] now represents the partial normalized remainder.
+
+                // Run another loop (steps D3 through D6) of Algorithm D to get
+                // the lower limb of the quotient
+                // Step D3
+                q_hat = x_hi.unsafeDiv(y_hi);
+                r_hat = x_hi.unsafeMod(y_hi);
+
+                // Step D3
+                q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
+
+                // Again, correct q-hat by up to 1 to make it exactly the
+                // least-significant limb of the quotient. Subtract q-hat × y
+                // from x to obtain the normalized remainder.
+                {
+                    // Steps D4 and D5
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
+                    bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
+                    (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+
+                    // Step D6
+                    if (neg) {
+                        (x_hi, x_lo) = _add(x_hi, x_lo, y_hi, y_lo);
+                    }
+                }
+                // The second-most-significant limb of normalized x is now zero
+                // (equivalently x_hi < 2**128), but because the entire machine
+                // is not guaranteed to be cleared, we can't optimize any
+                // further.
+
+                // Like in the previous branch, we apply our existing optimized
+                // technique for 512-bit ÷ 256-bit division to obtain the
+                // un-normalized remainder.
+                (x_hi, x_lo, d) = _toOdd512(x_hi, x_lo, d);
+                (uint256 inv_hi, inv_lo) = _invert512(d);
+                return _mul(x_hi, x_lo, inv_hi, inv_lo);
+            } else {
+                // x is 3 limbs, q is 1 limb
+
+                // Finish normalizing (step D1)
+                (x_hi, x_lo) = _mul(x_hi, x_lo, d);
+
+                // q is the most significant (and only) limb of the quotient and
+                // too high by at most 3 (step D3)
+                q = x_hi.unsafeDiv(y_hi);
+                uint256 r_hat = x_hi.unsafeMod(y_hi);
+
+                // Subtract up to 2 from q, improving our estimate (step D3)
+                q = _correctQ(q, r_hat, x_lo >> 128, y_next, y_whole);
+
+                // Subtract up to 1 from q to make it exact (steps D4 through
+                // D6)
+                {
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
+                    bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
+                    assembly ("memory-safe") {
+                        q := sub(q, neg)
+                    }
+                }
+            }
+        }
+        // All other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently
+        // y_hi != 0) and that x ≥ y
+    }
+
     function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
