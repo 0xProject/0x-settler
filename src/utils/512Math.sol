@@ -871,6 +871,9 @@ library Lib512MathArithmetic {
         return odiv(r, r, y);
     }
 
+    // TODO: all the ir* functions have the wrong semantics. they should still
+    // write the result to the first argument, but they should reverse the
+    // semantics of the order of the input arguments.
     function irdiv(uint512 y, uint512 r) internal view returns (uint512) {
         return odiv(r, y, r);
     }
