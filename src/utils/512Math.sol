@@ -62,7 +62,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// zero still causes a panic revert with code 18 (identical behavior to
 /// "normal" unchecked arithmetic).
 ///
-/// Two additional arithmetic operations are provided, bare `mod` and
+/// Three additional arithmetic operations are provided, bare `sub`, `mod`, and
 /// `div`. These are provided for use when it is known that the result of the
 /// operation will fit into 256 bits. This fact is not checked, but more
 /// efficient algoriths are employed assuming this. The result is a `uint256`.
@@ -381,6 +381,19 @@ library Lib512MathArithmetic {
 
     function irsub(uint512 y, uint512 r) internal pure returns (uint512) {
         return osub(r, y, r);
+    }
+
+    function sub(uint512 x, uint256 y) internal pure returns (uint256 r) {
+        uint256 x_lo;
+        assembly ("memory-safe") {
+            r := sub(mload(add(0x20, x)), y)
+        }
+    }
+
+    function sub(uint512 x, uint512 y) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sub(mload(add(0x20, x)), mload(add(0x20, y)))
+        }
     }
 
     //// The technique implemented in the following functions for multiplication is
