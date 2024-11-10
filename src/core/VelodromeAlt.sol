@@ -111,6 +111,12 @@ abstract contract Velodrome is SettlerAbstract {
         unchecked {
             uint256 y_max = _VELODROME_MAX_BALANCE * y_basis / _VELODROME_TOKEN_BASIS;
 
+            // The values for `x_basis` and `y_basis` don't need to be exactly correct, they only
+            // need to be correct relative to each other. Because we know that they are both powers
+            // of 10 (computed as `10 ** decimals()`), one is a multiple of the other. By dividing
+            // the greater by the lesser, we set at least one of them to 1. This also increases the
+            // chances that we can take the more gas-optimized paths inside the 512-bit division
+            // routine.
             if (x_basis > y_basis) {
                 x_basis /= y_basis;
                 y_basis = 1;
