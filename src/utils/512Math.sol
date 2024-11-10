@@ -1088,19 +1088,19 @@ library Lib512MathArithmetic {
         // We treat x and x each as ≤4-limb bigints where each limb is half a
         // machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
         // divisions as a single operation (`div`) as required by Algorithm
-        // D. It also simplifies/optimizes some of the multiplications.
+        // D.
 
         if (y_hi >> 128 != 0) {
-            // y is 4 limbs, x is 4 limbs, q is 1 limb
+            // y is 4 limbs, x is 4 limbs
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
             // y_hi >= 2**255). This is step D1 of Algorithm D
             // Unlike the preceeding implementation of Algorithm D, we use a
-            // binary shift instead of a full multiplier to normalize. This
-            // performs a costly "count leading zeroes" operation, but it lets
-            // us transform an even-more-costly division-by-inversion operation
-            // later into a simple shift. This still ultimately satisfies the
-            // postcondition (`y_hi >> 128 >= 1 << 127`) without overflowing.
+            // binary shift instead of a multiply to normalize. This performs a
+            // costly "count leading zeroes" operation, but it lets us transform
+            // an even-more-costly division-by-inversion operation later into a
+            // simple shift. This still ultimately satisfies the postcondition
+            // (`y_hi >> 128 >= 1 << 127`) without overflowing.
             uint256 s = _clz(y_hi);
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
@@ -1158,7 +1158,8 @@ library Lib512MathArithmetic {
             uint256 y_whole = (y_hi << 128) | y_next; // TODO: this can probably be optimized (combined with `_shl`)
 
             if (x_hi >> 128 != 0) {
-                // x is 4 limbs, q is 2 limbs
+                // x is 4 limbs; we have to run 2 iterations of Algorithm D to
+                // fully divide out by y
 
                 // Finish normalizing (step D1)
                 uint256 x_ex;
@@ -1228,7 +1229,7 @@ library Lib512MathArithmetic {
                 // is not guaranteed to be cleared, we can't optimize any
                 // further.
             } else {
-                // x is 3 limbs, q is 1 limb
+                // x is 3 limbs
 
                 // Finish normalizing (step D1)
                 (x_hi, x_lo) = _shl(x_hi, x_lo, s);
