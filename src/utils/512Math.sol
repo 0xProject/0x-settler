@@ -1236,7 +1236,7 @@ library Lib512MathArithmetic {
         // y_hi != 0) and that x ≥ y
     }
 
-    function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+    function odivAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
             // This is the only case where we can have a 2-word quotient
@@ -1257,15 +1257,15 @@ library Lib512MathArithmetic {
         return r.from(0, q);
     }
 
-    function idivAlt(uint512 r, uint512 y) internal view returns (uint512) {
+    function idivAlt(uint512 r, uint512 y) internal pure returns (uint512) {
         return odivAlt(r, r, y);
     }
 
-    function irdivAlt(uint512 y, uint512 r) internal view returns (uint512) {
+    function irdivAlt(uint512 y, uint512 r) internal pure returns (uint512) {
         return odivAlt(r, y, r);
     }
 
-    function divAlt(uint512 x, uint512 y) internal view returns (uint256) {
+    function divAlt(uint512 x, uint512 y) internal pure returns (uint256) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
             return div(x, y_lo);
@@ -1284,7 +1284,7 @@ library Lib512MathArithmetic {
         return _algorithmD(x_hi, x_lo, y_hi, y_lo);
     }
 
-    function omodAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+    function omodAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
             uint256 r_lo = mod(x, y_lo);
@@ -1308,11 +1308,11 @@ library Lib512MathArithmetic {
         }
     }
 
-    function imodAlt(uint512 r, uint512 y) internal view returns (uint512) {
+    function imodAlt(uint512 r, uint512 y) internal pure returns (uint512) {
         return omodAlt(r, r, y);
     }
 
-    function irmodAlt(uint512 y, uint512 r) internal view returns (uint512) {
+    function irmodAlt(uint512 y, uint512 r) internal pure returns (uint512) {
         return omodAlt(r, y, r);
     }
 }
