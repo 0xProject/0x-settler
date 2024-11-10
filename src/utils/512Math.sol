@@ -1102,7 +1102,7 @@ library Lib512MathArithmetic {
                 // This penultimate correction subtracts q-hat × y from x to
                 // obtain the normalized remainder. This is the "Multiply and
                 // subtract" (D4) and "Test remainder" (D5) steps of Algorithm
-                // D, with substantial shortcutting
+                // D, with some shortcutting
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q_hat);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
                 (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
@@ -1209,16 +1209,16 @@ library Lib512MathArithmetic {
                 // Finish normalizing (step D1)
                 (x_hi, x_lo) = _shl(x_hi, x_lo, s);
 
-                // q is the most significant (and only) limb of the quotient and
-                // too high by at most 3 (step D3)
+                // q_hat is the most significant (and only) limb of the quotient
+                // and too high by at most 3 (step D3)
                 uint256 q_hat = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                // Subtract up to 2 from q, improving our estimate (step D3)
+                // Subtract up to 2 from q_hat, improving our estimate (step D3)
                 q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
 
-                // Subtract up to 1 from q to make it exact (steps D4 through
-                // D6)
+                // Subtract up to 1 from q_hat to make it exact (steps D4
+                // through D6)
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
                     bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
