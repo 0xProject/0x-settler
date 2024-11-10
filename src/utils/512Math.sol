@@ -22,7 +22,11 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// However, returning `memory` references from internal functions is impossible
 /// to do efficiently, especially when the functions are small and are called
 /// frequently. Therefore, we assume direct control over memory allocation using
-/// the functions `tmp()` and `alloc()` defined below.
+/// the functions `tmp()` and `alloc()` defined below. If you need to pass
+/// 512-bit integers between contracts (generally a bad idea), the struct
+/// `uint512_external` defined at the end of this file is provided for this
+/// purpose and has exactly the definition you'd expect (as well as convenient
+/// conversion functions).
 ///
 /// MAKING A DECLARATION OF THE FOLLOWING FORM WILL CAUSE UNEXPECTED BEHAVIOR:
 ///     uint512 x;
@@ -53,8 +57,8 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// `unchecked` block. We assume that because you're reaching for 512-bit math,
 /// you have domain knowledge about the range of values that you will
 /// encounter. Overflow causes truncation, not a revert. Division or modulo by
-/// zero causes a panic revert with code 18 (identical behavior to "normal"
-/// unchecked arithmetic).
+/// zero still causes a panic revert with code 18 (identical behavior to
+/// "normal" unchecked arithmetic).
 ///
 /// Two additional arithmetic operations are provided, bare `mod` and
 /// `div`. These are provided for use when it is known that the result of the
