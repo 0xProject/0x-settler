@@ -455,6 +455,9 @@ library Lib512MathArithmetic {
     }
 
     function mod(uint512 n, uint256 d) internal pure returns (uint256 r) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
         (uint256 n_hi, uint256 n_lo) = n.into();
         assembly ("memory-safe") {
             r := mulmod(n_hi, sub(0x00, d), d)
