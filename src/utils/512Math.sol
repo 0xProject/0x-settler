@@ -1038,36 +1038,7 @@ library Lib512MathArithmetic {
         // y_hi != 0) and that x ≥ y
     }
 
-    /// @notice Copied from Solady (https://github.com/Vectorized/solady/blob/a3d6a974f9c9f00dcd95b235619a209a63c61d94/src/utils/LibBit.sol#L33-L45)
-    /// @notice The original code was released under the MIT license.
-    /// @dev Count leading zeros.
-    /// Returns the number of zeros preceding the most significant one bit.
-    /// If `x` is zero, returns 256.
-    function _clz(uint256 x) private pure returns (uint256 r) {
-        assembly ("memory-safe") {
-            r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
-            r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
-            r := or(r, shl(5, lt(0xffffffff, shr(r, x))))
-            r := or(r, shl(4, lt(0xffff, shr(r, x))))
-            r := or(r, shl(3, lt(0xff, shr(r, x))))
-            r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff)), iszero(x))
-        }
-    }
-
-    // TODO: golf these functions a little more. I think the hex constants can be shrunk
-    function _clzUpper(uint256 x) private pure returns (uint256 r) {
-        assembly ("memory-safe") {
-            x := shr(0x80, x)
-            r := shl(0x06, lt(0xffffffffffffffff, x))
-            r := or(r, shl(0x05, lt(0xffffffff, shr(r, x))))
-            r := or(r, shl(0x04, lt(0xffff, shr(r, x))))
-            r := or(r, shl(0x03, lt(0xff, shr(r, x))))
-            r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff)), iszero(x))
-        }
-    }
-
+    /// Modified from Solady (https://github.com/Vectorized/solady/blob/a3d6a974f9c9f00dcd95b235619a209a63c61d94/src/utils/LibBit.sol#L33-L45)
     function _clzLower(uint256 x) private pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := shl(0x06, lt(0xffffffffffffffff, x))
@@ -1075,8 +1046,12 @@ library Lib512MathArithmetic {
             r := or(r, shl(0x04, lt(0xffff, shr(r, x))))
             r := or(r, shl(0x03, lt(0xff, shr(r, x))))
             r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff)), iszero(x))
+                0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f)), iszero(x))
         }
+    }
+
+    function _clzUpper(uint256 x) private pure returns (uint256) {
+        return _clzLower(x >> 128);
     }
 
     // This function is a combination of the techniques that have been
@@ -1101,7 +1076,7 @@ library Lib512MathArithmetic {
             // an even-more-costly division-by-inversion operation later into a
             // simple shift. This still ultimately satisfies the postcondition
             // (`y_hi >> 128 >= 1 << 127`) without overflowing.
-            uint256 s = _clz(y_hi);
+            uint256 s = _clzUpper(y_hi);
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
@@ -1150,7 +1125,7 @@ library Lib512MathArithmetic {
 
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
             // See above comment about the use of a shift instead of division.
-            uint256 s = _clz(y_hi) - 128; // TODO: this can probably be optimized
+            uint256 s = _clzLower(y_hi);
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
             // y_next is the second-most-significant, nonzero, normalized limb of y
             uint256 y_next = y_lo >> 128; // TODO: this can probably be optimized (combined with `_shl`)
