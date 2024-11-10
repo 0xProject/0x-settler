@@ -51,7 +51,9 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// first argument is both input and output and the remaining arguments are
 /// purely input. For each `ir*` operation (mnemonic: in-place reverse), the
 /// last argument is both input and output and the other arguments are purely
-/// input (only `irsub`, `irmod`, `irdiv`, and `irdivAlt` exist).
+/// input (only `irsub`, `irmod`, `irdiv`, `irmodAlt`, and `irdivAlt`
+/// exist). Unless otherwise noted, the return value of each function is the
+/// output location. This supports chaining/pipeline/tacit-style programming.
 ///
 /// All provided arithmetic operations behave as if they were inside an
 /// `unchecked` block. We assume that because you're reaching for 512-bit math,
