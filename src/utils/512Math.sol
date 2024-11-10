@@ -1101,15 +1101,15 @@ library Lib512MathArithmetic {
             // us transform an even-more-costly division-by-inversion operation
             // later into a simple shift. This still ultimately satisfies the
             // postcondition (`y_hi >> 128 >= 1 << 127`) without overflowing.
-            uint256 s = _clzUpper(y_hi);
+            uint256 s = _clz(y_hi);
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
 
             // n_approx is the 2 most-significant limbs of x, after normalization
-            uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+            uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl`)
             // d_approx is the most significant limb of y, after normalization
-            uint256 d_approx = y_hi >> 128;
+            uint256 d_approx = y_hi >> 128; // TODO: this can probably be optimized (combined with `_shl`)
             // Normalization ensures that result of this division is an
             // approximation of the most significant (and only) limb of the
             // quotient and is too high by at most 3. This is the "Calculate
@@ -1150,12 +1150,12 @@ library Lib512MathArithmetic {
 
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
             // See above comment about the use of a shift instead of division.
-            uint256 s = _clzLower(y_hi);
+            uint256 s = _clz(y_hi) - 128; // TODO: this can probably be optimized
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
             // y_next is the second-most-significant, nonzero, normalized limb of y
-            uint256 y_next = y_lo >> 128;
+            uint256 y_next = y_lo >> 128; // TODO: this can probably be optimized (combined with `_shl`)
             // y_whole is the 2 most-significant, nonzero, normalized limbs of y
-            uint256 y_whole = (y_hi << 128) | y_next;
+            uint256 y_whole = (y_hi << 128) | y_next; // TODO: this can probably be optimized (combined with `_shl`)
 
             if (x_hi >> 128 != 0) {
                 // x is 4 limbs, q is 2 limbs
@@ -1164,7 +1164,7 @@ library Lib512MathArithmetic {
                 uint256 x_ex;
                 (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
 
-                uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
+                uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl768`)
                 // As before, q_hat is the most significant limb of the quotient
                 // and too high by at most 3 (step D3)
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
@@ -1326,7 +1326,10 @@ library Lib512MathArithmetic {
         // At this point, we know that both x and y are fully represented by 2
         // words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
-        return _algorithmDRemainder(x_hi, x_lo, y_hi, y_lo);
+        {
+            (uint256 r_hi, uint256 r_lo) = _algorithmDRemainder(x_hi, x_lo, y_hi, y_lo);
+            return r.from(r_hi, r_lo);
+        }
     }
 
     function imodAlt(uint512 r, uint512 y) internal view returns (uint512) {
