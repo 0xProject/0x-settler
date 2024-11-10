@@ -1039,14 +1039,19 @@ library Lib512MathArithmetic {
     }
 
     /// Modified from Solady (https://github.com/Vectorized/solady/blob/a3d6a974f9c9f00dcd95b235619a209a63c61d94/src/utils/LibBit.sol#L33-L45)
+    //// The original code was released under the MIT license.
     function _clzLower(uint256 x) private pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := shl(0x06, lt(0xffffffffffffffff, x))
             r := or(r, shl(0x05, lt(0xffffffff, shr(r, x))))
             r := or(r, shl(0x04, lt(0xffff, shr(r, x))))
             r := or(r, shl(0x03, lt(0xff, shr(r, x))))
-            r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f)), iszero(x))
+            // We use a 5-bit deBruijn Sequence to convert x's 8
+            // most-significant bits into an index. We then index the lookup
+            // table by the deBruijn symbol to obtain the bitwise inverse of its
+            // logarithm.
+            r := xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f))
         }
     }
 
@@ -1054,10 +1059,11 @@ library Lib512MathArithmetic {
         return _clzLower(x >> 128);
     }
 
-    // This function is a combination of the techniques that have been
-    // implemented so far in this library. We use a tweak of Knuth's Algorithm D
-    // from before to compute the normalized remainder and then use the 512-bit
-    // ÷ 256-bit division from Remco Bloemen's work to un-normalize.
+    // This function is a different modification of Knuth's Algorithm D. In this
+    // case, we're only interested in the (normalized) remainder instead of the
+    // quotient. We also substitute the normalization by division for
+    // normalization by shifting because it makes un-normalization more
+    // gas-efficient.
 
     function _algorithmDRemainder(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256, uint256) {
         // We treat x and x each as ≤4-limb bigints where each limb is half a
@@ -1228,8 +1234,9 @@ library Lib512MathArithmetic {
                     }
                 }
             }
-            // Like in the previous branch, we apply a right shift to obtain the
-            // un-normalized remainder.
+
+            // Like in the previous branch, [x_hi x_lo] is the normalized
+            // remainder, and we apply a right shift to un-normalize it.
             return _shr(x_hi, x_lo, s);
         }
         // All other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently
