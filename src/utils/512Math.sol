@@ -220,6 +220,49 @@ using {__eq as ==, __gt as >, __lt as <, __ne as !=, __ge as >=, __le as <=} for
 library Lib512MathArithmetic {
     using UnsafeMath for uint256;
 
+    function _shl(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_hi := or(shl(s, x_hi), shr(sub(0x100, s), x_lo))
+            r_lo := shl(s, x_lo)
+        }
+    }
+
+    function _shl768(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            let neg_s := sub(0x100, s)
+            r_ex := shr(neg_s, x_hi)
+            r_hi := or(shl(s, x_hi), shr(neg_s, x_lo))
+            r_lo := shl(s, x_lo)
+        }
+    }
+
+    function oshl(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shl(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishl(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshl(r, r, s);
+    }
+
+    function _shr(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_hi := shr(s, x_hi)
+            r_lo := or(shl(sub(0x100, s), x_hi), shr(s, x_lo))
+        }
+    }
+
+    function oshr(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shr(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishr(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshr(r, r, s);
+    }
+
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         uint256 r_hi;
         uint256 r_lo;
@@ -995,7 +1038,205 @@ library Lib512MathArithmetic {
         // y_hi != 0) and that x ≥ y
     }
 
-    function odivAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+    /// Modified from Solady (https://github.com/Vectorized/solady/blob/a3d6a974f9c9f00dcd95b235619a209a63c61d94/src/utils/LibBit.sol#L33-L45)
+    function _clzLower(uint256 x) private pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := shl(0x06, lt(0xffffffffffffffff, x))
+            r := or(r, shl(0x05, lt(0xffffffff, shr(r, x))))
+            r := or(r, shl(0x04, lt(0xffff, shr(r, x))))
+            r := or(r, shl(0x03, lt(0xff, shr(r, x))))
+            r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f)), iszero(x))
+        }
+    }
+
+    function _clzUpper(uint256 x) private pure returns (uint256) {
+        return _clzLower(x >> 128);
+    }
+
+    // This function is a combination of the techniques that have been
+    // implemented so far in this library. We use a tweak of Knuth's Algorithm D
+    // from before to compute the normalized remainder and then use the 512-bit
+    // ÷ 256-bit division from Remco Bloemen's work to un-normalize.
+
+    function _algorithmDRemainder(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256, uint256) {
+        // We treat x and x each as ≤4-limb bigints where each limb is half a
+        // machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
+        // divisions as a single operation (`div`) as required by Algorithm
+        // D.
+
+        if (y_hi >> 128 != 0) {
+            // y is 4 limbs, x is 4 limbs
+
+            // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
+            // y_hi >= 2**255). This is step D1 of Algorithm D
+            // Unlike the preceeding implementation of Algorithm D, we use a
+            // binary shift instead of a multiply to normalize. This performs a
+            // costly "count leading zeroes" operation, but it lets us transform
+            // an even-more-costly division-by-inversion operation later into a
+            // simple shift. This still ultimately satisfies the postcondition
+            // (`y_hi >> 128 >= 1 << 127`) without overflowing.
+            uint256 s = _clzUpper(y_hi);
+            uint256 x_ex;
+            (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
+            (y_hi, y_lo) = _shl(y_hi, y_lo, s);
+
+            // n_approx is the 2 most-significant limbs of x, after normalization
+            uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl`)
+            // d_approx is the most significant limb of y, after normalization
+            uint256 d_approx = y_hi >> 128; // TODO: this can probably be optimized (combined with `_shl`)
+            // Normalization ensures that result of this division is an
+            // approximation of the most significant (and only) limb of the
+            // quotient and is too high by at most 3. This is the "Calculate
+            // q-hat" (D3) step of Algorithm D. (did you know that U+0302,
+            // COMBINING CIRCUMFLEX ACCENT cannot be combined with q? shameful)
+            uint256 q_hat = n_approx.unsafeDiv(d_approx);
+            uint256 r_hat = n_approx.unsafeMod(d_approx);
+
+            // The process of _correctQ subtracts up to 2 from q_hat, to make it
+            // more accurate. This is still part of the "Calculate q-hat" (D3)
+            // step of Algorithm D.
+            q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_hi & type(uint128).max, y_hi);
+
+            {
+                // This penultimate correction subtracts q-hat × y from x to
+                // obtain the normalized remainder. This is the "Multiply and
+                // subtract" (D4) and "Test remainder" (D5) steps of Algorithm
+                // D, with some shortcutting
+                (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q_hat);
+                bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+                // x_ex is now implicitly zero (or signals a carry that we will
+                // clear in the next step)
+
+                // Because q_hat may be too high by 1, we have to detect
+                // underflow from the previous step and correct it. This is the
+                // "Add back" (D6) step of Algorithm D
+                if (neg) {
+                    (x_hi, x_lo) = _add(x_hi, x_lo, y_hi, y_lo);
+                }
+            }
+
+            // [x_hi x_lo] now represents remainder × 2ˢ; we shift right by s to
+            // obtain the result.
+            return _shr(x_hi, x_lo, s);
+        } else {
+            // y is 3 limbs
+
+            // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
+            // See above comment about the use of a shift instead of division.
+            uint256 s = _clzLower(y_hi);
+            (y_hi, y_lo) = _shl(y_hi, y_lo, s);
+            // y_next is the second-most-significant, nonzero, normalized limb of y
+            uint256 y_next = y_lo >> 128; // TODO: this can probably be optimized (combined with `_shl`)
+            // y_whole is the 2 most-significant, nonzero, normalized limbs of y
+            uint256 y_whole = (y_hi << 128) | y_next; // TODO: this can probably be optimized (combined with `_shl`)
+
+            if (x_hi >> 128 != 0) {
+                // x is 4 limbs; we have to run 2 iterations of Algorithm D to
+                // fully divide out by y
+
+                // Finish normalizing (step D1)
+                uint256 x_ex;
+                (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
+
+                uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl768`)
+                // As before, q_hat is the most significant limb of the quotient
+                // and too high by at most 3 (step D3)
+                uint256 q_hat = n_approx.unsafeDiv(y_hi);
+                uint256 r_hat = n_approx.unsafeMod(y_hi);
+
+                // Subtract up to 2 from q_hat, improving our estimate (step D3)
+                q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_next, y_whole);
+
+                // Subtract up to 1 from q-hat to make it exactly the
+                // most-significant limb of the quotient and subtract q-hat × y
+                // from x to clear the most-significant limb of x.
+                {
+                    // "Multiply and subtract" (D4) step of Algorithm D
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
+                    uint256 tmp_ex = tmp_hi >> 128;
+                    tmp_hi = (tmp_hi << 128) | (tmp_lo >> 128);
+                    tmp_lo <<= 128;
+
+                    // "Test remainder" (D5) step of Algorithm D
+                    bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
+                    // Finish step D4
+                    (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+
+                    // "Add back" (D6) step of Algorithm D. We implicitly
+                    // subtract 1 from q_hat, but elide that step because q_hat
+                    // is no longer needed.
+                    if (neg) {
+                        // This branch is quite rare, so it's gas-advantageous
+                        // to actually branch and usually skip the costly `_add`
+                        (x_hi, x_lo) = _add(x_hi, x_lo, y_whole, y_lo << 128);
+                    }
+                }
+                // x_ex is now zero (implicitly)
+                // [x_hi x_lo] now represents the partial normalized remainder.
+
+                // Run another loop (steps D3 through D6) of Algorithm D to get
+                // the lower limb of the quotient
+                // Step D3
+                q_hat = x_hi.unsafeDiv(y_hi);
+                r_hat = x_hi.unsafeMod(y_hi);
+
+                // Step D3
+                q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
+
+                // Again, correct q-hat by up to 1 to make it exactly the
+                // least-significant limb of the quotient. Subtract q-hat × y
+                // from x to obtain the normalized remainder.
+                {
+                    // Steps D4 and D5
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
+                    bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
+                    (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+
+                    // Step D6
+                    if (neg) {
+                        (x_hi, x_lo) = _add(x_hi, x_lo, y_hi, y_lo);
+                    }
+                }
+                // The second-most-significant limb of normalized x is now zero
+                // (equivalently x_hi < 2**128), but because the entire machine
+                // is not guaranteed to be cleared, we can't optimize any
+                // further.
+            } else {
+                // x is 3 limbs
+
+                // Finish normalizing (step D1)
+                (x_hi, x_lo) = _shl(x_hi, x_lo, s);
+
+                // q_hat is the most significant (and only) limb of the quotient
+                // and too high by at most 3 (step D3)
+                uint256 q_hat = x_hi.unsafeDiv(y_hi);
+                uint256 r_hat = x_hi.unsafeMod(y_hi);
+
+                // Subtract up to 2 from q_hat, improving our estimate (step D3)
+                q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
+
+                // Subtract up to 1 from q_hat to make it exact (steps D4
+                // through D6)
+                {
+                    (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
+                    bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
+                    (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
+                    if (neg) {
+                        (x_hi, x_lo) = _add(x_hi, x_lo, y_hi, y_lo);
+                    }
+                }
+            }
+            // Like in the previous branch, we apply a right shift to obtain the
+            // un-normalized remainder.
+            return _shr(x_hi, x_lo, s);
+        }
+        // All other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently
+        // y_hi != 0) and that x ≥ y
+    }
+
+    function odivAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
             // This is the only case where we can have a 2-word quotient
@@ -1016,15 +1257,15 @@ library Lib512MathArithmetic {
         return r.from(0, q);
     }
 
-    function idivAlt(uint512 r, uint512 y) internal view returns (uint512) {
+    function idivAlt(uint512 r, uint512 y) internal pure returns (uint512) {
         return odivAlt(r, r, y);
     }
 
-    function irdivAlt(uint512 y, uint512 r) internal view returns (uint512) {
+    function irdivAlt(uint512 y, uint512 r) internal pure returns (uint512) {
         return odivAlt(r, y, r);
     }
 
-    function divAlt(uint512 x, uint512 y) internal view returns (uint256) {
+    function divAlt(uint512 x, uint512 y) internal pure returns (uint256) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
             return div(x, y_lo);
@@ -1043,15 +1284,35 @@ library Lib512MathArithmetic {
         return _algorithmD(x_hi, x_lo, y_hi, y_lo);
     }
 
-    function omodAlt(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
-        revert("unimplemented");
+    function omodAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            uint256 r_lo = mod(x, y_lo);
+            return r.from(0, r_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            uint256 r_hi = x_hi.unsafeMod(y_hi);
+            return r.from(r_hi, x_lo);
+        }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return r.from(x_hi, x_lo);
+        }
+
+        // At this point, we know that both x and y are fully represented by 2
+        // words. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+        {
+            (uint256 r_hi, uint256 r_lo) = _algorithmDRemainder(x_hi, x_lo, y_hi, y_lo);
+            return r.from(r_hi, r_lo);
+        }
     }
 
-    function imodAlt(uint512 r, uint512 y) internal view returns (uint512) {
+    function imodAlt(uint512 r, uint512 y) internal pure returns (uint512) {
         return omodAlt(r, r, y);
     }
 
-    function irmodAlt(uint512 y, uint512 r) internal view returns (uint512) {
+    function irmodAlt(uint512 y, uint512 r) internal pure returns (uint512) {
         return omodAlt(r, y, r);
     }
 }

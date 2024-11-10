@@ -195,7 +195,7 @@ contract Lib512MathTest is Test {
         assertTrue((r_hi == 0 && r_lo == 0 && x < y) || e > tmp().osub(x, y));
     }
 
-    function test512Math_odivAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+    function test512Math_odivAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external pure {
         vm.assume(y_hi != 0);
 
         uint512 x = alloc().from(x_hi, x_lo);
@@ -206,5 +206,16 @@ contract Lib512MathTest is Test {
         uint512 e = alloc().from(e_hi, e_lo);
         assertTrue(e <= x);
         assertTrue((r_hi == 0 && r_lo == 0 && x < y) || e > tmp().osub(x, y));
+    }
+
+    function test512Math_omodAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+        uint512 r = alloc().omodAlt(x, y);
+        uint512 e = alloc().omod(x, y);
+
+        assertTrue(r == e);
     }
 }
