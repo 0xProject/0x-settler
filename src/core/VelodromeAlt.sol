@@ -109,6 +109,16 @@ abstract contract Velodrome is SettlerAbstract {
         returns (uint256)
     {
         unchecked {
+            uint256 y_max = _VELODROME_MAX_BALANCE * y_basis / _VELODROME_TOKEN_BASIS;
+
+            if (x_basis > y_basis) {
+                x_basis /= y_basis;
+                y_basis = 1;
+            } else {
+                y_basis /= x_basis;
+                x_basis = 1;
+            }
+
             // Because uint512's live in memory, we preallocate them here to avoid allocating in the loop
             uint512 k_orig = alloc(); // the target value for `k` after swapping
             uint512 k_new = alloc(); // the current value of `k`, for this iteration
@@ -130,8 +140,6 @@ abstract contract Velodrome is SettlerAbstract {
                 x_ybasis_squared.omul(x * x, ybasis_squared);
             }
 
-            uint256 max = _VELODROME_MAX_BALANCE * y_basis / _VELODROME_TOKEN_BASIS;
-
             for (uint256 i; i < 255; i++) {
                 uint256 new_y = nrStep(k_new, d, k_orig, x, x_ybasis_squared, xbasis_squared, y, y_xbasis_squared);
                 if (new_y == y) {
@@ -150,8 +158,8 @@ abstract contract Velodrome is SettlerAbstract {
                         new_y++;
                     }
                 }
-                if (new_y > max) {
-                    y = max;
+                if (new_y > y_max) {
+                    y = y_max;
                 } else {
                     y = new_y;
                 }
