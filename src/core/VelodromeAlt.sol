@@ -151,14 +151,14 @@ abstract contract Velodrome is SettlerAbstract {
                 if (new_y == y) {
                     if (k_new.ge(k_orig)) {
                         _k(k_new, x, x_ybasis_squared, xbasis_squared, new_y - 1);
-                        if (k_new.lt(k_orig)) {
+                        if (k_new < k_orig) {
                             return new_y;
                         }
                         new_y--;
                     } else {
                         new_y++;
                         _k(k_new, x, x_ybasis_squared, xbasis_squared, new_y);
-                        if (k_new.ge(k_orig)) {
+                        if (k_new >= k_orig) {
                             return new_y;
                         }
                         new_y++;
