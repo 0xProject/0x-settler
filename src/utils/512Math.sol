@@ -65,7 +65,73 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// Three additional arithmetic operations are provided, bare `sub`, `mod`, and
 /// `div`. These are provided for use when it is known that the result of the
 /// operation will fit into 256 bits. This fact is not checked, but more
-/// efficient algoriths are employed assuming this. The result is a `uint256`.
+/// efficient algorithms are employed assuming this. The result is a `uint256`.
+///
+/// ## The full list of provided functions is:
+/// ### Utility
+/// * from(uint256)
+/// * from(uint256,uint256)
+/// * from(uint512)
+/// * into() returns (uint256,uint256)
+/// ### Comparison (all functions return `(bool)`)
+/// * isZero(uint512)
+/// * eq(uint512,uint256)
+/// * eq(uint512,uint512)
+/// * ne(uint512,uint256)
+/// * ne(uint512,uint512)
+/// * gt(uint512,uint256)
+/// * gt(uint512,uint512)
+/// * ge(uint512,uint256)
+/// * ge(uint512,uint512)
+/// * lt(uint512,uint256)
+/// * lt(uint512,uint512)
+/// * le(uint512,uint256)
+/// * le(uint512,uint512)
+/// ### Bitwise
+/// * oshl(uint512,uint512,uint256)
+/// * ishl(uint512,uint256)
+/// * oshr(uint512,uint512,uint256)
+/// * ishr(uint512,uint256)
+/// ### Addition
+/// * oadd(uint512,uint256,uint256)
+/// * oadd(uint512,uint512,uint256)
+/// * iadd(uint512,uint256)
+/// * oadd(uint512,uint512,uint512)
+/// * iadd(uint512,uint512)
+/// ### Subtraction
+/// * sub(uint512,uint256) returns (uint256)
+/// * sub(uint512,uint512) returns (uint256)
+/// * osub(uint512,uint512,uint256)
+/// * isub(uint512,uint256)
+/// * osub(uint512,uint512,uint512)
+/// * isub(uint512,uint512)
+/// * irsub(uint512,uint512)
+/// ### Multiplication
+/// * omul(uint512,uint256,uint256)
+/// * omul(uint512,uint512,uint256)
+/// * imul(uint512,uint256)
+/// * omul(uint512,uint512,uint512)
+/// * imul(uint512,uint512)
+/// ### Modulo
+/// * mod(uint512,uint256) returns (uint256)
+/// * omod(uint512,uint512,uint512)
+/// * imod(uint512,uint512)
+/// * irmod(uint512,uint512)
+/// * omodAlt(uint512,uint512,uint512)
+/// * imodAlt(uint512,uint512)
+/// * irmodAlt(uint512,uint512)
+/// ### Division
+/// * div(uint512,uint256) returns (uint256)
+/// * div(uint512,uint512) returns (uint256)
+/// * odiv(uint512,uint512,uint256)
+/// * idiv(uint512,uint256)
+/// * odiv(uint512,uint512,uint512)
+/// * idiv(uint512,uint512)
+/// * irdiv(uint512,uint512)
+/// * divAlt(uint512,uint512) returns (uint256)
+/// * odivAlt(uint512,uint512,uint512)
+/// * idivAlt(uint512,uint512)
+/// * irdivAlt(uint512,uint512)
 type uint512 is bytes32;
 
 function alloc() pure returns (uint512 r) {
