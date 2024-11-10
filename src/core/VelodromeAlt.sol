@@ -94,9 +94,9 @@ abstract contract Velodrome is SettlerAbstract {
             _k(k_new, x, x_ybasis_squared, y, y_xbasis_squared);
             _d(d, x, x_ybasis_squared, y_xbasis_squared);
             if (k_new.lt(k_orig)) {
-                new_y = y + tmp().osub(k_orig, k_new).div(d);
+                new_y = y + _div512to256(tmp().osub(k_orig, k_new), d);
             } else {
-                new_y = y - tmp().osub(k_new, k_orig).div(d);
+                new_y = y - _div512to256(tmp().osub(k_new, k_orig), d);
             }
         }
     }
