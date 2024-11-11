@@ -1081,7 +1081,7 @@ library Lib512MathArithmetic {
     }
 
     /// Modified from Solady (https://github.com/Vectorized/solady/blob/a3d6a974f9c9f00dcd95b235619a209a63c61d94/src/utils/LibBit.sol#L33-L45)
-    //// The original code was released under the MIT license.
+    /// The original code was released under the MIT license.
     function _clzLower(uint256 x) private pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := shl(0x06, lt(0xffffffffffffffff, x))
@@ -1090,8 +1090,8 @@ library Lib512MathArithmetic {
             r := or(r, shl(0x03, lt(0xff, shr(r, x))))
             // We use a 5-bit deBruijn Sequence to convert x's 8
             // most-significant bits into an index. We then index the lookup
-            // table by the deBruijn symbol to obtain the bitwise inverse of its
-            // logarithm.
+            // table (bytewise) by the deBruijn symbol to obtain the bitwise
+            // inverse of its logarithm.
             r := xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
                 0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f))
         }
@@ -1253,7 +1253,7 @@ library Lib512MathArithmetic {
                 // Step D3
                 q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
 
-                // Again, correct q-hat by up to 1 to make it exactly the
+                // Again, implicitly correct q-hat to make it exactly the
                 // least-significant limb of the quotient. Subtract q-hat × y
                 // from x to obtain the normalized remainder.
                 {
@@ -1281,8 +1281,8 @@ library Lib512MathArithmetic {
                 // Subtract up to 2 from q_hat, improving our estimate (step D3)
                 q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
 
-                // Subtract up to 1 from q_hat to make it exact (steps D4
-                // through D6)
+                // Make q_hat exact (implicitly) and subtract q-hat × y from x
+                // to obtain the normalized remainder. (steps D4 through D6)
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
                     bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
