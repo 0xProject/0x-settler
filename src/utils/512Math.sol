@@ -87,11 +87,6 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * lt(uint512,uint512)
 /// * le(uint512,uint256)
 /// * le(uint512,uint512)
-/// ### Bitwise
-/// * oshl(uint512,uint512,uint256)
-/// * ishl(uint512,uint256)
-/// * oshr(uint512,uint512,uint256)
-/// * ishr(uint512,uint256)
 /// ### Addition
 /// * oadd(uint512,uint256,uint256)
 /// * oadd(uint512,uint512,uint256)
@@ -291,49 +286,6 @@ using {__eq as ==, __gt as >, __lt as <, __ne as !=, __ge as >=, __le as <=} for
 
 library Lib512MathArithmetic {
     using UnsafeMath for uint256;
-
-    function _shl(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
-        assembly ("memory-safe") {
-            r_hi := or(shl(s, x_hi), shr(sub(0x100, s), x_lo))
-            r_lo := shl(s, x_lo)
-        }
-    }
-
-    function _shl768(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
-        assembly ("memory-safe") {
-            let neg_s := sub(0x100, s)
-            r_ex := shr(neg_s, x_hi)
-            r_hi := or(shl(s, x_hi), shr(neg_s, x_lo))
-            r_lo := shl(s, x_lo)
-        }
-    }
-
-    function oshl(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        (uint256 r_hi, uint256 r_lo) = _shl(x_hi, x_lo, s);
-        return r.from(r_hi, r_lo);
-    }
-
-    function ishl(uint512 r, uint256 s) internal pure returns (uint512) {
-        return oshl(r, r, s);
-    }
-
-    function _shr(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
-        assembly ("memory-safe") {
-            r_hi := shr(s, x_hi)
-            r_lo := or(shl(sub(0x100, s), x_hi), shr(s, x_lo))
-        }
-    }
-
-    function oshr(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        (uint256 r_hi, uint256 r_lo) = _shr(x_hi, x_lo, s);
-        return r.from(r_hi, r_lo);
-    }
-
-    function ishr(uint512 r, uint256 s) internal pure returns (uint512) {
-        return oshr(r, r, s);
-    }
 
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         uint256 r_hi;
@@ -1148,6 +1100,29 @@ library Lib512MathArithmetic {
 
     function _clzUpper(uint256 x) private pure returns (uint256) {
         return _clzLower(x >> 128);
+    }
+
+    function _shl(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_hi := or(shl(s, x_hi), shr(sub(0x100, s), x_lo))
+            r_lo := shl(s, x_lo)
+        }
+    }
+
+    function _shl768(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            let neg_s := sub(0x100, s)
+            r_ex := shr(neg_s, x_hi)
+            r_hi := or(shl(s, x_hi), shr(neg_s, x_lo))
+            r_lo := shl(s, x_lo)
+        }
+    }
+
+    function _shr(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_hi := shr(s, x_hi)
+            r_lo := or(shl(sub(0x100, s), x_hi), shr(s, x_lo))
+        }
     }
 
     // This function is a different modification of Knuth's Algorithm D. In this
