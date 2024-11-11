@@ -1107,8 +1107,14 @@ library Lib512MathArithmetic {
             // most-significant bits into an index. We then index the lookup
             // table (bytewise) by the deBruijn symbol to obtain the bitwise
             // inverse of its logarithm.
-            r := xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f))
+            r :=
+                xor(
+                    r,
+                    byte(
+                        and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                        0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f
+                    )
+                )
         }
     }
 
@@ -1123,7 +1129,11 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _shl768(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_ex, uint256 r_hi, uint256 r_lo) {
+    function _shl768(uint256 x_hi, uint256 x_lo, uint256 s)
+        private
+        pure
+        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
             let neg_s := sub(0x100, s)
             r_ex := shr(neg_s, x_hi)
@@ -1145,7 +1155,11 @@ library Lib512MathArithmetic {
     // normalization by shifting because it makes un-normalization more
     // gas-efficient.
 
-    function _algorithmDRemainder(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256, uint256) {
+    function _algorithmDRemainder(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256, uint256)
+    {
         // We treat `x` and `y` each as ≤4-limb bigints where each limb is half
         // a machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
         // divisions as a single operation (`div`) as required by Algorithm D.
