@@ -186,7 +186,7 @@ library Lib512MathAccessors {
             // `mcopy`) produces more optimal code because it gives solc the
             // opportunity to optimize-out the use of memory entirely, in
             // typical usage. As a happy side effect, it also means that we
-            // don't have to deal with Cancun hardfork compatibility issues
+            // don't have to deal with Cancun hardfork compatibility issues.
             mstore(r, mload(x))
             mstore(add(0x20, r), mload(add(0x20, x)))
             r_out := r
@@ -317,8 +317,8 @@ library Lib512MathArithmetic {
         uint256 r_lo;
         assembly ("memory-safe") {
             r_lo := add(x, y)
-            // lt(r_lo, x) indicates overflow in the lower addition. We can add
-            // the bool directly to the integer to perform carry
+            // `lt(r_lo, x)` indicates overflow in the lower addition. We can
+            // add the bool directly to the integer to perform carry
             r_hi := lt(r_lo, x)
         }
         return r.from(r_hi, r_lo);
@@ -330,8 +330,8 @@ library Lib512MathArithmetic {
         uint256 r_lo;
         assembly ("memory-safe") {
             r_lo := add(x_lo, y)
-            // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
-            // in the high limb is simply ignored
+            // `lt(r_lo, x_lo)` indicates overflow in the lower
+            // addition. Overflow in the high limb is simply ignored
             r_hi := add(x_hi, lt(r_lo, x_lo))
         }
         return r.from(r_hi, r_lo);
@@ -348,8 +348,8 @@ library Lib512MathArithmetic {
     {
         assembly ("memory-safe") {
             r_lo := add(x_lo, y_lo)
-            // lt(r_lo, x_lo) indicates overflow in the lower addition. Overflow
-            // in the high limb is simply ignored
+            // `lt(r_lo, x_lo)` indicates overflow in the lower
+            // addition. Overflow in the high limb is simply ignored.
             r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
         }
     }
@@ -368,8 +368,8 @@ library Lib512MathArithmetic {
     function _sub(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_lo := sub(x_lo, y)
-            // gt(r_lo, x_lo) indicates underflow in the lower subtraction. We can
-            // subtract the bool directly from the integer to perform carry
+            // `gt(r_lo, x_lo)` indicates underflow in the lower subtraction. We
+            // can subtract the bool directly from the integer to perform carry.
             r_hi := sub(x_hi, gt(r_lo, x_lo))
         }
     }
@@ -391,8 +391,8 @@ library Lib512MathArithmetic {
     {
         assembly ("memory-safe") {
             r_lo := sub(x_lo, y_lo)
-            // gt(r_lo, x_lo) indicates underflow in the lower subtraction.
-            // Underflow in the high limb is simply ignored
+            // `gt(r_lo, x_lo)` indicates underflow in the lower subtraction.
+            // Underflow in the high limb is simply ignored.
             r_hi := sub(sub(x_hi, y_hi), gt(r_lo, x_lo))
         }
     }
@@ -545,9 +545,9 @@ library Lib512MathArithmetic {
             r_ex := sub(sub(mm1, r_partial), lt(mm1, r_partial))
 
             r_hi := add(r_partial, sub(sub(mm0, r_lo), lt(mm0, r_lo)))
-            // lt(r_hi, r_partial) indicates overflow in the addition to form
-            // r_hi. We can add the bool directly to the integer to perform
-            // carry
+            // `lt(r_hi, r_partial)` indicates overflow in the addition to form
+            // `r_hi`. We can add the bool directly to the integer to perform
+            // carry.
             r_ex := add(r_ex, lt(r_hi, r_partial))
         }
     }
@@ -575,10 +575,10 @@ library Lib512MathArithmetic {
     {
         uint512 r;
         assembly ("memory-safe") {
-            // We point r to the beginning of free memory WITHOUT allocating.
+            // We point `r` to the beginning of free memory WITHOUT allocating.
             // This is not technically "memory-safe" because solc might use that
             // memory for something in between the end of this assembly block
-            // and the beginning of the call to into(), but empirically and
+            // and the beginning of the call to `into()`, but empirically and
             // practically speaking that won't and doesn't happen. We save some
             // gas by not bumping the free pointer.
             r := mload(0x40)
@@ -586,7 +586,7 @@ library Lib512MathArithmetic {
             // Get the remainder [x_hi x_lo] % [d_hi d_lo] (< 2⁵¹² - 1) We use
             // the MODEXP (5) precompile with an exponent of 1. We encode the
             // arguments to the precompile at the beginning of free memory
-            // without allocating. Conveniently, r already points to this
+            // without allocating. Conveniently, `r` already points to this
             // region. Arguments are encoded as:
             //     [64 32 64 x_hi x_lo 1 d_hi d_lo]
             mstore(r, 0x40)
@@ -612,24 +612,25 @@ library Lib512MathArithmetic {
 
     function _twos(uint256 x) private pure returns (uint256 twos, uint256 twosInv) {
         assembly ("memory-safe") {
-            // Compute largest power of two divisor of x. x is nonzero, so this
-            // is always ≥ 1.
+            // Compute largest power of two divisor of `x`. `x` is nonzero, so
+            // this is always ≥ 1.
             twos := and(sub(0x00, x), x)
 
             // To shift up (bits from the high limb into the low limb) we need
             // the inverse of `twos`. That is, 2²⁵⁶ / twos.
             //     2**256 / twos = -twos % 2**256 / twos + 1 -- https://2π.com/17/512-bit-division/
-            // If twos is zero, then twosInv becomes one (not possible)
+            // If `twos` is zero, then `twosInv` becomes one (not possible)
             twosInv := add(div(sub(0x00, twos), twos), 0x01)
         }
     }
 
     function _toOdd256(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 x_lo_out, uint256 y_out) {
-        // Factor powers of two out of y and apply the same shift to [x_hi x_lo]
+        // Factor powers of two out of `y` and apply the same shift to [x_hi
+        // x_lo]
         (uint256 twos, uint256 twosInv) = _twos(y);
 
         assembly ("memory-safe") {
-            // Divide y by the power of two
+            // Divide `y` by the power of two
             y_out := div(y, twos)
 
             // Divide [x_hi x_lo] by the power of two
@@ -642,7 +643,7 @@ library Lib512MathArithmetic {
         pure
         returns (uint256 x_lo_out, uint256 y_lo_out)
     {
-        // Factor powers of two out of y_lo and apply the same shift to x_lo
+        // Factor powers of two out of `y_lo` and apply the same shift to `x_lo`
         (uint256 twos, uint256 twosInv) = _twos(y_lo);
 
         assembly ("memory-safe") {
@@ -659,11 +660,12 @@ library Lib512MathArithmetic {
         pure
         returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_out)
     {
-        // Factor powers of two out of y and apply the same shift to [x_hi x_lo]
+        // Factor powers of two out of `y` and apply the same shift to [x_hi
+        // x_lo]
         (uint256 twos, uint256 twosInv) = _twos(y);
 
         assembly ("memory-safe") {
-            // Divide y by the power of two
+            // Divide `y` by the power of two
             y_out := div(y, twos)
 
             // Divide [x_hi x_lo] by the power of two
@@ -694,9 +696,9 @@ library Lib512MathArithmetic {
 
     function _invert256(uint256 d) private pure returns (uint256 inv) {
         assembly ("memory-safe") {
-            // Invert d mod 2²⁵⁶ -- https://2π.com/18/multiplitcative-inverses/
-            // d is an odd number (from _toOdd*). It has an inverse modulo 2²⁵⁶
-            // such that d * inv ≡ 1 mod 2²⁵⁶.
+            // Invert `d` mod 2²⁵⁶ -- https://2π.com/18/multiplitcative-inverses/
+            // `d` is an odd number (from _toOdd*). It has an inverse modulo
+            // 2²⁵⁶ such that d * inv ≡ 1 mod 2²⁵⁶.
             // We use Newton-Raphson iterations compute inv. Thanks to Hensel's
             // lifting lemma, this also works in modular arithmetic, doubling
             // the correct bits in each step. The Newton-Raphson-Hensel step is:
@@ -708,7 +710,8 @@ library Lib512MathArithmetic {
             inv := xor(mul(0x03, d), 0x02)
 
             // Each Newton-Raphson-Hensel step doubles the number of correct
-            // bits in inv. After 6 iterations, full convergence is guaranteed.
+            // bits in `inv`. After 6 iterations, full convergence is
+            // guaranteed.
             inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2⁸
             inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2¹⁶
             inv := mul(inv, sub(0x02, mul(d, inv))) // inverse mod 2³²
@@ -719,7 +722,7 @@ library Lib512MathArithmetic {
     }
 
     function _invert512(uint256 d) private pure returns (uint256 inv_hi, uint256 inv_lo) {
-        // First, we get the inverse of d mod 2²⁵⁶
+        // First, we get the inverse of `d` mod 2²⁵⁶
         inv_lo = _invert256(d);
 
         // To extend this to the inverse mod 2⁵¹², we perform a more elaborate
@@ -738,7 +741,7 @@ library Lib512MathArithmetic {
     }
 
     function _invert512(uint256 d_hi, uint256 d_lo) private pure returns (uint256 inv_hi, uint256 inv_lo) {
-        // First, we get the inverse of d mod 2²⁵⁶
+        // First, we get the inverse of `d` mod 2²⁵⁶
         inv_lo = _invert256(d_lo);
 
         // To extend this to the inverse mod 2⁵¹², we perform a more elaborate
@@ -770,18 +773,18 @@ library Lib512MathArithmetic {
         // the division exact without affecting the result.
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
 
-        // Make d odd so that it has a multiplicative inverse mod 2²⁵⁶
-        // After this we can discard n_hi because our result is only 256 bits
+        // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶
+        // After this we can discard `n_hi` because our result is only 256 bits
         (n_lo, d) = _toOdd256(n_hi, n_lo, d);
 
         // We perform division by multiplying by the multiplicative inverse of
-        // the denominator mod 2²⁵⁶. Since d is odd, this inverse
+        // the denominator mod 2²⁵⁶. Since `d` is odd, this inverse
         // exists. Compute that inverse
         d = _invert256(d);
 
         unchecked {
-            // Because the division is now exact (we rounded n down to a
-            // multiple of d), we perform it by multiplying with the modular
+            // Because the division is now exact (we rounded `n` down to a
+            // multiple of `d`), we perform it by multiplying with the modular
             // inverse of the denominator. This is the correct result mod 2²⁵⁶.
             return n_lo * d;
         }
@@ -811,19 +814,19 @@ library Lib512MathArithmetic {
         // the division exact without affecting the result.
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
 
-        // Make d_lo odd so that it has a multiplicative inverse mod 2²⁵⁶
-        // After this we can discard n_hi and d_hi because our result is only
-        // 256 bits
+        // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶
+        // After this we can discard `n_hi` and `d_hi` because our result is
+        // only 256 bits
         (n_lo, d_lo) = _toOdd256(n_hi, n_lo, d_hi, d_lo);
 
         // We perform division by multiplying by the multiplicative inverse of
-        // the denominator mod 2²⁵⁶. Since d is odd, this inverse
+        // the denominator mod 2²⁵⁶. Since `d_lo` is odd, this inverse
         // exists. Compute that inverse
         d_lo = _invert256(d_lo);
 
         unchecked {
-            // Because the division is now exact (we rounded n down to a
-            // multiple of d), we perform it by multiplying with the modular
+            // Because the division is now exact (we rounded `n` down to a
+            // multiple of `d`), we perform it by multiplying with the modular
             // inverse of the denominator. This is the correct result mod 2²⁵⁶.
             return n_lo * d_lo;
         }
@@ -843,16 +846,16 @@ library Lib512MathArithmetic {
         // the division exact without affecting the result.
         (x_hi, x_lo) = _roundDown(x_hi, x_lo, y);
 
-        // Make y odd so that it has a multiplicative inverse mod 2⁵¹²
+        // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
         (x_hi, x_lo, y) = _toOdd512(x_hi, x_lo, y);
 
         // We perform division by multiplying by the multiplicative inverse of
-        // the denominator mod 2⁵¹². Since y is odd, this inverse
+        // the denominator mod 2⁵¹². Since `y` is odd, this inverse
         // exists. Compute that inverse
         (uint256 inv_hi, uint256 inv_lo) = _invert512(y);
 
-        // Because the division is now exact (we rounded x down to a multiple of
-        // y), we perform it by multiplying with the modular inverse of the
+        // Because the division is now exact (we rounded `x` down to a multiple
+        // of `y`), we perform it by multiplying with the modular inverse of the
         // denominator.
         (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, inv_hi, inv_lo);
         return r.from(r_hi, r_lo);
@@ -880,16 +883,16 @@ library Lib512MathArithmetic {
         // the division exact without affecting the result.
         (x_hi, x_lo) = _roundDown(x_hi, x_lo, y_hi, y_lo);
 
-        // Make y odd so that it has a multiplicative inverse mod 2⁵¹²
+        // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
         (x_hi, x_lo, y_hi, y_lo) = _toOdd512(x_hi, x_lo, y_hi, y_lo);
 
         // We perform division by multiplying by the multiplicative inverse of
-        // the denominator mod 2⁵¹². Since y is odd, this inverse
+        // the denominator mod 2⁵¹². Since `y` is odd, this inverse
         // exists. Compute that inverse
         (y_hi, y_lo) = _invert512(y_hi, y_lo);
 
-        // Because the division is now exact (we rounded x down to a multiple of
-        // y), we perform it by multiplying with the modular inverse of the
+        // Because the division is now exact (we rounded `x` down to a multiple
+        // of `y`), we perform it by multiplying with the modular inverse of the
         // denominator.
         (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
         return r.from(r_hi, r_lo);
@@ -941,8 +944,8 @@ library Lib512MathArithmetic {
     /// Volume 2, Section 4.3.1, Algorithm D.
 
     function _algorithmD(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 q) {
-        // We treat x and x each as ≤4-limb bigints where each limb is half a
-        // machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
+        // We treat `x` and `y` each as ≤4-limb bigints where each limb is half
+        // a machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
         // divisions as a single operation (`div`) as required by Algorithm
         // D. It also simplifies/optimizes some of the multiplications.
 
@@ -961,9 +964,10 @@ library Lib512MathArithmetic {
             (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
-            // n_approx is the 2 most-significant limbs of x, after normalization
+            // `n_approx` is the 2 most-significant limbs of x, after
+            // normalization
             uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
-            // d_approx is the most significant limb of y, after normalization
+            // `d_approx` is the most significant limb of y, after normalization
             uint256 d_approx = y_hi >> 128;
             // Normalization ensures that result of this division is an
             // approximation of the most significant (and only) limb of the
@@ -973,13 +977,13 @@ library Lib512MathArithmetic {
             q = n_approx.unsafeDiv(d_approx);
             uint256 r_hat = n_approx.unsafeMod(d_approx);
 
-            // The process of _correctQ subtracts up to 2 from q, to make it
+            // The process of `_correctQ` subtracts up to 2 from `q`, to make it
             // more accurate. This is still part of the "Calculate q-hat" (D3)
             // step of Algorithm D.
             q = _correctQ(q, r_hat, x_hi & type(uint128).max, y_hi & type(uint128).max, y_hi);
 
             // This final, low-probability, computationally-expensive correction
-            // conditionally subtracts 1 from q to make it exactly the
+            // conditionally subtracts 1 from `q` to make it exactly the
             // most-significant limb of the quotient. This is the "Multiply and
             // subtract" (D4), "Test remainder" (D5), and "Add back" (D6) steps
             // of Algorithm D, with substantial shortcutting
@@ -997,9 +1001,11 @@ library Lib512MathArithmetic {
             // See above comment about the error in TAOCP.
             uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
             (y_hi, y_lo) = _mul(y_hi, y_lo, d);
-            // y_next is the second-most-significant, nonzero, normalized limb of y
+            // `y_next` is the second-most-significant, nonzero, normalized limb
+            // of y
             uint256 y_next = y_lo >> 128;
-            // y_whole is the 2 most-significant, nonzero, normalized limbs of y
+            // `y_whole` is the 2 most-significant, nonzero, normalized limbs of
+            // y
             uint256 y_whole = (y_hi << 128) | y_next;
 
             if (x_hi >> 128 != 0) {
@@ -1010,12 +1016,13 @@ library Lib512MathArithmetic {
                 (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
-                // As before, q_hat is the most significant limb of the quotient
-                // and too high by at most 3 (step D3)
+                // As before, `q_hat` is the most significant limb of the
+                // quotient and too high by at most 3 (step D3)
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
-                // Subtract up to 2 from q_hat, improving our estimate (step D3)
+                // Subtract up to 2 from `q_hat`, improving our estimate (step
+                // D3)
                 q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_next, y_whole);
                 q = q_hat << 128;
 
@@ -1041,7 +1048,7 @@ library Lib512MathArithmetic {
                         (x_hi, x_lo) = _add(x_hi, x_lo, y_whole, y_lo << 128);
                     }
                 }
-                // x_ex is now zero (implicitly)
+                // `x_ex` is now zero (implicitly)
 
                 // Run another loop (steps D3 through D6) of Algorithm D to get
                 // the lower limb of the quotient
@@ -1065,15 +1072,15 @@ library Lib512MathArithmetic {
                 // Finish normalizing (step D1)
                 (x_hi, x_lo) = _mul(x_hi, x_lo, d);
 
-                // q is the most significant (and only) limb of the quotient and
-                // too high by at most 3 (step D3)
+                // `q` is the most significant (and only) limb of the quotient
+                // and too high by at most 3 (step D3)
                 q = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                // Subtract up to 2 from q, improving our estimate (step D3)
+                // Subtract up to 2 from `q`, improving our estimate (step D3)
                 q = _correctQ(q, r_hat, x_lo >> 128, y_next, y_whole);
 
-                // Subtract up to 1 from q to make it exact (steps D4 through
+                // Subtract up to 1 from `q` to make it exact (steps D4 through
                 // D6)
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
@@ -1096,7 +1103,7 @@ library Lib512MathArithmetic {
             r := or(r, shl(0x05, lt(0xffffffff, shr(r, x))))
             r := or(r, shl(0x04, lt(0xffff, shr(r, x))))
             r := or(r, shl(0x03, lt(0xff, shr(r, x))))
-            // We use a 5-bit deBruijn Sequence to convert x's 8
+            // We use a 5-bit deBruijn Sequence to convert `x`'s 8
             // most-significant bits into an index. We then index the lookup
             // table (bytewise) by the deBruijn symbol to obtain the bitwise
             // inverse of its logarithm.
@@ -1139,31 +1146,31 @@ library Lib512MathArithmetic {
     // gas-efficient.
 
     function _algorithmDRemainder(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256, uint256) {
-        // We treat x and x each as ≤4-limb bigints where each limb is half a
-        // machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
-        // divisions as a single operation (`div`) as required by Algorithm
-        // D.
+        // We treat `x` and `y` each as ≤4-limb bigints where each limb is half
+        // a machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
+        // divisions as a single operation (`div`) as required by Algorithm D.
 
         uint256 s;
         if (y_hi >> 128 != 0) {
             // y is 4 limbs, x is 4 limbs
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
-            // y_hi >= 2**255). This is step D1 of Algorithm D
-            // Unlike the preceeding implementation of Algorithm D, we use a
-            // binary shift instead of a multiply to normalize. This performs a
-            // costly "count leading zeroes" operation, but it lets us transform
-            // an even-more-costly division-by-inversion operation later into a
+            // y_hi >= 2**255). This is step D1 of Algorithm D Unlike the
+            // preceeding implementation of Algorithm D, we use a binary shift
+            // instead of a multiply to normalize. This performs a costly "count
+            // leading zeroes" operation, but it lets us transform an
+            // even-more-costly division-by-inversion operation later into a
             // simple shift. This still ultimately satisfies the postcondition
-            // (`y_hi >> 128 >= 1 << 127`) without overflowing.
+            // (y_hi >> 128 >= 1 << 127) without overflowing.
             s = _clzUpper(y_hi);
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
 
-            // n_approx is the 2 most-significant limbs of x, after normalization
+            // `n_approx` is the 2 most-significant limbs of x, after
+            // normalization
             uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl`)
-            // d_approx is the most significant limb of y, after normalization
+            // `d_approx` is the most significant limb of y, after normalization
             uint256 d_approx = y_hi >> 128; // TODO: this can probably be optimized (combined with `_shl`)
             // Normalization ensures that result of this division is an
             // approximation of the most significant (and only) limb of the
@@ -1173,9 +1180,9 @@ library Lib512MathArithmetic {
             uint256 q_hat = n_approx.unsafeDiv(d_approx);
             uint256 r_hat = n_approx.unsafeMod(d_approx);
 
-            // The process of _correctQ subtracts up to 2 from q_hat, to make it
-            // more accurate. This is still part of the "Calculate q-hat" (D3)
-            // step of Algorithm D.
+            // The process of `_correctQ` subtracts up to 2 from `q_hat`, to
+            // make it more accurate. This is still part of the "Calculate
+            // q-hat" (D3) step of Algorithm D.
             q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_hi & type(uint128).max, y_hi);
 
             {
@@ -1186,10 +1193,10 @@ library Lib512MathArithmetic {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q_hat);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
                 (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
-                // x_ex is now implicitly zero (or signals a carry that we will
-                // clear in the next step)
+                // `x_ex` is now implicitly zero (or signals a carry that we
+                // will clear in the next step)
 
-                // Because q_hat may be too high by 1, we have to detect
+                // Because `q_hat` may be too high by 1, we have to detect
                 // underflow from the previous step and correct it. This is the
                 // "Add back" (D6) step of Algorithm D
                 if (neg) {
@@ -1203,9 +1210,11 @@ library Lib512MathArithmetic {
             // See above comment about the use of a shift instead of division.
             s = _clzLower(y_hi);
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
-            // y_next is the second-most-significant, nonzero, normalized limb of y
+            // `y_next` is the second-most-significant, nonzero, normalized limb
+            // of y
             uint256 y_next = y_lo >> 128; // TODO: this can probably be optimized (combined with `_shl`)
-            // y_whole is the 2 most-significant, nonzero, normalized limbs of y
+            // `y_whole` is the 2 most-significant, nonzero, normalized limbs of
+            // y
             uint256 y_whole = (y_hi << 128) | y_next; // TODO: this can probably be optimized (combined with `_shl`)
 
             if (x_hi >> 128 != 0) {
@@ -1217,12 +1226,13 @@ library Lib512MathArithmetic {
                 (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl768`)
-                // As before, q_hat is the most significant limb of the quotient
-                // and too high by at most 3 (step D3)
+                // As before, `q_hat` is the most significant limb of the
+                // quotient and too high by at most 3 (step D3)
                 uint256 q_hat = n_approx.unsafeDiv(y_hi);
                 uint256 r_hat = n_approx.unsafeMod(y_hi);
 
-                // Subtract up to 2 from q_hat, improving our estimate (step D3)
+                // Subtract up to 2 from `q_hat`, improving our estimate (step
+                // D3)
                 q_hat = _correctQ(q_hat, r_hat, x_hi & type(uint128).max, y_next, y_whole);
 
                 // Subtract up to 1 from q-hat to make it exactly the
@@ -1241,16 +1251,16 @@ library Lib512MathArithmetic {
                     (x_hi, x_lo) = _sub(x_hi, x_lo, tmp_hi, tmp_lo);
 
                     // "Add back" (D6) step of Algorithm D. We implicitly
-                    // subtract 1 from q_hat, but elide that step because q_hat
-                    // is no longer needed.
+                    // subtract 1 from `q_hat`, but elide explicitly
+                    // representing that because `q_hat` is no longer needed.
                     if (neg) {
                         // This branch is quite rare, so it's gas-advantageous
                         // to actually branch and usually skip the costly `_add`
                         (x_hi, x_lo) = _add(x_hi, x_lo, y_whole, y_lo << 128);
                     }
                 }
-                // x_ex is now zero (implicitly)
-                // [x_hi x_lo] now represents the partial normalized remainder.
+                // `x_ex` is now zero (implicitly)
+                // [x_hi x_lo] now represents the partial, normalized remainder.
 
                 // Run another loop (steps D3 through D6) of Algorithm D to get
                 // the lower limb of the quotient
@@ -1281,15 +1291,16 @@ library Lib512MathArithmetic {
                 // Finish normalizing (step D1)
                 (x_hi, x_lo) = _shl(x_hi, x_lo, s);
 
-                // q_hat is the most significant (and only) limb of the quotient
-                // and too high by at most 3 (step D3)
+                // `q_hat` is the most significant (and only) limb of the
+                // quotient and too high by at most 3 (step D3)
                 uint256 q_hat = x_hi.unsafeDiv(y_hi);
                 uint256 r_hat = x_hi.unsafeMod(y_hi);
 
-                // Subtract up to 2 from q_hat, improving our estimate (step D3)
+                // Subtract up to 2 from `q_hat`, improving our estimate (step
+                // D3)
                 q_hat = _correctQ(q_hat, r_hat, x_lo >> 128, y_next, y_whole);
 
-                // Make q_hat exact (implicitly) and subtract q-hat × y from x
+                // Make `q_hat` exact (implicitly) and subtract q-hat × y from x
                 // to obtain the normalized remainder. (steps D4 through D6)
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
@@ -1309,7 +1320,7 @@ library Lib512MathArithmetic {
         // guaranteed to be cleared, we can't optimize any further.
 
         // [x_hi x_lo] now represents remainder × 2ˢ (the normalized remainder);
-        // we shift right by s (un-normalize) to obtain the result.
+        // we shift right by `s` (un-normalize) to obtain the result.
         return _shr(x_hi, x_lo, s);
     }
 
@@ -1327,8 +1338,8 @@ library Lib512MathArithmetic {
             return r.from(0, 0);
         }
 
-        // At this point, we know that both x and y are fully represented by 2
-        // words. There is no simpler representation for the problem. We must
+        // At this point, we know that both `x` and `y` are fully represented by
+        // 2 words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
         uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
         return r.from(0, q);
@@ -1355,8 +1366,8 @@ library Lib512MathArithmetic {
             return 0;
         }
 
-        // At this point, we know that both x and y are fully represented by 2
-        // words. There is no simpler representation for the problem. We must
+        // At this point, we know that both `x` and `y` are fully represented by
+        // 2 words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
         return _algorithmD(x_hi, x_lo, y_hi, y_lo);
     }
@@ -1376,8 +1387,8 @@ library Lib512MathArithmetic {
             return r.from(x_hi, x_lo);
         }
 
-        // At this point, we know that both x and y are fully represented by 2
-        // words. There is no simpler representation for the problem. We must
+        // At this point, we know that both `x` and `y` are fully represented by
+        // 2 words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
         {
             (uint256 r_hi, uint256 r_lo) = _algorithmDRemainder(x_hi, x_lo, y_hi, y_lo);
