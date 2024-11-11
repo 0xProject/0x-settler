@@ -1346,7 +1346,8 @@ library Lib512MathArithmetic {
         }
         (uint256 x_hi, uint256 x_lo) = x.into();
         if (y_lo == 0) {
-            return r.from(0, x_hi.unsafeDiv(y_hi));
+            uint256 r_lo = x_hi.unsafeDiv(y_hi);
+            return r.from(0, r_lo);
         }
         if (_gt(y_hi, y_lo, x_hi, x_lo)) {
             return r.from(0, 0);
@@ -1355,8 +1356,10 @@ library Lib512MathArithmetic {
         // At this point, we know that both `x` and `y` are fully represented by
         // 2 words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
-        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
-        return r.from(0, q);
+        {
+            uint256 r_lo = _algorithmD(x_hi, x_lo, y_hi, y_lo);
+            return r.from(0, r_lo);
+        }
     }
 
     function idivAlt(uint512 r, uint512 y) internal pure returns (uint512) {
