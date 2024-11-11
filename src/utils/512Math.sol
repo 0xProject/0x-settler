@@ -69,13 +69,26 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// operation will fit into 256 bits. This fact is not checked, but more
 /// efficient algorithms are employed assuming this. The result is a `uint256`.
 ///
-/// ## The full list of provided functions is:
+/// The operations `*mod` and `*div` with 512-bit denominator are `view` instead
+/// of `pure` becaues they make use of the MODEXP (5) precompile. Some EVM L2s
+/// and sidechains do not support MODEXP with 512-bit arguments. On those
+/// chains, the `*modAlt` and `*divAlt` functions are provided. These functions
+/// are truly `pure` and do not rely on MODEXP at all. The downside is that they
+/// consume slightly (really only *slightly*) more gas.
+///
+/// ## Full list of provided functions
+///
+/// Unless otherwise noted, all functions return `(uint512)`
+///
 /// ### Utility
+///
 /// * from(uint256)
-/// * from(uint256,uint256)
-/// * from(uint512)
-/// * into() returns (uint256,uint256)
+/// * from(uint256,uint256) -- The EVM is big-endian. The most-significant word is first.
+/// * from(uint512) -- performs a copy
+/// * into() returns (uint256,uint256) -- Again, the most-significant word is first.
+///
 /// ### Comparison (all functions return `(bool)`)
+///
 /// * isZero(uint512)
 /// * eq(uint512,uint256)
 /// * eq(uint512,uint512)
@@ -89,13 +102,17 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * lt(uint512,uint512)
 /// * le(uint512,uint256)
 /// * le(uint512,uint512)
+///
 /// ### Addition
+///
 /// * oadd(uint512,uint256,uint256)
 /// * oadd(uint512,uint512,uint256)
 /// * iadd(uint512,uint256)
 /// * oadd(uint512,uint512,uint512)
 /// * iadd(uint512,uint512)
+///
 /// ### Subtraction
+///
 /// * sub(uint512,uint256) returns (uint256)
 /// * sub(uint512,uint512) returns (uint256)
 /// * osub(uint512,uint512,uint256)
@@ -103,21 +120,27 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * osub(uint512,uint512,uint512)
 /// * isub(uint512,uint512)
 /// * irsub(uint512,uint512)
+///
 /// ### Multiplication
+///
 /// * omul(uint512,uint256,uint256)
 /// * omul(uint512,uint512,uint256)
 /// * imul(uint512,uint256)
 /// * omul(uint512,uint512,uint512)
 /// * imul(uint512,uint512)
+///
 /// ### Modulo
-/// * mod(uint512,uint256) returns (uint256)
+///
+/// * mod(uint512,uint256) returns (uint256) -- mod(uint512,uint512) is not provided for somewhat obvious reasons
 /// * omod(uint512,uint512,uint512)
 /// * imod(uint512,uint512)
 /// * irmod(uint512,uint512)
 /// * omodAlt(uint512,uint512,uint512)
 /// * imodAlt(uint512,uint512)
 /// * irmodAlt(uint512,uint512)
+///
 /// ### Division
+///
 /// * div(uint512,uint256) returns (uint256)
 /// * div(uint512,uint512) returns (uint256)
 /// * odiv(uint512,uint512,uint256)
@@ -125,7 +148,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * odiv(uint512,uint512,uint512)
 /// * idiv(uint512,uint512)
 /// * irdiv(uint512,uint512)
-/// * divAlt(uint512,uint512) returns (uint256)
+/// * divAlt(uint512,uint512) returns (uint256) -- divAlt(uint512,uint256) is not provided because div(uint512,uint256) is suitable for chains without MODEXP
 /// * odivAlt(uint512,uint512,uint512)
 /// * idivAlt(uint512,uint512)
 /// * irdivAlt(uint512,uint512)
