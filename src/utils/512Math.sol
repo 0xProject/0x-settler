@@ -402,7 +402,6 @@ library Lib512MathArithmetic {
     }
 
     function sub(uint512 x, uint256 y) internal pure returns (uint256 r) {
-        uint256 x_lo;
         assembly ("memory-safe") {
             r := sub(mload(add(0x20, x)), y)
         }
