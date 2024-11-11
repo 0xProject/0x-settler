@@ -365,20 +365,6 @@ library Lib512MathArithmetic {
         return oadd(r, r, y);
     }
 
-    function _add(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
-        private
-        pure
-        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
-    {
-        assembly ("memory-safe") {
-            r_lo := add(x_lo, y_lo)
-            let carry := lt(r_lo, x_lo)
-            r_hi := add(add(x_hi, y_hi), carry)
-            carry := or(lt(r_hi, x_hi), and(eq(r_hi, x_hi), carry))
-            r_ex := add(x_ex, carry)
-        }
-    }
-
     function _sub(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_lo := sub(x_lo, y)
