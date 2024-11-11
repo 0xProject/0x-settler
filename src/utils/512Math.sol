@@ -70,7 +70,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// efficient algorithms are employed assuming this. The result is a `uint256`.
 ///
 /// The operations `*mod` and `*div` with 512-bit denominator are `view` instead
-/// of `pure` becaues they make use of the MODEXP (5) precompile. Some EVM L2s
+/// of `pure` because they make use of the MODEXP (5) precompile. Some EVM L2s
 /// and sidechains do not support MODEXP with 512-bit arguments. On those
 /// chains, the `*modAlt` and `*divAlt` functions are provided. These functions
 /// are truly `pure` and do not rely on MODEXP at all. The downside is that they
@@ -558,7 +558,7 @@ library Lib512MathArithmetic {
 
     function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶)
+            // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶ - 1)
             // 2**256 % d = -d % 2**256 % d -- https://2π.com/17/512-bit-division/
             let rem := mulmod(x_hi, sub(0x00, d), d)
             rem := addmod(x_lo, rem, d)
@@ -583,8 +583,8 @@ library Lib512MathArithmetic {
             // gas by not bumping the free pointer.
             r := mload(0x40)
 
-            // Get the remainder [x_hi x_lo] % [d_hi d_lo] (< 2⁵¹²) We use the
-            // MODEXP (5) precompile with an exponent of 1. We encode the
+            // Get the remainder [x_hi x_lo] % [d_hi d_lo] (< 2⁵¹² - 1) We use
+            // the MODEXP (5) precompile with an exponent of 1. We encode the
             // arguments to the precompile at the beginning of free memory
             // without allocating. Conveniently, r already points to this
             // region. Arguments are encoded as:
