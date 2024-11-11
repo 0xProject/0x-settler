@@ -49,11 +49,13 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// out-of-place), the first argument is the output location and the remaining
 /// arguments are the input. For each `i*` operation (mnemonic: in-place), the
 /// first argument is both input and output and the remaining arguments are
-/// purely input. For each `ir*` operation (mnemonic: in-place reverse), the
-/// last argument is both input and output and the other arguments are purely
-/// input (only `irsub`, `irmod`, `irdiv`, `irmodAlt`, and `irdivAlt`
-/// exist). Unless otherwise noted, the return value of each function is the
-/// output location. This supports chaining/pipeline/tacit-style programming.
+/// purely input. For each `ir*` operation (mnemonic: in-place reverse; only for
+/// non-commutative operations), the semantics of the input arguments are
+/// flipped (i.e. `irsub(foo, bar)` is semantically equivalent to `foo = bar -
+/// foo`); the first argument is still the output location. Only `irsub`,
+/// `irmod`, `irdiv`, `irmodAlt`, and `irdivAlt` exist. Unless otherwise noted,
+/// the return value of each function is the output location. This supports
+/// chaining/pipeline/tacit-style programming.
 ///
 /// All provided arithmetic operations behave as if they were inside an
 /// `unchecked` block. We assume that because you're reaching for 512-bit math,
@@ -397,7 +399,7 @@ library Lib512MathArithmetic {
         return osub(r, r, y);
     }
 
-    function irsub(uint512 y, uint512 r) internal pure returns (uint512) {
+    function irsub(uint512 r, uint512 y) internal pure returns (uint512) {
         return osub(r, y, r);
     }
 
@@ -516,7 +518,7 @@ library Lib512MathArithmetic {
         return omod(r, r, y);
     }
 
-    function irmod(uint512 y, uint512 r) internal view returns (uint512) {
+    function irmod(uint512 r, uint512 y) internal view returns (uint512) {
         return omod(r, y, r);
     }
 
@@ -888,10 +890,7 @@ library Lib512MathArithmetic {
         return odiv(r, r, y);
     }
 
-    // TODO: all the ir* functions have the wrong semantics. they should still
-    // write the result to the first argument, but they should reverse the
-    // semantics of the order of the input arguments.
-    function irdiv(uint512 y, uint512 r) internal view returns (uint512) {
+    function irdiv(uint512 r, uint512 y) internal view returns (uint512) {
         return odiv(r, y, r);
     }
 
@@ -1330,7 +1329,7 @@ library Lib512MathArithmetic {
         return odivAlt(r, r, y);
     }
 
-    function irdivAlt(uint512 y, uint512 r) internal pure returns (uint512) {
+    function irdivAlt(uint512 r, uint512 y) internal pure returns (uint512) {
         return odivAlt(r, y, r);
     }
 
@@ -1381,7 +1380,7 @@ library Lib512MathArithmetic {
         return omodAlt(r, r, y);
     }
 
-    function irmodAlt(uint512 y, uint512 r) internal pure returns (uint512) {
+    function irmodAlt(uint512 r, uint512 y) internal pure returns (uint512) {
         return omodAlt(r, y, r);
     }
 }
