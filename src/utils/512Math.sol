@@ -1162,6 +1162,7 @@ library Lib512MathArithmetic {
         // divisions as a single operation (`div`) as required by Algorithm
         // D.
 
+        uint256 s;
         if (y_hi >> 128 != 0) {
             // y is 4 limbs, x is 4 limbs
 
@@ -1173,7 +1174,7 @@ library Lib512MathArithmetic {
             // an even-more-costly division-by-inversion operation later into a
             // simple shift. This still ultimately satisfies the postcondition
             // (`y_hi >> 128 >= 1 << 127`) without overflowing.
-            uint256 s = _clzUpper(y_hi);
+            s = _clzUpper(y_hi);
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
@@ -1213,16 +1214,12 @@ library Lib512MathArithmetic {
                     (x_hi, x_lo) = _add(x_hi, x_lo, y_hi, y_lo);
                 }
             }
-
-            // [x_hi x_lo] now represents remainder × 2ˢ; we shift right by s to
-            // obtain the result.
-            return _shr(x_hi, x_lo, s);
         } else {
             // y is 3 limbs
 
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
             // See above comment about the use of a shift instead of division.
-            uint256 s = _clzLower(y_hi);
+            s = _clzLower(y_hi);
             (y_hi, y_lo) = _shl(y_hi, y_lo, s);
             // y_next is the second-most-significant, nonzero, normalized limb of y
             uint256 y_next = y_lo >> 128; // TODO: this can probably be optimized (combined with `_shl`)
@@ -1296,10 +1293,6 @@ library Lib512MathArithmetic {
                         (x_hi, x_lo) = _add(x_hi, x_lo, y_hi, y_lo);
                     }
                 }
-                // The second-most-significant limb of normalized x is now zero
-                // (equivalently x_hi < 2**128), but because the entire machine
-                // is not guaranteed to be cleared, we can't optimize any
-                // further.
             } else {
                 // x is 3 limbs
 
@@ -1325,13 +1318,17 @@ library Lib512MathArithmetic {
                     }
                 }
             }
-
-            // Like in the previous branch, [x_hi x_lo] is the normalized
-            // remainder, and we apply a right shift to un-normalize it.
-            return _shr(x_hi, x_lo, s);
         }
         // All other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently
         // y_hi != 0) and that x ≥ y
+
+        // The second-most-significant limb of normalized x is now zero
+        // (equivalently x_hi < 2**128), but because the entire machine is not
+        // guaranteed to be cleared, we can't optimize any further.
+
+        // [x_hi x_lo] now represents remainder × 2ˢ (the normalized remainder);
+        // we shift right by s (un-normalize) to obtain the result.
+        return _shr(x_hi, x_lo, s);
     }
 
     function odivAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
