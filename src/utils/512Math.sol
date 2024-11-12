@@ -1503,8 +1503,7 @@ library Lib512MathExternal {
 
     function toExternal(uint512 x) internal pure returns (uint512_external memory r) {
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            if iszero(eq(ptr, add(0x40, r))) { revert(0x00, 0x00) }
+            if iszero(eq(mload(0x40), add(0x40, r))) { revert(0x00, 0x00) }
             mstore(0x40, r)
             r := x
         }
