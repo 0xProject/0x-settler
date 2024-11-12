@@ -86,6 +86,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * from(uint256,uint256) -- The EVM is big-endian. The most-significant word is first.
 /// * from(uint512) -- performs a copy
 /// * into() returns (uint256,uint256) -- Again, the most-significant word is first.
+/// * toExternal(uint512) returns (uint512_external memory)
 ///
 /// ### Comparison (all functions return `(bool)`)
 ///
@@ -105,7 +106,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 ///
 /// ### Addition
 ///
-/// * oadd(uint512,uint256,uint256)
+/// * oadd(uint512,uint256,uint256) -- iadd(uint256,uint256) is not provided for somewhat obvious reasons
 /// * oadd(uint512,uint512,uint256)
 /// * iadd(uint512,uint256)
 /// * oadd(uint512,uint512,uint512)
@@ -131,7 +132,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 ///
 /// ### Modulo
 ///
-/// * mod(uint512,uint256) returns (uint256) -- mod(uint512,uint512) is not provided for somewhat obvious reasons
+/// * mod(uint512,uint256) returns (uint256) -- mod(uint512,uint512) is not provided for less obvious reasons
 /// * omod(uint512,uint512,uint512)
 /// * imod(uint512,uint512)
 /// * irmod(uint512,uint512)
