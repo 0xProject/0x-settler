@@ -1,16 +1,8 @@
-// SPDX-License-Identifier: CC-BY-NC-ND-4.0
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
 import {Panic} from "src/utils/Panic.sol";
 
-/// @author Duncan Townsend (https://github.com/duncancmt)
-/// @dev A perpetual, irrevocable, royalty-free, fully-paid, non-exclusive,
-///      non-transferrable, worldwide license, with no duty to account is hereby
-///      provided by author to Zero Ex Inc., solely for incorporation into the
-///      0x-settler (https://github.com/0xProject/0x-settler) testing
-///      suite. Other copies made of this work are permitted only under the
-///      terms of the license at the top of this file (CC-BY-NC-ND-4.0
-///      https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.txt)
 library SlowMath {
     function fullMul(uint256 a, uint256 b) internal pure returns (uint256 r0, uint256 r1) {
         uint256 mask = 0xffffffffffffffffffffffffffffffff;
