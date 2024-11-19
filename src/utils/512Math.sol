@@ -91,6 +91,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// ### Comparison (all functions return `(bool)`)
 ///
 /// * isZero(uint512)
+/// * isMax(uint512)
 /// * eq(uint512,uint256)
 /// * eq(uint512,uint512)
 /// * ne(uint512,uint256)
@@ -209,6 +210,13 @@ library Lib512MathComparisons {
         (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
             r := iszero(or(x_hi, x_lo))
+        }
+    }
+
+    function isMax(uint512 x) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        assembly ("memory-safe") {
+            r := iszero(not(and(x_hi, x_lo)))
         }
     }
 
