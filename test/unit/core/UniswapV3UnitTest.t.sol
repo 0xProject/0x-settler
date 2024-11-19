@@ -8,6 +8,7 @@ import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
 import {UnknownForkId} from "src/core/SettlerErrors.sol";
+import {uint512} from "src/utils/512Math.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
@@ -46,6 +47,10 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 
