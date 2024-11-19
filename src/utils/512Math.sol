@@ -958,7 +958,7 @@ library Lib512MathArithmetic {
         // divisions as a single operation (`div`) as required by Algorithm
         // D. It also simplifies/optimizes some of the multiplications.
 
-        if (y_hi >> 128 != 0) {
+        if (y_hi > type(uint128).max) {
             // y is 4 limbs, x is 4 limbs, q is 1 limb
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
@@ -1017,7 +1017,7 @@ library Lib512MathArithmetic {
             // y
             uint256 y_whole = (y_hi << 128) | y_next;
 
-            if (x_hi >> 128 != 0) {
+            if (x_hi > type(uint128).max) {
                 // x is 4 limbs, q is 2 limbs
 
                 // Finish normalizing (step D1)
@@ -1174,7 +1174,7 @@ library Lib512MathArithmetic {
         // divisions as a single operation (`div`) as required by Algorithm D.
 
         uint256 s;
-        if (y_hi >> 128 != 0) {
+        if (y_hi > type(uint128).max) {
             // y is 4 limbs, x is 4 limbs
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
@@ -1240,7 +1240,7 @@ library Lib512MathArithmetic {
             // y
             uint256 y_whole = (y_hi << 128) | y_next; // TODO: this can probably be optimized (combined with `_shl`)
 
-            if (x_hi >> 128 != 0) {
+            if (x_hi > type(uint128).max) {
                 // x is 4 limbs; we have to run 2 iterations of Algorithm D to
                 // fully divide out by y
 
