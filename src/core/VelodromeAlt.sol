@@ -93,7 +93,7 @@ abstract contract Velodrome is SettlerAbstract {
             y_xbasis_squared.omul(y * y, xbasis_squared);
             _k(k_new, x, x_ybasis_squared, y, y_xbasis_squared);
             _d(d, x, x_ybasis_squared, y_xbasis_squared);
-            if (k_new.lt(k_orig)) {
+            if (k_new < k_orig) {
                 new_y = y + _div512to256(tmp().osub(k_orig, k_new), d);
             } else {
                 new_y = y - _div512to256(tmp().osub(k_new, k_orig), d);
@@ -149,7 +149,7 @@ abstract contract Velodrome is SettlerAbstract {
             for (uint256 i; i < 255; i++) {
                 uint256 new_y = nrStep(k_new, d, k_orig, x, x_ybasis_squared, xbasis_squared, y, y_xbasis_squared);
                 if (new_y == y) {
-                    if (k_new.ge(k_orig)) {
+                    if (k_new >= k_orig) {
                         _k(k_new, x, x_ybasis_squared, xbasis_squared, new_y - 1);
                         if (k_new < k_orig) {
                             return new_y;
