@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
@@ -8,8 +8,11 @@ import {SettlerIntent} from "../SettlerIntent.sol";
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {DodoV1, IDodoV1} from "../core/DodoV1.sol";
+
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -34,19 +37,29 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn, Permit2Payment} from "../core/Permit2Payment.sol";
 
-abstract contract LineaMixin is FreeMemory, SettlerBase {
+abstract contract LineaMixin is FreeMemory, SettlerBase, DodoV1 {
     constructor() {
         assert(block.chainid == 59144 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override
+        override(SettlerAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        if (super._dispatch(i, action, data)) {
+            return true;
+        } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -81,7 +94,7 @@ abstract contract LineaMixin is FreeMemory, SettlerBase {
 contract LineaSettler is Settler, LineaMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
 
@@ -95,7 +108,7 @@ contract LineaSettler is Settler, LineaMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, LineaMixin)
         returns (bool)
@@ -112,7 +125,7 @@ contract LineaSettler is Settler, LineaMixin {
 contract LineaSettlerMetaTxn is SettlerMetaTxn, LineaMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         virtual
         override
@@ -123,7 +136,7 @@ contract LineaSettlerMetaTxn is SettlerMetaTxn, LineaMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase, LineaMixin)
@@ -142,7 +155,7 @@ contract LineaSettlerIntent is SettlerIntent, LineaSettlerMetaTxn {
     constructor(bytes20 gitCommit) LineaSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(LineaSettlerMetaTxn, SettlerBase, SettlerAbstract)
         returns (bool)
@@ -167,7 +180,7 @@ contract LineaSettlerIntent is SettlerIntent, LineaSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override(LineaSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
@@ -178,7 +191,7 @@ contract LineaSettlerIntent is SettlerIntent, LineaSettlerMetaTxn {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
-        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
         return super._permitToSellAmount(permit);

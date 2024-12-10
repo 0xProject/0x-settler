@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../SettlerIntent.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
 import {CurveTricrypto} from "../core/CurveTricrypto.sol";
+import {DodoV1, IDodoV1} from "../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -42,12 +43,12 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn, Permit2Payment} from "../core/Permit2Payment.sol";
 
-abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto, DodoV2 {
+abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto, DodoV1, DodoV2 {
     constructor() {
         assert(block.chainid == 42161 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase)
@@ -56,7 +57,7 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -67,11 +68,16 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
-        } else if (action == ISettlerActions.DODOV2.selector) {
+        } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -128,7 +134,7 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
 contract ArbitrumSettler is Settler, ArbitrumMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data)
+    function _dispatchVIP(uint256 action, bytes calldata data)
         internal
         virtual
         override
@@ -137,7 +143,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
     {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -148,7 +154,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
             ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
-        } else if (action == ISettlerActions.CURVE_TRICRYPTO_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
                 uint80 poolInfo,
@@ -174,7 +180,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase, ArbitrumMixin)
@@ -192,7 +198,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
 contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         virtual
         override
@@ -201,7 +207,7 @@ contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -211,7 +217,7 @@ contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
             ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
 
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
-        } else if (action == ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
                 uint80 poolInfo,
@@ -227,7 +233,7 @@ contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase, ArbitrumMixin)
@@ -246,7 +252,7 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
     constructor(bytes20 gitCommit) ArbitrumSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(ArbitrumSettlerMetaTxn, SettlerBase, SettlerAbstract)
         returns (bool)
@@ -271,7 +277,7 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override(ArbitrumSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
@@ -282,7 +288,7 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
-        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
         return super._permitToSellAmount(permit);

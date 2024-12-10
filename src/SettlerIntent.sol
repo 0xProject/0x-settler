@@ -8,7 +8,7 @@ import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./core/Permit2Payment.sol";
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
@@ -64,7 +64,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         internal
         view
         virtual
-        override(Permit2Payment, Permit2PaymentAbstract)
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;

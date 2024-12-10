@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../SettlerIntent.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../core/MaverickV2.sol";
+import {DodoV1, IDodoV1} from "../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -31,12 +32,12 @@ import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn, Permit2Payment} from "../core/Permit2Payment.sol";
 
-abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
+abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2 {
     constructor() {
         assert(block.chainid == 534352 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerBase, SettlerAbstract)
@@ -45,7 +46,7 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAVERICKV2.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -56,11 +57,16 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
-        } else if (action == ISettlerActions.DODOV2.selector) {
+        } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -99,10 +105,10 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
 contract ScrollSettler is Settler, ScrollMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == ISettlerActions.MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -129,7 +135,7 @@ contract ScrollSettler is Settler, ScrollMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, ScrollMixin)
         returns (bool)
@@ -146,7 +152,7 @@ contract ScrollSettler is Settler, ScrollMixin {
 contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         virtual
         override
@@ -155,7 +161,7 @@ contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == ISettlerActions.METATXN_MAVERICKV2_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
                 bytes32 salt,
@@ -172,7 +178,7 @@ contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase, ScrollMixin)
@@ -191,7 +197,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
     constructor(bytes20 gitCommit) ScrollSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(ScrollSettlerMetaTxn, SettlerBase, SettlerAbstract)
         returns (bool)
@@ -216,7 +222,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override(ScrollSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
@@ -227,7 +233,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
-        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
         return super._permitToSellAmount(permit);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
@@ -9,7 +9,7 @@ import {SettlerIntent} from "../SettlerIntent.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -37,7 +37,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase {
         assert(block.chainid == 10 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override
@@ -83,7 +83,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase {
 contract OptimismSettler is Settler, OptimismMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
 
@@ -97,7 +97,7 @@ contract OptimismSettler is Settler, OptimismMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, OptimismMixin)
         returns (bool)
@@ -114,7 +114,7 @@ contract OptimismSettler is Settler, OptimismMixin {
 contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         virtual
         override
@@ -125,7 +125,7 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase, OptimismMixin)
@@ -144,7 +144,7 @@ contract OptimismSettlerIntent is SettlerIntent, OptimismSettlerMetaTxn {
     constructor(bytes20 gitCommit) OptimismSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(OptimismSettlerMetaTxn, SettlerBase, SettlerAbstract)
         returns (bool)
@@ -169,7 +169,7 @@ contract OptimismSettlerIntent is SettlerIntent, OptimismSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override(OptimismSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
@@ -180,7 +180,7 @@ contract OptimismSettlerIntent is SettlerIntent, OptimismSettlerMetaTxn {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
-        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
         return super._permitToSellAmount(permit);

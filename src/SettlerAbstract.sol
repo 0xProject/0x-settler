@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 
 abstract contract SettlerAbstract is Permit2PaymentAbstract {
@@ -14,6 +15,7 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
     bytes32 internal constant SLIPPAGE_TYPEHASH = 0xdc83993a2ffc65b01b71ed08790b6e39c5c55d76937b62a3b5085b02071f1259;
 
     uint256 internal constant BASIS = 10_000;
+    IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     constructor() {
         assert(SLIPPAGE_AND_ACTIONS_TYPEHASH == keccak256(bytes(SLIPPAGE_AND_ACTIONS_TYPE)));
@@ -24,5 +26,5 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
 
     function _tokenId() internal pure virtual returns (uint256);
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data) internal virtual returns (bool);
+    function _dispatch(uint256 i, uint256 action, bytes calldata data) internal virtual returns (bool);
 }

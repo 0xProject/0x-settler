@@ -160,9 +160,18 @@ gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
-forge create --private-key "$(get_secret allowanceHolder key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --verify $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+forge create --from "$(get_secret allowanceHolder deployer)" --private-key "$(get_secret allowanceHolder key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+
+sleep 1m
+
+if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
+    forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+else
+    forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+fi
+
 if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain "$(get_config chainId)" --verifier sourcify --optimizer-runs 1000000 --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 fi
 
 echo 'Deployment is complete' >&2

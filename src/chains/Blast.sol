@@ -9,7 +9,7 @@ import {SettlerIntent} from "../SettlerIntent.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../ISettlerActions.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
@@ -29,6 +29,16 @@ import {
     dackieSwapV3BlastInitHash,
     dackieSwapV3ForkId
 } from "../core/univ3forks/DackieSwapV3.sol";
+import {
+    blasterV3Factory,
+    blasterV3InitHash,
+    blasterV3ForkId,
+    IBlasterswapV3SwapCallback
+} from "../core/univ3forks/BlasterV3.sol";
+import {monoSwapV3Factory, monoSwapV3InitHash, monoSwapV3ForkId} from "../core/univ3forks/MonoSwapV3.sol";
+import {
+    rogueXV1Factory, rogueXV1InitHash, rogueXV1ForkId, IRoxSpotSwapCallback
+} from "../core/univ3forks/RogueXV1.sol";
 
 import {IOwnable} from "../deployer/TwoStepOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
@@ -64,7 +74,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
         return target == address(BLAST);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override
@@ -80,32 +90,50 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3BlastFactory;
-            initHash = uniswapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        //} else if (forkId == sushiswapV3ForkId) {
-        //    factory = sushiswapV3BlastFactory;
-        //    initHash = sushiswapV3BlastInitHash;
-        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == thrusterForkId) {
-            factory = thrusterFactory;
-            initHash = thrusterInitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == bladeSwapForkId) {
-            factory = bladeSwapFactory;
-            initHash = bladeSwapInitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
-        } else if (forkId == fenixForkId) {
-            factory = fenixFactory;
-            initHash = fenixInitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
-        } else if (forkId == dackieSwapV3ForkId) {
-            factory = dackieSwapV3BlastFactory;
-            initHash = dackieSwapV3BlastInitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        if (forkId < dackieSwapV3ForkId) {
+            if (forkId == uniswapV3ForkId) {
+                factory = uniswapV3BlastFactory;
+                initHash = uniswapV3InitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            //} else if (forkId == sushiswapV3ForkId) {
+            //    factory = sushiswapV3BlastFactory;
+            //    initHash = sushiswapV3BlastInitHash;
+            //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            } else if (forkId == thrusterForkId) {
+                factory = thrusterFactory;
+                initHash = thrusterInitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            } else if (forkId == bladeSwapForkId) {
+                factory = bladeSwapFactory;
+                initHash = bladeSwapInitHash;
+                callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+            } else if (forkId == fenixForkId) {
+                factory = fenixFactory;
+                initHash = fenixInitHash;
+                callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+            } else {
+                revert UnknownForkId(forkId);
+            }
         } else {
-            revert UnknownForkId(forkId);
+            if (forkId == dackieSwapV3ForkId) {
+                factory = dackieSwapV3BlastFactory;
+                initHash = dackieSwapV3BlastInitHash;
+                callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+            } else if (forkId == blasterV3ForkId) {
+                factory = blasterV3Factory;
+                initHash = blasterV3InitHash;
+                callbackSelector = uint32(IBlasterswapV3SwapCallback.blasterswapV3SwapCallback.selector);
+            } else if (forkId == monoSwapV3ForkId) {
+                factory = monoSwapV3Factory;
+                initHash = monoSwapV3InitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            } else if (forkId == rogueXV1ForkId) {
+                factory = rogueXV1Factory;
+                initHash = rogueXV1InitHash;
+                callbackSelector = uint32(IRoxSpotSwapCallback.swapCallback.selector);
+            } else {
+                revert UnknownForkId(forkId);
+            }
         }
     }
 }
@@ -114,7 +142,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
 contract BlastSettler is Settler, BlastMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
 
@@ -123,7 +151,7 @@ contract BlastSettler is Settler, BlastMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, BlastMixin)
         returns (bool)
@@ -140,7 +168,7 @@ contract BlastSettler is Settler, BlastMixin {
 contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         virtual
         override
@@ -161,7 +189,7 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase, BlastMixin)
@@ -189,7 +217,7 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(BlastSettlerMetaTxn, SettlerBase, SettlerAbstract)
         returns (bool)
@@ -214,7 +242,7 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override(BlastSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
@@ -225,7 +253,7 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
-        override(SettlerIntent, Permit2Payment, Permit2PaymentAbstract)
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
         return super._permitToSellAmount(permit);

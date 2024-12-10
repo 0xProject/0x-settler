@@ -21,7 +21,7 @@ jobs:
         run: git submodule update --recursive --init
 
       - name: Check contract sizes
-        run: forge build --sizes
+        run: forge build --sizes --skip UniswapV4UnitTest.t.sol
 
       - name: Run tests
         run: forge test

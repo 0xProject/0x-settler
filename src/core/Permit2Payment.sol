@@ -18,9 +18,10 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
 
 import {Context} from "../Context.sol";
@@ -223,26 +224,8 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
-    using FullMath for uint256;
-
-    fallback(bytes calldata data) external virtual returns (bytes memory) {
-        return _invokeCallback(data);
-    }
-
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
-        internal
-        view
-        virtual
-        override
-        returns (uint256 sellAmount)
-    {
-        sellAmount = permit.permitted.amount;
-        if (sellAmount > type(uint256).max - BASIS) {
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
-            }
-            sellAmount = IERC20(permit.permitted.token).balanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
-        }
+    fallback(bytes calldata) external virtual returns (bytes memory) {
+        return _invokeCallback(_msgData());
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
@@ -293,8 +276,41 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 }
 
 abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
+    using FullMath for uint256;
+    using SafeTransferLib for IERC20;
+
     constructor() {
         assert(!_hasMetaTxn());
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = permit.permitted.amount;
+        if (sellAmount > type(uint256).max - BASIS) {
+            unchecked {
+                sellAmount -= type(uint256).max - BASIS;
+            }
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+        }
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = permit.permitted.amount;
+        if (sellAmount > type(uint256).max - BASIS) {
+            unchecked {
+                sellAmount -= type(uint256).max - BASIS;
+            }
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+        }
     }
 
     function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
@@ -358,6 +374,25 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     constructor() {
         assert(_hasMetaTxn());
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        override
+        returns (uint256)
+    {
+        return permit.permitted.amount;
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        return permit.permitted.amount;
     }
 
     function _operator() internal view override returns (address) {
