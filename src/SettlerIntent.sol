@@ -50,13 +50,13 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         }
     }
 
-    function _executeMetaTxn(
+    function executeMetaTxn(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         address msgSender,
         bytes calldata sig
-    ) public virtual metaTx(msgSender, _hashSlippage(slippage)) returns (bool) {
+    ) public virtual override metaTx(msgSender, _hashSlippage(slippage)) returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
     }
 

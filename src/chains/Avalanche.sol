@@ -138,6 +138,16 @@ contract AvalancheSettlerIntent is SettlerIntent, AvalancheSettlerMetaTxn {
     constructor(bytes20 gitCommit) AvalancheSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
+    function executeMetaTxn(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32, /* zid & affiliate */
+        address msgSender,
+        bytes calldata sig
+    ) public override(SettlerIntent, SettlerMetaTxn) returns (bool) {
+        return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(AvalancheSettlerMetaTxn, SettlerBase, SettlerAbstract)

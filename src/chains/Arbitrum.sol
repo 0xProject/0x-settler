@@ -252,6 +252,16 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
     constructor(bytes20 gitCommit) ArbitrumSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
+    function executeMetaTxn(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32, /* zid & affiliate */
+        address msgSender,
+        bytes calldata sig
+    ) public override(SettlerIntent, SettlerMetaTxn) returns (bool) {
+        return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(ArbitrumSettlerMetaTxn, SettlerBase, SettlerAbstract)
