@@ -900,6 +900,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     revert ZeroSellAmount(globalSellToken);
                 }
                 if (globalSellToken == ETH_ADDRESS) {
+                    IPoolManager(msg.sender).unsafeSync(IERC20(address(0)));
                     IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);

@@ -97,8 +97,10 @@ interface IPoolManager {
 /// `address(0)`.
 library UnsafePoolManager {
     function unsafeSync(IPoolManager poolManager, IERC20 token) internal {
-        // `sync` doesn't need to check whether `token` is `ETH_ADDRESS` because calling `sync` for
-        // Ether is never necessary
+        // It is the responsibility of the calling code to determine whether `token` is
+        // `ETH_ADDRESS` and substitute it with `IERC20(address(0))` appropriately. This delegation
+        // of responsibility is required because a call to `unsafeSync(0)` must be followed by a
+        // value-bearing call to `unsafeSettle` instead of using `IERC20.safeTransfer`
         assembly ("memory-safe") {
             mstore(0x14, token)
             mstore(0x00, 0xa5841194000000000000000000000000) // selector for `sync(address)`
@@ -173,7 +175,7 @@ library UnsafePoolManager {
     }
 }
 
-IPoolManager constant POOL_MANAGER = IPoolManager(0x4444444444444444444444444444444444444444); // TODO: replace with actual deployment address
+IPoolManager constant POOL_MANAGER = IPoolManager(0x000000000004444c5dc75cB358380D2e3dE08A90);
 
 /// @notice Interface for the callback executed when an address unlocks the pool manager
 interface IUnlockCallback {
