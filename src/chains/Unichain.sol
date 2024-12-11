@@ -137,7 +137,7 @@ contract UnichainSettlerMetaTxn is SettlerMetaTxn, UnichainMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
                 bool feeOnTransfer,
