@@ -22,6 +22,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
+                || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
         ) {
             return false;
@@ -44,6 +45,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
+                || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
                 || block.chainid == 11155111 // sepolia
         ) {
