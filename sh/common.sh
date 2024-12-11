@@ -7,9 +7,9 @@ declare forge_version
 forge_version="$(forge --version)"
 forge_version="${forge_version:13:7}"
 declare -r forge_version
-if [[ $forge_version != 'fe2acca' ]] ; then
+if [[ $forge_version != '59f354c' ]] ; then
     echo 'Wrong foundry version installed -- '"$forge_version" >&2
-    echo 'Run `foundryup -v nightly-fe2acca4e379793539db80e032d76ffe0110298b`' >&2
+    echo 'Run `foundryup -v nightly-59f354c179f4e7f6d7292acb3d068815c79286d1`' >&2
     exit 1
 fi
 

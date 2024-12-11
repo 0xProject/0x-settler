@@ -15,7 +15,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-fe2acca4e379793539db80e032d76ffe0110298b
+          version: nightly-59f354c179f4e7f6d7292acb3d068815c79286d1
 
       - name: Check formatting
         run: forge fmt --check
