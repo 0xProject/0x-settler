@@ -122,18 +122,6 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
-
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -164,15 +152,7 @@ forge create --from "$(get_secret allowanceHolder deployer)" --private-key "$(ge
 
 sleep 1m
 
-if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
-    forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-else
-    forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-fi
-
-if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
-fi
+verify_contract 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 
 echo 'Deployment is complete' >&2
 echo 'Add the following to your chain_config.json' >&2
