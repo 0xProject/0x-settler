@@ -32,7 +32,7 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
