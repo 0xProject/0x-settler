@@ -378,7 +378,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
-        view
+        pure
         override
         returns (uint256)
     {
@@ -387,7 +387,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        view
+        pure
         override
         returns (uint256)
     {
