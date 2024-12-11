@@ -11,16 +11,9 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {UnknownForkId} from "../core/SettlerErrors.sol";
 
 import {
-    supSwapV3Factory,
-    supSwapV3InitHash,
-    supSwapV3ForkId,
-    ISupSwapV3Callback
+    supSwapV3Factory, supSwapV3InitHash, supSwapV3ForkId, ISupSwapV3Callback
 } from "../core/univ3forks/SupSwapV3.sol";
-import {
-    kimFactory,
-    kimInitHash,
-    kimForkId
-} from "../core/univ3forks/Kim.sol";
+import {kimFactory, kimInitHash, kimForkId} from "../core/univ3forks/Kim.sol";
 import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 import {swapModeV3Factory, swapModeV3InitHash, swapModeV3ForkId} from "../core/univ3forks/SwapModeV3.sol";
 import {IUniswapV3Callback} from "../core/univ3forks/UniswapV3.sol";
@@ -49,7 +42,7 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
         return target == address(MODE_SFS);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerBase)
@@ -87,21 +80,16 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
 contract ModeSettler is Settler, ModeMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        override(Settler, ModeMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure override(Settler, ModeMixin) returns (bool) {
         return ModeMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, ModeMixin)
         returns (bool)
@@ -118,7 +106,7 @@ contract ModeSettler is Settler, ModeMixin {
 contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
     constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override
         DANGEROUS_freeMemory
@@ -137,7 +125,7 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, ModeMixin)
         returns (bool)

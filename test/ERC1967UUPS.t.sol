@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import "forge-std/Test.sol";
+import "@forge-std/Test.sol";
 
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {ERC1967UUPSUpgradeable, IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
-import {IERC165} from "forge-std/interfaces/IERC165.sol";
+import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {AbstractOwnable, IOwnable, Ownable} from "src/deployer/TwoStepOwnable.sol";
 import {Context} from "src/Context.sol";
 
@@ -166,7 +166,7 @@ contract ERC1967UUPSTest is Test {
         // the revert string has the arguments backwards here because we get
         // infinite recursion. which order we get depends on the context depth
         // and gas limit on entry.
-        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", newImpl, mock.implementation()));
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
         mock.upgrade(address(newImpl));
     }
 

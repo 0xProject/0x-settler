@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {SettlerBase} from "../SettlerBase.sol";
 import {Settler} from "../Settler.sol";
 import {SettlerMetaTxn} from "../SettlerMetaTxn.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {DodoV1, IDodoV1} from "../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../core/DodoV2.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
@@ -27,12 +28,12 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AbstractContext} from "../Context.sol";
 import {Permit2PaymentAbstract} from "../core/Permit2PaymentAbstract.sol";
 
-abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV2 {
+abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2 {
     constructor() {
         assert(block.chainid == 137 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase)
@@ -41,11 +42,16 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV2 {
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == ISettlerActions.DODOV2.selector) {
+        } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -80,7 +86,7 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV2 {
 contract PolygonSettler is Settler, PolygonMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
 
@@ -94,7 +100,7 @@ contract PolygonSettler is Settler, PolygonMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, PolygonMixin)
         returns (bool)
@@ -111,7 +117,7 @@ contract PolygonSettler is Settler, PolygonMixin {
 contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
     constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override
         DANGEROUS_freeMemory
@@ -121,7 +127,7 @@ contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, PolygonMixin)
         returns (bool)

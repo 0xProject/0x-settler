@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 interface ISettlerActions {
     /// @dev Transfer funds from msg.sender Permit2.
@@ -44,11 +44,40 @@ interface ISettlerActions {
         uint256 maxTakerAmount
     ) external;
 
+    function UNISWAPV4(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+    function UNISWAPV4_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+    function METATXN_UNISWAPV4_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
+
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
     function UNISWAPV3(address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) external;
-
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_VIP(
         address recipient,
@@ -57,9 +86,15 @@ interface ISettlerActions {
         bytes memory sig,
         uint256 amountOutMin
     ) external;
+    /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
+    function METATXN_UNISWAPV3_VIP(
+        address recipient,
+        bytes memory path,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
 
-    function MAKERPSM(address recipient, address gemToken, uint256 bps, address psm, bool buyGem, uint256 amountOutMin)
-        external;
+    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) external;
 
     function CURVE_TRICRYPTO_VIP(
         address recipient,
@@ -86,14 +121,6 @@ interface ISettlerActions {
     ) external;
 
     function VELODROME(address recipient, uint256 bps, address pool, uint24 swapInfo, uint256 minBuyAmount) external;
-
-    /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
-    function METATXN_UNISWAPV3_VIP(
-        address recipient,
-        bytes memory path,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        uint256 amountOutMin
-    ) external;
 
     /// @dev Trades against MaverickV2 using the contracts balance for funding
     /// This action does not use the MaverickV2 callback, so it takes an arbitrary pool address to make calls against.

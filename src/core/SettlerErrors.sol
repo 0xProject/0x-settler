@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 /// @notice Thrown when an offset is not the expected value
 error InvalidOffset();
@@ -57,3 +57,11 @@ error WitnessNotSpent(bytes32 oldWitness);
 /// @notice An internal error that should never be thrown. Thrown when the payer is unset
 ///         unexpectedly.
 error PayerSpent();
+
+error DeltaNotPositive(IERC20 token);
+error DeltaNotNegative(IERC20 token);
+error ZeroSellAmount(IERC20 token);
+error ZeroBuyAmount(IERC20 buyToken);
+error BoughtSellToken(IERC20 sellToken);
+error TokenHashCollision(IERC20 token0, IERC20 token1);
+error ZeroToken();
