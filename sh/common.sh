@@ -86,7 +86,7 @@ function verify_contract {
     else
         forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" "$source_path"
     fi
-    if (( chainid != 81457 )); then # Sourcify doesn't support Blast
+    if (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Blast or Taiko
         forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" "$source_path"
     fi
 }
