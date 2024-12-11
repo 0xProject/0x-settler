@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -194,11 +194,11 @@ abstract contract MaverickV2 is SettlerAbstract {
                 // We don't care about phantom overflow here because reserves
                 // are limited to 128 bits. Any token balance that would
                 // overflow here would also break MaverickV2.
-                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
         }
         if (sellAmount == 0) {
-            sellAmount = sellToken.balanceOf(address(pool));
+            sellAmount = sellToken.fastBalanceOf(address(pool));
             IMaverickV2Pool.State memory poolState = pool.getState();
             unchecked {
                 sellAmount -= tokenAIn ? poolState.reserveA : poolState.reserveB;

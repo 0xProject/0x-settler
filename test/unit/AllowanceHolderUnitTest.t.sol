@@ -4,12 +4,12 @@ pragma solidity ^0.8.25;
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {Utils} from "./Utils.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 
 contract AllowanceHolderDummy is AllowanceHolder {
     function getAllowed(address operator, address owner, address token) external view returns (uint256 r) {

@@ -21,6 +21,11 @@ Master list of UniV3 forks:
   18. BlasterV3
   19. MonoSwapV3
   20. RogueXV1
+  21. SupSwapV3
+  22. Kim (Algebra-like)
+  23. SwapMode
+  24. Swapsicle (Algebra-like)
+  25. Panko
 
 ---
 
@@ -28,9 +33,42 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Remove `gemToken` and `psm` arguments from `MAKERPSM` action
+  * This specializes and gas optimizes the action for the Lite PSM (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
+
+### Non-breaking changes
+
+* Add actions for UniswapV4
+  * `UNISWAPV4`, `UNISWAPV4_VIP`, and `METATXN_UNISWAPV4_VIP`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    encode `fills`
+  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
+    compute a perfect token hash function
+* Add `msgSender()(address)` accessor on Base to retrieve the current taker
+* Improve accuracy, gas, and convergence region coverage in SolidlyV1/VelodromeV2 action (`VELODROME`)
+* Add DodoV1 actions to more chains
+  * Add `DODOV1` action to Arbitrum
+  * Add `DODOV1` action to Bnb
+  * Add `DODOV1` action to Linea
+  * Add `DODOV1` action to Mantle
+  * Add `DODOV1` action to Polygon
+  * Add `DODOV1` action to Scroll
+* Deploy Settler to Taiko network
+  * Add UniswapV3 UniV3 fork to Taiko
+  * Add Swapsicle UniV3 (Algebra style) fork to Taiko
+  * Add Panko UniV3 fork to Taiko
+
+## 2024-10-08
+
+### Breaking changes
+
 ### Non-breaking changes
 
 * Add `DODOV2` Dodo V2 action on Mantle
+* Deploy Settler to Mode network
+  * Add SupSwapV3 UniV3 fork to Mode
+  * Add Kim UniV3 (Algebra style) fork to Mode
+  * Add SwapModeV3 UniV3 fork to Mode
 
 ## 2024-09-09
 

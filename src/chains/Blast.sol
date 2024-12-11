@@ -71,7 +71,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
         return target == address(BLAST);
     }
 
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
         override
@@ -139,7 +139,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
 contract BlastSettler is Settler, BlastMixin {
     constructor(bytes20 gitCommit) Settler(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         return super._dispatchVIP(action, data);
     }
 
@@ -148,7 +148,7 @@ contract BlastSettler is Settler, BlastMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, BlastMixin)
         returns (bool)
@@ -165,7 +165,7 @@ contract BlastSettler is Settler, BlastMixin {
 contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
 
-    function _dispatchVIP(bytes4 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override
         DANGEROUS_freeMemory
@@ -184,7 +184,7 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, bytes4 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, BlastMixin)
         returns (bool)

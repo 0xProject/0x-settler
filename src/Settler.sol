@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
@@ -49,8 +49,8 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatchVIP(bytes4 action, bytes calldata data) internal virtual returns (bool) {
-        if (action == ISettlerActions.RFQ_VIP.selector) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
+        if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -71,7 +71,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
             );
 
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
-        } else if (action == ISettlerActions.UNISWAPV3_VIP.selector) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
                 bytes memory path,
@@ -94,18 +94,18 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         returns (bool)
     {
         if (actions.length != 0) {
-            (bytes4 action, bytes calldata data) = actions.decodeCall(0);
+            (uint256 action, bytes calldata data) = actions.decodeCall(0);
             if (!_dispatchVIP(action, data)) {
                 if (!_dispatch(0, action, data)) {
-                    revert ActionInvalid(0, action, data);
+                    revert ActionInvalid(0, bytes4(uint32(action)), data);
                 }
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            (bytes4 action, bytes calldata data) = actions.decodeCall(i);
+            (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, action, data);
+                revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
         }
 

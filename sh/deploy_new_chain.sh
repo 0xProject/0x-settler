@@ -158,19 +158,6 @@ metatransaction_description="$(jq -MRs < "$project_root"/sh/initial_description_
 metatransaction_description="${metatransaction_description:1:$((${#metatransaction_description} - 2))}"
 declare -r metatransaction_description
 
-# not quite so secret-s
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
-
 # safe constants
 declare safe_factory
 safe_factory="$(get_config safe.factory)"
@@ -246,6 +233,17 @@ declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(bytes20)' 0x"$(git rev-parse HEAD)")"
 declare -r constructor_args
 
+declare chain_display_name
+chain_display_name="$(get_config displayName)"
+declare -r chain_display_name
+forge clean
+declare flat_source
+flat_source="$project_root"/src/flat/"$chain_display_name"Flat.sol
+declare -r flat_source
+trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_source")" EXIT
+forge flatten -o "$flat_source" src/chains/"$chain_display_name".sol >/dev/null
+forge build "$flat_source"
+
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -271,11 +269,11 @@ fi
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
-forge clean
 ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
     forge script                                         \
     --slow                                               \
     --no-storage-caching                                 \
+    --skip 'Flat.sol'                                    \
     --isolate                                            \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
     --with-gas-price $gas_price                          \
@@ -288,50 +286,21 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     script/DeploySafes.s.sol:DeploySafes                 \
     "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
     2 3 "$taker_submitted_description" "$metatransaction_description" \
-    "$(get_config displayName)" "$constructor_args"
+    "$chain_display_name" "$constructor_args"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
-    sleep 60
+    sleep 1m
 
     echo 'Verifying pause Safe module' >&2
 
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
+    verify_contract "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
     echo 'Verified Safe module -- now verifying Deployer implementation' >&2
 
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" "$deployer_impl" --constructor-args "$(cast abi-encode 'constructor(uint256)' 1)" src/deployer/Deployer.sol:Deployer
-    forge verify-contract --watch --chain $chainid --verifier sourcify "$deployer_impl" src/deployer/Deployer.sol:Deployer
+    verify_contract "$(cast abi-encode 'constructor(uint256)' 1)" "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
-    echo 'Verified deployer implementation -- now verifying initial Settlers' >&2
-
-    declare deployer_address
-    deployer_address="$(get_config deployment.deployer)"
-    declare -r deployer_address
-    declare chain_display_name
-    chain_display_name="$(get_config displayName)"
-    declare -r chain_display_name
-
-    declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
-
-    declare taker_settler
-    taker_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 2)"
-    declare -r taker_settler
-
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" src/chains/"$chain_display_name".sol:"$chain_display_name"Settler
-
-    declare metatx_settler
-    metatx_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 3)"
-    declare -r metatx_settler
-
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" src/chains/"$chain_display_name".sol:"$chain_display_name"SettlerMetaTxn
-
-    echo 'Verified initial Settlers on Etherscan -- now verifying on Sourcify' >&2
-
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$taker_settler" src/chains/"$chain_display_name".sol:"$chain_display_name"Settler
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$metatx_settler" src/chains/"$chain_display_name".sol:"$chain_display_name"SettlerMetaTxn
-
+    echo 'Run ./sh/verify_settler.sh to verify newly-deployed Settlers' >&2
 fi
 
 echo 'Deployment is complete' >&2
