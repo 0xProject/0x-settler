@@ -1304,7 +1304,8 @@ happen.
 
 Zeroth, verify the configuration for your chain in
 [`chain_config.json`](chain_config.json) and
-[`script/SafeConfig.sol`](script/SafeConfig.sol).
+[`script/SafeConfig.sol`](script/SafeConfig.sol). Add the new chain to the list
+of `AllowanceHolder` addresses at the top of this file.
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
 this, give up. Also populate `api_secrets.json` by copying
