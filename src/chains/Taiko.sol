@@ -18,6 +18,8 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../core/univ3forks/UniswapV3.sol";
+import {swapsicleFactory, swapsicleInitHash, swapsicleForkId} from "../core/univ3forks/Swapsicle.sol";
+import {IAlgebraCallback} from "../core/univ3forks/Algebra.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -54,6 +56,10 @@ abstract contract TaikoMixin is FreeMemory, SettlerBase {
             factory = uniswapV3TaikoFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == swapsicleForkId) {
+            factory = swapsicleFactory;
+            initHash = swapsicleInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
