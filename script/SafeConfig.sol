@@ -7,9 +7,6 @@ library SafeConfig {
     function _isTestnet() internal view returns (bool) {
         if (
             block.chainid == 11155111 // sepolia
-                || block.chainid == 84532 // base sepolia
-                || block.chainid == 421614 // arbitrum sepolia
-                || block.chainid == 11155420 // optimism sepolia
         ) {
             return true;
         }
@@ -47,11 +44,8 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
-                || block.chainid == 84532 // base sepolia
-                || block.chainid == 421614 // arbitrum sepolia
                 || block.chainid == 534352 // scroll
                 || block.chainid == 11155111 // sepolia
-                || block.chainid == 11155420 // optimism sepolia
         ) {
             return false;
         }
