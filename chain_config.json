@@ -340,8 +340,8 @@
   "taiko": {
     "chainId": 167000,
     "displayName": "Tako",
-    "isShanghai": null,
-    "isCancun": null,
+    "isShanghai": true,
+    "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
