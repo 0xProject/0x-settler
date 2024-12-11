@@ -339,7 +339,7 @@
   },
   "taiko": {
     "chainId": 167000,
-    "displayName": "Tako",
+    "displayName": "Taiko",
     "isShanghai": true,
     "isCancun": false,
     "extraFlags": "",
