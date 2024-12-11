@@ -74,19 +74,19 @@ if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url == 'null' ]] ; then
 fi
 
 function verify_contract {
-    declare -r constructor_args="$1"
+    declare -r _verify_constructor_args="$1"
     shift
-    declare -r deployed_address="$1"
+    declare -r _verify_deployed_address="$1"
     shift
-    declare -r source_path="$1"
+    declare -r _verify_source_path="$1"
     shift
 
     if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
-        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$constructor_args" "$deployed_address" "$source_path"
+        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     else
-        forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" "$source_path"
+        forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
     if (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Blast or Taiko
-        forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" "$source_path"
+        forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }
