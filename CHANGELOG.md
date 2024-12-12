@@ -54,6 +54,13 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Mantle
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
+
+## 2024-12-12
+
+### Breaking changes
+
+### Non-breaking changes
+
 * Deploy Settler to Taiko network
   * Add UniswapV3 UniV3 fork to Taiko
   * Add Swapsicle UniV3 (Algebra style) fork to Taiko
