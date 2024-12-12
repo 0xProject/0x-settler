@@ -58,4 +58,3 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase {
         }
     }
 }
-
