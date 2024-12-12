@@ -13,6 +13,7 @@ address constant uniswapV3MantleFactory = 0x0d922Fb1Bc191F64970ac40376643808b4B7
 address constant uniswapV3TaikoFactory = 0x75FC67473A91335B5b8F8821277262a13B38c9b3;
 address constant uniswapV3WorldChainFactory = 0x7a5028BDa40e7B173C278C5342087826455ea25a;
 address constant uniswapV3GnosisFactory = 0xe32F7dD7e3f098D518ff19A22d5f028e076489B1;
+address constant uniswapV3UnichainFactory = 0x0000000000000000000000000000000000000000; // TODO: likely 0x1F98431c8aD98523631AE4a59f267346ea31F984, in which case remove this line and replace references with `uniswapV3MainnetFactory`
 bytes32 constant uniswapV3InitHash = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 uint8 constant uniswapV3ForkId = 0;
 

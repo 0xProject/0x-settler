@@ -15,6 +15,7 @@ library SafeConfig {
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 480 // worldchain
                 || block.chainid == 5000 // mantle
@@ -40,6 +41,7 @@ library SafeConfig {
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 480 // worldchain
                 || block.chainid == 5000 // mantle
