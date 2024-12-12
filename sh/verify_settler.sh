@@ -142,7 +142,7 @@ declare taker_settler
 taker_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 2)"
 declare -r taker_settler
 
-verify_contract "$constructor_args" "$taker_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"Settler
+verify_contract "$constructor_args" "$taker_settler" "$flat_taker_source":"$chain_display_name"Settler
 
 echo 'Verified taker-submitted Settler... verifying metatx Settler...' >&2
 
@@ -150,6 +150,6 @@ declare metatx_settler
 metatx_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 3)"
 declare -r metatx_settler
 
-verify_contract "$constructor_args" "$metatx_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"SettlerMetaTxn
+verify_contract "$constructor_args" "$metatx_settler" "$flat_metatx_source":"$chain_display_name"SettlerMetaTxn
 
 echo 'Verified metatx Settler. All done!' >&2
