@@ -57,6 +57,9 @@ Master list of UniV3 forks:
   * Add UniswapV3 UniV3 fork to Taiko
   * Add Swapsicle UniV3 (Algebra style) fork to Taiko
   * Add Panko UniV3 fork to Taiko
+* Deploy Settler to World Chain network
+  * Add UniswapV3 UniV3 fork to World Chain
+  * Add DackieSwapV3 UniV3 fork to World Chain
 
 ## 2024-10-08
 

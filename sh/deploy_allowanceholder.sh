@@ -148,7 +148,7 @@ gas_limit="$(cast estimate --from "$(get_secret allowanceHolderOld deployer)" --
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
-forge create --private-key "$(get_secret allowanceHolderOld key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
+forge create --broadcast --from "$(get_secret allowanceHolderOld deployer)" --private-key "$(get_secret allowanceHolderOld key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 
 sleep 1m
 
