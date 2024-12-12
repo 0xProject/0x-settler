@@ -17,6 +17,8 @@ import {
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3GnosisFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
+import {swaprFactory, swaprInitHash, swaprForkId} from "../../core/univ3forks/Swapr.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 abstract contract GnosisMixin is FreeMemory, SettlerBase {
     constructor() {
@@ -52,6 +54,10 @@ abstract contract GnosisMixin is FreeMemory, SettlerBase {
             factory = sushiswapV3GnosisFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == swaprForkId) {
+            factory = swaprFactory;
+            initHash = swaprInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
