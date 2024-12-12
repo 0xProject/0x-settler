@@ -7,9 +7,6 @@ library SafeConfig {
     function _isTestnet() internal view returns (bool) {
         if (
             block.chainid == 11155111 // sepolia
-                || block.chainid == 84532 // base sepolia
-                || block.chainid == 421614 // arbitrum sepolia
-                || block.chainid == 11155420 // optimism sepolia
         ) {
             return true;
         }
@@ -17,7 +14,9 @@ library SafeConfig {
             block.chainid == 1 // mainnet
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
+                || block.chainid == 100 // gnosis
                 || block.chainid == 137 // polygon
+                || block.chainid == 480 // worldchain
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 34443 // mode
@@ -25,6 +24,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
+                || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
         ) {
             return false;
@@ -39,7 +39,9 @@ library SafeConfig {
         if (
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
+                || block.chainid == 100 // gnosis
                 || block.chainid == 137 // polygon
+                || block.chainid == 480 // worldchain
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 34443 // mode
@@ -47,11 +49,9 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
-                || block.chainid == 84532 // base sepolia
-                || block.chainid == 421614 // arbitrum sepolia
+                || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
                 || block.chainid == 11155111 // sepolia
-                || block.chainid == 11155420 // optimism sepolia
         ) {
             return false;
         }

@@ -24,6 +24,9 @@ Master list of UniV3 forks:
   21. SupSwapV3
   22. Kim (Algebra-like)
   23. SwapMode
+  24. Swapsicle (Algebra-like)
+  25. Panko
+  26. Swapr (Algebra-like)
 
 ---
 
@@ -51,6 +54,24 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Mantle
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
+
+## 2024-12-12
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Taiko network
+  * Add UniswapV3 UniV3 fork to Taiko
+  * Add Swapsicle UniV3 (Algebra style) fork to Taiko
+  * Add Panko UniV3 fork to Taiko
+* Deploy Settler to World Chain network
+  * Add UniswapV3 UniV3 fork to World Chain
+  * Add DackieSwapV3 UniV3 fork to World Chain
+* Deploy Settler to Gnosis chain
+  * Add UniswapV3 UniV3 fork to Gnosis
+  * Add SushiswapV3 UniV3 fork to Gnosis
+  * Add Swapr UniV3 (Algebra style) fork to Gnosis
 
 ## 2024-10-08
 
