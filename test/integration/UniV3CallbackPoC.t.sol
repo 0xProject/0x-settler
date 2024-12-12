@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
+import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";

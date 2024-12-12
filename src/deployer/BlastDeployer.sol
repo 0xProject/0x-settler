@@ -2,7 +2,7 @@
 pragma solidity =0.8.25;
 
 import {Deployer} from "./Deployer.sol";
-import {BLAST, BlastYieldMode, BlastGasMode} from "../chains/IBlast.sol";
+import {BLAST, BlastYieldMode, BlastGasMode} from "../chains/Blast/IBlast.sol";
 
 /// @custom:security-contact security@0x.org
 contract BlastDeployer is Deployer {

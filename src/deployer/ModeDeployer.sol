@@ -2,7 +2,7 @@
 pragma solidity =0.8.25;
 
 import {Deployer} from "./Deployer.sol";
-import {MODE_SFS} from "../chains/IModeSFS.sol";
+import {MODE_SFS} from "../chains/Mode/IModeSFS.sol";
 
 /// @custom:security-contact security@0x.org
 contract ModeDeployer is Deployer {
