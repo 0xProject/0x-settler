@@ -125,9 +125,9 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
-  Arbitrum, Blast, Bnb, Mode)
+  Arbitrum, Blast, Bnb, Mode, World Chain)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Avalanche, Scroll, Mantle)
+  hardfork (Avalanche, Scroll, Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
   hardfork (Linea)
 
@@ -1313,7 +1313,8 @@ happen.
 
 Zeroth, verify the configuration for your chain in
 [`chain_config.json`](chain_config.json) and
-[`script/SafeConfig.sol`](script/SafeConfig.sol).
+[`script/SafeConfig.sol`](script/SafeConfig.sol). Add the new chain to the list
+of `AllowanceHolder` addresses at the top of this file.
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
 this, give up. Also populate `api_secrets.json` by copying

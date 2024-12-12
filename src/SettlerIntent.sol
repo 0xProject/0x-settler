@@ -62,7 +62,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        view
+        pure
         virtual
         override(Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256 sellAmount)
