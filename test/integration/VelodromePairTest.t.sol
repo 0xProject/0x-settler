@@ -6,7 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {BaseSettler as Settler} from "src/chains/Base.sol";
+import {BaseSettler as Settler} from "src/chains/Base/TakerSubmitted.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
