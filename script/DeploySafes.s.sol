@@ -242,7 +242,7 @@ contract DeploySafes is Script {
             (
                 metaTxFeature,
                 bytes.concat(
-                    vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "SettlerMetaTxn")),
+                    vm.getCode(string.concat(chainDisplayName, "MetaTxnFlat.sol:", chainDisplayName, "SettlerMetaTxn")),
                     constructorArgs
                 )
             )
