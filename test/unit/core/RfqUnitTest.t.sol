@@ -31,6 +31,10 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
             )
         );
     }
+
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
 }
 
 contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettlementDummyBase {

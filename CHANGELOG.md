@@ -60,6 +60,9 @@ Master list of UniV3 forks:
 * Deploy Settler to World Chain network
   * Add UniswapV3 UniV3 fork to World Chain
   * Add DackieSwapV3 UniV3 fork to World Chain
+* Create new Settler version for intent-based settlement -- the taker only signs
+  the slippage, not the actions
+  * This is now `tokenId` 4
 
 ## 2024-10-08
 

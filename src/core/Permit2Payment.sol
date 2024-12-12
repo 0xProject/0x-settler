@@ -388,6 +388,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         pure
+        virtual
         override
         returns (uint256)
     {
@@ -402,13 +403,13 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         return Permit2PaymentBase._msgSender();
     }
 
-    // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
-    // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
-    // contract/file should reference it. The *ONLY* approved way to make a transfer using this
-    // witness string is by setting the witness with modifier `metaTx`
-    string private constant _SLIPPAGE_AND_ACTIONS_WITNESS = string(
-        abi.encodePacked("SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE)
-    );
+    function _witnessTypeSuffix() internal pure virtual returns (string memory) {
+        return string(
+            abi.encodePacked(
+                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
+            )
+        );
+    }
 
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
@@ -421,7 +422,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
             revert ConfusedDeputy();
         }
         _transferFromIKnowWhatImDoing(
-            permit, transferDetails, _msgSender(), witness, _SLIPPAGE_AND_ACTIONS_WITNESS, sig, isForwarded
+            permit, transferDetails, _msgSender(), witness, _witnessTypeSuffix(), sig, isForwarded
         );
     }
 
@@ -445,5 +446,11 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         // It should not be possible for this check to revert because the very first thing that a
         // metatransaction does is spend the witness.
         TransientStorage.checkSpentWitness();
+    }
+}
+
+abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
+    function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
+        return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
     }
 }
