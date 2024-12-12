@@ -22,7 +22,7 @@ import {
 
 abstract contract UnichainMixin is FreeMemory, SettlerBase {
     constructor() {
-        assert(block.chainid == 0 || block.chainid == 31337); // TODO:
+        assert(block.chainid == 130 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)

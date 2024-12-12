@@ -416,7 +416,7 @@
     "etherscanApi": "https://api.gnosisscan.io/api"
   },
   "unichain": {
-    "chainId": null,
+    "chainId": 130,
     "displayName": "Unichain",
     "isShanghai": true,
     "isCancun": true,
