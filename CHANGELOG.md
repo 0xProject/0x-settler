@@ -26,6 +26,7 @@ Master list of UniV3 forks:
   23. SwapMode
   24. Swapsicle (Algebra-like)
   25. Panko
+  26. Swapr (Algebra-like)
 
 ---
 
@@ -60,6 +61,10 @@ Master list of UniV3 forks:
 * Deploy Settler to World Chain network
   * Add UniswapV3 UniV3 fork to World Chain
   * Add DackieSwapV3 UniV3 fork to World Chain
+* Deploy Settler to Gnosis chain
+  * Add UniswapV3 UniV3 fork to Gnosis
+  * Add SushiswapV3 UniV3 fork to Gnosis
+  * Add Swapr UniV3 (Algebra style) fork to Gnosis
 * Create new Settler version for intent-based settlement -- the taker only signs
   the slippage, not the actions
   * This is now `tokenId` 4

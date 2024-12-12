@@ -11,17 +11,18 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
-    uniswapV3WorldChainFactory,
+    uniswapV3GnosisFactory,
     uniswapV3InitHash,
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
-import {dackieSwapV3WorldChainFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
-import {pancakeSwapV3InitHash, IPancakeSwapV3Callback} from "../../core/univ3forks/PancakeSwapV3.sol";
+import {sushiswapV3GnosisFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
+import {swaprFactory, swaprInitHash, swaprForkId} from "../../core/univ3forks/Swapr.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
-abstract contract WorldChainMixin is FreeMemory, SettlerBase {
+abstract contract GnosisMixin is FreeMemory, SettlerBase {
     constructor() {
-        assert(block.chainid == 480 || block.chainid == 31337);
+        assert(block.chainid == 100 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
@@ -46,13 +47,17 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase {
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3WorldChainFactory;
+            factory = uniswapV3GnosisFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == dackieSwapV3ForkId) {
-            factory = dackieSwapV3WorldChainFactory;
-            initHash = pancakeSwapV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3GnosisFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == swaprForkId) {
+            factory = swaprFactory;
+            initHash = swaprInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);
         }
