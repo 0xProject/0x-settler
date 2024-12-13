@@ -418,8 +418,8 @@
   "sonic": {
     "chainId": 146,
     "displayName": "Sonic",
-    "isShanghai": null,
-    "isCancun": null,
+    "isShanghai": true,
+    "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 2,
