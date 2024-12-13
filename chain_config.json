@@ -414,5 +414,31 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
     "etherscanApi": "https://api.gnosisscan.io/api"
+  },
+  "sonic": {
+    "chainId": 146,
+    "displayName": "Sonic",
+    "isShanghai": null,
+    "isCancun": null,
+    "extraFlags": "",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 2,
+    "safe": {
+      "singleton": null,
+      "factory": null,
+      "fallback": null,
+      "multiCall": null,
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": null,
+      "deploymentSafe": null,
+      "pause": null
+    },
+    "deployment": {
+      "allowanceHolder": null,
+      "deployer": null
+    },
+    "etherscanApi": "https://api.sonicscan.org/api"
   }
 }
