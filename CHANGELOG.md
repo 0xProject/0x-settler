@@ -27,6 +27,7 @@ Master list of UniV3 forks:
   24. Swapsicle (Algebra-like)
   25. Panko
   26. Swapr (Algebra-like)
+  27. SpookySwap
 
 ---
 
@@ -54,6 +55,16 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Mantle
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
+
+## 2024-12-14
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Fantom Sonic network
+  * Add UniswapV3 UniV3 fork to Sonic
+  * Add SpookySwap UniV3 fork to Sonic
 
 ## 2024-12-12
 
