@@ -54,7 +54,6 @@ abstract contract MainnetMixin is
 {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
-        rebateClaimer = IOwnable(DEPLOYER).owner();
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
@@ -142,5 +141,7 @@ abstract contract MainnetMixin is
         return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
 
-    address public immutable rebateClaimer;
+    function rebateClaimer() external view returns (address) {
+        return IOwnable(DEPLOYER).owner();
+    }
 }
