@@ -36,6 +36,7 @@ import {
     rogueXV1Factory, rogueXV1InitHash, rogueXV1ForkId, IRoxSpotSwapCallback
 } from "../../core/univ3forks/RogueXV1.sol";
 
+import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
 import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
 
@@ -46,11 +47,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
     constructor() {
         if (block.chainid != 31337) {
             assert(block.chainid == 81457);
-            BLAST.configure(
-                BlastYieldMode.AUTOMATIC,
-                BlastGasMode.CLAIMABLE,
-                IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner()
-            );
+            BLAST.configure(BlastYieldMode.AUTOMATIC, BlastGasMode.CLAIMABLE, IOwnable(DEPLOYER).owner());
             BLAST_USDB.configure(BlastYieldMode.VOID);
             BLAST_WETH.configure(BlastYieldMode.VOID);
         }

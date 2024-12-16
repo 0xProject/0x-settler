@@ -7,6 +7,7 @@ import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
 import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
+import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 
 import "@forge-std/Test.sol";
 
@@ -19,7 +20,7 @@ contract DeployerTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 19921675);
 
-        deployer = Deployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
+        deployer = Deployer(DEPLOYER);
         vm.label(address(deployer), "Deployer (proxy)");
 
         vm.prank(deployer.owner());
