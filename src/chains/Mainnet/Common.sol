@@ -36,6 +36,8 @@ import {
     ISolidlyV3Callback
 } from "../../core/univ3forks/SolidlyV3.sol";
 
+import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -51,6 +53,7 @@ abstract contract MainnetMixin is
 {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
+        rebateClaimer = IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner();
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
@@ -137,4 +140,6 @@ abstract contract MainnetMixin is
     function _curveFactory() internal pure override returns (address) {
         return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
+
+    address public immutable rebateClaimer;
 }
