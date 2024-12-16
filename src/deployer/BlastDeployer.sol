@@ -9,11 +9,7 @@ import {BLAST, BlastYieldMode, BlastGasMode} from "../chains/Blast/IBlast.sol";
 contract BlastDeployer is Deployer {
     constructor(uint256 version) Deployer(version) {
         assert(block.chainid == 81457);
-        BLAST.configure(
-            BlastYieldMode.AUTOMATIC,
-            BlastGasMode.CLAIMABLE,
-            BlastDeployer(DEPLOYER).owner()
-        );
+        BLAST.configure(BlastYieldMode.AUTOMATIC, BlastGasMode.CLAIMABLE, BlastDeployer(DEPLOYER).owner());
     }
 
     function initialize(address initialOwner) public override {

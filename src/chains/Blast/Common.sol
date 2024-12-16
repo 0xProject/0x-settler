@@ -47,11 +47,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
     constructor() {
         if (block.chainid != 31337) {
             assert(block.chainid == 81457);
-            BLAST.configure(
-                BlastYieldMode.AUTOMATIC,
-                BlastGasMode.CLAIMABLE,
-                IOwnable(DEPLOYER).owner()
-            );
+            BLAST.configure(BlastYieldMode.AUTOMATIC, BlastGasMode.CLAIMABLE, IOwnable(DEPLOYER).owner());
             BLAST_USDB.configure(BlastYieldMode.VOID);
             BLAST_WETH.configure(BlastYieldMode.VOID);
         }
