@@ -55,6 +55,7 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Mantle
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
+* Add `rebateClaimer()(address)` function on Mainnet Settlers for gas rebate program
 
 ## 2024-12-14
 
