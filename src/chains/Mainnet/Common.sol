@@ -36,6 +36,7 @@ import {
     ISolidlyV3Callback
 } from "../../core/univ3forks/SolidlyV3.sol";
 
+import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
 import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
 
 // Solidity inheritance is stupid
@@ -53,7 +54,7 @@ abstract contract MainnetMixin is
 {
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
-        rebateClaimer = IOwnable(0x00000000000004533Fe15556B1E086BB1A72cEae).owner();
+        rebateClaimer = IOwnable(DEPLOYER).owner();
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)

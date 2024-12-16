@@ -19,6 +19,7 @@ import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {swapModeV3Factory, swapModeV3InitHash, swapModeV3ForkId} from "../../core/univ3forks/SwapModeV3.sol";
 import {IUniswapV3Callback} from "../../core/univ3forks/UniswapV3.sol";
 
+import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
 import {MODE_SFS} from "./IModeSFS.sol";
 
 // Solidity inheritance is stupid
@@ -27,7 +28,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 abstract contract ModeMixin is FreeMemory, SettlerBase {
     constructor() {
         assert(block.chainid == 34443 || block.chainid == 31337);
-        MODE_SFS.assign(MODE_SFS.getTokenId(0x00000000000004533Fe15556B1E086BB1A72cEae));
+        MODE_SFS.assign(MODE_SFS.getTokenId(DEPLOYER));
     }
 
     function _isRestrictedTarget(address target)

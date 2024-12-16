@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {DEPLOYER} from "./DeployerAddress.sol";
 import {IDeployer, IDeployerRemove} from "./IDeployer.sol";
 import {Feature} from "./Feature.sol";
 import {Nonce} from "./Nonce.sol";
@@ -23,7 +24,7 @@ contract ZeroExSettlerDeployerSafeModule is IDeployerRemove {
     using Revert for bool;
 
     ISafeMinimal public immutable safe;
-    IDeployer public constant deployer = IDeployer(0x00000000000004533Fe15556B1E086BB1A72cEae);
+    IDeployer public constant deployer = IDeployer(DEPLOYER);
 
     constructor(address _safe) {
         assert(address(this) == 0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30 || block.chainid == 31337);
