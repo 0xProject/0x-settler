@@ -84,7 +84,7 @@ function verify_contract {
     if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
         forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     else
-        forge verify-contract --watch --chain $chainid --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        forge verify-contract --watch --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
     if (( chainid != 146 )) && (( chainid != 480 )) && (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Sonic, World Chain, Blast, or Taiko
         forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
