@@ -64,6 +64,15 @@ eip712_json() {
     fi
     declare -r -i operation
 
+    declare to
+    if (( $# > 0 )) ; then
+        to="$1"
+        shift
+    else
+        to="$(target $operation)"
+    fi
+    declare -r to
+
     jq -Mc \
     '
     {
@@ -132,7 +141,7 @@ eip712_json() {
     '                                       \
     --arg verifyingContract "$safe_address" \
     --arg chainId "$chainid"                \
-    --arg to "$(target $operation)"         \
+    --arg to "$to"                          \
     --arg data "$calldata"                  \
     --arg operation $operation              \
     --arg nonce $(nonce)                    \
@@ -152,7 +161,16 @@ eip712_struct_hash() {
     fi
     declare -r -i operation
 
-    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$(target $operation)" 0 "$(cast keccak "$calldata")" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
+    declare to
+    if (( $# > 0 )) ; then
+        to="$1"
+        shift
+    else
+        to="$(target $operation)"
+    fi
+    declare -r to
+
+    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$to" 0 "$(cast keccak "$calldata")" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
 }
 
 eip712_hash() {
@@ -168,8 +186,17 @@ eip712_hash() {
     fi
     declare -r -i operation
 
+    declare to
+    if (( $# > 0 )) ; then
+        to="$1"
+        shift
+    else
+        to="$(target $operation)"
+    fi
+    declare -r to
+
     declare struct_hash
-    struct_hash="$(eip712_struct_hash "$calldata" $operation)"
+    struct_hash="$(eip712_struct_hash "$calldata" $operation "$to")"
 
     cast keccak "$(cast concat-hex '0x1901' "$domain_separator" "$struct_hash")"
 }
