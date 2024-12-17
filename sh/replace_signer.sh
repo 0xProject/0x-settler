@@ -126,8 +126,23 @@ safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
-. "$project_root"/sh/common_safe_owner.sh
+
+declare signer
+IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
+declare -r signer
+
 . "$project_root"/sh/common_wallet_type.sh
+
+declare -r get_owners_sig='getOwners()(address[])'
+declare owners
+owners="$(cast abi-decode "$get_owners_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$get_owners_sig")")")"
+owners="${owners:1:$((${#owners} - 2))}"
+owners="${owners//, /;}"
+declare -r owners
+
+declare -a owners_array
+IFS=';' read -r -a owners_array <<<"$owners"
+declare -r -a owners_array
 
 declare safe_url
 safe_url="$(get_config safe.apiUrl)"
@@ -168,91 +183,75 @@ declare swapOwner_call
 swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner" "$old_owner" "$new_owner")"
 declare -r swapOwner_call
 
-# declare -a calls=()
+# set minimum gas price to (mostly for Arbitrum and BNB)
+declare -i min_gas_price
+min_gas_price="$(get_config minGasPriceGwei)"
+min_gas_price=$((min_gas_price * 1000000000))
+declare -r -i min_gas_price
+declare -i gas_price
+gas_price="$(cast gas-price --rpc-url "$rpc_url")"
+if (( gas_price < min_gas_price )) ; then
+    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
+    gas_price=$min_gas_price
+fi
+declare -r -i gas_price
+declare -i gas_estimate_multiplier
+gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
+declare -r -i gas_estimate_multiplier
 
-# calls+=(
-#     "$(
-#         cast concat-hex                                             \
-#         0x00                                                        \
-#         "$safe_address"                                             \
-#         "$(cast to-uint256 0)"                                      \
-#         "$(cast to-uint256 $(( (${#swapOwner_call} - 2) / 2 )) )"   \
-#         "$swapOwner_call"
-#     )"
-# )
+declare signing_hash
+signing_hash="$(eip712_hash "$swapOwner_call" 0 "$safe_address")"
+declare -r signing_hash
 
-declare struct_json
-struct_json="$(eip712_json "$swapOwner_call" 0 "$safe_address")"
-declare -r struct_json
+declare -a signatures=()
+if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+    set +f
+    for confirmation in "$project_root"/replace_deploy_signer_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
+        signatures+=("$(<"$confirmation")")
+    done
+    set -f
 
-# sign the message
-declare signature
-if [[ $wallet_type = 'frame' ]] ; then
-    declare typedDataRPC
-    typedDataRPC="$(
-        jq -Mc                 \
-        '
-        {
-            "jsonrpc": "2.0",
-            "method": "eth_signTypedData",
-            "params": [
-                $signer,
-                .
-            ],
-            "id": 1
-        }
-        '                      \
-        --arg signer "$signer" \
-        <<<"$struct_json"
-    )"
-    declare -r typedDataRPC
-    signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-    if [[ $signature = *error* ]] ; then
-        echo "$signature" >&2
+    if (( ${#signatures[@]} != 2 )) ; then
+        echo 'Bad number of signatures' >&2
         exit 1
     fi
-    signature="$(jq -Mr .result <<<"$signature")"
 else
-    signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
+    declare signatures_json
+    signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
+
+    if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
+        echo 'Bad number of signatures' >&2
+        exit 1
+    fi
+
+    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
+        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
+        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
+    else
+        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
+        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
+    fi
 fi
-declare -r signature
+declare -r -a signatures
 
-# save/submit the signature
-if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-    declare signature_file
-    signature_file="$project_root"/replace_deploy_signer_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_$(nonce).txt
-    echo "$signature" >"$signature_file"
+declare packed_signatures
+packed_signatures="$(cast concat-hex "${signatures[@]}")"
+declare -r packed_signatures
 
-    echo "Signature saved to '$signature_file'" >&2
+# configure gas limit
+declare -a args=(
+    "$safe_address" "$execTransaction_sig"
+    # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+    "$safe_address" 0 "$swapOwner_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+)
+
+# set gas limit and add multiplier/headroom (again mostly for Arbitrum)
+declare -i gas_limit
+gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
+gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+
+if [[ $wallet_type = 'frame' ]] ; then
+    cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 else
-    declare signing_hash
-    signing_hash="$(eip712_hash "$swapOwner_call" 0 "$safe_address")"
-    declare -r signing_hash
-
-    # encode the Safe Transaction Service API call
-    declare safe_multisig_transaction
-    safe_multisig_transaction="$(
-        jq -Mc \
-        "$eip712_message_json_template"',
-            "contractTransactionHash": $signing_hash,
-            "sender": $sender,
-            "signature": $signature,
-            "origin": "0xSettlerCLI"
-        }
-        '                                  \
-        --arg to "$safe_address"           \
-        --arg data "$swapOwner_call"       \
-        --arg operation 0                  \
-        --arg nonce $(nonce)               \
-        --arg signing_hash "$signing_hash" \
-        --arg sender "$signer"             \
-        --arg signature "$signature"       \
-        --arg safe_address "$safe_address" \
-        <<<'{}'
-    )"
-
-    # call the API
-    curl --fail "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
-
-    echo 'Signature submitted' >&2
+    cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 fi
