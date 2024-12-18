@@ -23,6 +23,7 @@ library SafeConfig {
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
+                || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
@@ -49,6 +50,7 @@ library SafeConfig {
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
+                || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
@@ -86,7 +88,7 @@ library SafeConfig {
         result[0] = 0x24420bC8C760787F3eEF3b809e81f44d31a9c5A2; // Jacob
         result[1] = 0x000000c397124D0375555F435e201F83B636C26C; // Kyu
         result[2] = 0x6879fAb591ed0d62537A3Cac9D7cd41218445a84; // Sav
-        result[3] = 0x755588A2422E4779aC30cBD3774BBB12521d2c15; // Josh
+        result[3] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
         result[4] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
         result[5] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
         result[6] = 0xEC3E1F7aC9Df42c31570b02068f2e7500915e557; // Andy
