@@ -130,8 +130,9 @@ safe_address="$(get_config governance.upgradeSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
+. "$project_root"/sh/common_safe_deployer.sh
 
-if [[ $(get_config safe.apiUrl) != 'NOT SUPPORTED' ]] ; then
+if [[ $safe_url != 'NOT SUPPORTED' ]] ; then
     echo 'Just use the safe dApp' >&2
     echo 'Why are you running this script?' >&2
     exit 1
@@ -142,26 +143,13 @@ new_implementation="$1"
 declare -r new_implementation
 shift
 
-declare -a signatures=()
-set +f
-for confirmation in "$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$new_implementation"_*_"$(nonce)".txt ; do
-    signatures+=("$(<"$confirmation")")
-done
-set -f
-declare -r -a signatures
-
-if (( ${#signatures[@]} != 2 )) ; then
-    echo 'Bad number of signatures' >&2
-    exit 1
-fi
-
-declare packed_signatures
-packed_signatures="$(cast concat-hex "${signatures[@]}")"
-declare -r packed_signatures
-
 declare upgrade_calldata
 upgrade_calldata="$(cast calldata 'upgradeAndCall(address,bytes)' "$new_implementation" "$(cast calldata 'initialize(address)' "$(cast address-zero)")")"
 declare -r upgrade_calldata
+
+declare packed_signatures
+packed_signatures="$(retrieve_signatures deployer_upgrade "$upgrade_calldata")"
+declare -r packed_signatures
 
 cast send --rpc-url 'http://127.0.0.1:1248' --chain $chainid --confirmations 10 --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked $(get_config extraFlags) "$safe_address" \
      "$execTransaction_sig" "$deployer_address" 0 "$upgrade_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"

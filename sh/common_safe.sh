@@ -1,4 +1,3 @@
-
 declare safe_url
 safe_url="$(get_config safe.apiUrl)"
 declare -r safe_url
