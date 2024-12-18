@@ -56,6 +56,8 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
 * Add `rebateClaimer()(address)` function on Mainnet Settlers for gas rebate program
+* Deploy Settler to Ink chain
+  * Add UniswapV3 UniV3 fork to Ink
 
 ## 2024-12-14
 
