@@ -25,16 +25,6 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
-            (
-                address recipient,
-                bytes32 salt,
-                bool tokenAIn,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else {
             return false;
         }

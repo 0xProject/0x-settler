@@ -21,17 +21,6 @@ contract InkSettler is Settler, InkMixin {
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
-            (
-                address recipient,
-                bytes32 salt,
-                bool tokenAIn,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else {
             return false;
         }
