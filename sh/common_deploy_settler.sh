@@ -1,7 +1,3 @@
-declare chain_display_name
-chain_display_name="$(get_config displayName)"
-declare -r chain_display_name
-
 forge clean
 declare flat_taker_source
 flat_taker_source="$project_root"/src/flat/"$chain_display_name"TakerSubmittedFlat.sol

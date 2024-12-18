@@ -131,26 +131,8 @@ declare signer
 IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
 declare -r signer
 
+. "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_wallet_type.sh
-
-declare -r get_owners_sig='getOwners()(address[])'
-declare owners
-owners="$(cast abi-decode "$get_owners_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$get_owners_sig")")")"
-owners="${owners:1:$((${#owners} - 2))}"
-owners="${owners//, /;}"
-declare -r owners
-
-declare -a owners_array
-IFS=';' read -r -a owners_array <<<"$owners"
-declare -r -a owners_array
-
-declare safe_url
-safe_url="$(get_config safe.apiUrl)"
-declare -r safe_url
-
-declare chain_display_name
-chain_display_name="$(get_config displayName)"
-declare -r chain_display_name
 
 declare old_owner
 old_owner="$1"
@@ -189,40 +171,8 @@ declare signing_hash
 signing_hash="$(eip712_hash "$swapOwner_call" 0 "$safe_address")"
 declare -r signing_hash
 
-declare -a signatures=()
-if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-    set +f
-    for confirmation in "$project_root"/replace_deploy_signer_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
-        signatures+=("$(<"$confirmation")")
-    done
-    set -f
-
-    if (( ${#signatures[@]} != 2 )) ; then
-        echo 'Bad number of signatures' >&2
-        exit 1
-    fi
-else
-    declare signatures_json
-    signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
-    declare -r signatures_json
-
-    if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
-        echo 'Bad number of signatures' >&2
-        exit 1
-    fi
-
-    if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
-        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-    else
-        signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-        signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-    fi
-fi
-declare -r -a signatures
-
 declare packed_signatures
-packed_signatures="$(cast concat-hex "${signatures[@]}")"
+packed_signatures="$(retrieve_signatures replace_signer "$swapOwner_call" 0 "$safe_address")"
 declare -r packed_signatures
 
 # configure gas limit

@@ -129,14 +129,6 @@ declare -r safe_address
 . "$project_root"/sh/common_safe_owner.sh
 . "$project_root"/sh/common_wallet_type.sh
 
-declare safe_url
-safe_url="$(get_config safe.apiUrl)"
-declare -r safe_url
-
-declare chain_display_name
-chain_display_name="$(get_config displayName)"
-declare -r chain_display_name
-
 declare old_owner
 old_owner="$1"
 shift

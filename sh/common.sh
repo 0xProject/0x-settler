@@ -64,6 +64,10 @@ declare -i chainid
 chainid="$(get_config chainId)"
 declare -r -i chainid
 
+declare chain_display_name
+chain_display_name="$(get_config displayName)"
+declare -r chain_display_name
+
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
