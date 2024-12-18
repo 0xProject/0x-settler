@@ -50,19 +50,25 @@ function get_config {
     jq -Mr ."$chain_name"."$1" < "$project_root"/chain_config.json
 }
 
-if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
-    echo 'Chains without the Shanghai hardfork (PUSH0) are not supported' >&2
-    exit 1
-fi
+if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
+    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
+        echo 'Chains without the Shanghai hardfork (PUSH0) are not supported' >&2
+        exit 1
+    fi
 
-if [[ $(get_config isCancun) != [Tt]rue ]] ; then
-    echo 'You are on the wrong branch' >&2
-    exit 1
+    if [[ $(get_config isCancun) != [Tt]rue ]] ; then
+        echo 'You are on the wrong branch' >&2
+        exit 1
+    fi
 fi
 
 declare -i chainid
 chainid="$(get_config chainId)"
 declare -r -i chainid
+
+declare chain_display_name
+chain_display_name="$(get_config displayName)"
+declare -r chain_display_name
 
 declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
@@ -81,12 +87,12 @@ function verify_contract {
     declare -r _verify_source_path="$1"
     shift
 
-    if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
+    if (( chainid == 34443 )) || (( chainid == 57073 )) ; then # Mode and Ink use Blockscout, not Etherscan
         forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     else
         forge verify-contract --watch --chain $chainid --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
-    if (( chainid != 146 )) && (( chainid != 480 )) && (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Sonic, World Chain, Blast, or Taiko
+    if (( chainid != 146 )) && (( chainid != 480 )) && (( chainid != 57073 )) && (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Sonic, World Chain, Blast, Taiko, or Ink
         forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }
