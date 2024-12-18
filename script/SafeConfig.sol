@@ -23,6 +23,7 @@ library SafeConfig {
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
+                || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
@@ -49,6 +50,7 @@ library SafeConfig {
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
+                || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
