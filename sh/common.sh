@@ -87,7 +87,7 @@ function verify_contract {
     declare -r _verify_source_path="$1"
     shift
 
-    if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
+    if (( chainid == 34443 )) || (( chainid == 57073 )) ; then # Mode and Ink use Blockscout, not Etherscan
         forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     else
         forge verify-contract --watch --chain $chainid --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
