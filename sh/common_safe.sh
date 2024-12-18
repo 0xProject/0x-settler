@@ -13,6 +13,43 @@ nonce() {
     echo $((${SAFE_NONCE_INCREMENT:-0} + current_safe_nonce))
 }
 
+declare -r get_owners_sig='getOwners()(address[])'
+declare owners
+owners="$(cast abi-decode "$get_owners_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$get_owners_sig")")")"
+owners="${owners:1:$((${#owners} - 2))}"
+owners="${owners//, /;}"
+declare -r owners
+
+declare -a owners_array
+IFS=';' read -r -a owners_array <<<"$owners"
+declare -r -a owners_array
+
+prev_owner() {
+    declare inp="$1"
+    shift
+    inp="$(cast to-checksum "$inp")"
+    declare -r inp
+
+    declare result=0x0000000000000000000000000000000000000001
+    declare owner_i
+    for i in ${!owners_array[@]} ; do
+        owner_i="$(cast to-checksum "${owners_array[$i]}")"
+        if [[ $owner_i = "$inp" ]] ; then
+            break
+        fi
+        result="$owner_i"
+    done
+    declare -r result
+
+    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
+        echo 'Old owner "'"$inp"'" not found' >&2
+        return 1
+    fi
+
+    echo "$result"
+}
+
+
 target() {
     declare -i operation
     if (( $# > 0 )) ; then

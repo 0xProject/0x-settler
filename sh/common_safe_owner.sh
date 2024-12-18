@@ -1,14 +1,3 @@
-declare -r get_owners_sig='getOwners()(address[])'
-declare owners
-owners="$(cast abi-decode "$get_owners_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$get_owners_sig")")")"
-owners="${owners:1:$((${#owners} - 2))}"
-owners="${owners//, /;}"
-declare -r owners
-
-declare -a owners_array
-IFS=';' read -r -a owners_array <<<"$owners"
-declare -r -a owners_array
-
 declare signer
 
 declare -r saved_safe_owner="$project_root"/config/safe_owner.txt
