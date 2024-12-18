@@ -151,14 +151,14 @@ declare -r new_owner
 
 declare prev_owner=0x0000000000000000000000000000000000000001
 for i in "${!owners_array[@]}" ; do
-    if [[ "$(cast to-checksum "${owners_array[$i]}")" = "$old_owner" ]] ; then
+    if [[ $(cast to-checksum "${owners_array[$i]}") = "$old_owner" ]] ; then
         break
     fi
     prev_owner="$(cast to-checksum "${owners_array[$i]}")"
 done
 declare -r prev_owner
 
-if [[ "$prev_owner" = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
+if [[ $prev_owner = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
     echo 'Old owner "'"$old_owner"'" not found' >&2
     exit 1
 fi
@@ -167,19 +167,6 @@ declare -r swapOwner_sig='swapOwner(address,address,address)'
 declare swapOwner_call
 swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner" "$old_owner" "$new_owner")"
 declare -r swapOwner_call
-
-# declare -a calls=()
-
-# calls+=(
-#     "$(
-#         cast concat-hex                                             \
-#         0x00                                                        \
-#         "$safe_address"                                             \
-#         "$(cast to-uint256 0)"                                      \
-#         "$(cast to-uint256 $(( (${#swapOwner_call} - 2) / 2 )) )"   \
-#         "$swapOwner_call"
-#     )"
-# )
 
 declare struct_json
 struct_json="$(eip712_json "$swapOwner_call" 0 "$safe_address")"

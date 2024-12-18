@@ -218,6 +218,7 @@ if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
 else
     declare signatures_json
     signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
+    declare -r signatures_json
 
     if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
         echo 'Bad number of signatures' >&2
@@ -239,7 +240,7 @@ packed_signatures="$(cast concat-hex "${signatures[@]}")"
 declare -r packed_signatures
 
 # configure gas limit
-declare -a args=(
+declare -r -a args=(
     "$safe_address" "$execTransaction_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
     "$safe_address" 0 "$swapOwner_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
@@ -249,6 +250,7 @@ declare -a args=(
 declare -i gas_limit
 gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+declare -r -i gas_limit
 
 if [[ $wallet_type = 'frame' ]] ; then
     cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
