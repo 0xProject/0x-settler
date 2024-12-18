@@ -23,6 +23,7 @@ import {
     ISolidlyV3Callback
 } from "../../core/univ3forks/SolidlyV3.sol";
 import {spookySwapFactory, spookySwapForkId} from "../../core/univ3forks/SpookySwap.sol";
+import {wagmiFactory, wagmiInitHash, wagmiForkId} from "../../core/univ3forks/Wagmi.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -64,6 +65,10 @@ abstract contract SonicMixin is FreeMemory, SettlerBase {
         } else if (forkId == spookySwapForkId) {
             factory = spookySwapFactory;
             initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == wagmiForkId) {
+            factory = wagmiFactory;
+            initHash = wagmiInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revert UnknownForkId(forkId);

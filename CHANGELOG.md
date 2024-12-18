@@ -28,6 +28,7 @@ Master list of UniV3 forks:
   25. Panko
   26. Swapr (Algebra-like)
   27. SpookySwap
+  28. Wagmi
 
 ---
 
@@ -57,6 +58,7 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Scroll
 * Add `rebateClaimer()(address)` function on Mainnet Settlers for gas rebate program
 * Add SolidlyV3 UniV3 fork to Sonic
+* Add Wagmi UniV3 fork to Sonic
 
 ## 2024-12-14
 
