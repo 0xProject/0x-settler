@@ -20,7 +20,7 @@ nonce() {
 
 declare -r get_owners_sig='getOwners()(address[])'
 declare owners
-owners="$(cast abi-decode "$get_owners_sig" "$(cast call --rpc-url "$rpc_url" "$safe_address" "$(cast calldata "$get_owners_sig")")")"
+owners="$(cast call --rpc-url "$rpc_url" "$safe_address" "$get_owners_sig")"
 owners="${owners:1:$((${#owners} - 2))}"
 owners="${owners//, /;}"
 declare -r owners
@@ -46,7 +46,7 @@ prev_owner() {
     done
     declare -r result
 
-    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
+    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array} - 1))]}")" ]] ; then
         echo 'Old owner "'"$inp"'" not found' >&2
         return 1
     fi
