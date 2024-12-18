@@ -5,6 +5,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+import {DEPLOYER} from "./deployer/DeployerAddress.sol";
+
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
@@ -63,7 +65,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
     constructor(bytes20 gitCommit) {
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
-            assert(IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(_tokenId()) == address(this));
+            assert(IERC721Owner(DEPLOYER).ownerOf(_tokenId()) == address(this));
         } else {
             assert(gitCommit == bytes20(0));
         }
