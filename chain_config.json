@@ -444,8 +444,8 @@
   "ink": {
     "chainId": 57073,
     "displayName": "Ink",
-    "isShanghai": null,
-    "isCancun": null,
+    "isShanghai": true,
+    "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
