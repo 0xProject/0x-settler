@@ -1,3 +1,7 @@
+declare safe_url
+safe_url="$(get_config safe.apiUrl)"
+declare -r safe_url
+
 declare multicall_address
 multicall_address="$(get_config safe.multiCall)"
 declare -r multicall_address
@@ -48,7 +52,6 @@ prev_owner() {
 
     echo "$result"
 }
-
 
 target() {
     declare -i operation
