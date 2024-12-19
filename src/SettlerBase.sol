@@ -59,10 +59,13 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
     event GitCommit(bytes20 indexed);
 
-    constructor(bytes20 gitCommit, uint256 tokenId) {
+    // When/if you change this, you must make corresponding changes to
+    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
+    // `constructor_args`.
+    constructor(bytes20 gitCommit) {
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
-            assert(IERC721Owner(DEPLOYER).ownerOf(tokenId) == address(this));
+            assert(IERC721Owner(DEPLOYER).ownerOf(_tokenId()) == address(this));
         } else {
             assert(gitCommit == bytes20(0));
         }
