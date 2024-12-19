@@ -349,7 +349,7 @@ abstract contract BaseUniswapV4UnitTest is Test {
     }
 
     function _deployPoolManager() internal returns (address poolManagerSrc) {
-        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager");
+        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager", abi.encode(address(this)));
         require(poolManagerSrc != address(0));
         bytes memory poolManagerCode = poolManagerSrc.code;
         uint256 replaceCount = _replaceAll(
@@ -587,7 +587,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         if (Currency.unwrap(poolKey.currency0) == ETH) {
             poolKey.currency0 = Currency.wrap(address(0));
         }
-        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
+        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96);
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96, tickSpacing));
     }
 
