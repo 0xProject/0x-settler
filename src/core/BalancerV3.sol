@@ -80,16 +80,13 @@ interface IBalancerV3Vault {
      * @notice Swaps tokens based on provided parameters.
      * @dev All parameters are given in raw token decimal encoding.
      * @param vaultSwapParams Parameters for the swap (see above for struct definition)
-     * @return amountCalculatedRaw Calculated swap amount
-     * @return amountInRaw Amount of input tokens for the swap
-     * @return amountOutRaw Amount of output tokens from the swap
+     * @return amountCalculated Calculated swap amount
+     * @return amountIn Amount of input tokens for the swap
+     * @return amountOut Amount of output tokens from the swap
      */
-    function swap(
-        VaultSwapParams memory vaultSwapParams
-    )
+    function swap(VaultSwapParams memory vaultSwapParams)
         external
         returns (uint256 amountCalculated, uint256 amountIn, uint256 amountOut);
-
 
     enum WrappingDirection {
         WRAP,
@@ -123,9 +120,7 @@ interface IBalancerV3Vault {
      * @return amountInRaw Amount of input tokens for the swap
      * @return amountOutRaw Amount of output tokens from the swap
      */
-    function erc4626BufferWrapOrUnwrap(
-        BufferWrapOrUnwrapParams memory params
-    )
+    function erc4626BufferWrapOrUnwrap(BufferWrapOrUnwrapParams memory params)
         external
         returns (uint256 amountCalculatedRaw, uint256 amountInRaw, uint256 amountOutRaw);
 }
@@ -156,7 +151,17 @@ abstract contract BalancerV3 is SettlerAbstract {
         if (bps > BASIS) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        bytes memory data = Encoder.encode(uint32(IBalancerV3Vault.unlock.selector), recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        bytes memory data = Encoder.encode(
+            uint32(IBalancerV3Vault.unlock.selector),
+            recipient,
+            sellToken,
+            bps,
+            feeOnTransfer,
+            hashMul,
+            hashMod,
+            fills,
+            amountOutMin
+        );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(VAULT), data, uint32(IBalancerV3Callback.balancerUnlockCallback.selector), _balV3Callback
         );
@@ -179,7 +184,18 @@ abstract contract BalancerV3 is SettlerAbstract {
         bytes memory sig,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        bytes memory data = Encoder.encodeVIP(uint32(IBalancerV3Vault.unlock.selector), recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, _isForwarded(), amountOutMin);
+        bytes memory data = Encoder.encodeVIP(
+            uint32(IBalancerV3Vault.unlock.selector),
+            recipient,
+            feeOnTransfer,
+            hashMul,
+            hashMod,
+            fills,
+            permit,
+            sig,
+            _isForwarded(),
+            amountOutMin
+        );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(VAULT), data, uint32(IBalancerV3Callback.unlockCallback.selector), _uniV4Callback
         );
@@ -200,6 +216,36 @@ abstract contract BalancerV3 is SettlerAbstract {
             data.offset := add(0x40, data.offset)
         }
         return balancerUnlockCallback(data);
+    }
+
+    function _setSwapParams(
+        IBalancerV3Vault.VaultSwapParams memory swapParams,
+        StateLib.State memory state,
+        bytes calldata data
+    ) internal view returns (bytes calldata) {
+        assembly ("memory-safe") {
+            mstore(add(0x20, swapParams), shr(0x60, calldataload(data.offset)))
+            data.offset := add(0x14, data.offset)
+            data.length := sub(data.length, 0x14)
+        }
+        swapParams.tokenIn = state.sell.token;
+        swapParams.tokenOut = state.buy.token;
+    }
+
+    function _decodeHookdataAndSwap(
+        IBalancerV3Vault.VaultSwapParams memory swapParams,
+        StateLib.State memory state,
+        bytes calldata data
+    ) internal freeMemory returns (bytes calldata) {
+        (data, swapParams.userData) = Decoder.decodeBytes(data);
+
+        (, uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).swap(swapParams);
+        state.sell.amount -= amountIn;
+        state.buy.amount += amountOut;
+
+        swapParams.data = new bytes(0);
+
+        return data;
     }
 
     function balancerUnlockCallback(bytes calldata data) private returns (bytes memory) {
@@ -233,5 +279,26 @@ abstract contract BalancerV3 is SettlerAbstract {
         }
         state.globalSellAmount = state.globalSell.amount;
         data = newData;
+
+        IBalancerV3Vault.VaultSwapParams memory swapParams;
+        swapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
+        swapParams.limitRaw = 0; // TODO: price limits for partial filling
+        while (...) {
+            uint16 bps;
+            assembly ("memory-safe") {
+                bps := shr(0xf0, calldataload(data.offset))
+
+                data.offset := add(0x02, data.offset)
+                data.length := sub(data.length, 0x02)
+                // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
+            }
+
+            // TODO: ERC4623 wrap/unwrap
+
+            data = Decoder.updateState(state, notes, data);
+            data = _setSwapParams(swapParams, state, data);
+            swapParams.amountGivenRaw = (state.sell.amount * bps).unsafeDiv(BASIS);
+            data = _decodeHookdataAndSwap(swapParams, state, data);
+        }
     }
 }

@@ -109,7 +109,17 @@ abstract contract UniswapV4 is SettlerAbstract {
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        bytes memory data = Encoder.encode(uint32(IPoolManager.unlock.selector), recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        bytes memory data = Encoder.encode(
+            uint32(IPoolManager.unlock.selector),
+            recipient,
+            sellToken,
+            bps,
+            feeOnTransfer,
+            hashMul,
+            hashMod,
+            fills,
+            amountOutMin
+        );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
@@ -132,7 +142,18 @@ abstract contract UniswapV4 is SettlerAbstract {
         bytes memory sig,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        bytes memory data = Encoder.encodeVIP(uint32(IPoolManager.unlock.selector), recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, _isForwarded(), amountOutMin);
+        bytes memory data = Encoder.encodeVIP(
+            uint32(IPoolManager.unlock.selector),
+            recipient,
+            feeOnTransfer,
+            hashMul,
+            hashMod,
+            fills,
+            permit,
+            sig,
+            _isForwarded(),
+            amountOutMin
+        );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
@@ -214,7 +235,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             data.offset := add(0x1a, data.offset)
             data.length := sub(data.length, 0x1a)
-            // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
+            // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
         }
 
         key.fee = uint24(packed >> 184);
@@ -332,7 +353,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                 data.offset := add(0x02, data.offset)
                 data.length := sub(data.length, 0x02)
-                // we don't check for array out-of-bounds here; we will check it later in `_getHookData`
+                // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
             }
 
             data = Decoder.updateState(state, notes, data);

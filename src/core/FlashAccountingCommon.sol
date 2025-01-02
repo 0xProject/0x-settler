@@ -343,7 +343,6 @@ library Encoder {
     }
 }
 
-
 library Decoder {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
