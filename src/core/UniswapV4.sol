@@ -13,17 +13,13 @@ import {
     TooMuchSlippage,
     DeltaNotPositive,
     DeltaNotNegative,
-    ZeroSellAmount,
-    ZeroBuyAmount,
-    BoughtSellToken,
-    TokenHashCollision,
-    ZeroToken
+    ZeroSellAmount
 } from "./SettlerErrors.sol";
 
 import {
     BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback
 } from "./UniswapV4Types.sol";
-import {Encoder, NotesLib, StateLib, Decoder} from "./FlashAccountingCommon.sol";
+import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 library CreditDebt {
     using UnsafeMath for int256;
@@ -245,51 +241,6 @@ abstract contract UniswapV4 is SettlerAbstract {
         return (zeroForOne, data);
     }
 
-    /// `_take` is responsible for removing the accumulated credit in each token from the pool
-    /// manager. The current `state.buy` is the global buy token. We return the settled amount of
-    /// that token (`buyAmount`), after checking it against the slippage limit
-    /// (`minBuyAmount`). Each token with credit causes a corresponding call to `POOL_MANAGER.take`.
-    function _take(StateLib.State memory state, NotesLib.Note[] memory notes, address recipient, uint256 minBuyAmount)
-        private
-        returns (uint256 buyAmount)
-    {
-        notes.del(state.buy);
-        if (state.sell.amount == 0) {
-            notes.del(state.sell);
-        }
-
-        uint256 length = notes.length;
-        // `length` of zero implies that we fully liquidated the global sell token (there is no
-        // `amount` remaining) and that the only token in which we have credit is the global buy
-        // token. We're about to `take` that token below.
-        if (length != 0) {
-            {
-                NotesLib.Note memory firstNote = notes[0]; // out-of-bounds is impossible
-                if (!firstNote.eq(state.globalSell)) {
-                    // The global sell token being in a position other than the 1st would imply that
-                    // at some point we _bought_ that token. This is illegal and results in a revert
-                    // with reason `BoughtSellToken(address)`.
-                    IPoolManager(msg.sender).unsafeTake(firstNote.token, address(this), firstNote.amount);
-                }
-            }
-            for (uint256 i = 1; i < length; i = i.unsafeInc()) {
-                (IERC20 token, uint256 amount) = notes.unsafeGet(i);
-                IPoolManager(msg.sender).unsafeTake(token, address(this), amount);
-            }
-        }
-
-        // The final token to be bought is considered the global buy token. We bypass `notes` and
-        // read it directly from `state`. Check the slippage limit. Transfer to the recipient.
-        {
-            IERC20 buyToken = state.buy.token;
-            buyAmount = state.buy.amount;
-            if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
-            }
-            IPoolManager(msg.sender).unsafeTake(buyToken, recipient, buyAmount);
-        }
-    }
-
     function _pay(
         IERC20 sellToken,
         address payer,
@@ -391,7 +342,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
             (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
-            uint256 globalBuyAmount = _take(state, notes, recipient, minBuyAmount);
+            uint256 globalBuyAmount = Take.take(state, notes, uint32(IPoolManager.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
                 // We've already transferred the sell token to the pool manager and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the

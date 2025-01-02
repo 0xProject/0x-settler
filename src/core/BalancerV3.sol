@@ -7,6 +7,18 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
+import {Panic} from "../utils/Panic.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
+
+import {
+    TooMuchSlippage,
+    ZeroSellAmount
+} from "./SettlerErrors.sol";
+
+import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
+
+import {FreeMemory} from "../utils/FreeMemory.sol";
+
 interface IBalancerV3Vault {
     /**
      * @notice Creates a context for a sequence of operations (i.e., "unlocks" the Vault).
@@ -131,7 +143,13 @@ interface IBalancerV3Callback {
     function balancerUnlockCallback(bytes calldata data) external returns (bytes memory);
 }
 
-abstract contract BalancerV3 is SettlerAbstract {
+abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
+    using SafeTransferLib for IERC20;
+    using UnsafeMath for uint256;
+    using NotesLib for NotesLib.Note;
+    using NotesLib for NotesLib.Note[];
+    using StateLib for StateLib.State;
+
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
@@ -197,7 +215,7 @@ abstract contract BalancerV3 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(VAULT), data, uint32(IBalancerV3Callback.unlockCallback.selector), _uniV4Callback
+            address(VAULT), data, uint32(IBalancerV3Callback.balancerUnlockCallback.selector), _balV3Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -227,26 +245,54 @@ abstract contract BalancerV3 is SettlerAbstract {
             mstore(add(0x20, swapParams), shr(0x60, calldataload(data.offset)))
             data.offset := add(0x14, data.offset)
             data.length := sub(data.length, 0x14)
+            // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
         }
         swapParams.tokenIn = state.sell.token;
         swapParams.tokenOut = state.buy.token;
+        return data;
     }
 
-    function _decodeHookdataAndSwap(
+    function _decodeUserdataAndSwap(
         IBalancerV3Vault.VaultSwapParams memory swapParams,
         StateLib.State memory state,
         bytes calldata data
-    ) internal freeMemory returns (bytes calldata) {
+    ) internal DANGEROUS_freeMemory returns (bytes calldata) {
         (data, swapParams.userData) = Decoder.decodeBytes(data);
 
         (, uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).swap(swapParams);
         state.sell.amount -= amountIn;
         state.buy.amount += amountOut;
 
-        swapParams.data = new bytes(0);
+        swapParams.userData = new bytes(0);
 
         return data;
     }
+
+    function _pay(
+        IERC20 sellToken,
+        address payer,
+        uint256 sellAmount,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bool isForwarded,
+        bytes calldata sig
+    ) private returns (uint256) {
+        if (payer == address(this)) {
+            sellToken.safeTransfer(msg.sender, sellAmount);
+        } else {
+            // assert(payer == address(0));
+            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
+            _transferFrom(permit, transferDetails, sig, isForwarded);
+        }
+        return IBalancerV3Vault(msg.sender).settle(sellToken, sellAmount);
+    }
+
+    // the mandatory fields are
+    // 2 - sell bps
+    // 1 - pool key tokens case
+    // 20 - pool
+    // 3 - user data length
+    uint256 private constant _HOP_DATA_LENGTH = 26;
 
     function balancerUnlockCallback(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -283,7 +329,7 @@ abstract contract BalancerV3 is SettlerAbstract {
         IBalancerV3Vault.VaultSwapParams memory swapParams;
         swapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
         swapParams.limitRaw = 0; // TODO: price limits for partial filling
-        while (...) {
+        while (data.length >= _HOP_DATA_LENGTH) {
             uint16 bps;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
@@ -298,7 +344,49 @@ abstract contract BalancerV3 is SettlerAbstract {
             data = Decoder.updateState(state, notes, data);
             data = _setSwapParams(swapParams, state, data);
             swapParams.amountGivenRaw = (state.sell.amount * bps).unsafeDiv(BASIS);
-            data = _decodeHookdataAndSwap(swapParams, state, data);
+            data = _decodeUserdataAndSwap(swapParams, state, data);
+        }
+
+
+        // `data` has been consumed. All that remains is to settle out the net result of all the
+        // swaps. Any credit in any token other than `state.buy.token` will be swept to
+        // Settler. `state.buy.token` will be sent to `recipient`.
+        {
+            (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
+            uint256 globalBuyAmount = Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
+            if (feeOnTransfer) {
+                // We've already transferred the sell token to the pool manager and
+                // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
+                // pool manager. We only need to handle the case of incomplete filling.
+                if (globalSellAmount != 0) {
+                    Take._callSelector(uint32(IBalancerV3Vault.sendTo.selector), globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount);
+                }
+            } else {
+                // While `notes` records a credit value, the pool manager actually records a debt
+                // for the global sell token. We recover the exact amount of that debt and then pay
+                // it.
+                // `globalSellAmount` is _usually_ zero, but if it isn't it represents a partial
+                // fill. This subtraction recovers the actual debt recorded in the pool manager.
+                uint256 debt;
+                unchecked {
+                    debt = state.globalSellAmount - globalSellAmount;
+                }
+                if (debt == 0) {
+                    revert ZeroSellAmount(globalSellToken);
+                }
+                _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
+            }
+
+            bytes memory returndata;
+            assembly ("memory-safe") {
+                returndata := mload(0x40)
+                mstore(returndata, 0x60)
+                mstore(add(0x20, returndata), 0x20)
+                mstore(add(0x40, returndata), 0x20)
+                mstore(add(0x60, returndata), globalBuyAmount)
+                mstore(0x40, add(0x80, returndata))
+            }
+            return returndata;
         }
     }
 }

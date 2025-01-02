@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {Take} from "./FlashAccountingCommon.sol";
 
 type IHooks is address;
 
@@ -111,24 +112,7 @@ library UnsafePoolManager {
     }
 
     function unsafeTake(IPoolManager poolManager, IERC20 token, address to, uint256 amount) internal {
-        assembly ("memory-safe") {
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
-            if iszero(amount) {
-                mstore(0x00, 0xcbf0dbf5) // selector for `ZeroBuyAmount(address)`
-                mstore(0x20, token)
-                revert(0x1c, 0x24)
-            }
-            let ptr := mload(0x40)
-            mstore(ptr, 0x0b0d9c09) // selector for `take(address,address,uint256)`
-            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
-            mstore(add(0x20, ptr), token)
-            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
-            mstore(add(0x60, ptr), amount)
-            if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), 0x64, 0x00, 0x00)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-        }
+        return Take._callSelector(uint32(IPoolManager.take.selector), token, to, amount);
     }
 
     function unsafeSwap(
