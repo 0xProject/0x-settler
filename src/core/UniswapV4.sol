@@ -54,6 +54,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     using StateLib for StateLib.State;
 
     constructor() {
+        assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
         assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
     }
@@ -108,9 +109,6 @@ abstract contract UniswapV4 is SettlerAbstract {
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         bytes memory data = Encoder.encode(uint32(IPoolManager.unlock.selector), recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback

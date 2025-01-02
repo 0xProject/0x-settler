@@ -225,6 +225,8 @@ library StateLib {
 }
 
 library Encoder {
+    uint256 internal constant BASIS = 10_000;
+
     function encode(
         uint32 unlockSelector,
         address recipient,
@@ -236,6 +238,9 @@ library Encoder {
         bytes memory fills,
         uint256 amountOutMin
     ) internal view returns (bytes memory data) {
+        if (bps > BASIS) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
         if (amountOutMin > uint128(type(int128).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
