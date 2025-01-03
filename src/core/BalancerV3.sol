@@ -391,17 +391,26 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         Decoder.overflowCheck(data);
 
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
-        state.sell.amount -= amountIn;
-        state.buy.amount += amountOut;
-
-        swapParams.userData = new bytes(0);
+        unchecked {
+            // `amountIn` is always exactly `swapParams.amountGiven`
+            state.sell.amount -= amountIn;
+            // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
+            // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of
+            // ~60 bits.
+            state.buy.amount += amountOut;
+        }
 
         return data;
     }
 
     function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, StateLib.State memory state) private {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
-        state.sell.amount -= amountIn;
+        unchecked {
+            // `amountIn` is always exactly `wrapParams.amountGiven`
+            state.sell.amount -= amountIn;
+        }
+        // `amountOut` may depend on the behavior of the ERC4626 vault. We can make no assumptions
+        // about the reasonableness of the range of values that may be returned.
         state.buy.amount += amountOut;
     }
 
