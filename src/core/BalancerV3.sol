@@ -181,13 +181,13 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(VAULT), data, uint32(IBalancerV3Callback.balancerUnlockCallback.selector), _balV3Callback
+            address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `balancerUnlockCallback` and that `balancerUnlockCallback`
-            // encoded the buy amount correctly.
+            // verbatim result from `balV3UnlockCallback` and that `balV3UnlockCallback` encoded the
+            // buy amount correctly.
             buyAmount := mload(add(0x60, encodedBuyAmount))
         }
     }
@@ -215,32 +215,29 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(VAULT), data, uint32(IBalancerV3Callback.balancerUnlockCallback.selector), _balV3Callback
+            address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `balancerUnlockCallback` and that `balancerUnlockCallback`
-            // encoded the buy amount correctly.
+            // verbatim result from `balV3UnlockCallback` and that `balV3UnlockCallback` encoded the
+            // buy amount correctly.
             buyAmount := mload(add(0x60, encodedBuyAmount))
         }
     }
 
-    function _balV3Callback(bytes calldata data) private returns (bytes memory) {
-        // We know that our calldata is well-formed. Therefore, the first slot is 0x20 and the
-        // second slot is the length of the strict ABIEncoded payload
-        assembly ("memory-safe") {
-            data.length := calldataload(add(0x20, data.offset))
-            data.offset := add(0x40, data.offset)
-        }
-        return balancerUnlockCallback(data);
+    function _balV3Callback(bytes calldata) private returns (bytes memory) {
+        // `VAULT` doesn't prepend a selector and ABIEncode the payload. It just echoes the decoded
+        // payload verbatim back to us. Therefore, we use `_msgData()` instead of the argument to
+        // this function because `_msgData()` still has the first 4 bytes of the payload attached.
+        return balancerUnlockCallback(_msgData());
     }
 
     function _setSwapParams(
         IBalancerV3Vault.VaultSwapParams memory swapParams,
         StateLib.State memory state,
         bytes calldata data
-    ) internal view returns (bytes calldata) {
+    ) private view returns (bytes calldata) {
         assembly ("memory-safe") {
             mstore(add(0x20, swapParams), shr(0x60, calldataload(data.offset)))
             data.offset := add(0x14, data.offset)
@@ -256,7 +253,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         IBalancerV3Vault.VaultSwapParams memory swapParams,
         StateLib.State memory state,
         bytes calldata data
-    ) internal DANGEROUS_freeMemory returns (bytes calldata) {
+    ) private DANGEROUS_freeMemory returns (bytes calldata) {
         (data, swapParams.userData) = Decoder.decodeBytes(data);
 
         (, uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).swap(swapParams);
