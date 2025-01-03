@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
@@ -277,13 +276,13 @@ abstract contract DodoSellHelper {
 }
 
 abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
     function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)
         internal
     {
-        uint256 sellAmount = sellToken.fastBalanceOf(address(this)).mulDiv(bps, BASIS);
+        uint256 sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
         sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(dodo, sellAmount);

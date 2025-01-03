@@ -9,8 +9,10 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 abstract contract Basic is SettlerAbstract {
+    using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FullMath for uint256;
     using Revert for bool;
@@ -26,7 +28,7 @@ abstract contract Basic is SettlerAbstract {
         bytes memory returnData;
         uint256 value;
         if (sellToken == ETH_ADDRESS) {
-            value = address(this).balance.mulDiv(bps, BASIS);
+            value = (address(this).balance * bps).unsafeDiv(BASIS);
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
                 (success, returnData) = payable(pool).call{value: value}("");
