@@ -422,6 +422,16 @@ library Decoder {
         return data;
     }
 
+    function overflowCheck(bytes calldata data) internal pure {
+        assembly ("memory-safe") {
+            if gt(data.length, 0xffffff) { // length underflow
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // array out-of-bounds
+                revert(0x1c, 0x24)
+            }
+        }
+    }
+
     /// Decode an ABI-ish encoded `bytes` from `data`. It is "-ish" in the sense that the encoding
     /// of the length doesn't take up an entire word. The length is encoded as only 3 bytes (2^24
     /// bytes of calldata consumes ~67M gas, much more than the block limit). The payload is also
@@ -434,12 +444,6 @@ library Decoder {
 
             retData.offset := add(data.offset, hop)
             retData.length := sub(data.length, hop)
-            if gt(retData.length, 0xffffff) {
-                // length underflow
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // array out-of-bounds
-                revert(0x1c, 0x24)
-            }
         }
     }
 

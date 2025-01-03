@@ -242,7 +242,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             mstore(add(0x20, swapParams), shr(0x60, calldataload(data.offset)))
             data.offset := add(0x14, data.offset)
             data.length := sub(data.length, 0x14)
-            // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
+            // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
         }
         swapParams.tokenIn = state.sell.token;
         swapParams.tokenOut = state.buy.token;
@@ -255,6 +255,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         bytes calldata data
     ) private DANGEROUS_freeMemory returns (bytes calldata) {
         (data, swapParams.userData) = Decoder.decodeBytes(data);
+        Decoder.overflowCheck(data);
 
         (, uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).swap(swapParams);
         state.sell.amount -= amountIn;
@@ -263,6 +264,12 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         swapParams.userData = new bytes(0);
 
         return data;
+    }
+
+    function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, StateLib.State memory state) private DANGEROUS_freeMemory {
+        (, uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).erc4626BufferWrapOrUnwrap(wrapParams);
+        state.sell.amount -= amountIn;
+        state.buy.amount += amountOut;
     }
 
     function _pay(
@@ -287,9 +294,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     // the mandatory fields are
     // 2 - sell bps
     // 1 - pool key tokens case
-    // 20 - pool
-    // 3 - user data length
-    uint256 private constant _HOP_DATA_LENGTH = 26;
+    uint256 private constant _HOP_DATA_LENGTH = 3;
 
     function balancerUnlockCallback(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -326,6 +331,10 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         IBalancerV3Vault.VaultSwapParams memory swapParams;
         swapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
         swapParams.limit = 0; // TODO: price limits for partial filling
+        IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams;
+        wrapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
+        wrapParams.limit = 0; // TODO: price limits for partial filling
+
         while (data.length >= _HOP_DATA_LENGTH) {
             uint16 bps;
             assembly ("memory-safe") {
@@ -333,15 +342,31 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
                 data.offset := add(0x02, data.offset)
                 data.length := sub(data.length, 0x02)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
+                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
 
-            // TODO: ERC4623 wrap/unwrap
-
+            bool erc4626 = bps & 0xc000 > 0;
             data = Decoder.updateState(state, notes, data);
-            data = _setSwapParams(swapParams, state, data);
-            swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
-            data = _decodeUserdataAndSwap(swapParams, state, data);
+
+            if (erc4626) {
+                Decoder.overflowCheck(data);
+
+                if (bps & 0x4000 > 0) {
+                    wrapParams.direction = IBalancerV3Vault.WrappingDirection.UNWRAP;
+                    wrapParams.wrappedToken = IERC4626(address(state.sell.token));
+                } else {
+                    wrapParams.direction = IBalancerV3Vault.WrappingDirection.WRAP;
+                    wrapParams.wrappedToken = IERC4626(address(state.buy.token));
+                }
+                bps &= 0x3fff;
+                wrapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+
+                _erc4626WrapUnwrap(wrapParams, state);
+            } else {
+                data = _setSwapParams(swapParams, state, data);
+                swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                data = _decodeUserdataAndSwap(swapParams, state, data);
+            }
         }
 
 

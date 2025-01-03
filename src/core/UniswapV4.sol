@@ -231,7 +231,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             data.offset := add(0x1a, data.offset)
             data.length := sub(data.length, 0x1a)
-            // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
+            // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
         }
 
         key.fee = uint24(packed >> 184);
@@ -304,7 +304,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
                 data.offset := add(0x02, data.offset)
                 data.length := sub(data.length, 0x02)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.decodeBytes`
+                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
 
             data = Decoder.updateState(state, notes, data);
@@ -312,6 +312,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             (zeroForOne, data) = _setPoolKey(key, state, data);
             bytes calldata hookData;
             (hookData, data) = Decoder.decodeBytes(data);
+            Decoder.overflowCheck(data);
 
             params.zeroForOne = zeroForOne;
             unchecked {
