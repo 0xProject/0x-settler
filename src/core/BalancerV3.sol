@@ -230,7 +230,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         // `VAULT` doesn't prepend a selector and ABIEncode the payload. It just echoes the decoded
         // payload verbatim back to us. Therefore, we use `_msgData()` instead of the argument to
         // this function because `_msgData()` still has the first 4 bytes of the payload attached.
-        return balancerUnlockCallback(_msgData());
+        return balV3UnlockCallback(_msgData());
     }
 
     function _setSwapParams(
@@ -272,7 +272,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         state.buy.amount += amountOut;
     }
 
-    function _pay(
+    function _balV3Pay(
         IERC20 sellToken,
         address payer,
         uint256 sellAmount,
@@ -296,7 +296,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     // 1 - pool key tokens case
     uint256 private constant _HOP_DATA_LENGTH = 3;
 
-    function balancerUnlockCallback(bytes calldata data) private returns (bytes memory) {
+    function balV3UnlockCallback(bytes calldata data) private returns (bytes memory) {
         address recipient;
         uint256 minBuyAmount;
         uint256 hashMul;
@@ -320,7 +320,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         }
         if (feeOnTransfer) {
             state.globalSell.amount =
-                _pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
+                _balV3Pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
         }
         if (state.globalSell.amount == 0) {
             revert ZeroSellAmount(state.globalSell.token);
@@ -396,7 +396,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                 if (debt == 0) {
                     revert ZeroSellAmount(globalSellToken);
                 }
-                _pay(globalSellToken, payer, debt, permit, isForwarded, sig);
+                _balV3Pay(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
 
             bytes memory returndata;
