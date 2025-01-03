@@ -163,9 +163,9 @@ library UnsafeVault {
             // nearly identical to the layout in memory, but there's an extra indirection pointer
             // that needs to be prepended.
             // We know that it's safe to (temporarily) clobber the two words in memory immediately
-            // before `params` because they are user-allocated (they're part of the `Notes`
-            // heap). If they were not user-allocated, this would be illegal as it could clobber a
-            // word that `solc` spilled from the stack into memory.
+            // before `params` because they are user-allocated (they're part of `wrapParams`). If
+            // they were not user-allocated, this would be illegal as it could clobber a word that
+            // `solc` spilled from the stack into memory.
 
             let ptr := mload(0x40)
             let clobberedPtr0 := sub(params, 0x40)
@@ -178,10 +178,12 @@ library UnsafeVault {
 
             // Because we laid out `swapParams` as the last object in memory before
             // `swapParam.userData`, the two objects are contiguous. Their encoding in calldata is
-            // exactly the same as their encoding in memory.
-            let userData := mload(add(0xc0, params))
+            // exactly the same as their encoding in memory, but with pointers changed to offsets.
+            let userDataPtr := add(0xc0, params)
+            let userData := mload(userDataPtr)
             let userDataLen := mload(userData)
             let len := sub(add(add(0x20, userDataLen), userData), params)
+            mstore(add(0xc0, params), 0xe0)
 
             // The length of the whole call's calldata is 36 bytes longer than the encoding of
             // `params` in memory to account for the prepending of the selector (4 bytes) and the
@@ -193,6 +195,7 @@ library UnsafeVault {
             amountIn := mload(0x20)
             amountOut := mload(0x40)
 
+            // mstore(userDataPtr, userData) // we don't need this because we're immediately going to deallocate
             mstore(clobberedPtr0, clobberedVal0)
             mstore(clobberedPtr1, clobberedVal1)
             mstore(0x40, ptr)
@@ -228,10 +231,6 @@ library UnsafeVault {
 }
 
 IBalancerV3Vault constant VAULT = IBalancerV3Vault(0xbA1333333333a1BA1108E8412f11850A5C319bA9);
-
-interface IBalancerV3Callback {
-    function balancerUnlockCallback(bytes calldata data) external returns (bytes memory);
-}
 
 abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
@@ -399,6 +398,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             // ~60 bits.
             state.buy.amount += amountOut;
         }
+        assembly ("memory-safe") {
+            mstore(add(0xc0, swapParams), 0x60)
+        }
 
         return data;
     }
@@ -471,14 +473,18 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         data = newData;
 
         IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams;
+        /*
         wrapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
         wrapParams.limit = 0; // TODO: price limits for partial filling
+        */
 
         // We position `swapParams` at the end of allocated memory so that when we `calldatacopy`
         // the `userData`, it ends up contiguous
         IBalancerV3Vault.VaultSwapParams memory swapParams;
+        /*
         swapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
         swapParams.limit = 0; // TODO: price limits for partial filling
+        */
 
         while (data.length >= _HOP_DATA_LENGTH) {
             uint16 bps;
@@ -490,10 +496,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                 // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
 
-            bool erc4626 = bps & 0xc000 > 0;
             data = Decoder.updateState(state, notes, data);
 
-            if (erc4626) {
+            if (bps & 0xc000 > 0) {
                 Decoder.overflowCheck(data);
 
                 if (bps & 0x4000 > 0) {
@@ -514,7 +519,6 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             }
         }
 
-
         // `data` has been consumed. All that remains is to settle out the net result of all the
         // swaps. Any credit in any token other than `state.buy.token` will be swept to
         // Settler. `state.buy.token` will be sent to `recipient`.
@@ -522,18 +526,17 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
             uint256 globalBuyAmount = Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
-                // We've already transferred the sell token to the pool manager and
+                // We've already transferred the sell token to the vault and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
-                // pool manager. We only need to handle the case of incomplete filling.
+                // vault. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
                     Take._callSelector(uint32(IBalancerV3Vault.sendTo.selector), globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount);
                 }
             } else {
-                // While `notes` records a credit value, the pool manager actually records a debt
-                // for the global sell token. We recover the exact amount of that debt and then pay
-                // it.
+                // While `notes` records a credit value, the vault actually records a debt for the
+                // global sell token. We recover the exact amount of that debt and then pay it.
                 // `globalSellAmount` is _usually_ zero, but if it isn't it represents a partial
-                // fill. This subtraction recovers the actual debt recorded in the pool manager.
+                // fill. This subtraction recovers the actual debt recorded in the vault.
                 uint256 debt;
                 unchecked {
                     debt = state.globalSellAmount - globalSellAmount;
