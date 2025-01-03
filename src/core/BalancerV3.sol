@@ -137,6 +137,96 @@ interface IBalancerV3Vault {
         returns (uint256 amountCalculated, uint256 amountIn, uint256 amountOut);
 }
 
+library UnsafeVault {
+    function unsafeSettle(IBalancerV3Vault vault, IERC20 token, uint256 amount) internal returns (uint256 credit) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x00, 0x15afd409) // selector for `settle(address,uint256)`
+            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
+            mstore(0x40, amount)
+
+            if iszero(call(gas(), vault, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            credit := mload(0x00)
+
+            mstore(0x40, ptr)
+        }
+    }
+
+    function unsafeSwap(IBalancerV3Vault vault, IBalancerV3Vault.VaultSwapParams memory params) internal returns (uint256 amountIn, uint256 amountOut) {
+        assembly ("memory-safe") {
+            // `VaultSwapParams` is a dynamic type with exactly 1 sub-object, and that sub-object is
+            // dynamic (all the other members are value types). Therefore, the layout in calldata is
+            // nearly identical to the layout in memory, but there's an extra indirection pointer
+            // that needs to be prepended.
+            // We know that it's safe to (temporarily) clobber the two words in memory immediately
+            // before `params` because they are user-allocated (they're part of the `Notes`
+            // heap). If they were not user-allocated, this would be illegal as it could clobber a
+            // word that `solc` spilled from the stack into memory.
+
+            let ptr := mload(0x40)
+            let clobberedPtr0 := sub(params, 0x40)
+            let clobberedVal0 := mload(clobberedPtr0)
+            let clobberedPtr1 := sub(params, 0x20)
+            let clobberedVal1 := mload(clobberedPtr1)
+
+            mstore(clobberedPtr0, 0x2bfb780c) // selector for `swap((uint8,address,address,address,uint256,uint256,bytes))`
+            mstore(clobberedPtr1, 0x20) // indirection pointer to the dynamic type `VaultSwapParams`
+
+            // Because we laid out `swapParams` as the last object in memory before
+            // `swapParam.userData`, the two objects are contiguous. Their encoding in calldata is
+            // exactly the same as their encoding in memory.
+            let userData := mload(add(0xc0, params))
+            let userDataLen := mload(userData)
+            let len := sub(add(add(0x20, userDataLen), userData), params)
+
+            // The length of the whole call's calldata is 36 bytes longer than the encoding of
+            // `params` in memory to account for the prepending of the selector (4 bytes) and the
+            // indirection pointer (32 bytes)
+            if iszero(call(gas(), vault, 0x00, add(0x1c, clobberedPtr0), add(0x24, len), 0x00, 0x60)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            amountIn := mload(0x20)
+            amountOut := mload(0x40)
+
+            mstore(clobberedPtr0, clobberedVal0)
+            mstore(clobberedPtr1, clobberedVal1)
+            mstore(0x40, ptr)
+        }
+    }
+
+    function unsafeErc4626BufferWrapOrUnwrap(IBalancerV3Vault vault, IBalancerV3Vault.BufferWrapOrUnwrapParams memory params) internal returns (uint256 amountIn, uint256 amountOut) {
+        assembly ("memory-safe") {
+            // `BufferWrapOrUnwrapParams` is a static type and contains no sub-objects (all its
+            // members are value types), so the layout in calldata is just the layout in memory,
+            // without any indirection pointers.
+            // We know that it's safe to (temporarily) clobber the word in memory immediately before
+            // `params` because it is user-allocated (it's part of the `Notes` heap). If it were not
+            // user-allocated, this would be illegal as it could clobber a word that `solc` spilled
+            // from the stack into memory.
+
+            let ptr := mload(0x40)
+            let clobberedPtr := sub(params, 0x20)
+            let clobberedVal := mload(clobberedPtr)
+            mstore(sub(params, 0x20), 0x43583be5) // selector for `erc4626BufferWrapOrUnwrap((uint8,uint8,address,uint256,uint256))`
+
+            if iszero(call(gas(), vault, 0x00, add(0x1c, clobberedPtr), 0xa4, 0x00, 0x60)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            amountIn := mload(0x20)
+            amountOut := mload(0x40)
+
+            mstore(clobberedPtr, clobberedVal)
+            mstore(0x40, ptr)
+        }
+    }
+}
+
 IBalancerV3Vault constant VAULT = IBalancerV3Vault(0xbA1333333333a1BA1108E8412f11850A5C319bA9);
 
 interface IBalancerV3Callback {
@@ -149,6 +239,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
     using StateLib for StateLib.State;
+
+    using UnsafeVault for IBalancerV3Vault;
 
     constructor() {
         assert(BASIS == Encoder.BASIS);
@@ -298,7 +390,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         (data, swapParams.userData) = Decoder.decodeBytes(data);
         Decoder.overflowCheck(data);
 
-        (, uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).swap(swapParams);
+        (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
         state.sell.amount -= amountIn;
         state.buy.amount += amountOut;
 
@@ -307,8 +399,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         return data;
     }
 
-    function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, StateLib.State memory state) private DANGEROUS_freeMemory {
-        (, uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).erc4626BufferWrapOrUnwrap(wrapParams);
+    function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, StateLib.State memory state) private {
+        (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
         state.sell.amount -= amountIn;
         state.buy.amount += amountOut;
     }
@@ -329,7 +421,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                 ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
-        return IBalancerV3Vault(msg.sender).settle(sellToken, sellAmount);
+        return IBalancerV3Vault(msg.sender).unsafeSettle(sellToken, sellAmount);
     }
 
     // the mandatory fields are
@@ -369,12 +461,15 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         state.globalSellAmount = state.globalSell.amount;
         data = newData;
 
-        IBalancerV3Vault.VaultSwapParams memory swapParams;
-        swapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
-        swapParams.limit = 0; // TODO: price limits for partial filling
         IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams;
         wrapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
         wrapParams.limit = 0; // TODO: price limits for partial filling
+
+        // We position `swapParams` at the end of allocated memory so that when we `calldatacopy`
+        // the `userData`, it ends up contiguous
+        IBalancerV3Vault.VaultSwapParams memory swapParams;
+        swapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
+        swapParams.limit = 0; // TODO: price limits for partial filling
 
         while (data.length >= _HOP_DATA_LENGTH) {
             uint16 bps;
