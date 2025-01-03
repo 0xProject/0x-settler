@@ -349,9 +349,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // pool manager. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
-                    IPoolManager(msg.sender).unsafeTake(
-                        globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount
-                    );
+                    Take._callSelector(uint32(IPoolManager.take.selector), globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount);
                 }
             } else {
                 // While `notes` records a credit value, the pool manager actually records a debt

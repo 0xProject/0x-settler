@@ -111,10 +111,6 @@ library UnsafePoolManager {
         }
     }
 
-    function unsafeTake(IPoolManager poolManager, IERC20 token, address to, uint256 amount) internal {
-        return Take._callSelector(uint32(IPoolManager.take.selector), token, to, amount);
-    }
-
     function unsafeSwap(
         IPoolManager poolManager,
         IPoolManager.PoolKey memory key,
