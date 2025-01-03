@@ -74,8 +74,8 @@ interface IBalancerV3Vault {
      * @param pool The pool with the tokens being swapped
      * @param tokenIn The token entering the Vault (balance increases)
      * @param tokenOut The token leaving the Vault (balance decreases)
-     * @param amountGivenRaw Amount specified for tokenIn or tokenOut (depending on the type of swap)
-     * @param limitRaw Minimum or maximum value of the calculated amount (depending on the type of swap)
+     * @param amountGiven Amount specified for tokenIn or tokenOut (depending on the type of swap)
+     * @param limit Minimum or maximum value of the calculated amount (depending on the type of swap)
      * @param userData Additional (optional) user data
      */
     struct VaultSwapParams {
@@ -83,8 +83,8 @@ interface IBalancerV3Vault {
         address pool;
         IERC20 tokenIn;
         IERC20 tokenOut;
-        uint256 amountGivenRaw;
-        uint256 limitRaw;
+        uint256 amountGiven;
+        uint256 limit;
         bytes userData;
     }
 
@@ -110,16 +110,16 @@ interface IBalancerV3Vault {
      * @param kind Type of swap (Exact In or Exact Out)
      * @param direction Direction of the wrapping operation (Wrap or Unwrap)
      * @param wrappedToken Wrapped token, compatible with interface ERC4626
-     * @param amountGivenRaw Amount specified for tokenIn or tokenOut (depends on the type of swap and wrapping direction)
-     * @param limitRaw Minimum or maximum amount specified for the other token (depends on the type of swap and wrapping
+     * @param amountGiven Amount specified for tokenIn or tokenOut (depends on the type of swap and wrapping direction)
+     * @param limit Minimum or maximum amount specified for the other token (depends on the type of swap and wrapping
      * direction)
      */
     struct BufferWrapOrUnwrapParams {
         SwapKind kind;
         WrappingDirection direction;
         IERC4626 wrappedToken;
-        uint256 amountGivenRaw;
-        uint256 limitRaw;
+        uint256 amountGiven;
+        uint256 limit;
     }
 
     /**
@@ -128,13 +128,13 @@ interface IBalancerV3Vault {
      * and uses the internal wrapped token buffer when it has enough liquidity to avoid external calls.
      *
      * @param params Parameters for the wrap/unwrap operation (see struct definition)
-     * @return amountCalculatedRaw Calculated swap amount
-     * @return amountInRaw Amount of input tokens for the swap
-     * @return amountOutRaw Amount of output tokens from the swap
+     * @return amountCalculated Calculated swap amount
+     * @return amountIn Amount of input tokens for the swap
+     * @return amountOut Amount of output tokens from the swap
      */
     function erc4626BufferWrapOrUnwrap(BufferWrapOrUnwrapParams memory params)
         external
-        returns (uint256 amountCalculatedRaw, uint256 amountInRaw, uint256 amountOutRaw);
+        returns (uint256 amountCalculated, uint256 amountIn, uint256 amountOut);
 }
 
 IBalancerV3Vault constant VAULT = IBalancerV3Vault(0xbA1333333333a1BA1108E8412f11850A5C319bA9);
@@ -328,7 +328,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
         IBalancerV3Vault.VaultSwapParams memory swapParams;
         swapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
-        swapParams.limitRaw = 0; // TODO: price limits for partial filling
+        swapParams.limit = 0; // TODO: price limits for partial filling
         while (data.length >= _HOP_DATA_LENGTH) {
             uint16 bps;
             assembly ("memory-safe") {
@@ -343,7 +343,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
             data = Decoder.updateState(state, notes, data);
             data = _setSwapParams(swapParams, state, data);
-            swapParams.amountGivenRaw = (state.sell.amount * bps).unsafeDiv(BASIS);
+            swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
             data = _decodeUserdataAndSwap(swapParams, state, data);
         }
 
