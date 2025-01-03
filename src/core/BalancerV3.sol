@@ -172,11 +172,10 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     ////
     //// Now that you have a list of fills, encode each fill as follows.
     //// First, decide if the fill is a swap or an ERC4626 wrap/unwrap.
-    //// Second encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to
+    //// Second, encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to
     //// the running balance at the moment that the fill is settled. If the fill is a wrap, set the
     //// most significant bit of `bps`. If the fill is an unwrap, set the second most significant
     //// bit of `bps`
-
     //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. If the fill is a wrap, the buy token must be the
     //// ERC4626 vault. If the fill is an unwrap, the sell token must be the ERC4626 vault. If the
