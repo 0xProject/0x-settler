@@ -156,6 +156,48 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
     }
 
+    //// How to generate `fills` for BalancerV3:
+    ////
+    //// Linearize your DAG of fills by doing a topological sort on the tokens involved. Swapping
+    //// against a boosted pool (usually) creates 3 fills: wrap, swap, unwrap. The tokens involved
+    //// includes each ERC4626 tokenized vault token for any boosted pools. In the topological sort
+    //// of tokens, when there is a choice of the next token, break ties by preferring a token if it
+    //// is the lexicographically largest token that is bought among fills with sell token equal to
+    //// the previous token in the topological sort. Then sort the fills belonging to each sell
+    //// token by their buy token. This technique isn't *quite* optimal, but it's pretty close. The
+    //// buy token of the final fill is special-cased. It is the token that will be transferred to
+    //// `recipient` and have its slippage checked against `amountOutMin`. In the event that you are
+    //// encoding a series of fills with more than one output token, ensure that at least one of the
+    //// global buy token's fills is positioned appropriately.
+    ////
+    //// Now that you have a list of fills, encode each fill as follows.
+    //// First, decide if the fill is a swap or an ERC4626 wrap/unwrap.
+    //// Second encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to
+    //// the running balance at the moment that the fill is settled. If the fill is a wrap, set the
+    //// most significant bit of `bps`. If the fill is an unwrap, set the second most significant
+    //// bit of `bps`
+
+    //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
+    //// tokens involved in the previous fill. If the fill is a wrap, the buy token must be the
+    //// ERC4626 vault. If the fill is an unwrap, the sell token must be the ERC4626 vault. If the
+    //// fill is a swap against a boosted pool, both sell and buy tokens must be ERC4626 vaults. God
+    //// help you if you're dealing with a boosted pool where only some of the tokens involved are
+    //// ERC4626. The packing key for the first fill must be 1; i.e. encode only the buy token for
+    //// the first fill.
+    ////   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
+    ////   1 -> sell token remains unchanged from the previous fill, buy token is encoded (diamond multiplex)
+    ////   2 -> sell token becomes the buy token from the previous fill, new buy token is encoded (multihop)
+    ////   3 -> both sell and buy token are encoded
+    //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
+    //// as appropriate.
+    //// If the fill is a wrap/unwrap, you're done. Move on to the next fill. If the fill is a swap,
+    //// the following fields are mandatory:
+    //// Fourth, encode the pool address as 20 bytes.
+    //// Fifth, encode the hook data for the fill. Encode the length of the hook data as 3 bytes,
+    //// then append the hook data itself.
+    ////
+    //// Repeat the process for each fill and concatenate the results without padding.
+
     function sellToBalancerV3(
         address recipient,
         IERC20 sellToken,
