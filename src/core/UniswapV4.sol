@@ -9,12 +9,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {
-    TooMuchSlippage,
-    DeltaNotPositive,
-    DeltaNotNegative,
-    ZeroSellAmount
-} from "./SettlerErrors.sol";
+import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {
     BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback
@@ -343,13 +338,19 @@ abstract contract UniswapV4 is SettlerAbstract {
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
             (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
-            uint256 globalBuyAmount = Take.take(state, notes, uint32(IPoolManager.take.selector), recipient, minBuyAmount);
+            uint256 globalBuyAmount =
+                Take.take(state, notes, uint32(IPoolManager.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
                 // We've already transferred the sell token to the pool manager and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // pool manager. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
-                    Take._callSelector(uint32(IPoolManager.take.selector), globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount);
+                    Take._callSelector(
+                        uint32(IPoolManager.take.selector),
+                        globalSellToken,
+                        payer == address(this) ? address(this) : _msgSender(),
+                        globalSellAmount
+                    );
                 }
             } else {
                 // While `notes` records a credit value, the pool manager actually records a debt

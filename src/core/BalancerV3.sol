@@ -10,10 +10,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {
-    TooMuchSlippage,
-    ZeroSellAmount
-} from "./SettlerErrors.sol";
+import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
@@ -156,7 +153,10 @@ library UnsafeVault {
         }
     }
 
-    function unsafeSwap(IBalancerV3Vault vault, IBalancerV3Vault.VaultSwapParams memory params) internal returns (uint256 amountIn, uint256 amountOut) {
+    function unsafeSwap(IBalancerV3Vault vault, IBalancerV3Vault.VaultSwapParams memory params)
+        internal
+        returns (uint256 amountIn, uint256 amountOut)
+    {
         assembly ("memory-safe") {
             // `VaultSwapParams` is a dynamic type with exactly 1 sub-object, and that sub-object is
             // dynamic (all the other members are value types). Therefore, the layout in calldata is
@@ -202,7 +202,10 @@ library UnsafeVault {
         }
     }
 
-    function unsafeErc4626BufferWrapOrUnwrap(IBalancerV3Vault vault, IBalancerV3Vault.BufferWrapOrUnwrapParams memory params) internal returns (uint256 amountIn, uint256 amountOut) {
+    function unsafeErc4626BufferWrapOrUnwrap(
+        IBalancerV3Vault vault,
+        IBalancerV3Vault.BufferWrapOrUnwrapParams memory params
+    ) internal returns (uint256 amountIn, uint256 amountOut) {
         assembly ("memory-safe") {
             // `BufferWrapOrUnwrapParams` is a static type and contains no sub-objects (all its
             // members are value types), so the layout in calldata is just the layout in memory,
@@ -312,9 +315,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             fills,
             amountOutMin
         );
-        bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback
-        );
+        bytes memory encodedBuyAmount =
+            _setOperatorAndCall(address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -346,9 +348,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             _isForwarded(),
             amountOutMin
         );
-        bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback
-        );
+        bytes memory encodedBuyAmount =
+            _setOperatorAndCall(address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -405,7 +406,10 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         return data;
     }
 
-    function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, StateLib.State memory state) private {
+    function _erc4626WrapUnwrap(
+        IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams,
+        StateLib.State memory state
+    ) private {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
         unchecked {
             // `amountIn` is always exactly `wrapParams.amountGiven`
@@ -524,13 +528,19 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
             (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
-            uint256 globalBuyAmount = Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
+            uint256 globalBuyAmount =
+                Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
                 // We've already transferred the sell token to the vault and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // vault. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
-                    Take._callSelector(uint32(IBalancerV3Vault.sendTo.selector), globalSellToken, payer == address(this) ? address(this) : _msgSender(), globalSellAmount);
+                    Take._callSelector(
+                        uint32(IBalancerV3Vault.sendTo.selector),
+                        globalSellToken,
+                        payer == address(this) ? address(this) : _msgSender(),
+                        globalSellAmount
+                    );
                 }
             } else {
                 // While `notes` records a credit value, the vault actually records a debt for the

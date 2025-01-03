@@ -620,10 +620,13 @@ library Take {
     /// (`buyAmount`), after checking it against the slippage limit (`minBuyAmount`). Each token
     /// with credit causes a corresponding call to `msg.sender.<selector>(token, recipient,
     /// amount)`.
-    function take(StateLib.State memory state, NotesLib.Note[] memory notes, uint32 selector, address recipient, uint256 minBuyAmount)
-        internal
-        returns (uint256 buyAmount)
-    {
+    function take(
+        StateLib.State memory state,
+        NotesLib.Note[] memory notes,
+        uint32 selector,
+        address recipient,
+        uint256 minBuyAmount
+    ) internal returns (uint256 buyAmount) {
         notes.del(state.buy);
         if (state.sell.amount == 0) {
             notes.del(state.sell);
