@@ -92,10 +92,9 @@ interface IPoolManager {
 
 /// Solc emits code that is both gas inefficient and codesize bloated. By reimplementing these
 /// function calls in Yul, we obtain significant improvements. Solc also emits an EXTCODESIZE check
-/// when an external function doesn't return anything (`sync` and `take`). Obviously, we know that
-/// POOL_MANAGER has code, so this omits those checks. Also, for compatibility, these functions
-/// identify `SettlerAbstract.ETH_ADDRESS` (the address of all `e`s) and replace it with
-/// `address(0)`.
+/// when an external function doesn't return anything (`sync`). Obviously, we know that POOL_MANAGER
+/// has code, so this omits those checks. Also, for compatibility, these functions identify
+/// `SettlerAbstract.ETH_ADDRESS` (the address of all `e`s) and replace it with `address(0)`.
 library UnsafePoolManager {
     function unsafeSync(IPoolManager poolManager, IERC20 token) internal {
         // `sync` doesn't need to check whether `token` is `ETH_ADDRESS` because calling `sync` for
