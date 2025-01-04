@@ -183,7 +183,7 @@ library UnsafeVault {
             let userData := mload(userDataPtr)
             let userDataLen := mload(userData)
             let len := sub(add(add(0x20, userDataLen), userData), params)
-            mstore(add(0xc0, params), 0xe0)
+            mstore(userDataPtr, sub(userData, params))
 
             // The length of the whole call's calldata is 36 bytes longer than the encoding of
             // `params` in memory to account for the prepending of the selector (4 bytes) and the
