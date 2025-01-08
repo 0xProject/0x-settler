@@ -40,7 +40,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         return IERC4626(address(0));
     }
 
-    function perfectHash() internal virtual view returns (uint256 hashMod, uint256 hashMul) {
+    function perfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
         for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
             for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
                 /*
@@ -115,14 +115,12 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
             bytes2(uint16(2 ** 15 | 10000)),
             bytes1(uint8(1)),
             bytes20(uint160(address(fromTokenWrapped()))),
-
             // swap `fromTokenWrapped()` to `toTokenWrapped()`
             bytes2(uint16(10000)),
             bytes1(uint8(2)),
             bytes20(uint160(address(toTokenWrapped()))),
             bytes20(uint160(balancerV3Pool())),
             bytes3(uint24(0)),
-
             // unwrap `toTokenWrapped()` to `toToken()`
             bytes2(uint16(2 ** 14 | 10000)),
             bytes1(uint8(2)),
@@ -137,8 +135,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.BALANCERV3,
-                (FROM, address(fromToken()), 10_000, false, hashMul, hashMod, fills(), 0)
+                ISettlerActions.BALANCERV3, (FROM, address(fromToken()), 10_000, false, hashMul, hashMod, fills(), 0)
             )
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
@@ -164,10 +161,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
 
         (uint256 hashMul, uint256 hashMod) = perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.BALANCERV3_VIP,
-                (FROM, false, hashMul, hashMod, fills(), permit, sig, 0)
-            )
+            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
@@ -194,10 +188,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
 
         (uint256 hashMul, uint256 hashMod) = perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.BALANCERV3_VIP,
-                (FROM, false, hashMul, hashMod, fills(), permit, sig, 0)
-            )
+            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
@@ -226,5 +217,10 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         return;
     }
 
-    function uniswapV3Path() internal view virtual override(SettlerMetaTxnPairTest, AllowanceHolderPairTest) returns (bytes memory);
+    function uniswapV3Path()
+        internal
+        view
+        virtual
+        override(SettlerMetaTxnPairTest, AllowanceHolderPairTest)
+        returns (bytes memory);
 }
