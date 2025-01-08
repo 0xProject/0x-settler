@@ -19,8 +19,6 @@ import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
-import {console} from "@forge-std/console.sol";
-
 abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairTest {
     using UnsafeMath for uint256;
 
@@ -43,10 +41,6 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
     function perfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
         for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
             for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
-                /*
-                console.log("hashMod", hashMod);
-                console.log("hashMul", hashMul);
-                */
                 if (
                     mulmod(uint160(address(fromToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
                         == mulmod(uint160(address(fromTokenWrapped())), hashMul, hashMod) % NotesLib.MAX_TOKENS
