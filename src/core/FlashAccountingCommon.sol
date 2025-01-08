@@ -449,7 +449,7 @@ library Decoder {
 
     function decodeHeader(bytes calldata data)
         internal
-        view
+        pure
         returns (
             bytes calldata newData,
             // These values are user-supplied

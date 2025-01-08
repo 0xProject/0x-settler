@@ -370,7 +370,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         IBalancerV3Vault.VaultSwapParams memory swapParams,
         StateLib.State memory state,
         bytes calldata data
-    ) private view returns (bytes calldata) {
+    ) private pure returns (bytes calldata) {
         assembly ("memory-safe") {
             mstore(add(0x20, swapParams), shr(0x60, calldataload(data.offset)))
             data.offset := add(0x14, data.offset)

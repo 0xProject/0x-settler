@@ -39,4 +39,8 @@ contract USDCUSDTTest is BalancerV3Test {
     function uniswapV3Path() internal pure override returns (bytes memory) {
         return "";
     }
+
+    function uniswapV2Pool() internal pure override returns (address) {
+        return address(0);
+    }
 }

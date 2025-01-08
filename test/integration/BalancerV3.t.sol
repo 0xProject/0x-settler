@@ -17,10 +17,11 @@ import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
 import {console} from "@forge-std/console.sol";
 
-abstract contract BalancerV3Test is SettlerMetaTxnPairTest {
+abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairTest {
     using UnsafeMath for uint256;
 
     function balancerV3Pool() internal view virtual returns (address) {
@@ -87,7 +88,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest {
         }
     }
 
-    function setUp() public virtual override {
+    function setUp() public virtual override(SettlerMetaTxnPairTest, AllowanceHolderPairTest) {
         super.setUp();
         if (balancerV3Pool() != address(0)) {
             vm.makePersistent(address(PERMIT2));
@@ -187,10 +188,43 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest {
     }
 
     function testBalancerV3VIPAllowanceHolder() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
-        return;
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
+        bytes memory sig = new bytes(0);
+
+        (uint256 hashMul, uint256 hashMod) = perfectHash();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.BALANCERV3_VIP,
+                (FROM, false, hashMul, hashMod, fills(), permit, sig, 0)
+            )
+        );
+        SettlerBase.AllowedSlippage memory allowedSlippage =
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        IAllowanceHolder _allowanceHolder = allowanceHolder;
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+        uint256 _amount = amount();
+        bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("allowanceHolder_balancerV3VIP");
+        _allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
     function testBalancerV3MetaTxn() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
         return;
     }
+
+    function uniswapV3Path() internal view virtual override(SettlerMetaTxnPairTest, AllowanceHolderPairTest) returns (bytes memory);
 }
