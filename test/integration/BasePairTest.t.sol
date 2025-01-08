@@ -31,10 +31,10 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
         permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
     }
 
-    function testName() internal virtual returns (string memory);
-    function fromToken() internal virtual returns (IERC20);
-    function toToken() internal virtual returns (IERC20);
-    function amount() internal virtual returns (uint256);
+    function testName() internal view virtual returns (string memory);
+    function fromToken() internal view virtual returns (IERC20);
+    function toToken() internal view virtual returns (IERC20);
+    function amount() internal view virtual returns (uint256);
 
     function setUp() public virtual {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);

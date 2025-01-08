@@ -12,7 +12,7 @@ import {TooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
 
 /// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
 /// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
-/// (aka `Note[] memory`) that has up to `_MAX_TOKENS` pre-allocated. And there is an implicit heap
+/// (aka `Note[] memory`) that has up to `MAX_TOKENS` pre-allocated. And there is an implicit heap
 /// packed at the end of the array that stores the `Note`s. Each `Note` has a backpointer that knows
 /// its location in the `Notes[] memory`. While the length of the `Notes[]` array grows and shrinks
 /// as tokens are added and retired, heap objects are only cleared/deallocated when the context
@@ -25,7 +25,7 @@ library NotesLib {
 
     /// This is the maximum number of tokens that may be involved in a UniV4 action. Increasing or
     /// decreasing this value requires no other changes elsewhere in this file.
-    uint256 private constant _MAX_TOKENS = 8;
+    uint256 internal constant MAX_TOKENS = 8;
 
     type NotePtr is uint256;
     type NotePtrPtr is uint256;
@@ -42,9 +42,9 @@ library NotesLib {
             // set the length of `r` to zero
             mstore(r, 0x00)
             // zeroize the heap
-            codecopy(add(add(0x20, shl(0x05, _MAX_TOKENS)), r), codesize(), mul(0x60, _MAX_TOKENS))
+            codecopy(add(add(0x20, shl(0x05, MAX_TOKENS)), r), codesize(), mul(0x60, MAX_TOKENS))
             // allocate memory
-            mstore(0x40, add(add(0x20, shl(0x07, _MAX_TOKENS)), r))
+            mstore(0x40, add(add(0x20, shl(0x07, MAX_TOKENS)), r))
         }
     }
 
@@ -65,9 +65,9 @@ library NotesLib {
     //// How to generate a perfect hash:
     ////
     //// The arguments `hashMul` and `hashMod` are required to form a perfect hash for a table with
-    //// size `NotesLib._MAX_TOKENS` when applied to all the tokens involved in fills. The hash
+    //// size `NotesLib.MAX_TOKENS` when applied to all the tokens involved in fills. The hash
     //// function is constructed as `uint256 hash = mulmod(uint256(uint160(address(token))),
-    //// hashMul, hashMod) % NotesLib._MAX_TOKENS`.
+    //// hashMul, hashMod) % NotesLib.MAX_TOKENS`.
     ////
     //// The "simple" or "obvious" way to do this is to simply try random 128-bit numbers for both
     //// `hashMul` and `hashMod` until you obtain a function that has no collisions when applied to
@@ -90,8 +90,8 @@ library NotesLib {
     {
         assembly ("memory-safe") {
             newToken := and(_ADDRESS_MASK, newToken)
-            x := add(add(0x20, shl(0x05, _MAX_TOKENS)), a) // `x` now points at the first `Note` on the heap
-            x := add(mod(mulmod(newToken, hashMul, hashMod), mul(0x60, _MAX_TOKENS)), x) // combine with token hash
+            x := add(add(0x20, shl(0x05, MAX_TOKENS)), a) // `x` now points at the first `Note` on the heap
+            x := add(mod(mulmod(newToken, hashMul, hashMod), mul(0x60, MAX_TOKENS)), x) // combine with token hash
             // `x` now points at the exact `Note` object we want; let's check it to be sure, though
             let x_token_ptr := add(0x20, x)
 
@@ -126,7 +126,7 @@ library NotesLib {
                 let len := add(0x01, mload(a))
                 // We don't need to check for overflow or out-of-bounds access here; the checks in
                 // `get` above for token collision handle that for us. It's not possible to `get`
-                // more than `_MAX_TOKENS` tokens
+                // more than `MAX_TOKENS` tokens
                 mstore(a, len)
                 backptr := add(shl(0x05, len), a)
                 mstore(backptr, x)

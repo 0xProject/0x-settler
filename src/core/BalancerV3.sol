@@ -387,7 +387,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         StateLib.State memory state,
         bytes calldata data
     ) private DANGEROUS_freeMemory returns (bytes calldata) {
-        (data, swapParams.userData) = Decoder.decodeBytes(data);
+        (swapParams.userData, data) = Decoder.decodeBytes(data);
         Decoder.overflowCheck(data);
 
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
