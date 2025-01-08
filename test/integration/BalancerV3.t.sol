@@ -214,7 +214,48 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
     }
 
     function testBalancerV3MetaTxn() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
-        return;
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+
+        (uint256 hashMul, uint256 hashMod) = perfectHash();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.METATXN_BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, 0))
+        );
+        SettlerBase.AllowedSlippage memory allowedSlippage =
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
+
+        bytes32[] memory actionHashes = new bytes32[](actions.length);
+        for (uint256 i; i < actionHashes.length; i++) {
+            actionHashes[i] = keccak256(actions[i]);
+        }
+        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
+        bytes32 witness = keccak256(
+            abi.encode(
+                SLIPPAGE_AND_ACTIONS_TYPEHASH,
+                allowedSlippage.recipient,
+                allowedSlippage.buyToken,
+                allowedSlippage.minAmountOut,
+                actionsHash
+            )
+        );
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
+        );
+
+        SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
+
+        snapStartName("settler_metaTxn_balancerV3");
+        vm.startPrank(address(this), address(this));
+        _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
     function uniswapV3Path()
