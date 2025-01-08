@@ -248,8 +248,8 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
-        snapStartName("settler_metaTxn_balancerV3");
         vm.startPrank(address(this), address(this));
+        snapStartName("settler_metaTxn_balancerV3");
         _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
         snapEnd();
         vm.stopPrank();
