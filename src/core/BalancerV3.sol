@@ -502,24 +502,24 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
             data = Decoder.updateState(state, notes, data);
 
-            if (bps & 0xc000 > 0) {
+            if (bps & 0xc000 == 0) {
+                data = _setSwapParams(swapParams, state, data);
+                swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                data = _decodeUserdataAndSwap(swapParams, state, data);
+            } else {
                 Decoder.overflowCheck(data);
 
-                if (bps & 0x4000 > 0) {
-                    wrapParams.direction = IBalancerV3Vault.WrappingDirection.UNWRAP;
-                    wrapParams.wrappedToken = IERC4626(address(state.sell.token));
-                } else {
+                if (bps & 0x4000 == 0) {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.WRAP;
                     wrapParams.wrappedToken = IERC4626(address(state.buy.token));
+                } else {
+                    wrapParams.direction = IBalancerV3Vault.WrappingDirection.UNWRAP;
+                    wrapParams.wrappedToken = IERC4626(address(state.sell.token));
                 }
                 bps &= 0x3fff;
                 wrapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
 
                 _erc4626WrapUnwrap(wrapParams, state);
-            } else {
-                data = _setSwapParams(swapParams, state, data);
-                swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
-                data = _decodeUserdataAndSwap(swapParams, state, data);
             }
         }
 
