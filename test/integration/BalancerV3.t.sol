@@ -12,7 +12,7 @@ import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
-import {IBalancerV3Vault, VAULT} from "src/core/BalancerV3.sol";
+import {VAULT} from "src/core/BalancerV3.sol";
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
@@ -82,6 +82,13 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         }
     }
 
+    function _setLabels() private setBalancerV3Block {
+        vm.label(address(VAULT), "BalancerV3 vault");
+        vm.label(balancerV3Pool(), string.concat("BalancerV3 pool: ", fromToken().symbol(), "/", toToken().symbol()));
+        vm.label(address(fromTokenWrapped()), fromTokenWrapped().symbol());
+        vm.label(address(toTokenWrapped()), toTokenWrapped().symbol());
+    }
+
     function setUp() public virtual override(SettlerMetaTxnPairTest, AllowanceHolderPairTest) {
         super.setUp();
         if (balancerV3Pool() != address(0)) {
@@ -93,6 +100,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
             vm.makePersistent(address(toToken()));
             vm.makePersistent(address(fromTokenWrapped()));
             vm.makePersistent(address(toTokenWrapped()));
+            _setLabels();
         }
     }
 
