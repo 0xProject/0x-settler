@@ -29,8 +29,12 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     constructor() {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
         permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
-        vm.label(address(fromToken()), fromToken().symbol());
-        vm.label(address(toToken()), toToken().symbol());
+        if (address(fromToken()).code.length > 0) {
+            vm.label(address(fromToken()), fromToken().symbol());
+        }
+        if (address(toToken()).code.length > 0) {
+            vm.label(address(toToken()), toToken().symbol());
+        }
     }
 
     function testName() internal view virtual returns (string memory);
