@@ -306,7 +306,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             bool zeroForOne;
             (zeroForOne, data) = _setPoolKey(key, state, data);
             bytes calldata hookData;
-            (hookData, data) = Decoder.decodeBytes(data);
+            (data, hookData) = Decoder.decodeBytes(data);
             Decoder.overflowCheck(data);
 
             params.zeroForOne = zeroForOne;

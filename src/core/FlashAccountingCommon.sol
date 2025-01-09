@@ -432,7 +432,7 @@ library Decoder {
     /// of the length doesn't take up an entire word. The length is encoded as only 3 bytes (2^24
     /// bytes of calldata consumes ~67M gas, much more than the block limit). The payload is also
     /// unpadded. The next fill's `bps` is encoded immediately after the `hookData` payload.
-    function decodeBytes(bytes calldata data) internal pure returns (bytes calldata hookData, bytes calldata retData) {
+    function decodeBytes(bytes calldata data) internal pure returns (bytes calldata retData, bytes calldata hookData) {
         assembly ("memory-safe") {
             hookData.length := shr(0xe8, calldataload(data.offset))
             hookData.offset := add(0x03, data.offset)
