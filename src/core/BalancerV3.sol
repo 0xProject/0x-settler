@@ -394,11 +394,12 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         unchecked {
             // `amountIn` is always exactly `swapParams.amountGiven`
             state.sell.amount -= amountIn;
-            // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
-            // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of
-            // ~60 bits.
-            state.buy.amount += amountOut;
         }
+        // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
+        // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
+        // bits. However, `state.buy.amount` may be an agglomeration of values returned by ERC4626
+        // vaults, and there is no implicit restriction on those values.
+        state.buy.amount += amountOut;
         assembly ("memory-safe") {
             mstore(add(0xc0, swapParams), 0x60)
         }
@@ -504,7 +505,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
             if (bps & 0xc000 == 0) {
                 data = _setSwapParams(swapParams, state, data);
-                swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                unchecked {
+                    swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                }
                 data = _decodeUserdataAndSwap(swapParams, state, data);
             } else {
                 Decoder.overflowCheck(data);
@@ -517,7 +520,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                     wrapParams.wrappedToken = IERC4626(address(state.sell.token));
                 }
                 bps &= 0x3fff;
-                wrapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                unchecked {
+                    wrapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                }
 
                 _erc4626WrapUnwrap(wrapParams, state);
             }
