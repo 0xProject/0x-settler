@@ -23,7 +23,7 @@ import {TooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
 library NotesLib {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
-    /// This is the maximum number of tokens that may be involved in a UniV4 action. Increasing or
+    /// This is the maximum number of tokens that may be involved in an action. Increasing or
     /// decreasing this value requires no other changes elsewhere in this file.
     uint256 internal constant MAX_TOKENS = 8;
 

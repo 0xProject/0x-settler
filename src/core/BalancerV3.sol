@@ -160,8 +160,9 @@ library UnsafeVault {
         assembly ("memory-safe") {
             // `VaultSwapParams` is a dynamic type with exactly 1 sub-object, and that sub-object is
             // dynamic (all the other members are value types). Therefore, the layout in calldata is
-            // nearly identical to the layout in memory, but there's an extra indirection pointer
-            // that needs to be prepended.
+            // nearly identical to the layout in memory, but there's an extra indirection offset
+            // that needs to be prepended. Also the pointer to `params.userData` needs to be
+            // transformed into an offset relative to the start of `params`.
             // We know that it's safe to (temporarily) clobber the two words in memory immediately
             // before `params` because they are user-allocated (they're part of `wrapParams`). If
             // they were not user-allocated, this would be illegal as it could clobber a word that
@@ -174,7 +175,7 @@ library UnsafeVault {
             let clobberedVal1 := mload(clobberedPtr1)
 
             mstore(clobberedPtr0, 0x2bfb780c) // selector for `swap((uint8,address,address,address,uint256,uint256,bytes))`
-            mstore(clobberedPtr1, 0x20) // indirection pointer to the dynamic type `VaultSwapParams`
+            mstore(clobberedPtr1, 0x20) // indirection offset to the dynamic type `VaultSwapParams`
 
             // Because we laid out `swapParams` as the last object in memory before
             // `swapParam.userData`, the two objects are contiguous. Their encoding in calldata is
@@ -182,14 +183,18 @@ library UnsafeVault {
             let userDataPtr := add(0xc0, params)
             let userData := mload(userDataPtr)
             let userDataLen := mload(userData)
+            // Convert the pointer `userData` into an offset relative to the start of its parent
+            // object (`params`), and replace it in memory to transform it to the calldata encoding
             let len := sub(userData, params)
             mstore(userDataPtr, len)
             // Compute the length of the entire encoded object
             len := add(0x20, add(userDataLen, len))
+            // The padding is a little wonky (we're not creating the Solidity-strict ABI encoding),
+            // but the Solidity ABIDecoder is relaxed enough that this doesn't matter.
 
             // The length of the whole call's calldata is 36 bytes longer than the encoding of
             // `params` in memory to account for the prepending of the selector (4 bytes) and the
-            // indirection pointer (32 bytes)
+            // indirection offset (32 bytes)
             if iszero(call(gas(), vault, 0x00, add(0x1c, clobberedPtr0), add(0x24, len), 0x00, 0x60)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
@@ -211,7 +216,7 @@ library UnsafeVault {
         assembly ("memory-safe") {
             // `BufferWrapOrUnwrapParams` is a static type and contains no sub-objects (all its
             // members are value types), so the layout in calldata is just the layout in memory,
-            // without any indirection pointers.
+            // without any indirection.
             // We know that it's safe to (temporarily) clobber the word in memory immediately before
             // `params` because it is user-allocated (it's part of the `Notes` heap). If it were not
             // user-allocated, this would be illegal as it could clobber a word that `solc` spilled
@@ -317,6 +322,14 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             fills,
             amountOutMin
         );
+        // If, for some insane reason, the first 4 bytes of `recipient` alias the selector for the
+        // only mutative function of Settler (`execute` or `executeMetaTxn`, as appropriate), then
+        // this call will revert. We will encounter a revert in the nested call to
+        // `execute`/`executeMetaTxn` because Settler is reentrancy-locked (this revert is
+        // bubbled). If, instead, it aliases a non-mutative function of Settler, we would encounter
+        // a revert inside `TransientStorage.checkSpentOperatorAndCallback` because the transient
+        // storage slot was not zeroed. This would happen by accident with negligible probability,
+        // and is merely annoying if it does happen.
         bytes memory encodedBuyAmount =
             _setOperatorAndCall(address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
@@ -350,6 +363,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             _isForwarded(),
             amountOutMin
         );
+        // See comment in `sellToBalancerV3` about why `recipient` aliasing a valid selector is
+        // ultimately harmless.
         bytes memory encodedBuyAmount =
             _setOperatorAndCall(address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
