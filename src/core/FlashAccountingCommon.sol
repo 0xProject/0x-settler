@@ -578,9 +578,7 @@ library Decoder {
             }
         }
 
-        if (data.length > 16777215) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
+        Decoder.overflowCheck(data);
         newData = data;
     }
 }
