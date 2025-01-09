@@ -59,6 +59,7 @@ Master list of UniV3 forks:
 * Add `rebateClaimer()(address)` function on Mainnet Settlers for gas rebate program
 * Add SolidlyV3 UniV3 fork to Sonic
 * Add Wagmi UniV3 fork to Sonic
+* Deploy Settler to Monad testnet chain
 
 ## 2024-12-18
 
