@@ -182,8 +182,10 @@ library UnsafeVault {
             let userDataPtr := add(0xc0, params)
             let userData := mload(userDataPtr)
             let userDataLen := mload(userData)
-            let len := sub(add(add(0x20, userDataLen), userData), params)
-            mstore(userDataPtr, sub(userData, params))
+            let len := sub(userData, params)
+            mstore(userDataPtr, len)
+            // Compute the length of the entire encoded object
+            len := add(0x20, add(userDataLen, len))
 
             // The length of the whole call's calldata is 36 bytes longer than the encoding of
             // `params` in memory to account for the prepending of the selector (4 bytes) and the
@@ -218,7 +220,7 @@ library UnsafeVault {
             let ptr := mload(0x40)
             let clobberedPtr := sub(params, 0x20)
             let clobberedVal := mload(clobberedPtr)
-            mstore(sub(params, 0x20), 0x43583be5) // selector for `erc4626BufferWrapOrUnwrap((uint8,uint8,address,uint256,uint256))`
+            mstore(clobberedPtr, 0x43583be5) // selector for `erc4626BufferWrapOrUnwrap((uint8,uint8,address,uint256,uint256))`
 
             if iszero(call(gas(), vault, 0x00, add(0x1c, clobberedPtr), 0xa4, 0x00, 0x60)) {
                 returndatacopy(ptr, 0x00, returndatasize())
