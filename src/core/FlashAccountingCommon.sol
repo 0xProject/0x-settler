@@ -609,7 +609,7 @@ library Take {
         }
     }
 
-    /// `_take` is responsible for removing the accumulated credit in each token from the vault. The
+    /// `take` is responsible for removing the accumulated credit in each token from the vault. The
     /// current `state.buy` is the global buy token. We return the settled amount of that token
     /// (`buyAmount`), after checking it against the slippage limit (`minBuyAmount`). Each token
     /// with credit causes a corresponding call to `msg.sender.<selector>(token, recipient,
