@@ -423,12 +423,8 @@ library Decoder {
     }
 
     function overflowCheck(bytes calldata data) internal pure {
-        assembly ("memory-safe") {
-            if gt(data.length, 0xffffff) { // length underflow
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // array out-of-bounds
-                revert(0x1c, 0x24)
-            }
+        if (data.length > 16777215) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
     }
 
