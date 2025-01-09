@@ -470,8 +470,8 @@
   "monad_testnet": {
     "chainId": 10143,
     "displayName": "MonadTestnet",
-    "isShanghai": null,
-    "isCancun": null,
+    "isShanghai": true,
+    "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 50,
