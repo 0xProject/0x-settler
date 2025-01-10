@@ -27,7 +27,7 @@ library ArraySliceBecauseSolidityIsDumb {
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
     using ArraySliceBecauseSolidityIsDumb for bytes[];
 
-    function _tokenId() internal pure virtual override returns (uint256) {
+    function _tokenId() internal pure override returns (uint256) {
         return 4;
     }
 
