@@ -11,15 +11,15 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
     bytes32 internal constant SLIPPAGE_AND_ACTIONS_TYPEHASH =
         0x615e8d716cef7295e75dd3f1f10d679914ad6d7759e8e9459f0109ef75241701;
     // Permit2 Witness for intents
-    string internal constant SLIPPAGE_TYPE = "Slippage(address recipient,address buyToken,uint256 minAmountOut)";
-    bytes32 internal constant SLIPPAGE_TYPEHASH = 0xdc83993a2ffc65b01b71ed08790b6e39c5c55d76937b62a3b5085b02071f1259;
+    string internal constant SLIPPAGE_AND_CONDITION_TYPE = "SlippageAndCondition(address recipient,address buyToken,uint256 minAmountOut,bytes[] condition)";
+    bytes32 internal constant SLIPPAGE_AND_CONDITION_TYPEHASH = 0x24a8d1e812d61f4d1c5a389ec4379906a57587add93708e221ed7965b9ec1c2c;
 
     uint256 internal constant BASIS = 10_000;
     IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     constructor() {
         assert(SLIPPAGE_AND_ACTIONS_TYPEHASH == keccak256(bytes(SLIPPAGE_AND_ACTIONS_TYPE)));
-        assert(SLIPPAGE_TYPEHASH == keccak256(bytes(SLIPPAGE_TYPE)));
+        assert(SLIPPAGE_AND_CONDITION_TYPEHASH == keccak256(bytes(SLIPPAGE_AND_CONDITION_TYPE)));
     }
 
     function _hasMetaTxn() internal pure virtual returns (bool);

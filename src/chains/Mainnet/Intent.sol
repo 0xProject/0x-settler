@@ -1,46 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {MainnetSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
+import {MainnetSettlerMetaTxnBase} from "./MetaTxn.sol";
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
-import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
-import {SettlerIntent} from "../../SettlerIntent.sol";
-import {AbstractContext} from "../../Context.sol";
+import {SettlerMetaTxnBase} from "../../SettlerMetaTxn.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract MainnetSettlerIntent is SettlerIntent, MainnetSettlerMetaTxn {
-    constructor(bytes20 gitCommit) MainnetSettlerMetaTxn(gitCommit) {}
+contract MainnetSettlerIntent is SettlerIntent, MainnetSettlerMetaTxnBase {
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function executeMetaTxn(
-        AllowedSlippage calldata slippage,
-        bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
-        address msgSender,
-        bytes calldata sig
-    ) public override(SettlerIntent, SettlerMetaTxn) returns (bool) {
-        return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
-    }
-
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(MainnetSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(MainnetSettlerMetaTxnBase, SettlerBase, SettlerAbstract)
         returns (bool)
     {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(SettlerIntent, MainnetSettlerMetaTxn) returns (address) {
+    function _msgSender() internal view override(SettlerIntent, MainnetSettlerMetaTxnBase) returns (address) {
         return super._msgSender();
     }
 
@@ -53,13 +39,13 @@ contract MainnetSettlerIntent is SettlerIntent, MainnetSettlerMetaTxn {
         return super._witnessTypeSuffix();
     }
 
-    function _tokenId() internal pure override(SettlerIntent, SettlerMetaTxn, SettlerAbstract) returns (uint256) {
+    function _tokenId() internal pure override(SettlerIntent, SettlerAbstract) returns (uint256) {
         return super._tokenId();
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
-        override(MainnetSettlerMetaTxn, SettlerMetaTxn)
+        override(MainnetSettlerMetaTxnBase, SettlerMetaTxnBase)
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);

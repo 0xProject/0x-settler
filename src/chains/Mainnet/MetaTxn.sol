@@ -2,6 +2,7 @@
 pragma solidity =0.8.25;
 
 import {MainnetMixin} from "./Common.sol";
+import {SettlerMetaTxnBase} from "../../SettlerMetaTxnBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -13,10 +14,7 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 
-/// @custom:security-contact security@0x.org
-contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
-
+abstract contract MainnetSettlerMetaTxnBase is SettlerMetaTxnBase, MainnetMixin {
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         virtual
@@ -75,7 +73,33 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
+    function _msgSender() internal view virtual override(SettlerMetaTxnBase, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+}
+
+/// @custom:security-contact security@0x.org
+contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetSettlerMetaTxnBase {
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
+
+    // Solidity inheritance is stupid
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+        internal
+        override(MainnetSettlerMetaTxnBase, SettlerBase, SettlerAbstract)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data);
+    }
+
+    function _msgSender() internal view override(MainnetSettlerMetaTxnBase, SettlerMetaTxnBase) returns (address) {
+        return super._msgSender();
+    }
+
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+        internal
+        override(MainnetSettlerMetaTxnBase, SettlerMetaTxnBase)
+        returns (bool)
+    {
+        return super._dispatchVIP(action, data, sig);
     }
 }
