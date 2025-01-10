@@ -38,7 +38,11 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
         address msgSender,
         bytes calldata sig,
         uint256 prefixLen
-    ) external metaTx(msgSender, _hashSlippageAnd(SLIPPAGE_AND_CONDITION_TYPEHASH, actions.slice(prefixLen), slippage)) returns (bool) {
+    )
+        external
+        metaTx(msgSender, _hashSlippageAnd(SLIPPAGE_AND_CONDITION_TYPEHASH, actions.slice(prefixLen), slippage))
+        returns (bool)
+    {
         return _executeMetaTxn(slippage, actions, sig, prefixLen);
     }
 
@@ -53,13 +57,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
         return super._permitToSellAmount(permit);
     }
 
-    function _msgSender()
-        internal
-        view
-        virtual
-        override(Permit2PaymentMetaTxn, SettlerMetaTxnBase)
-        returns (address)
-    {
+    function _msgSender() internal view virtual override(Permit2PaymentMetaTxn, SettlerMetaTxnBase) returns (address) {
         return super._msgSender();
     }
 
