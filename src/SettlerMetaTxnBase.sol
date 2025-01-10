@@ -121,6 +121,8 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
         internal
         returns (bool)
     {
+        require(actions.length > fundingActionIndex);
+
         uint256 i;
         for (; i < fundingActionIndex; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
@@ -136,7 +138,7 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
             if (!_dispatchVIP(action, data, sig)) {
-                revert ActionInvalid(0, bytes4(uint32(action)), data);
+                revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
         }
 

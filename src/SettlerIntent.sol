@@ -39,7 +39,6 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
         bytes calldata sig,
         uint256 prefixLen
     ) external metaTx(msgSender, _hashSlippageAnd(SLIPPAGE_AND_CONDITION_TYPEHASH, actions.slice(prefixLen), slippage)) returns (bool) {
-        require(actions.length > prefixLen);
         return _executeMetaTxn(slippage, actions, sig, prefixLen);
     }
 
