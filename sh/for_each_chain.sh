@@ -118,10 +118,32 @@ declare project_root
 project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 
+if ! hash jq &>/dev/null ; then
+    echo 'jq is not installed' >&2
+    exit 1
+fi
+
+function get_config {
+    declare -r _get_config_chain_name="$1"
+    shift
+    declare -r _get_config_field="$1"
+    shift
+    jq -Mr ."$_get_config_chain_name"."$_get_config_field" < "$project_root"/chain_config.json
+}
+
 declare -a chains
 readarray -t chains < <(jq -rM 'keys_unsorted[]' "$project_root"/chain_config.json)
 declare -r -a chains
 
-for chain in "${chains[@]}" ; do
-    "$1" "$chain" "${@:2}"
+for chain_name in "${chains[@]}" ; do
+    if [[ $(get_config "$chain_name" isShanghai) != [Tt]rue ]] ; then
+        echo 'Skipping '"$(get_config "$chain_name" displayName)"' because it is not Shanghai' >&2
+        continue
+    fi
+
+    if [[ $(get_config "$chain_name" isCancun) != [Tt]rue ]] ; then
+        echo 'Skipping '"$(get_config "$chain_name" displayName)"' because it is not Cancun' >&2
+        continue
+    fi
+    "$1" "$chain_name" "${@:2}"
 done
