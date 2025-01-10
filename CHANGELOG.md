@@ -60,6 +60,14 @@ Master list of UniV3 forks:
 * Add SolidlyV3 UniV3 fork to Sonic
 * Add Wagmi UniV3 fork to Sonic
 
+## 2025-01-09
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Monad testnet chain
+
 ## 2024-12-18
 
 ### Breaking changes
