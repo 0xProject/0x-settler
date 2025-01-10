@@ -47,20 +47,6 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
     }
 
     // Solidity inheritance is stupid
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
-        internal
-        pure
-        virtual
-        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn)
-        returns (uint256)
-    {
-        return super._permitToSellAmount(permit);
-    }
-
-    function _msgSender() internal view virtual override(Permit2PaymentMetaTxn, SettlerMetaTxnBase) returns (address) {
-        return super._msgSender();
-    }
-
     function _witnessTypeSuffix()
         internal
         pure

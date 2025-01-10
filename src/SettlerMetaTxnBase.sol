@@ -20,17 +20,6 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
         return true;
     }
 
-    function _msgSender()
-        internal
-        view
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentMetaTxn, AbstractContext)
-        returns (address)
-    {
-        return super._msgSender();
-    }
-
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
         // This function deliberately does no bounds checking on `actions` for
         // gas efficiency. We assume that `actions` will get used elsewhere in

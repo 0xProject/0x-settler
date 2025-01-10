@@ -26,10 +26,6 @@ contract MainnetSettlerIntent is SettlerIntent, MainnetSettlerMetaTxnBase {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(SettlerIntent, MainnetSettlerMetaTxnBase) returns (address) {
-        return super._msgSender();
-    }
-
     function _witnessTypeSuffix()
         internal
         pure
@@ -39,24 +35,11 @@ contract MainnetSettlerIntent is SettlerIntent, MainnetSettlerMetaTxnBase {
         return super._witnessTypeSuffix();
     }
 
-    function _tokenId() internal pure override(SettlerIntent, SettlerAbstract) returns (uint256) {
-        return super._tokenId();
-    }
-
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
         override(MainnetSettlerMetaTxnBase, SettlerMetaTxnBase)
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);
-    }
-
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
-        internal
-        pure
-        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
-        returns (uint256)
-    {
-        return super._permitToSellAmount(permit);
     }
 }

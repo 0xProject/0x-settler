@@ -72,10 +72,6 @@ abstract contract MainnetSettlerMetaTxnBase is SettlerMetaTxnBase, MainnetMixin 
     {
         return super._dispatch(i, action, data);
     }
-
-    function _msgSender() internal view virtual override(SettlerMetaTxnBase, AbstractContext) returns (address) {
-        return super._msgSender();
-    }
 }
 
 /// @custom:security-contact security@0x.org
@@ -89,10 +85,6 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetSettlerMetaTxnBase {
         returns (bool)
     {
         return super._dispatch(i, action, data);
-    }
-
-    function _msgSender() internal view override(MainnetSettlerMetaTxnBase, SettlerMetaTxnBase) returns (address) {
-        return super._msgSender();
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
