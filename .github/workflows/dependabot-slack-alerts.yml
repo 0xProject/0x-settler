@@ -5,9 +5,8 @@ permissions:
   security-events: read
 
 on:
-  # TODO: enable hourly run once tested
-  #schedule:
-  #  - cron: '0 * * * *'
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 jobs:
   notify-vulnerabilites:
