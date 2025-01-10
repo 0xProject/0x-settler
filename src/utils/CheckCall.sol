@@ -21,7 +21,7 @@ library CheckCall {
         assembly ("memory-safe") {
             let beforeGas
             {
-                let offset := add(data, 0x20)
+                let offset := add(0x20, data)
                 let length := mload(data)
                 beforeGas := gas()
                 success := staticcall(gas(), target, offset, length, 0x00, 0x00)
@@ -48,11 +48,12 @@ library CheckCall {
                         // Check whether the call reverted due to out-of-gas.
                         // https://eips.ethereum.org/EIPS/eip-150
                         // https://ronan.eth.limo/blog/ethereum-gas-dangers/
-                        // We apply the "all but one 64th" rule twice because `target` could
-                        // plausibly be a proxy. We apply it only twice because we assume only a
-                        // single level of indirection.
-                        let remainingGas := shr(6, beforeGas)
-                        remainingGas := add(remainingGas, shr(6, sub(beforeGas, remainingGas)))
+                        // We apply the "all but one 64th" rule three times because `target` could
+                        // plausibly be a proxy. We apply it only three times because we assume only
+                        // two levels of indirection.
+                        let remainingGas := shr(0x06, beforeGas)
+                        remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
+                        remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
                         if iszero(lt(remainingGas, afterGas)) {
                             // The call failed due to not enough gas left. We deliberately consume
                             // all remaining gas with `invalid` (instead of `revert`) to make this
