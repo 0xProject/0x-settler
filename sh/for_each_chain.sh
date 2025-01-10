@@ -135,15 +135,20 @@ declare -a chains
 readarray -t chains < <(jq -rM 'keys_unsorted[]' "$project_root"/chain_config.json)
 declare -r -a chains
 
+declare chain_name
 for chain_name in "${chains[@]}" ; do
     if [[ $(get_config "$chain_name" isShanghai) != [Tt]rue ]] ; then
-        echo 'Skipping '"$(get_config "$chain_name" displayName)"' because it is not Shanghai' >&2
+        echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Shanghai' >&2
         continue
     fi
 
     if [[ $(get_config "$chain_name" isCancun) != [Tt]rue ]] ; then
-        echo 'Skipping '"$(get_config "$chain_name" displayName)"' because it is not Cancun' >&2
+        echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Cancun' >&2
         continue
     fi
+    echo 'Running script for chain "'"$(get_config "$chain_name" displayName)"'"...' >&2
+    echo >&2
     "$1" "$chain_name" "${@:2}"
+    echo >&2
+    echo 'Done with chain "'"$(get_config "$chain_name" displayName)"'".' >&2
 done
