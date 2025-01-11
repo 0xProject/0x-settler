@@ -65,3 +65,7 @@ error ZeroBuyAmount(IERC20 buyToken);
 error BoughtSellToken(IERC20 sellToken);
 error TokenHashCollision(IERC20 token0, IERC20 token1);
 error ZeroToken();
+
+error StalePriceData(uint80 roundId, int256 answer, uint256 updatedAt);
+error PriceTooHigh(int256 actual, int256 expected);
+error PriceTooLow(int256 actual, int256 expected);
