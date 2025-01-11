@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {SettlerAbstract} from "./SettlerAbstract.sol";
-import {SettlerBase} from "./SettlerBase.sol";
 import {SettlerMetaTxnBase} from "./SettlerMetaTxn.sol";
-
-import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./core/Permit2Payment.sol";
-
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {Panic} from "./utils/Panic.sol";
 
@@ -24,7 +17,7 @@ library ArraySliceBecauseSolidityIsDumb {
     }
 }
 
-abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
+abstract contract SettlerIntent is SettlerMetaTxnBase {
     using ArraySliceBecauseSolidityIsDumb for bytes[];
 
     function _tokenId() internal pure override returns (uint256) {
@@ -46,14 +39,11 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
         return _executeMetaTxn(slippage, actions, sig, prefixLen);
     }
 
-    // Solidity inheritance is stupid
-    function _witnessTypeSuffix()
-        internal
-        pure
-        virtual
-        override(Permit2PaymentMetaTxn, Permit2PaymentIntent)
-        returns (string memory)
-    {
-        return super._witnessTypeSuffix();
+    function _witnessTypeSuffix() internal pure override returns (string memory) {
+        return string(
+            abi.encodePacked(
+                "SlippageAndCondition slippageAndCondition)", SLIPPAGE_AND_CONDITION_TYPE, TOKEN_PERMISSIONS_TYPE
+            )
+        );
     }
 }

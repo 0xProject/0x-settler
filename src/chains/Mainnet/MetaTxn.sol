@@ -5,14 +5,12 @@ import {MainnetMixin} from "./Common.sol";
 import {SettlerMetaTxnBase} from "../../SettlerMetaTxnBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
-import {AbstractContext} from "../../Context.sol";
 
 abstract contract MainnetSettlerMetaTxnBase is SettlerMetaTxnBase, MainnetMixin {
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
