@@ -40,10 +40,6 @@ abstract contract SettlerIntent is SettlerMetaTxnBase {
     }
 
     function _witnessTypeSuffix() internal pure override returns (string memory) {
-        return string(
-            abi.encodePacked(
-                "SlippageAndCondition slippageAndCondition)", SLIPPAGE_AND_CONDITION_TYPE, TOKEN_PERMISSIONS_TYPE
-            )
-        );
+        return INTENT_WITNESS_TYPE_SUFFIX;
     }
 }

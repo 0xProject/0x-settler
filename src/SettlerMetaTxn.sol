@@ -19,10 +19,6 @@ abstract contract SettlerMetaTxn is SettlerMetaTxnBase {
     }
 
     function _witnessTypeSuffix() internal pure override returns (string memory) {
-        return string(
-            abi.encodePacked(
-                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
-            )
-        );
+        return METATX_WITNESS_TYPE_SUFFIX;
     }
 }
