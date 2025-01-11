@@ -71,8 +71,4 @@ contract MainnetSettler is Settler, MainnetMixin {
     {
         return super._dispatch(i, action, data);
     }
-
-    function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
-        return super._msgSender();
-    }
 }

@@ -31,7 +31,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxnBase {
         return 4;
     }
 
-    function executeMetaTxn(
+    function executeIntent(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
