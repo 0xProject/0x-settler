@@ -21,8 +21,8 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
-        override
         virtual
+        override
         DANGEROUS_freeMemory
         returns (bool)
     {

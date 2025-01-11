@@ -403,13 +403,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         return Permit2PaymentBase._msgSender();
     }
 
-    function _witnessTypeSuffix() internal pure virtual returns (string memory) {
-        return string(
-            abi.encodePacked(
-                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
-            )
-        );
-    }
+    function _witnessTypeSuffix() internal pure virtual returns (string memory);
 
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
@@ -444,13 +438,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         _;
         TransientStorage.clearPayer(msgSender);
         // It should not be possible for this check to revert because the very first thing that a
-        // metatransaction does is spend the witness.
+        // metatransaction does (after checking the precondition, if present) is spend the witness.
         TransientStorage.checkSpentWitness();
-    }
-}
-
-abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
-    function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
-        return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
     }
 }

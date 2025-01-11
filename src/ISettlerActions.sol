@@ -44,6 +44,13 @@ interface ISettlerActions {
         uint256 maxTakerAmount
     ) external;
 
+    function CHAINLINK(
+        string memory feedName,
+        int256 priceThreshold,
+        uint8 expectedDecimals,
+        uint256 staleThreshold
+    ) external;
+
     function UNISWAPV4(
         address recipient,
         address sellToken,

@@ -26,6 +26,18 @@ library UnsafeMath {
         }
     }
 
+    function unsafeAdd(uint256 x, uint256 y) internal pure returns (uint256) {
+        unchecked {
+            return x + y;
+        }
+    }
+
+    function unsafeSub(uint256 x, uint256 y) internal pure returns (uint256) {
+        unchecked {
+            return x - y;
+        }
+    }
+
     function unsafeNeg(int256 x) internal pure returns (int256) {
         unchecked {
             return -x;
