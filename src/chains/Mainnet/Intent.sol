@@ -14,12 +14,12 @@ contract MainnetSettlerIntent is SettlerIntent, MainnetSettlerMetaTxnBase {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 action, bytes calldata data)
         internal
         override(MainnetSettlerMetaTxnBase, SettlerBase, SettlerAbstract)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(action, data);
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)

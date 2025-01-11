@@ -62,13 +62,13 @@ abstract contract MainnetSettlerMetaTxnBase is SettlerMetaTxnBase, MainnetMixin 
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(action, data);
     }
 }
 
@@ -77,12 +77,12 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetSettlerMetaTxnBase {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 action, bytes calldata data)
         internal
         override(MainnetSettlerMetaTxnBase, SettlerBase, SettlerAbstract)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(action, data);
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)

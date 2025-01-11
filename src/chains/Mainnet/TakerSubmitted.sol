@@ -64,11 +64,11 @@ contract MainnetSettler is Settler, MainnetMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 action, bytes calldata data)
         internal
         override(SettlerAbstract, SettlerBase, MainnetMixin)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(action, data);
     }
 }

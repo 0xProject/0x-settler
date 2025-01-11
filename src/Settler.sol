@@ -95,7 +95,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         if (actions.length != 0) {
             (uint256 action, bytes calldata data) = actions.decodeCall(0);
             if (!_dispatchVIP(action, data)) {
-                if (!_dispatch(0, action, data)) {
+                if (!_dispatch(action, data)) {
                     revert ActionInvalid(0, bytes4(uint32(action)), data);
                 }
             }
@@ -103,7 +103,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
-            if (!_dispatch(i, action, data)) {
+            if (!_dispatch(action, data)) {
                 revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
         }

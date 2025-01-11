@@ -12,5 +12,5 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
 
     function _tokenId() internal pure virtual returns (uint256);
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data) internal virtual returns (bool);
+    function _dispatch(uint256 action, bytes calldata data) internal virtual returns (bool);
 }

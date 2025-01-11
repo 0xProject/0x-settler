@@ -117,7 +117,7 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
         uint256 i;
         for (; i < fundingActionIndex; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
-            if (!_dispatch(i, action, data)) {
+            if (!_dispatch(action, data)) {
                 revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
         }
@@ -136,7 +136,7 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
         i = i.unsafeInc();
         for (; i < actions.length; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
-            if (!_dispatch(i, action, data)) {
+            if (!_dispatch(action, data)) {
                 revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
         }
