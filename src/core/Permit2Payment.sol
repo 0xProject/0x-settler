@@ -438,7 +438,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         _;
         TransientStorage.clearPayer(msgSender);
         // It should not be possible for this check to revert because the very first thing that a
-        // metatransaction does is spend the witness.
+        // metatransaction does (after checking the precondition, if present) is spend the witness.
         TransientStorage.checkSpentWitness();
     }
 }

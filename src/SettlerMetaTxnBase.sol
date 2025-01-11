@@ -124,10 +124,6 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
 
         {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
-
-            // By forcing the first action to be one of the witness-aware
-            // actions, we ensure that the entire sequence of actions is
-            // authorized. `msgSender` is the signer of the metatransaction.
             if (!_dispatchVIP(action, data, sig)) {
                 revert ActionInvalid(i, bytes4(uint32(action)), data);
             }
