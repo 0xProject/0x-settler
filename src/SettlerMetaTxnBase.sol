@@ -27,18 +27,18 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
         // revert later.
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            let hashesLength := shl(5, actions.length)
+            let hashesLength := shl(0x05, actions.length)
             for {
                 let i := actions.offset
                 let dst := ptr
                 let end := add(i, hashesLength)
             } lt(i, end) {
-                i := add(i, 0x20)
-                dst := add(dst, 0x20)
+                i := add(0x20, i)
+                dst := add(0x20, dst)
             } {
                 let src := add(actions.offset, calldataload(i))
                 let length := calldataload(src)
-                calldatacopy(dst, add(src, 0x20), length)
+                calldatacopy(dst, add(0x20, src), length)
                 mstore(dst, keccak256(dst, length))
             }
             result := keccak256(ptr, hashesLength)
@@ -58,8 +58,8 @@ abstract contract SettlerMetaTxnBase is Permit2PaymentMetaTxn, SettlerBase {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, typehash)
-            calldatacopy(add(ptr, 0x20), slippage, 0x60)
-            mstore(add(ptr, 0x80), arrayOfBytesHash)
+            calldatacopy(add(0x20, ptr), slippage, 0x60)
+            mstore(add(0x80, ptr), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
         }
     }
