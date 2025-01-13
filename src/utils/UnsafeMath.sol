@@ -67,4 +67,10 @@ library UnsafeMath {
             r := addmod(a, b, m)
         }
     }
+
+    function unsafeDivUp(uint256 n, uint256 d) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := add(gt(mod(n, d), 0x00), div(n, d))
+        }
+    }
 }

@@ -2,64 +2,142 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
-import {Shim} from "./SettlerBasePairTest.t.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 import {Settler} from "src/Settler.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {maverickV2InitHash, maverickV2Factory} from "src/core/MaverickV2.sol";
+
+import {VAULT} from "src/core/BalancerV3.sol";
+import {NotesLib} from "src/core/FlashAccountingCommon.sol";
+import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
-abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
-    function setUp() public virtual override {
+abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairTest {
+    using UnsafeMath for uint256;
+
+    function balancerV3Pool() internal view virtual returns (address) {
+        return address(0);
+    }
+
+    function balancerV3BloackNumber() internal view virtual returns (uint256) {
+        return 21581659;
+    }
+
+    function fromTokenWrapped() internal view virtual returns (IERC4626) {
+        return IERC4626(address(0));
+    }
+
+    function toTokenWrapped() internal view virtual returns (IERC4626) {
+        return IERC4626(address(0));
+    }
+
+    function perfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
+        for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
+            for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
+                if (
+                    mulmod(uint160(address(fromToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        == mulmod(uint160(address(fromTokenWrapped())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                ) {
+                    continue;
+                }
+                if (
+                    mulmod(uint160(address(fromToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        == mulmod(uint160(address(toTokenWrapped())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                ) {
+                    continue;
+                }
+                if (
+                    mulmod(uint160(address(fromToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        == mulmod(uint160(address(toToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                ) {
+                    continue;
+                }
+                if (
+                    mulmod(uint160(address(fromTokenWrapped())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        == mulmod(uint160(address(toTokenWrapped())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                ) {
+                    continue;
+                }
+                if (
+                    mulmod(uint160(address(fromTokenWrapped())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        == mulmod(uint160(address(toToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                ) {
+                    continue;
+                }
+                if (
+                    mulmod(uint160(address(toTokenWrapped())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        == mulmod(uint160(address(toToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                ) {
+                    continue;
+                }
+                return (hashMul, hashMod);
+            }
+        }
+    }
+
+    function _setLabels() private setBalancerV3Block {
+        vm.label(address(VAULT), "BalancerV3 vault");
+        vm.label(balancerV3Pool(), string.concat("BalancerV3 pool: ", fromToken().symbol(), "/", toToken().symbol()));
+        vm.label(address(fromTokenWrapped()), fromTokenWrapped().symbol());
+        vm.label(address(toTokenWrapped()), toTokenWrapped().symbol());
+    }
+
+    function setUp() public virtual override(SettlerMetaTxnPairTest, AllowanceHolderPairTest) {
         super.setUp();
-        if (maverickV2Salt() != bytes32(0)) {
+        if (balancerV3Pool() != address(0)) {
             vm.makePersistent(address(PERMIT2));
             vm.makePersistent(address(allowanceHolder));
             vm.makePersistent(address(settler));
             vm.makePersistent(address(settlerMetaTxn));
             vm.makePersistent(address(fromToken()));
             vm.makePersistent(address(toToken()));
+            vm.makePersistent(address(fromTokenWrapped()));
+            vm.makePersistent(address(toTokenWrapped()));
+            _setLabels();
         }
     }
 
-    function maverickV2BlockNumber() internal view virtual returns (uint256) {
-        return 20421077;
-    }
-
-    modifier setMaverickV2Block() {
-        uint256 blockNumber = (new Shim()).blockNumber();
-        vm.rollFork(maverickV2BlockNumber());
+    modifier setBalancerV3Block() {
+        uint256 blockNumber = vm.getBlockNumber();
+        vm.rollFork(balancerV3BloackNumber());
         _;
         vm.rollFork(blockNumber);
     }
 
-    function maverickV2Salt() internal view virtual returns (bytes32) {
-        return bytes32(0);
+    function fills() internal virtual returns (bytes memory) {
+        return bytes.concat(
+            // wrap `fromToken()` to `fromTokenWrapped()`
+            bytes2(uint16(2 ** 15 | 10000)),
+            bytes1(uint8(1)),
+            bytes20(uint160(address(fromTokenWrapped()))),
+            // swap `fromTokenWrapped()` to `toTokenWrapped()`
+            bytes2(uint16(10000)),
+            bytes1(uint8(2)),
+            bytes20(uint160(address(toTokenWrapped()))),
+            bytes20(uint160(balancerV3Pool())),
+            bytes3(uint24(0)),
+            // unwrap `toTokenWrapped()` to `toToken()`
+            bytes2(uint16(2 ** 14 | 10000)),
+            bytes1(uint8(2)),
+            bytes20(uint160(address(toToken())))
+        );
     }
 
-    function maverickV2Pool() internal view returns (address) {
-        return AddressDerivation.deriveDeterministicContract(maverickV2Factory, maverickV2Salt(), maverickV2InitHash);
-    }
-
-    function maverickV2TokenAIn() internal view virtual returns (bool) {
-        return false;
-    }
-
-    function testMaverickV2() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
+    function testBalancerV3() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
+        (uint256 hashMul, uint256 hashMod) = perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2,
-                (FROM, address(fromToken()), 10_000, maverickV2Pool(), maverickV2TokenAIn(), 0)
+                ISettlerActions.BALANCERV3, (FROM, address(fromToken()), 10_000, false, hashMul, hashMod, fills(), 0)
             )
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
@@ -69,7 +147,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("settler_maverickV2");
+        snapStartName("settler_balancerV3");
         _settler.execute(allowedSlippage, actions, bytes32(0));
         snapEnd();
         vm.stopPrank();
@@ -80,13 +158,12 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
-    function testMaverickV2VIP() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
+    function testBalancerV3VIP() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
+        (uint256 hashMul, uint256 hashMod) = perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, 0)
-            )
+            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
@@ -95,7 +172,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("settler_maverickV2_VIP");
+        snapStartName("settler_balancerV3VIP");
         _settler.execute(allowedSlippage, actions, bytes32(0));
         snapEnd();
         vm.stopPrank();
@@ -106,15 +183,14 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
-    function testMaverickV2VIPAllowanceHolder() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
+    function testBalancerV3VIPAllowanceHolder() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
         bytes memory sig = new bytes(0);
 
+        (uint256 hashMul, uint256 hashMod) = perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, 0)
-            )
+            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
@@ -128,7 +204,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_maverickV2_VIP");
+        snapStartName("allowanceHolder_balancerV3VIP");
         _allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         snapEnd();
         vm.stopPrank();
@@ -139,14 +215,13 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
-    function testMaverickV2MetaTxn() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
+    function testBalancerV3MetaTxn() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
+        (uint256 hashMul, uint256 hashMod) = perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.METATXN_MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, 0)
-            )
+            abi.encodeCall(ISettlerActions.METATXN_BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, 0))
         );
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
@@ -174,7 +249,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(address(this), address(this));
-        snapStartName("settler_metaTxn_maverickV2");
+        snapStartName("settler_metaTxn_balancerV3");
         _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
         snapEnd();
         vm.stopPrank();
@@ -184,4 +259,11 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
+
+    function uniswapV3Path()
+        internal
+        view
+        virtual
+        override(SettlerMetaTxnPairTest, AllowanceHolderPairTest)
+        returns (bytes memory);
 }
