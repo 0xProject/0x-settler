@@ -49,7 +49,7 @@ Master list of UniV3 forks:
     compute a perfect token hash function
 * Add `msgSender()(address)` accessor on Base to retrieve the current taker
 * Improve accuracy, gas, and convergence region coverage in SolidlyV1/VelodromeV2 action (`VELODROME`)
-* Add DodoV1 actions to more chains
+* Add Dodo V1 actions to more chains
   * Add `DODOV1` action to Arbitrum
   * Add `DODOV1` action to Bnb
   * Add `DODOV1` action to Linea
@@ -102,7 +102,7 @@ Master list of UniV3 forks:
   * Add DackieSwapV3 UniV3 fork to World Chain
 * Deploy Settler to Gnosis chain
   * Add UniswapV3 UniV3 fork to Gnosis
-  * Add SushiswapV3 UniV3 fork to Gnosis
+  * Add SushiSwapV3 UniV3 fork to Gnosis
   * Add Swapr UniV3 (Algebra style) fork to Gnosis
 
 ## 2024-10-08
@@ -121,7 +121,7 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Upgrade Bnb chain deployment to Cancun (Tycho) hardfork
+* Upgrade BNB chain deployment to Cancun (Tycho) hardfork
   * This changes the `AllowanceHolder` address on that chain to
     `0x0000000000001fF3684f28c67538d4D072C22734`
 
@@ -157,7 +157,7 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Remove DodoV1 from all chains except Mainnet
+* Remove Dodo V1 from all chains except Mainnet
   * Remove `DODOV1` action from Arbitrum
   * Remove `DODOV1` action from Avalanche
   * Remove `DODOV1` action from Base
@@ -185,22 +185,22 @@ Master list of UniV3 forks:
 * Add DackieSwapV3 UniV3 fork
   * Add DackieSwapV3 to Arbitrum
   * Add DackieSwapV3 to Base
-  * Add DackieSwapV3 to Blast (new inithash)
+  * Add DackieSwapV3 to Blast (new init hash)
   * Add DackieSwapV3 to Optimism
 * Add Thick UniV3 fork to Base
 * Add KinetixV3 UniV3 fork to Base
 * Add new action `DODOV2`
-  * Add DodoV2 to Avalanche
-  * Add DodoV2 to Base
-  * Add DodoV2 to Bnb
-  * Add DodoV2 to Mainnet
-  * Add DodoV2 to Polygon
-  * Add DodoV2 to Scroll
+  * Add Dodo V2 to Avalanche
+  * Add Dodo V2 to Base
+  * Add Dodo V2 to Bnb
+  * Add Dodo V2 to Mainnet
+  * Add Dodo V2 to Polygon
+  * Add Dodo V2 to Scroll
 * Add MetavaultV3 UniV3 fork to Scroll
-* Add SushiswapV3 UniV3 fork to more chains
-  * Add SushiswapV3 to Arbitrum
-  * Add SushiswapV3 to Mainnet
-  * Add SushiswapV3 to Optimism
+* Add SushiSwapV3 UniV3 fork to more chains
+  * Add SushiSwapV3 to Arbitrum
+  * Add SushiSwapV3 to Mainnet
+  * Add SushiSwapV3 to Optimism
 * Add `prev` view function to `Deployer`
 
 ## 2024-07-29
@@ -215,7 +215,7 @@ Master list of UniV3 forks:
 
 * Deployed Settler to Linea
 * Added Lynex Algebra-style UniV3 fork to Linea
-* Update Velodrome Slipstream factory address (and inithash) to migrated one
+* Update Velodrome Slipstream factory address (and init hash) to migrated one
 * Bug! Fixed wrong slippage actual value in `UNISWAPV2` action
 
 ## 2024-07-15
@@ -233,7 +233,7 @@ Master list of UniV3 forks:
 
 ## 2024-06-27
 
-* Add SushiswapV3 UniV3 fork to Polygon
+* Add SushiSwapV3 UniV3 fork to Polygon
 * Added support for `DODOV1` action on Bnb
 * Added support for `DODOV1` action on Polygon
 
