@@ -46,7 +46,7 @@ prev_owner() {
     done
     declare -r result
 
-    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array} - 1))]}")" ]] ; then
+    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
         echo 'Old owner "'"$inp"'" not found' >&2
         return 1
     fi

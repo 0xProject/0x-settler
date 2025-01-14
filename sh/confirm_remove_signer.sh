@@ -142,7 +142,7 @@ declare -r -i threshold
 
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'
 declare removeOwner_call
-removeOwner_call="$(cast calldata removeOwner_sig "$(prev_owner "$old_owner")" "$old_owner" "$threshold")"
+removeOwner_call="$(cast calldata "$removeOwner_sig" "$(prev_owner "$old_owner")" "$old_owner" "$threshold")"
 declare -r removeOwner_call
 
 declare struct_json
