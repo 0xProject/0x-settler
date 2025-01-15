@@ -150,8 +150,10 @@ abstract contract Velodrome is SettlerAbstract {
                             return y + 1;
                         }
                         // `y + 1` does not give us the condition `k >= k_orig`, so we have to do at
-                        // least 1 more iteration to find a satisfactory `y` value
-                        dy = 2;
+                        // least 1 more iteration to find a satisfactory `y` value. Setting `dy = y
+                        // / 2` also solves the problem where the constant-product estimate of `y`
+                        // is very bad and convergence is only linear.
+                        dy = y / 2;
                     }
                     y += dy;
                     if (y > _VELODROME_MAX_BALANCE) {
@@ -181,6 +183,9 @@ abstract contract Velodrome is SettlerAbstract {
                         // check that `y - 2` gives `k < k_orig`. We must do at least 1 more
                         // iteration to determine this.
                         dy = 2;
+                    }
+                    if (y < dy) {
+                        dy = y / 2;
                     }
                     y -= dy;
                 }

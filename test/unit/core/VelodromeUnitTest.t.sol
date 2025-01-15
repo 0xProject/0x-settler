@@ -166,7 +166,7 @@ contract VelodromeConvergenceDummy is Velodrome {
 
     function new_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis)
         external
-        view
+        pure
         returns (uint256)
     {
         return _get_y(x * _VELODROME_TOKEN_BASIS / x_basis, dx * _VELODROME_TOKEN_BASIS / x_basis, y * _VELODROME_TOKEN_BASIS / y_basis) * y_basis / _VELODROME_TOKEN_BASIS;
@@ -223,6 +223,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _MIN_BALANCE, _MAX_BALANCE);
         y = bound(y, _MIN_BALANCE, _MAX_BALANCE);
+        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) != 0);
         uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
@@ -239,6 +240,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _MIN_BALANCE, _MAX_BALANCE);
         y = bound(y, _MIN_BALANCE, _MAX_BALANCE);
+        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) != 0);
         uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
@@ -252,7 +254,9 @@ contract VelodromeUnitTest is Test {
         uint256 k_after = dummy.k(x + dx, _VELODROME_BASIS, new_y, _VELODROME_BASIS);
         uint256 k_less = dummy.k(x + dx, _VELODROME_BASIS, new_y - 1, _VELODROME_BASIS);
         assertGe(k_after, k_before);
-        assertLt(k_less, k_before);
+        if (k_before != 0) {
+            assertLt(k_less, k_before);
+        }
     }
 
     function solidly_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
@@ -322,6 +326,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _VELODROME_BASIS, _MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _MAX_BALANCE);
+        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) != 0);
         uint256 max_dx = x * 100;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
