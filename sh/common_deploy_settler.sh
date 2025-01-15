@@ -1,25 +1,24 @@
-declare chain_display_name
-chain_display_name="$(get_config displayName)"
-declare -r chain_display_name
-
 forge clean
-declare flat_source
-flat_source="$project_root"/src/flat/"$chain_display_name"Flat.sol
-declare -r flat_source
-trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_source")" EXIT
-forge flatten -o "$flat_source" src/chains/"$chain_display_name".sol >/dev/null
-forge build "$flat_source"
+declare flat_taker_source
+flat_taker_source="$project_root"/src/flat/"$chain_display_name"TakerSubmittedFlat.sol
+declare -r flat_taker_source
+trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")" EXIT
+forge flatten -o "$flat_taker_source" src/chains/"$chain_display_name"/TakerSubmitted.sol >/dev/null
+forge build "$flat_taker_source"
 
-declare artifact_prefix
-artifact_prefix="$project_root"/out/"$chain_display_name"Flat.sol/"$chain_display_name"Settler
-declare -r artifact_prefix
+declare flat_metatx_source
+flat_metatx_source="$project_root"/src/flat/"$chain_display_name"MetaTxnFlat.sol
+declare -r flat_metatx_source
+trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")"' '"$(_escape "$flat_metatx_source")" EXIT
+forge flatten -o "$flat_metatx_source" src/chains/"$chain_display_name"/MetaTxn.sol >/dev/null
+forge build "$flat_metatx_source"
 
 declare taker_artifact
-taker_artifact="$artifact_prefix".json
+taker_artifact="$project_root"/out/"$chain_display_name"TakerSubmittedFlat.sol/"$chain_display_name"Settler.json
 declare -r taker_artifact
 
 declare metatx_artifact
-metatx_artifact="$artifact_prefix"MetaTxn.json
+metatx_artifact="$project_root"/out/"$chain_display_name"MetaTxnFlat.sol/"$chain_display_name"SettlerMetaTxn.json
 declare -r metatx_artifact
 
 if [ ! -f "$taker_artifact" ] || [ ! -f "$metatx_artifact" ] ; then
@@ -49,37 +48,35 @@ declare deploy_metatx_calldata
 deploy_metatx_calldata="$(cast calldata "$deploy_sig" 3 "$metatx_initcode")"
 declare -r deploy_metatx_calldata
 
-declare -a deploy_calldatas
-if (( chainid == 534352 )) ; then
-    deploy_calldatas=(
-        0 "$deploy_taker_calldata"
-        0 "$deploy_metatx_calldata"
-    )
-else
-    deploy_calldatas=(
-        "$(
-            cast concat-hex                                                   \
-            0x00                                                              \
-            "$deployer_address"                                               \
-            "$(cast to-uint256 0)"                                            \
-            "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
-            "$deploy_taker_calldata"
-        )"
+if [[ -n "${deployer_address-}" ]] ; then
+    declare -a deploy_calldatas
+    if (( chainid == 534352 )) ; then
+        deploy_calldatas=(
+            0 "$deploy_taker_calldata"
+            0 "$deploy_metatx_calldata"
+        )
+    else
+        deploy_calldatas=(
+            "$(
+                cast concat-hex                                                   \
+                0x00                                                              \
+                "$deployer_address"                                               \
+                "$(cast to-uint256 0)"                                            \
+                "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
+                "$deploy_taker_calldata"
+            )"
 
-        "$(
-            cast concat-hex                                                   \
-            0x00                                                              \
-            "$deployer_address"                                               \
-            "$(cast to-uint256 0)"                                            \
-            "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
-            "$deploy_metatx_calldata"
-        )"
-    )
-    deploy_calldatas=(
-        1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")"
-    )
+            "$(
+                cast concat-hex                                                   \
+                0x00                                                              \
+                "$deployer_address"                                               \
+                "$(cast to-uint256 0)"                                            \
+                "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
+                "$deploy_metatx_calldata"
+            )"
+        )
+        deploy_calldatas=(
+            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")"
+        )
+    fi
 fi
-
-declare safe_url
-safe_url="$(get_config safe.apiUrl)"
-declare -r safe_url

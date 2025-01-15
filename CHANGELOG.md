@@ -24,6 +24,11 @@ Master list of UniV3 forks:
   21. SupSwapV3
   22. Kim (Algebra-like)
   23. SwapMode
+  24. Swapsicle (Algebra-like)
+  25. Panko
+  26. Swapr (Algebra-like)
+  27. SpookySwap
+  28. Wagmi
 
 ---
 
@@ -51,6 +56,54 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Mantle
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
+* Add `rebateClaimer()(address)` function on Mainnet Settlers for gas rebate program
+* Add SolidlyV3 UniV3 fork to Sonic
+* Add Wagmi UniV3 fork to Sonic
+
+## 2025-01-09
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Monad testnet chain
+
+## 2024-12-18
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Ink chain
+  * Add UniswapV3 UniV3 fork to Ink
+
+## 2024-12-14
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Fantom Sonic network
+  * Add UniswapV3 UniV3 fork to Sonic
+  * Add SpookySwap UniV3 fork to Sonic
+
+## 2024-12-12
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Taiko network
+  * Add UniswapV3 UniV3 fork to Taiko
+  * Add Swapsicle UniV3 (Algebra style) fork to Taiko
+  * Add Panko UniV3 fork to Taiko
+* Deploy Settler to World Chain network
+  * Add UniswapV3 UniV3 fork to World Chain
+  * Add DackieSwapV3 UniV3 fork to World Chain
+* Deploy Settler to Gnosis chain
+  * Add UniswapV3 UniV3 fork to Gnosis
+  * Add SushiswapV3 UniV3 fork to Gnosis
+  * Add Swapr UniV3 (Algebra style) fork to Gnosis
 
 ## 2024-10-08
 

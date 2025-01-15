@@ -13,7 +13,7 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {MainnetSettler as Settler} from "src/chains/Mainnet.sol";
+import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 
 contract Shim {
     // forgefmt: disable-next-line
