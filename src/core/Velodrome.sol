@@ -88,6 +88,12 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
+    function _k_compat(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
+        unchecked {
+            return (x * y).unsafeMulDivAlt(x_squared + y * y, _VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+        }
+    }
+
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`. The result has a basis of
     // `_VELODROME_TOKEN_BASIS`.
@@ -135,7 +141,25 @@ abstract contract Velodrome is SettlerAbstract {
                 uint256 k = _k(x, y, x_squared_raw, y_squared_raw);
                 uint256 d = _d(y, three_x, x_cubed_raw, y_squared_raw / _VELODROME_SQUARE_STEP_BASIS);
 
-                if (k < k_orig) {
+                if (k / _VELODROME_INTERNAL_TO_TOKEN_RATIO == k_target) {
+                    uint256 hi = y;
+                    uint256 lo = y - 1;
+                    uint256 k_next = _k_compat(x, lo, x_squared_raw);
+                    while (k_next == k_target) {
+                        (hi, lo) = (lo, lo - (hi - lo) * 2);
+                        k_next = _k_compat(x, lo, x_squared_raw);
+                    }
+                    while (hi != lo) {
+                        uint256 mid = (hi - lo) / 2 + lo;
+                        k_next = _k_compat(x, mid, x_squared_raw);
+                        if (k_next == k_target) {
+                            hi = mid;
+                        } else {
+                            lo = mid + 1;
+                        }
+                    }
+                    return lo;
+                } else if (k < k_orig) {
                     uint256 dy = (k_orig - k).unsafeDiv(d);
                     // there are two cases where `dy == 0`
                     // case 1: The `y` is converged and we find the correct answer
@@ -143,7 +167,7 @@ abstract contract Velodrome is SettlerAbstract {
                     //         error screwed us.
                     //         In this case, we need to increase `y` by 1
                     if (dy == 0) {
-                        uint256 k_next = _k(x, y + 1, x_squared_raw) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
+                        uint256 k_next = _k_compat(x, y + 1, x_squared_raw);
                         if (k_next >= k_target) {
                             // If `_k(x, y + 1) >= k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y + 1`
@@ -162,11 +186,7 @@ abstract contract Velodrome is SettlerAbstract {
                 } else {
                     uint256 dy = (k - k_orig).unsafeDiv(d);
                     if (dy == 0) {
-                        if (k / _VELODROME_INTERNAL_TO_TOKEN_RATIO == k_target) {
-                            // Likewise, if `k == k_orig`, we found the correct answer.
-                            return y;
-                        }
-                        uint256 k_next = _k(x, y - 1, x_squared_raw) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
+                        uint256 k_next = _k_compat(x, y - 1, x_squared_raw);
                         if (k_next < k_target) {
                             // If `_k(x, y - 1) < k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y`
@@ -176,15 +196,12 @@ abstract contract Velodrome is SettlerAbstract {
                             // answer
                             return y;
                         }
-                        if (k_next == k_target) {
-                            return y - 1;
-                        }
                         // It's possible that `y - 1` is the correct answer. To know that, we must
                         // check that `y - 2` gives `k < k_orig`. We must do at least 1 more
                         // iteration to determine this.
                         dy = 2;
                     }
-                    if (y < dy) {
+                    if (dy > y / 2) {
                         dy = y / 2;
                     }
                     y -= dy;

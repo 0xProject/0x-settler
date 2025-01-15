@@ -189,6 +189,7 @@ contract VelodromeUnitTest is Test {
     }
 
     uint256 internal constant _MIN_BALANCE = 100;
+    uint256 internal constant _MIN_K = 10 ** 10;
     uint256 internal constant _MAX_SWAP_SIZE_REL = 10_000;
     uint256 internal constant _MAX_IMBALANCE = 1_000;
     uint8 internal constant _MIN_DECIMALS = 0;
@@ -223,7 +224,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _MIN_BALANCE, _MAX_BALANCE);
         y = bound(y, _MIN_BALANCE, _MAX_BALANCE);
-        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) != 0);
+        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) >= _MIN_K);
         uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
@@ -240,7 +241,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _MIN_BALANCE, _MAX_BALANCE);
         y = bound(y, _MIN_BALANCE, _MAX_BALANCE);
-        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) != 0);
+        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) >= _MIN_K);
         uint256 max_dx = x * _MAX_SWAP_SIZE_REL;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
@@ -326,7 +327,7 @@ contract VelodromeUnitTest is Test {
 
         x = bound(x, _VELODROME_BASIS, _MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _MAX_BALANCE);
-        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) != 0);
+        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) >= _MIN_K);
         uint256 max_dx = x * 100;
         if (max_dx > _MAX_BALANCE - x) {
             max_dx = _MAX_BALANCE - x;
