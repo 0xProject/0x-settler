@@ -167,9 +167,9 @@ abstract contract Velodrome is SettlerAbstract {
                     return lo;
                 } else */ if (k < k_orig) {
                     uint256 dy = (k_orig - k).unsafeDiv(d);
-                    // there are two cases where `dy == 0`
-                    // case 1: The `y` is converged and we find the correct answer
-                    // case 2: `_d(y, x)` is too large compare to `(k_orig - k)` and the rounding
+                    // There are two cases where `dy == 0`
+                    // Case 1: The `y` is converged and we find the correct answer
+                    // Case 2: `_d(y, x)` is too large compare to `(k_orig - k)` and the rounding
                     //         error screwed us.
                     //         In this case, we need to increase `y` by 1
                     if (dy == 0) {
@@ -195,11 +195,9 @@ abstract contract Velodrome is SettlerAbstract {
                         uint256 k_next = _k_compat(x, y - 1, x_squared_raw);
                         if (k_next < k_target) {
                             // If `_k(x, y - 1) < k_orig`, then we are close to the correct answer.
-                            // There's no closer answer than `y`
-                            // It's worth mentioning that we need to find `y` where `_k(x, y) >=
-                            // k_orig`
-                            // As a result, we can't return `y - 1` even it's closer to the correct
-                            // answer
+                            // There's no closer answer than `y`. We need to find `y` where `_k(x,
+                            // y) >= k_orig`. As a result, we can't return `y - 1` even it's closer
+                            // to the correct answer
                             return y;
                         }
                         // It's possible that `y - 1` is the correct answer. To know that, we must
