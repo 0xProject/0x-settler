@@ -380,7 +380,7 @@ contract VelodromeUnitTest is Test {
             vm.assume(min_x <= max_dx);
             dx = bound(dx, min_x, max_dx);
         }
-        assertLe(x + dx, _MAX_BALANCE * x_basis / _VELODROME_BASIS);
+        assertLe(x + dx, _MAX_BALANCE * x_basis / _VELODROME_BASIS, "dx too large; balance overflow");
 
         uint256 new_y = dummy.new_y(
             x_basis > _VELODROME_BASIS ? x / (x_basis / _VELODROME_BASIS) : x,
@@ -391,9 +391,13 @@ contract VelodromeUnitTest is Test {
         );
         assertLe(
             y_basis > _VELODROME_BASIS ? new_y * (y_basis / _VELODROME_BASIS) : new_y,
-            _MAX_BALANCE * y_basis / _VELODROME_BASIS
+            _MAX_BALANCE * y_basis / _VELODROME_BASIS,
+            "dy too large; balance overflow"
         );
         new_y += fudge;
+        if (x < x_basis || y < y_basis) {
+            new_y += fudge;
+        }
         if (y_basis > _VELODROME_BASIS) {
             new_y *= y_basis / _VELODROME_BASIS;
         }
@@ -401,7 +405,7 @@ contract VelodromeUnitTest is Test {
 
         uint256 k_before = ref_k(x * _VELODROME_BASIS / x_basis, y * _VELODROME_BASIS / y_basis);
         uint256 k_after = ref_k((x + dx) * _VELODROME_BASIS / x_basis, new_y * _VELODROME_BASIS / y_basis);
-        assertGe(k_after, k_before);
+        assertGe(k_after, k_before, "k decreased");
     }
 
     function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)

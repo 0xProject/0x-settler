@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
@@ -27,6 +27,8 @@ interface IVelodromePair {
 }
 
 abstract contract Velodrome is SettlerAbstract {
+    using Math for uint256;
+    using Math for bool;
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
@@ -199,6 +201,10 @@ abstract contract Velodrome is SettlerAbstract {
                             return y;
                         }
                         if (_k(x, y - 2, x_squared_raw) < k_orig) {
+                            // It may be the case that all 3 of `y`, `y - 1`, and `y - 2` give the
+                            // same value for `_k_compat`, but that `y - 2` gives a value for `_k`
+                            // that brackets `k_orig`. In this case, we would loop forever. This
+                            // branch causes us to bail out with the approximately correct value.
                             return y - 1;
                         }
                         // It's possible that `y - 1` is the correct answer. To know that, we must
@@ -288,11 +294,17 @@ abstract contract Velodrome is SettlerAbstract {
             // Convert `buyAmount` from `_VELODROME_TOKEN_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _VELODROME_TOKEN_BASIS;
         }
+
+        // Compensate for rounding error in the reference implementation of the constant-function
         buyAmount--;
+        buyAmount.dec((sellReserve < sellBasis).or(buyReserve < buyBasis));
+
+        // Check slippage
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
         }
 
+        // Perform the swap
         {
             (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
             pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));
