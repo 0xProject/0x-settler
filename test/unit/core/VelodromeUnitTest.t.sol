@@ -173,7 +173,7 @@ contract VelodromeUnitTest is Test {
 
     function testVelodrome_fuzzConvergence(uint256 x, uint256 dx, uint256 y) external view {
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE();
 
         x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
@@ -202,9 +202,29 @@ contract VelodromeUnitTest is Test {
         return (_a * _b) / 1e18;
     }
 
+    function testVelodrome_fuzzRangeRefVelodrome(uint256 x, uint256 y) external view {
+        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE();
+
+        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+
+        velodrome_ref_k(x, y);
+    }
+
+    function testVelodrome_fuzzRangeRefSolidly(uint256 x, uint256 y) external view {
+        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE();
+
+        x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+        y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
+
+        solidly_ref_k(x, y);
+    }
+
     function testVelodrome_fuzzK(uint256 x, uint256 y) external view {
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE();
         x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
 
@@ -225,7 +245,7 @@ contract VelodromeUnitTest is Test {
 
     function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint256 y) external view {
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE();
 
         x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
@@ -248,7 +268,7 @@ contract VelodromeUnitTest is Test {
 
     function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint256 y) external view {
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE() * 2 / 3;
+        uint256 _VELODROME_MAX_BALANCE = dummy.VELODROME_MAX_BALANCE();
 
         x = bound(x, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _VELODROME_MAX_BALANCE);

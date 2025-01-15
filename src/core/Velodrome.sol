@@ -48,18 +48,19 @@ abstract contract Velodrome is SettlerAbstract {
     // quantity by this before multiplying again by the token quantity. Setting this value as small
     // as possible preserves precision. This gives a result in an awkward basis, but we'll correct
     // that with `_VELODROME_CUBE_STEP_BASIS` after the cubing
-    uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 54210109;
+    uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 216840435;
 
     // After squaring a token quantity (in `_VELODROME_TOKEN_BASIS`), we need to multiply again by a
     // token quantity and then divide out the awkward basis to get back to
     // `_VELODROME_TOKEN_BASIS`. This constant is what gets us back to the original token quantity
     // basis. `_VELODROME_TOKEN_BASIS * _VELODROME_TOKEN_BASIS / _VELODROME_SQUARE_STEP_BASIS *
     // _VELODROME_TOKEN_BASIS / _VELODROME_CUBE_STEP_BASIS == _VELODROME_TOKEN_BASIS`
-    uint256 private constant _VELODROME_CUBE_STEP_BASIS = 18446743945857035631490798146;
+    uint256 private constant _VELODROME_CUBE_STEP_BASIS = 4611686007731906643703237360;
 
-    // The maximum balance in the AMM's implementation of `k` is `b` such that `b * b / 1 ether * b
-    // / 1 ether * b` does not overflow. This that quantity, `b`.
-    uint256 internal constant _VELODROME_MAX_BALANCE = 18446744073709551616000000000;
+    // The maximum balance in the AMM's reference implementation of `k` is `b` such that `(b * b) /
+    // 1 ether * ((b * b) / 1 ether + (b * b) / 1 ether)` does not overflow. This that quantity,
+    // `b`. This is roughly 15.5 billion ether.
+    uint256 internal constant _VELODROME_MAX_BALANCE = 15511800964685064948225197537;
 
     // This is the `k = x^3 * y + y^3 * x` constant function. Unlike the original formulation, the
     // result has a basis of `_VELODROME_INTERNAL_BASIS` instead of `_VELODROME_TOKEN_BASIS`
@@ -92,7 +93,7 @@ abstract contract Velodrome is SettlerAbstract {
     // `_VELODROME_TOKEN_BASIS`.
     function _d(uint256 y, uint256 x) private pure returns (uint256) {
         unchecked {
-            return _d(y, 3 * x, x * x / _VELODROME_SQUARE_STEP_BASIS * x / _VELODROME_CUBE_STEP_BASIS);
+            return _d(y, 3 * x, x * x / _VELODROME_SQUARE_STEP_BASIS * x);
         }
     }
 
@@ -104,7 +105,7 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _d(uint256, uint256 three_x, uint256 x_cubed, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return y_squared * three_x / _VELODROME_CUBE_STEP_BASIS + x_cubed;
+            return (y_squared * three_x + x_cubed) / _VELODROME_CUBE_STEP_BASIS;
         }
     }
 
@@ -129,12 +130,12 @@ abstract contract Velodrome is SettlerAbstract {
             // precomputing and caching them saves us gas.
             uint256 three_x = 3 * x;
             uint256 x_squared_raw = x * x;
-            uint256 x_cubed = x_squared_raw / _VELODROME_SQUARE_STEP_BASIS * x / _VELODROME_CUBE_STEP_BASIS;
+            uint256 x_cubed_raw = x_squared_raw / _VELODROME_SQUARE_STEP_BASIS * x;
 
             for (uint256 i; i < 255; i++) {
                 uint256 y_squared_raw = y * y;
                 uint256 k = _k(x, y, x_squared_raw, y_squared_raw);
-                uint256 d = _d(y, three_x, x_cubed, y_squared_raw / _VELODROME_SQUARE_STEP_BASIS);
+                uint256 d = _d(y, three_x, x_cubed_raw, y_squared_raw / _VELODROME_SQUARE_STEP_BASIS);
 
                 if (k < k_orig) {
                     uint256 dy = (k_orig - k).unsafeDiv(d);
