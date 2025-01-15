@@ -94,6 +94,10 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
+    function _k_ref(uint256 x, uint256 y) private pure returns (uint256) {
+        return (x * y) / _VELODROME_TOKEN_BASIS * ((x * x) / _VELODROME_TOKEN_BASIS + (y * y) / _VELODROME_TOKEN_BASIS) / _VELODROME_TOKEN_BASIS;
+    }
+
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`. The result has a basis of
     // `_VELODROME_TOKEN_BASIS`.
@@ -141,7 +145,13 @@ abstract contract Velodrome is SettlerAbstract {
                 uint256 k = _k(x, y, x_squared_raw, y_squared_raw);
                 uint256 d = _d(y, three_x, x_cubed_raw, y_squared_raw / _VELODROME_SQUARE_STEP_BASIS);
 
-                if (k / _VELODROME_INTERNAL_TO_TOKEN_RATIO == k_target) {
+                // This would exactly solve *OUR* formulation of the k=x^3*y+y^3*x constant
+                // function. However, not only is it computationally and contract-size expensive, it
+                // also does not necessarily exactly satisfy the *REFERENCE* implementations of the
+                // same constant function (SolidlyV1, VelodromeV2). Therefore, it is commented out
+                // and the relevant condition is handled by the "ordinary" parts of the
+                // Newton-Raphson loop.
+                /* if (k / _VELODROME_INTERNAL_TO_TOKEN_RATIO == k_target) {
                     uint256 hi = y;
                     uint256 lo = y - 1;
                     uint256 k_next = _k_compat(x, lo, x_squared_raw);
@@ -159,7 +169,7 @@ abstract contract Velodrome is SettlerAbstract {
                         }
                     }
                     return lo;
-                } else if (k < k_orig) {
+                } else */ if (k < k_orig) {
                     uint256 dy = (k_orig - k).unsafeDiv(d);
                     // there are two cases where `dy == 0`
                     // case 1: The `y` is converged and we find the correct answer
