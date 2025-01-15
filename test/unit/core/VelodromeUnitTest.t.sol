@@ -144,11 +144,7 @@ contract VelodromeConvergenceDummy is Velodrome {
     }
     */
 
-    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis)
-        external
-        pure
-        returns (uint256)
-    {
+    function k(uint256 x, uint256 x_basis, uint256 y, uint256 y_basis) external pure returns (uint256) {
         assert(x_basis == _VELODROME_TOKEN_BASIS);
         assert(y_basis == _VELODROME_TOKEN_BASIS);
         return _k_compat(x, y);
@@ -169,7 +165,11 @@ contract VelodromeConvergenceDummy is Velodrome {
         pure
         returns (uint256)
     {
-        return _get_y(x * _VELODROME_TOKEN_BASIS / x_basis, dx * _VELODROME_TOKEN_BASIS / x_basis, y * _VELODROME_TOKEN_BASIS / y_basis) * y_basis / _VELODROME_TOKEN_BASIS;
+        return _get_y(
+            x * _VELODROME_TOKEN_BASIS / x_basis,
+            dx * _VELODROME_TOKEN_BASIS / x_basis,
+            y * _VELODROME_TOKEN_BASIS / y_basis
+        ) * y_basis / _VELODROME_TOKEN_BASIS;
     }
 
     function VELODROME_BASIS() external pure returns (uint256) {

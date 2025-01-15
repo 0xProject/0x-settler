@@ -94,10 +94,6 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
-    function _k_ref(uint256 x, uint256 y) private pure returns (uint256) {
-        return (x * y) / _VELODROME_TOKEN_BASIS * ((x * x) / _VELODROME_TOKEN_BASIS + (y * y) / _VELODROME_TOKEN_BASIS) / _VELODROME_TOKEN_BASIS;
-    }
-
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`. The result has a basis of
     // `_VELODROME_TOKEN_BASIS`.

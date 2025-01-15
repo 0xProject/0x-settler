@@ -96,7 +96,13 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, Do
         }
     }
 
-    function _div512to256(uint512 n, uint512 d) internal view virtual override(SettlerBase, SettlerAbstract) returns (uint256) {
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        virtual
+        override(SettlerBase, SettlerAbstract)
+        returns (uint256)
+    {
         return n.divAlt(d);
     }
 }

@@ -61,7 +61,12 @@ contract ScrollSettler is Settler, ScrollMixin {
         return super._msgSender();
     }
 
-    function _div512to256(uint512 n, uint512 d) internal view override(ScrollMixin, SettlerBase, SettlerAbstract) returns (uint256) {
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        override(ScrollMixin, SettlerBase, SettlerAbstract)
+        returns (uint256)
+    {
         return super._div512to256(n, d);
     }
 }
