@@ -265,9 +265,11 @@ contract VelodromeUnitTest is Test {
         }
     }
 
+    /*
     function solidly_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
         return (x * ((((y * y) / 1e18) * y) / 1e18)) / 1e18 + (((((x * x) / 1e18) * x) / 1e18) * y) / 1e18;
     }
+    */
 
     function velodrome_ref_k(uint256 x, uint256 y) internal pure returns (uint256) {
         uint256 _a = (x * y) / 1e18;
@@ -295,47 +297,21 @@ contract VelodromeUnitTest is Test {
         velodrome_ref_k(x, y);
     }
 
-    /*
-    function testVelodrome_fuzzRangeRefSolidly(uint256 x, uint256 y) external view {
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
-
-        x = bound(x, _VELODROME_BASIS, _MAX_BALANCE);
-        y = bound(y, _VELODROME_BASIS, _MAX_BALANCE);
-
-        solidly_ref_k(x, y);
-    }
-    */
-
     function testVelodrome_fuzzK(uint256 x, uint256 y) external view {
         uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
         uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
         x = bound(x, _VELODROME_BASIS, _MAX_BALANCE);
         y = bound(y, _VELODROME_BASIS, _MAX_BALANCE);
 
-        //uint256 solidly_k = solidly_ref_k(x, y);
         uint256 velodrome_k = velodrome_ref_k(x, y);
         uint256 k = dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS);
         uint256 k_x = dummy.k(x - 1, _VELODROME_BASIS, y, _VELODROME_BASIS);
         uint256 k_y = dummy.k(x, _VELODROME_BASIS, y - 1, _VELODROME_BASIS);
 
-        /*
-        assertGe(k, solidly_k, "SolidlyV1 reference implementation too low");
-        assertLt(k_x, solidly_k, "SolidlyV1 reference implementation too high x");
-        assertLt(k_y, solidly_k, "SolidlyV1 reference implementation too high y");
-        */
-
         assertGe(k, velodrome_k, "VelodromeV2 reference implementation too low");
         assertLt(k_x, velodrome_k, "VelodromeV2 reference implementation too high x");
         assertLt(k_y, velodrome_k, "VelodromeV2 reference implementation too high y");
     }
-
-    /*
-    function testVelodrome_bounds_refSolidly() external view {
-        uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
-        solidly_ref_k(_MAX_BALANCE, _MAX_BALANCE);
-    }
-    */
 
     function _fuzzRef(
         uint256 x,
@@ -414,13 +390,4 @@ contract VelodromeUnitTest is Test {
     {
         _fuzzRef(x, dx, x_decimals, y, y_decimals, velodrome_ref_k, 1);
     }
-
-    /*
-    function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
-        external
-        view
-    {
-        _fuzzRef(x, dx, x_decimals, y, y_decimals, solidly_ref_k, 1);
-    }
-    */
 }
