@@ -123,7 +123,7 @@ abstract contract Velodrome is SettlerAbstract {
             // `k_orig` has a basis much greater than is actually required for correctness. To
             // achieve wei-level accuracy, we perform our final comparisons agains `k_target`
             // instead, which has the same precision as the AMM itself.
-            uint256 k_target = k_orig / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
+            uint256 k_target = _k_compat(x, y);
 
             // Now that we have `k` computed, we offset `x` to account for the sell amount and use
             // the constant-product formula to compute an initial estimate for `y`.
@@ -197,6 +197,9 @@ abstract contract Velodrome is SettlerAbstract {
                             // y) >= k_orig`. As a result, we can't return `y - 1` even it's closer
                             // to the correct answer
                             return y;
+                        }
+                        if (_k(x, y - 2, x_squared_raw) < k_orig) {
+                            return y - 1;
                         }
                         // It's possible that `y - 1` is the correct answer. To know that, we must
                         // check that `y - 2` gives `k < k_orig`. We must do at least 1 more
