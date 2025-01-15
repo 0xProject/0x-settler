@@ -9,6 +9,8 @@ import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
+import {uint512} from "../../utils/512Math.sol";
+
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../../core/SettlerErrors.sol";
@@ -92,5 +94,15 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, Do
         } else {
             revert UnknownForkId(forkId);
         }
+    }
+
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        virtual
+        override(SettlerBase, SettlerAbstract)
+        returns (uint256)
+    {
+        return n.divAlt(d);
     }
 }

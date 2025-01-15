@@ -65,3 +65,8 @@ error ZeroBuyAmount(IERC20 buyToken);
 error BoughtSellToken(IERC20 sellToken);
 error TokenHashCollision(IERC20 token0, IERC20 token1);
 error ZeroToken();
+
+/// @notice Thrown for liquidities that require a Newton-Raphson approximation to solve their
+///         constant function when Newton-Raphson fails to converge on the solution in a
+///         "reasonable" number of iterations.
+error NotConverged();

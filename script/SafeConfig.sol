@@ -7,7 +7,7 @@ library SafeConfig {
     function _isTestnet() internal view returns (bool) {
         if (
             block.chainid == 10143 // monad testnet
-            || block.chainid == 11155111 // sepolia
+                || block.chainid == 11155111 // sepolia
         ) {
             return true;
         }
