@@ -194,7 +194,6 @@ contract VelodromeUnitTest is Test {
     uint256 internal constant _MAX_IMBALANCE = 1_000;
     uint8 internal constant _MIN_DECIMALS = 0;
     uint8 internal constant _MAX_DECIMALS = 31;
-    uint256 internal constant _ROUNDING_FUDGE = 1;
     uint256 internal constant _MIN_BALANCE_TOKENS_RECIP = 3;
 
     function testVelodrome_convergence() external view {
@@ -328,27 +327,6 @@ contract VelodromeUnitTest is Test {
         assertLt(k_y, velodrome_k, "VelodromeV2 reference implementation too high y");
     }
 
-    function testVelodrome_fuzzRefVelodrome(uint256 x, uint256 dx, uint256 y) external view {
-        uint256 _VELODROME_BASIS = dummy.VELODROME_BASIS();
-        uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
-
-        x = bound(x, _VELODROME_BASIS, _MAX_BALANCE);
-        y = bound(y, _VELODROME_BASIS, _MAX_BALANCE);
-        vm.assume(dummy.k(x, _VELODROME_BASIS, y, _VELODROME_BASIS) >= _MIN_K);
-        uint256 max_dx = x * 100;
-        if (max_dx > _MAX_BALANCE - x) {
-            max_dx = _MAX_BALANCE - x;
-        }
-        vm.assume(max_dx >= _VELODROME_BASIS);
-        dx = bound(dx, _VELODROME_BASIS, max_dx);
-
-        uint256 new_y = dummy.new_y(x, dx, _VELODROME_BASIS, y, _VELODROME_BASIS) + 1;
-
-        uint256 velodrome_k_before = velodrome_ref_k(x, y);
-        uint256 velodrome_k_after = velodrome_ref_k(x + dx, new_y);
-        assertGe(velodrome_k_after, velodrome_k_before);
-    }
-
     function testVelodrome_bounds_refSolidly() external view {
         uint256 _MAX_BALANCE = dummy.MAX_BALANCE();
         solidly_ref_k(_MAX_BALANCE, _MAX_BALANCE);
@@ -360,7 +338,8 @@ contract VelodromeUnitTest is Test {
         uint8 x_decimals,
         uint256 y,
         uint8 y_decimals,
-        function (uint256, uint256) internal pure returns (uint256) ref_k
+        function (uint256, uint256) internal pure returns (uint256) ref_k,
+        uint256 fudge
     ) internal view {
         x_decimals = uint8(bound(x_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
         y_decimals = uint8(bound(y_decimals, _MIN_DECIMALS, _MAX_DECIMALS));
@@ -409,7 +388,7 @@ contract VelodromeUnitTest is Test {
             y_basis > _VELODROME_BASIS ? new_y * (y_basis / _VELODROME_BASIS) : new_y,
             _MAX_BALANCE * y_basis / _VELODROME_BASIS
         );
-        new_y += _ROUNDING_FUDGE;
+        new_y += fudge;
         if (y_basis > _VELODROME_BASIS) {
             new_y *= y_basis / _VELODROME_BASIS;
         }
@@ -424,13 +403,13 @@ contract VelodromeUnitTest is Test {
         external
         view
     {
-        _fuzzRef(x, dx, x_decimals, y, y_decimals, velodrome_ref_k);
+        _fuzzRef(x, dx, x_decimals, y, y_decimals, velodrome_ref_k, 1);
     }
 
     function testVelodrome_fuzzRefSolidly(uint256 x, uint256 dx, uint8 x_decimals, uint256 y, uint8 y_decimals)
         external
         view
     {
-        _fuzzRef(x, dx, x_decimals, y, y_decimals, solidly_ref_k);
+        _fuzzRef(x, dx, x_decimals, y, y_decimals, solidly_ref_k, 1);
     }
 }

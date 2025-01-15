@@ -145,7 +145,7 @@ abstract contract Velodrome is SettlerAbstract {
                 uint256 k = _k(x, y, x_squared_raw, y_squared_raw);
                 uint256 d = _d(y, three_x, x_cubed_raw, y_squared_raw / _VELODROME_SQUARE_STEP_BASIS);
 
-                // This would exactly solve *OUR* formulation of the k=x^3*y+y^3*x constant
+                // This would exactly solve *OUR* formulation of the `k=x^3*y+y^3*x` constant
                 // function. However, not only is it computationally and contract-size expensive, it
                 // also does not necessarily exactly satisfy the *REFERENCE* implementations of the
                 // same constant function (SolidlyV1, VelodromeV2). Therefore, it is commented out
