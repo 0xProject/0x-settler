@@ -173,8 +173,7 @@ abstract contract Velodrome is SettlerAbstract {
                     //         error screwed us.
                     //         In this case, we need to increase `y` by 1
                     if (dy == 0) {
-                        uint256 k_next = _k_compat(x, y + 1, x_squared_raw);
-                        if (k_next >= k_target) {
+                        if (_k_compat(x, y + 1, x_squared_raw) >= k_target) {
                             // If `_k(x, y + 1) >= k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y + 1`
                             return y + 1;
@@ -192,8 +191,7 @@ abstract contract Velodrome is SettlerAbstract {
                 } else {
                     uint256 dy = (k - k_orig).unsafeDiv(d);
                     if (dy == 0) {
-                        uint256 k_next = _k_compat(x, y - 1, x_squared_raw);
-                        if (k_next < k_target) {
+                        if (_k_compat(x, y - 1, x_squared_raw) < k_target) {
                             // If `_k(x, y - 1) < k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y`. We need to find `y` where `_k(x,
                             // y) >= k_orig`. As a result, we can't return `y - 1` even it's closer
