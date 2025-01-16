@@ -29,24 +29,24 @@ IFS=';' read -r -a owners_array <<<"$owners"
 declare -r -a owners_array
 
 prev_owner() {
-    declare inp="$1"
+    declare _prev_owner_inp="$1"
     shift
-    inp="$(cast to-checksum "$inp")"
-    declare -r inp
+    _prev_owner_inp="$(cast to-checksum "$_prev_owner_inp")"
+    declare -r _prev_owner_inp
 
     declare result=0x0000000000000000000000000000000000000001
-    declare owner_i
+    declare _prev_owner_i
     for i in ${!owners_array[@]} ; do
-        owner_i="$(cast to-checksum "${owners_array[$i]}")"
-        if [[ $owner_i = "$inp" ]] ; then
+        _prev_owner_i="$(cast to-checksum "${owners_array[$i]}")"
+        if [[ $_prev_owner_i = "$_prev_owner_inp" ]] ; then
             break
         fi
-        result="$owner_i"
+        result="$_prev_owner_i"
     done
     declare -r result
 
     if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
-        echo 'Old owner "'"$inp"'" not found' >&2
+        echo 'Old owner "'"$_prev_owner_inp"'" not found' >&2
         return 1
     fi
 
