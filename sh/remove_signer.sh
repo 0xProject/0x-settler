@@ -147,7 +147,7 @@ declare -r -i threshold
 
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'
 declare removeOwner_call
-removeOwner_call="$(cast calldata removeOwner_sig "$(prev_owner "$old_owner")" "$old_owner" "$threshold")"
+removeOwner_call="$(cast calldata "$removeOwner_sig" "$(prev_owner "$old_owner")" "$old_owner" "$threshold")"
 declare -r removeOwner_call
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
@@ -165,10 +165,6 @@ declare -r -i gas_price
 declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
-
-declare signing_hash
-signing_hash="$(eip712_hash "$removeOwner_call" 0 "$safe_address")"
-declare -r signing_hash
 
 declare packed_signatures
 packed_signatures="$(retrieve_signatures remove_signer "$removeOwner_call" 0 "$safe_address")"
