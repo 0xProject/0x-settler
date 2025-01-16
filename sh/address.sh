@@ -119,6 +119,8 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
+. "$project_root"/sh/common_bash_version_check.sh
+
 # this duplicates `sh/common.sh`, but we don't care about the cancun/not-cancun check
 if ! hash cast &>/dev/null ; then
     echo 'foundry is not installed' >&2

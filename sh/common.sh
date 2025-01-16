@@ -1,3 +1,5 @@
+. "$project_root"/sh/common_bash_version_check.sh
+
 if ! hash forge &>/dev/null ; then
     echo 'foundry is not installed' >&2
     exit 1

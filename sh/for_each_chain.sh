@@ -118,6 +118,8 @@ declare project_root
 project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 
+. "$project_root"/sh/common_bash_version_check.sh
+
 if ! hash jq &>/dev/null ; then
     echo 'jq is not installed' >&2
     exit 1
