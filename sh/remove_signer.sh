@@ -122,7 +122,11 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 
 declare safe_address
-safe_address="$(get_config governance.deploymentSafe)"
+if [[ "${2-deployer}" = [Uu]pgrade ]] ; then
+    safe_address="$(get_config governance.upgradeSafe)"
+else
+    safe_address="$(get_config governance.deploymentSafe)"
+fi
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
