@@ -85,6 +85,15 @@ if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url == 'null' ]] ; then
     exit 1
 fi
 
+declare -i rpc_chainid
+rpc_chainid="$(cast chain-id --rpc-url "$rpc_url")"
+declare -r -i rpc_chainid
+
+if (( rpc_chainid != chainid )) ; then
+    echo 'Your RPC thinks you are on chain '$rpc_chainid'. You probably have the wrong RPC.' >&2
+    exit 1
+fi
+
 function verify_contract {
     declare -r _verify_constructor_args="$1"
     shift
