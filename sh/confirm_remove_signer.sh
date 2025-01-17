@@ -140,9 +140,13 @@ declare -i threshold
 threshold="$(cast call --rpc-url "$rpc_url" "$safe_address" "$getThreshold_sig")"
 declare -r -i threshold
 
+declare prev_owner_addr
+prev_owner_addr="$(prev_owner "$old_owner")"
+declare -r prev_owner_addr
+
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'
 declare removeOwner_call
-removeOwner_call="$(cast calldata "$removeOwner_sig" "$(prev_owner "$old_owner")" "$old_owner" "$threshold")"
+removeOwner_call="$(cast calldata "$removeOwner_sig" "$prev_owner_addr" "$old_owner" "$threshold")"
 declare -r removeOwner_call
 
 declare struct_json

@@ -141,9 +141,13 @@ shift
 new_owner="$(cast to-checksum "$new_owner")"
 declare -r new_owner
 
+declare prev_owner_addr
+prev_owner_addr="$(prev_owner "$old_owner")"
+declare -r prev_owner_addr
+
 declare -r swapOwner_sig='swapOwner(address,address,address)'
 declare swapOwner_call
-swapOwner_call="$(cast calldata "$swapOwner_sig" "$(prev_owner "$old_owner")" "$old_owner" "$new_owner")"
+swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner_addr" "$old_owner" "$new_owner")"
 declare -r swapOwner_call
 
 declare struct_json
