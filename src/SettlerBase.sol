@@ -100,13 +100,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
-        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.RFQ.selector)) {
+        if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
