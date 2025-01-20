@@ -8,6 +8,10 @@ import {Velodrome} from "src/core/Velodrome.sol";
 import {Test} from "@forge-std/Test.sol";
 
 contract VelodromeConvergenceDummy is Velodrome {
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _msgSender() internal pure override returns (address) {
         revert("unimplemented");
     }
