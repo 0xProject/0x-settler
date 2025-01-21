@@ -6,7 +6,7 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
-import {IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {IPoolManager as Settler_IPoolManager, IUnlockCallback} from "src/core/UniswapV4Types.sol";
 import {MAINNET_POOL_MANAGER as POOL_MANAGER} from "src/core/UniswapV4Addresses.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
@@ -111,6 +111,10 @@ contract TestERC20 is ERC20, InvariantAssume {
 contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
     using SafeTransferLib for IERC20;
+
+    function _POOL_MANAGER() internal pure override returns (Settler_IPoolManager) {
+        return POOL_MANAGER;
+    }
 
     function sellToUniswapV4(
         IERC20 sellToken,
