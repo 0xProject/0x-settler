@@ -16,8 +16,8 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
-import {swapsicleFactory, swapsicleInitHash, swapsicleForkId} from "../../core/univ3forks/Swapsicle.sol";
-import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
+import {swapsicleFactory, swapsicleForkId} from "../../core/univ3forks/Swapsicle.sol";
+import {algebraV4InitHash, IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {pankoFactory, pankoInitHash, pankoForkId} from "../../core/univ3forks/Panko.sol";
 import {IPancakeSwapV3Callback} from "../../core/univ3forks/PancakeSwapV3.sol";
 
@@ -53,7 +53,7 @@ abstract contract TaikoMixin is FreeMemory, SettlerBase {
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == swapsicleForkId) {
             factory = swapsicleFactory;
-            initHash = swapsicleInitHash;
+            initHash = algebraV4InitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else if (forkId == pankoForkId) {
             factory = pankoFactory;
