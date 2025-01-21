@@ -137,6 +137,24 @@ declare -a chains
 readarray -t chains < <(jq -rM 'keys_unsorted[]' "$project_root"/chain_config.json)
 declare -r -a chains
 
+declare -a skip_chains
+readarray -t skip_chains -d , <<<"${SKIP_CHAINS-}"
+declare -r -a skip_chains
+
+contains() {
+    declare -r _contains_elem="$1"
+    shift
+
+    declare _contains_i
+    for _contains_i ; do
+        if [[ $_contains_i == "$_contains_elem" ]] ; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 declare chain_name
 for chain_name in "${chains[@]}" ; do
     if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
@@ -149,6 +167,11 @@ for chain_name in "${chains[@]}" ; do
             echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Cancun' >&2
             continue
         fi
+    fi
+
+    if contains "$chain_name" "${skip_chains[@]}" ; then
+        echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" as requested' >&2
+        continue
     fi
 
     echo 'Running script for chain "'"$(get_config "$chain_name" displayName)"'"...' >&2
