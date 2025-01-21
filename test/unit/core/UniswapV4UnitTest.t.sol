@@ -6,7 +6,8 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
-import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {MAINNET_POOL_MANAGER as POOL_MANAGER} from "src/core/UniswapV4Addresses.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 import {IPoolManager} from "@uniswapv4/interfaces/IPoolManager.sol";
