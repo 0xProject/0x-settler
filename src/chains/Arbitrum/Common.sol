@@ -8,6 +8,8 @@ import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
 import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
+import {UniswapV4} from "../../core/UniswapV4.sol";
+import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -40,7 +42,7 @@ import {dackieSwapV3ArbitrumFactory, dackieSwapV3ForkId} from "../../core/univ3f
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto, DodoV1, DodoV2 {
+abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto, DodoV1, DodoV2, UniswapV4 {
     constructor() {
         assert(block.chainid == 42161 || block.chainid == 31337);
     }
@@ -54,6 +56,19 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -124,5 +139,9 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
 
     function _curveFactory() internal pure override returns (address) {
         return 0xbC0797015fcFc47d9C1856639CaE50D0e69FbEE8;
+    }
+
+    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
+        revert("unimplemented");
     }
 }
