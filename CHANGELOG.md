@@ -29,6 +29,7 @@ Master list of UniV3 forks:
   26. Swapr (Algebra-like)
   27. SpookySwap
   28. Wagmi
+  29. SwapX (Algebra-like)
 
 ---
 
@@ -41,6 +42,8 @@ Master list of UniV3 forks:
     (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
 * `TRANSFER_FROM` is now a "VIP" action. It can only be executed as the first
   action of a swap
+* Update Avalanche to the Cancun hardfork
+  * This means that the AllowanceHolder address on Avalanche is now 0x0000000000001fF3684f28c67538d4D072C22734
 
 ### Non-breaking changes
 
@@ -48,8 +51,9 @@ Master list of UniV3 forks:
   * `UNISWAPV4`, `UNISWAPV4_VIP`, and `METATXN_UNISWAPV4_VIP`
   * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
     encode `fills`
-  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
-    compute a perfect token hash function
+  * See comments in
+    [FlashAccountingCommon.sol](src/core/FlashAccountingCommon.sol) regarding
+    how to compute a perfect token hash function
 * Add `msgSender()(address)` accessor on Base to retrieve the current taker
 * Improve accuracy, gas, and convergence region coverage in SolidlyV1/VelodromeV2 action (`VELODROME`)
 * Add DodoV1 actions to more chains
@@ -62,6 +66,14 @@ Master list of UniV3 forks:
 * Add `rebateClaimer()(address)` function on Mainnet Settlers for gas rebate program
 * Add SolidlyV3 UniV3 fork to Sonic
 * Add Wagmi UniV3 fork to Sonic
+* Add SwapX UniV3 (Algebra style) fork to Sonic
+* Add actions for BalancerV3
+  * `BALANCERV3`, `BALANCERV3_VIP`, and `METATXN_BALANCERV3_VIP`
+  * See comments in [BalancerV3.sol](src/core/BalancerV3.sol) regarding how to
+    encode `fills`
+  * See comments in
+    [FlashAccountingCommon.sol](src/core/FlashAccountingCommon.sol) regarding
+    how to compute a perfect token hash function
 
 ## 2025-01-09
 

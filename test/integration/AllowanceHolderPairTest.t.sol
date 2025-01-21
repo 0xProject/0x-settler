@@ -32,7 +32,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     function uniswapV3Path() internal virtual returns (bytes memory);
     function uniswapV2Pool() internal virtual returns (address);
 
-    function testAllowanceHolder_uniswapV3() public {
+    function testAllowanceHolder_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             // Perform a transfer into Settler via AllowanceHolder
             abi.encodeCall(
@@ -78,7 +78,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP() public {
+    function testAllowanceHolder_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -124,7 +124,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP_contract() public {
+    function testAllowanceHolder_uniswapV3VIP_contract() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -291,7 +291,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV2_single_chain() public {
+    function testAllowanceHolder_uniswapV2_single_chain() public skipIf(uniswapV2Pool() == address(0)) {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool sellTokenHasFee = false;
