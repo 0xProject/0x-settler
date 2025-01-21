@@ -1,3 +1,5 @@
+. "$project_root"/sh/common_bash_version_check.sh
+
 if ! hash forge &>/dev/null ; then
     echo 'foundry is not installed' >&2
     exit 1
@@ -28,7 +30,11 @@ if [ ! -f "$project_root"/api_secrets.json ] ; then
     exit 1
 fi
 
-if [[ $(ls -l "$project_root"/api_secrets.json | cut -d' ' -f1 | cut -d. -f1) != '-rw-------' ]] ; then
+declare api_secrets_permissions
+api_secrets_permissions="$(ls -l "$project_root"/api_secrets.json)"
+api_secrets_permissions="${api_secrets_permissions::10}"
+declare -r api_secrets_permissions
+if [[ $api_secrets_permissions != '-rw-------' ]] ; then
     echo 'api_secrets.json permissions too lax' >&2
     echo 'run: chmod 600 api_secrets.json' >&2
     exit 1
@@ -79,6 +85,15 @@ if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url == 'null' ]] ; then
     exit 1
 fi
 
+declare -i rpc_chainid
+rpc_chainid="$(cast chain-id --rpc-url "$rpc_url")"
+declare -r -i rpc_chainid
+
+if (( rpc_chainid != chainid )) ; then
+    echo 'Your RPC thinks you are on chain '$rpc_chainid'. You probably have the wrong RPC.' >&2
+    exit 1
+fi
+
 function verify_contract {
     declare -r _verify_constructor_args="$1"
     shift
@@ -96,7 +111,7 @@ function verify_contract {
         fi
         forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     else
-        forge verify-contract --watch --chain $chainid --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        forge verify-contract --watch --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
     if (( chainid != 146 )) && (( chainid != 480 )) && (( chainid != 10143 )) && (( chainid != 57073 )) && (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Sonic, World Chain, MonadTestnet, Ink, Blast, or Taiko
         forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"

@@ -1,4 +1,3 @@
-
 declare safe_url
 safe_url="$(get_config safe.apiUrl)"
 declare -r safe_url
@@ -30,24 +29,24 @@ IFS=';' read -r -a owners_array <<<"$owners"
 declare -r -a owners_array
 
 prev_owner() {
-    declare inp="$1"
+    declare _prev_owner_inp="$1"
     shift
-    inp="$(cast to-checksum "$inp")"
-    declare -r inp
+    _prev_owner_inp="$(cast to-checksum "$_prev_owner_inp")"
+    declare -r _prev_owner_inp
 
     declare result=0x0000000000000000000000000000000000000001
-    declare owner_i
+    declare _prev_owner_i
     for i in ${!owners_array[@]} ; do
-        owner_i="$(cast to-checksum "${owners_array[$i]}")"
-        if [[ $owner_i = "$inp" ]] ; then
+        _prev_owner_i="$(cast to-checksum "${owners_array[$i]}")"
+        if [[ $_prev_owner_i = "$_prev_owner_inp" ]] ; then
             break
         fi
-        result="$owner_i"
+        result="$_prev_owner_i"
     done
     declare -r result
 
-    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array} - 1))]}")" ]] ; then
-        echo 'Old owner "'"$inp"'" not found' >&2
+    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
+        echo 'Previous owner for "'"$_prev_owner_inp"'" not found' >&2
         return 1
     fi
 
@@ -93,26 +92,26 @@ declare -r eip712_message_json_template='{
     "nonce": $nonce | tonumber'
 
 eip712_json() {
-    declare -r calldata="$1"
+    declare -r _eip712_json_calldata="$1"
     shift
 
-    declare -i operation
+    declare -i _eip712_json_operation
     if (( $# > 0 )) ; then
-        operation="$1"
+        _eip712_json_operation="$1"
         shift
     else
-        operation=0
+        _eip712_json_operation=0
     fi
-    declare -r -i operation
+    declare -r -i _eip712_json_operation
 
-    declare to
+    declare _eip712_json_to
     if (( $# > 0 )) ; then
-        to="$1"
+        _eip712_json_to="$1"
         shift
     else
-        to="$(target $operation)"
+        _eip712_json_to="$(target $_eip712_json_operation)"
     fi
-    declare -r to
+    declare -r _eip712_json_to
 
     jq -Mc \
     '
@@ -182,9 +181,9 @@ eip712_json() {
     '                                       \
     --arg verifyingContract "$safe_address" \
     --arg chainId "$chainid"                \
-    --arg to "$to"                          \
-    --arg data "$calldata"                  \
-    --arg operation $operation              \
+    --arg to "$_eip712_json_to"             \
+    --arg data "$_eip712_json_calldata"     \
+    --arg operation $_eip712_json_operation \
     --arg nonce $(nonce)                    \
     <<<'{}'
 }

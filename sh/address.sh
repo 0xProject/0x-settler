@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
@@ -118,6 +118,8 @@ declare project_root
 project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
+
+. "$project_root"/sh/common_bash_version_check.sh
 
 # this duplicates `sh/common.sh`, but we don't care about the cancun/not-cancun check
 if ! hash cast &>/dev/null ; then
