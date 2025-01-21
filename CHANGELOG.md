@@ -49,6 +49,16 @@ Master list of UniV3 forks:
   * See comments in
     [FlashAccountingCommon.sol](src/core/FlashAccountingCommon.sol) regarding
     how to compute a perfect token hash function
+* Add UniswapV4 actions to:
+  * Mainnet
+  * Arbitrum
+  * Avalanche
+  * Base
+  * Blast
+  * Bnb
+  * Optimism
+  * Polygon
+  * WorldChain
 * Add `msgSender()(address)` accessor on Base to retrieve the current taker
 * Improve accuracy, gas, and convergence region coverage in SolidlyV1/VelodromeV2 action (`VELODROME`)
 * Add DodoV1 actions to more chains
