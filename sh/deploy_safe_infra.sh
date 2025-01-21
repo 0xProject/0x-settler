@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'Duncan wrote this script for his own use' >&2
 echo 'read the whole thing and make appropriate modifications before using it' >&2

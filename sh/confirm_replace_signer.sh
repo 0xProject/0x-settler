@@ -128,20 +128,34 @@ declare -r safe_address
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_safe_owner.sh
 . "$project_root"/sh/common_wallet_type.sh
-. "$project_root"/sh/common_deploy_settler.sh
 
-while (( ${#deploy_calldatas[@]} >= 2 )) ; do
-    declare -i operation="${deploy_calldatas[0]}"
-    declare deploy_calldata="${deploy_calldatas[1]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:2:$((${#deploy_calldatas[@]}-2))}" )
+declare old_owner
+old_owner="$1"
+shift
+old_owner="$(cast to-checksum "$old_owner")"
+declare -r old_owner
 
-    declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation)"
+declare new_owner
+new_owner="$1"
+shift
+new_owner="$(cast to-checksum "$new_owner")"
+declare -r new_owner
 
-    declare signature
-    signature="$(sign_call "$struct_json")"
+declare prev_owner_addr
+prev_owner_addr="$(prev_owner "$old_owner")"
+declare -r prev_owner_addr
 
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation
+declare -r swapOwner_sig='swapOwner(address,address,address)'
+declare swapOwner_call
+swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner_addr" "$old_owner" "$new_owner")"
+declare -r swapOwner_call
 
-    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
-done
+declare struct_json
+struct_json="$(eip712_json "$swapOwner_call" 0 "$safe_address")"
+declare -r struct_json
+
+declare signature
+signature="$(sign_call "$struct_json")"
+declare -r signature
+
+save_signature replace_signer "$swapOwner_call" "$signature" 0 "$safe_address"

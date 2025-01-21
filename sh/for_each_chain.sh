@@ -117,31 +117,43 @@ set -Eeufo pipefail -o posix
 declare project_root
 project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
-cd "$project_root"
 
-. "$project_root"/sh/common.sh
+. "$project_root"/sh/common_bash_version_check.sh
 
-declare safe_address
-safe_address="$(get_config governance.deploymentSafe)"
-declare -r safe_address
+if ! hash jq &>/dev/null ; then
+    echo 'jq is not installed' >&2
+    exit 1
+fi
 
-. "$project_root"/sh/common_safe.sh
-. "$project_root"/sh/common_safe_owner.sh
-. "$project_root"/sh/common_wallet_type.sh
-. "$project_root"/sh/common_deploy_settler.sh
+function get_config {
+    declare -r _get_config_chain_name="$1"
+    shift
+    declare -r _get_config_field="$1"
+    shift
+    jq -Mr ."$_get_config_chain_name"."$_get_config_field" < "$project_root"/chain_config.json
+}
 
-while (( ${#deploy_calldatas[@]} >= 2 )) ; do
-    declare -i operation="${deploy_calldatas[0]}"
-    declare deploy_calldata="${deploy_calldatas[1]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:2:$((${#deploy_calldatas[@]}-2))}" )
+declare -a chains
+readarray -t chains < <(jq -rM 'keys_unsorted[]' "$project_root"/chain_config.json)
+declare -r -a chains
 
-    declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation)"
+declare chain_name
+for chain_name in "${chains[@]}" ; do
+    if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
+        if [[ $(get_config "$chain_name" isShanghai) != [Tt]rue ]] ; then
+            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Shanghai' >&2
+            continue
+        fi
 
-    declare signature
-    signature="$(sign_call "$struct_json")"
+        if [[ $(get_config "$chain_name" isCancun) != [Tt]rue ]] ; then
+            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Cancun' >&2
+            continue
+        fi
+    fi
 
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation
-
-    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+    echo 'Running script for chain "'"$(get_config "$chain_name" displayName)"'"...' >&2
+    echo >&2
+    "$1" "$chain_name" "${@:2}"
+    echo >&2
+    echo 'Done with chain "'"$(get_config "$chain_name" displayName)"'".' >&2
 done

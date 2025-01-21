@@ -126,22 +126,74 @@ safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
-. "$project_root"/sh/common_safe_owner.sh
+
+declare signer
+IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
+declare -r signer
+
+. "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_wallet_type.sh
-. "$project_root"/sh/common_deploy_settler.sh
 
-while (( ${#deploy_calldatas[@]} >= 2 )) ; do
-    declare -i operation="${deploy_calldatas[0]}"
-    declare deploy_calldata="${deploy_calldatas[1]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:2:$((${#deploy_calldatas[@]}-2))}" )
+declare old_owner
+old_owner="$1"
+shift
+old_owner="$(cast to-checksum "$old_owner")"
+declare -r old_owner
 
-    declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation)"
+declare new_owner
+new_owner="$1"
+shift
+new_owner="$(cast to-checksum "$new_owner")"
+declare -r new_owner
 
-    declare signature
-    signature="$(sign_call "$struct_json")"
+declare prev_owner_addr
+prev_owner_addr="$(prev_owner "$old_owner")"
+declare -r prev_owner_addr
 
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation
+declare -r swapOwner_sig='swapOwner(address,address,address)'
+declare swapOwner_call
+swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner_addr" "$old_owner" "$new_owner")"
+declare -r swapOwner_call
 
-    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
-done
+# set minimum gas price to (mostly for Arbitrum and BNB)
+declare -i min_gas_price
+min_gas_price="$(get_config minGasPriceGwei)"
+min_gas_price=$((min_gas_price * 1000000000))
+declare -r -i min_gas_price
+declare -i gas_price
+gas_price="$(cast gas-price --rpc-url "$rpc_url")"
+if (( gas_price < min_gas_price )) ; then
+    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
+    gas_price=$min_gas_price
+fi
+declare -r -i gas_price
+declare -i gas_estimate_multiplier
+gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
+declare -r -i gas_estimate_multiplier
+
+declare signing_hash
+signing_hash="$(eip712_hash "$swapOwner_call" 0 "$safe_address")"
+declare -r signing_hash
+
+declare packed_signatures
+packed_signatures="$(retrieve_signatures replace_signer "$swapOwner_call" 0 "$safe_address")"
+declare -r packed_signatures
+
+# configure gas limit
+declare -r -a args=(
+    "$safe_address" "$execTransaction_sig"
+    # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+    "$safe_address" 0 "$swapOwner_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+)
+
+# set gas limit and add multiplier/headroom (again mostly for Arbitrum)
+declare -i gas_limit
+gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
+gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+declare -r -i gas_limit
+
+if [[ $wallet_type = 'frame' ]] ; then
+    cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+else
+    cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+fi
