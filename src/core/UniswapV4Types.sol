@@ -175,8 +175,6 @@ library UnsafePoolManager {
     }
 }
 
-IPoolManager constant POOL_MANAGER = IPoolManager(0x000000000004444c5dc75cB358380D2e3dE08A90);
-
 /// @notice Interface for the callback executed when an address unlocks the pool manager
 interface IUnlockCallback {
     /// @notice Called by the pool manager on `msg.sender` when the manager is unlocked

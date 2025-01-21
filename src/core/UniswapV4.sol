@@ -21,7 +21,7 @@ import {
 } from "./SettlerErrors.sol";
 
 import {
-    BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback
+    BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback
 } from "./UniswapV4Types.sol";
 
 library CreditDebt {
@@ -245,6 +245,8 @@ abstract contract UniswapV4 is SettlerAbstract {
     using NotesLib for NotesLib.Note[];
     using StateLib for StateLib.State;
 
+    function _POOL_MANAGER() internal view virtual returns (IPoolManager);
+
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has a
     //// mandatory callback, and the vast majority of the business logic has to be executed inside
     //// the callback, they're pretty minimal. Both end up inside the last function in this file
@@ -356,7 +358,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore(0x40, add(data, add(0xd3, pathLen)))
         }
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -431,7 +433,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             mstore8(add(0xa8, data), feeOnTransfer)
         }
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
