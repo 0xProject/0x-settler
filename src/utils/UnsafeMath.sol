@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {Panic} from "./Panic.sol";
+
 library UnsafeMath {
     function unsafeInc(uint256 x) internal pure returns (uint256) {
         unchecked {
             return x + 1;
         }
+    }
+
+    function unsafeInc(uint256 x, bool b) internal pure returns (uint256) {
+        assembly ("memory-safe") {
+            x := add(x, b)
+        }
+        return x;
     }
 
     function unsafeInc(int256 x) internal pure returns (int256) {
@@ -71,6 +80,32 @@ library UnsafeMath {
     function unsafeDivUp(uint256 n, uint256 d) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := add(gt(mod(n, d), 0x00), div(n, d))
+        }
+    }
+}
+
+library Math {
+    function or(bool a, bool b) internal pure returns (bool c) {
+        assembly ("memory-safe") {
+            c := or(a, b)
+        }
+    }
+
+    function inc(uint256 x, bool c) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := add(x, c)
+        }
+        if (r < x) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+    }
+
+    function dec(uint256 x, bool c) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sub(x, c)
+        }
+        if (r > x) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
     }
 }

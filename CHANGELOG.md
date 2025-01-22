@@ -38,7 +38,10 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Remove `gemToken` and `psm` arguments from `MAKERPSM` action
-  * This specializes and gas optimizes the action for the Lite PSM (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
+  * This specializes and gas optimizes the action for the Lite PSM
+    (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
+* `TRANSFER_FROM` is now a "VIP" action. It can only be executed as the first
+  action of a swap
 * Update Avalanche to the Cancun hardfork
   * This means that the AllowanceHolder address on Avalanche is now 0x0000000000001fF3684f28c67538d4D072C22734
 

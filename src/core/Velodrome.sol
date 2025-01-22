@@ -2,10 +2,10 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {TooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 //import {Panic} from "../utils/Panic.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -27,6 +27,8 @@ interface IVelodromePair {
 }
 
 abstract contract Velodrome is SettlerAbstract {
+    using Math for uint256;
+    using Math for bool;
     using UnsafeMath for uint256;
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
@@ -48,18 +50,19 @@ abstract contract Velodrome is SettlerAbstract {
     // quantity by this before multiplying again by the token quantity. Setting this value as small
     // as possible preserves precision. This gives a result in an awkward basis, but we'll correct
     // that with `_VELODROME_CUBE_STEP_BASIS` after the cubing
-    uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 54210109;
+    uint256 private constant _VELODROME_SQUARE_STEP_BASIS = 216840435;
 
     // After squaring a token quantity (in `_VELODROME_TOKEN_BASIS`), we need to multiply again by a
     // token quantity and then divide out the awkward basis to get back to
     // `_VELODROME_TOKEN_BASIS`. This constant is what gets us back to the original token quantity
     // basis. `_VELODROME_TOKEN_BASIS * _VELODROME_TOKEN_BASIS / _VELODROME_SQUARE_STEP_BASIS *
     // _VELODROME_TOKEN_BASIS / _VELODROME_CUBE_STEP_BASIS == _VELODROME_TOKEN_BASIS`
-    uint256 private constant _VELODROME_CUBE_STEP_BASIS = 18446743945857035631490798146;
+    uint256 private constant _VELODROME_CUBE_STEP_BASIS = 4611686007731906643703237360;
 
-    // The maximum balance in the AMM's implementation of `k` is `b` such that `b * b / 1 ether * b
-    // / 1 ether * b` does not overflow. This that quantity, `b`.
-    uint256 internal constant _VELODROME_MAX_BALANCE = 18446744073709551616000000000;
+    // The maximum balance in the AMM's reference implementation of `k` is `b` such that `(b * b) /
+    // 1 ether * ((b * b) / 1 ether + (b * b) / 1 ether)` does not overflow. This that quantity,
+    // `b`. This is roughly 15.5 billion ether.
+    uint256 internal constant _VELODROME_MAX_BALANCE = 15511800964685064948225197537;
 
     // This is the `k = x^3 * y + y^3 * x` constant function. Unlike the original formulation, the
     // result has a basis of `_VELODROME_INTERNAL_BASIS` instead of `_VELODROME_TOKEN_BASIS`
@@ -87,12 +90,18 @@ abstract contract Velodrome is SettlerAbstract {
         }
     }
 
+    function _k_compat(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
+        unchecked {
+            return (x * y).unsafeMulDivAlt(x_squared + y * y, _VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+        }
+    }
+
     // For numerically approximating a solution to the `k = x^3 * y + y^3 * x` constant function
     // using Newton-Raphson, this is `∂k/∂y = 3 * x * y^2 + x^3`. The result has a basis of
     // `_VELODROME_TOKEN_BASIS`.
     function _d(uint256 y, uint256 x) private pure returns (uint256) {
         unchecked {
-            return _d(y, 3 * x, x * x / _VELODROME_SQUARE_STEP_BASIS * x / _VELODROME_CUBE_STEP_BASIS);
+            return _d(y, 3 * x, x * x / _VELODROME_SQUARE_STEP_BASIS * x);
         }
     }
 
@@ -104,11 +113,9 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _d(uint256, uint256 three_x, uint256 x_cubed, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return y_squared * three_x / _VELODROME_CUBE_STEP_BASIS + x_cubed;
+            return (y_squared * three_x + x_cubed) / _VELODROME_CUBE_STEP_BASIS;
         }
     }
-
-    error NotConverged();
 
     // Using Newton-Raphson iterations, compute the smallest `new_y` such that `_k(x + dx, new_y) >=
     // _k(x, y)`. As a function of `new_y`, we find the root of `_k(x + dx, new_y) - _k(x, y)`.
@@ -118,7 +125,7 @@ abstract contract Velodrome is SettlerAbstract {
             // `k_orig` has a basis much greater than is actually required for correctness. To
             // achieve wei-level accuracy, we perform our final comparisons agains `k_target`
             // instead, which has the same precision as the AMM itself.
-            uint256 k_target = k_orig / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
+            uint256 k_target = _k_compat(x, y);
 
             // Now that we have `k` computed, we offset `x` to account for the sell amount and use
             // the constant-product formula to compute an initial estimate for `y`.
@@ -129,30 +136,55 @@ abstract contract Velodrome is SettlerAbstract {
             // precomputing and caching them saves us gas.
             uint256 three_x = 3 * x;
             uint256 x_squared_raw = x * x;
-            uint256 x_cubed = x_squared_raw / _VELODROME_SQUARE_STEP_BASIS * x / _VELODROME_CUBE_STEP_BASIS;
+            uint256 x_cubed_raw = x_squared_raw / _VELODROME_SQUARE_STEP_BASIS * x;
 
             for (uint256 i; i < 255; i++) {
                 uint256 y_squared_raw = y * y;
                 uint256 k = _k(x, y, x_squared_raw, y_squared_raw);
-                uint256 d = _d(y, three_x, x_cubed, y_squared_raw / _VELODROME_SQUARE_STEP_BASIS);
+                uint256 d = _d(y, three_x, x_cubed_raw, y_squared_raw / _VELODROME_SQUARE_STEP_BASIS);
 
-                if (k < k_orig) {
+                // This would exactly solve *OUR* formulation of the `k=x^3*y+y^3*x` constant
+                // function. However, not only is it computationally and contract-size expensive, it
+                // also does not necessarily exactly satisfy the *REFERENCE* implementations of the
+                // same constant function (SolidlyV1, VelodromeV2). Therefore, it is commented out
+                // and the relevant condition is handled by the "ordinary" parts of the
+                // Newton-Raphson loop.
+                /* if (k / _VELODROME_INTERNAL_TO_TOKEN_RATIO == k_target) {
+                    uint256 hi = y;
+                    uint256 lo = y - 1;
+                    uint256 k_next = _k_compat(x, lo, x_squared_raw);
+                    while (k_next == k_target) {
+                        (hi, lo) = (lo, lo - (hi - lo) * 2);
+                        k_next = _k_compat(x, lo, x_squared_raw);
+                    }
+                    while (hi != lo) {
+                        uint256 mid = (hi - lo) / 2 + lo;
+                        k_next = _k_compat(x, mid, x_squared_raw);
+                        if (k_next == k_target) {
+                            hi = mid;
+                        } else {
+                            lo = mid + 1;
+                        }
+                    }
+                    return lo;
+                } else */ if (k < k_orig) {
                     uint256 dy = (k_orig - k).unsafeDiv(d);
-                    // there are two cases where `dy == 0`
-                    // case 1: The `y` is converged and we find the correct answer
-                    // case 2: `_d(y, x)` is too large compare to `(k_orig - k)` and the rounding
+                    // There are two cases where `dy == 0`
+                    // Case 1: The `y` is converged and we find the correct answer
+                    // Case 2: `_d(y, x)` is too large compare to `(k_orig - k)` and the rounding
                     //         error screwed us.
                     //         In this case, we need to increase `y` by 1
                     if (dy == 0) {
-                        uint256 k_next = _k(x, y + 1, x_squared_raw) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
-                        if (k_next >= k_target) {
+                        if (_k_compat(x, y + 1, x_squared_raw) >= k_target) {
                             // If `_k(x, y + 1) >= k_orig`, then we are close to the correct answer.
                             // There's no closer answer than `y + 1`
                             return y + 1;
                         }
                         // `y + 1` does not give us the condition `k >= k_orig`, so we have to do at
-                        // least 1 more iteration to find a satisfactory `y` value
-                        dy = 2;
+                        // least 1 more iteration to find a satisfactory `y` value. Setting `dy = y
+                        // / 2` also solves the problem where the constant-product estimate of `y`
+                        // is very bad and convergence is only linear.
+                        dy = y / 2;
                     }
                     y += dy;
                     if (y > _VELODROME_MAX_BALANCE) {
@@ -161,27 +193,27 @@ abstract contract Velodrome is SettlerAbstract {
                 } else {
                     uint256 dy = (k - k_orig).unsafeDiv(d);
                     if (dy == 0) {
-                        if (k / _VELODROME_INTERNAL_TO_TOKEN_RATIO == k_target) {
-                            // Likewise, if `k == k_orig`, we found the correct answer.
-                            return y;
-                        }
-                        uint256 k_next = _k(x, y - 1, x_squared_raw) / _VELODROME_INTERNAL_TO_TOKEN_RATIO;
-                        if (k_next < k_target) {
+                        if (_k_compat(x, y - 1, x_squared_raw) < k_target) {
                             // If `_k(x, y - 1) < k_orig`, then we are close to the correct answer.
-                            // There's no closer answer than `y`
-                            // It's worth mentioning that we need to find `y` where `_k(x, y) >=
-                            // k_orig`
-                            // As a result, we can't return `y - 1` even it's closer to the correct
-                            // answer
+                            // There's no closer answer than `y`. We need to find `y` where `_k(x,
+                            // y) >= k_orig`. As a result, we can't return `y - 1` even it's closer
+                            // to the correct answer
                             return y;
                         }
-                        if (k_next == k_target) {
+                        if (_k(x, y - 2, x_squared_raw) < k_orig) {
+                            // It may be the case that all 3 of `y`, `y - 1`, and `y - 2` give the
+                            // same value for `_k_compat`, but that `y - 2` gives a value for `_k`
+                            // that brackets `k_orig`. In this case, we would loop forever. This
+                            // branch causes us to bail out with the approximately correct value.
                             return y - 1;
                         }
                         // It's possible that `y - 1` is the correct answer. To know that, we must
                         // check that `y - 2` gives `k < k_orig`. We must do at least 1 more
                         // iteration to determine this.
                         dy = 2;
+                    }
+                    if (dy > y / 2) {
+                        dy = y / 2;
                     }
                     y -= dy;
                 }
@@ -262,13 +294,17 @@ abstract contract Velodrome is SettlerAbstract {
             // Convert `buyAmount` from `_VELODROME_TOKEN_BASIS` to native units
             buyAmount = buyAmount * buyBasis / _VELODROME_TOKEN_BASIS;
         }
-        // Compensate for rounding error in the pair's calculation of the constant function
-        buyAmount--;
 
+        // Compensate for rounding error in the reference implementation of the constant-function
+        buyAmount--;
+        buyAmount.dec((sellReserve < sellBasis).or(buyReserve < buyBasis));
+
+        // Check slippage
         if (buyAmount < minAmountOut) {
             revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
         }
 
+        // Perform the swap
         {
             (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
             pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));

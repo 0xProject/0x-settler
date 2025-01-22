@@ -25,6 +25,7 @@ import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {Revert} from "src/utils/Revert.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
+import {uint512} from "src/utils/512Math.sol";
 
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 
@@ -189,6 +190,10 @@ contract UniswapV4Stub is UniswapV4 {
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 
