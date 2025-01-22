@@ -28,6 +28,8 @@ import {
 } from "../../core/univ3forks/SolidlyV3.sol";
 import {dackieSwapV3OptimismFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
 
+import {OPTIMISM_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -96,6 +98,6 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4 {
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return OPTIMISM_POOL_MANAGER;
     }
 }

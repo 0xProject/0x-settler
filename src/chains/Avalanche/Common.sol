@@ -20,6 +20,8 @@ import {
 } from "../../core/univ3forks/UniswapV3.sol";
 //import {sushiswapV3AvalancheFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 
+import {AVALANCHE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -81,6 +83,6 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4 {
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return AVALANCHE_POOL_MANAGER;
     }
 }

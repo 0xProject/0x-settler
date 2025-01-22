@@ -41,6 +41,8 @@ import {dackieSwapV3BaseFactory, dackieSwapV3ForkId} from "../../core/univ3forks
 import {thickFactory, thickInitHash, thickForkId} from "../../core/univ3forks/Thick.sol";
 import {kinetixV3BaseFactory, kinetixV3ForkId} from "../../core/univ3forks/KinetixV3.sol";
 
+import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -167,7 +169,7 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, Unis
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return BASE_POOL_MANAGER;
     }
 
     function msgSender() external view returns (address result) {

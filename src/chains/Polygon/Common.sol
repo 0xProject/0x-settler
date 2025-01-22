@@ -23,6 +23,8 @@ import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {sushiswapV3PolygonFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {quickSwapV3Factory, quickSwapV3InitHash, quickSwapV3ForkId} from "../../core/univ3forks/QuickSwapV3.sol";
 
+import {POLYGON_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -93,6 +95,6 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return POLYGON_POOL_MANAGER;
     }
 }

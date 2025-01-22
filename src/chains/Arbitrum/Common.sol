@@ -39,6 +39,8 @@ import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {camelotV3Factory, camelotV3InitHash, camelotV3ForkId} from "../../core/univ3forks/CamelotV3.sol";
 import {dackieSwapV3ArbitrumFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
 
+import {ARBITRUM_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -142,6 +144,6 @@ abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTri
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return ARBITRUM_POOL_MANAGER;
     }
 }

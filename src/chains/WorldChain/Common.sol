@@ -21,6 +21,8 @@ import {
 import {dackieSwapV3WorldChainFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
 import {pancakeSwapV3InitHash, IPancakeSwapV3Callback} from "../../core/univ3forks/PancakeSwapV3.sol";
 
+import {WORLDCHAIN_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -77,6 +79,6 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return WORLDCHAIN_POOL_MANAGER;
     }
 }

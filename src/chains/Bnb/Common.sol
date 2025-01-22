@@ -29,6 +29,8 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 //import {sushiswapV3BnbFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 
+import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -110,6 +112,6 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return BNB_POOL_MANAGER;
     }
 }

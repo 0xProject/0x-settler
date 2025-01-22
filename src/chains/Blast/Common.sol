@@ -39,6 +39,8 @@ import {
     rogueXV1Factory, rogueXV1InitHash, rogueXV1ForkId, IRoxSpotSwapCallback
 } from "../../core/univ3forks/RogueXV1.sol";
 
+import {BLAST_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
 import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
@@ -149,6 +151,6 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        revert("unimplemented");
+        return BLAST_POOL_MANAGER;
     }
 }
