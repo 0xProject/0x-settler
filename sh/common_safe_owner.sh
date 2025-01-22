@@ -5,7 +5,7 @@ if [[ -f "$saved_safe_owner" && -r "$saved_safe_owner" ]] ; then
     signer="$(<"$saved_safe_owner")"
 fi
 
-contains() {
+function contains {
     declare -r elem="$1"
     shift
 
@@ -33,7 +33,7 @@ fi
 
 declare -r signer
 
-sign_call() {
+function sign_call {
     declare -r _sign_call_struct_json="$1"
     shift
 
@@ -71,7 +71,7 @@ sign_call() {
     echo "$_sign_call_result"
 }
 
-save_signature() {
+function save_signature {
     declare -r _save_signature_prefix="$1"
     shift
 
