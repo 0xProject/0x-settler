@@ -140,13 +140,13 @@ declare -r -a chains
 declare chain_name
 for chain_name in "${chains[@]}" ; do
     if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
-        if [[ $(get_config "$chain_name" isShanghai) != [Tt]rue ]] ; then
-            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Shanghai' >&2
+        if [[ $(get_config "$chain_name" isCancun) != [Ff]alse ]] ; then
+            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is Cancun' >&2
             continue
         fi
 
-        if [[ $(get_config "$chain_name" isCancun) != [Tt]rue ]] ; then
-            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Cancun' >&2
+        if [[ $(get_config "$chain_name" isShanghai) != [Ff]alse ]] ; then
+            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is Shanghai' >&2
             continue
         fi
     fi
