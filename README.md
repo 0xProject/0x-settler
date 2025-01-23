@@ -124,9 +124,10 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
-  Arbitrum, Blast, Bnb, Mode, World Chain)
+  Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
+  testnet, Avalanche)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Avalanche, Scroll, Mantle, Taiko)
+  hardfork (Scroll, Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
   hardfork (Linea)
 
@@ -1303,7 +1304,8 @@ happen.
 ## How to deploy to a new chain
 
 Zeroth, verify the configuration for your chain in
-[`chain_config.json`](chain_config.json) and
+[`chain_config.json`](chain_config.json),
+[`api_secrets.json.template`](api_secrets.json.template), and
 [`script/SafeConfig.sol`](script/SafeConfig.sol). Add the new chain to the list
 of `AllowanceHolder` addresses at the top of this file.
 

@@ -23,6 +23,8 @@ contract MainnetSettler is Settler, MainnetMixin {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             revert("unimplemented");
+        } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
+             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
             (
                 address recipient,

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
@@ -132,6 +132,7 @@ IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD7011
 declare -r signer
 
 . "$project_root"/sh/common_wallet_type.sh
+. "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
@@ -158,38 +159,8 @@ while (( ${#deploy_calldatas[@]} >= 2 )) ; do
     declare signing_hash
     signing_hash="$(eip712_hash "$deploy_calldata" $operation)"
 
-    declare -a signatures=()
-    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-        set +f
-        for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
-            signatures+=("$(<"$confirmation")")
-        done
-        set -f
-
-        if (( ${#signatures[@]} != 2 )) ; then
-            echo 'Bad number of signatures' >&2
-            exit 1
-        fi
-    else
-        declare signatures_json
-        signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
-
-        if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
-            echo 'Bad number of signatures' >&2
-            exit 1
-        fi
-
-        if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
-            signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-            signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-        else
-            signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-            signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-        fi
-    fi
-
     declare packed_signatures
-    packed_signatures="$(cast concat-hex "${signatures[@]}")"
+    packed_signatures="$(retrieve_signatures settler_confirmation "$deploy_calldata" $operation)"
 
     # configure gas limit
     declare -a args=(

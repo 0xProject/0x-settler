@@ -1,3 +1,7 @@
+declare safe_url
+safe_url="$(get_config safe.apiUrl)"
+declare -r safe_url
+
 declare multicall_address
 multicall_address="$(get_config safe.multiCall)"
 declare -r multicall_address
@@ -11,6 +15,42 @@ current_safe_nonce="$(cast call --rpc-url "$rpc_url" "$safe_address" 'nonce()(ui
 declare -r -i current_safe_nonce
 nonce() {
     echo $((${SAFE_NONCE_INCREMENT:-0} + current_safe_nonce))
+}
+
+declare -r get_owners_sig='getOwners()(address[])'
+declare owners
+owners="$(cast call --rpc-url "$rpc_url" "$safe_address" "$get_owners_sig")"
+owners="${owners:1:$((${#owners} - 2))}"
+owners="${owners//, /;}"
+declare -r owners
+
+declare -a owners_array
+IFS=';' read -r -a owners_array <<<"$owners"
+declare -r -a owners_array
+
+prev_owner() {
+    declare _prev_owner_inp="$1"
+    shift
+    _prev_owner_inp="$(cast to-checksum "$_prev_owner_inp")"
+    declare -r _prev_owner_inp
+
+    declare result=0x0000000000000000000000000000000000000001
+    declare _prev_owner_i
+    for i in ${!owners_array[@]} ; do
+        _prev_owner_i="$(cast to-checksum "${owners_array[$i]}")"
+        if [[ $_prev_owner_i = "$_prev_owner_inp" ]] ; then
+            break
+        fi
+        result="$_prev_owner_i"
+    done
+    declare -r result
+
+    if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
+        echo 'Previous owner for "'"$_prev_owner_inp"'" not found' >&2
+        return 1
+    fi
+
+    echo "$result"
 }
 
 target() {
@@ -52,17 +92,26 @@ declare -r eip712_message_json_template='{
     "nonce": $nonce | tonumber'
 
 eip712_json() {
-    declare -r calldata="$1"
+    declare -r _eip712_json_calldata="$1"
     shift
 
-    declare -i operation
+    declare -i _eip712_json_operation
     if (( $# > 0 )) ; then
-        operation="$1"
+        _eip712_json_operation="$1"
         shift
     else
-        operation=0
+        _eip712_json_operation=0
     fi
-    declare -r -i operation
+    declare -r -i _eip712_json_operation
+
+    declare _eip712_json_to
+    if (( $# > 0 )) ; then
+        _eip712_json_to="$1"
+        shift
+    else
+        _eip712_json_to="$(target $_eip712_json_operation)"
+    fi
+    declare -r _eip712_json_to
 
     jq -Mc \
     '
@@ -132,9 +181,9 @@ eip712_json() {
     '                                       \
     --arg verifyingContract "$safe_address" \
     --arg chainId "$chainid"                \
-    --arg to "$(target $operation)"         \
-    --arg data "$calldata"                  \
-    --arg operation $operation              \
+    --arg to "$_eip712_json_to"             \
+    --arg data "$_eip712_json_calldata"     \
+    --arg operation $_eip712_json_operation \
     --arg nonce $(nonce)                    \
     <<<'{}'
 }
@@ -152,7 +201,16 @@ eip712_struct_hash() {
     fi
     declare -r -i operation
 
-    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$(target $operation)" 0 "$(cast keccak "$calldata")" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
+    declare to
+    if (( $# > 0 )) ; then
+        to="$1"
+        shift
+    else
+        to="$(target $operation)"
+    fi
+    declare -r to
+
+    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$to" 0 "$(cast keccak "$calldata")" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
 }
 
 eip712_hash() {
@@ -168,8 +226,17 @@ eip712_hash() {
     fi
     declare -r -i operation
 
+    declare to
+    if (( $# > 0 )) ; then
+        to="$1"
+        shift
+    else
+        to="$(target $operation)"
+    fi
+    declare -r to
+
     declare struct_hash
-    struct_hash="$(eip712_struct_hash "$calldata" $operation)"
+    struct_hash="$(eip712_struct_hash "$calldata" $operation "$to")"
 
     cast keccak "$(cast concat-hex '0x1901' "$domain_separator" "$struct_hash")"
 }

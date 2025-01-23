@@ -25,7 +25,9 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+            revert("unimplemented");
+        } else if (action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector)) {
             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (

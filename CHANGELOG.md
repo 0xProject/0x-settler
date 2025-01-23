@@ -26,6 +26,10 @@ Master list of UniV3 forks:
   23. SwapMode
   24. Swapsicle (Algebra-like)
   25. Panko
+  26. Swapr (Algebra-like)
+  27. SpookySwap
+  28. Wagmi
+  29. SwapX (Algebra-like)
 
 ---
 
@@ -34,7 +38,12 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Remove `gemToken` and `psm` arguments from `MAKERPSM` action
-  * This specializes and gas optimizes the action for the Lite PSM (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
+  * This specializes and gas optimizes the action for the Lite PSM
+    (0xf6e72Db5454dd049d0788e411b06CfAF16853042)
+* `TRANSFER_FROM` is now a "VIP" action. It can only be executed as the first
+  action of a swap
+* Update Avalanche to the Cancun hardfork
+  * This means that the AllowanceHolder address on Avalanche is now 0x0000000000001fF3684f28c67538d4D072C22734
 
 ### Non-breaking changes
 
@@ -42,8 +51,19 @@ Master list of UniV3 forks:
   * `UNISWAPV4`, `UNISWAPV4_VIP`, and `METATXN_UNISWAPV4_VIP`
   * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
     encode `fills`
-  * See comments in [UniswapV4.sol](src/core/UniswapV4.sol) regarding how to
-    compute a perfect token hash function
+  * See comments in
+    [FlashAccountingCommon.sol](src/core/FlashAccountingCommon.sol) regarding
+    how to compute a perfect token hash function
+* Add UniswapV4 actions to:
+  * Mainnet
+  * Arbitrum
+  * Avalanche
+  * Base
+  * Blast
+  * Bnb
+  * Optimism
+  * Polygon
+  * WorldChain
 * Add `msgSender()(address)` accessor on Base to retrieve the current taker
 * Improve accuracy, gas, and convergence region coverage in SolidlyV1/VelodromeV2 action (`VELODROME`)
 * Add DodoV1 actions to more chains
@@ -53,6 +73,51 @@ Master list of UniV3 forks:
   * Add `DODOV1` action to Mantle
   * Add `DODOV1` action to Polygon
   * Add `DODOV1` action to Scroll
+* Add `rebateClaimer()(address)` function on Mainnet Settlers for gas rebate program
+* Add SolidlyV3 UniV3 fork to Sonic
+* Add Wagmi UniV3 fork to Sonic
+* Add SwapX UniV3 (Algebra style) fork to Sonic
+* Add actions for BalancerV3
+  * `BALANCERV3`, `BALANCERV3_VIP`, and `METATXN_BALANCERV3_VIP`
+  * See comments in [BalancerV3.sol](src/core/BalancerV3.sol) regarding how to
+    encode `fills`
+  * See comments in
+    [FlashAccountingCommon.sol](src/core/FlashAccountingCommon.sol) regarding
+    how to compute a perfect token hash function
+
+## 2025-01-09
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Monad testnet chain
+
+## 2024-12-18
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Ink chain
+  * Add UniswapV3 UniV3 fork to Ink
+
+## 2024-12-14
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Fantom Sonic network
+  * Add UniswapV3 UniV3 fork to Sonic
+  * Add SpookySwap UniV3 fork to Sonic
+
+## 2024-12-12
+
+### Breaking changes
+
+### Non-breaking changes
+
 * Deploy Settler to Taiko network
   * Add UniswapV3 UniV3 fork to Taiko
   * Add Swapsicle UniV3 (Algebra style) fork to Taiko
@@ -60,6 +125,10 @@ Master list of UniV3 forks:
 * Deploy Settler to World Chain network
   * Add UniswapV3 UniV3 fork to World Chain
   * Add DackieSwapV3 UniV3 fork to World Chain
+* Deploy Settler to Gnosis chain
+  * Add UniswapV3 UniV3 fork to Gnosis
+  * Add SushiswapV3 UniV3 fork to Gnosis
+  * Add Swapr UniV3 (Algebra style) fork to Gnosis
 
 ## 2024-10-08
 

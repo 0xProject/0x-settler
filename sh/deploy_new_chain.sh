@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
@@ -130,6 +130,7 @@ fi
 
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
+. "$project_root"/sh/common_deploy_settler.sh
 
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
@@ -228,22 +229,6 @@ upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_sa
 upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
 declare -r upgrade_safe
 
-# encode constructor arguments for Settler
-declare constructor_args
-constructor_args="$(cast abi-encode 'constructor(bytes20)' 0x"$(git rev-parse HEAD)")"
-declare -r constructor_args
-
-declare chain_display_name
-chain_display_name="$(get_config displayName)"
-declare -r chain_display_name
-forge clean
-declare flat_source
-flat_source="$project_root"/src/flat/"$chain_display_name"Flat.sol
-declare -r flat_source
-trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_source")" EXIT
-forge flatten -o "$flat_source" src/chains/"$chain_display_name".sol >/dev/null
-forge build "$flat_source"
-
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -274,6 +259,9 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --slow                                               \
     --no-storage-caching                                 \
     --skip 'Flat.sol'                                    \
+    --skip 'src/chains/*.sol'                            \
+    --skip 'src/core/*.sol'                              \
+    --skip 'src/utils/*.sol'                             \
     --isolate                                            \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
     --with-gas-price $gas_price                          \

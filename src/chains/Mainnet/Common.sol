@@ -34,6 +34,9 @@ import {
     ISolidlyV3Callback
 } from "../../core/univ3forks/SolidlyV3.sol";
 
+import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
+import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -61,6 +64,8 @@ abstract contract MainnetMixin is
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
+            revert("unimplemented");
+        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
@@ -118,5 +123,9 @@ abstract contract MainnetMixin is
 
     function _curveFactory() internal pure override returns (address) {
         return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
+    }
+
+    function rebateClaimer() external view returns (address) {
+        return IOwnable(DEPLOYER).owner();
     }
 }
