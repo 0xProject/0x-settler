@@ -6,6 +6,8 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
+import {UniswapV4} from "../../core/UniswapV4.sol";
+import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -42,7 +44,7 @@ import {kinetixV3BaseFactory, kinetixV3ForkId} from "../../core/univ3forks/Kinet
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
+abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, UniswapV4 {
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
@@ -56,6 +58,19 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -149,6 +164,10 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2 {
                 }
             }
         }
+    }
+
+    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
+        revert("unimplemented");
     }
 
     function msgSender() external view returns (address result) {

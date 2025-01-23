@@ -6,7 +6,8 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
-import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {IPoolManager as Settler_IPoolManager, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {MAINNET_POOL_MANAGER as POOL_MANAGER} from "src/core/UniswapV4Addresses.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 import {IPoolManager} from "@uniswapv4/interfaces/IPoolManager.sol";
@@ -111,6 +112,10 @@ contract TestERC20 is ERC20, InvariantAssume {
 contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
     using SafeTransferLib for IERC20;
+
+    function _POOL_MANAGER() internal pure override returns (Settler_IPoolManager) {
+        return POOL_MANAGER;
+    }
 
     function sellToUniswapV4(
         IERC20 sellToken,
@@ -354,7 +359,7 @@ abstract contract BaseUniswapV4UnitTest is Test {
     }
 
     function _deployPoolManager() internal returns (address poolManagerSrc) {
-        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager");
+        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager", abi.encode(address(this)));
         require(poolManagerSrc != address(0));
         bytes memory poolManagerCode = poolManagerSrc.code;
         uint256 replaceCount = _replaceAll(
@@ -592,7 +597,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         if (Currency.unwrap(poolKey.currency0) == ETH) {
             poolKey.currency0 = Currency.wrap(address(0));
         }
-        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
+        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96);
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96, tickSpacing));
     }
 

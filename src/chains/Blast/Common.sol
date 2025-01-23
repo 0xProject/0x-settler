@@ -3,6 +3,9 @@ pragma solidity ^0.8.25;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {UniswapV4} from "../../core/UniswapV4.sol";
+import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -42,8 +45,9 @@ import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBl
 
 // Solidity inheritance is stupid
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract BlastMixin is FreeMemory, SettlerBase {
+abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
     constructor() {
         if (block.chainid != 31337) {
             assert(block.chainid == 81457);
@@ -66,11 +70,29 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override
+        override(SettlerAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        if (super._dispatch(i, action, data)) {
+            return true;
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -124,5 +146,9 @@ abstract contract BlastMixin is FreeMemory, SettlerBase {
                 revert UnknownForkId(forkId);
             }
         }
+    }
+
+    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
+        revert("unimplemented");
     }
 }

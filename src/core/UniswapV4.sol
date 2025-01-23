@@ -12,7 +12,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {
-    BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, POOL_MANAGER, IUnlockCallback
+    BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback
 } from "./UniswapV4Types.sol";
 import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
@@ -49,6 +49,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         assert(BASIS == Decoder.BASIS);
         assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
     }
+
+    function _POOL_MANAGER() internal view virtual returns (IPoolManager);
 
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has a
     //// mandatory callback, and the vast majority of the business logic has to be executed inside
@@ -112,7 +114,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -146,7 +148,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(POOL_MANAGER), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -366,6 +368,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     revert ZeroSellAmount(globalSellToken);
                 }
                 if (globalSellToken == ETH_ADDRESS) {
+                    IPoolManager(msg.sender).unsafeSync(IERC20(address(0)));
                     IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {
                     _pay(globalSellToken, payer, debt, permit, isForwarded, sig);

@@ -23,7 +23,26 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatchVIP(action, data, sig);
+        if (super._dispatchVIP(action, data, sig)) {
+            return true;
+        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, uint256)
+            );
+
+            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+        } else {
+            return false;
+        }
+        return true;
     }
 
     // Solidity inheritance is stupid
