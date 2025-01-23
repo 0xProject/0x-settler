@@ -10,8 +10,8 @@ contract Dummy {}
 contract Create3Test is Test {
     function testCreate3() public {
         bytes32 salt = bytes32(uint256(1));
-        address predicted = Create3.predict(salt);
-        assertEq(Create3.createFromMemory(salt, type(Dummy).creationCode), predicted);
+        address predicted = Create3.predictLondon(salt);
+        assertEq(Create3.createFromMemoryLondon(salt, type(Dummy).creationCode), predicted);
         assertNotEq(predicted.code.length, 0);
     }
 }

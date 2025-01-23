@@ -69,7 +69,7 @@ contract ERC1967UUPSTest is Test {
         vm.breakpoint("a");
         vm.expectEmit(true, true, true, true, _predict(address(this), 2));
         emit Upgraded(address(impl));
-        address proxy = ERC1967UUPSProxy.create(address(impl), abi.encodeCall(Mock.initialize, (address(this))));
+        address proxy = ERC1967UUPSProxy.createLondon(address(impl), abi.encodeCall(Mock.initialize, (address(this))));
         vm.label(proxy, "Proxy");
         mock = IMock(proxy);
         assertEq(mock.version(), "1");
@@ -163,19 +163,16 @@ contract ERC1967UUPSTest is Test {
     function testBrokenVersion() external {
         IMock newImpl = new Mock(1);
 
-        // the revert string has the arguments backwards here because we get
-        // infinite recursion. which order we get depends on the context depth
-        // and gas limit on entry.
-        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", mock.implementation(), newImpl));
+        vm.expectRevert(abi.encodeWithSignature("RollbackFailed(address,address)", newImpl, mock.implementation()));
         mock.upgrade(address(newImpl));
     }
 
     function testCode() external {
         bytes32 expected = keccak256(
             bytes.concat(
-                hex"365f5f375f5f365f7f",
+                hex"363d3d373d3d3d3d363d7f",
                 bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1),
-                hex"545af43d5f5f3e6036573d5ffd5b3d5ff3"
+                hex"545af43d3d93803e603757fd5bf3"
             )
         );
         assertEq(keccak256(address(mock).code), expected);
