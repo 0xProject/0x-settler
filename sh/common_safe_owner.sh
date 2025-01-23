@@ -78,8 +78,14 @@ function save_signature {
     declare -r _save_signature_call="$1"
     shift
 
-    declare -r _save_signature_signature="$1"
+    declare _save_signature_signature="$1"
     shift
+    if [[ ${_save_signature_signature: -2} = '00' ]] ; then
+        _save_signature_signature="${_save_signature_signature:: -2}"'1b'
+    elif [[ ${_save_signature_signature: -2} = '01' ]] ; then
+        _save_signature_signature="${_save_signature_signature:: -2}"'1c'
+    fi
+    declare -r _save_signature_signature
 
     declare -i _save_signature_operation
     if (( $# > 0 )) ; then
