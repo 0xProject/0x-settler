@@ -138,7 +138,7 @@ readarray -t chains < <(jq -rM 'keys_unsorted[]' "$project_root"/chain_config.js
 declare -r -a chains
 
 declare -a skip_chains
-readarray -t skip_chains -d , <<<"${SKIP_CHAINS-}"
+readarray -t -d, skip_chains < <(printf "%s" "${SKIP_CHAINS:-}")
 declare -r -a skip_chains
 
 contains() {
