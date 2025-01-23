@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {TooMuchSlippage} from "./SettlerErrors.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 interface IDodoV1 {
     function sellBaseToken(uint256 amount, uint256 minReceiveQuote, bytes calldata data) external returns (uint256);
@@ -27,20 +27,14 @@ interface IDodoV1 {
     function getExpectedTarget() external view returns (uint256 baseTarget, uint256 quoteTarget);
 
     function getOraclePrice() external view returns (uint256);
+
+    function _BASE_TOKEN_() external view returns (IERC20);
+
+    function _QUOTE_TOKEN_() external view returns (IERC20);
 }
 
 library Math {
-    function divCeil(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 quotient = a / b;
-        unchecked {
-            uint256 remainder = a - quotient * b;
-            if (remainder > 0) {
-                return quotient + 1;
-            } else {
-                return quotient;
-            }
-        }
-    }
+    using UnsafeMath for uint256;
 
     function sqrt(uint256 x) internal pure returns (uint256 y) {
         unchecked {
@@ -48,13 +42,14 @@ library Math {
             y = x;
             while (z < y) {
                 y = z;
-                z = (x / z + z) / 2;
+                z = (x.unsafeDiv(z) + z) / 2;
             }
         }
     }
 }
 
 library DecimalMath {
+    using UnsafeMath for uint256;
     using Math for uint256;
 
     uint256 constant ONE = 10 ** 18;
@@ -67,24 +62,25 @@ library DecimalMath {
 
     function mulCeil(uint256 target, uint256 d) internal pure returns (uint256) {
         unchecked {
-            return (target * d).divCeil(ONE);
+            return (target * d).unsafeDivUp(ONE);
         }
     }
 
     function divFloor(uint256 target, uint256 d) internal pure returns (uint256) {
         unchecked {
-            return target * ONE / d;
+            return (target * ONE).unsafeDiv(d);
         }
     }
 
     function divCeil(uint256 target, uint256 d) internal pure returns (uint256) {
         unchecked {
-            return (target * ONE).divCeil(d);
+            return (target * ONE).unsafeDivUp(d);
         }
     }
 }
 
 library DodoMath {
+    using UnsafeMath for uint256;
     using Math for uint256;
 
     /*
@@ -101,7 +97,7 @@ library DodoMath {
     {
         unchecked {
             uint256 fairAmount = DecimalMath.mul(i, V1 - V2); // i*delta
-            uint256 V0V0V1V2 = DecimalMath.divCeil(V0 * V0 / V1, V2);
+            uint256 V0V0V1V2 = DecimalMath.divCeil((V0 * V0).unsafeDiv(V1), V2);
             uint256 penalty = DecimalMath.mul(k, V0V0V1V2); // k(V0^2/V1/V2)
             return DecimalMath.mul(fairAmount, DecimalMath.ONE - k + penalty);
         }
@@ -129,7 +125,7 @@ library DodoMath {
         unchecked {
             // calculate -b value and sig
             // -b = (1-k)Q1-kQ0^2/Q1+i*deltaB
-            uint256 kQ02Q1 = DecimalMath.mul(k, Q0) * Q0 / Q1; // kQ0^2/Q1
+            uint256 kQ02Q1 = (DecimalMath.mul(k, Q0) * Q0).unsafeDiv(Q1); // kQ0^2/Q1
             uint256 b = DecimalMath.mul(DecimalMath.ONE - k, Q1); // (1-k)Q1
             bool minusbSig = true;
             if (deltaBSig) {
@@ -280,18 +276,21 @@ abstract contract DodoSellHelper {
 }
 
 abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
 
     function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)
         internal
     {
-        uint256 sellAmount = sellToken.balanceOf(address(this)).mulDiv(bps, BASIS);
+        uint256 sellAmount;
+        unchecked {
+            sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+        }
         sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(dodo, sellAmount);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(sellToken, minBuyAmount, buyAmount);
+                revert TooMuchSlippage(dodo._BASE_TOKEN_(), minBuyAmount, buyAmount);
             }
             dodo.buyBaseToken(buyAmount, sellAmount, new bytes(0));
         } else {

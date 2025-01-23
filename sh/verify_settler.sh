@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
@@ -121,21 +121,16 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
-
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
+
+# calls encoded as operation (always zero) 1 byte
+#                  target address          20 bytes
+#                  value                   32 bytes
+#                  data length             32 bytes
+#                  data                    variable
+declare -r multisend_sig='multiSend(bytes)'
 
 . "$project_root"/sh/common_deploy_settler.sh
 
@@ -146,19 +141,15 @@ echo 'Verifying taker-submitted settler...' >&2
 declare taker_settler
 taker_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 2)"
 declare -r taker_settler
-forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"Settler
-if (( chainid != 81457 )) && (( chainid != 59144 )); then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$taker_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"Settler
-fi
+
+verify_contract "$constructor_args" "$taker_settler" "$flat_taker_source":"$chain_display_name"Settler
 
 echo 'Verified taker-submitted Settler... verifying metatx Settler...' >&2
 
 declare metatx_settler
 metatx_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 3)"
 declare -r metatx_settler
-forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"SettlerMetaTxn
-if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$metatx_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"SettlerMetaTxn
-fi
+
+verify_contract "$constructor_args" "$metatx_settler" "$flat_metatx_source":"$chain_display_name"SettlerMetaTxn
 
 echo 'Verified metatx Settler. All done!' >&2

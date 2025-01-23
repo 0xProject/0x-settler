@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {Shim} from "./SettlerBasePairTest.t.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet.sol";
+import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 import {Settler} from "src/Settler.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
@@ -173,8 +173,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
-        snapStartName("settler_metaTxn_maverickV2");
         vm.startPrank(address(this), address(this));
+        snapStartName("settler_metaTxn_maverickV2");
         _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
         snapEnd();
         vm.stopPrank();

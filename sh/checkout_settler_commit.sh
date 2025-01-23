@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
@@ -120,18 +120,6 @@ declare -r project_root
 cd "$project_root"
 
 . "$project_root"/sh/common.sh
-
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
 
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"

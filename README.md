@@ -47,18 +47,19 @@ interface IDeployerTiny is IERC721Tiny {
     function prev(uint128 featureId) external view returns (address);
 }
 
+IDeployerTiny constant ZERO_EX_DEPLOYER =
+    IDeployerTiny(0x00000000000004533Fe15556B1E086BB1A72cEae);
+
 error CounterfeitSettler(address);
 
 function requireGenuineSettler(uint128 featureId, address allegedSettler)
     internal
     view
 {
-    IDeployerTiny deployer =
-        IDeployerTiny(0x00000000000004533Fe15556B1E086BB1A72cEae);
     // Any revert in `ownerOf` or `prev` will be bubbled. Any error in
     // ABIDecoding the result will result in a revert without a reason string.
-    if (deployer.ownerOf(featureId) != allegedSettler
-        || deployer.prev(featureId) != allegedSettler) {
+    if (ZERO_EX_DEPLOYER.ownerOf(featureId) != allegedSettler
+        && ZERO_EX_DEPLOYER.prev(featureId) != allegedSettler) {
         revert CounterfeitSettler(allegedSettler);
     }
 }
@@ -70,12 +71,12 @@ below, but it does not cover the case where Settler has been paused due to a
 bug.
 
 ```Solidity
-
 function computeGenuineSettler(uint128 featureId, uint64 deployNonce)
     internal
     view
     returns (address)
 {
+    address zeroExDeployer = 0x00000000000004533Fe15556B1E086BB1A72cEae;
     bytes32 salt = bytes32(
         uint256(featureId) << 128 | uint256(block.chainid) << 64
             | uint256(deployNonce)
@@ -91,7 +92,7 @@ function computeGenuineSettler(uint128 featureId, uint64 deployNonce)
                     keccak256(
                         abi.encodePacked(
                             bytes1(0xff),
-                            0x00000000000004533Fe15556B1E086BB1A72cEae,
+                            zeroExDeployer,
                             salt,
                             shimInitHash
                         )
@@ -123,9 +124,10 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
-  Arbitrum, Blast)
+  Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
+  testnet, Avalanche)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Bnb, Avalanche, Scroll, Mantle)
+  hardfork (Scroll, Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
   hardfork (Linea)
 
@@ -622,7 +624,7 @@ comparison.
 
 | Curve             | DEX                   | Pair      | Gas    | %       |
 | ----------------- | --------------------- | --------- | ------ | ------- |
-| Settler           | CurveV2 Tricrypto VIP | USDC/WETH | 432293 | NaN%    |
+| Settler           | CurveV2 Tricrypto VIP | USDC/WETH | 432430 | NaN%    |
 |                   |                       |           |        |         |
 |                   |                       |           |        |         |
 | 0x V4             | Curve                 | USDT/WETH | 452963 | 0.00%   |
@@ -741,8 +743,8 @@ do multiple Permit2 interactions in the same Settler call.
 
 # Risk
 
-Since Settler has no outstanding allowances, and no usage of `transferFrom` or
-arbitrary calls, overall risk of user funds loss is greatly reduced.
+Since Settler has no outstanding allowances, and no usage of
+`IERC20.transferFrom`, overall risk of user funds loss is greatly reduced.
 
 Permit2 allowances (with short dated expiration) still has some risk. Namely,
 `Alice` permit2 being intercepted and a malicious transaction from `Mallory`,
@@ -1302,8 +1304,10 @@ happen.
 ## How to deploy to a new chain
 
 Zeroth, verify the configuration for your chain in
-[`chain_config.json`](chain_config.json) and
-[`script/SafeConfig.sol`](script/SafeConfig.sol).
+[`chain_config.json`](chain_config.json),
+[`api_secrets.json.template`](api_secrets.json.template), and
+[`script/SafeConfig.sol`](script/SafeConfig.sol). Add the new chain to the list
+of `AllowanceHolder` addresses at the top of this file.
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
 this, give up. Also populate `api_secrets.json` by copying
@@ -1326,7 +1330,7 @@ declare txid
 # you might need to add the `--gas-price` and/or `--gas-limit` flags here; some chains are weird about that
 txid="$(cast send --json --rpc-url "$rpc_url" --chain $chainid --from $deployer_eoa --create "$(forge inspect src/ChainCompatibility.sol:ChainCompatibility bytecode)" | jq -rM .transactionHash)"
 declare -r txid
-cast receipt --json --rpc-url "$rpc_url" --chain $chainid $txid | jq -r '.logs[] | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }'
+cast receipt --json --rpc-url "$rpc_url" $txid | jq -r '.logs[] | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }'
 ```
 
 The `stage` fields should be in order (0 through 3). Stage 0 is

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -76,9 +76,16 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
+        if (!_hasMetaTxn()) {
+            assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
+        }
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
             _permitToTransferDetails(makerPermit, recipient);
+        // In theory, the taker permit could invoke the balance-proportional sell amount logic. However,
+        // because we hash the sell amount computed here into the maker's consideration (witness) only a
+        // balance-proportional sell amount that corresponds exactly to the signed order would avoid a
+        // revert. In other words, no unexpected behavior is possible. It's pointless to prohibit the
+        // use of that logic.
         (ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails, uint256 takerAmount) =
             _permitToTransferDetails(takerPermit, maker);
 
@@ -121,7 +128,9 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         IERC20 takerToken,
         uint256 maxTakerAmount
     ) internal {
-        assert(permit.permitted.amount <= type(uint256).max - BASIS);
+        if (!_hasMetaTxn()) {
+            assert(permit.permitted.amount <= type(uint256).max - BASIS);
+        }
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered
         // slippage.
@@ -147,7 +156,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
 
         // Now we adjust the transfer amounts to compensate for encountered slippage. Rounding is
         // performed in the maker's favor.
-        uint256 takerAmount = takerToken.balanceOf(address(this));
+        uint256 takerAmount = takerToken.fastBalanceOf(address(this));
         if (takerAmount > maxTakerAmount) {
             takerAmount = maxTakerAmount;
         }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'Duncan wrote this script for his own use' >&2
 echo 'read the whole thing and make appropriate modifications before using it' >&2
@@ -137,19 +137,6 @@ declare -r singleton_hash='0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a
 declare -r factory_hash='0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b'
 declare -r fallback_hash='0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf'
 declare -r multicall_hash='0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad'
-
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
-
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
 
 declare singleton
 singleton="$(get_config safe.singleton)"

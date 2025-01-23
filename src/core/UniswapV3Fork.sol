@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -34,6 +34,7 @@ interface IUniswapV3Pool {
 
 abstract contract UniswapV3Fork is SettlerAbstract {
     using UnsafeMath for uint256;
+    using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
 
     /// @dev Minimum size of an encoded swap path:
@@ -73,7 +74,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
-            (IERC20(address(bytes20(encodedPath))).balanceOf(address(this)) * bps).unsafeDiv(BASIS),
+            (IERC20(address(bytes20(encodedPath))).fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS),
             minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
@@ -192,7 +193,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             }
 
             {
-                int256 _buyAmount = -(zeroForOne ? amount1 : amount0);
+                int256 _buyAmount = (zeroForOne ? amount1 : amount0).unsafeNeg();
                 if (_buyAmount < 0) {
                     Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                 }
@@ -336,15 +337,26 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     /// @param amount1Delta Token1 amount owed.
     /// @param data Arbitrary data forwarded from swap() caller. A packed encoding of: payer, sellToken, (optionally: permit[0x20:], isForwarded, sig)
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) private {
-        address payer = address(uint160(bytes20(data)));
-        data = data[0x14:];
+        address payer;
+        assembly ("memory-safe") {
+            payer := shr(0x60, calldataload(data.offset))
+            data.length := sub(data.length, 0x14)
+            data.offset := add(0x14, data.offset)
+            // We don't check for underflow/array-out-of-bounds here because the trusted inithash
+            // ensures that `data` was passed unmodified from `_updateSwapCallbackData`. Therefore,
+            // it is at least 40 bytes long.
+        }
         uint256 sellAmount = amount0Delta > 0 ? uint256(amount0Delta) : uint256(amount1Delta);
         _pay(payer, sellAmount, data);
     }
 
     function _pay(address payer, uint256 amount, bytes calldata permit2Data) private {
         if (payer == address(this)) {
-            IERC20(address(uint160(bytes20(permit2Data)))).safeTransfer(msg.sender, amount);
+            IERC20 token;
+            assembly ("memory-safe") {
+                token := shr(0x60, calldataload(permit2Data.offset))
+            }
+            token.safeTransfer(msg.sender, amount);
         } else {
             assert(payer == address(0));
             ISignatureTransfer.PermitTransferFrom calldata permit;

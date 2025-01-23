@@ -4,18 +4,18 @@ pragma solidity ^0.8.25;
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {InvalidOffset, ConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 abstract contract Basic is SettlerAbstract {
+    using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FullMath for uint256;
     using Revert for bool;
-
-    IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
@@ -27,8 +27,8 @@ abstract contract Basic is SettlerAbstract {
         bool success;
         bytes memory returnData;
         uint256 value;
-        if (sellToken == IERC20(ETH_ADDRESS)) {
-            value = address(this).balance.mulDiv(bps, BASIS);
+        if (sellToken == ETH_ADDRESS) {
+            value = (address(this).balance * bps).unsafeDiv(BASIS);
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
                 (success, returnData) = payable(pool).call{value: value}("");
@@ -46,7 +46,7 @@ abstract contract Basic is SettlerAbstract {
             // TODO: check for zero `bps`
             if (offset != 0) revert InvalidOffset();
         } else {
-            uint256 amount = sellToken.balanceOf(address(this)).mulDiv(bps, BASIS);
+            uint256 amount = sellToken.fastBalanceOf(address(this)).mulDiv(bps, BASIS);
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }

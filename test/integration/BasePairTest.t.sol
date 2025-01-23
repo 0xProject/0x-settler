@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Test} from "forge-std/Test.sol";
-import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
+import {Test} from "@forge-std/Test.sol";
+import {GasSnapshot} from "@forge-gas-snapshot/GasSnapshot.sol";
 
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
 
@@ -29,12 +29,18 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     constructor() {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
         permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
+        if (address(fromToken()).code.length > 0) {
+            vm.label(address(fromToken()), fromToken().symbol());
+        }
+        if (address(toToken()).code.length > 0) {
+            vm.label(address(toToken()), toToken().symbol());
+        }
     }
 
-    function testName() internal virtual returns (string memory);
-    function fromToken() internal virtual returns (IERC20);
-    function toToken() internal virtual returns (IERC20);
-    function amount() internal virtual returns (uint256);
+    function testName() internal view virtual returns (string memory);
+    function fromToken() internal view virtual returns (IERC20);
+    function toToken() internal view virtual returns (IERC20);
+    function amount() internal view virtual returns (uint256);
 
     function setUp() public virtual {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);

@@ -9,15 +9,17 @@ import {
     Permit2Payment,
     Permit2PaymentBase
 } from "src/core/Permit2Payment.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
-import {Utils} from "../Utils.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {uint512} from "src/utils/512Math.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {Utils} from "../Utils.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+
+import {Test} from "@forge-std/Test.sol";
 
 abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Payment {
     function considerationWitnessType() external pure returns (string memory) {
@@ -78,7 +80,11 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 }
@@ -110,7 +116,11 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
         return super._msgSender();
     }
 
-    function _dispatch(uint256, bytes4, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 }

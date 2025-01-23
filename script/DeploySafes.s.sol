@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Script} from "forge-std/Script.sol";
+import {Script} from "@forge-std/Script.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
 import {Deployer, Feature} from "src/deployer/Deployer.sol";
@@ -227,7 +227,8 @@ contract DeploySafes is Script {
             (
                 takerSubmittedFeature,
                 bytes.concat(
-                    vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "Settler")), constructorArgs
+                    vm.getCode(string.concat(chainDisplayName, "TakerSubmittedFlat.sol:", chainDisplayName, "Settler")),
+                    constructorArgs
                 )
             )
         );
@@ -241,7 +242,7 @@ contract DeploySafes is Script {
             (
                 metaTxFeature,
                 bytes.concat(
-                    vm.getCode(string.concat(chainDisplayName, ".sol:", chainDisplayName, "SettlerMetaTxn")),
+                    vm.getCode(string.concat(chainDisplayName, "MetaTxnFlat.sol:", chainDisplayName, "SettlerMetaTxn")),
                     constructorArgs
                 )
             )

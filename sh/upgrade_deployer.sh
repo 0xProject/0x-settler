@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
@@ -198,10 +198,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
     sleep 60
 
-    forge verify-contract --watch --chain $chainid --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
-    if (( chainid != 81457 )) && (( chainid != 59144 )); then # sourcify doesn't support Blast or Linea
-        forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
-    fi
+    verify_contract "$constructor_args" "$deployed_address" src/deployer/Deployer.sol:Deployer
 fi
 
 if [[ ${1:-unset} = 'confirm' ]] ; then
@@ -226,80 +223,9 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     struct_json="$(eip712_json "$upgrade_calldata")"
     declare -r struct_json
 
-    # sign the message
     declare signature
-    if [[ $wallet_type = 'frame' ]] ; then
-        declare typedDataRPC
-        typedDataRPC="$(
-            jq -Mc                 \
-            '
-            {
-                "jsonrpc": "2.0",
-                "method": "eth_signTypedData",
-                "params": [
-                    $signer,
-                    .
-                ],
-                "id": 1
-            }
-            '                      \
-            --arg signer "$signer" \
-            <<<"$struct_json"
-        )"
-        declare -r typedDataRPC
-        signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-        if [[ $signature = *error* ]] ; then
-            echo "$signature" >&2
-            exit 1
-        fi
-        signature="$(jq -Mr .result <<<"$signature")"
-    else
-        signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
-    fi
+    signature="$(sign_call "$struct_json")"
     declare -r signature
 
-    declare safe_url
-    safe_url="$(get_config safe.apiUrl)"
-    declare -r safe_url
-
-    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-        declare signature_file
-        signature_file="$project_root"/deployer_upgrade_"$(get_config displayName)"_"$(git rev-parse --short=8 HEAD)"_"$deployed_address"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_"$(nonce)".txt
-        declare -r signature_file
-        echo "$signature" >"$signature_file"
-        echo "Signature saved to '$signature_file'" >&2
-        exit 0
-    fi
-
-    declare signing_hash
-    signing_hash="$(eip712_hash "$upgrade_calldata")"
-    declare -r signing_hash
-
-    # encode the Safe Transaction Service API call
-    declare safe_multisig_transaction
-    safe_multisig_transaction="$(
-        jq -Mc \
-        "$eip712_message_json_template"',
-            "contractTransactionHash": $signing_hash,
-            "sender": $sender,
-            "signature": $signature,
-            "origin": "0xSettlerCLI"
-        }
-        '                                  \
-        --arg to "$deployer_address"       \
-        --arg data "$upgrade_calldata"     \
-        --arg operation 0                  \
-        --arg nonce "$(nonce)"             \
-        --arg signing_hash "$signing_hash" \
-        --arg sender "$signer"             \
-        --arg signature "$signature"       \
-        --arg safe_address "$safe_address" \
-        <<<'{}'
-    )"
-    declare -r safe_multisig_transaction
-
-    # call the API
-    curl --fail -s "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
-
-    echo 'Signature submitted' >&2
+    save_signature deployer_upgrade "$upgrade_calldata" "$signature"
 fi

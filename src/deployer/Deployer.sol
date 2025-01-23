@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {IERC165} from "forge-std/interfaces/IERC165.sol";
+import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {IOwnable, AbstractOwnable} from "./TwoStepOwnable.sol";
 import {
     ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable, AbstractUUPSUpgradeable
@@ -15,6 +15,7 @@ import {ProxyMultiCall} from "../utils/ProxyMultiCall.sol";
 import {Feature, wrap, isNull} from "./Feature.sol";
 import {Nonce, zero, isNull} from "./Nonce.sol";
 import {IDeployer, IERC721ViewMetadata} from "./IDeployer.sol";
+import {DEPLOYER} from "./DeployerAddress.sol";
 
 library NonceList {
     struct ListElem {
@@ -149,7 +150,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
     }
 
     function initialize(address initialOwner) public virtual {
-        require(address(this) == 0x00000000000004533Fe15556B1E086BB1A72cEae || block.chainid == 31337);
+        require(address(this) == DEPLOYER || block.chainid == 31337);
         if (_implVersion == 1) {
             _setPendingOwner(initialOwner);
         } else {
