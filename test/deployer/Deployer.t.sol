@@ -3,7 +3,6 @@ pragma solidity ^0.8.25;
 
 import {Deployer, Nonce, zero, Feature, wrap} from "src/deployer/Deployer.sol";
 import {IERC721View, IDeployer} from "src/deployer/IDeployer.sol";
-import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
 import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
@@ -20,6 +19,11 @@ contract DeployerTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 19921675);
 
+        uint256 version = uint256(vm.load(DEPLOYER, bytes32(0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143)));
+        address overwriteImpl = address(new Deployer(version));
+        vm.store(DEPLOYER, bytes32(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc), bytes32(uint256(uint160(overwriteImpl))));
+
+        vm.etch(DEPLOYER, hex"363d3d373d3d3d3d363d7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af43d3d93803e603757fd5bf3");
         deployer = Deployer(DEPLOYER);
         vm.label(address(deployer), "Deployer (proxy)");
 
@@ -110,7 +114,7 @@ contract DeployerTest is Test {
     function testDeploy() public {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
-        address predicted = Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer));
+        address predicted = Create3.predictLondon(_salt(Feature.unwrap(testFeature), 1), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(address(0), predicted, testTokenId);
         vm.expectEmit(true, true, true, false, address(deployer));
@@ -129,13 +133,13 @@ contract DeployerTest is Test {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
         vm.expectRevert(new bytes(0));
-        deployer.deploy(testFeature, hex"5f5ffd"); // PUSH0 PUSH0 REVERT; empty revert message
+        deployer.deploy(testFeature, hex"60006000fd"); // PUSH1 0 PUSH1 0 REVERT; empty revert message
     }
 
     function testDeployEmpty() public {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
-        address predicted = Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer));
+        address predicted = Create3.predictLondon(_salt(Feature.unwrap(testFeature), 1), address(deployer));
         vm.expectRevert(abi.encodeWithSignature("DeployFailed(uint128,uint32,address)", testTokenId, 1, predicted));
         deployer.deploy(testFeature, hex"00"); // STOP; succeeds with empty returnData
     }
@@ -144,7 +148,7 @@ contract DeployerTest is Test {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
         // PUSH1 1 PUSH0 RETURN; returns hex"00" (STOP; succeeds with empty returnData)
-        (address deployed,) = deployer.deploy(testFeature, hex"60015ff3");
+        (address deployed,) = deployer.deploy(testFeature, hex"60016000f3");
         assertNotEq(deployed, address(0));
         assertNotEq(deployed.code.length, 0);
     }
@@ -161,7 +165,7 @@ contract DeployerTest is Test {
 
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(
-            Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer)), address(0), testTokenId
+            Create3.predictLondon(_salt(Feature.unwrap(testFeature), 1), address(deployer)), address(0), testTokenId
         );
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IDeployer.Removed(testFeature, Nonce.wrap(1), instance);
@@ -209,7 +213,7 @@ contract DeployerTest is Test {
         for (Nonce i = zero.incr(); nonce > i; i = i.incr()) {
             vm.expectEmit(true, true, true, false, address(deployer));
             emit IDeployer.Removed(
-                testFeature, i, Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(i)), address(deployer))
+                testFeature, i, Create3.predictLondon(_salt(Feature.unwrap(testFeature), Nonce.unwrap(i)), address(deployer))
             );
             vm.recordLogs();
             deployer.remove(testFeature, i);
@@ -223,7 +227,7 @@ contract DeployerTest is Test {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(
             instance,
-            Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce) - 1), address(deployer)),
+            Create3.predictLondon(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce) - 1), address(deployer)),
             testTokenId
         );
         vm.expectEmit(true, true, true, false, address(deployer));
@@ -231,7 +235,7 @@ contract DeployerTest is Test {
         deployer.remove(testFeature, nonce);
 
         nonce = Nonce.wrap(Nonce.unwrap(nonce) - 1);
-        instance = Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce)), address(deployer));
+        instance = Create3.predictLondon(_salt(Feature.unwrap(testFeature), Nonce.unwrap(nonce)), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(instance, address(0), testTokenId);
         vm.expectEmit(true, true, true, false, address(deployer));
@@ -243,7 +247,7 @@ contract DeployerTest is Test {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
 
-        address next = Create3.predict(_salt(Feature.unwrap(testFeature), 1), address(deployer));
+        address next = Create3.predictLondon(_salt(Feature.unwrap(testFeature), 1), address(deployer));
         assertEq(deployer.next(testFeature), next);
 
         (address instance,) = deployer.deploy(testFeature, type(Dummy).creationCode);
@@ -261,7 +265,7 @@ contract DeployerTest is Test {
         (address thirdInstance, Nonce thirdNonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
         (, Nonce fourthNonce) = deployer.deploy(testFeature, type(Dummy).creationCode);
 
-        address prev = Create3.predict(_salt(Feature.unwrap(testFeature), Nonce.unwrap(thirdNonce)), address(deployer));
+        address prev = Create3.predictLondon(_salt(Feature.unwrap(testFeature), Nonce.unwrap(thirdNonce)), address(deployer));
 
         assertEq(prev, thirdInstance);
         assertEq(deployer.prev(testFeature), prev);
@@ -304,7 +308,7 @@ contract DeployerTest is Test {
         emit IDeployer.Removed(testFeature, Nonce.wrap(2), instance2);
         deployer.remove(testFeature, Nonce.wrap(2));
 
-        address instance3 = Create3.predict(_salt(Feature.unwrap(testFeature), 3), address(deployer));
+        address instance3 = Create3.predictLondon(_salt(Feature.unwrap(testFeature), 3), address(deployer));
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(instance1, instance3, testTokenId);
         deployer.deploy(testFeature, type(Dummy).creationCode);

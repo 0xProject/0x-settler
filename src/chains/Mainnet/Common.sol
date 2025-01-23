@@ -5,7 +5,6 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
-import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -44,7 +43,6 @@ abstract contract MainnetMixin is
     FreeMemory,
     SettlerBase,
     MaverickV2,
-    CurveTricrypto,
     DodoV1,
     DodoV2
 {
@@ -119,10 +117,6 @@ abstract contract MainnetMixin is
         } else {
             revert UnknownForkId(forkId);
         }
-    }
-
-    function _curveFactory() internal pure override returns (address) {
-        return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
 
     function rebateClaimer() external view returns (address) {

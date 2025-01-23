@@ -6,7 +6,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
-import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {MaverickV2PairTest} from "./MaverickV2PairTest.t.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
@@ -23,7 +22,6 @@ contract USDCWETHTest is
     SettlerMetaTxnPairTest,
     ZeroExPairTest,
     UniswapV3PairTest,
-    CurveTricryptoPairTest,
     DodoV1PairTest,
     MaverickV2PairTest,
     TokenTransferTest,
@@ -93,18 +91,6 @@ contract USDCWETHTest is
         override(SettlerPairTest, ZeroExPairTest)
         returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {}
-
-    function curveV2TricryptoPoolId() internal pure override returns (uint80) {
-        return
-        // nonce
-        (
-            (uint80(uint64(1)) << 16)
-            // sellIndex
-            | (uint80(uint8(0)) << 8)
-            // buyIndex
-            | uint80(uint8(2))
-        );
-    }
 
     function maverickV2Salt() internal pure override returns (bytes32) {
         uint64 feeAIn = 100000000000000;
