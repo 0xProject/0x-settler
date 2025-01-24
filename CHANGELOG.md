@@ -39,6 +39,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add UniswapV3 UniV3 fork to Monad Testnet
+
 ## 2025-01-23
 
 ### Breaking changes
