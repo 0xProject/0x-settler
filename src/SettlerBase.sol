@@ -77,7 +77,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         uint256 minAmountOut;
     }
 
-    function _mandatorySlippageCheck() internal virtual pure returns (bool) {
+    function _mandatorySlippageCheck() internal pure virtual returns (bool) {
         return false;
     }
 

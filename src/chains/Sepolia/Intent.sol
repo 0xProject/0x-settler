@@ -53,7 +53,7 @@ contract SepoliaSettlerIntent is SettlerIntent, SepoliaSettlerMetaTxn {
         return super._witnessTypeSuffix();
     }
 
-    function _mandatorySlippageCheck() internal override(SettlerBase, SettlerIntent) pure returns (bool) {
+    function _mandatorySlippageCheck() internal pure override(SettlerBase, SettlerIntent) returns (bool) {
         return super._mandatorySlippageCheck();
     }
 

@@ -37,7 +37,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         return super._witnessTypeSuffix();
     }
 
-    function _mandatorySlippageCheck() internal virtual override pure returns (bool) {
+    function _mandatorySlippageCheck() internal pure virtual override returns (bool) {
         return true;
     }
 
