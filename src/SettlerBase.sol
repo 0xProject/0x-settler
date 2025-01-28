@@ -5,6 +5,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+import {uint512} from "./utils/512Math.sol";
+
 import {DEPLOYER} from "./deployer/DeployerAddress.sol";
 
 import {Basic} from "./core/Basic.sol";
@@ -71,6 +73,10 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         }
     }
 
+    function _div512to256(uint512 n, uint512 d) internal view virtual override returns (uint256) {
+        return n.div(d);
+    }
+
     struct AllowedSlippage {
         address recipient;
         IERC20 buyToken;
@@ -110,13 +116,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
-        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.RFQ.selector)) {
+        if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,

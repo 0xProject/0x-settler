@@ -80,7 +80,16 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
-        if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
+        if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
+                _permitToTransferDetails(permit, recipient);
+
+            // We simultaneously transfer-in the taker's tokens and authenticate the
+            // metatransaction.
+            _transferFrom(permit, transferDetails, sig);
+        } else if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
             // performed inside the RfqOrderSettlement so there is no need to
@@ -97,15 +106,6 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
             );
 
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
-        } else if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-
-            // We simultaneously transfer-in the taker's tokens and authenticate the
-            // metatransaction.
-            _transferFrom(permit, transferDetails, sig);
         } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
                 address recipient,

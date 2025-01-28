@@ -49,7 +49,13 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
-        if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
+        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
+                _permitToTransferDetails(permit, recipient);
+            _transferFrom(permit, transferDetails, sig);
+        } else if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,

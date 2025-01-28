@@ -1,4 +1,4 @@
-retrieve_signatures() {
+function retrieve_signatures {
     declare -r _retrieve_signatures_prefix="$1"
     shift
 
