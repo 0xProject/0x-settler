@@ -130,7 +130,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         bytes32, /* zid & affiliate */
         address msgSender,
         bytes calldata sig
-    ) public virtual override metaTx(msgSender, _hashSlippage(slippage)) onlySolver returns (bool) {
+    ) public virtual override onlySolver metaTx(msgSender, _hashSlippage(slippage)) returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
     }
 
