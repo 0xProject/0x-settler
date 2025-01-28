@@ -10,7 +10,73 @@ import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./cor
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+import {DEPLOYER} from "./deployer/DeployerAddress.sol";
+import {IDeployer} from "./deployer/IDeployer.sol";
+import {Feature} from "./deployer/Feature.sol";
+import {IOwnable} from "./deployer/IOwnable.sol";
+
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
+    // @custom:storage-location erc7201:SettlerIntentSolverList
+    struct SolverList {
+        address[] solvers;
+        mapping(address => uint256) isSolver;
+    }
+
+    function _solverList() private pure returns (SolverList storage $) {
+        assembly ("memory-safe") {
+            $.slot := 0x4f22d24fda4d2578949e03d6a8fd72b8e4441b0608054751d605e5c08a221000
+        }
+    }
+
+    constructor() {
+        SolverList storage $ = _solverList();
+        uint256 $int;
+        assembly ("memory-safe") {
+            $int := $.slot
+        }
+        assert($int == (uint256(keccak256("SettlerIntentSolverList")) - 1) & ~uint256(0xff));
+        _solverList().solvers.push(address(0));
+        emit SetSolver(address(0), true);
+    }
+
+    modifier onlyOwner() {
+        (address owner, uint40 expiry) = IDeployer(DEPLOYER).authorized(Feature.wrap(uint128(_tokenId())));
+        if (_operator() != owner) {
+            revert IOwnable.PermissionDenied();
+        }
+        if (expiry != type(uint40).max && block.timestamp > expiry) {
+            revert IOwnable.PermissionDenied();
+        }
+        _;
+    }
+
+    modifier onlySolver() {
+        if (_operator() != address(0) && _solverList().isSolver[_operator()] == 0) {
+            revert IOwnable.PermissionDenied();
+        }
+        _;
+    }
+
+    event SetSolver(address indexed solver, bool isSolver);
+
+    function setSolver(address solver, bool isSolver) external onlyOwner {
+        require(solver != address(0));
+        SolverList storage $ = _solverList();
+        require(($.isSolver[solver] == 0) == isSolver);
+        if (isSolver) {
+            $.isSolver[solver] = $.solvers.length;
+            $.solvers.push(solver);
+        } else {
+            $.solvers[$.isSolver[solver]] = $.solvers[$.solvers.length - 1];
+            $.solvers.pop();
+        }
+        emit SetSolver(solver, isSolver);
+    }
+
+    function solvers() external view returns (address[] memory) {
+        return _solverList().solvers;
+    }
+
     function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
         return 4;
     }
@@ -60,7 +126,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         bytes32, /* zid & affiliate */
         address msgSender,
         bytes calldata sig
-    ) public virtual override metaTx(msgSender, _hashSlippage(slippage)) returns (bool) {
+    ) public virtual override metaTx(msgSender, _hashSlippage(slippage)) onlySolver returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
     }
 

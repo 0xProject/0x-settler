@@ -38,7 +38,7 @@ import {
 } from "../../core/univ3forks/RogueXV1.sol";
 
 import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
-import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
+import {IOwnable} from "../../deployer/IOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
 
 // Solidity inheritance is stupid
