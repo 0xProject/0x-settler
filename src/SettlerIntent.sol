@@ -67,7 +67,11 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             $.isSolver[solver] = $.solvers.length;
             $.solvers.push(solver);
         } else {
-            $.solvers[$.isSolver[solver]] = $.solvers[$.solvers.length - 1];
+            uint256 oldIndex = $.isSolver[solver];
+            address lastSolver = $.solvers[$.solvers.length - 1];
+            $.solvers[oldIndex] = lastSolver;
+            $.isSolver[lastSolver] = oldIndex;
+            $.isSolver[solver] = 0;
             $.solvers.pop();
         }
         emit SetSolver(solver, isSolver);
