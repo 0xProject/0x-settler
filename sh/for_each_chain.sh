@@ -5,11 +5,11 @@
 ## Copyright (c) 2014 Michael Kropat - MIT License
 ## Copyright (c) 2013 Asymmetry Laboratories - MIT License
 
-realpath() {
+function realpath {
     _resolve_symlinks "$(_canonicalize "$1")"
 }
 
-_directory() {
+function _directory {
     local out slsh
     slsh=/
     out="$1"
@@ -34,7 +34,7 @@ _directory() {
     fi
 }
 
-_file() {
+function _file {
     local out slsh
     slsh=/
     out="$1"
@@ -48,7 +48,7 @@ _file() {
     printf '%s\n' "$out"
 }
 
-_resolve_symlinks() {
+function _resolve_symlinks {
     local path pattern context
     while [ -L "$1" ]; do
         context="$(_directory "$1")"
@@ -61,7 +61,7 @@ _resolve_symlinks() {
     printf '%s\n' "$1"
 }
 
-_escape() {
+function _escape {
     local out
     out=''
     local -i i
@@ -71,7 +71,7 @@ _escape() {
     printf '%s\n' "$out"
 }
 
-_prepend_context() {
+function _prepend_context {
     if [ "$1" = . ]; then
         printf '%s\n' "$2"
     else
@@ -82,7 +82,7 @@ _prepend_context() {
     fi
 }
 
-_assert_no_path_cycles() {
+function _assert_no_path_cycles {
     local target path
 
     if [ $# -gt 16 ]; then
@@ -99,7 +99,7 @@ _assert_no_path_cycles() {
     done
 }
 
-_canonicalize() {
+function _canonicalize {
     local d f
     if [ -d "$1" ]; then
         (CDPATH= cd -P "$1" 2>/dev/null && pwd -P)
@@ -138,7 +138,7 @@ readarray -t chains < <(jq -rM 'keys_unsorted[]' "$project_root"/chain_config.js
 declare -r -a chains
 
 declare -a skip_chains
-readarray -t skip_chains -d , <<<"${SKIP_CHAINS-}"
+readarray -t -d, skip_chains < <(printf "%s" "${SKIP_CHAINS:-}")
 declare -r -a skip_chains
 
 contains() {
