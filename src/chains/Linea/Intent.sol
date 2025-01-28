@@ -53,6 +53,10 @@ contract LineaSettlerIntent is SettlerIntent, LineaSettlerMetaTxn {
         return super._witnessTypeSuffix();
     }
 
+    function _mandatorySlippageCheck() internal override(SettlerBase, SettlerIntent) pure returns (bool) {
+        return super._mandatorySlippageCheck();
+    }
+
     function _tokenId() internal pure override(SettlerIntent, SettlerMetaTxn, SettlerAbstract) returns (uint256) {
         return super._tokenId();
     }

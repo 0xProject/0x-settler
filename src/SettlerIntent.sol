@@ -37,6 +37,10 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         return super._witnessTypeSuffix();
     }
 
+    function _mandatorySlippageCheck() internal virtual override pure returns (bool) {
+        return true;
+    }
+
     function _hashSlippage(AllowedSlippage calldata slippage) internal pure returns (bytes32 result) {
         // This function does not check for or clean any dirty bits that might
         // exist in `slippage`. We assume that `slippage` will be used elsewhere
