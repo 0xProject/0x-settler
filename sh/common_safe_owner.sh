@@ -5,7 +5,7 @@ if [[ -f "$saved_safe_owner" && -r "$saved_safe_owner" ]] ; then
     signer="$(<"$saved_safe_owner")"
 fi
 
-contains() {
+function contains {
     declare -r elem="$1"
     shift
 
@@ -33,7 +33,7 @@ fi
 
 declare -r signer
 
-sign_call() {
+function sign_call {
     declare -r _sign_call_struct_json="$1"
     shift
 
@@ -71,15 +71,21 @@ sign_call() {
     echo "$_sign_call_result"
 }
 
-save_signature() {
+function save_signature {
     declare -r _save_signature_prefix="$1"
     shift
 
     declare -r _save_signature_call="$1"
     shift
 
-    declare -r _save_signature_signature="$1"
+    declare _save_signature_signature="$1"
     shift
+    if [[ ${_save_signature_signature: -2} = '00' ]] ; then
+        _save_signature_signature="${_save_signature_signature:: -2}"'1b'
+    elif [[ ${_save_signature_signature: -2} = '01' ]] ; then
+        _save_signature_signature="${_save_signature_signature:: -2}"'1c'
+    fi
+    declare -r _save_signature_signature
 
     declare -i _save_signature_operation
     if (( $# > 0 )) ; then
@@ -102,7 +108,7 @@ save_signature() {
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
         declare signature_file
         signature_file="$project_root"/"$_save_signature_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_$(nonce).txt
-        echo "$signature" >"$signature_file"
+        echo "$_save_signature_signature" >"$signature_file"
 
         echo "Signature saved to '$signature_file'" >&2
     else

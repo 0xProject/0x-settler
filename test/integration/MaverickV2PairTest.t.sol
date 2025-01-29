@@ -173,8 +173,8 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
-        snapStartName("settler_metaTxn_maverickV2");
         vm.startPrank(address(this), address(this));
+        snapStartName("settler_metaTxn_maverickV2");
         _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
         snapEnd();
         vm.stopPrank();

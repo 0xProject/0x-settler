@@ -14,6 +14,8 @@ import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
+import {uint512} from "src/utils/512Math.sol";
+
 import {Utils} from "../Utils.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
@@ -85,6 +87,10 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
+        revert("unimplemented");
+    }
 }
 
 contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettlementDummyBase {
@@ -115,6 +121,10 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 }

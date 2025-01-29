@@ -43,12 +43,12 @@ if [[ $wallet_type = 'ledger' ]] ; then
             --mnemonic-derivation-path "$(<"$saved_wallet_ledger_path")"
         )
     else
-        IFS='' read -r -e -p 'Ledger wallet HD path (BIP32) [default '"44'/60'/0'/0"']: '
+        IFS='' read -r -e -p 'Ledger wallet HD path (BIP32) [default '"m/44'/60'/0'/0"']: '
         if [[ ${REPLY:-unset} = 'unset' ]] ; then
             wallet_args+=(
-                --mnemonic-derivation-path "44'/60'/0'/0"
+                --mnemonic-derivation-path "m/44'/60'/0'/0"
             )
-            echo "44'/60'/0'/0" >"$saved_wallet_ledger_path"
+            echo "m/44'/60'/0'/0" >"$saved_wallet_ledger_path"
         else
             wallet_args+=(
                 --mnemonic-derivation-path "$REPLY"
