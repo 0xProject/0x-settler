@@ -28,12 +28,12 @@ import {Context} from "../Context.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 
 library TransientStorage {
-    // bytes32(uint256(keccak256("operator slot")) - 1)
-    bytes32 private constant _OPERATOR_SLOT = 0x009355806b743562f351db2e3726091207f49fa1cdccd5c65a7d4860ce3abbe9;
-    // bytes32(uint256(keccak256("witness slot")) - 1)
-    bytes32 private constant _WITNESS_SLOT = 0x1643bf8e9fdaef48c4abf5a998de359be44a235ac7aebfbc05485e093720deaa;
-    // bytes32(uint256(keccak256("payer slot")) - 1)
-    bytes32 private constant _PAYER_SLOT = 0x46bacb9b87ba1d2910347e4a3e052d06c824a45acd1e9517bb0cb8d0d5cde893;
+    // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint128).max)
+    bytes32 private constant _OPERATOR_SLOT = 0x0000000000000000000000000000000007f49fa1cdccd5c65a7d4860ce3abbe9;
+    // bytes32((uint256(keccak256("witness slot")) - 1) & type(uint128).max)
+    bytes32 private constant _WITNESS_SLOT = 0x00000000000000000000000000000000e44a235ac7aebfbc05485e093720deaa;
+    // bytes32((uint256(keccak256("payer slot")) - 1) & type(uint128).max)
+    bytes32 private constant _PAYER_SLOT = 0x00000000000000000000000000000000c824a45acd1e9517bb0cb8d0d5cde893;
 
     // We assume (and our CI enforces) that internal function pointers cannot be
     // greater than 2 bytes. On chains not supporting the ViaIR pipeline, not

@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
 ## Copyright (c) 2014 Michael Kropat - MIT License
 ## Copyright (c) 2013 Asymmetry Laboratories - MIT License
 
-realpath() {
+function realpath {
     _resolve_symlinks "$(_canonicalize "$1")"
 }
 
-_directory() {
+function _directory {
     local out slsh
     slsh=/
     out="$1"
@@ -34,7 +34,7 @@ _directory() {
     fi
 }
 
-_file() {
+function _file {
     local out slsh
     slsh=/
     out="$1"
@@ -48,7 +48,7 @@ _file() {
     printf '%s\n' "$out"
 }
 
-_resolve_symlinks() {
+function _resolve_symlinks {
     local path pattern context
     while [ -L "$1" ]; do
         context="$(_directory "$1")"
@@ -61,7 +61,7 @@ _resolve_symlinks() {
     printf '%s\n' "$1"
 }
 
-_escape() {
+function _escape {
     local out
     out=''
     local -i i
@@ -71,7 +71,7 @@ _escape() {
     printf '%s\n' "$out"
 }
 
-_prepend_context() {
+function _prepend_context {
     if [ "$1" = . ]; then
         printf '%s\n' "$2"
     else
@@ -82,7 +82,7 @@ _prepend_context() {
     fi
 }
 
-_assert_no_path_cycles() {
+function _assert_no_path_cycles {
     local target path
 
     if [ $# -gt 16 ]; then
@@ -99,7 +99,7 @@ _assert_no_path_cycles() {
     done
 }
 
-_canonicalize() {
+function _canonicalize {
     local d f
     if [ -d "$1" ]; then
         (CDPATH= cd -P "$1" 2>/dev/null && pwd -P)
@@ -122,7 +122,11 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 
 declare safe_address
-safe_address="$(get_config governance.deploymentSafe)"
+if [[ ${@: -1} = [Uu]pgrade ]] ; then
+    safe_address="$(get_config governance.upgradeSafe)"
+else
+    safe_address="$(get_config governance.deploymentSafe)"
+fi
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
@@ -146,9 +150,13 @@ shift
 new_owner="$(cast to-checksum "$new_owner")"
 declare -r new_owner
 
+declare prev_owner_addr
+prev_owner_addr="$(prev_owner "$old_owner")"
+declare -r prev_owner_addr
+
 declare -r swapOwner_sig='swapOwner(address,address,address)'
 declare swapOwner_call
-swapOwner_call="$(cast calldata "$swapOwner_sig" "$(prev_owner "$old_owner")" "$old_owner" "$new_owner")"
+swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner_addr" "$old_owner" "$new_owner")"
 declare -r swapOwner_call
 
 # set minimum gas price to (mostly for Arbitrum and BNB)

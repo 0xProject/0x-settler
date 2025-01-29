@@ -16,6 +16,7 @@ import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
+import {uint512} from "../../utils/512Math.sol";
 
 /// @custom:security-contact security@0x.org
 contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
@@ -76,5 +77,15 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         returns (uint256)
     {
         return super._permitToSellAmount(permit);
+    }
+
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        virtual
+        override(ScrollSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        returns (uint256)
+    {
+        return super._div512to256(n, d);
     }
 }

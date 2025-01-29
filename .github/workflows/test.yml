@@ -26,6 +26,9 @@ jobs:
       - name: Build contracts
         run: forge build --skip UniswapV4UnitTest.t.sol
 
+      - name: Build UniswapV4 tests
+        run: forge build
+
       - name: Run tests
         run: forge test
         env:

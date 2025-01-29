@@ -7,6 +7,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
+import {UniswapV4} from "../../core/UniswapV4.sol";
+import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -27,10 +29,12 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 //import {sushiswapV3BnbFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 
+import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2 {
+abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2, UniswapV4 {
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
     }
@@ -44,6 +48,19 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -93,5 +110,8 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV
             revert UnknownForkId(forkId);
         }
     }
-}
 
+    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
+        return BNB_POOL_MANAGER;
+    }
+}

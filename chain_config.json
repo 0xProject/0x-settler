@@ -162,7 +162,7 @@
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 130,
-    "minGasPriceGwei": 1,
+    "minGasPriceGwei": 3,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -185,7 +185,7 @@
     "chainId": 43114,
     "displayName": "Avalanche",
     "isShanghai": true,
-    "isCancun": false,
+    "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 180,
     "minGasPriceGwei": 10,
@@ -203,7 +203,7 @@
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
     "etherscanApi": "https://api.snowtrace.io/api"
   },
@@ -428,7 +428,7 @@
       "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
       "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
       "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://safe-transaction-sonic.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
@@ -466,5 +466,30 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
     "blockscoutApi": "https://explorer.inkonchain.com/api"
+  },
+  "monad_testnet": {
+    "chainId": 10143,
+    "displayName": "MonadTestnet",
+    "isShanghai": true,
+    "isCancun": true,
+    "extraFlags": "",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 50,
+    "safe": {
+      "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
+      "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+      "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
+      "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
+      "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+    }
   }
 }

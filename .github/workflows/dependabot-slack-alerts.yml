@@ -1,0 +1,24 @@
+name: Dependabot Slack alerts
+
+permissions:
+  contents: read
+  security-events: read
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+jobs:
+  notify-vulnerabilites:
+    runs-on: ubuntu-latest
+    steps:
+      # Latest version available at: https://github.com/kunalnagarco/action-cve/releases
+      - name: Notify Vulnerabilities
+        uses: kunalnagarco/action-cve@v1.14.3
+        with:
+          severity: high,critical
+          token: "${{ secrets.DEPENDABOT_GITHUB_TOKEN }}"
+          slack_webhook: "${{ secrets.DEPENDABOT_SLACK_WEBHOOK }}"
