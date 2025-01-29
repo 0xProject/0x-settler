@@ -173,6 +173,10 @@ contract UniswapV4Stub is UniswapV4 {
         _deployer = msg.sender;
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _msgSender() internal view override returns (address) {
         return _deployer;
     }

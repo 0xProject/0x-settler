@@ -16,7 +16,7 @@ import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
 contract ArbitrumSettler is Settler, ArbitrumMixin {
-    constructor(bytes20 gitCommit) Settler(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {

@@ -15,10 +15,11 @@ import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
 contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
-    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
+        virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
@@ -48,13 +49,14 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
+        virtual
         override(SettlerAbstract, SettlerBase, OptimismMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(SettlerMetaTxn, AbstractContext) returns (address) {
+    function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }

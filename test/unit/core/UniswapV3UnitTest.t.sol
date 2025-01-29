@@ -24,6 +24,10 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         uniFactory = _uniFactory;
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function sellSelf(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
         external
         takerSubmitted

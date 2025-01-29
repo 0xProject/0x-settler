@@ -25,6 +25,10 @@ contract MakerPSMDummy is MakerPSM {
         revert("unimplemented");
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _hasMetaTxn() internal pure override returns (bool) {
         revert("unimplemented");
     }
