@@ -42,6 +42,7 @@ Master list of UniV3 forks:
 * Create new Settler version for intent-based settlement -- the taker only signs
   the slippage, not the actions
   * This is now `tokenId` 4
+* Add UniswapV3 UniV3 fork to Monad Testnet
 
 ## 2025-01-23
 

@@ -11,7 +11,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
-    /* uniswapV3Factory, */
+    uniswapV3MonadTestnetFactory,
     uniswapV3InitHash,
     uniswapV3ForkId,
     IUniswapV3Callback
@@ -46,6 +46,12 @@ abstract contract MonadTestnetMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        revert UnknownForkId(forkId);
+        if (forkId == uniswapV3ForkId) {
+            factory = uniswapV3MonadTestnetFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else {
+            revert UnknownForkId(forkId);
+        }
     }
 }
