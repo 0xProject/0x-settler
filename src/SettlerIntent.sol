@@ -75,24 +75,49 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     using UnsafeArray for ArrayIterator;
 
     struct SolverList {
-        uint256 length;
         mapping(address => address) next;
+        uint256 length;
     }
+
+    uint256 private constant _SOLVER_LIST_BASE_SLOT = 0xe4441b0608054751d605e5c08a2210c0; // uint128(uint256(keccak256("SettlerIntentSolverList")))
 
     function _solverList() private pure returns (SolverList storage $) {
         assembly ("memory-safe") {
-            $.slot := 0xe4441b0608054751d605e5c08a2210c0
+            $.slot := _SOLVER_LIST_BASE_SLOT
         }
     }
 
-    address private constant _SENTINEL_SOLVER = address(1);
+    address private constant _SENTINEL_SOLVER = 0x0000000000000000000000000000000000000001;
 
     constructor() {
         _solverList().next[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
     modifier onlyOwner() {
+        // Solidity generates extremely bloated code for the following block, so it has been
+        // rewritten in assembly so as not to blow out the contract size limit
+        /*
         (address owner, uint40 expiry) = IDeployer(DEPLOYER).authorized(Feature.wrap(uint128(_tokenId())));
+        */
+        address deployer_ = DEPLOYER;
+        uint256 tokenId_ = _tokenId();
+        address owner;
+        uint40 expiry;
+        assembly ("memory-safe") {
+            mstore(0x00, 0x2bb83987) // selector for `authorized(uint128)`
+            mstore(0x20, tokenId_)
+            if iszero(call(gas(), deployer_, 0x00, 0x1c, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            owner := mload(0x00)
+            expiry := mload(0x20)
+            if or(shr(0xa0, owner), shr(0x28, expiry)) {
+                revert(0x00, 0x00)
+            }
+        }
+
         require(expiry == type(uint40).max || block.timestamp <= expiry);
         if (_operator() != owner) {
             revert IOwnable.PermissionDenied();
@@ -110,6 +135,9 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     event SetSolver(address indexed solver, bool addNotRemove);
 
     function setSolver(address prevSolver, address solver, bool addNotRemove) external onlyOwner {
+        // Solidity generates extremely bloated code for the following block, so it has been
+        // rewritten in assembly so as not to blow out the contract size limit
+        /*
         require(solver != address(0));
         SolverList storage $ = _solverList();
         require(($.next[solver] == address(0)) == addNotRemove);
@@ -124,9 +152,44 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             $.next[solver] = address(0);
             $.length = $.length.unsafeDec();
         }
+        */
+
+        assembly ("memory-safe") {
+            solver := and(0xffffffffffffffffffffffffffffffffffffffff, solver)
+            let fail := iszero(solver)
+
+            mstore(0x00, solver)
+            mstore(0x20, _SOLVER_LIST_BASE_SLOT)
+            let solverNextSlot := keccak256(0x00, 0x40)
+            let next := sload(solverNextSlot)
+            fail := or(fail, xor(iszero(next), addNotRemove))
+
+            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, prevSolver))
+            let prevSolverNextSlot := keccak256(0x00, 0x40)
+            let prevSolverNextValue := sload(prevSolverNextSlot)
+
+            switch addNotRemove
+            case 0 {
+                fail := or(fail, xor(prevSolverNextValue, solver))
+                sstore(prevSolverNextSlot, next)
+                sstore(solverNextSlot, 0x00)
+                sstore(add(0x01, _SOLVER_LIST_BASE_SLOT), sub(sload(add(0x01, _SOLVER_LIST_BASE_SLOT)), 0x01))
+            }
+            default {
+                fail := or(fail, xor(prevSolverNextValue, _SENTINEL_SOLVER))
+                sstore(prevSolverNextSlot, solver)
+                sstore(solverNextSlot, _SENTINEL_SOLVER)
+                sstore(add(0x01, _SOLVER_LIST_BASE_SLOT), add(0x01, sload(add(0x01, _SOLVER_LIST_BASE_SLOT))))
+            }
+
+            if fail {
+                revert(0x00, 0x00)
+            }
+        }
         emit SetSolver(solver, addNotRemove);
     }
 
+    /*
     function solvers() external view returns (address[] memory r) {
         SolverList storage $ = _solverList();
         uint256 length = $.length;
@@ -157,6 +220,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             return(returndata, add(0x40, shl(0x05, mload(r))))
         }
     }
+    */
 
     function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
         return 4;
