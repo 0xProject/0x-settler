@@ -15,73 +15,10 @@ import {IDeployer} from "./deployer/IDeployer.sol";
 import {Feature} from "./deployer/Feature.sol";
 import {IOwnable} from "./deployer/IOwnable.sol";
 
-import {UnsafeMath} from "./utils/UnsafeMath.sol";
-
-type ArrayIterator is uint256;
-
-function __eq(ArrayIterator x, ArrayIterator y) pure returns (bool) {
-    return ArrayIterator.unwrap(x) == ArrayIterator.unwrap(y);
-}
-
-function __ne(ArrayIterator x, ArrayIterator y) pure returns (bool) {
-    return ArrayIterator.unwrap(x) != ArrayIterator.unwrap(y);
-}
-
-library UnsafeArray {
-    function unsafeAlloc(uint256 i) internal pure returns (address[] memory r) {
-        assembly ("memory-safe") {
-            r := mload(0x40)
-            mstore(r, i)
-            mstore(0x40, add(r, add(0x20, shl(0x05, i))))
-        }
-    }
-
-    function unsafeSet(address[] memory a, uint256 i, address v) internal pure {
-        assembly ("memory-safe") {
-            mstore(add(a, add(0x20, shl(0x05, i))), and(0xffffffffffffffffffffffffffffffffffffffff, v))
-        }
-    }
-
-    function iter(address[] memory a) internal pure returns (ArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(0x20, a)
-        }
-    }
-
-    function end(address[] memory a) internal pure returns (ArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(a, add(0x20, shl(0x05, mload(a))))
-        }
-    }
-
-    function set(ArrayIterator i, address v) internal pure {
-        assembly ("memory-safe") {
-            mstore(i, and(0xffffffffffffffffffffffffffffffffffffffff, v))
-        }
-    }
-
-    function next(ArrayIterator i) internal pure returns (ArrayIterator r) {
-        unchecked {
-            return ArrayIterator.wrap(ArrayIterator.unwrap(i) + 32);
-        }
-    }
-}
-
-using {__eq as ==, __ne as !=} for ArrayIterator global;
-
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
-    using UnsafeMath for uint256;
-    using UnsafeArray for address[];
-    using UnsafeArray for ArrayIterator;
-
-    struct SolverList {
-        mapping(address => address) next;
-        uint256 length;
-    }
-
     uint256 private constant _SOLVER_LIST_BASE_SLOT = 0xe4441b0608054751d605e5c08a2210c0; // uint128(uint256(keccak256("SettlerIntentSolverList")))
 
-    function _solverList() private pure returns (SolverList storage $) {
+    function _$() private pure returns (mapping(address => address) storage $) {
         assembly ("memory-safe") {
             $.slot := _SOLVER_LIST_BASE_SLOT
         }
@@ -90,7 +27,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     address private constant _SENTINEL_SOLVER = 0x0000000000000000000000000000000000000001;
 
     constructor() {
-        _solverList().next[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
+        _$()[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
     modifier onlyOwner() {
@@ -129,31 +66,29 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     }
 
     modifier onlySolver() {
-        if (_solverList().next[_operator()] == address(0)) {
+        if (_$()[_operator()] == address(0)) {
             revert IOwnable.PermissionDenied();
         }
         _;
     }
 
-    event SetSolver(address indexed solver, bool addNotRemove);
+    event SolverSet(address indexed solver, bool addNotRemove);
 
     function setSolver(address prevSolver, address solver, bool addNotRemove) external onlyOwner {
         // Solidity generates extremely bloated code for the following block, so it has been
         // rewritten in assembly so as not to blow out the contract size limit
         /*
         require(solver != address(0));
-        SolverList storage $ = _solverList();
-        require(($.next[solver] == address(0)) == addNotRemove);
+        mapping(address => address) storage $ = _$();
+        require(($[solver] == address(0)) == addNotRemove);
         if (addNotRemove) {
-            require($.next[prevSolver] == _SENTINEL_SOLVER);
-            $.next[prevSolver] = solver;
-            $.next[solver] = _SENTINEL_SOLVER;
-            $.length = $.length.unsafeInc();
+            require($[prevSolver] == _SENTINEL_SOLVER);
+            $[prevSolver] = solver;
+            $[solver] = _SENTINEL_SOLVER;
         } else {
-            require($.next[prevSolver] == solver);
-            $.next[prevSolver] = $.next[solver];
-            $.next[solver] = address(0);
-            $.length = $.length.unsafeDec();
+            require($[prevSolver] == solver);
+            $[prevSolver] = $[solver];
+            $[solver] = address(0);
         }
         */
         assembly ("memory-safe") {
@@ -170,59 +105,20 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             let prevSolverNextSlot := keccak256(0x00, 0x40)
             let prevSolverNextValue := sload(prevSolverNextSlot)
 
-            switch addNotRemove
-            case 0 {
-                fail := or(fail, xor(prevSolverNextValue, solver))
-                sstore(prevSolverNextSlot, solverNextValue)
-                sstore(solverNextSlot, 0x00)
-                sstore(add(0x01, _SOLVER_LIST_BASE_SLOT), sub(sload(add(0x01, _SOLVER_LIST_BASE_SLOT)), 0x01))
-            }
-            default {
-                fail := or(fail, xor(prevSolverNextValue, _SENTINEL_SOLVER))
-                sstore(prevSolverNextSlot, solver)
-                sstore(solverNextSlot, _SENTINEL_SOLVER)
-                sstore(add(0x01, _SOLVER_LIST_BASE_SLOT), add(0x01, sload(add(0x01, _SOLVER_LIST_BASE_SLOT))))
-            }
+            let expectedPrevSolverNextValue := xor(solver, mul(xor(_SENTINEL_SOLVER, solver), addNotRemove))
+            let newPrevSolverNextValue := xor(solverNextValue, mul(xor(solverNextValue, solver), addNotRemove))
+            let newSolverNextValue := addNotRemove
+
+            fail := or(fail, xor(prevSolverNextValue, expectedPrevSolverNextValue))
+            sstore(prevSolverNextSlot, newPrevSolverNextValue)
+            sstore(solverNextSlot, newSolverNextValue)
 
             if fail {
                 revert(0x00, 0x00)
             }
         }
-        emit SetSolver(solver, addNotRemove);
+        emit SolverSet(solver, addNotRemove);
     }
-
-    /*
-    function solvers() external view returns (address[] memory r) {
-        SolverList storage $ = _solverList();
-        uint256 length = $.length;
-
-        assembly ("memory-safe") {
-            // In order to save on contract size, we're doing to do some dirty hacks to return
-            // `r`. In order to guarantee memory safety, we need to allocate a extra word of memory
-            // before we allocate `r`.
-            mstore(0x40, add(0x20, mload(0x40)))
-        }
-        r = UnsafeArray.unsafeAlloc(length);
-        ArrayIterator i = r.iter();
-        ArrayIterator end = r.end();
-
-        address head = _SENTINEL_SOLVER;
-        while (i != end) {
-            head = $.next[head];
-            i.set(head);
-            i = i.next();
-        }
-
-        assembly ("memory-safe") {
-            // This is not technically memory safe, but since we made sure that the word before `r`
-            // in memory is unallocated, we are assured that we're not clobbering anything
-            // important.
-            let returndata := sub(r, 0x20)
-            mstore(returndata, 0x20)
-            return(returndata, add(0x40, shl(0x05, mload(r))))
-        }
-    }
-    */
 
     function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
         return 4;
