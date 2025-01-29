@@ -74,7 +74,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
 
     event SolverSet(address indexed solver, bool addNotRemove);
 
-    function setSolver(address prevSolver, address solver, bool addNotRemove) external onlyOwner {
+    function setSolver(address prev, address solver, bool addNotRemove) external onlyOwner {
         // Solidity generates extremely bloated code for the following block, so it has been
         // rewritten in assembly so as not to blow out the contract size limit
         /*
@@ -82,12 +82,12 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         mapping(address => address) storage $ = _$();
         require(($[solver] == address(0)) == addNotRemove);
         if (addNotRemove) {
-            require($[prevSolver] == _SENTINEL_SOLVER);
-            $[prevSolver] = solver;
+            require($[prev] == _SENTINEL_SOLVER);
+            $[prev] = solver;
             $[solver] = _SENTINEL_SOLVER;
         } else {
-            require($[prevSolver] == solver);
-            $[prevSolver] = $[solver];
+            require($[prev] == solver);
+            $[prev] = $[solver];
             $[solver] = address(0);
         }
         */
@@ -97,21 +97,20 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
 
             mstore(0x00, solver)
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
-            let solverNextSlot := keccak256(0x00, 0x40)
-            let solverNextValue := sload(solverNextSlot)
-            fail := or(fail, xor(iszero(solverNextValue), addNotRemove))
+            let solverSlot := keccak256(0x00, 0x40)
+            let solverSlotValue := sload(solverSlot)
+            fail := or(fail, xor(iszero(solverSlotValue), addNotRemove))
 
-            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, prevSolver))
-            let prevSolverNextSlot := keccak256(0x00, 0x40)
-            let prevSolverNextValue := sload(prevSolverNextSlot)
+            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, prev))
+            let prevSlot := keccak256(0x00, 0x40)
 
-            let expectedPrevSolverNextValue := xor(solver, mul(xor(_SENTINEL_SOLVER, solver), addNotRemove))
-            let newPrevSolverNextValue := xor(solverNextValue, mul(xor(solverNextValue, solver), addNotRemove))
-            let newSolverNextValue := addNotRemove
+            let expectedPrevSlotValue := xor(solver, mul(xor(_SENTINEL_SOLVER, solver), addNotRemove))
+            let newPrevSlotValue := xor(solverSlotValue, mul(xor(solverSlotValue, solver), addNotRemove))
+            let newSolverSlotValue := addNotRemove
 
-            fail := or(fail, xor(prevSolverNextValue, expectedPrevSolverNextValue))
-            sstore(prevSolverNextSlot, newPrevSolverNextValue)
-            sstore(solverNextSlot, newSolverNextValue)
+            fail := or(fail, xor(sload(prevSlot), expectedPrevSlotValue))
+            sstore(prevSlot, newPrevSlotValue)
+            sstore(solverSlot, newSolverSlotValue)
 
             if fail {
                 revert(0x00, 0x00)
