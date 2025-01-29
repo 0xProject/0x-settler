@@ -39,6 +39,9 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add UniswapV4 actions to Sepolia
+* Add UniswapV4 actions to Ink
+
 ## 2025-01-23
 
 ### Breaking changes
