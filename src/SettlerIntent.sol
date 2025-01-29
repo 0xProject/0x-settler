@@ -15,70 +15,147 @@ import {IDeployer} from "./deployer/IDeployer.sol";
 import {Feature} from "./deployer/Feature.sol";
 import {IOwnable} from "./deployer/IOwnable.sol";
 
+import {UnsafeMath} from "./utils/UnsafeMath.sol";
+
+type ArrayIterator is uint256;
+
+function __eq(ArrayIterator x, ArrayIterator y) pure returns (bool) {
+    return ArrayIterator.unwrap(x) == ArrayIterator.unwrap(y);
+}
+
+function __ne(ArrayIterator x, ArrayIterator y) pure returns (bool) {
+    return ArrayIterator.unwrap(x) != ArrayIterator.unwrap(y);
+}
+
+library UnsafeArray {
+    function unsafeAlloc(uint256 i) internal pure returns (address[] memory r) {
+        assembly ("memory-safe") {
+            r := mload(0x40)
+            mstore(r, i)
+            mstore(0x40, add(r, add(0x20, shl(0x05, i))))
+        }
+    }
+
+    function unsafeSet(address[] memory a, uint256 i, address v) internal pure {
+        assembly ("memory-safe") {
+            mstore(add(a, add(0x20, shl(0x05, i))), and(0xffffffffffffffffffffffffffffffffffffffff, v))
+        }
+    }
+
+    function iter(address[] memory a) internal pure returns (ArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(0x20, a)
+        }
+    }
+
+    function end(address[] memory a) internal pure returns (ArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(a, add(0x20, shl(0x05, mload(a))))
+        }
+    }
+
+    function set(ArrayIterator i, address v) internal pure {
+        assembly ("memory-safe") {
+            mstore(i, and(0xffffffffffffffffffffffffffffffffffffffff, v))
+        }
+    }
+
+    function next(ArrayIterator i) internal pure returns (ArrayIterator r) {
+        unchecked {
+            return ArrayIterator.wrap(ArrayIterator.unwrap(i) + 32);
+        }
+    }
+}
+
+using {__eq as ==, __ne as !=} for ArrayIterator global;
+
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
-    // @custom:storage-location erc7201:SettlerIntentSolverList
+    using UnsafeMath for uint256;
+    using UnsafeArray for address[];
+    using UnsafeArray for ArrayIterator;
+
     struct SolverList {
-        address[] solvers;
-        mapping(address => uint256) isSolver;
+        uint256 length;
+        mapping(address => address) next;
     }
 
     function _solverList() private pure returns (SolverList storage $) {
         assembly ("memory-safe") {
-            $.slot := 0x4f22d24fda4d2578949e03d6a8fd72b8e4441b0608054751d605e5c08a221000
+            $.slot := 0xe4441b0608054751d605e5c08a2210c0
         }
     }
 
+    address private constant _SENTINEL_SOLVER = address(1);
+
     constructor() {
-        SolverList storage $ = _solverList();
-        uint256 $int;
-        assembly ("memory-safe") {
-            $int := $.slot
-        }
-        assert($int == (uint256(keccak256("SettlerIntentSolverList")) - 1) & ~uint256(0xff));
-        _solverList().solvers.push(address(0));
-        emit SetSolver(address(0), true);
+        _solverList().next[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
     modifier onlyOwner() {
         (address owner, uint40 expiry) = IDeployer(DEPLOYER).authorized(Feature.wrap(uint128(_tokenId())));
+        require(expiry == type(uint40).max || block.timestamp <= expiry);
         if (_operator() != owner) {
-            revert IOwnable.PermissionDenied();
-        }
-        if (expiry != type(uint40).max && block.timestamp > expiry) {
             revert IOwnable.PermissionDenied();
         }
         _;
     }
 
     modifier onlySolver() {
-        if (_operator() != address(0) && _solverList().isSolver[_operator()] == 0) {
+        if (_solverList().next[_operator()] == address(0)) {
             revert IOwnable.PermissionDenied();
         }
         _;
     }
 
-    event SetSolver(address indexed solver, bool isSolver);
+    event SetSolver(address indexed solver, bool addNotRemove);
 
-    function setSolver(address solver, bool isSolver) external onlyOwner {
+    function setSolver(address prevSolver, address solver, bool addNotRemove) external onlyOwner {
         require(solver != address(0));
         SolverList storage $ = _solverList();
-        require(($.isSolver[solver] == 0) == isSolver);
-        if (isSolver) {
-            $.isSolver[solver] = $.solvers.length;
-            $.solvers.push(solver);
+        require(($.next[solver] == address(0)) == addNotRemove);
+        if (addNotRemove) {
+            require($.next[prevSolver] == _SENTINEL_SOLVER);
+            $.next[prevSolver] = solver;
+            $.next[solver] = _SENTINEL_SOLVER;
+            $.length = $.length.unsafeInc();
         } else {
-            uint256 oldIndex = $.isSolver[solver];
-            address lastSolver = $.solvers[$.solvers.length - 1];
-            $.solvers[oldIndex] = lastSolver;
-            $.isSolver[lastSolver] = oldIndex;
-            $.isSolver[solver] = 0;
-            $.solvers.pop();
+            require($.next[prevSolver] == solver);
+            $.next[prevSolver] = $.next[solver];
+            $.next[solver] = address(0);
+            $.length = $.length.unsafeDec();
         }
-        emit SetSolver(solver, isSolver);
+        emit SetSolver(solver, addNotRemove);
     }
 
-    function solvers() external view returns (address[] memory) {
-        return _solverList().solvers;
+    function solvers() external view returns (address[] memory r) {
+        SolverList storage $ = _solverList();
+        uint256 length = $.length;
+
+        assembly ("memory-safe") {
+            // In order to save on contract size, we're doing to do some dirty hacks to return
+            // `r`. In order to guarantee memory safety, we need to allocate a extra word of memory
+            // before we allocate `r`.
+            mstore(0x40, add(0x20, mload(0x40)))
+        }
+        r = UnsafeArray.unsafeAlloc(length);
+        ArrayIterator i = r.iter();
+        ArrayIterator end = r.end();
+
+        address head = _SENTINEL_SOLVER;
+        while (i != end) {
+            head = $.next[head];
+            i.set(head);
+            i = i.next();
+        }
+
+        assembly ("memory-safe") {
+            // This is not technically memory safe, but since we made sure that the word before `r`
+            // in memory is unallocated, we are assured that we're not clobbering anything
+            // important.
+            let returndata := sub(r, 0x20)
+            mstore(returndata, 0x20)
+            return(returndata, add(0x40, shl(0x05, mload(r))))
+        }
     }
 
     function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
