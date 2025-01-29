@@ -39,6 +39,10 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Create new Settler version for intent-based settlement -- the taker only signs
+  the slippage, not the actions
+  * This is now `tokenId` 4
+
 ## 2025-01-23
 
 ### Breaking changes
@@ -135,9 +139,6 @@ Master list of UniV3 forks:
   * Add UniswapV3 UniV3 fork to Gnosis
   * Add SushiswapV3 UniV3 fork to Gnosis
   * Add Swapr UniV3 (Algebra style) fork to Gnosis
-* Create new Settler version for intent-based settlement -- the taker only signs
-  the slippage, not the actions
-  * This is now `tokenId` 4
 
 ## 2024-10-08
 
