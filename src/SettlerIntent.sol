@@ -41,24 +41,42 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         address owner;
         uint40 expiry;
         assembly ("memory-safe") {
+            // We lay out the calldata in memory in the first 2 slots. The first slot is the
+            // selector, but aligned incorrectly (this significantly saves on contract size). The
+            // second slot is the token ID. Therefore calldata starts at offset 0x1c (32 - 4) and is
+            // 0x24 bytes long (32 + 4)
             mstore(0x00, 0x2bb83987) // selector for `authorized(uint128)`
             mstore(0x20, tokenId_)
+
+            // Perform the call and bubble any revert. The expected returndata (2 arguments, each 1
+            // slot) is copied back into the first 2 slots of memory.
             if iszero(staticcall(gas(), deployer_, 0x1c, 0x24, 0x00, 0x40)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+
+            // If calldata is short (we need at least 64 bytes), revert with an empty reason.
             if iszero(gt(returndatasize(), 0x3f)) {
                 revert(0x00, 0x00)
             }
+
+            // Load the return values that were automatically written into the first 2 slots of
+            // memory.
             owner := mload(0x00)
             expiry := mload(0x20)
+
+            // If there are any dirty bits in the return values, revert with an empty reason.
             if or(shr(0xa0, owner), shr(0x28, expiry)) {
                 revert(0x00, 0x00)
             }
         }
 
+        // Check that the owner actually exists, that is that their authority hasn't expired.
         require(expiry == type(uint40).max || block.timestamp <= expiry);
+
+        // Check that the caller (in this case `_operator()`, because we aren't using the special
+        // transient-storage taker logic) is the owner.
         if (_operator() != owner) {
             revert IOwnable.PermissionDenied();
         }
@@ -92,23 +110,43 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         }
         */
         assembly ("memory-safe") {
+            // A solver of zero is special-cased. It is forbidden to set it because that would
+            // corrupt the list.
             solver := and(0xffffffffffffffffffffffffffffffffffffffff, solver)
             let fail := iszero(solver)
 
+            // Derive the slot for `solver` and load it.
             mstore(0x00, solver)
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
             let solverSlot := keccak256(0x00, 0x40)
             let solverSlotValue := sload(solverSlot)
+
+            // If the slot is zero, `addNotRemove` must be true (we are adding a new
+            // solver). Likewise if the slot is nonzero, `addNotRemove` must be false (we are
+            // removing one).
             fail := or(fail, xor(iszero(solverSlotValue), addNotRemove))
 
+            // Derive the slot for `prev`.
             mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, prev))
             let prevSlot := keccak256(0x00, 0x40)
 
+            // This is a very fancy way of writing:
+            //     expectedPrevSlotValue = addNotRemove ? _SENTINEL_SOLVER : solver
+            //     newPrevSlotValue = addNotRemove ? solver : solverSlotValue
+            //     newSolverSlotValue = addNotRemove ? _SENTINEL_SOLVER : address(0)
             let expectedPrevSlotValue := xor(solver, mul(xor(_SENTINEL_SOLVER, solver), addNotRemove))
             let newPrevSlotValue := xor(solverSlotValue, mul(xor(solverSlotValue, solver), addNotRemove))
             let newSolverSlotValue := addNotRemove
 
+            // Check that the value for `prev` matches the value for `solver`. If we are adding a
+            // new solver, then `prev` must be the last element of the list (it points at
+            // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
+            // `solver.
             fail := or(fail, xor(sload(prevSlot), expectedPrevSlotValue))
+
+            // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
+            // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at
+            // `_SENTINEL_SOLVER`
             sstore(prevSlot, newPrevSlotValue)
             sstore(solverSlot, newSolverSlotValue)
 
