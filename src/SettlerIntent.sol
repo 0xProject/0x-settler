@@ -91,6 +91,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     }
 
     event SolverSet(address indexed solver, bool addNotRemove);
+    error InvalidSolver(address prev, address solver);
 
     function setSolver(address prev, address solver, bool addNotRemove) external onlyOwner {
         // Solidity generates extremely bloated code for the following block, so it has been
@@ -110,9 +111,12 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         }
         */
         assembly ("memory-safe") {
+            // Clean dirty bits.
+            prev := and(0xffffffffffffffffffffffffffffffffffffffff, prev)
+            solver := and(0xffffffffffffffffffffffffffffffffffffffff, solver)
+
             // A solver of zero is special-cased. It is forbidden to set it because that would
             // corrupt the list.
-            solver := and(0xffffffffffffffffffffffffffffffffffffffff, solver)
             let fail := iszero(solver)
 
             // Derive the slot for `solver` and load it.
@@ -150,8 +154,13 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             sstore(prevSlot, newPrevSlotValue)
             sstore(solverSlot, newSolverSlotValue)
 
+            // If any of the checks failed, revert. This check is deferred because it makes the
+            // contract substantially smaller.
             if fail {
-                revert(0x00, 0x00)
+                mstore(0x00, 0xe2b339fd) // selector for `InvalidSolver(address,address)`
+                mstore(0x20, prev)
+                mstore(0x40, solver)
+                revert(0x1c, 0x44)
             }
         }
         emit SolverSet(solver, addNotRemove);
