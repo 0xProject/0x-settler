@@ -138,7 +138,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             fail := or(fail, xor(iszero(solverSlotValue), addNotRemove))
 
             // Derive the slot for `prev`.
-            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, prev))
+            mstore(0x00, prev)
             let prevSlot := keccak256(0x00, 0x40)
 
             // This is a very fancy way of writing:
