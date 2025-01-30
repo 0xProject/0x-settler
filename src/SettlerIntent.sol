@@ -16,7 +16,7 @@ import {Feature} from "./deployer/Feature.sol";
 import {IOwnable} from "./deployer/IOwnable.sol";
 
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
-    uint256 private constant _SOLVER_LIST_BASE_SLOT = 0xe4441b0608054751d605e5c08a2210c0; // uint128(uint256(keccak256("SettlerIntentSolverList")))
+    uint256 private constant _SOLVER_LIST_BASE_SLOT = 0xe4441b0608054751d605e5c08a2210bf; // uint128(uint256(keccak256("SettlerIntentSolverList")) - 1)
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
     /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant
