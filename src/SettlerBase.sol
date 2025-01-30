@@ -38,17 +38,17 @@ library CalldataDecoder {
                     data.offset,
                     // We allow the indirection/offset to `calls[i]` to be negative
                     calldataload(
-                        add(shl(5, i), data.offset) // can't overflow; we assume `i` is in-bounds
+                        add(shl(0x05, i), data.offset) // can't overflow; we assume `i` is in-bounds
                     )
                 )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
-            args.offset := add(args.offset, 0x20)
+            args.offset := add(0x20, args.offset)
 
             // slice off the first 4 bytes of `args` as the selector
             selector := shr(0xe0, calldataload(args.offset))
             args.length := sub(args.length, 0x04)
-            args.offset := add(args.offset, 0x04)
+            args.offset := add(0x04, args.offset)
         }
     }
 }
