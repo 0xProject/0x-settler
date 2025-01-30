@@ -18,6 +18,13 @@ import {IOwnable} from "./deployer/IOwnable.sol";
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     uint256 private constant _SOLVER_LIST_BASE_SLOT = 0xe4441b0608054751d605e5c08a2210c0; // uint128(uint256(keccak256("SettlerIntentSolverList")))
 
+    /// This mapping forms a circular singly-linked list that traverses all the authorized callers
+    /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant
+    /// `_SENTINEL_SOLVER`. No view function is provided for accessing this mapping. You'll have to
+    /// use an RPC to read storage directly or monitor for events and reconstruct the list that
+    /// way. As a consequence of the structure of this list, the check for whether an address is on
+    /// the list is extremely simply: `_$()[query] != address(0)`. This technique is cribbed from
+    /// Safe{Wallet}
     function _$() private pure returns (mapping(address => address) storage $) {
         assembly ("memory-safe") {
             $.slot := _SOLVER_LIST_BASE_SLOT
