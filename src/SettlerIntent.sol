@@ -100,6 +100,8 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
     event SolverSet(address indexed solver, bool addNotRemove);
     error InvalidSolver(address prev, address solver);
 
+    /// This pattern is cribbed from Safe{Wallet}. See `OwnerManager.sol` from
+    /// 0x3E5c63644E683549055b9Be8653de26E0B4CD36E.
     function setSolver(address prev, address solver, bool addNotRemove) external onlyOwner {
         // Solidity generates extremely bloated code for the following block, so it has been
         // rewritten in assembly so as not to blow out the contract size limit
