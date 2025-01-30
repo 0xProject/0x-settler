@@ -97,7 +97,6 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         _;
     }
 
-    event SolverSet(address indexed solver, bool addNotRemove);
     error InvalidSolver(address prev, address solver);
 
     /// This pattern is cribbed from Safe{Wallet}. See `OwnerManager.sol` from
@@ -172,7 +171,6 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
                 revert(0x1c, 0x44)
             }
         }
-        emit SolverSet(solver, addNotRemove);
     }
 
     function _tokenId() internal pure virtual override(SettlerAbstract, SettlerMetaTxn) returns (uint256) {
