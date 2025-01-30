@@ -144,10 +144,8 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             // This is a very fancy way of writing:
             //     expectedPrevSlotValue = addNotRemove ? _SENTINEL_SOLVER : solver
             //     newPrevSlotValue = addNotRemove ? solver : solverSlotValue
-            //     newSolverSlotValue = addNotRemove ? _SENTINEL_SOLVER : address(0)
             let expectedPrevSlotValue := xor(solver, mul(xor(_SENTINEL_SOLVER, solver), addNotRemove))
             let newPrevSlotValue := xor(solverSlotValue, mul(xor(solverSlotValue, solver), addNotRemove))
-            let newSolverSlotValue := addNotRemove
 
             // Check that the value for `prev` matches the value for `solver`. If we are adding a
             // new solver, then `prev` must be the last element of the list (it points at
@@ -159,7 +157,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at
             // `_SENTINEL_SOLVER`
             sstore(prevSlot, newPrevSlotValue)
-            sstore(solverSlot, newSolverSlotValue)
+            sstore(solverSlot, addNotRemove)
 
             // If any of the checks failed, revert. This check is deferred because it makes the
             // contract substantially smaller.
