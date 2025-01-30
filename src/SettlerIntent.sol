@@ -174,28 +174,6 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         return 4;
     }
 
-    function _msgSender()
-        internal
-        view
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentMetaTxn, SettlerMetaTxn)
-        returns (address)
-    {
-        return super._msgSender();
-    }
-
-    function _witnessTypeSuffix()
-        internal
-        pure
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentMetaTxn, Permit2PaymentIntent)
-        returns (string memory)
-    {
-        return super._witnessTypeSuffix();
-    }
-
     function _mandatorySlippageCheck() internal pure virtual override returns (bool) {
         return true;
     }
@@ -231,5 +209,26 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
+    }
+
+    // Solidity inheritance is stupid
+    function _msgSender()
+        internal
+        view
+        virtual
+        override(Permit2PaymentMetaTxn, SettlerMetaTxn)
+        returns (address)
+    {
+        return super._msgSender();
+    }
+
+    function _witnessTypeSuffix()
+        internal
+        pure
+        virtual
+        override(Permit2PaymentMetaTxn, Permit2PaymentIntent)
+        returns (string memory)
+    {
+        return super._witnessTypeSuffix();
     }
 }

@@ -26,28 +26,6 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         return false;
     }
 
-    function _msgSender()
-        internal
-        view
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentTakerSubmitted, AbstractContext)
-        returns (address)
-    {
-        return super._msgSender();
-    }
-
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
-        returns (bool)
-    {
-        return super._isRestrictedTarget(target);
-    }
-
     function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
         if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
@@ -116,5 +94,27 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
 
         _checkSlippageAndTransfer(slippage);
         return true;
+    }
+
+
+    // Solidity inheritance is stupid
+    function _msgSender()
+        internal
+        view
+        virtual
+        override(Permit2PaymentTakerSubmitted, AbstractContext)
+        returns (address)
+    {
+        return super._msgSender();
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        virtual
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }
