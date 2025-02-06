@@ -45,7 +45,16 @@ import {ARBITRUM_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract ArbitrumMixin is FreeMemory, SettlerBase, MaverickV2, CurveTricrypto, DodoV1, DodoV2, UniswapV4, BalancerV3 {
+abstract contract ArbitrumMixin is
+    FreeMemory,
+    SettlerBase,
+    MaverickV2,
+    CurveTricrypto,
+    DodoV1,
+    DodoV2,
+    UniswapV4,
+    BalancerV3
+{
     constructor() {
         assert(block.chainid == 42161 || block.chainid == 31337);
     }
