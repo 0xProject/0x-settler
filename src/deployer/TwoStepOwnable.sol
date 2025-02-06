@@ -58,7 +58,7 @@ abstract contract AddressSlotStorage {
 
     function _set(AddressSlot s, address v) internal {
         assembly ("memory-safe") {
-            sstore(s, v)
+            sstore(s, and(0xffffffffffffffffffffffffffffffffffffffff, v))
         }
     }
 }
