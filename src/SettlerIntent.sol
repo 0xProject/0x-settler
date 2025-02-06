@@ -130,10 +130,10 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             mstore(0x00, solver)
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
             let solverSlot := keccak256(0x00, 0x40)
-            let solverSlotValue := sload(solverSlot)
+            let solverSlotValue := and(0xffffffffffffffffffffffffffffffffffffffff, sload(solverSlot))
 
-            // If the slot is zero, `addNotRemove` must be true (we are adding a new
-            // solver). Likewise if the slot is nonzero, `addNotRemove` must be false (we are
+            // If the slot contains zero, `addNotRemove` must be true (we are adding a new
+            // solver). Likewise if the slot contains nonzero, `addNotRemove` must be false (we are
             // removing one).
             fail := or(fail, xor(iszero(solverSlotValue), addNotRemove))
 
@@ -151,7 +151,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
             // new solver, then `prev` must be the last element of the list (it points at
             // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
             // `solver.
-            fail := or(fail, xor(sload(prevSlot), expectedPrevSlotValue))
+            fail := or(fail, xor(and(0xffffffffffffffffffffffffffffffffffffffff, sload(prevSlot)), expectedPrevSlotValue))
 
             // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
             // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at
