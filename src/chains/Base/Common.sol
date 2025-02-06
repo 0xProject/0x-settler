@@ -8,6 +8,7 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
+import {BalancerV3} from "../../core/BalancerV3.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -46,7 +47,7 @@ import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, UniswapV4 {
+abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, UniswapV4, BalancerV3 {
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
