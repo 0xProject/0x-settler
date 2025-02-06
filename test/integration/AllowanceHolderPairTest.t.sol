@@ -32,7 +32,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     function uniswapV3Path() internal virtual returns (bytes memory);
     function uniswapV2Pool() internal virtual returns (address);
 
-    function testAllowanceHolder_uniswapV3() public {
+    function testAllowanceHolder_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             // Perform a transfer into Settler via AllowanceHolder
             abi.encodeCall(
@@ -78,7 +78,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP() public {
+    function testAllowanceHolder_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -124,7 +124,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP_contract() public {
+    function testAllowanceHolder_uniswapV3VIP_contract() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -291,65 +291,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_rfq_fixedFee() public {
-        ISignatureTransfer.PermitTransferFrom memory makerPermit =
-            defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
-        ISignatureTransfer.PermitTransferFrom memory takerPermit0 =
-            defaultERC20PermitTransfer(address(fromToken()), amount() * 9_000 / 10_000, 0);
-        ISignatureTransfer.PermitTransferFrom memory takerPermit1 =
-            defaultERC20PermitTransfer(address(fromToken()), amount() - takerPermit0.permitted.amount, 0);
-
-        RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: fromToken(),
-            amount: takerPermit0.permitted.amount,
-            counterparty: FROM,
-            partialFillAllowed: false
-        });
-
-        bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
-        bytes memory makerSig = getPermitWitnessTransferSignature(
-            makerPermit, address(settler), MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, makerWitness, permit2Domain
-        );
-
-        bytes memory takerSig = new bytes(0);
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit0, takerSig)),
-            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (BURN_ADDRESS, takerPermit1, takerSig))
-        );
-
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
-        Settler _settler = settler;
-        IERC20 _fromToken = fromToken();
-        uint256 _amount = amount();
-        //_warm_allowanceHolder_slots(address(_fromToken), _amount);
-
-        vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_rfq_fixedFee_sellToken");
-        //_cold_account_access();
-
-        _allowanceHolder.exec(
-            address(_settler),
-            address(_fromToken),
-            _amount,
-            payable(address(_settler)),
-            abi.encodeCall(
-                _settler.execute,
-                (
-                    SettlerBase.AllowedSlippage({
-                        recipient: address(0),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0 ether
-                    }),
-                    actions,
-                    bytes32(0)
-                )
-            )
-        );
-        snapEnd();
-    }
-
-    function testAllowanceHolder_uniswapV2_single_chain() public {
+    function testAllowanceHolder_uniswapV2_single_chain() public skipIf(uniswapV2Pool() == address(0)) {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool sellTokenHasFee = false;

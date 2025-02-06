@@ -17,10 +17,11 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
-    constructor(bytes20 gitCommit) SettlerMetaTxn(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
+        virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
@@ -31,6 +32,7 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
     function _isRestrictedTarget(address target)
         internal
         pure
+        virtual
         override(Permit2PaymentBase, ModeMixin, Permit2PaymentAbstract)
         returns (bool)
     {
@@ -40,13 +42,14 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
+        virtual
         override(SettlerAbstract, SettlerBase, ModeMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(SettlerMetaTxn, AbstractContext) returns (address) {
+    function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
     }
 }

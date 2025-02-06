@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import {MakerPSM, IPSM} from "src/core/MakerPSM.sol";
 
+import {uint512} from "src/utils/512Math.sol";
+
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
@@ -23,11 +25,19 @@ contract MakerPSMDummy is MakerPSM {
         revert("unimplemented");
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _hasMetaTxn() internal pure override returns (bool) {
         revert("unimplemented");
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 

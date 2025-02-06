@@ -86,10 +86,12 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * from(uint256,uint256) -- The EVM is big-endian. The most-significant word is first.
 /// * from(uint512) -- performs a copy
 /// * into() returns (uint256,uint256) -- Again, the most-significant word is first.
+/// * toExternal(uint512) returns (uint512_external memory)
 ///
 /// ### Comparison (all functions return `(bool)`)
 ///
 /// * isZero(uint512)
+/// * isMax(uint512)
 /// * eq(uint512,uint256)
 /// * eq(uint512,uint512)
 /// * ne(uint512,uint256)
@@ -105,7 +107,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 ///
 /// ### Addition
 ///
-/// * oadd(uint512,uint256,uint256)
+/// * oadd(uint512,uint256,uint256) -- iadd(uint256,uint256) is not provided for somewhat obvious reasons
 /// * oadd(uint512,uint512,uint256)
 /// * iadd(uint512,uint256)
 /// * oadd(uint512,uint512,uint512)
@@ -131,7 +133,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 ///
 /// ### Modulo
 ///
-/// * mod(uint512,uint256) returns (uint256) -- mod(uint512,uint512) is not provided for somewhat obvious reasons
+/// * mod(uint512,uint256) returns (uint256) -- mod(uint512,uint512) is not provided for less obvious reasons
 /// * omod(uint512,uint512,uint512)
 /// * imod(uint512,uint512)
 /// * irmod(uint512,uint512)
@@ -208,6 +210,13 @@ library Lib512MathComparisons {
         (uint256 x_hi, uint256 x_lo) = x.into();
         assembly ("memory-safe") {
             r := iszero(or(x_hi, x_lo))
+        }
+    }
+
+    function isMax(uint512 x) internal pure returns (bool r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        assembly ("memory-safe") {
+            r := iszero(not(and(x_hi, x_lo)))
         }
     }
 
@@ -1502,8 +1511,7 @@ library Lib512MathExternal {
 
     function toExternal(uint512 x) internal pure returns (uint512_external memory r) {
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            if iszero(eq(ptr, add(0x40, r))) { revert(0x00, 0x00) }
+            if iszero(eq(mload(0x40), add(0x40, r))) { revert(0x00, 0x00) }
             mstore(0x40, r)
             r := x
         }

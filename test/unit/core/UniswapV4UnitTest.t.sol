@@ -6,7 +6,8 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
-import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {IPoolManager as Settler_IPoolManager, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {MAINNET_POOL_MANAGER as POOL_MANAGER} from "src/core/UniswapV4Addresses.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 import {IPoolManager} from "@uniswapv4/interfaces/IPoolManager.sol";
@@ -24,6 +25,7 @@ import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {Revert} from "src/utils/Revert.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
+import {uint512} from "src/utils/512Math.sol";
 
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 
@@ -111,6 +113,10 @@ contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
     using SafeTransferLib for IERC20;
 
+    function _POOL_MANAGER() internal pure override returns (Settler_IPoolManager) {
+        return POOL_MANAGER;
+    }
+
     function sellToUniswapV4(
         IERC20 sellToken,
         uint256 bps,
@@ -167,6 +173,10 @@ contract UniswapV4Stub is UniswapV4 {
         _deployer = msg.sender;
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _msgSender() internal view override returns (address) {
         return _deployer;
     }
@@ -184,6 +194,10 @@ contract UniswapV4Stub is UniswapV4 {
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 
@@ -349,7 +363,7 @@ abstract contract BaseUniswapV4UnitTest is Test {
     }
 
     function _deployPoolManager() internal returns (address poolManagerSrc) {
-        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager");
+        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager", abi.encode(address(this)));
         require(poolManagerSrc != address(0));
         bytes memory poolManagerCode = poolManagerSrc.code;
         uint256 replaceCount = _replaceAll(
@@ -587,7 +601,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         if (Currency.unwrap(poolKey.currency0) == ETH) {
             poolKey.currency0 = Currency.wrap(address(0));
         }
-        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
+        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96);
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96, tickSpacing));
     }
 

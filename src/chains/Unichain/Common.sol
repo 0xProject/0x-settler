@@ -5,6 +5,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
+import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -17,6 +18,8 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
+
+import {UNICHAIN_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -67,5 +70,9 @@ abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4 {
         } else {
             revert UnknownForkId(forkId);
         }
+    }
+
+    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
+        return UNICHAIN_POOL_MANAGER;
     }
 }

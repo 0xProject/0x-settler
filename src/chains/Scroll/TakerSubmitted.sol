@@ -13,10 +13,11 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
+import {uint512} from "../../utils/512Math.sol";
 
 /// @custom:security-contact security@0x.org
 contract ScrollSettler is Settler, ScrollMixin {
-    constructor(bytes20 gitCommit) Settler(gitCommit) {}
+    constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
@@ -58,5 +59,14 @@ contract ScrollSettler is Settler, ScrollMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _div512to256(uint512 n, uint512 d)
+        internal
+        view
+        override(ScrollMixin, SettlerBase, SettlerAbstract)
+        returns (uint256)
+    {
+        return super._div512to256(n, d);
     }
 }
