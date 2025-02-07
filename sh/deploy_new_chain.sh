@@ -278,7 +278,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
-    sleep 1m
+    sleep 60
 
     echo 'Verifying pause Safe module' >&2
 
