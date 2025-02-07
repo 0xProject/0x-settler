@@ -16,6 +16,7 @@ library SafeConfig {
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
@@ -43,6 +44,7 @@ library SafeConfig {
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
@@ -83,7 +85,8 @@ library SafeConfig {
     uint256 internal constant deploymentSafeThreshold = 2;
 
     // forgefmt: disable-next-line
-    function getDeploymentSafeSigners() internal view returns (address[] memory) { // this is non-pure (view) on purpose
+    function getDeploymentSafeSigners() internal view returns (address[] memory) {
+        // this is non-pure (view) on purpose
         address[] memory result = new address[](6);
         result[0] = 0x24420bC8C760787F3eEF3b809e81f44d31a9c5A2; // Jacob
         result[1] = 0x6879fAb591ed0d62537A3Cac9D7cd41218445a84; // Sav
