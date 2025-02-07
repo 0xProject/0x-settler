@@ -1383,11 +1383,14 @@ in the constructor of the Settler (and ideally in the constructor of the
 Deployer, remembering that this is complicated by the fact that the Deployer is
 a proxy). See the deployments to Blast and to Mode for examples.
 
-Fourth, you need have enough native asset in each of the deployer addresses
-listed in [`secrets.json.template`](secrets.json.template) to perform the
-deployment. If how much isn't obvious to you, you can run the main deployment
-script with `BROADCAST=no` to simulate. This can be a little wonky on L2s, so
-beware and overprovision the amount of native asset.
+Fourth, you need have enough native asset in _**each**_ of the deployer
+addresses (there are two: `iceColdCoffee` and `deployer`) listed in
+[`secrets.json.template`](secrets.json.template) to perform the deployment. If
+how much isn't obvious to you, you can run the main deployment script with
+`BROADCAST=no` to simulate. The `"iceColdCoffee"` address needs ~50% more native
+asset than the `"deployer"` address because the final transaction of the
+deployment is extremely gas-intensive. The amount of eth you need can be a
+little wonky on L2s, so beware and overprovision the amount of native asset.
 
 Fifth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
