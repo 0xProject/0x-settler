@@ -66,9 +66,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
             }
 
             // If calldata is short (we need at least 64 bytes), revert with an empty reason.
-            if iszero(gt(returndatasize(), 0x3f)) {
-                revert(0x00, 0x00)
-            }
+            if iszero(gt(returndatasize(), 0x3f)) { revert(0x00, 0x00) }
 
             // Load the return values that were automatically written into the first 2 slots of
             // memory.
@@ -76,9 +74,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
             expiry := mload(0x20)
 
             // If there are any dirty bits in the return values, revert with an empty reason.
-            if or(shr(0xa0, owner), shr(0x28, expiry)) {
-                revert(0x00, 0x00)
-            }
+            if or(shr(0xa0, owner), shr(0x28, expiry)) { revert(0x00, 0x00) }
         }
 
         // Check that the owner actually exists, that is that their authority hasn't expired.
@@ -154,7 +150,8 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
             // new solver, then `prev` must be the last element of the list (it points at
             // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
             // `solver.
-            fail := or(fail, xor(and(0xffffffffffffffffffffffffffffffffffffffff, sload(prevSlot)), expectedPrevSlotValue))
+            fail :=
+                or(fail, xor(and(0xffffffffffffffffffffffffffffffffffffffff, sload(prevSlot)), expectedPrevSlotValue))
 
             // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
             // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at
