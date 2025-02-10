@@ -8,6 +8,9 @@ import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./core/Permit2Payment.sol";
 
+import {AbstractContext, Context} from "./Context.sol";
+import {MultiCallContext} from "./multicall/MultiCallContext.sol";
+
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {DEPLOYER} from "./deployer/DeployerAddress.sol";
@@ -15,7 +18,7 @@ import {IDeployer} from "./deployer/IDeployer.sol";
 import {Feature} from "./deployer/Feature.sol";
 import {IOwnable} from "./deployer/IOwnable.sol";
 
-abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
+abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCallContext {
     uint256 private constant _SOLVER_LIST_BASE_SLOT = 0xe4441b0608054751d605e5c08a2210bf; // uint128(uint256(keccak256("SettlerIntentSolverList")) - 1)
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
@@ -211,12 +214,26 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn {
         sellAmount = permit.permitted.amount;
     }
 
+    function _isForwarded() internal view virtual override(AbstractContext, Context, MultiCallContext) returns (bool) {
+        return Context._isForwarded(); // false
+    }
+
     // Solidity inheritance is stupid
+    function _msgData()
+        internal
+        view
+        virtual
+        override(AbstractContext, Context, MultiCallContext)
+        returns (bytes calldata)
+    {
+        return super._msgData();
+    }
+
     function _msgSender()
         internal
         view
         virtual
-        override(Permit2PaymentMetaTxn, SettlerMetaTxn)
+        override(Permit2PaymentMetaTxn, SettlerMetaTxn, MultiCallContext)
         returns (address)
     {
         return super._msgSender();

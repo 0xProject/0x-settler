@@ -7,7 +7,6 @@ import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 
 import {AbstractContext} from "./Context.sol";
-import {AllowanceHolderContext} from "./allowanceholder/AllowanceHolderContext.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
@@ -95,7 +94,6 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         _checkSlippageAndTransfer(slippage);
         return true;
     }
-
 
     // Solidity inheritance is stupid
     function _msgSender()
