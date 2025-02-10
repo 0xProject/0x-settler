@@ -33,6 +33,105 @@ interface IDodoV1 {
     function _QUOTE_TOKEN_() external view returns (IERC20);
 }
 
+library FastDodoV1 {
+    function fastSellBaseToken(IDodoV1 dodo, uint256 amount, uint256 minReceiveQuote) internal returns (uint256 r) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x8dae7333)
+            mstore(add(0x20, ptr), amount)
+            mstore(add(0x40, ptr), minReceiveQuote)
+            mstore(add(0x60, ptr), 0x40)
+            mstore(add(0x80, ptr), 0x00)
+
+            if iszero(call(gas(), dodo, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+
+            r := mload(0x00)
+        }
+    }
+
+    function fastBuyBaseToken(IDodoV1 dodo, uint256 amount, uint256 maxPayQuote) internal returns (uint256 r) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0xe67ce706)
+            mstore(add(0x20, ptr), amount)
+            mstore(add(0x40, ptr), maxPayQuote)
+            mstore(add(0x60, ptr), 0x40)
+            mstore(add(0x80, ptr), 0x00)
+
+            if iszero(call(gas(), dodo, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+
+            r := mload(0x00)
+        }
+    }
+
+    function _get(IDodoV1 dodo, uint256 sig) private view returns (bytes32 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, sig)
+            if iszero(staticcall(gas(), dodo, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+        }
+    }
+
+    function fast_R_STATUS_(IDodoV1 dodo) internal view returns (uint8) {
+        return uint8(uint256(_get(dodo, 0x17be952e)));
+    }
+
+    function fast_QUOTE_BALANCE_(IDodoV1 dodo) internal view returns (uint256) {
+        return uint256(_get(dodo, 0x7c9b8e89));
+    }
+
+    function fast_BASE_BALANCE_(IDodoV1 dodo) internal view returns (uint256) {
+        return uint256(_get(dodo, 0xeab5d20e));
+    }
+
+    function fast_K_(IDodoV1 dodo) internal view returns (uint256) {
+        return uint256(_get(dodo, 0xec2fd46d));
+    }
+
+    function fast_MT_FEE_RATE_(IDodoV1 dodo) internal view returns (uint256) {
+        return uint256(_get(dodo, 0xc0ffa178));
+    }
+
+    function fast_LP_FEE_RATE_(IDodoV1 dodo) internal view returns (uint256) {
+        return uint256(_get(dodo, 0xab44a7a3));
+    }
+
+    function fastGetExpectedTarget(IDodoV1 dodo) internal view returns (uint256 baseTarget, uint256 quoteTarget) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0xffa64225)
+            if iszero(staticcall(gas(), dodo, 0x1c, 0x04, 0x00, 0x40)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            baseTarget := mload(0x00)
+            quoteTarget := mload(0x20)
+        }
+    }
+
+    function fastGetOraclePrice(IDodoV1 dodo) internal view returns (uint256) {
+        return uint256(_get(dodo, 0x796da7af));
+    }
+
+    function fast_BASE_TOKEN_(IDodoV1 dodo) internal view returns (IERC20) {
+        return IERC20(address(uint160(uint256(_get(dodo, 0x4a248d2a)))));
+    }
+
+    function fast_QUOTE_TOKEN_(IDodoV1 dodo) internal view returns (IERC20) {
+        return IERC20(address(uint160(uint256(_get(dodo, 0xd4b97046)))));
+    }
+}
+
 library Math {
     using UnsafeMath for uint256;
 
@@ -186,6 +285,7 @@ library DodoMath {
 
 abstract contract DodoSellHelper {
     using Math for uint256;
+    using FastDodoV1 for IDodoV1;
 
     enum RStatus {
         ONE,
@@ -205,12 +305,12 @@ abstract contract DodoSellHelper {
 
     function dodoQuerySellQuoteToken(IDodoV1 dodo, uint256 amount) internal view returns (uint256) {
         DodoState memory state;
-        (state.baseTarget, state.quoteTarget) = dodo.getExpectedTarget();
-        state.rStatus = RStatus(dodo._R_STATUS_());
-        state.oraclePrice = dodo.getOraclePrice();
-        state.Q = dodo._QUOTE_BALANCE_();
-        state.B = dodo._BASE_BALANCE_();
-        state.K = dodo._K_();
+        (state.baseTarget, state.quoteTarget) = dodo.fastGetExpectedTarget();
+        state.rStatus = RStatus(dodo.fast_R_STATUS_());
+        state.oraclePrice = dodo.fastGetOraclePrice();
+        state.Q = dodo.fast_QUOTE_BALANCE_();
+        state.B = dodo.fast_BASE_BALANCE_();
+        state.K = dodo.fast_K_();
 
         unchecked {
             uint256 boughtAmount;
@@ -230,7 +330,9 @@ abstract contract DodoSellHelper {
                 }
             }
             // Calculate fees
-            return DecimalMath.divFloor(boughtAmount, DecimalMath.ONE + dodo._MT_FEE_RATE_() + dodo._LP_FEE_RATE_());
+            return DecimalMath.divFloor(
+                boughtAmount, DecimalMath.ONE + dodo.fast_MT_FEE_RATE_() + dodo.fast_LP_FEE_RATE_()
+            );
         }
     }
 
@@ -278,6 +380,7 @@ abstract contract DodoSellHelper {
 abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
+    using FastDodoV1 for IDodoV1;
 
     function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)
         internal
@@ -290,11 +393,11 @@ abstract contract DodoV1 is SettlerAbstract, DodoSellHelper {
         if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(dodo, sellAmount);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(dodo._BASE_TOKEN_(), minBuyAmount, buyAmount);
+                revert TooMuchSlippage(dodo.fast_BASE_TOKEN_(), minBuyAmount, buyAmount);
             }
-            dodo.buyBaseToken(buyAmount, sellAmount, new bytes(0));
+            dodo.fastBuyBaseToken(buyAmount, sellAmount);
         } else {
-            dodo.sellBaseToken(sellAmount, minBuyAmount, new bytes(0));
+            dodo.fastSellBaseToken(sellAmount, minBuyAmount);
         }
     }
 }
