@@ -33,12 +33,11 @@ abstract contract MultiCallContext is Context {
 
     function _msgSender() internal view virtual override returns (address sender) {
         sender = super._msgSender();
-        if (sender == address(_MULTICALL)) {
+        assembly ("memory-safe") {
+            sender := and(0xffffffffffffffffffffffffffffffffffffffff, sender)
             // ERC-2771. The trusted forwarder (`_MULTICALL`) has appended the appropriate
             // msg.sender to the msg data
-            assembly ("memory-safe") {
-                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
-            }
+            sender := xor(sender, mul(xor(sender, shr(0x60, calldataload(sub(calldatasize(), 0x14)))), eq(_MULTICALL, sender)))
         }
     }
 }
