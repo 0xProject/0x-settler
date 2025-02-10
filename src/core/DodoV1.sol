@@ -47,6 +47,7 @@ library FastDodoV1 {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
 
             r := mload(0x00)
         }
@@ -65,6 +66,7 @@ library FastDodoV1 {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
 
             r := mload(0x00)
         }
@@ -78,6 +80,8 @@ library FastDodoV1 {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
+
             r := mload(0x00)
         }
     }
@@ -114,6 +118,8 @@ library FastDodoV1 {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            if iszero(gt(returndatasize(), 0x3f)) { revert(0x00, 0x00) }
+
             baseTarget := mload(0x00)
             quoteTarget := mload(0x20)
         }

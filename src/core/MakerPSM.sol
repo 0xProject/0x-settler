@@ -43,6 +43,7 @@ library FastPSM {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
 
             mstore(0x34, 0x00)
             daiOutWad := mload(0x00)
@@ -60,6 +61,7 @@ library FastPSM {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
 
             mstore(0x34, 0x00)
             daiInWad := mload(0x00)
