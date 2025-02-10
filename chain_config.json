@@ -387,7 +387,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.worldscan.org/api"
+    "etherscanApi": "https://api.worldscan.org/api",
+    "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
   },
   "gnosis": {
     "chainId": 100,
