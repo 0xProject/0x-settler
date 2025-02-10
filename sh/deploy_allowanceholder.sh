@@ -148,14 +148,26 @@ gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 
-forge create --broadcast --from "$(get_secret allowanceHolder deployer)" --private-key "$(get_secret allowanceHolder key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+declare -a maybe_broadcast=()
+if [[ ${BROADCAST-no} = [Yy]es ]] ; then
+    maybe_broadcast+=(--broadcast)
+else
+    maybe_broadcast+=(-vvvv)
+fi
+declare -r -a maybe_broadcast
 
-sleep 60
+forge create "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --private-key "$(get_secret allowanceHolder key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 
-verify_contract 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+if [[ ${BROADCAST-no} = [Yy]es ]] ; then
+    sleep 60
 
-echo 'Deployment is complete' >&2
-echo 'Add the following to your chain_config.json' >&2
-echo '"deployment": {' >&2
-echo '	"allowanceHolder": "'"$(get_secret allowanceHolder address)"'"' >&2
-echo '}' >&2
+    verify_contract 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+
+    echo 'Deployment is complete' >&2
+    echo 'Add the following to your chain_config.json' >&2
+    echo '"deployment": {' >&2
+    echo '	"allowanceHolder": "'"$(get_secret allowanceHolder address)"'"' >&2
+    echo '}' >&2
+else
+    echo 'Did not broadcast; skipping verification' >&2
+fi

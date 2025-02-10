@@ -1394,10 +1394,10 @@ little wonky on L2s, so beware and overprovision the amount of native asset.
 
 Fifth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
-`AllowanceHolder` (and vice versa). Run [`./sh/deploy_allowanceholder.sh
-<CHAIN_NAME>`](sh/deploy_allowanceholder.sh). Note that
-`deploy_allowanceholder.sh` doesn't give you a chance to back out. There is no
-prompt. It does not obey `BROADCAST=no`. It just deploys `AllowanceHolder`.
+`AllowanceHolder` (and vice versa). Run [`BROADCAST=no
+./sh/deploy_allowanceholder.sh
+<CHAIN_NAME>`](sh/deploy_allowanceholder.sh). Then switch to `BROADCAST=yes` to
+actually do the deployment.
 
 Sixth, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
