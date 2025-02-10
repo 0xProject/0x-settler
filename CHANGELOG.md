@@ -43,6 +43,8 @@ Master list of UniV3 forks:
   the slippage, not the actions
   * This is now `tokenId` 4
 * Add UniswapV3 UniV3 fork to Monad Testnet
+* Add UniswapV4 actions to Sepolia
+* Add UniswapV4 actions to Ink
 
 ## 2025-01-23
 

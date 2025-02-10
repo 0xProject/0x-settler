@@ -27,15 +27,16 @@ interface IMultiCall {
 // you need to know is the interface above.
 
 library SafeCall {
-    function safeCall(address target, bytes calldata data, uint256 contextdepth)
+    function safeCall(address target, bytes calldata data, address sender, uint256 contextdepth)
         internal
         returns (bool success, bytes memory returndata)
     {
         assembly ("memory-safe") {
             returndata := mload(0x40)
             calldatacopy(returndata, data.offset, data.length)
+            mstore(add(returndata, data.length), shl(0x60, sender))
             let beforeGas := gas()
-            success := call(gas(), target, 0x00, returndata, data.length, 0x00, 0x00)
+            success := call(gas(), target, 0x00, returndata, add(0x14, data.length), 0x00, 0x00)
             // `verbatim` can't work in inline assembly. Assignment of a value to a variable costs
             // gas (although how much is unpredictable because it depends on the Yul/IR optimizer),
             // as does the `GAS` opcode itself. Therefore, the `gas()` below returns less than the
@@ -76,11 +77,15 @@ library SafeCall {
 
     /// This version of `safeCall` omits the OOG check because it bubbles the revert if the call
     /// reverts. Therefore, `success` is always `true`.
-    function safeCall(address target, bytes calldata data) internal returns (bool success, bytes memory returndata) {
+    function safeCall(address target, bytes calldata data, address sender)
+        internal
+        returns (bool success, bytes memory returndata)
+    {
         assembly ("memory-safe") {
             returndata := mload(0x40)
             calldatacopy(returndata, data.offset, data.length)
-            success := call(gas(), target, 0x00, returndata, data.length, 0x00, 0x00)
+            mstore(add(returndata, data.length), shl(0x60, sender))
+            success := call(gas(), target, 0x00, returndata, add(0x14, data.length), 0x00, 0x00)
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
             if iszero(success) { revert(dst, returndatasize()) }
@@ -149,7 +154,7 @@ library UnsafeArray {
     function unsafeSet(Result[] memory a, uint256 i, bool success, bytes memory data) internal pure {
         assembly ("memory-safe") {
             let dst := mload(add(add(0x20, shl(0x05, i)), a))
-            mstore(dst, and(0x01, success))
+            mstore(dst, success)
             mstore(add(0x20, dst), data)
         }
     }
@@ -218,10 +223,19 @@ contract MultiCall {
     using UnsafeReturn for Result[];
 
     constructor() {
-        assert(address(this) == 0x000000000000175a8b9bC6d539B3708EEd92EA6c || block.chainid == 31337);
+        assert(uint160(address(this)) >> 112 == 0 || block.chainid == 31337);
+    }
+
+    function _msgSender() private view returns (address sender) {
+        if ((sender = msg.sender) == address(this)) {
+            assembly ("memory-safe") {
+                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
+            }
+        }
     }
 
     function multicall(Call[] calldata calls, uint256 contextdepth) internal returns (Result[] memory result) {
+        address sender = _msgSender();
         result = new Result[](calls.length);
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
             (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.unsafeGet(i);
@@ -230,9 +244,9 @@ contract MultiCall {
             if (revertPolicy == RevertPolicy.REVERT) {
                 // We don't need to use the OOG-protected `safeCall` here because an OOG will result
                 // in a bubbled revert anyways.
-                (success, returndata) = target.safeCall(data);
+                (success, returndata) = target.safeCall(data, sender);
             } else {
-                (success, returndata) = target.safeCall(data, contextdepth);
+                (success, returndata) = target.safeCall(data, sender, contextdepth);
                 // This could be implemented in assembly as (equivalently) `(revertPolicy ==
                 // RevertPolicy.STOP) > success`, but that only optimizes the `success == false`
                 // condition and significantly compromises readability.
