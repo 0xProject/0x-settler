@@ -33,6 +33,21 @@ abstract contract MultiCallContext is Context {
         return super._isForwarded() || super._msgSender() == address(_MULTICALL);
     }
 
+    function _msgData() internal view override virtual returns (bytes calldata r) {
+        address sender = super._msgSender();
+        assembly ("memory-safe") {
+            r.offset := 0x00
+            r.length :=
+                xor(
+                    calldatasize(),
+                    mul(
+                        xor(calldatasize(), sub(calldatasize(), 0x14)),
+                        eq(_MULTICALL_ADDRESS, and(0xffffffffffffffffffffffffffffffffffffffff, sender))
+                    )
+                )
+        }
+    }
+
     function _msgSender() internal view virtual override returns (address sender) {
         sender = super._msgSender();
         assembly ("memory-safe") {

@@ -11,6 +11,14 @@ abstract contract AllowanceHolderContext is Context {
         return super._isForwarded() || super._msgSender() == address(_ALLOWANCE_HOLDER);
     }
 
+    function _msgData() internal view virtual override returns (bytes calldata) {
+        if (super._msgSender() == address(_ALLOWANCE_HOLDER)) {
+            return msg.data[:msg.data.length - 20];
+        } else {
+            return msg.data;
+        }
+    }
+
     function _msgSender() internal view virtual override returns (address sender) {
         sender = super._msgSender();
         if (sender == address(_ALLOWANCE_HOLDER)) {
