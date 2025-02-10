@@ -33,15 +33,15 @@ abstract contract MultiCallContext is Context {
         return super._isForwarded() || super._msgSender() == address(_MULTICALL);
     }
 
-    function _msgData() internal view override virtual returns (bytes calldata r) {
+    function _msgData() internal view virtual override returns (bytes calldata r) {
         address sender = super._msgSender();
+        r = super._msgData();
         assembly ("memory-safe") {
-            r.offset := 0x00
             r.length :=
                 xor(
-                    calldatasize(),
+                    r.length,
                     mul(
-                        xor(calldatasize(), sub(calldatasize(), 0x14)),
+                        xor(r.length, sub(r.length, 0x14)),
                         eq(_MULTICALL_ADDRESS, and(0xffffffffffffffffffffffffffffffffffffffff, sender))
                     )
                 )
@@ -50,6 +50,7 @@ abstract contract MultiCallContext is Context {
 
     function _msgSender() internal view virtual override returns (address sender) {
         sender = super._msgSender();
+        bytes calldata data = super._msgData();
         assembly ("memory-safe") {
             sender := and(0xffffffffffffffffffffffffffffffffffffffff, sender)
             // ERC-2771. The trusted forwarder (`_MULTICALL`) has appended the appropriate
@@ -57,7 +58,10 @@ abstract contract MultiCallContext is Context {
             sender :=
                 xor(
                     sender,
-                    mul(xor(sender, shr(0x60, calldataload(sub(calldatasize(), 0x14)))), eq(_MULTICALL_ADDRESS, sender))
+                    mul(
+                        xor(sender, shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14))))),
+                        eq(_MULTICALL_ADDRESS, sender)
+                    )
                 )
         }
     }

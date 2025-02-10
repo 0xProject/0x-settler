@@ -24,8 +24,9 @@ abstract contract AllowanceHolderContext is Context {
         if (sender == address(_ALLOWANCE_HOLDER)) {
             // ERC-2771 like usage where the _trusted_ `AllowanceHolder` has appended the appropriate
             // msg.sender to the msg data
+            bytes calldata data = super._msgData();
             assembly ("memory-safe") {
-                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
+                sender := shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14))))
             }
         }
     }
