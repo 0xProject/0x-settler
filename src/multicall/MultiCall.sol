@@ -77,7 +77,10 @@ library SafeCall {
 
     /// This version of `safeCall` omits the OOG check because it bubbles the revert if the call
     /// reverts. Therefore, `success` is always `true`.
-    function safeCall(address target, bytes calldata data, address sender) internal returns (bool success, bytes memory returndata) {
+    function safeCall(address target, bytes calldata data, address sender)
+        internal
+        returns (bool success, bytes memory returndata)
+    {
         assembly ("memory-safe") {
             returndata := mload(0x40)
             calldatacopy(returndata, data.offset, data.length)

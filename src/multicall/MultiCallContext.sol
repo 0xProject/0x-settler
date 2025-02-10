@@ -25,7 +25,9 @@ interface IMultiCall {
 }
 
 abstract contract MultiCallContext is Context {
-    IMultiCall internal constant _MULTICALL = IMultiCall(0x000000000000deaDdeAddEADdEaddeaDDEADDeAd); // TODO:
+    address private constant _MULTICALL_ADDRESS = 0x000000000000deaDdeAddEADdEaddeaDDEADDeAd; // TODO:
+
+    IMultiCall internal constant _MULTICALL = IMultiCall(_MULTICALL_ADDRESS);
 
     function _isForwarded() internal view virtual override returns (bool) {
         return super._isForwarded() || super._msgSender() == address(_MULTICALL);
@@ -37,7 +39,11 @@ abstract contract MultiCallContext is Context {
             sender := and(0xffffffffffffffffffffffffffffffffffffffff, sender)
             // ERC-2771. The trusted forwarder (`_MULTICALL`) has appended the appropriate
             // msg.sender to the msg data
-            sender := xor(sender, mul(xor(sender, shr(0x60, calldataload(sub(calldatasize(), 0x14)))), eq(_MULTICALL, sender)))
+            sender :=
+                xor(
+                    sender,
+                    mul(xor(sender, shr(0x60, calldataload(sub(calldatasize(), 0x14)))), eq(_MULTICALL_ADDRESS, sender))
+                )
         }
     }
 }
