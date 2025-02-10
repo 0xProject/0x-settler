@@ -251,6 +251,18 @@ declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     maybe_broadcast+=(--broadcast)
 fi
+declare -r -a maybe_broadcast
+
+if [[ ${BROADCAST-no} = [Yy]es ]] ; then
+    if $(( $(cast balance --rpc-url "$rpc_url" "$module_deployer") == 0 )) ; then
+        echo 'You forgot to send ETH to '"$module_deployer"'.' >&2
+        exit 1
+    fi
+    if $(( $(cast balance --rpc-url "$rpc_url" "$proxy_deployer") == 0 )) ; then
+        echo 'You forgot to send ETH to '"$proxy_deployer"'.' >&2
+        exit 1
+    fi
+fi
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
