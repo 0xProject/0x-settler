@@ -40,7 +40,7 @@ library FastDodoV1 {
             mstore(ptr, 0x8dae7333)
             mstore(add(0x20, ptr), amount)
             mstore(add(0x40, ptr), minReceiveQuote)
-            mstore(add(0x60, ptr), 0x40)
+            mstore(add(0x60, ptr), 0x60)
             mstore(add(0x80, ptr), 0x00)
 
             if iszero(call(gas(), dodo, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x20)) {
@@ -59,7 +59,7 @@ library FastDodoV1 {
             mstore(ptr, 0xe67ce706)
             mstore(add(0x20, ptr), amount)
             mstore(add(0x40, ptr), maxPayQuote)
-            mstore(add(0x60, ptr), 0x40)
+            mstore(add(0x60, ptr), 0x60)
             mstore(add(0x80, ptr), 0x00)
 
             if iszero(call(gas(), dodo, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x20)) {

@@ -36,7 +36,7 @@ library FastPSM {
         assembly ("memory-safe") {
             mstore(0x34, gemAmt)
             mstore(0x14, usr)
-            mstore(0x0c, 0x95991276000000000000000000000000) // selector for `sellGem(address,uint256)` with `usr`'s padding
+            mstore(0x00, 0x95991276000000000000000000000000) // selector for `sellGem(address,uint256)` with `usr`'s padding
 
             if iszero(call(gas(), psm, 0x00, 0x10, 0x44, 0x00, 0x20)) {
                 let ptr := and(0xffffffffffffffffffffffff, mload(0x40))
@@ -54,7 +54,7 @@ library FastPSM {
         assembly ("memory-safe") {
             mstore(0x34, gemAmt)
             mstore(0x14, usr)
-            mstore(0x0c, 0x8d7ef9bb000000000000000000000000) // selector for `buyGem(address,uint256)` with `usr`'s padding
+            mstore(0x00, 0x8d7ef9bb000000000000000000000000) // selector for `buyGem(address,uint256)` with `usr`'s padding
 
             if iszero(call(gas(), psm, 0x00, 0x10, 0x44, 0x00, 0x20)) {
                 let ptr := and(0xffffffffffffffffffffffff, mload(0x40))
