@@ -38,13 +38,7 @@ abstract contract MultiCallContext is Context {
         r = super._msgData();
         assembly ("memory-safe") {
             r.length :=
-                xor(
-                    r.length,
-                    mul(
-                        xor(r.length, sub(r.length, 0x14)),
-                        eq(_MULTICALL_ADDRESS, and(0xffffffffffffffffffffffffffffffffffffffff, sender))
-                    )
-                )
+                sub(r.length, mul(0x14, eq(_MULTICALL_ADDRESS, and(0xffffffffffffffffffffffffffffffffffffffff, sender))))
         }
     }
 
