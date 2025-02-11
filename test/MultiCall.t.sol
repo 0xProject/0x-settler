@@ -59,9 +59,9 @@ contract MultiCallTest is Test {
         Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length);
         assertTrue(result[0].success);
-        assertEq(result[0].data, "Hello, World!");
+        assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
         assertFalse(result[1].success);
-        assertEq(result[1].data, "Go away!");
+        assertEq(result[1].data, bytes.concat("Go away!", bytes20(uint160(address(this)))));
     }
 
     function testFailAbiEncoding() external {
@@ -100,11 +100,11 @@ contract MultiCallTest is Test {
         Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length);
         assertTrue(result[0].success);
-        assertEq(result[0].data, "Hello, World!");
+        assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
         assertFalse(result[1].success);
-        assertEq(result[1].data, "Go away!");
+        assertEq(result[1].data, bytes.concat("Go away!", bytes20(uint160(address(this)))));
         assertTrue(result[2].success);
-        assertEq(result[2].data, "Hello, Again!");
+        assertEq(result[2].data, bytes.concat("Hello, Again!", bytes20(uint160(address(this)))));
     }
 
     function testStop() external {
@@ -125,9 +125,9 @@ contract MultiCallTest is Test {
         Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length - 1);
         assertTrue(result[0].success);
-        assertEq(result[0].data, "Hello, World!");
+        assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
         assertFalse(result[1].success);
-        assertEq(result[1].data, "Go away!");
+        assertEq(result[1].data, bytes.concat("Go away!", bytes20(uint160(address(this)))));
     }
 
     function testRevert() external {
@@ -148,7 +148,7 @@ contract MultiCallTest is Test {
         bytes memory data = abi.encodeCall(multicall.multicall, (calls, contextdepth));
         (bool success, bytes memory returndata) = address(multicall).call(data);
         assertFalse(success);
-        assertEq(returndata, "Go away!");
+        assertEq(returndata, bytes.concat("Go away!", bytes20(uint160(address(this)))));
     }
 
     function testOOGSimple() external {
@@ -206,7 +206,7 @@ contract MultiCallTest is Test {
         for (uint256 i; i < 256; i++) {
             Result memory r = result[i];
             assertTrue(r.success);
-            assertEq(r.data, bytes(ItoA.itoa(i)));
+            assertEq(r.data, bytes.concat(bytes(ItoA.itoa(i)), bytes20(uint160(address(this)))));
         }
     }
 }
