@@ -25,10 +25,9 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
     /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant
-    /// `_SENTINEL_SOLVER`. No view function is provided for accessing this mapping. You'll have to
-    /// use an RPC to read storage directly and reconstruct the list that way. As a consequence of
-    /// the structure of this list, the check for whether an address is on the list is extremely
-    /// simple: `_$()[query] != address(0)`. This technique is cribbed from Safe{Wallet}
+    /// `_SENTINEL_SOLVER`. As a consequence of the structure of this list, the check for whether an
+    /// address is on the list is extremely simple: `_$()[query] != address(0)`. This technique is
+    /// cribbed from Safe{Wallet}
     function _$() private pure returns (mapping(address => address) storage $) {
         assembly ("memory-safe") {
             $.slot := _SOLVER_LIST_BASE_SLOT
@@ -187,7 +186,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
                 for {
                     mstore(0x20, _SOLVER_LIST_BASE_SLOT)
                     let x := and(0xffffffffffffffffffffffffffffffffffffffff, sload(_SOLVER_LIST_START_SLOT))
-                } xor(x, _SENTINEL_SOLVER) {
+                } xor(_SENTINEL_SOLVER, x) {
                     i := add(0x20, i)
                     x := and(0xffffffffffffffffffffffffffffffffffffffff, sload(keccak256(0x00, 0x40)))
                 } {
