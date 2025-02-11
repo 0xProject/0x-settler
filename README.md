@@ -126,7 +126,7 @@ your integration.
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche)
+  testnet, Avalanche, Unichain, Berachain)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Scroll, Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
@@ -1331,7 +1331,7 @@ Second, test for common opcode support:
 ```bash
 export FOUNDRY_EVM_VERSION=london
 declare -r deployer_eoa='YOUR EOA ADDRESS HERE'
-declare -r rpc_url='YOUR RPC URL HERE' # http://localhost:1248 if using frame.sh
+declare -r rpc_url='YOUR RPC URL HERE' # http://127.0.0.1:1248 if using frame.sh
 declare -r -i chainid='CHAIN ID TO TEST HERE'
 forge clean
 forge build src/ChainCompatibility.sol
@@ -1369,12 +1369,14 @@ of its receipt.
 
 </details>
 
-Third, create a new `src/chains/<CHAIN_DISPLAY_NAME>.sol` file. A good way to
-start is by copying [`src/chains/Sepolia.sol`](src/chains/Sepolia.sol). You'll
-need to change the names of all the contracts, remove references to missing
-liquidity sources (presently MaverickV2), replace the `block.chainid` check in
-the constructor, and replace the UniswapV3 forks. When adding new UniswapV3
-forks, be sure that the `factory` address is the address of the contract that
+Third, create a new set of
+`src/chains/<CHAIN_DISPLAY_NAME>/{Common,TakerSubmitted,MetaTxn,Intent}.sol`
+files. A good way to start is by copying
+[`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
+names of all the contracts, remove references to missing liquidity sources
+(presently MaverickV2 and UniswapV4), replace the `block.chainid` check in the
+constructor, and replace the UniswapV3 forks. When adding new UniswapV3 forks,
+be sure that the `factory` address is the address of the contract that
 `CREATE2`'s the pool. Triple check that the deployed pools aren't upgradeable
 proxies and that the `data` argument is passed through the callback
 unmodified. _**This is critical for security.**_ Some chains have a form of
