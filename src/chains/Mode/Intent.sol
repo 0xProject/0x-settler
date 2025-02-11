@@ -21,6 +21,10 @@ import {Permit2PaymentBase, Permit2PaymentMetaTxn} from "../../core/Permit2Payme
 contract ModeSettlerIntent is SettlerIntent, ModeSettlerMetaTxn {
     constructor(bytes20 gitCommit) ModeSettlerMetaTxn(gitCommit) {}
 
+    function _msgSender() internal view override(SettlerIntent, ModeSettlerMetaTxn) returns (address) {
+        return SettlerIntent._msgSender();
+    }
+
     // Solidity inheritance is stupid
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
@@ -46,10 +50,6 @@ contract ModeSettlerIntent is SettlerIntent, ModeSettlerMetaTxn {
 
     function _msgData() internal view override(AbstractContext, Context, SettlerIntent) returns (bytes calldata) {
         return super._msgData();
-    }
-
-    function _msgSender() internal view override(SettlerIntent, ModeSettlerMetaTxn) returns (address) {
-        return super._msgSender();
     }
 
     function _witnessTypeSuffix()

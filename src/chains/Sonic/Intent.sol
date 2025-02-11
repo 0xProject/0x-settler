@@ -21,6 +21,10 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract SonicSettlerIntent is SettlerIntent, SonicSettlerMetaTxn {
     constructor(bytes20 gitCommit) SonicSettlerMetaTxn(gitCommit) {}
 
+    function _msgSender() internal view override(SettlerIntent, SonicSettlerMetaTxn) returns (address) {
+        return SettlerIntent._msgSender();
+    }
+
     // Solidity inheritance is stupid
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
@@ -46,10 +50,6 @@ contract SonicSettlerIntent is SettlerIntent, SonicSettlerMetaTxn {
 
     function _msgData() internal view override(AbstractContext, Context, SettlerIntent) returns (bytes calldata) {
         return super._msgData();
-    }
-
-    function _msgSender() internal view override(SettlerIntent, SonicSettlerMetaTxn) returns (address) {
-        return super._msgSender();
     }
 
     function _witnessTypeSuffix()
