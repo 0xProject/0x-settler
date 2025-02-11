@@ -41,11 +41,11 @@ library SafeCall {
             // gas (although how much is unpredictable because it depends on the Yul/IR optimizer),
             // as does the `GAS` opcode itself. Therefore, the `gas()` below returns less than the
             // actual amount of gas available for computation at the end of the call. Also
-            // `beforeGas` above is exclusive of the preparing of the stack for `staticcall` as well
-            // as the gas costs of the `staticcall` paid by the caller (e.g. cold account
-            // access). All this makes the check below slightly too conservative. However, we do not
-            // correct this because the correction would become outdated (possibly too permissive)
-            // if the opcodes are repriced.
+            // `beforeGas` above is exclusive of the preparing of the stack for `call` as well as
+            // the gas costs of the `call` paid by the caller (e.g. cold account access). All this
+            // makes the check below slightly too conservative. However, we do not correct this
+            // because the correction would become outdated (possibly too permissive) if the opcodes
+            // are repriced.
             let afterGas := gas()
 
             if iszero(returndatasize()) {
