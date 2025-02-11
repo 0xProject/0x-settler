@@ -494,7 +494,7 @@
     }
   },
   "unichain": {
-    "chainId": null,
+    "chainId": 130,
     "displayName": "Unichain",
     "isShanghai": true,
     "isCancun": true,
@@ -517,6 +517,7 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
-    "etherscanApi": "https://api.uniscan.xyz/api"
+    "etherscanApi": "https://api.uniscan.xyz/api",
+    "blockscoutApi": "https://unichain.blockscout.com/api"
   }
 }
