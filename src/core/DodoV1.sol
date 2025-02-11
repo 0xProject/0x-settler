@@ -87,7 +87,9 @@ library FastDodoV1 {
     }
 
     function fast_R_STATUS_(IDodoV1 dodo) internal view returns (uint8) {
-        return uint8(uint256(_get(dodo, 0x17be952e)));
+        uint256 result = uint256(_get(dodo, 0x17be952e));
+        require(result >> 8 == 0);
+        return uint8(result);
     }
 
     function fast_QUOTE_BALANCE_(IDodoV1 dodo) internal view returns (uint256) {
@@ -130,11 +132,15 @@ library FastDodoV1 {
     }
 
     function fast_BASE_TOKEN_(IDodoV1 dodo) internal view returns (IERC20) {
-        return IERC20(address(uint160(uint256(_get(dodo, 0x4a248d2a)))));
+        uint256 result = uint256(_get(dodo, 0x4a248d2a));
+        require(result >> 160 == 0);
+        return IERC20(address(uint160(result)));
     }
 
     function fast_QUOTE_TOKEN_(IDodoV1 dodo) internal view returns (IERC20) {
-        return IERC20(address(uint160(uint256(_get(dodo, 0xd4b97046)))));
+        uint256 result = uint256(_get(dodo, 0xd4b97046));
+        require(result >> 160 == 0);
+        return IERC20(address(uint160(result)));
     }
 }
 
