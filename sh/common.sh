@@ -102,7 +102,14 @@ function verify_contract {
     declare -r _verify_source_path="$1"
     shift
 
-    if (( chainid == 10143 )) || (( chainid == 34443 )) || (( chainid == 57073 )) ; then # MonadTestnet, Mode, and Ink use Blockscout, not Etherscan
+    # WorldChain, MonadTestnet, Mode, and Ink use Blockscout, not Etherscan
+    declare -r -i _verify_source_blockscout=$((chainid == 480 || chainid == 10143 || chainid == 34443 || chainid == 57073))
+    # all other chains use Etherscan; WorldChain uses both
+    declare -r -i _verify_source_etherscan=$((chainid == 480 || ! _verify_source_blockscout))
+    # Sourcify doesn't support Sonic, WorldChain, MonadTestnet, Ink, Blast, or Taiko
+    declare -r -i _verify_source_sourcify=$(( chainid != 146 && chainid != 480 && chainid != 10143 && chainid != 57073 && chainid != 81457 && chainid != 167000 ))
+
+    if (( _verify_source_blockscout )) ; then
         declare _verify_blockscoutApi
         if (( chainid == 10143 )) ; then # MonadTestnet is private. The explorer credentials are stored in the secrets file
             _verify_blockscoutApi="$(get_api_secret blockscoutApi)"
@@ -110,10 +117,13 @@ function verify_contract {
             _verify_blockscoutApi="$(get_config blockscoutApi)"
         fi
         forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
-    else
+    fi
+
+    if (( _verify_source_etherscan )) ; then
         forge verify-contract --watch --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
-    if (( chainid != 146 )) && (( chainid != 480 )) && (( chainid != 10143 )) && (( chainid != 57073 )) && (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Sonic, World Chain, MonadTestnet, Ink, Blast, or Taiko
+
+    if (( _verify_source_sourcify )) ; then
         forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }
