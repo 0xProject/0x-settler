@@ -45,6 +45,9 @@ Master list of UniV3 forks:
 * Add UniswapV3 UniV3 fork to Monad Testnet
 * Add UniswapV4 actions to Sepolia
 * Add UniswapV4 actions to Ink
+* Deploy Settler to Unichain network
+  * Add UniswapV3 UniV3 fork to Unichain
+  * Add UniswapV4 actions to Unichain
 
 ## 2025-01-23
 
