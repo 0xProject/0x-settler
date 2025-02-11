@@ -19,7 +19,9 @@ import {Feature} from "./deployer/Feature.sol";
 import {IOwnable} from "./deployer/IOwnable.sol";
 
 abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCallContext {
-    uint256 private constant _SOLVER_LIST_BASE_SLOT = 0xe4441b0608054751d605e5c08a2210bf; // uint128(uint256(keccak256("SettlerIntentSolverList")) - 1)
+    bytes32 private constant _SOLVER_LIST_BASE_SLOT = 0x00000000000000000000000000000000e4441b0608054751d605e5c08a2210bf; // uint128(uint256(keccak256("SettlerIntentSolverList")) - 1)
+    bytes32 private constant _SOLVER_LIST_START_SLOT =
+        0x165458a486c543a8294bbc8a8476cd9020f962f9e80991591ef8c2860c5c5490; // keccak256(abi.encode(_SENTINEL_SOLVER, _SOLVER_LIST_BASE_SLOT))
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
     /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant
@@ -36,6 +38,8 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
     address private constant _SENTINEL_SOLVER = 0x0000000000000000000000000000000000000001;
 
     constructor() {
+        assert(_SOLVER_LIST_BASE_SLOT == bytes32(uint256(uint128(uint256(keccak256("SettlerIntentSolverList")) - 1))));
+        assert(_SOLVER_LIST_START_SLOT == keccak256(abi.encode(_SENTINEL_SOLVER, _SOLVER_LIST_BASE_SLOT)));
         _$()[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
@@ -167,6 +171,35 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
                 mstore(0x40, solver)
                 revert(0x1c, 0x44)
             }
+        }
+    }
+
+    /// This function is not intended to be called on-chain. It's only for being `eth_call`'d. There
+    /// is a somewhat obvious DoS vector here if called on-chain, so just don't do that.
+    function getSolvers() external view returns (address[] memory) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            let len
+            {
+                let start := add(0x40, ptr)
+                let i := start
+                for {
+                    mstore(0x20, _SOLVER_LIST_BASE_SLOT)
+                    let x := and(0xffffffffffffffffffffffffffffffffffffffff, sload(_SOLVER_LIST_START_SLOT))
+                } xor(x, _SENTINEL_SOLVER) {
+                    i := add(0x20, i)
+                    x := and(0xffffffffffffffffffffffffffffffffffffffff, sload(keccak256(0x00, 0x40)))
+                } {
+                    mstore(i, x)
+                    mstore(0x00, x)
+                }
+                len := sub(i, start)
+            }
+
+            mstore(ptr, 0x20)
+            mstore(add(0x20, ptr), shr(0x05, len))
+            return(ptr, add(0x40, len))
         }
     }
 
