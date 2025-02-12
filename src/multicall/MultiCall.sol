@@ -70,8 +70,9 @@ library SafeCall {
 
             // Copy returndata into memory, ignoring whether it's a result or a revert reason.
             mstore(returndata, returndatasize())
-            returndatacopy(add(0x20, returndata), 0x00, returndatasize())
-            mstore(0x40, add(0x20, add(returndatasize(), returndata)))
+            let dst := add(0x20, returndata)
+            returndatacopy(dst, 0x00, returndatasize())
+            mstore(0x40, add(returndatasize(), dst))
         }
     }
 
