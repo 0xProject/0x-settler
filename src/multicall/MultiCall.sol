@@ -238,8 +238,6 @@ contract MultiCall {
     }
 
     function multicall(Call[] calldata calls, uint256 contextdepth) internal returns (Result[] memory result) {
-        address sender = _msgSender();
-
         // This block is roughly:
         //     result = new Result[](calls.length);
         assembly ("memory-safe") {
@@ -247,12 +245,14 @@ contract MultiCall {
             mstore(result, calls.length)
             mstore(0x40, add(0x20, add(mul(0x60, calls.length), result)))
             for {
-                let start := add(0x20, result)
-                let end := add(start, shl(0x05, calls.length))
+                let baseArray := add(0x20, result)
+                let lenArrayBytes := shl(0x05, calls.length)
+                let baseResults := add(baseArray, lenArrayBytes)
                 let i
-            } lt(i, calls.length) { i := add(0x01, i) } { mstore(add(start, shl(0x05, i)), add(end, shl(0x06, i))) }
+            } lt(i, lenArrayBytes) { i := add(0x20, i) } { mstore(add(baseArray, i), add(baseResults, shl(0x01, i))) }
         }
 
+        address sender = _msgSender();
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
             (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.unsafeGet(i);
             bool success;
