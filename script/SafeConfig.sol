@@ -16,6 +16,7 @@ library SafeConfig {
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
@@ -26,6 +27,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
+                || block.chainid == 80094 // berachain
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
@@ -43,6 +45,7 @@ library SafeConfig {
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
@@ -54,6 +57,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
+                || block.chainid == 80094 // berachain
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
