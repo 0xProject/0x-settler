@@ -16,6 +16,7 @@ library SafeConfig {
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
@@ -44,6 +45,7 @@ library SafeConfig {
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
