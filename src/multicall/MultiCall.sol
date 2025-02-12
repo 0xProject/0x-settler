@@ -97,27 +97,27 @@ library SafeCall {
     }
 }
 
-type CallArrayIterator is bytes32;
+type CallArrayIterator is uint256;
 
 library LibCallArrayIterator {
-    function next(CallArrayIterator i) internal pure returns (CallArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(0x20, i)
+    function next(CallArrayIterator i) internal pure returns (CallArrayIterator) {
+        unchecked {
+            return CallArrayIterator.wrap(32 + CallArrayIterator.unwrap(i));
         }
     }
 }
 
 using LibCallArrayIterator for CallArrayIterator global;
 
-function __ceq(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
+function __eq(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
     return CallArrayIterator.unwrap(a) == CallArrayIterator.unwrap(b);
 }
 
-function __cne(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
+function __ne(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
     return CallArrayIterator.unwrap(a) != CallArrayIterator.unwrap(b);
 }
 
-using {__ceq as ==, __cne as !=} for CallArrayIterator global;
+using {__eq as ==, __ne as !=} for CallArrayIterator global;
 
 library UnsafeCallArray {
     function iter(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
@@ -127,8 +127,8 @@ library UnsafeCallArray {
     }
 
     function end(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(calls.offset, shl(0x05, calls.length))
+        unchecked {
+            return CallArrayIterator.wrap((calls.length << 5) + CallArrayIterator.unwrap(iter(calls)));
         }
     }
 
@@ -174,12 +174,12 @@ library UnsafeCallArray {
     }
 }
 
-type ResultArrayIterator is bytes32;
+type ResultArrayIterator is uint256;
 
 library LibResultArrayIterator {
     function next(ResultArrayIterator i) internal pure returns (ResultArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(0x20, i)
+        unchecked {
+            return ResultArrayIterator.wrap(32 + ResultArrayIterator.unwrap(i));
         }
     }
 }
