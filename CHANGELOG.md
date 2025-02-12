@@ -47,6 +47,8 @@ Master list of UniV3 forks:
 * Add UniswapV3 UniV3 fork to Monad Testnet
 * Add UniswapV4 actions to Sepolia
 * Add UniswapV4 actions to Ink
+* Add BalancerV3 actions to Base
+* Add BalancerV3 actions to Arbitrum
 
 ## 2025-02-12
 
