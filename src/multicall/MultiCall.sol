@@ -266,9 +266,7 @@ library UnsafeReturn {
 
 contract MultiCall {
     using SafeCall for address;
-    using UnsafeCallArray for CallArrayIterator;
     using UnsafeCallArray for Call[];
-    using UnsafeResultArray for ResultArrayIterator;
     using UnsafeResultArray for Result[];
     using UnsafeReturn for Result[];
 
