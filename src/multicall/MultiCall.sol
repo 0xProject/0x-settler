@@ -257,23 +257,21 @@ contract MultiCall {
         address sender = _msgSender();
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
             (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.unsafeGet(i);
-            bool success;
-            bytes memory returndata;
             if (revertPolicy == RevertPolicy.REVERT) {
                 // We don't need to use the OOG-protected `safeCall` here because an OOG will result
                 // in a bubbled revert anyways.
-                (success, returndata) = target.safeCall(data, sender);
+                (bool success, bytes memory returndata) = target.safeCall(data, sender);
+                result.unsafeSet(i, success, returndata);
             } else {
-                (success, returndata) = target.safeCall(data, sender, contextdepth);
+                (bool success, bytes memory returndata) = target.safeCall(data, sender, contextdepth);
+                result.unsafeSet(i, success, returndata);
                 if (!success) {
                     if (revertPolicy == RevertPolicy.STOP) {
-                        result.unsafeSet(i, success, returndata);
                         result.unsafeTruncate(i.unsafeInc()); // This results in `returndata` with gaps.
                         break;
                     }
                 }
             }
-            result.unsafeSet(i, success, returndata);
         }
     }
 
