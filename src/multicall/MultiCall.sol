@@ -265,13 +265,12 @@ contract MultiCall {
                 (success, returndata) = target.safeCall(data, sender);
             } else {
                 (success, returndata) = target.safeCall(data, sender, contextdepth);
-                // This could be implemented in assembly as (equivalently) `(revertPolicy ==
-                // RevertPolicy.STOP) > success`, but that only optimizes the `success == false`
-                // condition and significantly compromises readability.
-                if (!success && revertPolicy == RevertPolicy.STOP) {
-                    result.unsafeSet(i, success, returndata);
-                    result.unsafeTruncate(i.unsafeInc()); // This results in `returndata` with gaps.
-                    break;
+                if (!success) {
+                    if (revertPolicy == RevertPolicy.STOP) {
+                        result.unsafeSet(i, success, returndata);
+                        result.unsafeTruncate(i.unsafeInc()); // This results in `returndata` with gaps.
+                        break;
+                    }
                 }
             }
             result.unsafeSet(i, success, returndata);
