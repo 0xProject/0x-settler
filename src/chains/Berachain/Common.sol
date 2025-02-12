@@ -10,14 +10,10 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {UnknownForkId} from "../../core/SettlerErrors.sol";
 
-/*
-import {
-    uniswapV3BerachainFactory,
-    uniswapV3InitHash,
-    uniswapV3ForkId,
-    IUniswapV3Callback
-} from "../../core/univ3forks/UniswapV3.sol";
-*/
+import {kodiakV3Factory, kodiakV3InitHash, kodiakV3ForkId} from "../../core/univ3forks/KodiakV3.sol";
+import {IUniswapV3Callback} from "../../core/univ3forks/UniswapV3.sol";
+import {bullaFactory, bullaForkId} from  "../../core/univ3forks/Bulla.sol";
+import {algebraV4InitHash, IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -48,14 +44,16 @@ abstract contract BerachainMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        /*
-        if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3BerachainFactory;
-            initHash = uniswapV3InitHash;
+        if (forkId == kodiakV3ForkId) {
+            factory = kodiakV3Factory;
+            initHash = kodiakV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == bullaForkId) {
+            factory = bullaFactory;
+            initHash = algebraV4InitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
-        */
             revert UnknownForkId(forkId);
-        //}
+        }
     }
 }
