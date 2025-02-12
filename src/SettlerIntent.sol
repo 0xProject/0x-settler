@@ -176,6 +176,19 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
     /// This function is not intended to be called on-chain. It's only for being `eth_call`'d. There
     /// is a somewhat obvious DoS vector here if called on-chain, so just don't do that.
     function getSolvers() external view returns (address[] memory) {
+        // This function is roughly
+        /*
+        address[] memory result = new address[]();
+        mapping(address => address) storage $ = _$();
+        address cursor = $[_SENTINEL_SOLVER];
+        uint256 i;
+        for (; cursor != _SENTINEL_SOLVER; i++) {
+            result[i] = cursor;
+            cursor = $[cursor];
+        }
+        result.length = i;
+        return result;
+        */
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
