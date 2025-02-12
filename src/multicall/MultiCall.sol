@@ -207,7 +207,7 @@ library UnsafeResultArray {
         }
     }
 
-    // This is equivalent to `result = new Result[](calls.length)`
+    // This is equivalent to `result = new Result[](length)`
     function unsafeAlloc(uint256 length) internal pure returns (Result[] memory result) {
         assembly ("memory-safe") {
             result := mload(0x40)
