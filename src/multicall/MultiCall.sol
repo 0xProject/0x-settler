@@ -98,6 +98,26 @@ library SafeCall {
 
 type CallArrayIterator is bytes32;
 
+library LibCallArrayIterator {
+    function next(CallArrayIterator i) internal pure returns (CallArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(0x20, i)
+        }
+    }
+}
+
+using LibCallArrayIterator for CallArrayIterator global;
+
+function __ceq(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
+    return CallArrayIterator.unwrap(a) == CallArrayIterator.unwrap(b);
+}
+
+function __cne(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
+    return CallArrayIterator.unwrap(a) != CallArrayIterator.unwrap(b);
+}
+
+using {__ceq as ==, __cne as !=} for CallArrayIterator global;
+
 library UnsafeCallArray {
     function iter(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
         assembly ("memory-safe") {
@@ -108,12 +128,6 @@ library UnsafeCallArray {
     function end(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
         assembly ("memory-safe") {
             r := add(calls.offset, shl(0x05, calls.length))
-        }
-    }
-
-    function next(CallArrayIterator i) internal pure returns (CallArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(0x20, i)
         }
     }
 
@@ -159,17 +173,27 @@ library UnsafeCallArray {
     }
 }
 
-function __ceq(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
-    return CallArrayIterator.unwrap(a) == CallArrayIterator.unwrap(b);
-}
-
-function __cne(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
-    return CallArrayIterator.unwrap(a) != CallArrayIterator.unwrap(b);
-}
-
-using {__ceq as ==, __cne as !=} for CallArrayIterator global;
-
 type ResultArrayIterator is bytes32;
+
+library LibResultArrayIterator {
+    function next(ResultArrayIterator i) internal pure returns (ResultArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(0x20, i)
+        }
+    }
+}
+
+using LibResultArrayIterator for ResultArrayIterator global;
+
+function __req(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
+    return ResultArrayIterator.unwrap(a) == ResultArrayIterator.unwrap(b);
+}
+
+function __rne(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
+    return ResultArrayIterator.unwrap(a) != ResultArrayIterator.unwrap(b);
+}
+
+using {__req as ==, __rne as !=} for ResultArrayIterator global;
 
 library UnsafeResultArray {
     function iter(Result[] memory results) internal pure returns (ResultArrayIterator r) {
@@ -186,12 +210,6 @@ library UnsafeResultArray {
     }
     */
 
-    function next(ResultArrayIterator i) internal pure returns (ResultArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(0x20, i)
-        }
-    }
-
     function set(Result[] memory, ResultArrayIterator i, bool success, bytes memory data) internal pure {
         assembly ("memory-safe") {
             let dst := mload(i)
@@ -200,7 +218,7 @@ library UnsafeResultArray {
         }
     }
 
-    function truncate(Result[] memory results, ResultArrayIterator i) internal pure {
+    function unsafeTruncate(Result[] memory results, ResultArrayIterator i) internal pure {
         assembly ("memory-safe") {
             mstore(results, shr(0x05, sub(i, results)))
         }
@@ -221,16 +239,6 @@ library UnsafeResultArray {
         }
     }
 }
-
-function __req(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
-    return ResultArrayIterator.unwrap(a) == ResultArrayIterator.unwrap(b);
-}
-
-function __rne(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
-    return ResultArrayIterator.unwrap(a) != ResultArrayIterator.unwrap(b);
-}
-
-using {__req as ==, __rne as !=} for ResultArrayIterator global;
 
 library UnsafeReturn {
     /// @notice This is *ROUGHLY* equivalent to `return(abi.encode(r))`.
@@ -317,7 +325,7 @@ contract MultiCall {
                 result.set(j, success, returndata);
                 if (!success) {
                     if (revertPolicy == RevertPolicy.STOP) {
-                        result.truncate(j); // This results in `returndata` with gaps.
+                        result.unsafeTruncate(j); // This results in `returndata` with gaps.
                         break;
                     }
                 }
