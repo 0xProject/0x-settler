@@ -598,7 +598,7 @@ library Take {
             }
             let ptr := mload(0x40)
             mstore(ptr, selector)
-            if eq(token, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token := 0x00 }
+            token := mul(token, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token)))
             mstore(add(0x20, ptr), token)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
             mstore(add(0x60, ptr), amount)
