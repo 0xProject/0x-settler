@@ -164,6 +164,21 @@ library UnsafeArray {
             mstore(a, newLength)
         }
     }
+
+    // This is equivalent to `result = new Result[](calls.length)`
+    function unsafeAlloc(uint256 length) internal pure returns (Result[] memory result) {
+        assembly ("memory-safe") {
+            result := mload(0x40)
+            mstore(result, length)
+            mstore(0x40, add(0x20, add(mul(0x60, length), result)))
+            for {
+                let baseArray := add(0x20, result)
+                let lenArrayBytes := shl(0x05, length)
+                let baseResults := add(baseArray, lenArrayBytes)
+                let i
+            } lt(i, lenArrayBytes) { i := add(0x20, i) } { mstore(add(baseArray, i), add(baseResults, add(i, i))) }
+        }
+    }
 }
 
 library UnsafeMath {
@@ -238,20 +253,7 @@ contract MultiCall {
     }
 
     function multicall(Call[] calldata calls, uint256 contextdepth) internal returns (Result[] memory result) {
-        // This block is roughly:
-        //     result = new Result[](calls.length);
-        assembly ("memory-safe") {
-            result := mload(0x40)
-            mstore(result, calls.length)
-            mstore(0x40, add(0x20, add(mul(0x60, calls.length), result)))
-            for {
-                let baseArray := add(0x20, result)
-                let lenArrayBytes := shl(0x05, calls.length)
-                let baseResults := add(baseArray, lenArrayBytes)
-                let i
-            } lt(i, lenArrayBytes) { i := add(0x20, i) } { mstore(add(baseArray, i), add(baseResults, shl(0x01, i))) }
-        }
-
+        result = UnsafeArray.unsafeAlloc(calls.length);
         address sender = _msgSender();
         for (uint256 i; i < calls.length; i = i.unsafeInc()) {
             (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.unsafeGet(i);
