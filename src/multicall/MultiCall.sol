@@ -185,30 +185,12 @@ library LibResultArrayIterator {
 
 using LibResultArrayIterator for ResultArrayIterator global;
 
-function __req(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
-    return ResultArrayIterator.unwrap(a) == ResultArrayIterator.unwrap(b);
-}
-
-function __rne(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
-    return ResultArrayIterator.unwrap(a) != ResultArrayIterator.unwrap(b);
-}
-
-using {__req as ==, __rne as !=} for ResultArrayIterator global;
-
 library UnsafeResultArray {
     function iter(Result[] memory results) internal pure returns (ResultArrayIterator r) {
         assembly ("memory-safe") {
             r := add(0x20, results)
         }
     }
-
-    /*
-    function end(Result[] memory results) internal pure returns (ResultArrayIterator r) {
-        assembly ("memory-safe") {
-            r := add(add(0x20, results), shl(0x05, mload(results)))
-        }
-    }
-    */
 
     function set(Result[] memory, ResultArrayIterator i, bool success, bytes memory data) internal pure {
         assembly ("memory-safe") {
