@@ -55,7 +55,7 @@ library SafeCall {
                 case 0 {
                     // Apply the "all but one 64th" rule `contextdepth + 1` times.
                     let remainingGas := shr(0x06, beforeGas)
-                    for {} contextdepth { contextdepth := sub(contextdepth, 1) } {
+                    for {} contextdepth { contextdepth := sub(contextdepth, 0x01) } {
                         remainingGas := add(remainingGas, shr(0x06, sub(beforeGas, remainingGas)))
                     }
                     // Check that the revert was not due to OOG.
@@ -96,50 +96,58 @@ library SafeCall {
     }
 }
 
-library UnsafeArray {
-    /// This is equivalent to:
-    /// ```
-    /// Call calldata call_ = calls[i];
-    /// (target, data, revertPolicy) = (call_.target, call_.data, call_.revertPolicy);
-    /// ```
-    function unsafeGet(Call[] calldata calls, uint256 i)
+type CallArrayIterator is bytes32;
+
+library UnsafeCallArray {
+    function iter(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
+        assembly ("memory-safe") {
+            r := calls.offset
+        }
+    }
+
+    function end(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(calls.offset, shl(0x05, calls.length))
+        }
+    }
+
+    function next(CallArrayIterator i) internal pure returns (CallArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(0x20, i)
+        }
+    }
+
+    function get(Call[] calldata calls, CallArrayIterator i)
         internal
         pure
         returns (address target, bytes calldata data, RevertPolicy revertPolicy)
     {
         assembly ("memory-safe") {
-            // Initially, we set `data.offset` to point at the `Call` struct. This is 64 bytes
-            // before the offset to the actual `data` array length.
-            data.offset :=
-                add(
-                    calls.offset,
-                    // We allow the indirection/offset to `calls[i]` to be negative
-                    calldataload(
-                        add(shl(0x05, i), calls.offset) // Can't overflow; we assume `i` is in-bounds.
-                    )
-                )
+            // `s` points at the `Call` struct. This is 64 bytes before the offset to the `data`
+            // array length. We allow the indirection/offset relative to `calls` to be negative.
+            let s := add(calls.offset, calldataload(i))
 
-            // `data.offset` now points to `target`; load it.
-            target := calldataload(data.offset)
+            // `s` points to `target`; load it.
+            target := calldataload(s)
             // Check for dirty bits in `target`.
             let err := shr(0xa0, target)
 
-            // And load `revertPolicy`.
-            revertPolicy := calldataload(add(0x20, data.offset))
-            // And check it for dirty bits too.
+            // Load `revertPolicy`
+            revertPolicy := calldataload(add(0x20, s))
+            // and check it for dirty bits too.
             err := or(err, gt(revertPolicy, 0x02))
 
-            // revert if calldata is unclean
+            // Revert if any calldata is unclean.
             if err { revert(0x00, 0x00) }
 
-            // Indirect `data.offset` again to get the `bytes` payload.
+            // Indirect `data.offset` to get the `bytes` payload.
             data.offset :=
                 add(
-                    data.offset,
+                    s,
                     // We allow the offset stored in the `Call` struct to be negative.
                     calldataload(
-                        // Can't overflow; `data.offset` is in-bounds of `calldata`.
-                        add(0x40, data.offset)
+                        // Can't overflow; `s` is in-bounds of `calldata`.
+                        add(0x40, s)
                     )
                 )
             // `data.offset` now points to the length field 32 bytes before the start of the actual array.
@@ -149,19 +157,52 @@ library UnsafeArray {
             data.offset := add(0x20, data.offset)
         }
     }
+}
 
-    /// This is equivalent to `(a[i].success, a[i].data) = (success, data)`
-    function unsafeSet(Result[] memory a, uint256 i, bool success, bytes memory data) internal pure {
+function __ceq(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
+    return CallArrayIterator.unwrap(a) == CallArrayIterator.unwrap(b);
+}
+
+function __cne(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
+    return CallArrayIterator.unwrap(a) != CallArrayIterator.unwrap(b);
+}
+
+using {__ceq as ==, __cne as !=} for CallArrayIterator global;
+
+type ResultArrayIterator is bytes32;
+
+library UnsafeResultArray {
+    function iter(Result[] memory results) internal pure returns (ResultArrayIterator r) {
         assembly ("memory-safe") {
-            let dst := mload(add(add(0x20, shl(0x05, i)), a))
+            r := add(0x20, results)
+        }
+    }
+
+    /*
+    function end(Result[] memory results) internal pure returns (ResultArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(add(0x20, results), shl(0x05, mload(results)))
+        }
+    }
+    */
+
+    function next(ResultArrayIterator i) internal pure returns (ResultArrayIterator r) {
+        assembly ("memory-safe") {
+            r := add(0x20, i)
+        }
+    }
+
+    function set(Result[] memory, ResultArrayIterator i, bool success, bytes memory data) internal pure {
+        assembly ("memory-safe") {
+            let dst := mload(i)
             mstore(dst, success)
             mstore(add(0x20, dst), data)
         }
     }
 
-    function unsafeTruncate(Result[] memory a, uint256 newLength) internal pure {
+    function truncate(Result[] memory results, ResultArrayIterator i) internal pure {
         assembly ("memory-safe") {
-            mstore(a, newLength)
+            mstore(results, shr(0x05, sub(i, results)))
         }
     }
 
@@ -181,13 +222,15 @@ library UnsafeArray {
     }
 }
 
-library UnsafeMath {
-    function unsafeInc(uint256 x) internal pure returns (uint256) {
-        unchecked {
-            return x + 1;
-        }
-    }
+function __req(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
+    return ResultArrayIterator.unwrap(a) == ResultArrayIterator.unwrap(b);
 }
+
+function __rne(ResultArrayIterator a, ResultArrayIterator b) pure returns (bool) {
+    return ResultArrayIterator.unwrap(a) != ResultArrayIterator.unwrap(b);
+}
+
+using {__req as ==, __rne as !=} for ResultArrayIterator global;
 
 library UnsafeReturn {
     /// @notice This is *ROUGHLY* equivalent to `return(abi.encode(r))`.
@@ -232,9 +275,10 @@ library UnsafeReturn {
 
 contract MultiCall {
     using SafeCall for address;
-    using UnsafeArray for Call[];
-    using UnsafeArray for Result[];
-    using UnsafeMath for uint256;
+    using UnsafeCallArray for CallArrayIterator;
+    using UnsafeCallArray for Call[];
+    using UnsafeResultArray for ResultArrayIterator;
+    using UnsafeResultArray for Result[];
     using UnsafeReturn for Result[];
 
     constructor() {
@@ -253,21 +297,27 @@ contract MultiCall {
     }
 
     function multicall(Call[] calldata calls, uint256 contextdepth) internal returns (Result[] memory result) {
-        result = UnsafeArray.unsafeAlloc(calls.length);
+        result = UnsafeResultArray.unsafeAlloc(calls.length);
         address sender = _msgSender();
-        for (uint256 i; i < calls.length; i = i.unsafeInc()) {
-            (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.unsafeGet(i);
+
+        for (
+            (CallArrayIterator i, CallArrayIterator end, ResultArrayIterator j) =
+                (calls.iter(), calls.end(), result.iter());
+            i != end;
+            (i, j) = (i.next(), j.next())
+        ) {
+            (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.get(i);
             if (revertPolicy == RevertPolicy.REVERT) {
                 // We don't need to use the OOG-protected `safeCall` here because an OOG will result
                 // in a bubbled revert anyways.
                 (bool success, bytes memory returndata) = target.safeCall(data, sender);
-                result.unsafeSet(i, success, returndata);
+                result.set(j, success, returndata);
             } else {
                 (bool success, bytes memory returndata) = target.safeCall(data, sender, contextdepth);
-                result.unsafeSet(i, success, returndata);
+                result.set(j, success, returndata);
                 if (!success) {
                     if (revertPolicy == RevertPolicy.STOP) {
-                        result.unsafeTruncate(i.unsafeInc()); // This results in `returndata` with gaps.
+                        result.truncate(j); // This results in `returndata` with gaps.
                         break;
                     }
                 }
@@ -280,8 +330,8 @@ contract MultiCall {
         Call[] calldata calls;
         uint256 contextdepth;
         assembly ("memory-safe") {
-            // check the selector and for `nonpayable`
-            // this implicitly prohibits a `calls.offset` greater than 4GiB
+            // Check the selector and for `nonpayable`. This implicitly prohibits a `calls.offset`
+            // greater than 4GiB.
             if or(callvalue(), xor(selector, calldataload(0x00))) { revert(0x00, 0x00) }
 
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
