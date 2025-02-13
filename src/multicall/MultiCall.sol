@@ -177,6 +177,10 @@ library UnsafeCallArray {
             revertPolicy := calldataload(add(0x20, s))
             // and check it for dirty bits too.
             err := or(err, gt(revertPolicy, 0x02))
+            // 2 is the limit for the `RevertPolicy` enum. Violating this _should_ result in a
+            // revert with a reason of `Panic(33)` for strict compatibility with Solidity, but we
+            // gas-optimize this by lumping it in with the normal "malformed calldata" revert reason
+            // (empty).
 
             // Revert if any calldata is unclean.
             if err { revert(0x00, 0x00) }
