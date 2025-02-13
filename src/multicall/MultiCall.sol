@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
+/// Each call issued has a revert policy. This controls the behavior of the batch if the call
+/// reverts.
 enum RevertPolicy {
-    REVERT,
-    STOP,
-    CONTINUE
+    REVERT,  // Bubble the revert, undoing the entire multicall/batch
+    STOP,    // Don't revert, but end the multicall/batch immediately. Subsequent calls are not
+             // executed. An OOG revert is always bubbled
+    CONTINUE // Ignore the revert and continue with the batch. The corresponding `Result` will have
+             // `success = false`. An OOG revert is always bubbled
 }
 
 struct Call {
@@ -19,6 +23,12 @@ struct Result {
 }
 
 interface IMultiCall {
+    /// @param contextdepth determines the depth of the context stack that we inspect (the number of
+    ///                     all-but-one-64th iterations applied) when determining whether a call
+    ///                     reverted due to OOG. Setting this too high is gas-wasteful during revert
+    ///                     handling. OOG checking only works when the revert reason is empty. If an
+    ///                     intervening context applies its own revert reason, OOG checking will not
+    ///                     be applied.
     function multicall(Call[] calldata, uint256 contextdepth) external returns (Result[] memory);
 }
 
@@ -27,6 +37,7 @@ interface IMultiCall {
 // you need to know is the interface above.
 
 library SafeCall {
+    /// @dev This does not align the free memory pointer to a slot boundary.
     function safeCall(address target, bytes calldata data, address sender, uint256 contextdepth)
         internal
         returns (bool success, bytes memory returndata)
@@ -34,6 +45,7 @@ library SafeCall {
         assembly ("memory-safe") {
             returndata := mload(0x40)
             calldatacopy(returndata, data.offset, data.length)
+            // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
             let beforeGas := gas()
             success := call(gas(), target, 0x00, returndata, add(0x14, data.length), 0x00, 0x00)
@@ -78,6 +90,7 @@ library SafeCall {
 
     /// This version of `safeCall` omits the OOG check because it bubbles the revert if the call
     /// reverts. Therefore, `success` is always `true`.
+    /// @dev This does not align the free memory pointer to a slot boundary.
     function safeCall(address target, bytes calldata data, address sender)
         internal
         returns (bool success, bytes memory returndata)
@@ -85,6 +98,7 @@ library SafeCall {
         assembly ("memory-safe") {
             returndata := mload(0x40)
             calldatacopy(returndata, data.offset, data.length)
+            // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
             success := call(gas(), target, 0x00, returndata, add(0x14, data.length), 0x00, 0x00)
             let dst := add(0x20, returndata)
@@ -100,6 +114,7 @@ library SafeCall {
 type CallArrayIterator is uint256;
 
 library LibCallArrayIterator {
+    /// Advance the iterator one position down the array. Out-of-bounds is not checked.
     function next(CallArrayIterator i) internal pure returns (CallArrayIterator) {
         unchecked {
             return CallArrayIterator.wrap(32 + CallArrayIterator.unwrap(i));
@@ -120,18 +135,29 @@ function __ne(CallArrayIterator a, CallArrayIterator b) pure returns (bool) {
 using {__eq as ==, __ne as !=} for CallArrayIterator global;
 
 library UnsafeCallArray {
+    /// Create an iterator pointing to the first element of the `calls` array. Out-of-bounds is not
+    /// checked.
     function iter(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
         assembly ("memory-safe") {
             r := calls.offset
         }
     }
 
+    /// Create an iterator pointing to the one-past-the-end element of the `calls`
+    /// array. Dereferencing this iterator will result in out-of-bounds access.
     function end(Call[] calldata calls) internal pure returns (CallArrayIterator r) {
         unchecked {
             return CallArrayIterator.wrap((calls.length << 5) + CallArrayIterator.unwrap(iter(calls)));
         }
     }
 
+    /// Dereference the iterator `i` and return the values in the struct. This is *roughly* equivalent to:
+    ///     Call calldata call = calls[i];
+    ///     (target, data, revertPolicy) = (call.target, call.data, call.revertPolicy);
+    /// Of course `i` isn't an integer, so the analogy is a bit loose. There are a lot of bounds
+    /// checks that are omitted here. While we apply a relaxed ABI encoding (there are some
+    /// encodings that we accept that Solidity would not), any valid ABI encoding accepted by
+    /// Solidity is decoded identically.
     function get(Call[] calldata calls, CallArrayIterator i)
         internal
         pure
@@ -177,6 +203,7 @@ library UnsafeCallArray {
 type ResultArrayIterator is uint256;
 
 library LibResultArrayIterator {
+    /// Advance the iterator one position down the array. Out-of-bounds is not checked.
     function next(ResultArrayIterator i) internal pure returns (ResultArrayIterator r) {
         unchecked {
             return ResultArrayIterator.wrap(32 + ResultArrayIterator.unwrap(i));
@@ -187,12 +214,20 @@ library LibResultArrayIterator {
 using LibResultArrayIterator for ResultArrayIterator global;
 
 library UnsafeResultArray {
+    /// Create an iterator pointing to the first element of the `results` array. Out-of-bounds is
+    /// not checked.
     function iter(Result[] memory results) internal pure returns (ResultArrayIterator r) {
         assembly ("memory-safe") {
             r := add(0x20, results)
         }
     }
 
+    /// Dereference the iterator `i` and set the values in the returned struct (`Result
+    /// memory`). This is *roughly* equivalent to:
+    ///     Result memory result = results[i];
+    ///     (result.success, result.data) = (success, data);
+    /// Of course `i` isn't an integer, so the analogy is a bit loose. We omit bounds checking on
+    /// `i`, so if it is out-of-bounds, memory will be corrupted.
     function set(Result[] memory, ResultArrayIterator i, bool success, bytes memory data) internal pure {
         assembly ("memory-safe") {
             let dst := mload(i)
@@ -201,13 +236,16 @@ library UnsafeResultArray {
         }
     }
 
+    /// This is roughly equivalent to `results.length = i.next()`. Of course `i` is not an integer
+    /// and settings `results.length` is illegal. Thus, it's written in Yul.
     function unsafeTruncate(Result[] memory results, ResultArrayIterator i) internal pure {
         assembly ("memory-safe") {
             mstore(results, shr(0x05, sub(i, results)))
         }
     }
 
-    // This is equivalent to `result = new Result[](length)`
+    /// This is equivalent to `result = new Result[](length)`. While the array itself is populated
+    /// correctly, the memory pointed *AT* by the slots of the array is not zeroed.
     function unsafeAlloc(uint256 length) internal pure returns (Result[] memory result) {
         assembly ("memory-safe") {
             result := mload(0x40)
@@ -224,7 +262,7 @@ library UnsafeResultArray {
 }
 
 library UnsafeReturn {
-    /// @notice This is *ROUGHLY* equivalent to `return(abi.encode(r))`.
+    /// This is *ROUGHLY* equivalent to `return(abi.encode(r))`.
     /// @dev This *DOES NOT* produce the so-called "Strict Encoding Mode" specified by the formal
     ///      ABI encoding specification
     ///      https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode . However,
@@ -277,8 +315,11 @@ contract MultiCall {
         );
     }
 
+    /// Returns `msg.sender`, unless `msg.sender` is `address(this)`, in which case it returns the
+    /// unpacked ERC-2771 forwarded caller (the next-outermost non-MultiCall context).
     function _msgSender() private view returns (address sender) {
         if ((sender = msg.sender) == address(this)) {
+            // Unpack the ERC-2771-packed sender/caller.
             assembly ("memory-safe") {
                 sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
             }
@@ -286,6 +327,8 @@ contract MultiCall {
     }
 
     function multicall(Call[] calldata calls, uint256 contextdepth) internal returns (Result[] memory result) {
+        // Allocate memory for our eventual return. This does not allocate memory for the returndata
+        // from each of the calls of the multicall/batch.
         result = UnsafeResultArray.unsafeAlloc(calls.length);
         address sender = _msgSender();
 
@@ -295,7 +338,11 @@ contract MultiCall {
             i != end;
             (i, j) = (i.next(), j.next())
         ) {
+            // Decode and load the call.
             (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.get(i);
+            // Each iteration of this loop allocates some memory for the returndata, but everything
+            // ends up packed in memory because neither implementation of `safeCall` aligns the free
+            // memory pointer to a word boundary.
             if (revertPolicy == RevertPolicy.REVERT) {
                 // We don't need to use the OOG-protected `safeCall` here because an OOG will result
                 // in a bubbled revert anyways.
