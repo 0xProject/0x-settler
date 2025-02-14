@@ -5,6 +5,8 @@ import {Basic} from "src/core/Basic.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
+import {uint512} from "src/utils/512Math.sol";
+
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
@@ -15,11 +17,19 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
         super.basicSellToPool(sellToken, bps, pool, offset, data);
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 }

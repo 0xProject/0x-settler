@@ -190,11 +190,11 @@ abstract contract MaverickV2 is SettlerAbstract {
                 // We don't care about phantom overflow here because reserves
                 // are limited to 128 bits. Any token balance that would
                 // overflow here would also break MaverickV2.
-                sellAmount = (sellToken.balanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
         }
         if (sellAmount == 0) {
-            sellAmount = sellToken.balanceOf(address(pool));
+            sellAmount = sellToken.fastBalanceOf(address(pool));
             IMaverickV2Pool.State memory poolState = pool.getState();
             unchecked {
                 sellAmount -= tokenAIn ? poolState.reserveA : poolState.reserveB;

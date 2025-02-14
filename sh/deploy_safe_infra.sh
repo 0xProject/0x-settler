@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'Duncan wrote this script for his own use' >&2
 echo 'read the whole thing and make appropriate modifications before using it' >&2
@@ -10,11 +10,11 @@ exit 1
 ## Copyright (c) 2014 Michael Kropat - MIT License
 ## Copyright (c) 2013 Asymmetry Laboratories - MIT License
 
-realpath() {
+function realpath {
     _resolve_symlinks "$(_canonicalize "$1")"
 }
 
-_directory() {
+function _directory {
     local out slsh
     slsh=/
     out="$1"
@@ -39,7 +39,7 @@ _directory() {
     fi
 }
 
-_file() {
+function _file {
     local out slsh
     slsh=/
     out="$1"
@@ -53,7 +53,7 @@ _file() {
     printf '%s\n' "$out"
 }
 
-_resolve_symlinks() {
+function _resolve_symlinks {
     local path pattern context
     while [ -L "$1" ]; do
         context="$(_directory "$1")"
@@ -66,7 +66,7 @@ _resolve_symlinks() {
     printf '%s\n' "$1"
 }
 
-_escape() {
+function _escape {
     local out
     out=''
     local -i i
@@ -76,7 +76,7 @@ _escape() {
     printf '%s\n' "$out"
 }
 
-_prepend_context() {
+function _prepend_context {
     if [ "$1" = . ]; then
         printf '%s\n' "$2"
     else
@@ -87,7 +87,7 @@ _prepend_context() {
     fi
 }
 
-_assert_no_path_cycles() {
+function _assert_no_path_cycles {
     local target path
 
     if [ $# -gt 16 ]; then
@@ -104,7 +104,7 @@ _assert_no_path_cycles() {
     done
 }
 
-_canonicalize() {
+function _canonicalize {
     local d f
     if [ -d "$1" ]; then
         (CDPATH= cd -P "$1" 2>/dev/null && pwd -P)
@@ -137,19 +137,6 @@ declare -r singleton_hash='0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a
 declare -r factory_hash='0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b'
 declare -r fallback_hash='0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf'
 declare -r multicall_hash='0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad'
-
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
-
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
 
 declare singleton
 singleton="$(get_config safe.singleton)"

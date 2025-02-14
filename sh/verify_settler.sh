@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
 ## Copyright (c) 2014 Michael Kropat - MIT License
 ## Copyright (c) 2013 Asymmetry Laboratories - MIT License
 
-realpath() {
+function realpath {
     _resolve_symlinks "$(_canonicalize "$1")"
 }
 
-_directory() {
+function _directory {
     local out slsh
     slsh=/
     out="$1"
@@ -34,7 +34,7 @@ _directory() {
     fi
 }
 
-_file() {
+function _file {
     local out slsh
     slsh=/
     out="$1"
@@ -48,7 +48,7 @@ _file() {
     printf '%s\n' "$out"
 }
 
-_resolve_symlinks() {
+function _resolve_symlinks {
     local path pattern context
     while [ -L "$1" ]; do
         context="$(_directory "$1")"
@@ -61,7 +61,7 @@ _resolve_symlinks() {
     printf '%s\n' "$1"
 }
 
-_escape() {
+function _escape {
     local out
     out=''
     local -i i
@@ -71,7 +71,7 @@ _escape() {
     printf '%s\n' "$out"
 }
 
-_prepend_context() {
+function _prepend_context {
     if [ "$1" = . ]; then
         printf '%s\n' "$2"
     else
@@ -82,7 +82,7 @@ _prepend_context() {
     fi
 }
 
-_assert_no_path_cycles() {
+function _assert_no_path_cycles {
     local target path
 
     if [ $# -gt 16 ]; then
@@ -99,7 +99,7 @@ _assert_no_path_cycles() {
     done
 }
 
-_canonicalize() {
+function _canonicalize {
     local d f
     if [ -d "$1" ]; then
         (CDPATH= cd -P "$1" 2>/dev/null && pwd -P)
@@ -121,18 +121,6 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-
-declare rpc_url
-rpc_url="$(get_api_secret rpcUrl)"
-declare -r rpc_url
-if [[ ${rpc_url:-unset} = 'unset' ]] ; then
-    echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
-    exit 1
-fi
-
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
 declare -r deployer_address
@@ -153,27 +141,15 @@ echo 'Verifying taker-submitted settler...' >&2
 declare taker_settler
 taker_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 2)"
 declare -r taker_settler
-if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
-    forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$constructor_args" "$taker_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"Settler
-else
-    forge verify-contract --watch --chain $chainid --verifier etherscan--etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$taker_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"Settler
-fi
-if (( chainid != 81457 )) && (( chainid != 59144 )); then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$taker_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"Settler
-fi
+
+verify_contract "$constructor_args" "$taker_settler" "$flat_taker_source":"$chain_display_name"Settler
 
 echo 'Verified taker-submitted Settler... verifying metatx Settler...' >&2
 
 declare metatx_settler
 metatx_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 3)"
 declare -r metatx_settler
-if (( chainid == 34443 )) ; then # Mode uses Blockscout, not Etherscan
-    forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$(get_config blockscoutApi)" --constructor-args "$constructor_args" "$metatx_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"SettlerMetaTxn
-else
-    forge verify-contract --watch --chain $chainid --verifier etherscan --etherscan-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$constructor_args" "$metatx_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"SettlerMetaTxn
-fi
-if (( chainid != 81457 )) && (( chainid != 59144 )) ; then # sourcify doesn't support Blast or Linea
-    forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$constructor_args" "$metatx_settler" src/flat/"$chain_display_name"Flat.sol:"$chain_display_name"SettlerMetaTxn
-fi
+
+verify_contract "$constructor_args" "$metatx_settler" "$flat_metatx_source":"$chain_display_name"SettlerMetaTxn
 
 echo 'Verified metatx Settler. All done!' >&2

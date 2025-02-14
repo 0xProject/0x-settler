@@ -74,6 +74,36 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
+    function BALANCERV3(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+    function BALANCERV3_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+    function METATXN_BALANCERV3_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
+
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
@@ -94,8 +124,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function MAKERPSM(address recipient, address gemToken, uint256 bps, address psm, bool buyGem, uint256 amountOutMin)
-        external;
+    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) external;
 
     function CURVE_TRICRYPTO_VIP(
         address recipient,

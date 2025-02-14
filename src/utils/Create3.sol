@@ -201,7 +201,7 @@ library Create3 {
     }
 
     function createFromMemoryLondon(bytes32 salt, bytes memory initCode) internal returns (address) {
-        return createFromMemory(salt, initCode, 0);
+        return createFromMemoryLondon(salt, initCode, 0);
     }
 
     function _predict(bytes32 salt, address deployer, bytes32 initHash) private pure returns (address) {

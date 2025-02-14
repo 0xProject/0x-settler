@@ -1,28 +1,24 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 /// @notice Safe ETH and ERC20 transfer library that gracefully handles missing return values.
-/// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/utils/SafeTransferLib.sol)
-/// @dev Use with caution! Some functions in this library knowingly create dirty bits at the destination of the free memory pointer.
+/// @author Modified from Solady (https://github.com/vectorized/solady/blob/main/src/utils/SafeTransferLib.sol)
+/// @author Modified from Solmate (https://github.com/transmissions11/solmate/blob/main/src/utils/SafeTransferLib.sol)
 /// @dev Note that none of the functions in this library check that a token has code at all! That responsibility is delegated to the caller.
 library SafeTransferLib {
-    uint32 private constant _TRANSFER_FROM_FAILED_SELECTOR = 0x7939f424; // bytes4(keccak256("TransferFromFailed()"))
-    uint32 private constant _TRANSFER_FAILED_SELECTOR = 0x90b8ec18; // bytes4(keccak256("TransferFailed()"))
-    uint32 private constant _APPROVE_FAILED_SELECTOR = 0x3e3f8f73; // bytes4(keccak256("ApproveFailed()"))
-
     /*//////////////////////////////////////////////////////////////
                              ETH OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
     function safeTransferETH(address payable to, uint256 amount) internal {
         assembly ("memory-safe") {
-            // Transfer the ETH and store if it succeeded or not.
-            if iszero(call(gas(), to, amount, 0, 0, 0, 0)) {
-                let freeMemoryPointer := mload(0x40)
-                returndatacopy(freeMemoryPointer, 0, returndatasize())
-                revert(freeMemoryPointer, returndatasize())
+            // Transfer the ETH and revert if it fails.
+            if iszero(call(gas(), to, amount, 0x00, 0x00, 0x00, 0x00)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
             }
         }
     }
@@ -31,79 +27,104 @@ library SafeTransferLib {
                             ERC20 OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
+    function fastBalanceOf(IERC20 token, address acct) internal view returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x14, acct) // Store the `acct` argument.
+            mstore(0x00, 0x70a08231000000000000000000000000) // Selector for `balanceOf(address)`, with `acct`'s padding.
+
+            // Call and check for revert. Storing the selector with padding in
+            // memory at 0 results in a start of calldata at offset 16. Calldata
+            // is 36 bytes long (4 bytes selector, 32 bytes argument)
+            if iszero(staticcall(gas(), token, 0x10, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            // Check for short returndata and missing code
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
+
+            r := mload(0x00)
+        }
+    }
+
     function safeTransferFrom(IERC20 token, address from, address to, uint256 amount) internal {
         assembly ("memory-safe") {
-            // Get a pointer to some free memory.
-            let freeMemoryPointer := mload(0x40)
+            let ptr := mload(0x40) // Cache the free memory pointer.
 
-            // Write the abi-encoded calldata into memory, beginning with the function selector.
-            mstore(freeMemoryPointer, 0x23b872dd00000000000000000000000000000000000000000000000000000000)
-            mstore(add(freeMemoryPointer, 4), and(from, 0xffffffffffffffffffffffffffffffffffffffff)) // Append and mask the "from" argument.
-            mstore(add(freeMemoryPointer, 36), and(to, 0xffffffffffffffffffffffffffffffffffffffff)) // Append and mask the "to" argument.
-            mstore(add(freeMemoryPointer, 68), amount) // Append the "amount" argument. Masking not required as it's a full 32 byte type.
+            mstore(0x60, amount) // Store the `amount` argument.
+            mstore(0x40, to) // Store the `to` argument.
+            mstore(0x2c, shl(0x60, from)) // Store the `from` argument. (Clears `to`'s padding.)
+            mstore(0x0c, 0x23b872dd000000000000000000000000) // Selector for `transferFrom(address,address,uint256)`, with `from`'s padding.
 
-            // We use 100 because the length of our calldata totals up like so: 4 + 32 * 3.
-            // We use 0 and 32 to copy up to 32 bytes of return data into the scratch space.
-            if iszero(call(gas(), token, 0, freeMemoryPointer, 100, 0, 32)) {
-                returndatacopy(freeMemoryPointer, 0, returndatasize())
-                revert(freeMemoryPointer, returndatasize())
+            // Calldata starts at offset 28 and is 100 bytes long (3 * 32 + 4).
+            // If there is returndata (optional) we copy the first 32 bytes into the first slot of memory.
+            if iszero(call(gas(), token, 0x00, 0x1c, 0x64, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
             }
-            // We check that the call either returned exactly 1 (can't just be non-zero data), or had no
-            // return data.
-            if iszero(or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize()))) {
-                mstore(0, _TRANSFER_FROM_FAILED_SELECTOR)
+            // We check that the call either returned exactly 1 [true] (can't just be non-zero
+            // data), or had no return data.
+            if iszero(or(and(eq(mload(0x00), 0x01), gt(returndatasize(), 0x1f)), iszero(returndatasize()))) {
+                mstore(0x00, 0x7939f424) // Selector for `TransferFromFailed()`
                 revert(0x1c, 0x04)
             }
+
+            mstore(0x60, 0x00) // Restore the zero slot to zero.
+            mstore(0x40, ptr) // Restore the free memory pointer.
         }
     }
 
     function safeTransfer(IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
-            // Get a pointer to some free memory.
-            let freeMemoryPointer := mload(0x40)
+            mstore(0x14, to) // Store the `to` argument.
+            mstore(0x34, amount) // Store the `amount` argument.
+            // Storing `amount` clobbers the upper bits of the free memory pointer, but those bits
+            // can never be set without running into an OOG, so it's safe. We'll restore them to
+            // zero at the end.
+            mstore(0x00, 0xa9059cbb000000000000000000000000) // Selector for `transfer(address,uint256)`, with `to`'s padding.
 
-            // Write the abi-encoded calldata into memory, beginning with the function selector.
-            mstore(freeMemoryPointer, 0xa9059cbb00000000000000000000000000000000000000000000000000000000)
-            mstore(add(freeMemoryPointer, 4), and(to, 0xffffffffffffffffffffffffffffffffffffffff)) // Append and mask the "to" argument.
-            mstore(add(freeMemoryPointer, 36), amount) // Append the "amount" argument. Masking not required as it's a full 32 byte type.
-
-            // We use 68 because the length of our calldata totals up like so: 4 + 32 * 2.
-            // We use 0 and 32 to copy up to 32 bytes of return data into the scratch space.
-            if iszero(call(gas(), token, 0, freeMemoryPointer, 68, 0, 32)) {
-                returndatacopy(freeMemoryPointer, 0, returndatasize())
-                revert(freeMemoryPointer, returndatasize())
+            // Calldata starts at offset 16 and is 68 bytes long (2 * 32 + 4).
+            // If there is returndata (optional) we copy the first 32 bytes into the first slot of memory.
+            if iszero(call(gas(), token, 0x00, 0x10, 0x44, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
             }
-            // We check that the call either returned exactly 1 (can't just be non-zero data), or had no
-            // return data.
-            if iszero(or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize()))) {
-                mstore(0, _TRANSFER_FAILED_SELECTOR)
+            // We check that the call either returned exactly 1 [true] (can't just be non-zero
+            // data), or had no return data.
+            if iszero(or(and(eq(mload(0x00), 0x01), gt(returndatasize(), 0x1f)), iszero(returndatasize()))) {
+                mstore(0x00, 0x90b8ec18) // Selector for `TransferFailed()`
                 revert(0x1c, 0x04)
             }
+
+            mstore(0x34, 0x00) // Restore the part of the free memory pointer that was overwritten.
         }
     }
 
     function safeApprove(IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
-            // Get a pointer to some free memory.
-            let freeMemoryPointer := mload(0x40)
+            mstore(0x14, to) // Store the `to` argument.
+            mstore(0x34, amount) // Store the `amount` argument.
+            // Storing `amount` clobbers the upper bits of the free memory pointer, but those bits
+            // can never be set without running into an OOG, so it's safe. We'll restore them to
+            // zero at the end.
+            mstore(0x00, 0x095ea7b3000000000000000000000000) // Selector for `approve(address,uint256)`, with `to`'s padding.
 
-            // Write the abi-encoded calldata into memory, beginning with the function selector.
-            mstore(freeMemoryPointer, 0x095ea7b300000000000000000000000000000000000000000000000000000000)
-            mstore(add(freeMemoryPointer, 4), and(to, 0xffffffffffffffffffffffffffffffffffffffff)) // Append and mask the "to" argument.
-            mstore(add(freeMemoryPointer, 36), amount) // Append the "amount" argument. Masking not required as it's a full 32 byte type.
-
-            // We use 68 because the length of our calldata totals up like so: 4 + 32 * 2.
-            // We use 0 and 32 to copy up to 32 bytes of return data into the scratch space.
-            if iszero(call(gas(), token, 0, freeMemoryPointer, 68, 0, 32)) {
-                returndatacopy(freeMemoryPointer, 0, returndatasize())
-                revert(freeMemoryPointer, returndatasize())
+            // Calldata starts at offset 16 and is 68 bytes long (2 * 32 + 4).
+            // If there is returndata (optional) we copy the first 32 bytes into the first slot of memory.
+            if iszero(call(gas(), token, 0x00, 0x10, 0x44, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
             }
-            // We check that the call either returned exactly 1 (can't just be non-zero data), or had no
-            // return data.
-            if iszero(or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize()))) {
-                mstore(0, _APPROVE_FAILED_SELECTOR)
+            // We check that the call either returned exactly 1 [true] (can't just be non-zero
+            // data), or had no return data.
+            if iszero(or(and(eq(mload(0x00), 0x01), gt(returndatasize(), 0x1f)), iszero(returndatasize()))) {
+                mstore(0x00, 0x3e3f8f73) // Selector for `ApproveFailed()`
                 revert(0x1c, 0x04)
             }
+
+            mstore(0x34, 0x00) // Restore the part of the free memory pointer that was overwritten.
         }
     }
 

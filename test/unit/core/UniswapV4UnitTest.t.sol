@@ -6,7 +6,8 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
-import {POOL_MANAGER, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {IPoolManager as Settler_IPoolManager, IUnlockCallback} from "src/core/UniswapV4Types.sol";
+import {MAINNET_POOL_MANAGER as POOL_MANAGER} from "src/core/UniswapV4Addresses.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 import {IPoolManager} from "@uniswapv4/interfaces/IPoolManager.sol";
@@ -24,6 +25,7 @@ import {SignatureExpired} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {Revert} from "src/utils/Revert.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
+import {uint512} from "src/utils/512Math.sol";
 
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 
@@ -111,6 +113,10 @@ contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
     using SafeTransferLib for IERC20;
 
+    function _POOL_MANAGER() internal pure override returns (Settler_IPoolManager) {
+        return POOL_MANAGER;
+    }
+
     function sellToUniswapV4(
         IERC20 sellToken,
         uint256 bps,
@@ -167,6 +173,10 @@ contract UniswapV4Stub is UniswapV4 {
         _deployer = msg.sender;
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _msgSender() internal view override returns (address) {
         return _deployer;
     }
@@ -184,6 +194,10 @@ contract UniswapV4Stub is UniswapV4 {
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
 
@@ -349,7 +363,7 @@ abstract contract BaseUniswapV4UnitTest is Test {
     }
 
     function _deployPoolManager() internal returns (address poolManagerSrc) {
-        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager");
+        poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager", abi.encode(address(this)));
         require(poolManagerSrc != address(0));
         bytes memory poolManagerCode = poolManagerSrc.code;
         uint256 replaceCount = _replaceAll(
@@ -587,7 +601,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         if (Currency.unwrap(poolKey.currency0) == ETH) {
             poolKey.currency0 = Currency.wrap(address(0));
         }
-        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96, new bytes(0));
+        IPoolManager(address(POOL_MANAGER)).initialize(poolKey, sqrtPriceX96);
         POOL_MANAGER.unlock(abi.encode(sqrtPriceX96, tickSpacing));
     }
 
@@ -786,6 +800,15 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         );
     }
 
+    // This exists to solve some stack-too-deep issues later
+    function swapPre(uint256 poolIndex, uint256 sellAmount, bool feeOnTransfer, bool zeroForOne)
+        external
+        view
+        returns (uint256, uint256, uint256, PoolKey memory, IERC20, IERC20, uint256, uint256, uint256, uint256)
+    {
+        return _swapPre(poolIndex, sellAmount, feeOnTransfer, zeroForOne);
+    }
+
     function _swapPost(
         IERC20 sellToken,
         IERC20 buyToken,
@@ -887,75 +910,106 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
     }
 
+    struct SwapMultihopState {
+        PoolKey poolKey0;
+        PoolKey poolKey1;
+        IERC20 sellToken;
+        IERC20 hopToken;
+        IERC20 buyToken;
+        bool zeroForOne;
+        uint256 sellAmount;
+        uint256 hopAmount;
+        uint256 buyAmount;
+        uint256 sellTokenBalanceBefore;
+        uint256 buyTokenBalanceBefore;
+        uint256 bps;
+        uint256 hashMul;
+        uint256 hashMod;
+    }
+
     function testSwapMultihop() public {
-        PoolKey memory poolKey0 = pools[0];
-        PoolKey memory poolKey1 = pools[1];
-        IERC20 sellToken = IERC20(Currency.unwrap(poolKey0.currency0));
-        bool zeroForOne1 = IERC20(Currency.unwrap(poolKey1.currency0)) == IERC20(Currency.unwrap(poolKey0.currency1));
-        IERC20 buyToken = IERC20(Currency.unwrap(zeroForOne1 ? poolKey1.currency1 : poolKey1.currency0));
-        IERC20 hopToken = IERC20(Currency.unwrap(zeroForOne1 ? poolKey1.currency0 : poolKey1.currency1));
+        SwapMultihopState memory state = SwapMultihopState({
+            poolKey0: pools[0],
+            poolKey1: pools[1],
+            sellToken: IERC20(address(0)),
+            hopToken: IERC20(address(0)),
+            buyToken: IERC20(address(0)),
+            zeroForOne: false,
+            sellAmount: 0,
+            hopAmount: 0,
+            buyAmount: 0,
+            sellTokenBalanceBefore: 0,
+            buyTokenBalanceBefore: 0,
+            bps: 0,
+            hashMul: 0,
+            hashMod: 0
+        });
+
+        state.sellToken = IERC20(Currency.unwrap(state.poolKey0.currency0));
+        state.zeroForOne =
+            IERC20(Currency.unwrap(state.poolKey1.currency0)) == IERC20(Currency.unwrap(state.poolKey0.currency1));
+        state.buyToken = IERC20(Currency.unwrap(state.zeroForOne ? state.poolKey1.currency1 : state.poolKey1.currency0));
+        state.hopToken = IERC20(Currency.unwrap(state.zeroForOne ? state.poolKey1.currency0 : state.poolKey1.currency1));
+        uint256 buyAmount;
         (
             /* poolIndex */,
-            uint256 sellAmount,
-            uint256 buyAmount,
+            state.sellAmount,
+            buyAmount,
             /* poolKey0 */,
             /* sellToken */,
             /* buyToken */,
-            uint256 sellTokenBalanceBefore,
+            state.sellTokenBalanceBefore,
             /* buyTokenBalanceBefore */,
             /* hashMul */,
             /* hashMod */
-        ) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
-        uint256 buyTokenBalanceBefore;
+        ) = this.swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
         (
             /* poolIndex */,
             /* sellAmount */,
-            buyAmount,
+            state.buyAmount,
             /* poolKey1 */,
             /* sellToken */,
             /* buyToken */,
             /* sellTokenBalanceBefore */,
-            buyTokenBalanceBefore,
+            state.buyTokenBalanceBefore,
             /* hashMul */,
             /* hashMod */
-        ) = _swapPre(1, buyAmount, false, zeroForOne1);
+        ) = this.swapPre(1, buyAmount, false, state.zeroForOne);
 
         IERC20[] memory swapTokens = new IERC20[](3);
-        swapTokens[0] = sellToken;
-        swapTokens[1] = hopToken;
-        swapTokens[2] = buyToken;
-        (uint256 hashMul, uint256 hashMod) = _getHash(swapTokens);
+        swapTokens[0] = state.sellToken;
+        swapTokens[1] = state.hopToken;
+        swapTokens[2] = state.buyToken;
+        (state.hashMul, state.hashMod) = _getHash(swapTokens);
 
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
             bytes1(0x01),
-            hopToken,
-            poolKey0.fee,
-            poolKey0.tickSpacing,
-            poolKey0.hooks,
+            state.hopToken,
+            state.poolKey0.fee,
+            state.poolKey0.tickSpacing,
+            state.poolKey0.hooks,
             uint24(0),
-            new bytes(0),
             uint16(10_000),
             bytes1(0x02),
-            buyToken,
-            poolKey1.fee,
-            poolKey1.tickSpacing,
-            poolKey1.hooks,
-            uint24(0),
-            new bytes(0)
+            state.buyToken,
+            state.poolKey1.fee,
+            state.poolKey1.tickSpacing,
+            state.poolKey1.hooks,
+            uint24(0)
         );
         (, uint256 buyTokenBalanceAfter) = swapGeneric(
-            sellToken,
-            sellAmount,
-            sellTokenBalanceBefore,
+            state.sellToken,
+            state.sellAmount,
+            state.sellTokenBalanceBefore,
             false,
-            buyToken,
-            buyTokenBalanceBefore,
-            hashMul,
-            hashMod,
+            state.buyToken,
+            state.buyTokenBalanceBefore,
+            state.hashMul,
+            state.hashMod,
             fills
         );
-        assertEq(buyTokenBalanceAfter, buyTokenBalanceBefore + buyAmount);
+        assertEq(buyTokenBalanceAfter, state.buyTokenBalanceBefore + state.buyAmount);
     }
 
     function testSwapMultiplex() public {
@@ -1107,7 +1161,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             /* hopTokenBalanceBefore */,
             /* hashMul */,
             /* hashMod */
-        ) = _swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
+        ) = this.swapPre(0, TOTAL_SUPPLY / 1_000, false, true);
         (
             /* poolIndex */,
             state.sellAmount1,
@@ -1119,7 +1173,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             state.buyTokenBalanceBefore,
             /* hashMul */,
             /* hashMod */
-        ) = _swapPre(2, TOTAL_SUPPLY / 1_000, false, state.zeroForOne1);
+        ) = this.swapPre(2, TOTAL_SUPPLY / 1_000, false, state.zeroForOne1);
         (
             /* poolIndex */,
             state.allegedHopAmount,
@@ -1131,7 +1185,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             /* buyTokenBalanceBefore */,
             /* hashMul */,
             /* hashMod */
-        ) = _swapPre(1, state.hopAmount, false, state.zeroForOne2);
+        ) = this.swapPre(1, state.hopAmount, false, state.zeroForOne2);
         assertEq(state.allegedHopAmount, state.hopAmount);
         state.sellAmount = state.sellAmount0 + state.sellAmount1;
         state.buyAmount = state.buyAmount0 + state.buyAmount1;

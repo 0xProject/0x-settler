@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
 ## Copyright (c) 2014 Michael Kropat - MIT License
 ## Copyright (c) 2013 Asymmetry Laboratories - MIT License
 
-realpath() {
+function realpath {
     _resolve_symlinks "$(_canonicalize "$1")"
 }
 
-_directory() {
+function _directory {
     local out slsh
     slsh=/
     out="$1"
@@ -34,7 +34,7 @@ _directory() {
     fi
 }
 
-_file() {
+function _file {
     local out slsh
     slsh=/
     out="$1"
@@ -48,7 +48,7 @@ _file() {
     printf '%s\n' "$out"
 }
 
-_resolve_symlinks() {
+function _resolve_symlinks {
     local path pattern context
     while [ -L "$1" ]; do
         context="$(_directory "$1")"
@@ -61,7 +61,7 @@ _resolve_symlinks() {
     printf '%s\n' "$1"
 }
 
-_escape() {
+function _escape {
     local out
     out=''
     local -i i
@@ -71,7 +71,7 @@ _escape() {
     printf '%s\n' "$out"
 }
 
-_prepend_context() {
+function _prepend_context {
     if [ "$1" = . ]; then
         printf '%s\n' "$2"
     else
@@ -82,7 +82,7 @@ _prepend_context() {
     fi
 }
 
-_assert_no_path_cycles() {
+function _assert_no_path_cycles {
     local target path
 
     if [ $# -gt 16 ]; then
@@ -99,7 +99,7 @@ _assert_no_path_cycles() {
     done
 }
 
-_canonicalize() {
+function _canonicalize {
     local d f
     if [ -d "$1" ]; then
         (CDPATH= cd -P "$1" 2>/dev/null && pwd -P)
@@ -143,7 +143,7 @@ declare -r description
 declare -r setDescription_sig='setDescription(uint128,string)(string)'
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
-_compat_date() {
+function _compat_date {
     declare -r datestring="$1"
     shift
 
@@ -207,70 +207,8 @@ declare struct_json
 struct_json="$(eip712_json "$new_feature_calldata" 1)"
 declare -r struct_json
 
-# sign the message
 declare signature
-if [[ $wallet_type = 'frame' ]] ; then
-    declare typedDataRPC
-    typedDataRPC="$(
-        jq -Mc                 \
-        '
-        {
-            "jsonrpc": "2.0",
-            "method": "eth_signTypedData",
-            "params": [
-                $signer,
-                .
-            ],
-            "id": 1
-        }
-        '                      \
-        --arg signer "$signer" \
-        <<<"$struct_json"
-    )"
-    declare -r typedDataRPC
-    signature="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
-    if [[ $signature = *error* ]] ; then
-        echo "$signature" >&2
-        exit 1
-    fi
-    signature="$(jq -Mr .result <<<"$signature")"
-else
-    signature="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$struct_json")"
-fi
+signature="$(sign_call "$struct_json")"
 declare -r signature
 
-declare signing_hash
-signing_hash="$(eip712_hash "$new_feature_calldata" 1)"
-declare -r signing_hash
-
-declare multicall_address
-multicall_address="$(get_config safe.multiCall)"
-declare -r multicall_address
-
-# encode the Safe Transaction Service API call
-declare safe_multisig_transaction
-safe_multisig_transaction="$(
-    jq -Mc \
-    "$eip712_message_json_template"',
-        "contractTransactionHash": $signing_hash,
-        "sender": $sender,
-        "signature": $signature,
-        "origin": "0xSettlerCLI"
-    }
-    '                                  \
-    --arg to "$multicall_address"      \
-    --arg data "$new_feature_calldata" \
-    --arg operation 1                  \
-    --arg nonce "$nonce"               \
-    --arg signing_hash "$signing_hash" \
-    --arg sender "$signer"             \
-    --arg signature "$signature"       \
-    --arg safe_address "$safe_address" \
-    <<<'{}'
-)"
-declare -r safe_multisig_transaction
-
-# call the API
-curl --fail -s "$(get_config safe.apiUrl)"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
-
-echo 'Signature submitted' >&2
+save_signature new_feature "$new_feature_calldata" "$signature" 1

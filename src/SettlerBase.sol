@@ -5,6 +5,10 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+import {uint512} from "./utils/512Math.sol";
+
+import {DEPLOYER} from "./deployer/DeployerAddress.sol";
+
 import {Basic} from "./core/Basic.sol";
 import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
@@ -57,19 +61,30 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
     event GitCommit(bytes20 indexed);
 
-    constructor(bytes20 gitCommit, uint256 tokenId) {
+    // When/if you change this, you must make corresponding changes to
+    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
+    // `constructor_args`.
+    constructor(bytes20 gitCommit) {
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
-            assert(IERC721Owner(0x00000000000004533Fe15556B1E086BB1A72cEae).ownerOf(tokenId) == address(this));
+            assert(IERC721Owner(DEPLOYER).ownerOf(_tokenId()) == address(this));
         } else {
             assert(gitCommit == bytes20(0));
         }
+    }
+
+    function _div512to256(uint512 n, uint512 d) internal view virtual override returns (uint256) {
+        return n.div(d);
     }
 
     struct AllowedSlippage {
         address recipient;
         IERC20 buyToken;
         uint256 minAmountOut;
+    }
+
+    function _mandatorySlippageCheck() internal pure virtual returns (bool) {
+        return false;
     }
 
     function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
@@ -80,31 +95,28 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         // directly from us instead of from some other form of exchange of value.
         (address recipient, IERC20 buyToken, uint256 minAmountOut) =
             (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
-        if (minAmountOut != 0 || address(buyToken) != address(0)) {
-            if (buyToken == ETH_ADDRESS) {
-                uint256 amountOut = address(this).balance;
-                if (amountOut < minAmountOut) {
-                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
-                }
-                payable(recipient).safeTransferETH(amountOut);
-            } else {
-                uint256 amountOut = buyToken.balanceOf(address(this));
-                if (amountOut < minAmountOut) {
-                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
-                }
-                buyToken.safeTransfer(recipient, amountOut);
+        if (_mandatorySlippageCheck()) {
+            require(minAmountOut != 0);
+        } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
+            return;
+        }
+        if (buyToken == ETH_ADDRESS) {
+            uint256 amountOut = address(this).balance;
+            if (amountOut < minAmountOut) {
+                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
             }
+            payable(recipient).safeTransferETH(amountOut);
+        } else {
+            uint256 amountOut = buyToken.fastBalanceOf(address(this));
+            if (amountOut < minAmountOut) {
+                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+            }
+            buyToken.safeTransfer(recipient, amountOut);
         }
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
-        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.RFQ.selector)) {
+        if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -145,7 +157,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
                     }
                 }
             } else {
-                uint256 balance = token.balanceOf(address(this));
+                uint256 balance = token.fastBalanceOf(address(this));
                 if (balance > expectedAmount) {
                     unchecked {
                         token.safeTransfer(recipient, balance - expectedAmount);

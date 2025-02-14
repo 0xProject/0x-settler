@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## POSIX Bash implementation of realpath
 ## Copied and modified from https://github.com/mkropat/sh-realpath and https://github.com/AsymLabs/realpath-lib/
 ## Copyright (c) 2014 Michael Kropat - MIT License
 ## Copyright (c) 2013 Asymmetry Laboratories - MIT License
 
-realpath() {
+function realpath {
     _resolve_symlinks "$(_canonicalize "$1")"
 }
 
-_directory() {
+function _directory {
     local out slsh
     slsh=/
     out="$1"
@@ -34,7 +34,7 @@ _directory() {
     fi
 }
 
-_file() {
+function _file {
     local out slsh
     slsh=/
     out="$1"
@@ -48,7 +48,7 @@ _file() {
     printf '%s\n' "$out"
 }
 
-_resolve_symlinks() {
+function _resolve_symlinks {
     local path pattern context
     while [ -L "$1" ]; do
         context="$(_directory "$1")"
@@ -61,7 +61,7 @@ _resolve_symlinks() {
     printf '%s\n' "$1"
 }
 
-_escape() {
+function _escape {
     local out
     out=''
     local -i i
@@ -71,7 +71,7 @@ _escape() {
     printf '%s\n' "$out"
 }
 
-_prepend_context() {
+function _prepend_context {
     if [ "$1" = . ]; then
         printf '%s\n' "$2"
     else
@@ -82,7 +82,7 @@ _prepend_context() {
     fi
 }
 
-_assert_no_path_cycles() {
+function _assert_no_path_cycles {
     local target path
 
     if [ $# -gt 16 ]; then
@@ -99,7 +99,7 @@ _assert_no_path_cycles() {
     done
 }
 
-_canonicalize() {
+function _canonicalize {
     local d f
     if [ -d "$1" ]; then
         (CDPATH= cd -P "$1" 2>/dev/null && pwd -P)
@@ -132,6 +132,7 @@ IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD7011
 declare -r signer
 
 . "$project_root"/sh/common_wallet_type.sh
+. "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
@@ -158,38 +159,8 @@ while (( ${#deploy_calldatas[@]} >= 2 )) ; do
     declare signing_hash
     signing_hash="$(eip712_hash "$deploy_calldata" $operation)"
 
-    declare -a signatures=()
-    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-        set +f
-        for confirmation in "$project_root"/settler_confirmation_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
-            signatures+=("$(<"$confirmation")")
-        done
-        set -f
-
-        if (( ${#signatures[@]} != 2 )) ; then
-            echo 'Bad number of signatures' >&2
-            exit 1
-        fi
-    else
-        declare signatures_json
-        signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
-
-        if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
-            echo 'Bad number of signatures' >&2
-            exit 1
-        fi
-
-        if [ "$(jq -Mr '.results[1].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" \< "$(jq -Mr '.results[0].owner' <<<"$signatures_json" | tr '[:upper:]' '[:lower:]')" ] ; then
-            signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-            signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-        else
-            signatures+=( "$(jq -Mr '.results[0].signature' <<<"$signatures_json")" )
-            signatures+=( "$(jq -Mr '.results[1].signature' <<<"$signatures_json")" )
-        fi
-    fi
-
     declare packed_signatures
-    packed_signatures="$(cast concat-hex "${signatures[@]}")"
+    packed_signatures="$(retrieve_signatures settler_confirmation "$deploy_calldata" $operation)"
 
     # configure gas limit
     declare -a args=(

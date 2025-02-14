@@ -18,10 +18,9 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    // When/if you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit, 2) {}
+    function _tokenId() internal pure override returns (uint256) {
+        return 2;
+    }
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
@@ -50,7 +49,13 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
-        if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
+        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
+                _permitToTransferDetails(permit, recipient);
+            _transferFrom(permit, transferDetails, sig);
+        } else if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
