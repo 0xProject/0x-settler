@@ -24,7 +24,7 @@ jobs:
         run: forge build lib/v4-core/src/PoolManager.sol
 
       - name: Build MultiCall
-        run: forge build src/MultiCall/MultiCall.sol
+        run: forge build -- src/multicall/MultiCall.sol
         env:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 1000000
