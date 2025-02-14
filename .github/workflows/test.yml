@@ -38,6 +38,6 @@ jobs:
         run: forge build --skip MultiCall.sol
 
       - name: Run tests
-        run: forge test --skip MultiCall.sol -vvv
+        run: forge test --skip MultiCall.sol -vvvvv
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
