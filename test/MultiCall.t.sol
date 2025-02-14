@@ -59,11 +59,11 @@ contract MultiCallTest is Test {
     function testSimple() external {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
-        call_.target = address(reject);
+        call_.target = payable(address(reject));
         call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "Go away!";
 
@@ -78,11 +78,11 @@ contract MultiCallTest is Test {
     function testAbiEncoding() external {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
-        call_.target = address(reject);
+        call_.target = payable(address(reject));
         call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "Go away!";
 
@@ -96,15 +96,15 @@ contract MultiCallTest is Test {
     function testContinue() external {
         Call[] memory calls = new Call[](3);
         Call memory call_ = calls[0];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.data = "Hello, World!";
         call_.revertPolicy = RevertPolicy.REVERT;
         call_ = calls[1];
-        call_.target = address(reject);
+        call_.target = payable(address(reject));
         call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "Go away!";
         call_ = calls[2];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
@@ -121,15 +121,15 @@ contract MultiCallTest is Test {
     function testStop() external {
         Call[] memory calls = new Call[](3);
         Call memory call_ = calls[0];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.data = "Hello, World!";
         call_.revertPolicy = RevertPolicy.REVERT;
         call_ = calls[1];
-        call_.target = address(reject);
+        call_.target = payable(address(reject));
         call_.revertPolicy = RevertPolicy.STOP;
         call_.data = "Go away!";
         call_ = calls[2];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
@@ -144,15 +144,15 @@ contract MultiCallTest is Test {
     function testRevert() external {
         Call[] memory calls = new Call[](3);
         Call memory call_ = calls[0];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.data = "Hello, World!";
         call_.revertPolicy = RevertPolicy.REVERT;
         call_ = calls[1];
-        call_.target = address(reject);
+        call_.target = payable(address(reject));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Go away!";
         call_ = calls[2];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
@@ -165,11 +165,11 @@ contract MultiCallTest is Test {
     function testOOGSimple() external {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
-        call_.target = address(oog);
+        call_.target = payable(address(oog));
         call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "";
 
@@ -186,11 +186,11 @@ contract MultiCallTest is Test {
     function testOOGReverse() external {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
-        call_.target = address(oog);
+        call_.target = payable(address(oog));
         call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.data = "";
         call_ = calls[1];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.data = "Hello, World!";
 
@@ -208,7 +208,7 @@ contract MultiCallTest is Test {
         Call[] memory calls = new Call[](256);
         for (uint256 i; i < 256; i++) {
             Call memory call_ = calls[i];
-            call_.target = address(echo);
+            call_.target = payable(address(echo));
             call_.revertPolicy = RevertPolicy.REVERT;
             call_.data = bytes(ItoA.itoa(i));
         }
@@ -224,7 +224,7 @@ contract MultiCallTest is Test {
     function testPayable() external {
         Call[] memory calls = new Call[](1);
         Call memory call_ = calls[0];
-        call_.target = address(payable_);
+        call_.target = payable(address(payable_));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
@@ -241,12 +241,12 @@ contract MultiCallTest is Test {
     function testPayableMulti() external {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
-        call_.target = address(payable_);
+        call_.target = payable(address(payable_));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
         call_ = calls[1];
-        call_.target = address(echo);
+        call_.target = payable(address(echo));
         call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.value = 1 ether;
         call_.data = "Hello, Again!";
@@ -267,12 +267,12 @@ contract MultiCallTest is Test {
     function testPayableNotEnoughValue() external {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
-        call_.target = address(payable_);
+        call_.target = payable(address(payable_));
         call_.revertPolicy = RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
         call_ = calls[1];
-        call_.target = address(payable_);
+        call_.target = payable(address(payable_));
         call_.revertPolicy = RevertPolicy.CONTINUE;
         call_.value = 1 ether;
         call_.data = "Hello, Again!";

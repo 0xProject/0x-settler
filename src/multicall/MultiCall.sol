@@ -12,7 +12,7 @@ enum RevertPolicy {
 }
 
 struct Call {
-    address target;
+    address payable target;
     RevertPolicy revertPolicy;
     uint256 value;
     bytes data;
@@ -36,8 +36,8 @@ interface IMultiCall {
     /// `calls[i].value`, then the creation of one of the call contexts may fail and you'll get a
     /// failure (possibly a bubbled revert, depending on the value of `revertPolicy`) with no
     /// reason. If you set `revertPolicy` to something other than `REVERT` and a call with nonzero
-    /// value reverts, the extra ETH is kept in this contract. You must make other accommodations
-    /// for value refund.
+    /// value reverts, the extra ETH is kept in this contract. You must make other arrangements for
+    /// value refund.
     function multicall(Call[] calldata calls, uint256 contextdepth) external payable returns (Result[] memory);
 }
 
