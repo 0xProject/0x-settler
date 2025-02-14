@@ -33,8 +33,11 @@ interface IMultiCall {
     /// Mismatches between `msg.value` and each `calls[i].value` is not checked or handled
     /// specially. If this contract has nonzero `address(this).balance`, you can get some free ETH
     /// by setting `value` to nonzero. If you set `msg.value` lower than the sum of
-    /// `calls[i].value`, then the creation of the context will fail and you'll get a failure
-    /// (possibly a bubbled revert, depending on the value of `revertPolicy`) with no reason.
+    /// `calls[i].value`, then the creation of one of the call contexts may fail and you'll get a
+    /// failure (possibly a bubbled revert, depending on the value of `revertPolicy`) with no
+    /// reason. If you set `revertPolicy` to something other than `REVERT` and a call with nonzero
+    /// value reverts, the extra ETH is kept in this contract. You must make other accommodations
+    /// for value refund.
     function multicall(Call[] calldata calls, uint256 contextdepth) external payable returns (Result[] memory);
 }
 
