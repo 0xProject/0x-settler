@@ -173,7 +173,7 @@ library UnsafeCallArray {
         returns (address target, uint256 value, bytes calldata data, RevertPolicy revertPolicy)
     {
         assembly ("memory-safe") {
-            // `s` points at the `Call` struct. This is 64 bytes before the offset to the `data`
+            // `s` points at the `Call` struct. This is 96 bytes before the offset to the `data`
             // array length. We allow the indirection/offset relative to `calls` to be negative.
             let s := add(calls.offset, calldataload(i))
 
@@ -194,6 +194,7 @@ library UnsafeCallArray {
             // Revert if any calldata is unclean.
             if err { revert(0x00, 0x00) }
 
+            // Load `value`. No range checking is required.
             value := calldataload(add(0x40, s))
 
             // Indirect `data.offset` to get the `bytes` payload.
