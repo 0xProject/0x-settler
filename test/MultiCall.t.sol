@@ -75,7 +75,7 @@ contract MultiCallTest is Test {
         assertEq(result[1].data, bytes.concat("Go away!", bytes20(uint160(address(this)))));
     }
 
-    function testFailAbiEncoding() external {
+    function testAbiEncoding() external {
         Call[] memory calls = new Call[](2);
         Call memory call_ = calls[0];
         call_.target = address(echo);
@@ -90,7 +90,7 @@ contract MultiCallTest is Test {
         bool success;
         (success, data) = address(multicall).call(data);
         assertTrue(success);
-        assertEq(abi.encode(abi.decode(data, (Result[]))), data);
+        assertNotEq(abi.encode(abi.decode(data, (Result[]))), data);
     }
 
     function testContinue() external {
