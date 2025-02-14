@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 /// Each call issued has a revert policy. This controls the behavior of the batch if the call
 /// reverts.
 enum RevertPolicy {
-    REVERT,  // Bubble the revert, undoing the entire multicall/batch
+    REVERT,  // Bubble the revert, undoing the entire multicall/batch. `contextdepth` is ignored
     STOP,    // Don't revert, but end the multicall/batch immediately. Subsequent calls are not
              // executed. An OOG revert is always bubbled
     CONTINUE // Ignore the revert and continue with the batch. The corresponding `Result` will have
