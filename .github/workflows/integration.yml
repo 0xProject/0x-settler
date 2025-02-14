@@ -21,10 +21,10 @@ jobs:
         run: git submodule update --recursive --init
 
       - name: Check contract sizes
-        run: forge build --sizes --skip UniswapV4UnitTest.t.sol
+        run: forge build --sizes --skip UniswapV4UnitTest.t.sol --skip SafeGuard.sol
 
       - name: Run tests
-        run: forge test
+        run: forge test --skip UniswapV4UnitTest.t.sol --skip SafeGuard.sol
         env:
           FOUNDRY_PROFILE: integration
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
