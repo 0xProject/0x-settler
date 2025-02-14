@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {Test} from "@forge-std/Test.sol";
 
-import {MultiCall, IMultiCall, RevertPolicy, Call, Result} from "src/multicall/MultiCall.sol";
+import {IMultiCall} from "src/multicall/MultiCallContext.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 contract Echo {
@@ -49,7 +49,16 @@ contract MultiCallTest is Test {
     uint256 internal constant contextdepth = 4;
 
     function setUp() external {
-        multicall = IMultiCall(address(new MultiCall()));
+        bytes32 salt = 0x00000000000000000000000000000000000000004638ca2e8ab3ca171d510d1c;
+        bytes memory initcode = vm.getCode("MultiCall.sol:MultiCall");
+        //vm.chainId(1);
+        (bool success, bytes memory returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));
+        require(success);
+        multicall = IMultiCall(address(uint160(bytes20(returndata))));
+        //vm.chainId(31337);
+        assert(address(multicall) == 0x0000000000b285dc345a416dd23dbb37B7138742);
+        assert(address(multicall).code.length > 0);
+
         echo = new Echo();
         payable_ = new Payable();
         reject = new Reject();
@@ -57,17 +66,17 @@ contract MultiCallTest is Test {
     }
 
     function testSimple() external {
-        Call[] memory calls = new Call[](2);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = payable(address(reject));
-        call_.revertPolicy = RevertPolicy.CONTINUE;
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.data = "Go away!";
 
-        Result[] memory result = multicall.multicall(calls, contextdepth);
+        IMultiCall.Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length);
         assertTrue(result[0].success);
         assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
@@ -76,39 +85,39 @@ contract MultiCallTest is Test {
     }
 
     function testAbiEncoding() external {
-        Call[] memory calls = new Call[](2);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = payable(address(reject));
-        call_.revertPolicy = RevertPolicy.CONTINUE;
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.data = "Go away!";
 
         bytes memory data = abi.encodeCall(multicall.multicall, (calls, contextdepth));
         bool success;
         (success, data) = address(multicall).call(data);
         assertTrue(success);
-        assertNotEq(abi.encode(abi.decode(data, (Result[]))), data);
+        assertNotEq(abi.encode(abi.decode(data, (IMultiCall.Result[]))), data);
     }
 
     function testContinue() external {
-        Call[] memory calls = new Call[](3);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](3);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(echo));
         call_.data = "Hello, World!";
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_ = calls[1];
         call_.target = payable(address(reject));
-        call_.revertPolicy = RevertPolicy.CONTINUE;
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.data = "Go away!";
         call_ = calls[2];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
-        Result[] memory result = multicall.multicall(calls, contextdepth);
+        IMultiCall.Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length);
         assertTrue(result[0].success);
         assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
@@ -119,21 +128,21 @@ contract MultiCallTest is Test {
     }
 
     function testStop() external {
-        Call[] memory calls = new Call[](3);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](3);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(echo));
         call_.data = "Hello, World!";
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_ = calls[1];
         call_.target = payable(address(reject));
-        call_.revertPolicy = RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
         call_.data = "Go away!";
         call_ = calls[2];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
-        Result[] memory result = multicall.multicall(calls, contextdepth);
+        IMultiCall.Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length - 1);
         assertTrue(result[0].success);
         assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
@@ -142,18 +151,18 @@ contract MultiCallTest is Test {
     }
 
     function testRevert() external {
-        Call[] memory calls = new Call[](3);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](3);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(echo));
         call_.data = "Hello, World!";
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_ = calls[1];
         call_.target = payable(address(reject));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Go away!";
         call_ = calls[2];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, Again!";
 
         bytes memory data = abi.encodeCall(multicall.multicall, (calls, contextdepth));
@@ -163,14 +172,14 @@ contract MultiCallTest is Test {
     }
 
     function testOOGSimple() external {
-        Call[] memory calls = new Call[](2);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = payable(address(oog));
-        call_.revertPolicy = RevertPolicy.CONTINUE;
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.data = "";
 
         // Can't use `vm.expectRevert` here. It does weird things with gas.
@@ -184,14 +193,14 @@ contract MultiCallTest is Test {
     }
 
     function testOOGReverse() external {
-        Call[] memory calls = new Call[](2);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(oog));
-        call_.revertPolicy = RevertPolicy.CONTINUE;
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.data = "";
         call_ = calls[1];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, World!";
 
         // Can't use `vm.expectRevert` here. It does weird things with gas.
@@ -205,56 +214,56 @@ contract MultiCallTest is Test {
     }
 
     function testMany() external {
-        Call[] memory calls = new Call[](256);
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](256);
         for (uint256 i; i < 256; i++) {
-            Call memory call_ = calls[i];
+            IMultiCall.Call memory call_ = calls[i];
             call_.target = payable(address(echo));
-            call_.revertPolicy = RevertPolicy.REVERT;
+            call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
             call_.data = bytes(ItoA.itoa(i));
         }
-        Result[] memory result = multicall.multicall(calls, contextdepth);
+        IMultiCall.Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length);
         for (uint256 i; i < 256; i++) {
-            Result memory r = result[i];
+            IMultiCall.Result memory r = result[i];
             assertTrue(r.success);
             assertEq(r.data, bytes.concat(bytes(ItoA.itoa(i)), bytes20(uint160(address(this)))));
         }
     }
 
     function testPayable() external {
-        Call[] memory calls = new Call[](1);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(payable_));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
 
         vm.expectEmit(true, false, false, true, address(payable_));
         emit Payable.Paid(1 ether);
 
-        Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+        IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
         assertEq(result.length, 1);
         assertTrue(result[0].success);
         assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
     }
 
     function testPayableMulti() external {
-        Call[] memory calls = new Call[](2);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(payable_));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = payable(address(echo));
-        call_.revertPolicy = RevertPolicy.CONTINUE;
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.value = 1 ether;
         call_.data = "Hello, Again!";
 
         vm.expectEmit(true, false, false, true, address(payable_));
         emit Payable.Paid(1 ether);
 
-        Result[] memory result = multicall.multicall{value: 2 ether}(calls, contextdepth);
+        IMultiCall.Result[] memory result = multicall.multicall{value: 2 ether}(calls, contextdepth);
         assertEq(result.length, 2);
         assertTrue(result[0].success);
         assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));
@@ -265,22 +274,22 @@ contract MultiCallTest is Test {
     }
 
     function testPayableNotEnoughValue() external {
-        Call[] memory calls = new Call[](2);
-        Call memory call_ = calls[0];
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
+        IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(payable_));
-        call_.revertPolicy = RevertPolicy.REVERT;
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
         call_ = calls[1];
         call_.target = payable(address(payable_));
-        call_.revertPolicy = RevertPolicy.CONTINUE;
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.value = 1 ether;
         call_.data = "Hello, Again!";
 
         vm.expectEmit(true, false, false, true, address(payable_));
         emit Payable.Paid(1 ether);
 
-        Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+        IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
         assertEq(result.length, 2);
         assertTrue(result[0].success);
         assertEq(result[0].data, bytes.concat("Hello, World!", bytes20(uint160(address(this)))));

@@ -13,6 +13,7 @@ interface IMultiCall {
     struct Call {
         address target;
         RevertPolicy revertPolicy;
+        uint256 value;
         bytes data;
     }
 
@@ -21,7 +22,7 @@ interface IMultiCall {
         bytes data;
     }
 
-    function multicall(Call[] calldata, uint256 contextdepth) external returns (Result[] memory);
+    function multicall(Call[] calldata calls, uint256 contextdepth) external payable returns (Result[] memory);
 }
 
 abstract contract MultiCallContext is Context {

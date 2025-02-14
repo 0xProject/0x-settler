@@ -23,13 +23,19 @@ jobs:
       - name: Build UniswapV4
         run: forge build lib/v4-core/src/PoolManager.sol
 
+      - name: Build MultiCall
+        run: forge build src/MultiCall/MultiCall.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 1000000
+
       - name: Build contracts
-        run: forge build --skip UniswapV4UnitTest.t.sol
+        run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol
 
       - name: Build UniswapV4 tests
-        run: forge build
+        run: forge build --skip MultiCall.sol
 
       - name: Run tests
-        run: forge test
+        run: forge test --skip MultiCall.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
