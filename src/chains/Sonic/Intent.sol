@@ -13,13 +13,17 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
-import {AbstractContext} from "../../Context.sol";
+import {AbstractContext, Context} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract SonicSettlerIntent is SettlerIntent, SonicSettlerMetaTxn {
     constructor(bytes20 gitCommit) SonicSettlerMetaTxn(gitCommit) {}
+
+    function _msgSender() internal view override(SettlerIntent, SonicSettlerMetaTxn) returns (address) {
+        return SettlerIntent._msgSender();
+    }
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
@@ -40,8 +44,12 @@ contract SonicSettlerIntent is SettlerIntent, SonicSettlerMetaTxn {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view override(SettlerIntent, SonicSettlerMetaTxn) returns (address) {
-        return super._msgSender();
+    function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {
+        return super._isForwarded();
+    }
+
+    function _msgData() internal view override(AbstractContext, Context, SettlerIntent) returns (bytes calldata) {
+        return super._msgData();
     }
 
     function _witnessTypeSuffix()

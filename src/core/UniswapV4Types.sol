@@ -122,7 +122,7 @@ library UnsafePoolManager {
             let ptr := mload(0x40)
             mstore(ptr, 0xf3cd914c) // selector for `swap((address,address,uint24,int24,address),(bool,int256,uint160),bytes)`
             let token0 := mload(key)
-            if eq(token0, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee) { token0 := 0x00 }
+            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
             mstore(add(0x20, ptr), token0)
             mcopy(add(0x40, ptr), add(0x20, key), 0x80)
             mcopy(add(0xc0, ptr), params, 0x60)

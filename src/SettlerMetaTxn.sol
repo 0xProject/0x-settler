@@ -24,17 +24,6 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         return true;
     }
 
-    function _msgSender()
-        internal
-        view
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentMetaTxn, AbstractContext)
-        returns (address)
-    {
-        return super._msgSender();
-    }
-
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
         // This function deliberately does no bounds checking on `actions` for
         // gas efficiency. We assume that `actions` will get used elsewhere in
@@ -42,18 +31,18 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         // revert later.
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            let hashesLength := shl(5, actions.length)
+            let hashesLength := shl(0x05, actions.length)
             for {
                 let i := actions.offset
                 let dst := ptr
                 let end := add(i, hashesLength)
             } lt(i, end) {
-                i := add(i, 0x20)
-                dst := add(dst, 0x20)
+                i := add(0x20, i)
+                dst := add(0x20, dst)
             } {
                 let src := add(actions.offset, calldataload(i))
                 let length := calldataload(src)
-                calldatacopy(dst, add(src, 0x20), length)
+                calldatacopy(dst, add(0x20, src), length)
                 mstore(dst, keccak256(dst, length))
             }
             result := keccak256(ptr, hashesLength)
@@ -73,8 +62,8 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_AND_ACTIONS_TYPEHASH)
-            calldatacopy(add(ptr, 0x20), slippage, 0x60)
-            mstore(add(ptr, 0x80), arrayOfBytesHash)
+            calldatacopy(add(0x20, ptr), slippage, 0x60)
+            mstore(add(0x80, ptr), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
         }
     }
@@ -156,5 +145,10 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         bytes calldata sig
     ) public virtual metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
+    }
+
+    // Solidity inheritance is stupid
+    function _msgSender() internal view virtual override(Permit2PaymentMetaTxn, AbstractContext) returns (address) {
+        return super._msgSender();
     }
 }

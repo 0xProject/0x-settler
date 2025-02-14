@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {BaseMixin} from "./Common.sol";
+import {UnichainMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,7 +15,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract BaseSettler is Settler, BaseMixin {
+contract UnichainSettler is Settler, UnichainMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -36,32 +36,6 @@ contract BaseSettler is Settler, BaseMixin {
             );
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-        } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
-            (
-                address recipient,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig,
-                uint256 amountOutMin
-            ) = abi.decode(
-                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
-            );
-
-            sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
-            (
-                address recipient,
-                bytes32 salt,
-                bool tokenAIn,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes memory sig,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else {
             return false;
         }
@@ -80,7 +54,7 @@ contract BaseSettler is Settler, BaseMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BaseMixin)
+        override(SettlerAbstract, SettlerBase, UnichainMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {AbstractContext} from "../Context.sol";
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
-
-interface IOwnable is IERC165 {
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    function owner() external view returns (address);
-
-    function transferOwnership(address) external returns (bool);
-
-    error PermissionDenied();
-    error ZeroAddress();
-}
+import {AbstractContext} from "../Context.sol";
+import {IOwnable} from "./IOwnable.sol";
 
 abstract contract AbstractOwnable is IOwnable {
     // This looks stupid (and it is), but this is required due to the glaring
@@ -58,7 +48,13 @@ abstract contract AddressSlotStorage {
 
     function _set(AddressSlot s, address v) internal {
         assembly ("memory-safe") {
-            sstore(s, v)
+            sstore(
+                s,
+                or(
+                    and(0xffffffffffffffffffffffffffffffffffffffff, v),
+                    and(0xffffffffffffffffffffffff0000000000000000000000000000000000000000, sload(s))
+                )
+            )
         }
     }
 }

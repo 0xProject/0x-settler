@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {OptimismSettlerMetaTxn} from "./MetaTxn.sol";
+import {BerachainSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -18,10 +18,10 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract OptimismSettlerIntent is SettlerIntent, OptimismSettlerMetaTxn {
-    constructor(bytes20 gitCommit) OptimismSettlerMetaTxn(gitCommit) {}
+contract BerachainSettlerIntent is SettlerIntent, BerachainSettlerMetaTxn {
+    constructor(bytes20 gitCommit) BerachainSettlerMetaTxn(gitCommit) {}
 
-    function _msgSender() internal view override(SettlerIntent, OptimismSettlerMetaTxn) returns (address) {
+    function _msgSender() internal view override(SettlerIntent, BerachainSettlerMetaTxn) returns (address) {
         return SettlerIntent._msgSender();
     }
 
@@ -38,7 +38,7 @@ contract OptimismSettlerIntent is SettlerIntent, OptimismSettlerMetaTxn {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(OptimismSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(BerachainSettlerMetaTxn, SettlerBase, SettlerAbstract)
         returns (bool)
     {
         return super._dispatch(i, action, data);
@@ -71,7 +71,7 @@ contract OptimismSettlerIntent is SettlerIntent, OptimismSettlerMetaTxn {
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
-        override(OptimismSettlerMetaTxn, SettlerMetaTxn)
+        override(BerachainSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);

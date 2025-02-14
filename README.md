@@ -126,7 +126,7 @@ your integration.
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche)
+  testnet, Avalanche, Unichain, Berachain)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Scroll, Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
@@ -1331,7 +1331,7 @@ Second, test for common opcode support:
 ```bash
 export FOUNDRY_EVM_VERSION=london
 declare -r deployer_eoa='YOUR EOA ADDRESS HERE'
-declare -r rpc_url='YOUR RPC URL HERE' # http://localhost:1248 if using frame.sh
+declare -r rpc_url='YOUR RPC URL HERE' # http://127.0.0.1:1248 if using frame.sh
 declare -r -i chainid='CHAIN ID TO TEST HERE'
 forge clean
 forge build src/ChainCompatibility.sol
@@ -1369,26 +1369,45 @@ of its receipt.
 
 </details>
 
-Third, you need have enough native asset in each of the deployer addresses
-listed in [`secrets.json.template`](secrets.json.template) to perform the
-deployment. If how much isn't obvious to you, you can run the main deployment
-script with `BROADCAST=no` to simulate. This can be a little wonky on L2s, so
-beware and overprovision the amount of native asset.
+Third, create a new set of
+`src/chains/<CHAIN_DISPLAY_NAME>/{Common,TakerSubmitted,MetaTxn,Intent}.sol`
+files. A good way to start is by copying
+[`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
+names of all the contracts, remove references to missing liquidity sources
+(presently MaverickV2 and UniswapV4), replace the `block.chainid` check in the
+constructor, and replace the UniswapV3 forks. When adding new UniswapV3 forks,
+be sure that the `factory` address is the address of the contract that
+`CREATE2`'s the pool. Triple check that the deployed pools aren't upgradeable
+proxies and that the `data` argument is passed through the callback
+unmodified. _**This is critical for security.**_ Some chains have a form of
+sequencer fee sharing or other chain-specific deploy-time setup. Configure this
+in the constructor of the Settler (and ideally in the constructor of the
+Deployer, remembering that this is complicated by the fact that the Deployer is
+a proxy). See the deployments to Blast and to Mode for examples.
 
-Fourth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Fourth, you need have enough native asset in _**each**_ of the deployer
+addresses (there are two: `iceColdCoffee` and `deployer`) listed in
+[`secrets.json.template`](secrets.json.template) to perform the deployment. If
+how much isn't obvious to you, you can run the main deployment script with
+`BROADCAST=no` to simulate. The `"iceColdCoffee"` address needs ~50% more native
+asset than the `"deployer"` address because the final transaction of the
+deployment is extremely gas-intensive. The amount of eth you need can be a
+little wonky on L2s, so beware and overprovision the amount of native asset.
+
+Fifth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
-`AllowanceHolder` (and vice versa). Run [`./sh/deploy_allowanceholder.sh
-<CHAIN_NAME>`](sh/deploy_allowanceholder.sh). Note that
-`deploy_allowanceholder.sh` doesn't give you a chance to back out. There is no
-prompt, it just deploys `AllowanceHolder`.
+`AllowanceHolder` (and vice versa). Run [`BROADCAST=no
+./sh/deploy_allowanceholder.sh
+<CHAIN_NAME>`](sh/deploy_allowanceholder.sh). Then switch to `BROADCAST=yes` to
+actually do the deployment.
 
-Fifth, check that the Safe deployment on the new chain is complete. You can
+Sixth, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
 completes without reverting, you don't need to do anything. If the Safe
 deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 <CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
 
-Sixth, make _damn_ sure that you've got the correct configuration in
+Seventh, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
 <CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
