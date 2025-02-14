@@ -14,6 +14,7 @@ enum RevertPolicy {
 struct Call {
     address target;
     RevertPolicy revertPolicy;
+    uint256 value;
     bytes data;
 }
 
@@ -29,7 +30,12 @@ interface IMultiCall {
     ///                     handling. OOG checking only works when the revert reason is empty. If an
     ///                     intervening context applies its own revert reason, OOG checking will not
     ///                     be applied.
-    function multicall(Call[] calldata, uint256 contextdepth) external returns (Result[] memory);
+    /// Mismatches between `msg.value` and each `calls[i].value` is not checked or handled
+    /// specially. If this contract has nonzero `address(this).balance`, you can get some free ETH
+    /// by setting `value` to nonzero. If you set `msg.value` lower than the sum of
+    /// `calls[i].value`, then the creation of the context will fail and you'll get a failure
+    /// (possibly a bubbled revert, depending on the value of `revertPolicy`) with no reason.
+    function multicall(Call[] calldata calls, uint256 contextdepth) external payable returns (Result[] memory);
 }
 
 ///////////////////// ABANDON ALL HOPE, YE WHO ENTER HERE //////////////////////
@@ -38,7 +44,7 @@ interface IMultiCall {
 
 library SafeCall {
     /// @dev This does not align the free memory pointer to a slot boundary.
-    function safeCall(address target, bytes calldata data, address sender, uint256 contextdepth)
+    function safeCall(address target, uint256 value, bytes calldata data, address sender, uint256 contextdepth)
         internal
         returns (bool success, bytes memory returndata)
     {
@@ -48,7 +54,7 @@ library SafeCall {
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
             let beforeGas := gas()
-            success := call(gas(), target, 0x00, returndata, add(0x14, data.length), 0x00, 0x00)
+            success := call(gas(), target, value, returndata, add(0x14, data.length), 0x00, 0x00)
             // `verbatim` can't work in inline assembly. Assignment of a value to a variable costs
             // gas (although how much is unpredictable because it depends on the Yul/IR optimizer),
             // as does the `GAS` opcode itself. Therefore, the `gas()` below returns less than the
@@ -91,7 +97,7 @@ library SafeCall {
     /// This version of `safeCall` omits the OOG check because it bubbles the revert if the call
     /// reverts. Therefore, `success` is always `true`.
     /// @dev This does not align the free memory pointer to a slot boundary.
-    function safeCall(address target, bytes calldata data, address sender)
+    function safeCall(address target, uint256 value, bytes calldata data, address sender)
         internal
         returns (bool success, bytes memory returndata)
     {
@@ -100,7 +106,7 @@ library SafeCall {
             calldatacopy(returndata, data.offset, data.length)
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
-            success := call(gas(), target, 0x00, returndata, add(0x14, data.length), 0x00, 0x00)
+            success := call(gas(), target, value, returndata, add(0x14, data.length), 0x00, 0x00)
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
             if iszero(success) { revert(dst, returndatasize()) }
@@ -161,7 +167,7 @@ library UnsafeCallArray {
     function get(Call[] calldata calls, CallArrayIterator i)
         internal
         pure
-        returns (address target, bytes calldata data, RevertPolicy revertPolicy)
+        returns (address target, uint256 value, bytes calldata data, RevertPolicy revertPolicy)
     {
         assembly ("memory-safe") {
             // `s` points at the `Call` struct. This is 64 bytes before the offset to the `data`
@@ -185,6 +191,8 @@ library UnsafeCallArray {
             // Revert if any calldata is unclean.
             if err { revert(0x00, 0x00) }
 
+            value := calldataload(add(0x40, s))
+
             // Indirect `data.offset` to get the `bytes` payload.
             data.offset :=
                 add(
@@ -192,7 +200,7 @@ library UnsafeCallArray {
                     // We allow the offset stored in the `Call` struct to be negative.
                     calldataload(
                         // Can't overflow; `s` is in-bounds of `calldata`.
-                        add(0x40, s)
+                        add(0x60, s)
                     )
                 )
             // `data.offset` now points to the length field 32 bytes before the start of the actual array.
@@ -343,17 +351,17 @@ contract MultiCall {
             (i, j) = (i.next(), j.next())
         ) {
             // Decode and load the call.
-            (address target, bytes calldata data, RevertPolicy revertPolicy) = calls.get(i);
+            (address target, uint256 value, bytes calldata data, RevertPolicy revertPolicy) = calls.get(i);
             // Each iteration of this loop allocates some memory for the returndata, but everything
             // ends up packed in memory because neither implementation of `safeCall` aligns the free
             // memory pointer to a word boundary.
             if (revertPolicy == RevertPolicy.REVERT) {
                 // We don't need to use the OOG-protected `safeCall` here because an OOG will result
                 // in a bubbled revert anyways.
-                (bool success, bytes memory returndata) = target.safeCall(data, sender);
+                (bool success, bytes memory returndata) = target.safeCall(value, data, sender);
                 result.set(j, success, returndata);
             } else {
-                (bool success, bytes memory returndata) = target.safeCall(data, sender, contextdepth);
+                (bool success, bytes memory returndata) = target.safeCall(value, data, sender, contextdepth);
                 result.set(j, success, returndata);
                 if (!success) {
                     if (revertPolicy == RevertPolicy.STOP) {
@@ -370,9 +378,8 @@ contract MultiCall {
         Call[] calldata calls;
         uint256 contextdepth;
         assembly ("memory-safe") {
-            // Check the selector and for `nonpayable`. This implicitly prohibits a `calls.offset`
-            // greater than 4GiB.
-            if or(callvalue(), xor(selector, calldataload(0x00))) { revert(0x00, 0x00) }
+            // Check the selector. This implicitly prohibits a `calls.offset` greater than 4GiB.
+            if xor(selector, calldataload(0x00)) { revert(0x00, 0x00) }
 
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
