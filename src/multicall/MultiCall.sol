@@ -39,6 +39,8 @@ interface IMultiCall {
     /// value reverts, the extra ETH is kept in this contract. You must make other arrangements for
     /// value refund.
     function multicall(Call[] calldata calls, uint256 contextdepth) external payable returns (Result[] memory);
+
+    receive() external payable;
 }
 
 ///////////////////// ABANDON ALL HOPE, YE WHO ENTER HERE //////////////////////

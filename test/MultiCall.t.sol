@@ -54,7 +54,7 @@ contract MultiCallTest is Test {
         //vm.chainId(1);
         (bool success, bytes memory returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));
         require(success);
-        multicall = IMultiCall(address(uint160(bytes20(returndata))));
+        multicall = IMultiCall(payable(address(uint160(bytes20(returndata)))));
         //vm.chainId(31337);
         //assert(address(multicall) == 0x000000000000deaDdeAddEADdEaddeaDDEADDeAd);
         assert(address(multicall).code.length > 0);

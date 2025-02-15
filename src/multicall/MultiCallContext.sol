@@ -23,12 +23,14 @@ interface IMultiCall {
     }
 
     function multicall(Call[] calldata calls, uint256 contextdepth) external payable returns (Result[] memory);
+
+    receive() external payable;
 }
 
 abstract contract MultiCallContext is Context {
     address private constant _MULTICALL_ADDRESS = 0x000000000000deaDdeAddEADdEaddeaDDEADDeAd; // TODO:
 
-    IMultiCall internal constant _MULTICALL = IMultiCall(_MULTICALL_ADDRESS);
+    IMultiCall internal constant _MULTICALL = IMultiCall(payable(_MULTICALL_ADDRESS));
 
     function _isForwarded() internal view virtual override returns (bool) {
         return super._isForwarded() || super._msgSender() == address(_MULTICALL);
