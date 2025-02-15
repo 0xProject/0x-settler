@@ -86,8 +86,16 @@ library SafeCall {
             if iszero(returndatasize()) {
                 // The absence of returndata means that it's possible that either we called an
                 // address without code or that the call reverted due to out-of-gas. We must check.
-                switch success
-                case 0 {
+                for {} true {} {
+                    if success {
+                        // Success with no returndata could indicate calling an address with no code
+                        // (potentially an EOA). Disallow calling an EOA unless sending no data and some
+                        // ETH.
+                        if or(iszero(value), data.length) {
+                            if iszero(extcodesize(target)) { revert(codesize(), 0x00) }
+                        }
+                        break
+                    }
                     // Apply the "all but one 64th" rule `contextdepth + 1` times.
                     let remainingGas := shr(0x06, beforeGas)
                     for {} contextdepth { contextdepth := sub(contextdepth, 0x01) } {
@@ -95,12 +103,7 @@ library SafeCall {
                     }
                     // Check that the revert was not due to OOG.
                     if iszero(lt(remainingGas, afterGas)) { invalid() }
-                }
-                default {
-                    // Success with no returndata could indicate calling an address with no code
-                    // (potentially an EOA). Disallow calling an EOA unless sending no data and some
-                    // ETH.
-                    if lt(extcodesize(target), or(iszero(value), iszero(iszero(data.length)))) { revert(codesize(), 0x00) }
+                    break
                 }
             }
 
@@ -128,7 +131,9 @@ library SafeCall {
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
             if iszero(success) { revert(dst, returndatasize()) }
-            if iszero(returndatasize()) { if lt(extcodesize(target), or(iszero(value), iszero(iszero(data.length)))) { revert(codesize(), 0x00) } }
+            if iszero(returndatasize()) {
+                if or(iszero(value), data.length) { if iszero(extcodesize(target)) { revert(codesize(), 0x00) } }
+            }
             mstore(returndata, returndatasize())
             mstore(0x40, add(returndatasize(), dst))
         }
