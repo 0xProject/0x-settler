@@ -48,6 +48,16 @@ interface IMultiCall {
 // you need to know is the interface above.
 
 library SafeCall {
+    /// Call `target` with `data` sending `value` ETH. `sender` (as 20 bytes) is appeneded to the
+    /// end of `data`. Returns the `success` of the call as well as any `returndata`/revert
+    /// data. *HOWEVER*, if an out-of-gas occurs at `contextdepth` frames away from `target`, we
+    /// will instead revert with an OOG (`invalid()`). We will also revert when calling a `target`
+    /// without code.
+    /// @dev Out-of-gas is detected by the absence of returndata as well as a `gasleft()` at or
+    ///      below what the `contextdepth + 1` times iterated all-but-one-64th rule would
+    ///      indicate. The all-but-one-64th rule is applied naïvely, not accounting for the gas
+    ///      costs of setting up the stack or the caller-paid costs of `call`ing. This means that in
+    ///      order to avoid a false-positive OOG detection, gas must be slightly overprovisioned.
     /// @dev This does not align the free memory pointer to a slot boundary.
     function safeCall(address target, uint256 value, bytes calldata data, address sender, uint256 contextdepth)
         internal
