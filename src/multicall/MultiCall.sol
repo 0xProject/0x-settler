@@ -59,6 +59,7 @@ library SafeCall {
     ///      costs of setting up the stack or the caller-paid costs of `call`ing. This means that in
     ///      order to avoid a false-positive OOG detection, gas must be slightly overprovisioned.
     /// @dev This does not align the free memory pointer to a slot boundary.
+    /// @dev Calling a precompile will not result in a revert, even though it contains no code.
     function safeCall(address target, uint256 value, bytes calldata data, address sender, uint256 contextdepth)
         internal
         returns (bool success, bytes memory returndata)
