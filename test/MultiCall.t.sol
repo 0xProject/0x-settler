@@ -60,6 +60,7 @@ contract MultiCallTest is Test {
     function setUp() external {
         bytes32 salt = 0x000000000000000000000000000000000000000024bd3f9de330927ec95f7d4d;
         bytes memory initcode = vm.getCode("MultiCall.sol:MultiCall");
+        assertEq(keccak256(initcode), 0x91efdca42dba7779a444ae72dfe0cec1814fc2568b72b89254f14facdbbaea1a);
         //vm.chainId(1);
         (bool success, bytes memory returndata) =
             0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));

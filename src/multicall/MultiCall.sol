@@ -58,7 +58,7 @@ library SafeCall {
     ///      indicate. The all-but-one-64th rule is applied naïvely, not accounting for the gas
     ///      costs of setting up the stack or the caller-paid costs of `call`ing. This means that in
     ///      order to avoid a false-positive OOG detection, gas must be slightly overprovisioned.
-    /// @dev This does not align the free memory pointer to a slot boundary.
+    /// @dev This does not align the free memory pointer to a slot/word boundary.
     /// @dev Calling a precompile will not result in a revert, even though it contains no code.
     /// @dev Sending ETH and no data to an EOA will not result in a revert.
     function safeCall(address target, uint256 value, bytes calldata data, address sender, uint256 contextdepth)
