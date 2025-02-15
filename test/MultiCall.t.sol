@@ -321,15 +321,14 @@ contract MultiCallTest is Test {
         call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = abi.encodeCall(IMultiCall.multicall, (callsInner, contextdepth));
 
-        IMultiCall.Result[] memory resultInnerExpected = new IMultiCall.Result[](1);
-        IMultiCall.Result memory result = resultInnerExpected[0];
-        result.success = false;
-        result.data = bytes.concat("Go away!", bytes20(uint160(address(this))));
-
         IMultiCall.Result[] memory resultOuter = multicall.multicall(callsOuter, contextdepth);
 
         assertEq(resultOuter.length, 1);
         assertTrue(resultOuter[0].success);
-        assertEq(abi.encode(abi.decode(resultOuter[0].data, (IMultiCall.Result[]))), abi.encode(resultInnerExpected));
+
+        IMultiCall.Result[] memory resultInner = abi.decode(resultOuter[0].data, (IMultiCall.Result[]));
+        assertEq(resultInner.length, 1);
+        assertFalse(resultInner[0].success);
+        assertEq(resultInner[0].data, bytes.concat("Go away!", bytes20(uint160(address(this)))));
     }
 }
