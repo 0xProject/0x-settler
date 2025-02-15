@@ -52,7 +52,8 @@ contract MultiCallTest is Test {
         bytes32 salt = 0x000000000000000000000000000000000000000035e1d66586d8afe935e475db;
         bytes memory initcode = vm.getCode("MultiCall.sol:MultiCall");
         //vm.chainId(1);
-        (bool success, bytes memory returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));
+        (bool success, bytes memory returndata) =
+            0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));
         require(success);
         multicall = IMultiCall(payable(address(uint160(bytes20(returndata)))));
         //vm.chainId(31337);
@@ -233,7 +234,7 @@ contract MultiCallTest is Test {
     function testPayable() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(payable_));
+        call_.target = payable(payable_);
         call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
@@ -250,7 +251,7 @@ contract MultiCallTest is Test {
     function testPayableMulti() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(payable_));
+        call_.target = payable(payable_);
         call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
@@ -276,12 +277,12 @@ contract MultiCallTest is Test {
     function testPayableNotEnoughValue() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(payable_));
+        call_.target = payable(payable_);
         call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
         call_ = calls[1];
-        call_.target = payable(address(payable_));
+        call_.target = payable(payable_);
         call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.value = 1 ether;
         call_.data = "Hello, Again!";
