@@ -298,4 +298,38 @@ contract MultiCallTest is Test {
 
         assertEq(address(multicall).balance, 0 ether);
     }
+
+    function testReceieveEth() external {
+        (bool success, bytes memory returndata) = address(multicall).call{value: 1 ether}("");
+        assertTrue(success);
+        assertEq(returndata, "");
+    }
+
+    function testReceiveEthGas() external {
+        payable(multicall).transfer(1 ether);
+    }
+
+    function testRecursion() external {
+        IMultiCall.Call[] memory callsInner = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = callsInner[0];
+        call_.target = payable(address(reject));
+        call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
+        call_.data = "Go away!";
+        IMultiCall.Call[] memory callsOuter = new IMultiCall.Call[](1);
+        call_ = callsOuter[0];
+        call_.target = payable(multicall);
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+        call_.data = abi.encodeCall(IMultiCall.multicall, (callsInner, contextdepth));
+
+        IMultiCall.Result[] memory resultInnerExpected = new IMultiCall.Result[](1);
+        IMultiCall.Result memory result = resultInnerExpected[0];
+        result.success = false;
+        result.data = bytes.concat("Go away!", bytes20(uint160(address(this))));
+
+        IMultiCall.Result[] memory resultOuter = multicall.multicall(callsOuter, contextdepth);
+
+        assertEq(resultOuter.length, 1);
+        assertTrue(resultOuter[0].success);
+        assertEq(abi.encode(abi.decode(resultOuter[0].data, (IMultiCall.Result[]))), abi.encode(resultInnerExpected));
+    }
 }
