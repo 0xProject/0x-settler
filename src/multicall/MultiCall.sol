@@ -382,7 +382,7 @@ contract MultiCall {
     }
 
     fallback() external payable {
-        bytes32 selector = bytes32(IMultiCall.multicall.selector);
+        bytes32 selector = IMultiCall.multicall.selector;
         Call[] calldata calls;
         uint256 contextdepth;
         assembly ("memory-safe") {
