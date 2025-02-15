@@ -167,6 +167,7 @@ library UnsafeCallArray {
     /// checks that are omitted here. While we apply a relaxed ABI encoding (there are some
     /// encodings that we accept that Solidity would not), any valid ABI encoding accepted by
     /// Solidity is decoded identically.
+    /// @dev `revertPolicy` is returned as `uint256` because it optimizes gas
     function get(Call[] calldata calls, CallArrayIterator i)
         internal
         pure
