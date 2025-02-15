@@ -39,30 +39,45 @@ contract OOG {
     }
 }
 
+contract Empty {
+    fallback() external {
+        assembly ("memory-safe") {
+            stop()
+        }
+    }
+}
+
 contract MultiCallTest is Test {
     IMultiCall multicall;
     Echo echo;
     Payable payable_;
     Reject reject;
     OOG oog;
+    Empty empty;
 
     uint256 internal constant contextdepth = 4;
 
     function setUp() external {
         bytes32 salt = 0x000000000000000000000000000000000000000024bd3f9de330927ec95f7d4d;
         bytes memory initcode = vm.getCode("MultiCall.sol:MultiCall");
-        vm.chainId(1);
+        //vm.chainId(1);
         (bool success, bytes memory returndata) =
             0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));
         require(success);
         multicall = IMultiCall(payable(address(uint160(bytes20(returndata)))));
-        vm.chainId(31337);
+        //vm.chainId(31337);
         assert(address(multicall).code.length > 0);
 
         echo = new Echo();
         payable_ = new Payable();
         reject = new Reject();
         oog = new OOG();
+
+        assembly ("memory-safe") {
+            mstore(0x00, 0x60015ff3)
+            sstore(empty.slot, create(0x00, 0x1c, 0x04))
+        }
+        assertEq(address(empty).code, hex"00");
     }
 
     function testSimple() external {
@@ -330,5 +345,172 @@ contract MultiCallTest is Test {
         assertEq(resultInner.length, 1);
         assertFalse(resultInner[0].success);
         assertEq(resultInner[0].data, bytes.concat("Go away!", bytes20(uint160(address(this)))));
+    }
+
+    function testSendEthAndNoDataToEoa() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(0xdead));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 1 ether;
+        call_.data = "";
+
+        IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+    }
+
+    function testSendEthAndDataToEoa() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(0xdead));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 1 ether;
+        call_.data = "Hello, World!";
+
+        vm.expectRevert(bytes(""));
+        multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        vm.expectRevert(bytes(""));
+        multicall.multicall{value: 1 ether}(calls, contextdepth);
+    }
+
+    function testSendDataAndNoEthToEoa() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(0xdead));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 0 ether;
+        call_.data = "Hello, World!";
+
+        vm.expectRevert(bytes(""));
+        multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        vm.expectRevert(bytes(""));
+        multicall.multicall{value: 1 ether}(calls, contextdepth);
+    }
+
+    function testSendNoEthAndNoDataToEoa() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(0xdead));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 0 ether;
+        call_.data = "";
+
+        vm.expectRevert(bytes(""));
+        multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        vm.expectRevert(bytes(""));
+        multicall.multicall{value: 1 ether}(calls, contextdepth);
+    }
+
+    function testSendEthAndNoDataToEmpty() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(empty));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 1 ether;
+        call_.data = "";
+
+        IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+    }
+
+    function testSendEthAndDataToEmpty() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(empty));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 1 ether;
+        call_.data = "Hello, World!";
+
+
+        IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+    }
+
+    function testSendDataAndNoEthToEmpty() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(empty));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 0 ether;
+        call_.data = "Hello, World!";
+
+        IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+    }
+
+    function testSendNoEthAndNoDataToEmpty() external {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(address(empty));
+        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.value = 0 ether;
+        call_.data = "";
+
+        IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
+
+        call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
+
+        result = multicall.multicall{value: 1 ether}(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, "");
     }
 }
