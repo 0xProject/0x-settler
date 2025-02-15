@@ -57,7 +57,7 @@ library SafeCall {
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
             let beforeGas := gas()
-            success := call(gas(), target, value, returndata, add(0x14, data.length), 0x00, 0x00)
+            success := call(gas(), target, value, returndata, add(0x14, data.length), codesize(), 0x00)
             // `verbatim` can't work in inline assembly. Assignment of a value to a variable costs
             // gas (although how much is unpredictable because it depends on the Yul/IR optimizer),
             // as does the `GAS` opcode itself. Therefore, the `gas()` below returns less than the
@@ -85,7 +85,7 @@ library SafeCall {
                 default {
                     // Success with no returndata could indicate calling an address with no code
                     // (potentially an EOA). Check for that.
-                    if iszero(extcodesize(target)) { revert(0x00, 0x00) }
+                    if iszero(extcodesize(target)) { revert(codesize(), 0x00) }
                 }
             }
 
@@ -109,11 +109,11 @@ library SafeCall {
             calldatacopy(returndata, data.offset, data.length)
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
-            success := call(gas(), target, value, returndata, add(0x14, data.length), 0x00, 0x00)
+            success := call(gas(), target, value, returndata, add(0x14, data.length), codesize(), 0x00)
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
             if iszero(success) { revert(dst, returndatasize()) }
-            if iszero(returndatasize()) { if iszero(extcodesize(target)) { revert(0x00, 0x00) } }
+            if iszero(returndatasize()) { if iszero(extcodesize(target)) { revert(codesize(), 0x00) } }
             mstore(returndata, returndatasize())
             mstore(0x40, add(returndatasize(), dst))
         }
@@ -192,7 +192,7 @@ library UnsafeCallArray {
             // (empty).
 
             // Revert if any calldata is unclean.
-            if err { revert(0x00, 0x00) }
+            if err { revert(codesize(), 0x00) }
 
             // Load `value`. No range checking is required.
             value := calldataload(add(0x40, s))
@@ -383,7 +383,7 @@ contract MultiCall {
         uint256 contextdepth;
         assembly ("memory-safe") {
             // Check the selector. This implicitly prohibits a `calls.offset` greater than 4GiB.
-            if xor(selector, calldataload(0x00)) { revert(0x00, 0x00) }
+            if xor(selector, calldataload(0x00)) { revert(codesize(), 0x00) }
 
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
