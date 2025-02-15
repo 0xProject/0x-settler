@@ -22,7 +22,7 @@ contract Payable {
 }
 
 contract Reject {
-    fallback() external {
+    fallback() external payable {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             calldatacopy(ptr, 0x00, calldatasize())
@@ -32,7 +32,7 @@ contract Reject {
 }
 
 contract OOG {
-    fallback() external {
+    fallback() external payable {
         assembly ("memory-safe") {
             invalid()
         }
@@ -40,7 +40,7 @@ contract OOG {
 }
 
 contract Empty {
-    fallback() external {
+    fallback() external payable {
         assembly ("memory-safe") {
             stop()
         }
@@ -194,7 +194,7 @@ contract MultiCallTest is Test {
         call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_.data = "Hello, World!";
         call_ = calls[1];
-        call_.target = payable(address(oog));
+        call_.target = payable(oog);
         call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.data = "";
 
@@ -211,7 +211,7 @@ contract MultiCallTest is Test {
     function testOOGReverse() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(oog));
+        call_.target = payable(oog);
         call_.revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         call_.data = "";
         call_ = calls[1];
@@ -425,7 +425,7 @@ contract MultiCallTest is Test {
     function testSendEthAndNoDataToEmpty() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(empty));
+        call_.target = payable(empty);
         call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
         call_.value = 1 ether;
         call_.data = "";
@@ -448,7 +448,7 @@ contract MultiCallTest is Test {
     function testSendEthAndDataToEmpty() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(empty));
+        call_.target = payable(empty);
         call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
@@ -472,7 +472,7 @@ contract MultiCallTest is Test {
     function testSendDataAndNoEthToEmpty() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(empty));
+        call_.target = payable(empty);
         call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
         call_.value = 0 ether;
         call_.data = "Hello, World!";
@@ -495,7 +495,7 @@ contract MultiCallTest is Test {
     function testSendNoEthAndNoDataToEmpty() external {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
-        call_.target = payable(address(empty));
+        call_.target = payable(empty);
         call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
         call_.value = 0 ether;
         call_.data = "";
