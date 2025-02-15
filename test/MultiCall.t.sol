@@ -74,8 +74,8 @@ contract MultiCallTest is Test {
         oog = new OOG();
 
         assembly ("memory-safe") {
-            mstore(0x00, 0x60015ff3)
-            sstore(empty.slot, create(0x00, 0x1c, 0x04))
+            mstore(0x00, 0x60016000f3)
+            sstore(empty.slot, create(0x00, 0x1b, 0x05))
         }
         assertEq(address(empty).code, hex"00");
     }
