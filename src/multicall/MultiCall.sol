@@ -170,7 +170,7 @@ library UnsafeCallArray {
     function get(Call[] calldata calls, CallArrayIterator i)
         internal
         pure
-        returns (address target, uint256 value, bytes calldata data, uint8 revertPolicy)
+        returns (address target, uint256 value, bytes calldata data, uint256 revertPolicy)
     {
         assembly ("memory-safe") {
             // `s` points at the `Call` struct. This is 96 bytes before the offset to the `data`
@@ -355,7 +355,7 @@ contract MultiCall {
             (i, j) = (i.next(), j.next())
         ) {
             // Decode and load the call.
-            (address target, uint256 value, bytes calldata data, uint8 revertPolicy) = calls.get(i);
+            (address target, uint256 value, bytes calldata data, uint256 revertPolicy) = calls.get(i);
             // Each iteration of this loop allocates some memory for the returndata, but everything
             // ends up packed in memory because neither implementation of `safeCall` aligns the free
             // memory pointer to a word boundary.
