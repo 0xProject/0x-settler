@@ -60,6 +60,7 @@ library SafeCall {
     ///      order to avoid a false-positive OOG detection, gas must be slightly overprovisioned.
     /// @dev This does not align the free memory pointer to a slot boundary.
     /// @dev Calling a precompile will not result in a revert, even though it contains no code.
+    /// @dev Sending ETH and no data to an EOA will not result in a revert.
     function safeCall(address target, uint256 value, bytes calldata data, address sender, uint256 contextdepth)
         internal
         returns (bool success, bytes memory returndata)
@@ -97,8 +98,9 @@ library SafeCall {
                 }
                 default {
                     // Success with no returndata could indicate calling an address with no code
-                    // (potentially an EOA). Check for that.
-                    if iszero(extcodesize(target)) { revert(codesize(), 0x00) }
+                    // (potentially an EOA). Disallow calling an EOA unless sending no data and some
+                    // ETH.
+                    if lt(extcodesize(target), or(iszero(value), iszero(iszero(data.length)))) { revert(codesize(), 0x00) }
                 }
             }
 
@@ -126,7 +128,7 @@ library SafeCall {
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
             if iszero(success) { revert(dst, returndatasize()) }
-            if iszero(returndatasize()) { if iszero(extcodesize(target)) { revert(codesize(), 0x00) } }
+            if iszero(returndatasize()) { if lt(extcodesize(target), or(iszero(value), iszero(iszero(data.length)))) { revert(codesize(), 0x00) } }
             mstore(returndata, returndatasize())
             mstore(0x40, add(returndatasize(), dst))
         }
