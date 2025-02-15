@@ -385,7 +385,14 @@ contract MultiCall {
         uint256 contextdepth;
         assembly ("memory-safe") {
             // Check the selector. This implicitly prohibits a `calls.offset` greater than 4GiB.
-            if xor(selector, calldataload(0x00)) { revert(codesize(), 0x00) }
+            if xor(selector, calldataload(0x00)) {
+                for {} true {} {
+                    // Unrecognized selector
+                    if calldatasize() { revert(codesize(), 0x00) }
+                    // Receive ETH
+                    return(codesize(), 0x00)
+                }
+            }
 
             calls.offset := add(0x04, calldataload(0x04)) // Can't overflow without clobbering selector.
             calls.length := calldataload(calls.offset)
