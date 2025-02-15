@@ -22,15 +22,6 @@ jobs:
       - name: Install dependencies
         run: git submodule update --recursive --init
 
-      - name: Build UniswapV4
-        run: forge build -- lib/v4-core/src/PoolManager.sol
-
-      - name: Build contracts
-        run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip 'test/*'
-
-      - name: Build UniswapV4 tests
-        run: forge build --skip MultiCall.sol --skip 'test/*'
-
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
         env:
@@ -41,6 +32,15 @@ jobs:
         run: forge test --skip 'src/*' --mc MultiCall
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+
+      - name: Build UniswapV4
+        run: forge build -- lib/v4-core/src/PoolManager.sol
+
+      - name: Build contracts
+        run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip 'test/*'
+
+      - name: Build UniswapV4 tests
+        run: forge build --skip MultiCall.sol --skip 'test/*'
 
       - name: Run all the other tests
         run: forge test --skip 'src/*' --nmc MultiCall
