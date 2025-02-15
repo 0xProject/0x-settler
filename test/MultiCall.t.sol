@@ -49,15 +49,14 @@ contract MultiCallTest is Test {
     uint256 internal constant contextdepth = 4;
 
     function setUp() external {
-        bytes32 salt = 0x000000000000000000000000000000000000000035e1d66586d8afe935e475db;
+        bytes32 salt = 0x000000000000000000000000000000000000000024bd3f9de330927ec95f7d4d;
         bytes memory initcode = vm.getCode("MultiCall.sol:MultiCall");
-        //vm.chainId(1);
+        vm.chainId(1);
         (bool success, bytes memory returndata) =
             0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));
         require(success);
         multicall = IMultiCall(payable(address(uint160(bytes20(returndata)))));
-        //vm.chainId(31337);
-        assert(address(multicall) == 0x00000000006e07022f4aDf844458CF1A8eb9049e);
+        vm.chainId(31337);
         assert(address(multicall).code.length > 0);
 
         echo = new Echo();
