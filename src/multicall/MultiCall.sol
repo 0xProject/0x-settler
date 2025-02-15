@@ -330,7 +330,7 @@ contract MultiCall {
 
     constructor() {
         assert(
-            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 112 == 0)
+            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
                 || block.chainid == 31337
         );
     }
