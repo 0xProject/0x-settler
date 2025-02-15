@@ -160,7 +160,8 @@ library UnsafeCallArray {
         }
     }
 
-    /// Dereference the iterator `i` and return the values in the struct. This is *roughly* equivalent to:
+    /// Dereference the iterator `i` and return the values in the struct. This is *roughly*
+    /// equivalent to:
     ///     Call calldata call = calls[i];
     ///     (target, data, revertPolicy) = (call.target, call.data, call.revertPolicy);
     /// Of course `i` isn't an integer, so the analogy is a bit loose. There are a lot of bounds
