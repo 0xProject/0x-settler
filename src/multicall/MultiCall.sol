@@ -170,7 +170,7 @@ library UnsafeCallArray {
     function get(Call[] calldata calls, CallArrayIterator i)
         internal
         pure
-        returns (address target, uint256 value, bytes calldata data, RevertPolicy revertPolicy)
+        returns (address target, uint256 value, bytes calldata data, uint8 revertPolicy)
     {
         assembly ("memory-safe") {
             // `s` points at the `Call` struct. This is 96 bytes before the offset to the `data`
@@ -355,11 +355,11 @@ contract MultiCall {
             (i, j) = (i.next(), j.next())
         ) {
             // Decode and load the call.
-            (address target, uint256 value, bytes calldata data, RevertPolicy revertPolicy) = calls.get(i);
+            (address target, uint256 value, bytes calldata data, uint8 revertPolicy) = calls.get(i);
             // Each iteration of this loop allocates some memory for the returndata, but everything
             // ends up packed in memory because neither implementation of `safeCall` aligns the free
             // memory pointer to a word boundary.
-            if (revertPolicy == RevertPolicy.REVERT) {
+            if (revertPolicy == uint8(RevertPolicy.REVERT)) {
                 // We don't need to use the OOG-protected `safeCall` here because an OOG will result
                 // in a bubbled revert anyways.
                 (bool success, bytes memory returndata) = target.safeCall(value, data, sender);
@@ -368,7 +368,7 @@ contract MultiCall {
                 (bool success, bytes memory returndata) = target.safeCall(value, data, sender, contextdepth);
                 result.set(j, success, returndata);
                 if (!success) {
-                    if (revertPolicy == RevertPolicy.STOP) {
+                    if (revertPolicy == uint8(RevertPolicy.STOP)) {
                         result.unsafeTruncate(j); // This results in `returndata` with gaps.
                         break;
                     }
