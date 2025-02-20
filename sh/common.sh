@@ -119,7 +119,11 @@ function verify_contract {
         _verify_etherscanKey="$(get_api_secret etherscanKey)"
         declare -r _verify_etherscanKey
 
-        forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        if [[ ${_verify_etherscanKey:-null} == [nN][uU][lL][lL] ]] ; then
+            forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        else
+            forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        fi
     fi
 
     if [[ ${_verify_blockscoutApi:-null} != [nN][uU][lL][lL] ]] ; then
