@@ -130,7 +130,7 @@ function verify_contract {
         forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 
-    if [[ ${_verify_sourcifyApi:-null} == [nN][uU][lL][lL] ]] ; then
+    if [[ ${_verify_sourcifyApi:-null} != [nN][uU][lL][lL] ]] ; then
         forge verify-contract --watch --chain $chainid --verifier sourcify --verifier-url "$_verify_sourcifyApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }
