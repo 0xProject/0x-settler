@@ -131,6 +131,6 @@ function verify_contract {
     fi
 
     if [[ ${_verify_sourcifyApi:-null} == [nN][uU][lL][lL] ]] ; then
-        forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        forge verify-contract --watch --chain $chainid --verifier sourcify --verifier-url "$_verify_sourcifyApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }
