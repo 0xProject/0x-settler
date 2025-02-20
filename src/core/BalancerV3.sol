@@ -447,7 +447,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         bytes calldata sig
     ) private returns (uint256) {
         if (payer == address(this)) {
-            sellToken.safeTransfer(msg.sender, sellAmount);
+            if (sellAmount != 0) {
+                sellToken.safeTransfer(msg.sender, sellAmount);
+            }
         } else {
             // assert(payer == address(0));
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
