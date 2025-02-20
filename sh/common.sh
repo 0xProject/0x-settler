@@ -102,32 +102,31 @@ function verify_contract {
     declare -r _verify_source_path="$1"
     shift
 
-    # Unichain, WorldChain, MonadTestnet, Mode, and Ink use Blockscout, not Etherscan
-    declare -r -i _verify_source_blockscout=$((chainid == 130 || chainid == 480 || chainid == 10143 || chainid == 34443 || chainid == 57073))
-    # all other chains use Etherscan; Unichain and WorldChain use both
-    declare -r -i _verify_source_etherscan=$((chainid == 130 || chainid == 480 || ! _verify_source_blockscout))
-    # Sourcify doesn't support Unichain, Sonic, WorldChain, Ink, Berachain, Blast, or Taiko
-    declare -r -i _verify_source_sourcify=$(( chainid != 130 && chainid != 146 && chainid != 480 && chainid != 57073 && chainid != 80094 && chainid != 81457 && chainid != 167000 ))
+    declare _verify_etherscanApi
+    _verify_etherscanApi="$(get_config etherscanApi)"
+    declare -r _verify_etherscanApi
 
-    if (( _verify_source_blockscout )) ; then
-        declare _verify_blockscoutApi
-        _verify_blockscoutApi="$(get_config blockscoutApi)"
-        declare -r _verify_blockscoutApi
+    declare _verify_blockscoutApi
+    _verify_blockscoutApi="$(get_config blockscoutApi)"
+    declare -r _verify_blockscoutApi
+
+    declare _verify_sourcifyApi
+    _verify_sourcifyApi="$(get_config sourcifyApi)"
+    declare -r _verify_sourcifyApi
+
+    if [[ ${_verify_etherscanApi:-null} != [nN][uU][lL][lL] ]] ; then
+        declare _verify_etherscanKey
+        _verify_etherscanKey="$(get_api_secret etherscanKey)"
+        declare -r _verify_etherscanKey
+
+        forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+    fi
+
+    if [[ ${_verify_blockscoutApi:-null} != [nN][uU][lL][lL] ]] ; then
         forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 
-    if (( _verify_source_etherscan )) ; then
-        forge verify-contract --watch --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
-    fi
-
-    if (( _verify_source_sourcify )) ; then
-        declare _verify_sourcifyApi
-        _verify_sourcifyApi="$(get_config sourcifyApi)"
-        declare -r _verify_sourcifyApi
-        if [[ ${_verify_sourcifyApi:-null} == null ]] ; then
-            forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
-        else # MonadTestnet uses BlockVision (which works like Sourcify)
-            forge verify-contract --watch --chain $chainid --verifier sourcify --verifier-url "$_verify_sourcifyApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
-        fi
+    if [[ ${_verify_sourcifyApi:-null} == [nN][uU][lL][lL] ]] ; then
+        forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }

@@ -23,7 +23,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api-sepolia.etherscan.io/api"
+    "etherscanApi": "https://api-sepolia.etherscan.io/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mainnet": {
     "chainId": 1,
@@ -49,7 +50,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.etherscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "polygon": {
     "chainId": 137,
@@ -75,7 +77,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.polygonscan.com/api"
+    "etherscanApi": "https://api.polygonscan.com/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "base": {
     "chainId": 8453,
@@ -101,7 +104,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.basescan.org/api"
+    "etherscanApi": "https://api.basescan.org/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "optimism": {
     "chainId": 10,
@@ -127,7 +131,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api-optimistic.etherscan.io/api"
+    "etherscanApi": "https://api-optimistic.etherscan.io/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "arbitrum": {
     "chainId": 42161,
@@ -153,7 +158,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.arbiscan.io/api"
+    "etherscanApi": "https://api.arbiscan.io/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "bnb": {
     "chainId": 56,
@@ -179,7 +185,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.bscscan.com/api"
+    "etherscanApi": "https://api.bscscan.com/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "avalanche": {
     "chainId": 43114,
@@ -205,7 +212,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.snowtrace.io/api"
+    "etherscanApi": "https://api.snowtrace.io/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "blast": {
     "chainId": 81457,
@@ -257,7 +265,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x000000000000175a8b9bC6d539B3708EEd92EA6c"
     },
-    "etherscanApi": "https://api.lineascan.build/api"
+    "etherscanApi": "https://api.lineascan.build/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "scroll": {
     "chainId": 534352,
@@ -283,7 +292,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api.scrollscan.com/api"
+    "etherscanApi": "https://api.scrollscan.com/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mantle": {
     "chainId": 5000,
@@ -309,7 +319,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562"
     },
-    "etherscanApi": "https://api.mantlescan.xyz/api"
+    "etherscanApi": "https://api.mantlescan.xyz/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mode": {
     "chainId": 34443,
@@ -335,7 +346,8 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
-    "blockscoutApi": "https://explorer.mode.network/api"
+    "blockscoutApi": "https://explorer.mode.network/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "taiko": {
     "chainId": 167000,
@@ -414,7 +426,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
     },
-    "etherscanApi": "https://api.gnosisscan.io/api"
+    "etherscanApi": "https://api.gnosisscan.io/api",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "sonic": {
     "chainId": 146,
