@@ -102,10 +102,10 @@ function verify_contract {
     declare -r _verify_source_path="$1"
     shift
 
-    # Unichain, WorldChain, Mode, and Ink use Blockscout, not Etherscan
-    declare -r -i _verify_source_blockscout=$((chainid == 130 || chainid == 480 || chainid == 34443 || chainid == 57073))
-    # except MonadTestnet, all other chains use Etherscan; Unichain and WorldChain use both
-    declare -r -i _verify_source_etherscan=$((chainid != 10143 && (chainid == 130 || chainid == 480 || ! _verify_source_blockscout)))
+    # Unichain, WorldChain, MonadTestnet, Mode, and Ink use Blockscout, not Etherscan
+    declare -r -i _verify_source_blockscout=$((chainid == 130 || chainid == 480 || chainid == 10143 || chainid == 34443 || chainid == 57073))
+    # all other chains use Etherscan; Unichain and WorldChain use both
+    declare -r -i _verify_source_etherscan=$((chainid == 130 || chainid == 480 || ! _verify_source_blockscout))
     # Sourcify doesn't support Unichain, Sonic, WorldChain, Ink, Berachain, Blast, or Taiko
     declare -r -i _verify_source_sourcify=$(( chainid != 130 && chainid != 146 && chainid != 480 && chainid != 57073 && chainid != 80094 && chainid != 81457 && chainid != 167000 ))
 
