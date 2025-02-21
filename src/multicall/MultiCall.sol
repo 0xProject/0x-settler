@@ -70,6 +70,7 @@ library SafeCall {
             calldatacopy(returndata, data.offset, data.length)
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
+            // Only append the ERC-2771 forwarded caller if the selector is also present
             let length := add(mul(0x14, lt(0x03, data.length)), data.length)
             let beforeGas := gas()
             success := call(gas(), target, value, returndata, length, codesize(), 0x00)
@@ -128,6 +129,7 @@ library SafeCall {
             calldatacopy(returndata, data.offset, data.length)
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
+            // Only append the ERC-2771 forwarded caller if the selector is also present
             success := call(gas(), target, value, returndata, add(mul(0x14, lt(0x03, data.length)), data.length), codesize(), 0x00)
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
