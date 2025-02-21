@@ -60,7 +60,7 @@ contract MultiCallTest is Test {
     function setUp() external {
         bytes32 salt = 0x000000000000000000000000000000000000000024bd3f9de330927ec95f7d4d;
         bytes memory initcode = vm.getCode("MultiCall.sol:MultiCall");
-        assertEq(keccak256(initcode), 0x91efdca42dba7779a444ae72dfe0cec1814fc2568b72b89254f14facdbbaea1a);
+        assertEq(keccak256(initcode), 0x92cb7a4e0928b80f225369f560682dde07adc172db616138e522eaf7278c109a);
         //vm.chainId(1);
         (bool success, bytes memory returndata) =
             0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(salt, initcode));
@@ -230,8 +230,8 @@ contract MultiCallTest is Test {
     }
 
     function testMany() external {
-        IMultiCall.Call[] memory calls = new IMultiCall.Call[](256);
-        for (uint256 i; i < 256; i++) {
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1024);
+        for (uint256 i; i < 1024; i++) {
             IMultiCall.Call memory call_ = calls[i];
             call_.target = payable(address(echo));
             call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
@@ -239,10 +239,14 @@ contract MultiCallTest is Test {
         }
         IMultiCall.Result[] memory result = multicall.multicall(calls, contextdepth);
         assertEq(result.length, calls.length);
-        for (uint256 i; i < 256; i++) {
+        for (uint256 i; i < 1024; i++) {
             IMultiCall.Result memory r = result[i];
             assertTrue(r.success);
-            assertEq(r.data, bytes.concat(bytes(ItoA.itoa(i)), bytes20(uint160(address(this)))));
+            bytes memory expected = bytes(ItoA.itoa(i));
+            if (expected.length >= 4) {
+                expected = bytes.concat(expected, bytes20(uint160(address(this))));
+            }
+            assertEq(r.data, expected);
         }
     }
 

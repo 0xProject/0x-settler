@@ -70,8 +70,9 @@ library SafeCall {
             calldatacopy(returndata, data.offset, data.length)
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
+            let length := add(mul(0x14, lt(0x03, data.length)), data.length)
             let beforeGas := gas()
-            success := call(gas(), target, value, returndata, add(0x14, data.length), codesize(), 0x00)
+            success := call(gas(), target, value, returndata, length, codesize(), 0x00)
             // `verbatim` can't work in inline assembly. Assignment of a value to a variable costs
             // gas (although how much is unpredictable because it depends on the Yul/IR optimizer),
             // as does the `GAS` opcode itself. Therefore, the `gas()` below returns less than the
@@ -127,7 +128,7 @@ library SafeCall {
             calldatacopy(returndata, data.offset, data.length)
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
-            success := call(gas(), target, value, returndata, add(0x14, data.length), codesize(), 0x00)
+            success := call(gas(), target, value, returndata, add(mul(0x14, lt(0x03, data.length)), data.length), codesize(), 0x00)
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
             if iszero(success) { revert(dst, returndatasize()) }
