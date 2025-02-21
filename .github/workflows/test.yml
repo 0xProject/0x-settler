@@ -29,7 +29,7 @@ jobs:
           FOUNDRY_OPTIMIZER_RUNS: 200
 
       - name: Run SafeGuard tests
-        run: forge test --skip SafeGuard.sol --mp test/SafeGuard.t.sol
+        run: forge test --skip 'src/*' --mp test/SafeGuard.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
 
