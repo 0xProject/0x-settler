@@ -5,7 +5,7 @@ pragma solidity =0.8.28;
 /// reverts.
 enum RevertPolicy {
     REVERT,  // Bubble the revert, undoing the entire multicall/batch. `contextdepth` is ignored
-    STOP,    // Don't revert, but end the multicall/batch immediately. Subsequent calls are not
+    HALT,    // Don't revert, but end the multicall/batch immediately. Subsequent calls are not
              // executed. An OOG revert is always bubbled
     CONTINUE // Ignore the revert and continue with the batch. The corresponding `Result` will have
              // `success = false`. An OOG revert is always bubbled
@@ -393,7 +393,7 @@ contract MultiCall {
                 (bool success, bytes memory returndata) = target.safeCall(value, data, sender, contextdepth);
                 result.set(j, success, returndata);
                 if (!success) {
-                    if (revertPolicy == uint8(RevertPolicy.STOP)) {
+                    if (revertPolicy == uint8(RevertPolicy.HALT)) {
                         result.unsafeTruncate(j); // This results in `returndata` with gaps.
                         break;
                     }

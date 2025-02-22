@@ -6,7 +6,7 @@ import {Context} from "../Context.sol";
 interface IMultiCall {
     enum RevertPolicy {
         REVERT,
-        STOP,
+        HALT,
         CONTINUE
     }
 

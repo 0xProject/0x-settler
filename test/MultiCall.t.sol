@@ -151,7 +151,7 @@ contract MultiCallTest is Test {
         call_.revertPolicy = IMultiCall.RevertPolicy.REVERT;
         call_ = calls[1];
         call_.target = payable(address(reject));
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.data = "Go away!";
         call_ = calls[2];
         call_.target = payable(address(echo));
@@ -356,7 +356,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(0xdead));
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 1 ether;
         call_.data = "";
 
@@ -379,7 +379,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(0xdead));
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
 
@@ -396,7 +396,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(0xdead));
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 0 ether;
         call_.data = "Hello, World!";
 
@@ -413,7 +413,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(address(0xdead));
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 0 ether;
         call_.data = "";
 
@@ -430,7 +430,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(empty);
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 1 ether;
         call_.data = "";
 
@@ -453,7 +453,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(empty);
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 1 ether;
         call_.data = "Hello, World!";
 
@@ -477,7 +477,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(empty);
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 0 ether;
         call_.data = "Hello, World!";
 
@@ -500,7 +500,7 @@ contract MultiCallTest is Test {
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
         IMultiCall.Call memory call_ = calls[0];
         call_.target = payable(empty);
-        call_.revertPolicy = IMultiCall.RevertPolicy.STOP;
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
         call_.value = 0 ether;
         call_.data = "";
 
