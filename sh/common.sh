@@ -40,8 +40,14 @@ if [[ $api_secrets_permissions != '-rw-------' ]] ; then
     exit 1
 fi
 
+if [ -z ${1+x} ] ; then
+    echo 'chain_name argument is missing' >&2
+    exit 1
+fi
 declare -r chain_name="$1"
 shift
+
+
 
 if [[ $(jq -Mr ."$chain_name" < api_secrets.json) == 'null' ]] ; then
     echo "$chain_name"' is missing from api_secrets.json' >&2
