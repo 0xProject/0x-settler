@@ -185,7 +185,7 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     echo 'Deployment is complete' >&2
     echo 'Add the following to your chain_config.json' >&2
     echo '"deployment": {' >&2
-    echo '      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"' >&2
+    echo '	"forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"' >&2
     echo '}' >&2
 else
     echo 'Did not broadcast; skipping verification' >&2
