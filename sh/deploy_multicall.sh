@@ -121,6 +121,11 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
+if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" 0x4e59b44847b379578588920cA78FbF26c0B4956C)") != 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989 ]] ; then
+    echo 'The Arachnid deterministic deployment proxy does not exist or is corrupt' >&2
+    exit 1
+fi
+
 declare signer
 IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
 declare -r signer
