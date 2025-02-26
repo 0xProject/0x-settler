@@ -1394,20 +1394,29 @@ asset than the `"deployer"` address because the final transaction of the
 deployment is extremely gas-intensive. The amount of eth you need can be a
 little wonky on L2s, so beware and overprovision the amount of native asset.
 
-Fifth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Fifth, deploy `MultiCall`. Run [`BROADCAST=no ./sh/deploy_multicall.sh
+<CHAIN_NAME>`](sh/deploy_multicall.sh). Then switch to `BROADCAST=yes` to
+actually do the deployment. This one is low-stakes because if you mess it up and
+it reverts, you can just try again. This deploys using the [Arachnid
+deterministic deployment
+proxy](https://github.com/Arachnid/deterministic-deployment-proxy). If you mess
+it up, make sure you learn from your mistakes for the next step.
+
+Sixth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
 `AllowanceHolder` (and vice versa). Run [`BROADCAST=no
 ./sh/deploy_allowanceholder.sh
 <CHAIN_NAME>`](sh/deploy_allowanceholder.sh). Then switch to `BROADCAST=yes` to
-actually do the deployment.
+actually do the deployment. Don't mess this one up. You will burn the vanity
+address.
 
-Sixth, check that the Safe deployment on the new chain is complete. You can
+Seventh, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
 completes without reverting, you don't need to do anything. If the Safe
 deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 <CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
 
-Seventh, make _damn_ sure that you've got the correct configuration in
+Eighth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
 <CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
