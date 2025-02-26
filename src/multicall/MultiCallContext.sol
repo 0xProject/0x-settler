@@ -28,7 +28,7 @@ interface IMultiCall {
 }
 
 abstract contract MultiCallContext is Context {
-    address private constant _MULTICALL_ADDRESS = 0x000000000000deaDdeAddEADdEaddeaDDEADDeAd; // TODO:
+    address private constant _MULTICALL_ADDRESS = 0x00000000000000CF9E3c5A26621af382fA17f24f;
 
     IMultiCall internal constant _MULTICALL = IMultiCall(payable(_MULTICALL_ADDRESS));
 
