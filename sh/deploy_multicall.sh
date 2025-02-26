@@ -162,9 +162,10 @@ declare -r -i gas_limit
 declare -a maybe_broadcast=()
 declare submit_rpc
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(send --unlocked)
+    maybe_broadcast+=(send)
     if [[ $wallet_type = 'frame' ]] ; then
         submit_rpc='http://127.0.0.1:1248'
+        maybe_broadcast+=(--unlocked)
     else
         submit_rpc="$rpc_url"
     fi
