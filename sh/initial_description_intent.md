@@ -67,14 +67,16 @@ point and uses the "witness" functionality of `Permit2` to ensure that the
 taker's signature is over the tokens being sent and the tokens being
 received. In contrast to the "metatransaction" flow, the taker *ONLY* signs the
 tokens to be sent and the tokens to be received. In a way, settling an intent is
-analogous to a limit order. Settlement of intents is permissioned and limited to
-a whitelist set of "solvers" to avoid leakage of surplus value to
+analogous to a short-lived limit order. Settlement of intents is permissioned
+and limited to a whitelist set of "solvers" to avoid leakage of surplus value to
 MEV. Obviously, the settlement of the order for *at least* the specified amount
-to be received is guaranteed by the contracts. `Permit2` allows the combination
-of the authorization of the token transfer as well as confirming the user's
-intention to receive the specified amount of the other token. This results in
-the taker signing a single [EIP712](https://eips.ethereum.org/EIPS/eip-712)
-struct.
+to be received is guaranteed by the contracts. Intent settlement is permissioned
+so that in the case that it is possible, the taker receives more than the
+minimum specified in the signature, up to the value that the market
+supports. `Permit2` allows the combination of the authorization of the token
+transfer as well as confirming the user's intention to receive the specified
+amount of the other token. This results in the taker signing a single
+[EIP712](https://eips.ethereum.org/EIPS/eip-712) struct.
 
 ## RFQ
 
