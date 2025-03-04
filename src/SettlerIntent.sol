@@ -42,15 +42,14 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
         _$()[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
-    modifier onlyOwner() {
+    function owner() public returns (address owner_) {
         // Solidity generates extremely bloated code for the following block, so it has been
         // rewritten in assembly so as not to blow out the contract size limit
         /*
-        (address owner, uint40 expiry) = IDeployer(DEPLOYER).authorized(Feature.wrap(uint128(_tokenId())));
+        (address owner_, uint40 expiry) = IDeployer(DEPLOYER).authorized(Feature.wrap(uint128(_tokenId())));
         */
         address deployer_ = DEPLOYER;
         uint256 tokenId_ = _tokenId();
-        address owner;
         uint40 expiry;
         assembly ("memory-safe") {
             // We lay out the calldata in memory in the first 2 slots. The first slot is the
@@ -69,23 +68,25 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
             }
 
             // If calldata is short (we need at least 64 bytes), revert with an empty reason.
-            if iszero(gt(returndatasize(), 0x3f)) { revert(0x00, 0x00) }
+            if lt(returndatasize(), 0x40) { revert(0x00, 0x00) }
 
             // Load the return values that were automatically written into the first 2 slots of
             // memory.
-            owner := mload(0x00)
+            owner_ := mload(0x00)
             expiry := mload(0x20)
 
             // If there are any dirty bits in the return values, revert with an empty reason.
-            if or(shr(0xa0, owner), shr(0x28, expiry)) { revert(0x00, 0x00) }
+            if or(shr(0xa0, owner_), shr(0x28, expiry)) { revert(0x00, 0x00) }
         }
 
         // Check that the owner actually exists, that is that their authority hasn't expired.
-        require(expiry == type(uint40).max || block.timestamp <= expiry);
+        require(block.timestamp <= expiry);
+    }
 
+    modifier onlyOwner() {
         // Check that the caller (in this case `_operator()`, because we aren't using the special
         // transient-storage taker logic) is the owner.
-        if (_operator() != owner) {
+        if (_operator() != owner()) {
             revert IOwnable.PermissionDenied();
         }
         _;
@@ -267,7 +268,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
         override(Permit2PaymentMetaTxn, SettlerMetaTxn, MultiCallContext)
         returns (address)
     {
-        return Permit2PaymentMetaTxn._msgSender();
+        return SettlerMetaTxn._msgSender();
     }
 
     // Solidity inheritance is stupid
