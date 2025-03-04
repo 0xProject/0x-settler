@@ -10,7 +10,6 @@ import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract DodoV2PairTest is BasePairTest {
@@ -19,7 +18,6 @@ contract DodoV2PairTest is BasePairTest {
     }
 
     Settler internal settler;
-    IAllowanceHolder internal allowanceHolder;
     uint256 private _amount;
 
     function setUp() public override {
@@ -31,12 +29,9 @@ contract DodoV2PairTest is BasePairTest {
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         warmPermit2Nonce(FROM);
 
-        allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
-
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
         settler = new Settler(bytes20(0));
-        vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
         vm.chainId(forkChainId);
 
         // USDT is obnoxious about throwing errors, so let's check here before

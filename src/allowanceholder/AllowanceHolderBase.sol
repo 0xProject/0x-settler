@@ -15,6 +15,13 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
 
+    constructor() {
+        assert(
+            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
+                || block.chainid == 31337
+        );
+    }
+
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
         // confused deputy attacks harder for tokens that might be badly behaved
