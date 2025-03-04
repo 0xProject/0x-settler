@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.28;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -89,16 +89,25 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         // send (we know it does), and we're omitting the check that `target`
         // contains code (we already checked in `_rejectIfERC20`).
         assembly ("memory-safe") {
+            // Copy the payload from calldata into memory
             result := mload(0x40)
             calldatacopy(result, data.offset, data.length)
+
             // ERC-2771 style `msgSender` forwarding https://eips.ethereum.org/EIPS/eip-2771
+            // We do not append the forwarded sender if the payload has no selector
             mstore(add(result, data.length), shl(0x60, sender))
-            let success := call(gas(), target, callvalue(), result, add(0x14, data.length), 0x00, 0x00)
+            let length := add(mul(0x14, lt(0x03, data.length)), data.length)
+
+            // Perform the call
+            let success := call(gas(), target, callvalue(), result, length, 0x00, 0x00)
+
+            // Copy returndata into memory; if it is a revert, bubble
             let ptr := add(0x20, result)
             returndatacopy(ptr, 0x00, returndatasize())
             switch success
             case 0 { revert(ptr, returndatasize()) }
             default {
+                // Wrap the returndata in a level of ABIEncoding
                 mstore(result, returndatasize())
                 mstore(0x40, add(returndatasize(), ptr))
             }
@@ -195,7 +204,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
                 let len := mload(result)
                 let m := and(0x1f, len)
                 if m {
-                    mstore(add(len, add(0x20, result)), 0x00)
+                    mstore(add(add(0x20, result), len), 0x00)
                     len := add(sub(0x20, m), len)
                 }
 
