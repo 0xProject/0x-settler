@@ -18,7 +18,7 @@ if [[ $secrets_permissions != '-rw-------' ]] ; then
     exit 1
 fi
 
-if ! sha256sum -c <<<'bb82de121880f1182dbae410b341749e5ac1355954ae6c03151a1826e7bba745  secrets.json' >/dev/null ; then
+if ! sha256sum -c <<<'aecc29dbca963a4397effa7e019a754aa2108c0b80f8cd67db7ee8e2b3c76c2b  secrets.json' >/dev/null ; then
     echo 'Secrets are wrong' >&2
     exit 1
 fi

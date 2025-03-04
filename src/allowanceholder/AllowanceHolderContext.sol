@@ -11,13 +11,22 @@ abstract contract AllowanceHolderContext is Context {
         return super._isForwarded() || super._msgSender() == address(_ALLOWANCE_HOLDER);
     }
 
+    function _msgData() internal view virtual override returns (bytes calldata) {
+        if (super._msgSender() == address(_ALLOWANCE_HOLDER)) {
+            return msg.data[:msg.data.length - 20];
+        } else {
+            return msg.data;
+        }
+    }
+
     function _msgSender() internal view virtual override returns (address sender) {
         sender = super._msgSender();
         if (sender == address(_ALLOWANCE_HOLDER)) {
             // ERC-2771 like usage where the _trusted_ `AllowanceHolder` has appended the appropriate
             // msg.sender to the msg data
+            bytes calldata data = super._msgData();
             assembly ("memory-safe") {
-                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
+                sender := shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14))))
             }
         }
     }
