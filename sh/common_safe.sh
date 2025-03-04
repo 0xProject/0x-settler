@@ -13,7 +13,7 @@ declare -r deployer_address
 declare -i current_safe_nonce
 current_safe_nonce="$(cast call --rpc-url "$rpc_url" "$safe_address" 'nonce()(uint256)')"
 declare -r -i current_safe_nonce
-nonce() {
+function nonce {
     echo $((${SAFE_NONCE_INCREMENT:-0} + current_safe_nonce))
 }
 
@@ -28,7 +28,7 @@ declare -a owners_array
 IFS=';' read -r -a owners_array <<<"$owners"
 declare -r -a owners_array
 
-prev_owner() {
+function prev_owner {
     declare _prev_owner_inp="$1"
     shift
     _prev_owner_inp="$(cast to-checksum "$_prev_owner_inp")"
@@ -53,7 +53,7 @@ prev_owner() {
     echo "$result"
 }
 
-target() {
+function target {
     declare -i operation
     if (( $# > 0 )) ; then
         operation="$1"
@@ -91,7 +91,7 @@ declare -r eip712_message_json_template='{
     "refundReceiver": "0x0000000000000000000000000000000000000000",
     "nonce": $nonce | tonumber'
 
-eip712_json() {
+function eip712_json {
     declare -r _eip712_json_calldata="$1"
     shift
 
@@ -188,7 +188,7 @@ eip712_json() {
     <<<'{}'
 }
 
-eip712_struct_hash() {
+function eip712_struct_hash {
     declare -r calldata="$1"
     shift
 
@@ -213,7 +213,7 @@ eip712_struct_hash() {
     cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$to" 0 "$(cast keccak "$calldata")" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
 }
 
-eip712_hash() {
+function eip712_hash {
     declare -r calldata="$1"
     shift
 

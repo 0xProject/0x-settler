@@ -16,6 +16,7 @@ library SafeConfig {
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
@@ -26,6 +27,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
+                || block.chainid == 80094 // berachain
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
@@ -43,6 +45,7 @@ library SafeConfig {
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
                 || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
@@ -54,6 +57,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
+                || block.chainid == 80094 // berachain
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
@@ -67,17 +71,15 @@ library SafeConfig {
     uint256 internal constant upgradeSafeThreshold = 2;
 
     function getUpgradeSafeSigners() internal view returns (address[] memory) {
-        address[] memory result = new address[](5);
+        address[] memory result = new address[](4);
         result[0] = 0x257619B7155d247e43c8B6d90C8c17278Ae481F0; // Will
         result[1] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
         if (_isMainnet()) {
             result[2] = 0x5ee2a00F8f01d099451844Af7F894f26A57FCbF2; // Amir
             result[3] = 0x269984C978bFA5693D5915201e4dd1B7686aA6F7; // Jacob
-            result[4] = 0x2b3C8B6809d3b3bb4e2a667ba5A5b4ccdAe23DA4; // Phil
         } else {
             result[2] = 0x9E4496adE6096b000C856219C27734F4f89A5210; // Amir
             result[3] = 0x5A9d540A07a96a2bfC8a8dfd638359778C72526f; // Jacob
-            result[4] = 0xe982f56B645E9858e865F8335Af157e9E6e12F9e; // Phil
         }
         return result;
     }

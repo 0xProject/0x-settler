@@ -16,24 +16,12 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    // When/if you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit, 3) {}
+    function _tokenId() internal pure virtual override returns (uint256) {
+        return 3;
+    }
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
-    }
-
-    function _msgSender()
-        internal
-        view
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentMetaTxn, AbstractContext)
-        returns (address)
-    {
-        return super._msgSender();
     }
 
     function _hashArrayOfBytes(bytes[] calldata actions) internal pure returns (bytes32 result) {
@@ -43,18 +31,18 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         // revert later.
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            let hashesLength := shl(5, actions.length)
+            let hashesLength := shl(0x05, actions.length)
             for {
                 let i := actions.offset
                 let dst := ptr
                 let end := add(i, hashesLength)
             } lt(i, end) {
-                i := add(i, 0x20)
-                dst := add(dst, 0x20)
+                i := add(0x20, i)
+                dst := add(0x20, dst)
             } {
                 let src := add(actions.offset, calldataload(i))
                 let length := calldataload(src)
-                calldatacopy(dst, add(src, 0x20), length)
+                calldatacopy(dst, add(0x20, src), length)
                 mstore(dst, keccak256(dst, length))
             }
             result := keccak256(ptr, hashesLength)
@@ -74,8 +62,8 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_AND_ACTIONS_TYPEHASH)
-            calldatacopy(add(ptr, 0x20), slippage, 0x60)
-            mstore(add(ptr, 0x80), arrayOfBytesHash)
+            calldatacopy(add(0x20, ptr), slippage, 0x60)
+            mstore(add(0x80, ptr), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
         }
     }
@@ -122,13 +110,10 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         return true;
     }
 
-    function executeMetaTxn(
-        AllowedSlippage calldata slippage,
-        bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
-        address msgSender,
-        bytes calldata sig
-    ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+    function _executeMetaTxn(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes calldata sig)
+        internal
+        returns (bool)
+    {
         require(actions.length != 0);
         {
             (uint256 action, bytes calldata data) = actions.decodeCall(0);
@@ -150,5 +135,20 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
 
         _checkSlippageAndTransfer(slippage);
         return true;
+    }
+
+    function executeMetaTxn(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32, /* zid & affiliate */
+        address msgSender,
+        bytes calldata sig
+    ) public virtual metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+        return _executeMetaTxn(slippage, actions, sig);
+    }
+
+    // Solidity inheritance is stupid
+    function _msgSender() internal view virtual override(Permit2PaymentMetaTxn, AbstractContext) returns (address) {
+        return super._msgSender();
     }
 }

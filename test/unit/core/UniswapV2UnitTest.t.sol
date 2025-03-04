@@ -28,6 +28,10 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
         return false;
     }
 
+    function _tokenId() internal pure override returns (uint256) {
+        revert("unimplemented");
+    }
+
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
         revert("unimplemented");
     }

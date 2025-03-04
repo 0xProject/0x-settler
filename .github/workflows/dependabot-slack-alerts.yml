@@ -5,8 +5,11 @@ permissions:
   security-events: read
 
 on:
+  push:
+    branches:
+      - master
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 0 * * *'
   workflow_dispatch:
 jobs:
   notify-vulnerabilites:
