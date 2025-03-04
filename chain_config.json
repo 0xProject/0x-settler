@@ -525,7 +525,7 @@
       "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
       "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
       "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://safe-transaction-unichain.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
