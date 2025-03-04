@@ -7,7 +7,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IPSM, WAD, DAI} from "src/core/MakerPSM.sol";
 
 import {Shim} from "./SettlerBasePairTest.t.sol";
-import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet.sol";
+import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 
 import {Settler} from "src/Settler.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";

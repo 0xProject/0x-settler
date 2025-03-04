@@ -28,12 +28,12 @@ import {Context} from "../Context.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 
 library TransientStorage {
-    // bytes32(uint256(keccak256("operator slot")) - 1)
-    bytes32 private constant _OPERATOR_SLOT = 0x009355806b743562f351db2e3726091207f49fa1cdccd5c65a7d4860ce3abbe9;
-    // bytes32(uint256(keccak256("witness slot")) - 1)
-    bytes32 private constant _WITNESS_SLOT = 0x1643bf8e9fdaef48c4abf5a998de359be44a235ac7aebfbc05485e093720deaa;
-    // bytes32(uint256(keccak256("payer slot")) - 1)
-    bytes32 private constant _PAYER_SLOT = 0x46bacb9b87ba1d2910347e4a3e052d06c824a45acd1e9517bb0cb8d0d5cde893;
+    // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint128).max)
+    bytes32 private constant _OPERATOR_SLOT = 0x0000000000000000000000000000000007f49fa1cdccd5c65a7d4860ce3abbe9;
+    // bytes32((uint256(keccak256("witness slot")) - 1) & type(uint128).max)
+    bytes32 private constant _WITNESS_SLOT = 0x00000000000000000000000000000000e44a235ac7aebfbc05485e093720deaa;
+    // bytes32((uint256(keccak256("payer slot")) - 1) & type(uint128).max)
+    bytes32 private constant _PAYER_SLOT = 0x00000000000000000000000000000000c824a45acd1e9517bb0cb8d0d5cde893;
 
     // We assume (and our CI enforces) that internal function pointers cannot be
     // greater than 2 bytes. On chains not supporting the ViaIR pipeline, not
@@ -378,7 +378,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
-        view
+        pure
         override
         returns (uint256)
     {
@@ -387,7 +387,8 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        view
+        pure
+        virtual
         override
         returns (uint256)
     {
@@ -402,13 +403,13 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         return Permit2PaymentBase._msgSender();
     }
 
-    // `string.concat` isn't recognized by solc as compile-time constant, but `abi.encodePacked` is
-    // This is defined here as `private` and not in `SettlerAbstract` as `internal` because no other
-    // contract/file should reference it. The *ONLY* approved way to make a transfer using this
-    // witness string is by setting the witness with modifier `metaTx`
-    string private constant _SLIPPAGE_AND_ACTIONS_WITNESS = string(
-        abi.encodePacked("SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE)
-    );
+    function _witnessTypeSuffix() internal pure virtual returns (string memory) {
+        return string(
+            abi.encodePacked(
+                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
+            )
+        );
+    }
 
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
@@ -421,7 +422,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
             revert ConfusedDeputy();
         }
         _transferFromIKnowWhatImDoing(
-            permit, transferDetails, _msgSender(), witness, _SLIPPAGE_AND_ACTIONS_WITNESS, sig, isForwarded
+            permit, transferDetails, _msgSender(), witness, _witnessTypeSuffix(), sig, isForwarded
         );
     }
 
@@ -445,5 +446,11 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         // It should not be possible for this check to revert because the very first thing that a
         // metatransaction does is spend the witness.
         TransientStorage.checkSpentWitness();
+    }
+}
+
+abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
+    function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
+        return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
     }
 }

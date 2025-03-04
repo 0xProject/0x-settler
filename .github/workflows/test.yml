@@ -10,23 +10,39 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-fe2acca4e379793539db80e032d76ffe0110298b
+          version: nightly-59f354c179f4e7f6d7292acb3d068815c79286d1
 
       - name: Install dependencies
         run: git submodule update --recursive --init
 
+      - name: Build MultiCall
+        run: forge build -- src/multicall/MultiCall.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 1000000
+
+      - name: Run the MultiCall tests
+        run: forge test --skip 'src/*' --mc MultiCall
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+
       - name: Build UniswapV4
-        run: forge build lib/v4-core/src/PoolManager.sol
+        run: forge build -- lib/v4-core/src/PoolManager.sol
 
       - name: Build contracts
-        run: forge build --skip UniswapV4UnitTest.t.sol
+        run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip 'test/*'
 
-      - name: Run tests
-        run: forge test
+      - name: Build UniswapV4 tests
+        run: forge build --skip MultiCall.sol --skip 'test/*'
+
+      - name: Run all the other tests
+        run: forge test --skip 'src/*' --nmc MultiCall
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}

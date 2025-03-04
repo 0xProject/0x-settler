@@ -10,21 +10,23 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-fe2acca4e379793539db80e032d76ffe0110298b
+          version: nightly-59f354c179f4e7f6d7292acb3d068815c79286d1
 
       - name: Install dependencies
         run: git submodule update --recursive --init
 
       - name: Check contract sizes
-        run: forge build --sizes --skip UniswapV4UnitTest.t.sol
+        run: forge build --sizes --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol
 
       - name: Run tests
-        run: forge test
+        run: forge test --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip 'src/*'
         env:
           FOUNDRY_PROFILE: integration
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}

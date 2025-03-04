@@ -16,10 +16,9 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    // When/if you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit, 3) {}
+    function _tokenId() internal pure virtual override returns (uint256) {
+        return 3;
+    }
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return true;
@@ -81,7 +80,16 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
-        if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
+        if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
+                _permitToTransferDetails(permit, recipient);
+
+            // We simultaneously transfer-in the taker's tokens and authenticate the
+            // metatransaction.
+            _transferFrom(permit, transferDetails, sig);
+        } else if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
             // performed inside the RfqOrderSettlement so there is no need to
@@ -98,15 +106,6 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
             );
 
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
-        } else if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-
-            // We simultaneously transfer-in the taker's tokens and authenticate the
-            // metatransaction.
-            _transferFrom(permit, transferDetails, sig);
         } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
@@ -122,13 +121,10 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
         return true;
     }
 
-    function executeMetaTxn(
-        AllowedSlippage calldata slippage,
-        bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
-        address msgSender,
-        bytes calldata sig
-    ) public metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+    function _executeMetaTxn(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes calldata sig)
+        internal
+        returns (bool)
+    {
         require(actions.length != 0);
         {
             (uint256 action, bytes calldata data) = actions.decodeCall(0);
@@ -150,5 +146,15 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
 
         _checkSlippageAndTransfer(slippage);
         return true;
+    }
+
+    function executeMetaTxn(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32, /* zid & affiliate */
+        address msgSender,
+        bytes calldata sig
+    ) public virtual metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+        return _executeMetaTxn(slippage, actions, sig);
     }
 }
