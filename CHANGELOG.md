@@ -30,10 +30,47 @@ Master list of UniV3 forks:
   27. SpookySwap
   28. Wagmi
   29. SwapX (Algebra-like)
+  30. KodiakV3
+  31. Bulla Exchange (Algebra-like)
 
 ---
 
 ## [Unreleased]
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Create new Settler version for intent-based settlement -- the taker only signs
+  the slippage, not the actions
+  * This is now `tokenId` 4
+
+## 2025-02-20
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add UniswapV3 UniV3 fork to Monad Testnet
+
+## 2025-02-12
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Unichain network
+  * Add UniswapV3 UniV3 fork to Unichain
+  * Add UniswapV4 actions to Unichain
+* Deploy Settler to Berachain network
+  * Add KodiakV3 UniV3 fork to Berachain
+  * Add Bulla Exchange UniV3 (Algebra style) fork to Berachain
+* Add UniswapV4 actions to Sepolia
+* Add UniswapV4 actions to Ink
+* Add BalancerV3 actions to Base
+* Add BalancerV3 actions to Arbitrum
+
+## 2025-01-23
 
 ### Breaking changes
 

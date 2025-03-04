@@ -102,18 +102,35 @@ function verify_contract {
     declare -r _verify_source_path="$1"
     shift
 
-    if (( chainid == 10143 )) || (( chainid == 34443 )) || (( chainid == 57073 )) ; then # MonadTestnet, Mode, and Ink use Blockscout, not Etherscan
-        declare _verify_blockscoutApi
-        if (( chainid == 10143 )) ; then # MonadTestnet is private. The explorer credentials are stored in the secrets file
-            _verify_blockscoutApi="$(get_api_secret blockscoutApi)"
+    declare _verify_etherscanApi
+    _verify_etherscanApi="$(get_config etherscanApi)"
+    declare -r _verify_etherscanApi
+
+    declare _verify_blockscoutApi
+    _verify_blockscoutApi="$(get_config blockscoutApi)"
+    declare -r _verify_blockscoutApi
+
+    declare _verify_sourcifyApi
+    _verify_sourcifyApi="$(get_config sourcifyApi)"
+    declare -r _verify_sourcifyApi
+
+    if [[ ${_verify_etherscanApi:-null} != [nN][uU][lL][lL] ]] ; then
+        declare _verify_etherscanKey
+        _verify_etherscanKey="$(get_api_secret etherscanKey)"
+        declare -r _verify_etherscanKey
+
+        if [[ ${_verify_etherscanKey:-null} == [nN][uU][lL][lL] ]] ; then
+            forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         else
-            _verify_blockscoutApi="$(get_config blockscoutApi)"
+            forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         fi
-        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
-    else
-        forge verify-contract --watch --verifier custom --verifier-api-key "$(get_api_secret etherscanKey)" --verifier-url "$(get_config etherscanApi)" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
-    if (( chainid != 146 )) && (( chainid != 480 )) && (( chainid != 10143 )) && (( chainid != 57073 )) && (( chainid != 81457 )) && (( chainid != 167000 )); then # Sourcify doesn't support Sonic, World Chain, MonadTestnet, Ink, Blast, or Taiko
-        forge verify-contract --watch --chain $chainid --verifier sourcify --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+
+    if [[ ${_verify_blockscoutApi:-null} != [nN][uU][lL][lL] ]] ; then
+        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+    fi
+
+    if [[ ${_verify_sourcifyApi:-null} != [nN][uU][lL][lL] ]] ; then
+        forge verify-contract --watch --chain $chainid --verifier sourcify --verifier-url "$_verify_sourcifyApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }

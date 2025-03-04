@@ -7,7 +7,6 @@ import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 
 import {AbstractContext} from "./Context.sol";
-import {AllowanceHolderContext} from "./allowanceholder/AllowanceHolderContext.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
@@ -18,35 +17,12 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    // When/if you change this, you must make corresponding changes to
-    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
-    // `constructor_args`.
-    constructor(bytes20 gitCommit) SettlerBase(gitCommit, 2) {}
+    function _tokenId() internal pure override returns (uint256) {
+        return 2;
+    }
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
-    }
-
-    function _msgSender()
-        internal
-        view
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentTakerSubmitted, AbstractContext)
-        returns (address)
-    {
-        return super._msgSender();
-    }
-
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        virtual
-        // Solidity inheritance is so stupid
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
-        returns (bool)
-    {
-        return super._isRestrictedTarget(target);
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
@@ -117,5 +93,26 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
 
         _checkSlippageAndTransfer(slippage);
         return true;
+    }
+
+    // Solidity inheritance is stupid
+    function _msgSender()
+        internal
+        view
+        virtual
+        override(Permit2PaymentTakerSubmitted, AbstractContext)
+        returns (address)
+    {
+        return super._msgSender();
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        pure
+        virtual
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

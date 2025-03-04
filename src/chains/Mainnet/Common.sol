@@ -34,7 +34,7 @@ import {
 } from "../../core/univ3forks/SolidlyV3.sol";
 
 import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
-import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
+import {IOwnable} from "../../deployer/IOwnable.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";

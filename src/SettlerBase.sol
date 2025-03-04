@@ -38,17 +38,17 @@ library CalldataDecoder {
                     data.offset,
                     // We allow the indirection/offset to `calls[i]` to be negative
                     calldataload(
-                        add(shl(5, i), data.offset) // can't overflow; we assume `i` is in-bounds
+                        add(shl(0x05, i), data.offset) // can't overflow; we assume `i` is in-bounds
                     )
                 )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
-            args.offset := add(args.offset, 0x20)
+            args.offset := add(0x20, args.offset)
 
             // slice off the first 4 bytes of `args` as the selector
             selector := shr(0xe0, calldataload(args.offset))
             args.length := sub(args.length, 0x04)
-            args.offset := add(args.offset, 0x04)
+            args.offset := add(0x04, args.offset)
         }
     }
 }
@@ -61,10 +61,13 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
     event GitCommit(bytes20 indexed);
 
-    constructor(bytes20 gitCommit, uint256 tokenId) {
+    // When/if you change this, you must make corresponding changes to
+    // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
+    // `constructor_args`.
+    constructor(bytes20 gitCommit) {
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
-            assert(IERC721Owner(DEPLOYER).ownerOf(tokenId) == address(this));
+            assert(IERC721Owner(DEPLOYER).ownerOf(_tokenId()) == address(this));
         } else {
             assert(gitCommit == bytes20(0));
         }
@@ -80,6 +83,10 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         uint256 minAmountOut;
     }
 
+    function _mandatorySlippageCheck() internal pure virtual returns (bool) {
+        return false;
+    }
+
     function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
@@ -88,20 +95,23 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         // directly from us instead of from some other form of exchange of value.
         (address recipient, IERC20 buyToken, uint256 minAmountOut) =
             (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
-        if (minAmountOut != 0 || address(buyToken) != address(0)) {
-            if (buyToken == ETH_ADDRESS) {
-                uint256 amountOut = address(this).balance;
-                if (amountOut < minAmountOut) {
-                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
-                }
-                payable(recipient).safeTransferETH(amountOut);
-            } else {
-                uint256 amountOut = buyToken.fastBalanceOf(address(this));
-                if (amountOut < minAmountOut) {
-                    revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
-                }
-                buyToken.safeTransfer(recipient, amountOut);
+        if (_mandatorySlippageCheck()) {
+            require(minAmountOut != 0);
+        } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
+            return;
+        }
+        if (buyToken == ETH_ADDRESS) {
+            uint256 amountOut = address(this).balance;
+            if (amountOut < minAmountOut) {
+                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
             }
+            payable(recipient).safeTransferETH(amountOut);
+        } else {
+            uint256 amountOut = buyToken.fastBalanceOf(address(this));
+            if (amountOut < minAmountOut) {
+                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+            }
+            buyToken.safeTransfer(recipient, amountOut);
         }
     }
 
