@@ -105,7 +105,7 @@ function save_signature {
     fi
     declare -r _save_signature_to
 
-    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+    if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
         declare signature_file
         signature_file="$project_root"/"$_save_signature_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_$(nonce).txt
         echo "$_save_signature_signature" >"$signature_file"
