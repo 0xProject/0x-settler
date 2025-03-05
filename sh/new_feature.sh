@@ -126,6 +126,7 @@ safe_address="$(get_config governance.upgradeSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
+. "$project_root"/sh/common_safe_deployer.sh
 
 declare signer
 IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
