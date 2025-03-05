@@ -28,7 +28,7 @@ function retrieve_signatures {
     declare -r signing_hash
 
     declare -a _retrieve_signatures_result
-    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+    if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
         set +f
         declare confirmation
         for confirmation in "$project_root"/"$_retrieve_signatures_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
