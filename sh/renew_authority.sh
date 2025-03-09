@@ -188,7 +188,7 @@ signing_hash="$(eip712_hash "$renew_authority_calldata" 0 "$safe_address")"
 declare -r signing_hash
 
 declare packed_signatures
-packed_signatures="$(retrieve_signatures replace_signer "$renew_authority_calldata" 0 "$safe_address")"
+packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
 declare -r packed_signatures
 
 # configure gas limit

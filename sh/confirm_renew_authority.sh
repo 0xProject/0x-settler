@@ -163,7 +163,7 @@ renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$(get_confi
 declare -r renew_authority_calldata
 
 declare struct_json
-struct_json="$(eip712_json "$renew_authority_calldata" 1)"
+struct_json="$(eip712_json "$renew_authority_calldata")"
 declare -r struct_json
 
 declare signature
