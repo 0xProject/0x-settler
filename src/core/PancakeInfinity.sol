@@ -189,8 +189,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `balV3UnlockCallback` and that `balV3UnlockCallback` encoded the
-            // buy amount correctly.
+            // verbatim result from `lockAcquired` and that `lockAcquired` encoded the buy amount
+            // correctly.
             buyAmount := mload(add(0x60, encodedBuyAmount))
         }
     }
@@ -222,8 +222,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `balV3UnlockCallback` and that `balV3UnlockCallback` encoded the
-            // buy amount correctly.
+            // verbatim result from `lockAcquired` and that `lockAcquired` encoded the buy amount
+            // correctly.
             buyAmount := mload(add(0x60, encodedBuyAmount))
         }
     }
@@ -262,7 +262,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
         }
         if (feeOnTransfer) {
             state.globalSell.amount =
-                _balV3Pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
+                _pancakeInfinityPay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
         }
         if (state.globalSell.amount == 0) {
             revert ZeroSellAmount(state.globalSell.token);
