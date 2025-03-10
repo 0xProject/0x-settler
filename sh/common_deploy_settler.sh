@@ -13,6 +13,13 @@ trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")"' '"$(_escape
 forge flatten -o "$flat_metatx_source" src/chains/"$chain_display_name"/MetaTxn.sol >/dev/null
 forge build "$flat_metatx_source"
 
+declare flat_intent_source
+flat_intent_source="$project_root"/src/flat/"$chain_display_name"IntentFlat.sol
+declare -r flat_intent_source
+trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")"' '"$(_escape "$flat_metatx_source")"' '"$(_escape "$flat_intent_source")" EXIT
+forge flatten -o "$flat_intent_source" src/chains/"$chain_display_name"/Intent.sol >/dev/null
+forge build "$flat_intent_source"
+
 declare taker_artifact
 taker_artifact="$project_root"/out/"$chain_display_name"TakerSubmittedFlat.sol/"$chain_display_name"Settler.json
 declare -r taker_artifact
@@ -21,7 +28,11 @@ declare metatx_artifact
 metatx_artifact="$project_root"/out/"$chain_display_name"MetaTxnFlat.sol/"$chain_display_name"SettlerMetaTxn.json
 declare -r metatx_artifact
 
-if [ ! -f "$taker_artifact" ] || [ ! -f "$metatx_artifact" ] ; then
+declare intent_artifact
+intent_artifact="$project_root"/out/"$chain_display_name"IntentFlat.sol/"$chain_display_name"SettlerIntent.json
+declare -r intent_artifact
+
+if [ ! -f "$taker_artifact" ] || [ ! -f "$metatx_artifact" ] || [ ! -f "$intent_artifact" ] ; then
     echo 'Cannot find '"$chain_display_name"'Settler.json' >&2
     exit 1
 fi
@@ -38,6 +49,10 @@ declare metatx_initcode
 metatx_initcode="$(cast concat-hex "$(jq -Mr .bytecode.object < "$metatx_artifact")" "$constructor_args")"
 declare -r metatx_initcode
 
+declare intent_initcode
+intent_initcode="$(cast concat-hex "$(jq -Mr .bytecode.object < "$intent_artifact")" "$constructor_args")"
+declare -r intent_initcode
+
 declare -r deploy_sig='deploy(uint128,bytes)(address,uint32)'
 
 declare deploy_taker_calldata
@@ -48,12 +63,17 @@ declare deploy_metatx_calldata
 deploy_metatx_calldata="$(cast calldata "$deploy_sig" 3 "$metatx_initcode")"
 declare -r deploy_metatx_calldata
 
+declare deploy_intent_calldata
+deploy_intent_calldata="$(cast calldata "$deploy_sig" 4 "$intent_initcode")"
+declare -r deploy_intent_calldata
+
 if [[ -n "${deployer_address-}" ]] ; then
     declare -a deploy_calldatas
     if (( chainid == 534352 )) ; then
         deploy_calldatas=(
             0 "$deploy_taker_calldata"
             0 "$deploy_metatx_calldata"
+            0 "$deploy_intent_calldata"
         )
     else
         deploy_calldatas=(
@@ -73,6 +93,15 @@ if [[ -n "${deployer_address-}" ]] ; then
                 "$(cast to-uint256 0)"                                            \
                 "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
                 "$deploy_metatx_calldata"
+            )"
+
+            "$(
+                cast concat-hex                                                   \
+                0x00                                                              \
+                "$deployer_address"                                               \
+                "$(cast to-uint256 0)"                                            \
+                "$(cast to-uint256 $(( (${#deploy_intent_calldata} - 2) / 2 )) )" \
+                "$deploy_intent_calldata"
             )"
         )
         deploy_calldatas=(
