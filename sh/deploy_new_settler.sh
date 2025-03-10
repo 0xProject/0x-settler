@@ -157,9 +157,6 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare target="${deploy_calldatas[2]}"
     deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
 
-    declare signing_hash
-    signing_hash="$(eip712_hash "$deploy_calldata" $operation "$target")"
-
     declare packed_signatures
     packed_signatures="$(retrieve_signatures settler_confirmation "$deploy_calldata" $operation "$target")"
 
