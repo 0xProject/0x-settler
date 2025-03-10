@@ -68,7 +68,7 @@ deploy_intent_calldata="$(cast calldata "$deploy_sig" 4 "$intent_initcode")"
 declare -r deploy_intent_calldata
 
 declare next_intent_settler_address
-next_intent_settler_address="$(cast call --rpc-url "$rpc_url" --chainid $chainid "$deployer_address" 'next(uint128)(address)' 4)"
+next_intent_settler_address="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'next(uint128)(address)' 4)"
 declare -r next_intent_settler_address
 
 declare -a solvers
