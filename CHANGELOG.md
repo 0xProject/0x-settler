@@ -44,6 +44,8 @@ Master list of UniV3 forks:
 * Create new Settler version for intent-based settlement -- the taker only signs
   the slippage, not the actions
   * This is now `tokenId` 4
+* Fix a bug in the BalancerV3 action resulting in incorrect decoding of callback
+  returndata
 
 ## 2025-02-20
 
