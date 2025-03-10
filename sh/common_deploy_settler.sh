@@ -67,16 +67,51 @@ declare deploy_intent_calldata
 deploy_intent_calldata="$(cast calldata "$deploy_sig" 4 "$intent_initcode")"
 declare -r deploy_intent_calldata
 
+declare next_intent_settler_address
+next_intent_settler_address="$(cast call --rpc-url "$rpc_url" --chainid $chainid "$deployer_address" 'next(uint128)(address)' 4)"
+declare -r next_intent_settler_address
+
+declare -a solvers
+readarray -t solvers < "$project_root"/sh/solvers.txt
+declare -r -a solvers
+
+declare -a setsolver_calldatas
+declare setsolver_calldata
+declare prev_solver=0x0000000000000000000000000000000000000001
+declare solver
+for solver in "${solvers[@]}" ; do
+    setsolver_calldata="$(cast calldata 'setSolver(address,address,bool)' "$prev_solver" "$solver" true)"
+    setsolver_calldatas+=("$setsolver_calldata")
+    prev_solver="$solver"
+done
+unset -v solver
+unset -v prev_solver
+unset -v setsolver_calldata
+
 if [[ -n "${deployer_address-}" ]] ; then
     declare -a deploy_calldatas
     if (( chainid == 534352 )) ; then
+        declare setsolver_calldata
+        for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
+            deploy_calldatas+=(
+                "$(
+                    cast concat-hex                                               \
+                    0x00                                                          \
+                    "$next_intent_settler_address"                                \
+                    "$(cast to-uint256 0)"                                        \
+                    "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
+                    "$setsolver_calldata"
+                )"
+            )
+        done
         deploy_calldatas=(
-            0 "$deploy_taker_calldata"
-            0 "$deploy_metatx_calldata"
-            0 "$deploy_intent_calldata"
+            0 "$deploy_taker_calldata" "$deployer_address"
+            0 "$deploy_metatx_calldata" "$deployer_address"
+            0 "$deploy_intent_calldata" "$deployer_address"
+            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
         )
     else
-        deploy_calldatas=(
+        deploy_calldatas+=(
             "$(
                 cast concat-hex                                                   \
                 0x00                                                              \
@@ -104,8 +139,20 @@ if [[ -n "${deployer_address-}" ]] ; then
                 "$deploy_intent_calldata"
             )"
         )
+        for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
+            deploy_calldatas+=(
+                "$(
+                    cast concat-hex                                               \
+                    0x00                                                          \
+                    "$next_intent_settler_address"                                \
+                    "$(cast to-uint256 0)"                                        \
+                    "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
+                    "$setsolver_calldata"
+                )"
+            )
+        done
         deploy_calldatas=(
-            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")"
+            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
         )
     fi
 fi
