@@ -35,7 +35,7 @@ library BalanceDeltaLibrary {
 using BalanceDeltaLibrary for BalanceDelta global;
 
 interface IPancakeInfinityVault {
-        /// @notice Called by the user to net out some value owed to the user
+    /// @notice Called by the user to net out some value owed to the user
     /// @dev Will revert if the requested amount is not available, consider using `mint` instead
     /// @dev Can also be used as a mechanism for free flash loans
     function take(IERC20 currency, address to, uint256 amount) external;
@@ -156,6 +156,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
     //     hook (20 bytes)
     //     pool manager ID (1 byte)
     //     fee (3 bytes)
+    //     parameters (32 bytes)
     //     hook data length (3 bytes)
     //     hook data (arbitrary)
 
@@ -238,6 +239,112 @@ abstract contract PancakeInfinity is SettlerAbstract {
     }
 
     function lockAcquired(bytes calldata data) private returns (bytes memory) {
+        address recipient;
+        uint256 minBuyAmount;
+        uint256 hashMul;
+        uint256 hashMod;
+        bool feeOnTransfer;
+        address payer;
+        (data, recipient, minBuyAmount, hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
 
+        // Set up `state` and `notes`. The other values are ancillary and might be used when we need
+        // to settle global sell token debt at the end of swapping.
+        (
+            bytes calldata newData,
+            StateLib.State memory state,
+            NotesLib.Note[] memory notes,
+            ISignatureTransfer.PermitTransferFrom calldata permit,
+            bool isForwarded,
+            bytes calldata sig
+        ) = Decoder.initialize(data, hashMul, hashMod, payer);
+        if (payer != address(this)) {
+            state.globalSell.amount = _permitToSellAmountCalldata(permit);
+        }
+        if (feeOnTransfer) {
+            state.globalSell.amount =
+                _balV3Pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
+        }
+        if (state.globalSell.amount == 0) {
+            revert ZeroSellAmount(state.globalSell.token);
+        }
+        state.globalSellAmount = state.globalSell.amount;
+        data = newData;
+
+        PoolKey memory poolKey;
+        IPancakeInfinityCLPoolManager.SwapParams memory swapParams;
+
+        while (data.length >= _HOP_DATA_LENGTH) {
+            uint16 bps;
+            assembly ("memory-safe") {
+                bps := shr(0xf0, calldataload(data.offset))
+
+                data.offset := add(0x02, data.offset)
+                data.length := sub(data.length, 0x02)
+                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+            }
+
+            data = Decoder.updateState(state, notes, data);
+
+            // TODO: decode:
+            //     hook
+            //     pool manager ID
+            //     fee
+            //     params
+            //     hook data
+
+            // TODO: compute amountSpecified and zeroForone
+
+            // TODO: dispatch on pool manager ID
+
+            // TODO: for CL pool manager, encode swapParams
+
+            // TODO: write BalanceDelta to Notes
+        }
+
+        // `data` has been consumed. All that remains is to settle out the net result of all the
+        // swaps. Any credit in any token other than `state.buy.token` will be swept to
+        // Settler. `state.buy.token` will be sent to `recipient`.
+        {
+            (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
+            uint256 globalBuyAmount =
+                Take.take(state, notes, uint32(IPancakeInfinityVault.take.selector), recipient, minBuyAmount);
+            if (feeOnTransfer) {
+                // We've already transferred the sell token to the vault and
+                // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
+                // vault. We only need to handle the case of incomplete filling.
+                if (globalSellAmount != 0) {
+                    Take._callSelector(
+                        uint32(IPancakeInfinityVault.take.selector),
+                        globalSellToken,
+                        payer == address(this) ? address(this) : _msgSender(),
+                        globalSellAmount
+                    );
+                }
+            } else {
+                // While `notes` records a credit value, the vault actually records a debt for the
+                // global sell token. We recover the exact amount of that debt and then pay it.
+                // `globalSellAmount` is _usually_ zero, but if it isn't it represents a partial
+                // fill. This subtraction recovers the actual debt recorded in the vault.
+                uint256 debt;
+                unchecked {
+                    debt = state.globalSellAmount - globalSellAmount;
+                }
+                if (debt == 0) {
+                    revert ZeroSellAmount(globalSellToken);
+                }
+                _pancakeInfinityPay(globalSellToken, payer, debt, permit, isForwarded, sig);
+            }
+
+            bytes memory returndata;
+            assembly ("memory-safe") {
+                returndata := mload(0x40)
+                mstore(returndata, 0x60)
+                mstore(add(0x20, returndata), 0x20)
+                mstore(add(0x40, returndata), 0x20)
+                mstore(add(0x60, returndata), globalBuyAmount)
+                mstore(0x40, add(0x80, returndata))
+            }
+            return returndata;
+        }
     }
 }
