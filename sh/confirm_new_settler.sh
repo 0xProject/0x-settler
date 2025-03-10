@@ -130,18 +130,19 @@ declare -r safe_address
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
-while (( ${#deploy_calldatas[@]} >= 2 )) ; do
+while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare -i operation="${deploy_calldatas[0]}"
     declare deploy_calldata="${deploy_calldatas[1]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:2:$((${#deploy_calldatas[@]}-2))}" )
+    declare target="${deploy_calldatas[2]}"
+    deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
 
     declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation)"
+    struct_json="$(eip712_json "$deploy_calldata" $operation "$target")"
 
     declare signature
     signature="$(sign_call "$struct_json")"
 
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation
+    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation "$target"
 
     SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
 done

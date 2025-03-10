@@ -119,45 +119,45 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
+echo "This script is mostly for Duncan's use in generating the file solvers.txt ." >&2
+echo "You probably don't need to run this script." >&2
+echo "The only reason you'd need to run this script is if the production or staging" >&2
+echo 'chain worker mnemonics have been rotated.' >&2
+echo '' >&2
+
 . "$project_root"/sh/common.sh
+. "$project_root"/sh/common_secrets.sh
 
-declare deployer_address
-deployer_address="$(get_config deployment.deployer)"
-declare -r deployer_address
+declare -i num_production_addresses
+num_production_addresses="$(get_secret intentWorkers limit.production)"
+declare -r -i num_production_addresses
 
-# calls encoded as operation (always zero) 1 byte
-#                  target address          20 bytes
-#                  value                   32 bytes
-#                  data length             32 bytes
-#                  data                    variable
-declare -r multisend_sig='multiSend(bytes)'
+declare production_mnemonic
+production_mnemonic="$(get_secret intentWorkers mnemonic.production)"
+declare -r production_mnemonic
 
-. "$project_root"/sh/common_deploy_settler.sh
+declare -i num_staging_addresses
+num_staging_addresses="$(get_secret intentWorkers limit.staging)"
+declare -r -i num_staging_addresses
 
-declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
+declare staging_mnemonic
+staging_mnemonic="$(get_secret intentWorkers mnemonic.staging)"
+declare -r staging_mnemonic
 
-echo 'Verifying taker-submitted settler...' >&2
+declare -a solvers=()
+declare privkey
+declare solver
 
-declare taker_settler
-taker_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 2)"
-declare -r taker_settler
+for (( i = 0 ; i < $num_production_addresses ; i++ )) ; do
+    privkey="$(cast wallet private-key "$production_mnemonic" "m/44'/60'/0'/0/$i")"
+    solver="$(cast wallet address "$privkey")"
+    solvers+=("$solver")
+done
 
-verify_contract "$constructor_args" "$taker_settler" "$flat_taker_source":"$chain_display_name"Settler
+for (( i = 0 ; i < $num_staging_addresses ; i++ )) ; do
+    privkey="$(cast wallet private-key "$staging_mnemonic" "m/44'/60'/0'/0/$i")"
+    solver="$(cast wallet address "$privkey")"
+    solvers+=("$solver")
+done
 
-echo 'Verified taker-submitted Settler... verifying metatx Settler...' >&2
-
-declare metatx_settler
-metatx_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 3)"
-declare -r metatx_settler
-
-verify_contract "$constructor_args" "$metatx_settler" "$flat_metatx_source":"$chain_display_name"SettlerMetaTxn
-
-echo 'Verified metatx Settler... verifying intent Settler...' >&2
-
-declare intent_settler
-intent_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 4)"
-declare -r intent_settler
-
-verify_contract "$constructor_args" "$intent_settler" "$flat_intent_source":"$chain_display_name"SettlerIntent
-
-echo 'Verified intent Settler. All done!' >&2
+printf '%s\n' "${solvers[@]}"
