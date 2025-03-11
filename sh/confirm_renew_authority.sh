@@ -122,27 +122,52 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 
 declare safe_address
-safe_address="$(get_config governance.deploymentSafe)"
+safe_address="$(get_config governance.upgradeSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_safe_owner.sh
 . "$project_root"/sh/common_wallet_type.sh
-. "$project_root"/sh/common_deploy_settler.sh
 
-while (( ${#deploy_calldatas[@]} >= 3 )) ; do
-    declare -i operation="${deploy_calldatas[0]}"
-    declare deploy_calldata="${deploy_calldatas[1]}"
-    declare target="${deploy_calldatas[2]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
+declare -r -i feature="$1"
+shift
 
-    declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation "$target")"
+declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
-    declare signature
-    signature="$(sign_call "$struct_json")"
+function _compat_date {
+    declare -r datestring="$1"
+    shift
 
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation "$target"
+    declare -r datefmt="$1"
+    shift
 
-    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
-done
+    if date -d '1 second' &>/dev/null ; then
+        date -u -d "${datestring:8:4}-${datestring:0:2}-${datestring:2:2}T${datestring:4:2}:${datestring:6:2}:00-00:00" "$datefmt"
+    else
+        date -u -j "$datestring" "$datefmt"
+    fi
+}
+
+declare auth_deadline_datestring
+# one year from the start of this month
+# MMDDhhmmCCYY
+auth_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
+declare -r auth_deadline_datestring
+declare -i auth_deadline
+# convert to UNIX timestamp
+auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
+declare -r -i auth_deadline
+
+declare renew_authority_calldata
+renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" $auth_deadline)"
+declare -r renew_authority_calldata
+
+declare struct_json
+struct_json="$(eip712_json "$renew_authority_calldata")"
+declare -r struct_json
+
+declare signature
+signature="$(sign_call "$struct_json")"
+declare -r signature
+
+save_signature renew_authority "$renew_authority_calldata" "$signature" 1
