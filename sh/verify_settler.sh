@@ -121,17 +121,11 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-declare deployer_address
-deployer_address="$(get_config deployment.deployer)"
-declare -r deployer_address
+declare safe_address
+safe_address="$(get_config governance.deploymentSafe)"
+declare -r safe_address
 
-# calls encoded as operation (always zero) 1 byte
-#                  target address          20 bytes
-#                  value                   32 bytes
-#                  data length             32 bytes
-#                  data                    variable
-declare -r multisend_sig='multiSend(bytes)'
-
+. "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
@@ -152,4 +146,12 @@ declare -r metatx_settler
 
 verify_contract "$constructor_args" "$metatx_settler" "$flat_metatx_source":"$chain_display_name"SettlerMetaTxn
 
-echo 'Verified metatx Settler. All done!' >&2
+echo 'Verified metatx Settler... verifying intent Settler...' >&2
+
+declare intent_settler
+intent_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 4)"
+declare -r intent_settler
+
+verify_contract "$constructor_args" "$intent_settler" "$flat_intent_source":"$chain_display_name"SettlerIntent
+
+echo 'Verified intent Settler. All done!' >&2
