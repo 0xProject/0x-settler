@@ -254,7 +254,7 @@ contract DeploySafes is Script {
         );
 
         bytes memory intentSetDescriptionCall =
-            abi.encodeCall(Deployer.setDescription, (intentFeature, initialDescriptionMetaTx));
+            abi.encodeCall(Deployer.setDescription, (intentFeature, initialDescriptionIntent));
         bytes memory intentAuthorizeCall =
             abi.encodeCall(Deployer.authorize, (intentFeature, deploymentSafe, uint40(block.timestamp + 365 days)));
         bytes memory intentDeployCall = abi.encodeCall(
