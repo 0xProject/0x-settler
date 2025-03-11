@@ -82,6 +82,13 @@ library NonceList {
     }
 }
 
+function salt(Feature feature, Nonce nonce) view returns (bytes32) {
+    return bytes32(
+        uint256(Feature.unwrap(feature)) << 128 | uint256(block.chainid) << 64
+            | uint256(Nonce.unwrap(nonce))
+    );
+}
+
 /// @custom:security-contact security@0x.org
 contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepOwnable, ProxyMultiCall {
     using NonceList for NonceList.List;
@@ -160,22 +167,12 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         super._initialize();
     }
 
-    uint8 private constant _FEATURE_SHIFT = 128;
-    uint8 private constant _CHAIN_SHIFT = 64;
-
-    function _salt(Feature feature, Nonce nonce) internal view returns (bytes32) {
-        return bytes32(
-            uint256(Feature.unwrap(feature)) << _FEATURE_SHIFT | uint256(block.chainid) << _CHAIN_SHIFT
-                | uint256(Nonce.unwrap(nonce))
-        );
-    }
-
     function next(Feature feature) external view override returns (address) {
         FeatureInfo storage featureInfo = _stor1().featureInfo[feature];
         if (featureInfo.descriptionHash == 0) {
             revert ERC721NonexistentToken(Feature.unwrap(feature));
         }
-        return Create3.predict(_salt(feature, featureInfo.list.lastNonce.incr()));
+        return Create3.predict(salt(feature, featureInfo.list.lastNonce.incr()));
     }
 
     function prev(Feature feature) external view override returns (address) {
@@ -183,7 +180,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         if (prevNonce.isNull()) {
             revert NoInstance();
         }
-        return Create3.predict(_salt(feature, prevNonce));
+        return Create3.predict(salt(feature, prevNonce));
     }
 
     function deployInfo(address instance) public view override returns (Feature feature, Nonce nonce) {
@@ -250,10 +247,10 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         Nonce prevNonce;
         (prevNonce, thisNonce) = _requireAuthorized(feature).list.push();
 
-        bytes32 salt = _salt(feature, thisNonce);
-        predicted = Create3.predict(salt);
+        bytes32 salt_ = salt(feature, thisNonce);
+        predicted = Create3.predict(salt_);
         emit Transfer(
-            prevNonce.isNull() ? address(0) : Create3.predict(_salt(feature, prevNonce)),
+            prevNonce.isNull() ? address(0) : Create3.predict(salt(feature, prevNonce)),
             predicted,
             Feature.unwrap(feature)
         );
@@ -261,7 +258,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
         _stor1().deployInfo[predicted] = DeployInfo({feature: feature, nonce: thisNonce});
         emit Deployed(feature, thisNonce, predicted);
 
-        if (Create3.createFromCalldata(salt, initCode, msg.value) != predicted) {
+        if (Create3.createFromCalldata(salt_, initCode, msg.value) != predicted) {
             revert DeployFailed(feature, thisNonce, predicted);
         }
         if (predicted.code.length == 0) {
@@ -271,11 +268,11 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
 
     function remove(Feature feature, Nonce nonce) public override returns (bool) {
         (Nonce newHead, bool updatedHead) = _requireAuthorized(feature).list.remove(nonce);
-        address deployment = Create3.predict(_salt(feature, nonce));
+        address deployment = Create3.predict(salt(feature, nonce));
         if (updatedHead) {
             emit Transfer(
                 deployment,
-                newHead.isNull() ? address(0) : Create3.predict(_salt(feature, newHead)),
+                newHead.isNull() ? address(0) : Create3.predict(salt(feature, newHead)),
                 Feature.unwrap(feature)
             );
         }
@@ -291,7 +288,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
     function removeAll(Feature feature) external override returns (bool) {
         Nonce nonce = _requireAuthorized(feature).list.clear();
         if (!nonce.isNull()) {
-            emit Transfer(Create3.predict(_salt(feature, nonce)), address(0), Feature.unwrap(feature));
+            emit Transfer(Create3.predict(salt(feature, nonce)), address(0), Feature.unwrap(feature));
         }
         emit RemovedAll(feature);
         return true;
@@ -338,7 +335,7 @@ contract Deployer is IDeployer, ERC1967UUPSUpgradeable, Context, ERC1967TwoStepO
 
     function ownerOf(uint256 tokenId) external view override returns (address) {
         Feature feature = wrap(tokenId);
-        return Create3.predict(_salt(feature, _requireTokenExists(feature)));
+        return Create3.predict(salt(feature, _requireTokenExists(feature)));
     }
 
     modifier tokenExists(uint256 tokenId) {

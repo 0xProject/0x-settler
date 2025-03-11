@@ -5,7 +5,7 @@ import {Script} from "@forge-std/Script.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
-import {Deployer, Feature} from "src/deployer/Deployer.sol";
+import {Deployer, Feature, Nonce, salt} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {SafeConfig} from "./SafeConfig.sol";
 
@@ -267,8 +267,7 @@ contract DeploySafes is Script {
                 )
             )
         );
-        bytes32 intentSettlerSalt = bytes32(uint256(Feature.unwrap(intentFeature)) << 128 | uint256(block.chainid) << 64 | uint256(1));
-        address predictedIntentSettler = Create3.predict(intentSettlerSalt, deployerProxy);
+        address predictedIntentSettler = Create3.predict(salt(intentFeature, Nonce.wrap(1)), deployerProxy);
 
         address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
         bytes[] memory changeOwnersCalls =
