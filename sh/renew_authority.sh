@@ -183,10 +183,6 @@ declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 
-declare signing_hash
-signing_hash="$(eip712_hash "$renew_authority_calldata" 0 "$safe_address")"
-declare -r signing_hash
-
 declare packed_signatures
 packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
 declare -r packed_signatures
@@ -195,7 +191,7 @@ declare -r packed_signatures
 declare -r -a args=(
     "$safe_address" "$execTransaction_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-    "$safe_address" 0 "$renew_authority_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    "$(target 0)" 0 "$renew_authority_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
 )
 
 # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
