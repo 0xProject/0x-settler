@@ -299,7 +299,10 @@ contract DeploySafes is Script {
             address prevSolver = 0x0000000000000000000000000000000000000001;
             for (uint256 i; i < solvers.length; i++) {
                 address solver = solvers[i];
-                deploySetupCalls[i + 4] = _encodeMultisend(predictedIntentSettler, abi.encodeWithSignature("setSolver(address,address,bool)", prevSolver, solver, true));
+                deploySetupCalls[i + 4] = _encodeMultisend(
+                    predictedIntentSettler,
+                    abi.encodeWithSignature("setSolver(address,address,bool)", prevSolver, solver, true)
+                );
                 prevSolver = solver;
             }
         }
@@ -369,7 +372,10 @@ contract DeploySafes is Script {
         require(deployedUpgradeSafe == upgradeSafe, "upgrade deployed safe/predicted safe mismatch");
         require(deployedDeployerProxy == deployerProxy, "deployer proxy predicted mismatch");
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer not owned by upgrade safe");
-        require(Deployer(deployerProxy).ownerOf(Feature.unwrap(intentFeature)) == predictedIntentSettler, "predicted intent settler address mismatch");
+        require(
+            Deployer(deployerProxy).ownerOf(Feature.unwrap(intentFeature)) == predictedIntentSettler,
+            "predicted intent settler address mismatch"
+        );
         require(
             keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
                 == keccak256(abi.encodePacked(deployerOwners)),
@@ -381,7 +387,8 @@ contract DeploySafes is Script {
             "upgrade safe owners mismatch"
         );
         {
-            (bool success, bytes memory returndata) = predictedIntentSettler.staticcall(abi.encodeWithSignature("getSolvers()"));
+            (bool success, bytes memory returndata) =
+                predictedIntentSettler.staticcall(abi.encodeWithSignature("getSolvers()"));
             if (!success) {
                 assembly ("memory-safe") {
                     revert(add(0x20, returndata), mload(returndata))

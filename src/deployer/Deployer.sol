@@ -83,10 +83,8 @@ library NonceList {
 }
 
 function salt(Feature feature, Nonce nonce) view returns (bytes32) {
-    return bytes32(
-        uint256(Feature.unwrap(feature)) << 128 | uint256(block.chainid) << 64
-            | uint256(Nonce.unwrap(nonce))
-    );
+    return
+        bytes32(uint256(Feature.unwrap(feature)) << 128 | uint256(block.chainid) << 64 | uint256(Nonce.unwrap(nonce)));
 }
 
 /// @custom:security-contact security@0x.org
