@@ -42,7 +42,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
         _$()[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
-    function owner() public returns (address owner_) {
+    function owner() public view returns (address owner_) {
         // Solidity generates extremely bloated code for the following block, so it has been
         // rewritten in assembly so as not to blow out the contract size limit
         /*
@@ -67,7 +67,7 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
                 revert(ptr, returndatasize())
             }
 
-            // If calldata is short (we need at least 64 bytes), revert with an empty reason.
+            // If returndata is short (we need at least 64 bytes), revert with an empty reason.
             if lt(returndatasize(), 0x40) { revert(0x00, 0x00) }
 
             // Load the return values that were automatically written into the first 2 slots of
