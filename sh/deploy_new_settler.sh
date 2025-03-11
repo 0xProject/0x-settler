@@ -151,22 +151,20 @@ declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 
-while (( ${#deploy_calldatas[@]} >= 2 )) ; do
+while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare -i operation="${deploy_calldatas[0]}"
     declare deploy_calldata="${deploy_calldatas[1]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:2:$((${#deploy_calldatas[@]}-2))}" )
-
-    declare signing_hash
-    signing_hash="$(eip712_hash "$deploy_calldata" $operation)"
+    declare target="${deploy_calldatas[2]}"
+    deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
 
     declare packed_signatures
-    packed_signatures="$(retrieve_signatures settler_confirmation "$deploy_calldata" $operation)"
+    packed_signatures="$(retrieve_signatures settler_confirmation "$deploy_calldata" $operation "$target")"
 
     # configure gas limit
     declare -a args=(
         "$safe_address" "$execTransaction_sig"
         # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-        "$(target $operation)" 0 "$deploy_calldata" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+        "$target" 0 "$deploy_calldata" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
     )
 
     # set gas limit and add multiplier/headroom (again mostly for Arbitrum)

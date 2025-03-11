@@ -41,7 +41,7 @@ library SafeTransferLib {
                 revert(ptr, returndatasize())
             }
             // Check for short returndata and missing code
-            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
+            if iszero(lt(0x1f, returndatasize())) { revert(0x00, 0x00) }
 
             r := mload(0x00)
         }
@@ -64,7 +64,7 @@ library SafeTransferLib {
             }
             // We check that the call either returned exactly 1 [true] (can't just be non-zero
             // data), or had no return data.
-            if iszero(or(and(eq(mload(0x00), 0x01), gt(returndatasize(), 0x1f)), iszero(returndatasize()))) {
+            if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
                 mstore(0x00, 0x7939f424) // Selector for `TransferFromFailed()`
                 revert(0x1c, 0x04)
             }
@@ -92,7 +92,7 @@ library SafeTransferLib {
             }
             // We check that the call either returned exactly 1 [true] (can't just be non-zero
             // data), or had no return data.
-            if iszero(or(and(eq(mload(0x00), 0x01), gt(returndatasize(), 0x1f)), iszero(returndatasize()))) {
+            if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
                 mstore(0x00, 0x90b8ec18) // Selector for `TransferFailed()`
                 revert(0x1c, 0x04)
             }
@@ -119,7 +119,7 @@ library SafeTransferLib {
             }
             // We check that the call either returned exactly 1 [true] (can't just be non-zero
             // data), or had no return data.
-            if iszero(or(and(eq(mload(0x00), 0x01), gt(returndatasize(), 0x1f)), iszero(returndatasize()))) {
+            if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
                 mstore(0x00, 0x3e3f8f73) // Selector for `ApproveFailed()`
                 revert(0x1c, 0x04)
             }

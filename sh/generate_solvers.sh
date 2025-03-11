@@ -119,30 +119,45 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
+echo "This script is mostly for Duncan's use in generating the file solvers.txt ." >&2
+echo "You probably don't need to run this script." >&2
+echo "The only reason you'd need to run this script is if the production or staging" >&2
+echo 'chain worker mnemonics have been rotated.' >&2
+echo '' >&2
+
 . "$project_root"/sh/common.sh
+. "$project_root"/sh/common_secrets.sh
 
-declare safe_address
-safe_address="$(get_config governance.deploymentSafe)"
-declare -r safe_address
+declare -i num_production_addresses
+num_production_addresses="$(get_secret intentWorkers limit.production)"
+declare -r -i num_production_addresses
 
-. "$project_root"/sh/common_safe.sh
-. "$project_root"/sh/common_safe_owner.sh
-. "$project_root"/sh/common_wallet_type.sh
-. "$project_root"/sh/common_deploy_settler.sh
+declare production_mnemonic
+production_mnemonic="$(get_secret intentWorkers mnemonic.production)"
+declare -r production_mnemonic
 
-while (( ${#deploy_calldatas[@]} >= 3 )) ; do
-    declare -i operation="${deploy_calldatas[0]}"
-    declare deploy_calldata="${deploy_calldatas[1]}"
-    declare target="${deploy_calldatas[2]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
+declare -i num_staging_addresses
+num_staging_addresses="$(get_secret intentWorkers limit.staging)"
+declare -r -i num_staging_addresses
 
-    declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation "$target")"
+declare staging_mnemonic
+staging_mnemonic="$(get_secret intentWorkers mnemonic.staging)"
+declare -r staging_mnemonic
 
-    declare signature
-    signature="$(sign_call "$struct_json")"
+declare -a solvers=()
+declare privkey
+declare solver
 
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation "$target"
-
-    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+for (( i = 0 ; i < $num_production_addresses ; i++ )) ; do
+    privkey="$(cast wallet private-key "$production_mnemonic" "m/44'/60'/0'/0/$i")"
+    solver="$(cast wallet address "$privkey")"
+    solvers+=("$solver")
 done
+
+for (( i = 0 ; i < $num_staging_addresses ; i++ )) ; do
+    privkey="$(cast wallet private-key "$staging_mnemonic" "m/44'/60'/0'/0/$i")"
+    solver="$(cast wallet address "$privkey")"
+    solvers+=("$solver")
+done
+
+printf '%s\n' "${solvers[@]}"
