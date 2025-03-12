@@ -290,7 +290,7 @@ contract DeploySafes is Script {
         changeOwnersCalls =
             _encodeChangeOwners(deploymentSafe, SafeConfig.deploymentSafeThreshold, moduleDeployer, deployerOwners);
         assert(changeOwnersCalls.length == deployerOwners.length + 1);
-        bytes[] memory deploySetupCalls = new bytes[](4 + changeOwnersCalls.length);
+        bytes[] memory deploySetupCalls = new bytes[](4 + solvers.length + changeOwnersCalls.length);
         deploySetupCalls[0] = _encodeMultisend(deploymentSafe, addModuleCall);
         deploySetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedDeployCall);
         deploySetupCalls[2] = _encodeMultisend(deployerProxy, metaTxDeployCall);
