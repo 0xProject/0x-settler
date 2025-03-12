@@ -138,6 +138,7 @@ interface IPancakeInfinityBinPoolManager is IPancakeInfinityPoolManager {
 IPancakeInfinityBinPoolManager BIN_MANAGER = IPancakeInfinityBinPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
 
 abstract contract PancakeInfinity is SettlerAbstract {
+    using CreditDebt for int256;
     using SafeTransferLib for IERC20;
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
@@ -238,6 +239,16 @@ abstract contract PancakeInfinity is SettlerAbstract {
         return lockAcquired(data);
     }
 
+    // the mandatory fields are
+    // 2 - sell bps
+    // 1 - pool key tokens case
+    // 20 - hook
+    // 1 - pool manager ID
+    // 3 - pool fee
+    // 32 - parameters
+    // 3 - hook data length
+    uint256 private constant _HOP_DATA_LENGTH = 62;
+
     function lockAcquired(bytes calldata data) private returns (bytes memory) {
         address recipient;
         uint256 minBuyAmount;
@@ -284,21 +295,98 @@ abstract contract PancakeInfinity is SettlerAbstract {
             }
 
             data = Decoder.updateState(state, notes, data);
+            // TODO: check the sign convention
+            int256 amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
+            bool zeroForOne;
+            {
+                (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
+                assembly ("memory-safe") {
+                    sellToken := and(_ADDRESS_MASK, sellToken)
+                    buyToken := and(_ADDRESS_MASK, buyToken)
+                    zeroForOne :=
+                        or(
+                            eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
+                            and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
+                        )
+                }
+                (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
+            }
 
-            // TODO: decode:
-            //     hook
-            //     pool manager ID
-            //     fee
-            //     params
-            //     hook data
+            {
+                IHooks hooks;
+                assembly ("memory-safe") {
+                    hooks := shr(0x60, calldataload(data.offset))
+                    data.offset := add(0x14, data.offset)
+                    data.length := sub(data.length, 0x14)
+                    // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                }
+                poolKey.hooks = hooks;
+            }
 
-            // TODO: compute amountSpecified and zeroForone
+            uint8 poolManagerId;
+            assembly ("memory-safe") {
+                poolManagerId := shr(0xf8, calldataload(data.offset))
+                data.offset := add(0x01, data.offset)
+                data.length := sub(data.length, 0x01)
+                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+            }
 
-            // TODO: dispatch on pool manager ID
+            {
+                uint24 fee;
+                assembly ("memory-safe") {
+                    fee := shr(0xe8, calldataload(data.offset))
+                    data.offset := add(0x03, data.offset)
+                    data.length := sub(data.length, 0x03)
+                    // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                }
+                poolKey.fee = fee;
+            }
 
-            // TODO: for CL pool manager, encode swapParams
+            {
+                bytes32 parameters;
+                assembly ("memory-safe") {
+                    parameters := calldataload(data.offset)
+                    data.offset := add(0x20, data.offset)
+                    data.length := sub(data.length, 0x20)
+                    // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                }
+                poolKey.parameters = parameters;
+            }
 
-            // TODO: write BalanceDelta to Notes
+            bytes calldata hookData;
+            (data, hookData) = Decoder.decodeBytes(data);
+
+            Decoder.overflowCheck(data);
+
+            {
+                BalanceDelta delta;
+                if (uint256(poolManagerId) == 0) {
+                    poolKey.poolManager = CL_MANAGER;
+
+                    swapParams.zeroForOne = zeroForOne;
+                    swapParams.amountSpecified = amountSpecified;
+                    // TODO: price limits
+                    swapParams.sqrtPriceLimitX96 = zeroForOne.ternary(4295128740, 1461446703485210103287273052203988822378723970341);
+
+                    delta = CL_MANAGER.swap(poolKey, swapParams, hookData);
+                } else if (uint256(poolManagerId) == 1) {
+                    poolKey.poolManager = BIN_MANAGER;
+                    delta = BIN_MANAGER.swap(poolKey, zeroForOne, amountSpecified, hookData);
+                } else {
+                    // TODO: revert
+                }
+                (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
+                // Some insane hooks may increase the sell amount; obviously this may result in
+                // unavoidable reverts in some cases. But we still need to make sure that we don't
+                // underflow to avoid wildly unexpected behavior. The pool manager enforces that the
+                // settled sell amount cannot be positive
+                state.sell.amount -= uint256(settledSellAmount.unsafeNeg());
+                // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the pool
+                // manager later. We cannot overflow a `uint256`.
+                unchecked {
+                    state.buy.amount += settledBuyAmount.asCredit(state.buy.token);
+                }
+            }
         }
 
         // `data` has been consumed. All that remains is to settle out the net result of all the
@@ -335,6 +423,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 _pancakeInfinityPay(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
 
+            // return abi.encode(globalBuyAmount);
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)

@@ -10,6 +10,24 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {TooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
 
+library CreditDebt {
+    using UnsafeMath for int256;
+
+    function asCredit(int256 delta, IERC20 token) internal pure returns (uint256) {
+        if (delta < 0) {
+            revert DeltaNotPositive(token);
+        }
+        return uint256(delta);
+    }
+
+    function asDebt(int256 delta, IERC20 token) internal pure returns (uint256) {
+        if (delta > 0) {
+            revert DeltaNotNegative(token);
+        }
+        return uint256(delta.unsafeNeg());
+    }
+}
+
 /// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
 /// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
 /// (aka `Note[] memory`) that has up to `MAX_TOKENS` pre-allocated. And there is an implicit heap

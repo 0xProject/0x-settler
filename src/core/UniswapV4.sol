@@ -12,25 +12,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
-import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
-
-library CreditDebt {
-    using UnsafeMath for int256;
-
-    function asCredit(int256 delta, IERC20 token) internal pure returns (uint256) {
-        if (delta < 0) {
-            revert DeltaNotPositive(token);
-        }
-        return uint256(delta);
-    }
-
-    function asDebt(int256 delta, IERC20 token) internal pure returns (uint256) {
-        if (delta > 0) {
-            revert DeltaNotNegative(token);
-        }
-        return uint256(delta.unsafeNeg());
-    }
-}
+import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
