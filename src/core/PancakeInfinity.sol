@@ -6,7 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import {TooMuchSlippage, ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
 import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
@@ -373,7 +373,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     poolKey.poolManager = BIN_MANAGER;
                     delta = BIN_MANAGER.swap(poolKey, zeroForOne, amountSpecified, hookData);
                 } else {
-                    // TODO: revert
+                    revert UnknownPoolManagerId(poolManagerId);
                 }
                 (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
                 // Some insane hooks may increase the sell amount; obviously this may result in
