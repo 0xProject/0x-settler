@@ -398,11 +398,13 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
                 // Some insane hooks may increase the sell amount; obviously this may result in
                 // unavoidable reverts in some cases. But we still need to make sure that we don't
-                // underflow to avoid wildly unexpected behavior. The pool manager enforces that the
-                // settled sell amount cannot be positive
+                // underflow to avoid wildly unexpected behavior.
+
+                // TODO: verify that the vault enforces that the settled sell amount cannot be
+                // positive
                 state.sell.amount -= uint256(settledSellAmount.unsafeNeg());
-                // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the pool
-                // manager later. We cannot overflow a `uint256`.
+                // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the
+                // vault later. We cannot overflow a `uint256`.
                 unchecked {
                     state.buy.amount += settledBuyAmount.asCredit(state.buy.token);
                 }
