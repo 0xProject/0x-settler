@@ -229,6 +229,26 @@ abstract contract PancakeInfinity is SettlerAbstract {
         }
     }
 
+    function _pancakeInfinityPay(
+        IERC20 sellToken,
+        address payer,
+        uint256 sellAmount,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bool isForwarded,
+        bytes calldata sig
+    ) private returns (uint256) {
+        IPancakeInfinityVault(msg.sender).sync(sellToken);
+        if (payer == address(this)) {
+            sellToken.safeTransfer(msg.sender, sellAmount);
+        } else {
+            // assert(payer == address(0));
+            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
+            _transferFrom(permit, transferDetails, sig, isForwarded);
+        }
+        return IPancakeInfinityVault(msg.sender).settle();
+    }
+
     function _pancakeInfinityCallback(bytes calldata data) private returns (bytes memory) {
         // We know that our calldata is well-formed. Therefore, the first slot is 0x20 and the
         // second slot is the length of the strict ABIEncoded payload
@@ -420,7 +440,12 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 if (debt == 0) {
                     revert ZeroSellAmount(globalSellToken);
                 }
-                _pancakeInfinityPay(globalSellToken, payer, debt, permit, isForwarded, sig);
+                if (globalSellToken == ETH_ADDRESS) {
+                    IPancakeInfinityVault(msg.sender).sync(IERC20(address(0)));
+                    IPancakeInfinityVault(msg.sender).settle{value: debt}();
+                } else {
+                    _pancakeInfinityPay(globalSellToken, payer, debt, permit, isForwarded, sig);
+                }
             }
 
             // return abi.encode(globalBuyAmount);

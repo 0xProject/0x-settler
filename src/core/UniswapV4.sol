@@ -355,6 +355,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 }
             }
 
+            // return abi.encode(globalBuyAmount);
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)
