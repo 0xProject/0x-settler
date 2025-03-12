@@ -8,7 +8,33 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {revertTooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
+
+library CreditDebt {
+    using UnsafeMath for int256;
+
+    function asCredit(int256 delta, IERC20 token) internal pure returns (uint256) {
+        if (delta < 0) {
+            assembly ("memory-safe") {
+                mstore(0x14, token)
+                mstore(0x00, 0x4c085bf1000000000000000000000000) // selector for `DeltaNotPositive(address)` with `token`'s padding
+                revert(0x10, 0x24)
+            }
+        }
+        return uint256(delta);
+    }
+
+    function asDebt(int256 delta, IERC20 token) internal pure returns (uint256) {
+        if (delta > 0) {
+            assembly ("memory-safe") {
+                mstore(0x14, token)
+                mstore(0x00, 0x3351b260000000000000000000000000) // selector for `DeltaNotNegative(address)` with `token`'s padding
+                revert(0x10, 0x24)
+            }
+        }
+        return uint256(delta.unsafeNeg());
+    }
+}
 
 /// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
 /// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
