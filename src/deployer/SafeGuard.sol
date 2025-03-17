@@ -27,7 +27,10 @@ interface ISafeMinimal {
 
     function approvedHashes(address owner, bytes32 txHash) external view returns (bool);
 
-    function getModulesPaginated(address start, uint256 pageSize) external view returns (address[] memory array, address next);
+    function getModulesPaginated(address start, uint256 pageSize)
+        external
+        view
+        returns (address[] memory array, address next);
 
     // This function is not part of the interface at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
     // . It's part of the implicit interface on the proxy contract(s) created by the factory at
@@ -246,7 +249,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         assert(!safe.isOwner(address(this)));
         assert(safe.getGuard() == address(this));
         {
-            (address[] memory modules, ) = safe.getModulesPaginated(address(1), 1);
+            (address[] memory modules,) = safe.getModulesPaginated(address(1), 1);
             assert(modules.length == 0);
         }
 
@@ -459,7 +462,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // consequently arbitrary modification of the state of the proxy (including
         // `SELFDESTRUCT`). Therefore, we prohibit the installation of modules.
         {
-            (address[] memory modules, ) = _safe.getModulesPaginated(address(1), 1);
+            (address[] memory modules,) = _safe.getModulesPaginated(address(1), 1);
             if (modules.length != 0) {
                 revert ModuleInstalled(modules[0]);
             }
