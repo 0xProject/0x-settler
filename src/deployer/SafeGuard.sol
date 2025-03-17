@@ -17,7 +17,11 @@ interface ISafeMinimal {
 
     function nonce() external view returns (uint256);
 
+    function removeOwner(address prevOwner, address oldOwner, uint256 threshold) external;
+
     function isOwner(address) external view returns (bool);
+
+    function getThreshold() external view returns (uint256);
 
     function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
 
@@ -88,6 +92,23 @@ library SafeLib {
 
     function getTransactionHash(ISafeMinimal, bytes memory txHashData) internal pure returns (bytes32) {
         return keccak256(txHashData);
+    }
+
+    function OWNERS_SLOT(ISafeMinimal) internal pure returns (uint256) {
+        return 2;
+    }
+
+    function getPrevOwner(ISafeMinimal safe, address owner) internal view returns (address) {
+        address cursor = address(1);
+        while (true) {
+            address nextOwner =
+                abi.decode(safe.getStorageAt(uint256(keccak256(abi.encode(cursor, OWNERS_SLOT(safe)))), 1), (address));
+            if (nextOwner == owner) {
+                return cursor;
+            }
+            cursor = nextOwner;
+        }
+        revert(); // unreachable
     }
 
     function OWNER_COUNT_SLOT(ISafeMinimal) internal pure returns (uint256) {
@@ -187,10 +208,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     error NotQueued(bytes32 txHash);
     error LockedDown(address lockedDownBy);
     error NotLockedDown();
-    error UnlockHashNotApproved(bytes32 txHash);
     error UnexpectedUpgrade(address newSingleton);
     error Reentrancy();
     error ModuleInstalled(address module);
+    error NotEnoughOwners(uint256 ownerCount);
+    error ThresholdTooLow(uint256 threshold);
+    error NotUnanimous(bytes32 txHash);
+    error TxHashNotApproved(bytes32 txHash);
 
     mapping(bytes32 => uint256) public timelockEnd;
     address public lockedDownBy;
@@ -199,6 +223,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     bool private _guardRemoved;
 
     ISafeMinimal public constant safe = ISafeMinimal(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
+    uint256 internal constant _MINIMUM_OWNERS = 3;
+    uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
     address private constant _SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
@@ -284,18 +310,12 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         _;
     }
 
-    function _requireApprovedUnlock() private view onlyOwner {
-        // By requiring that the Safe owner has preapproved the `txHash` for the call to `unlock`,
-        // we prevent a single rogue signer from bricking the Safe.
-        bytes32 txHash = unlockTxHash();
+    function _requirePreApproved(bytes32 txHash) private view {
+        // By requiring that the Safe owner has preapproved the `txHash`, we prevent a single rogue
+        // signer from bricking the Safe.
         if (!safe.approvedHashes(msg.sender, txHash)) {
-            revert UnlockHashNotApproved(txHash);
+            revert TxHashNotApproved(txHash);
         }
-    }
-
-    modifier antiGriefing() {
-        _requireApprovedUnlock();
-        _;
     }
 
     function checkTransaction(
@@ -366,24 +386,25 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         );
         bytes32 txHash = _safe.getTransactionHash(txHashData);
 
-        // The call to `this.unlock()` is special-cased.
-        if (to == address(this) && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector))) {
-            // A call to `unlock` does not go through the timelock, but we require additional
-            // signatures in order for the lockdown functionality to be effective, as a protocol.
-
-            // Calling `unlock()` requires unanimous signatures, i.e. a threshold equal to the owner
-            // count. We go beyond the usual requirement of just the threshold. The owner who called
-            // `lockDown()` has already signed (to prevent griefing).
-            uint256 ownerCount = _safe.ownerCount();
-            _safe.checkNSignatures(txHash, txHashData, signatures, ownerCount);
-
+        // Any transaction with unanimous signatures can bypass the timelock. This mechanism is also
+        // critical to the anti-griefing provisions. The pre-signed transaction(s) required when
+        // calling `lockDown()` or `cancel(...)` can be combined with signatures from well-behaved
+        // keyholders to un-brick the safe and remove the misbehaving actors. Unanimous transactions
+        // also cannot be `cancel(...)`'d.
+        try _safe.checkNSignatures(txHash, txHashData, signatures, _safe.ownerCount()) {
             return;
+        } catch {
+            // The signatures are not unanimous; proceed to the timelock. If the call is to
+            // `unlock()`, we bail out because it *MUST* be unanimous.
+            if (to == address(this) && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector))) {
+                revert NotUnanimous(txHash);
+            }
         }
-        // Fall through to the "normal" case, where we're doing anything except calling
-        // `this.unlock()`. The checks that need to be performed here are 1) that the Safe is not
-        // locked down, 2) that the transaction was previously queued through `enqueue` and 3) that
-        // `delay` has elapsed since `enqueue` was called.
 
+        // Fall through to the "normal" case. The checks that need to be performed here are 1) that
+        // the Safe is not locked down (checked in `checkAfterExecution`), 2) that the transaction
+        // was previously queued through `enqueue` and 3) that `delay` has elapsed since `enqueue`
+        // was called.
         uint256 _timelockEnd = timelockEnd[txHash];
         if (_timelockEnd == 0) {
             revert NotQueued(txHash);
@@ -452,6 +473,21 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             revert GuardIsOwner();
         }
 
+        // Some basic safety checks. If violated, the game theory of the `lockDown`/`unlock` game
+        // becomes degenerate.
+        {
+            uint256 ownerCount = _safe.ownerCount();
+            if (ownerCount < _MINIMUM_OWNERS) {
+                revert NotEnoughOwners(ownerCount);
+            }
+        }
+        {
+            uint256 threshold = _safe.getThreshold();
+            if (threshold < _MINIMUM_THRESHOLD) {
+                revert ThresholdTooLow(threshold);
+            }
+        }
+
         // We do not revert if `_safe.getGuard()` returns a value other than `address(this)`. This
         // allows uninstallation of the guard (through the timelock, obviously) to later permit
         // upgrades to other singleton implementation contracts. However, we do set the
@@ -509,7 +545,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         );
     }
 
-    function unlockTxHash() public view normalOperation returns (bytes32) {
+    function unlockTxHash() public view returns (bytes32) {
         uint256 nonce = safe.nonce();
         return safe.getTransactionHash(
             address(this),
@@ -525,7 +561,45 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         );
     }
 
-    function cancel(bytes32 txHash) external antiGriefing {
+    function _removeOwnerTxHash(address prevOwner, address oldOwner, uint256 threshold, uint256 nonce)
+        private
+        view
+        returns (bytes32)
+    {
+        return safe.getTransactionHash(
+            address(safe),
+            0 ether,
+            abi.encodeCall(safe.removeOwner, (prevOwner, oldOwner, threshold)),
+            Operation.Call,
+            0,
+            0,
+            0,
+            address(0),
+            payable(address(0)),
+            nonce
+        );
+    }
+
+    function resignTxHash(address owner) external view returns (bytes32 txHash) {
+        address prevOwner = safe.getPrevOwner(owner);
+        uint256 threshold = safe.getThreshold();
+        uint256 nonce = safe.nonce();
+        if (
+            lockedDownBy != address(0)
+                || safe.approvedHashes(owner, txHash = _removeOwnerTxHash(prevOwner, owner, threshold, nonce))
+        ) {
+            nonce++;
+            txHash = _removeOwnerTxHash(prevOwner, owner, threshold, nonce);
+        }
+    }
+
+    function cancel(bytes32 txHash) external onlyOwner {
+        uint256 nonce = safe.nonce();
+        if (lockedDownBy != address(0)) {
+            nonce++;
+        }
+        _requirePreApproved(_removeOwnerTxHash(safe.getPrevOwner(msg.sender), msg.sender, safe.getThreshold(), nonce));
+
         uint256 _timelockEnd = timelockEnd[txHash];
         if (_timelockEnd == 0) {
             revert NotQueued(txHash);
@@ -537,8 +611,18 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         emit SafeTransactionCanceled(txHash, msg.sender);
     }
 
-    function lockDown() external normalOperation antiGriefing {
-        emit LockDown(msg.sender, unlockTxHash());
+    function lockDown() external normalOperation onlyOwner {
+        address prevOwner = safe.getPrevOwner(msg.sender);
+        uint256 threshold = safe.getThreshold();
+        uint256 nonce = safe.nonce();
+        if (safe.approvedHashes(msg.sender, _removeOwnerTxHash(prevOwner, msg.sender, threshold, nonce))) {
+            nonce++;
+            _requirePreApproved(_removeOwnerTxHash(prevOwner, msg.sender, threshold, nonce));
+        }
+        bytes32 txHash = unlockTxHash();
+        _requirePreApproved(txHash);
+
+        emit LockDown(msg.sender, txHash);
         lockedDownBy = msg.sender;
     }
 
