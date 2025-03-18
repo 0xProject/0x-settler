@@ -2,7 +2,6 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "@forge-std/Test.sol";
-import {console} from "@forge-std/console.sol";
 import {Vm} from "@forge-std/Vm.sol";
 
 import {ItoA} from "src/utils/ItoA.sol";
@@ -46,6 +45,8 @@ interface ISafe {
     function approveHash(bytes32 hashToApprove) external;
 
     event ApproveHash(bytes32 indexed approvedHash, address indexed owner);
+
+    function isOwner(address) external view returns (bool);
 }
 
 interface IGuard {
@@ -514,6 +515,68 @@ contract TestSafeGuard is Test {
         safe.approveHash(newResignTxHash);
         guard.lockDown();
         vm.stopPrank();
+    }
+
+    function testResign() external {
+        (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
+
+        address owner = owners[4].addr;
+
+        bytes32 resignTxHash = guard.resignTxHash(owner);
+
+        vm.startPrank(owner);
+        safe.approveHash(resignTxHash);
+        guard.cancel(txHash);
+        vm.stopPrank();
+
+        address prevOwner = owners[2].addr;
+
+        bytes memory data = abi.encodeWithSignature("removeOwner(address,address,uint256)", prevOwner, owner, 2);
+        txHash = keccak256(
+            bytes.concat(
+                hex"1901",
+                keccak256(
+                    abi.encode(
+                        keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, safe
+                    )
+                ),
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                        ),
+                        safe,
+                        0,
+                        keccak256(data),
+                        Operation.Call,
+                        0,
+                        0,
+                        0,
+                        address(0),
+                        payable(address(0)),
+                        safe.nonce()
+                    )
+                )
+            )
+        );
+        assertEq(txHash, resignTxHash);
+
+        bytes memory signatures = abi.encodePacked(
+            _signSafeEncoded(owners[0], txHash), bytes32(uint256(uint160(owner))), bytes32(0), uint8(1)
+        );
+        guard.enqueue(
+            address(safe), 0, data, Operation.Call, 0, 0, 0, address(0), payable(address(0)), safe.nonce(), signatures
+        );
+
+        vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
+
+        vm.expectEmit(true, true, true, true, address(safe));
+        emit ISafe.ExecutionSuccess(txHash, 0);
+        safe.execTransaction(
+            address(safe), 0, data, Operation.Call, 0, 0, 0, address(0), payable(address(0)), signatures
+        );
+
+        assertFalse(safe.isOwner(owner));
     }
 
     function testUnlockHappyPath() external {
