@@ -21,7 +21,12 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract TaikoSettlerIntent is SettlerIntent, TaikoSettlerMetaTxn {
     constructor(bytes20 gitCommit) TaikoSettlerMetaTxn(gitCommit) {}
 
-    function _operator() internal view override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent) returns (address) {
+    function _operator()
+        internal
+        view
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent)
+        returns (address)
+    {
         return SettlerIntent._operator();
     }
 

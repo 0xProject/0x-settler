@@ -22,7 +22,12 @@ import {uint512} from "../../utils/512Math.sol";
 contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
     constructor(bytes20 gitCommit) ScrollSettlerMetaTxn(gitCommit) {}
 
-    function _operator() internal view override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent) returns (address) {
+    function _operator()
+        internal
+        view
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent)
+        returns (address)
+    {
         return SettlerIntent._operator();
     }
 

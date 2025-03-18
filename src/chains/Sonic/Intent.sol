@@ -21,7 +21,12 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract SonicSettlerIntent is SettlerIntent, SonicSettlerMetaTxn {
     constructor(bytes20 gitCommit) SonicSettlerMetaTxn(gitCommit) {}
 
-    function _operator() internal view override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent) returns (address) {
+    function _operator()
+        internal
+        view
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent)
+        returns (address)
+    {
         return SettlerIntent._operator();
     }
 
