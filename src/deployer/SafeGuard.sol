@@ -198,6 +198,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         bytes signatures
     );
     event SafeTransactionCanceled(bytes32 indexed txHash, address indexed canceledBy);
+    event ResignTxHash(bytes32 indexed txHash);
     event LockDown(address indexed lockedDownBy, bytes32 indexed unlockTxHash);
     event Unlocked();
 
@@ -601,7 +602,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         if (lockedDownBy != address(0)) {
             nonce++;
         }
-        _requirePreApproved(_removeOwnerTxHash(safe.getPrevOwner(msg.sender), msg.sender, safe.getThreshold(), nonce));
+        bytes32 resignHash = _removeOwnerTxHash(safe.getPrevOwner(msg.sender), msg.sender, safe.getThreshold(), nonce);
+        _requirePreApproved(resignHash);
 
         uint256 _timelockEnd = timelockEnd[txHash];
         if (_timelockEnd == 0) {
@@ -611,22 +613,26 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
             revert TimelockElapsed(txHash, _timelockEnd);
         }
         timelockEnd[txHash] = type(uint256).max;
+        emit ResignTxHash(resignHash);
         emit SafeTransactionCanceled(txHash, msg.sender);
     }
 
     function lockDown() external normalOperation onlyOwner {
+        bytes32 txHash = unlockTxHash();
+        _requirePreApproved(txHash);
+
         address prevOwner = safe.getPrevOwner(msg.sender);
         uint256 threshold = safe.getThreshold();
         uint256 nonce = safe.nonce();
         if (safe.approvedHashes(msg.sender, _removeOwnerTxHash(prevOwner, msg.sender, threshold, nonce))) {
             nonce++;
-            _requirePreApproved(_removeOwnerTxHash(prevOwner, msg.sender, threshold, nonce));
+            bytes32 resignHash = _removeOwnerTxHash(prevOwner, msg.sender, threshold, nonce);
+            _requirePreApproved(resignHash);
+            emit ResignTxHash(resignHash);
         }
-        bytes32 txHash = unlockTxHash();
-        _requirePreApproved(txHash);
 
-        emit LockDown(msg.sender, txHash);
         lockedDownBy = msg.sender;
+        emit LockDown(msg.sender, txHash);
     }
 
     function unlock() external onlySafe {
