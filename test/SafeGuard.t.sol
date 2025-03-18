@@ -84,6 +84,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
         bytes signatures
     );
     event SafeTransactionCanceled(bytes32 indexed txHash, address indexed canceledBy);
+    event ResignTxHash(bytes32 indexed txHash);
     event LockDown(address indexed lockedDownBy, bytes32 indexed unlockTxHash);
     event Unlocked();
 
@@ -97,10 +98,13 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     error NotQueued(bytes32 txHash);
     error LockedDown(address lockedDownBy);
     error NotLockedDown();
-    error UnlockHashNotApproved(bytes32 txHash);
     error UnexpectedUpgrade(address newSingleton);
     error Reentrancy();
     error ModuleInstalled(address module);
+    error NotEnoughOwners(uint256 ownerCount);
+    error ThresholdTooLow(uint256 threshold);
+    error NotUnanimous(bytes32 txHash);
+    error TxHashNotApproved(bytes32 txHash);
 
     function timelockEnd(bytes32) external view returns (uint256);
     function lockedDownBy() external view returns (address);
@@ -122,6 +126,8 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     ) external;
 
     function setDelay(uint24) external;
+
+    function resignTxHash(address owner) external view returns (bytes32);
 
     function cancel(bytes32 txHash) external;
 
@@ -362,16 +368,20 @@ contract TestSafeGuard is Test {
             bytes memory signatures
         ) = _enqueuePoke();
 
-        bytes32 unlockTxHash = guard.unlockTxHash();
+        address owner = owners[owners.length - 1].addr;
 
-        vm.startPrank(owners[owners.length - 1].addr);
+        bytes32 resignTxHash = guard.resignTxHash(owner);
+
+        vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true, address(safe));
-        emit ISafe.ApproveHash(unlockTxHash, owners[4].addr);
-        safe.approveHash(unlockTxHash);
+        emit ISafe.ApproveHash(resignTxHash, owner);
+        safe.approveHash(resignTxHash);
 
         vm.expectEmit(true, true, true, true, address(guard));
-        emit IZeroExSettlerDeployerSafeGuard.SafeTransactionCanceled(txHash, owners[4].addr);
+        emit IZeroExSettlerDeployerSafeGuard.ResignTxHash(resignTxHash);
+        vm.expectEmit(true, true, true, true, address(guard));
+        emit IZeroExSettlerDeployerSafeGuard.SafeTransactionCanceled(txHash, owner);
         guard.cancel(txHash);
 
         vm.stopPrank();
@@ -391,11 +401,11 @@ contract TestSafeGuard is Test {
     function testCancelNoApprove() external {
         (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
 
-        bytes32 unlockTxHash = guard.unlockTxHash();
+        bytes32 resignTxHash = guard.resignTxHash(owners[4].addr);
 
         vm.prank(owners[4].addr);
         vm.expectRevert(
-            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.UnlockHashNotApproved.selector, unlockTxHash)
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, resignTxHash)
         );
         guard.cancel(txHash);
     }
@@ -586,7 +596,7 @@ contract TestSafeGuard is Test {
             uint8(1)
         );
 
-        vm.expectRevert("GS020");
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.NotUnanimous.selector, unlockTxHash));
         safe.execTransaction(
             unlockTo,
             unlockValue,
