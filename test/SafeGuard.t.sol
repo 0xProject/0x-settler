@@ -463,7 +463,9 @@ contract TestSafeGuard is Test {
 
         vm.prank(owners[4].addr);
 
-        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, unlockTxHash));
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, unlockTxHash)
+        );
         guard.lockDown();
     }
 
@@ -485,7 +487,9 @@ contract TestSafeGuard is Test {
         assertNotEq(resignTxHash, newResignTxHash);
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, newResignTxHash));
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, newResignTxHash)
+        );
         guard.lockDown();
     }
 
