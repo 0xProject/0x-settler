@@ -458,6 +458,37 @@ contract TestSafeGuard is Test {
         );
     }
 
+    function testLockDownNoUnlock() external {
+        bytes32 unlockTxHash = guard.unlockTxHash();
+
+        vm.prank(owners[4].addr);
+
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, unlockTxHash));
+        guard.lockDown();
+    }
+
+    function testLockDownNoCancel() external {
+        (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
+
+        address owner = owners[4].addr;
+
+        bytes32 resignTxHash = guard.resignTxHash(owner);
+        bytes32 unlockTxHash = guard.unlockTxHash();
+
+        vm.startPrank(owner);
+        safe.approveHash(resignTxHash);
+        guard.cancel(txHash);
+        safe.approveHash(unlockTxHash);
+        vm.stopPrank();
+
+        bytes32 newResignTxHash = guard.resignTxHash(owner);
+        assertNotEq(resignTxHash, newResignTxHash);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, newResignTxHash));
+        guard.lockDown();
+    }
+
     function testUnlockHappyPath() external {
         (
             address to,
