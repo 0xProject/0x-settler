@@ -489,6 +489,29 @@ contract TestSafeGuard is Test {
         guard.lockDown();
     }
 
+    function testLockDownWithCancel() external {
+        (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
+
+        address owner = owners[4].addr;
+
+        bytes32 resignTxHash = guard.resignTxHash(owner);
+        bytes32 unlockTxHash = guard.unlockTxHash();
+
+        vm.startPrank(owner);
+        safe.approveHash(resignTxHash);
+        guard.cancel(txHash);
+        safe.approveHash(unlockTxHash);
+        vm.stopPrank();
+
+        bytes32 newResignTxHash = guard.resignTxHash(owner);
+        assertNotEq(resignTxHash, newResignTxHash);
+
+        vm.startPrank(owner);
+        safe.approveHash(newResignTxHash);
+        guard.lockDown();
+        vm.stopPrank();
+    }
+
     function testUnlockHappyPath() external {
         (
             address to,
