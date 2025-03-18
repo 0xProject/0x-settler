@@ -21,6 +21,10 @@ import {Permit2PaymentBase, Permit2PaymentMetaTxn} from "../../core/Permit2Payme
 contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
     constructor(bytes20 gitCommit) BlastSettlerMetaTxn(gitCommit) {}
 
+    function _operator() internal view override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent) returns (address) {
+        return SettlerIntent._operator();
+    }
+
     function _msgSender() internal view override(SettlerIntent, BlastSettlerMetaTxn) returns (address) {
         return SettlerIntent._msgSender();
     }

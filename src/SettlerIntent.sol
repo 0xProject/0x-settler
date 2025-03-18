@@ -263,6 +263,10 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return Context._isForwarded(); // false
     }
 
+    function _operator() internal view virtual override(Permit2PaymentAbstract, Permit2PaymentMetaTxn) returns (address) {
+        return MultiCallContext._msgSender();
+    }
+
     function _msgSender()
         internal
         view

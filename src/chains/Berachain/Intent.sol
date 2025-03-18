@@ -21,6 +21,10 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract BerachainSettlerIntent is SettlerIntent, BerachainSettlerMetaTxn {
     constructor(bytes20 gitCommit) BerachainSettlerMetaTxn(gitCommit) {}
 
+    function _operator() internal view override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent) returns (address) {
+        return SettlerIntent._operator();
+    }
+
     function _msgSender() internal view override(SettlerIntent, BerachainSettlerMetaTxn) returns (address) {
         return SettlerIntent._msgSender();
     }

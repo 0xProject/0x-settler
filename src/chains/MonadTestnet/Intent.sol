@@ -21,6 +21,10 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract MonadTestnetSettlerIntent is SettlerIntent, MonadTestnetSettlerMetaTxn {
     constructor(bytes20 gitCommit) MonadTestnetSettlerMetaTxn(gitCommit) {}
 
+    function _operator() internal view override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent) returns (address) {
+        return SettlerIntent._operator();
+    }
+
     function _msgSender() internal view override(SettlerIntent, MonadTestnetSettlerMetaTxn) returns (address) {
         return SettlerIntent._msgSender();
     }

@@ -21,6 +21,10 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract AvalancheSettlerIntent is SettlerIntent, AvalancheSettlerMetaTxn {
     constructor(bytes20 gitCommit) AvalancheSettlerMetaTxn(gitCommit) {}
 
+    function _operator() internal view override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent) returns (address) {
+        return SettlerIntent._operator();
+    }
+
     function _msgSender() internal view override(SettlerIntent, AvalancheSettlerMetaTxn) returns (address) {
         return SettlerIntent._msgSender();
     }

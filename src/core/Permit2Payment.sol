@@ -395,7 +395,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         return permit.permitted.amount;
     }
 
-    function _operator() internal view override returns (address) {
+    function _operator() internal view virtual override returns (address) {
         return Context._msgSender();
     }
 
