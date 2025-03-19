@@ -263,16 +263,8 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return Context._isForwarded(); // false
     }
 
-    function _operator()
-        internal
-        view
-        virtual
-        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn)
-        returns (address)
-    {
-        return MultiCallContext._msgSender();
-    }
 
+    // Solidity inheritance is stupid
     function _msgSender()
         internal
         view
@@ -280,10 +272,9 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         override(Permit2PaymentMetaTxn, SettlerMetaTxn, MultiCallContext)
         returns (address)
     {
-        return SettlerMetaTxn._msgSender();
+        return super._msgSender();
     }
 
-    // Solidity inheritance is stupid
     function _msgData()
         internal
         view

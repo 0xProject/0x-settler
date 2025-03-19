@@ -21,19 +21,6 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract WorldChainSettlerIntent is SettlerIntent, WorldChainSettlerMetaTxn {
     constructor(bytes20 gitCommit) WorldChainSettlerMetaTxn(gitCommit) {}
 
-    function _operator()
-        internal
-        view
-        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, SettlerIntent)
-        returns (address)
-    {
-        return SettlerIntent._operator();
-    }
-
-    function _msgSender() internal view override(SettlerIntent, WorldChainSettlerMetaTxn) returns (address) {
-        return SettlerIntent._msgSender();
-    }
-
     // Solidity inheritance is stupid
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
@@ -59,6 +46,10 @@ contract WorldChainSettlerIntent is SettlerIntent, WorldChainSettlerMetaTxn {
 
     function _msgData() internal view override(AbstractContext, Context, SettlerIntent) returns (bytes calldata) {
         return super._msgData();
+    }
+
+    function _msgSender() internal view override(SettlerIntent, WorldChainSettlerMetaTxn) returns (address) {
+        return super._msgSender();
     }
 
     function _witnessTypeSuffix()
