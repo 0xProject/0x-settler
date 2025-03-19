@@ -246,13 +246,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // installed in a Safe where these checks fail, the Safe is bricked. Once the Guard is
         // successfully deployed, the behavior ought to be sane, even in bizarre and outrageous
         // circumstances.
-        assert(safe.masterCopy() == _SINGLETON);
-        assert(!safe.isOwner(address(this)));
-        assert(safe.getGuard() == address(this));
-        {
-            (address[] memory modules,) = safe.getModulesPaginated(address(1), 1);
-            assert(modules.length == 0);
-        }
+        _checkAfterExecution(safe);
 
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         assert(msg.sender == _SAFE_SINGLETON_FACTORY);
@@ -440,6 +434,10 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
 
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
+        _checkAfterExecution(_safe);
+    }
+
+    function _checkAfterExecution(ISafeMinimal _safe) private {
         // The knowledge that the hardcoded `safe` address is computed using the `CREATE2` pattern
         // from trusted initcode (and a factory likewise deployed by trusted initcode) gives us a
         // pretty strong toehold of trust. We do not need to recheck this, ever. Furthermore,
