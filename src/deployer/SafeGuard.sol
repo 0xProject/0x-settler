@@ -238,6 +238,9 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
     constructor() {
+        assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
+        assert(msg.sender == _SAFE_SINGLETON_FACTORY);
+
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
         // deployed, with the exception of the installation and subsequent concealment of a
         // malicious Safe module. The author knows of no way to enforce that the Guard is installed
@@ -247,9 +250,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         // successfully deployed, the behavior ought to be sane, even in bizarre and outrageous
         // circumstances.
         _checkAfterExecution(safe);
-
-        assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
-        assert(msg.sender == _SAFE_SINGLETON_FACTORY);
+        assert(!_guardRemoved);
     }
 
     function setDelay(uint24 newDelay) external onlySafe {
