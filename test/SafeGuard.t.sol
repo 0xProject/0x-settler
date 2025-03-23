@@ -175,7 +175,10 @@ contract TestSafeGuard is Test {
         }
         vm.stopPrank();
 
-        bytes memory creationCode = bytes.concat(vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuard"), abi.encode(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51));
+        bytes memory creationCode = bytes.concat(
+            vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuard"),
+            abi.encode(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51)
+        );
         guard = IZeroExSettlerDeployerSafeGuard(
             AddressDerivation.deriveDeterministicContract(factory, bytes32(0), keccak256(creationCode))
         );
