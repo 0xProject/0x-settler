@@ -47,6 +47,8 @@ interface ISafe {
     event ApproveHash(bytes32 indexed approvedHash, address indexed owner);
 
     function isOwner(address) external view returns (bool);
+
+    function enableModule(address) external;
 }
 
 interface IGuard {
@@ -580,6 +582,60 @@ contract TestSafeGuard is Test {
         );
 
         assertFalse(safe.isOwner(owner));
+    }
+
+    function testInstallModule() external {
+        bytes memory data = abi.encodeCall(safe.enableModule, (address(this)));
+        bytes32 txHash = keccak256(
+            bytes.concat(
+                hex"1901",
+                keccak256(
+                    abi.encode(
+                        keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, safe
+                    )
+                ),
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                        ),
+                        safe,
+                        0 ether,
+                        keccak256(data),
+                        Operation.Call,
+                        0,
+                        0,
+                        0 gwei,
+                        address(0),
+                        payable(address(0)),
+                        safe.nonce()
+                    )
+                )
+            )
+        );
+
+        bytes memory signatures =
+            abi.encodePacked(_signSafeEncoded(owners[0], txHash), _signSafeEncoded(owners[1], txHash));
+
+        guard.enqueue(
+            address(safe),
+            0 ether,
+            data,
+            Operation.Call,
+            0,
+            0,
+            0 gwei,
+            address(0),
+            payable(address(0)),
+            safe.nonce(),
+            signatures
+        );
+        vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
+
+        vm.expectRevert(abi.encodeWithSignature("ModuleInstalled(address)", address(this)));
+        safe.execTransaction(
+            address(safe), 0 ether, data, Operation.Call, 0, 0, 0 gwei, address(0), payable(address(0)), signatures
+        );
     }
 
     function testUnlockHappyPath() external {
