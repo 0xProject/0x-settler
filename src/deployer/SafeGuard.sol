@@ -226,7 +226,7 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     bool private _reentrancyGuard;
     bool private _guardRemoved;
 
-    ISafeMinimal public constant safe = ISafeMinimal(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
+    ISafeMinimal public immutable safe;
     uint256 internal constant _MINIMUM_OWNERS = 3;
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
@@ -237,7 +237,8 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
-    constructor() {
+    constructor(ISafeMinimal safe_) {
+        safe = safe_;
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         assert(msg.sender == _SAFE_SINGLETON_FACTORY);
 
