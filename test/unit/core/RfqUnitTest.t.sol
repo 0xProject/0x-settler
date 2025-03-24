@@ -75,6 +75,24 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
         return super._msgSender();
     }
 
+    function _msgData()
+        internal
+        view
+        override(AbstractContext, Context, Permit2PaymentTakerSubmitted)
+        returns (bytes calldata)
+    {
+        return super._msgData();
+    }
+
+    function _isForwarded()
+        internal
+        view
+        override(AbstractContext, Context, Permit2PaymentTakerSubmitted)
+        returns (bool)
+    {
+        return super._isForwarded();
+    }
+
     function _isRestrictedTarget(address target)
         internal
         pure
