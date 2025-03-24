@@ -24,7 +24,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
 
-import {Context} from "../Context.sol";
+import {AbstractContext, Context} from "../Context.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 
 library TransientStorage {
@@ -167,7 +167,7 @@ library TransientStorage {
     }
 }
 
-abstract contract Permit2PaymentBase is SettlerAbstract {
+abstract contract Permit2PaymentBase is Context, SettlerAbstract {
     using Revert for bool;
 
     /// @dev Permit2 address
@@ -177,7 +177,11 @@ abstract contract Permit2PaymentBase is SettlerAbstract {
         return target == address(_PERMIT2);
     }
 
-    function _msgSender() internal view virtual override returns (address) {
+    function _operator() internal view virtual override returns (address) {
+        return super._msgSender();
+    }
+
+    function _msgSender() internal view virtual override(AbstractContext, Context) returns (address) {
         return TransientStorage.getPayer();
     }
 
@@ -275,6 +279,8 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     }
 }
 
+// DANGER: the order of the base contracts here is very significant for the use of `super` below
+// (and in derived contracts). Do not change this order.
 abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
@@ -317,20 +323,6 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
     }
 
-    function _operator() internal view override returns (address) {
-        return AllowanceHolderContext._msgSender();
-    }
-
-    function _msgSender()
-        internal
-        view
-        virtual
-        override(Permit2PaymentBase, AllowanceHolderContext)
-        returns (address)
-    {
-        return Permit2PaymentBase._msgSender();
-    }
-
     function _transferFrom(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
@@ -369,8 +361,29 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         revert();
         _;
     }
+
+    // Solidity inheritance is stupid
+    function _isForwarded() internal view virtual override(AbstractContext, Context, AllowanceHolderContext) returns (bool) {
+        return super._isForwarded();
+    }
+
+    function _msgData() internal view virtual override(AbstractContext, Context, AllowanceHolderContext) returns (bytes calldata) {
+        return super._msgData();
+    }
+
+    function _msgSender()
+        internal
+        view
+        virtual
+        override(AllowanceHolderContext, Permit2PaymentBase)
+        returns (address)
+    {
+        return super._msgSender();
+    }
 }
 
+// DANGER: the order of the base contracts here is very significant for the use of `super` below
+// (and in derived contracts). Do not change this order.
 abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     constructor() {
         assert(_hasMetaTxn());
@@ -393,14 +406,6 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         returns (uint256)
     {
         return permit.permitted.amount;
-    }
-
-    function _operator() internal view override returns (address) {
-        return Context._msgSender();
-    }
-
-    function _msgSender() internal view virtual override(Permit2PaymentBase, Context) returns (address) {
-        return Permit2PaymentBase._msgSender();
     }
 
     function _witnessTypeSuffix() internal pure virtual returns (string memory) {
@@ -446,6 +451,11 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         // It should not be possible for this check to revert because the very first thing that a
         // metatransaction does is spend the witness.
         TransientStorage.checkSpentWitness();
+    }
+
+    // Solidity inheritance is stupid
+    function _msgSender() internal view virtual override(Context, Permit2PaymentBase) returns (address) {
+        return super._msgSender();
     }
 }
 

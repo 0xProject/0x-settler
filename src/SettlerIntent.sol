@@ -18,7 +18,9 @@ import {IDeployer} from "./deployer/IDeployer.sol";
 import {Feature} from "./deployer/Feature.sol";
 import {IOwnable} from "./deployer/IOwnable.sol";
 
-abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCallContext {
+// DANGER: do not reorder the inheritance list here. You will get shocking and incorrect results
+// inside `MultiCallContext` if `super._msgSender` is `Permit2PaymentMetaTxn._msgSender`.
+abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, SettlerMetaTxn {
     bytes32 private constant _SOLVER_LIST_BASE_SLOT = 0x00000000000000000000000000000000e4441b0608054751d605e5c08a2210bf; // uint128(uint256(keccak256("SettlerIntentSolverList")) - 1)
     bytes32 private constant _SOLVER_LIST_START_SLOT =
         0x165458a486c543a8294bbc8a8476cd9020f962f9e80991591ef8c2860c5c5490; // keccak256(abi.encode(_SENTINEL_SOLVER, _SOLVER_LIST_BASE_SLOT))
@@ -261,6 +263,8 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
         return Context._isForwarded(); // false
     }
 
+
+    // Solidity inheritance is stupid
     function _msgSender()
         internal
         view
@@ -268,10 +272,9 @@ abstract contract SettlerIntent is Permit2PaymentIntent, SettlerMetaTxn, MultiCa
         override(Permit2PaymentMetaTxn, SettlerMetaTxn, MultiCallContext)
         returns (address)
     {
-        return SettlerMetaTxn._msgSender();
+        return super._msgSender();
     }
 
-    // Solidity inheritance is stupid
     function _msgData()
         internal
         view
