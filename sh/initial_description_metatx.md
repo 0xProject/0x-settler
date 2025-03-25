@@ -62,7 +62,7 @@ liquidity source that does not support typical
 This instance of `Settler` supports swaps where the submitting address is not
 the taker. This means that we must provide an alternative mechanism for
 authorizing a swap that ensures the signed-over metadata is not
-malleable. Metatransactions are faciliated by the `executeMetaTxn` entry point
+malleable. Metatransactions are facilitated by the `executeMetaTxn` entry point
 and use the "witness" functionality of `Permit2` to ensure that the taker's
 signature is over the tokens being sent _and_ the `bytes[]` actions that
 `Settler` will execute. `Permit2` combines all this together into a single
