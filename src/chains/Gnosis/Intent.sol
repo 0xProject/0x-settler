@@ -21,10 +21,6 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract GnosisSettlerIntent is SettlerIntent, GnosisSettlerMetaTxn {
     constructor(bytes20 gitCommit) GnosisSettlerMetaTxn(gitCommit) {}
 
-    function _msgSender() internal view override(SettlerIntent, GnosisSettlerMetaTxn) returns (address) {
-        return SettlerIntent._msgSender();
-    }
-
     // Solidity inheritance is stupid
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
@@ -50,6 +46,10 @@ contract GnosisSettlerIntent is SettlerIntent, GnosisSettlerMetaTxn {
 
     function _msgData() internal view override(AbstractContext, Context, SettlerIntent) returns (bytes calldata) {
         return super._msgData();
+    }
+
+    function _msgSender() internal view override(SettlerIntent, GnosisSettlerMetaTxn) returns (address) {
+        return super._msgSender();
     }
 
     function _witnessTypeSuffix()

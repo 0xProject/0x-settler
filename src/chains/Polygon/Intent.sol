@@ -21,10 +21,6 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract PolygonSettlerIntent is SettlerIntent, PolygonSettlerMetaTxn {
     constructor(bytes20 gitCommit) PolygonSettlerMetaTxn(gitCommit) {}
 
-    function _msgSender() internal view override(SettlerIntent, PolygonSettlerMetaTxn) returns (address) {
-        return SettlerIntent._msgSender();
-    }
-
     // Solidity inheritance is stupid
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
@@ -50,6 +46,10 @@ contract PolygonSettlerIntent is SettlerIntent, PolygonSettlerMetaTxn {
 
     function _msgData() internal view override(AbstractContext, Context, SettlerIntent) returns (bytes calldata) {
         return super._msgData();
+    }
+
+    function _msgSender() internal view override(SettlerIntent, PolygonSettlerMetaTxn) returns (address) {
+        return super._msgSender();
     }
 
     function _witnessTypeSuffix()
