@@ -122,42 +122,50 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 
 declare safe_address
-if [[ ${@: -1} = [Uu]pgrade ]] ; then
-    safe_address="$(get_config governance.upgradeSafe)"
-else
-    safe_address="$(get_config governance.deploymentSafe)"
-fi
+safe_address="$(get_config governance.upgradeSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
+. "$project_root"/sh/common_safe_deployer.sh
 
 declare signer
 IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
 declare -r signer
 
-. "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_wallet_type.sh
 
-declare old_owner
-old_owner="$1"
+declare -r -i feature="$1"
 shift
-old_owner="$(cast to-checksum "$old_owner")"
-declare -r old_owner
 
-declare new_owner
-new_owner="$1"
-shift
-new_owner="$(cast to-checksum "$new_owner")"
-declare -r new_owner
+declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
-declare prev_owner_addr
-prev_owner_addr="$(prev_owner "$old_owner")"
-declare -r prev_owner_addr
+function _compat_date {
+    declare -r datestring="$1"
+    shift
 
-declare -r swapOwner_sig='swapOwner(address,address,address)'
-declare swapOwner_call
-swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner_addr" "$old_owner" "$new_owner")"
-declare -r swapOwner_call
+    declare -r datefmt="$1"
+    shift
+
+    if date -d '1 second' &>/dev/null ; then
+        date -u -d "${datestring:8:4}-${datestring:0:2}-${datestring:2:2}T${datestring:4:2}:${datestring:6:2}:00-00:00" "$datefmt"
+    else
+        date -u -j "$datestring" "$datefmt"
+    fi
+}
+
+declare auth_deadline_datestring
+# one year from the start of this month
+# MMDDhhmmCCYY
+auth_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
+declare -r auth_deadline_datestring
+declare -i auth_deadline
+# convert to UNIX timestamp
+auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
+declare -r -i auth_deadline
+
+declare renew_authority_calldata
+renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" $auth_deadline)"
+declare -r renew_authority_calldata
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
@@ -176,14 +184,14 @@ gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 
 declare packed_signatures
-packed_signatures="$(retrieve_signatures replace_signer "$swapOwner_call" 0 "$safe_address")"
+packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
 declare -r packed_signatures
 
 # configure gas limit
 declare -r -a args=(
     "$safe_address" "$execTransaction_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-    "$safe_address" 0 "$swapOwner_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    "$(target 0)" 0 "$renew_authority_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
 )
 
 # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
@@ -197,3 +205,4 @@ if [[ $wallet_type = 'frame' ]] ; then
 else
     cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 fi
+

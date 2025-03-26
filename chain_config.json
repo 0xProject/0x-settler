@@ -6,7 +6,7 @@
     "isCancun": true,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
-    "minGasPriceGwei": 1,
+    "minGasPriceGwei": 10,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
@@ -257,7 +257,7 @@
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
-    "minGasPriceGwei": 1,
+    "minGasPriceGwei": 2,
     "safe": {
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",

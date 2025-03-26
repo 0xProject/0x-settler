@@ -458,7 +458,6 @@ contract MultiCallTest is Test {
         call_.value = 1 ether;
         call_.data = "Hello, World!";
 
-
         IMultiCall.Result[] memory result = multicall.multicall{value: 1 ether}(calls, contextdepth);
 
         assertEq(result.length, 1);
