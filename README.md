@@ -132,6 +132,14 @@ your integration.
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
   hardfork (Linea)
 
+### ERC2771 forwarding MultiCall address
+
+The ERC2771 forwarding `MultiCall` is deployed to
+`0x00000000000000CF9E3c5A26621af382fA17f24f` across all chains. You can hardcode
+this address in your integration. I have no idea why you would want to do that,
+but I guess it's a thing that you can do. The ERC2771 forwarding MultiCall is
+exclusively used by 0x's solvers for the `SettlerIntent` flavor of 0x Settler.
+
 ### Permit2 address
 
 Permit2 is deployed to `0x000000000022D473030F116dDEE9F6B43aC78BA3` across all
