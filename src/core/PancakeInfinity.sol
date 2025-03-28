@@ -6,9 +6,13 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Panic} from "../utils/Panic.sol";
+import {Ternary} from "../utils/Ternary.sol";
+
 import {TooMuchSlippage, ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
-import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
+import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 /// @dev Two `int128` values packed into a single `int256` where the upper 128 bits represent the amount0
 /// and the lower 128 bits represent the amount1.
@@ -57,7 +61,7 @@ interface IPancakeInfinityVault {
     function lock(bytes calldata data) external returns (bytes memory);
 }
 
-IPancakeInfinityVault VAULT = IPancakeInfinityVault(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+IPancakeInfinityVault constant VAULT = IPancakeInfinityVault(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
 
 /// @notice Interface for the callback executed when an address locks the vault
 interface IPancakeInfinityLockCallback {
@@ -122,8 +126,8 @@ interface IPancakeInfinityCLPoolManager is IPancakeInfinityPoolManager {
         returns (BalanceDelta delta);
 }
 
-IPancakeInfinityCLPoolManager CL_MANAGER = IPancakeInfinityCLPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
-
+IPancakeInfinityCLPoolManager constant CL_MANAGER =
+    IPancakeInfinityCLPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
 
 interface IPancakeInfinityBinPoolManager is IPancakeInfinityPoolManager {
     /// @notice Peform a swap to a pool
@@ -135,9 +139,13 @@ interface IPancakeInfinityBinPoolManager is IPancakeInfinityPoolManager {
         returns (BalanceDelta delta);
 }
 
-IPancakeInfinityBinPoolManager BIN_MANAGER = IPancakeInfinityBinPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+IPancakeInfinityBinPoolManager constant BIN_MANAGER =
+    IPancakeInfinityBinPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
 
 abstract contract PancakeInfinity is SettlerAbstract {
+    using UnsafeMath for uint256;
+    using UnsafeMath for int256;
+    using Ternary for bool;
     using CreditDebt for int256;
     using SafeTransferLib for IERC20;
     using NotesLib for NotesLib.Note;
@@ -185,8 +193,9 @@ abstract contract PancakeInfinity is SettlerAbstract {
             fills,
             amountOutMin
         );
-        bytes memory encodedBuyAmount =
-            _setOperatorAndCall(address(VAULT), data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback);
+        bytes memory encodedBuyAmount = _setOperatorAndCall(
+            address(VAULT), data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback
+        );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -218,8 +227,9 @@ abstract contract PancakeInfinity is SettlerAbstract {
             _isForwarded(),
             amountOutMin
         );
-        bytes memory encodedBuyAmount =
-            _setOperatorAndCall(address(VAULT), data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback);
+        bytes memory encodedBuyAmount = _setOperatorAndCall(
+            address(VAULT), data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback
+        );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -268,6 +278,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
     // 32 - parameters
     // 3 - hook data length
     uint256 private constant _HOP_DATA_LENGTH = 62;
+
+    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
     function lockAcquired(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -395,7 +407,10 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     delta = CL_MANAGER.swap(poolKey, swapParams, hookData);
                 } else if (uint256(poolManagerId) == 1) {
                     poolKey.poolManager = BIN_MANAGER;
-                    delta = BIN_MANAGER.swap(poolKey, zeroForOne, amountSpecified, hookData);
+                    if (amountSpecified >> 127 != amountSpecified >> 128) {
+                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                    }
+                    delta = BIN_MANAGER.swap(poolKey, zeroForOne, int128(amountSpecified), hookData);
                 } else {
                     revert UnknownPoolManagerId(poolManagerId);
                 }

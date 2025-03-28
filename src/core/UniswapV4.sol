@@ -8,8 +8,9 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Ternary} from "../utils/Ternary.sol";
 
-import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
+import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
 import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -18,6 +19,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
+    using Ternary for bool;
     using CreditDebt for int256;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note;

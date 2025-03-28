@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {TooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
@@ -28,6 +29,7 @@ interface IVelodromePair {
 
 abstract contract Velodrome is SettlerAbstract {
     using UnsafeMath for uint256;
+    using FastLogic for bool;
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
