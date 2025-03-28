@@ -386,7 +386,11 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     swapParams.zeroForOne = zeroForOne;
                     swapParams.amountSpecified = amountSpecified;
                     // TODO: price limits
-                    swapParams.sqrtPriceLimitX96 = zeroForOne.ternary(4295128740, 1461446703485210103287273052203988822378723970341);
+                    swapParams.sqrtPriceLimitX96 = uint160(
+                        zeroForOne.ternary(
+                            uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341)
+                        )
+                    );
 
                     delta = CL_MANAGER.swap(poolKey, swapParams, hookData);
                 } else if (uint256(poolManagerId) == 1) {
@@ -395,7 +399,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 } else {
                     revert UnknownPoolManagerId(poolManagerId);
                 }
-                (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
+                (int256 settledSellAmount, int256 settledBuyAmount) =
+                    zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
                 // Some insane hooks may increase the sell amount; obviously this may result in
                 // unavoidable reverts in some cases. But we still need to make sure that we don't
                 // underflow to avoid wildly unexpected behavior.

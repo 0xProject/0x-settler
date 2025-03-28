@@ -200,7 +200,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
                 )
         }
-        (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (buyToken, sellToken);
+        (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);
 
         uint256 packed;
         assembly ("memory-safe") {
@@ -296,12 +296,14 @@ abstract contract UniswapV4 is SettlerAbstract {
                 params.amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
             // TODO: price limits
-            params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+            params.sqrtPriceLimitX96 = uint160(
+                zeroForOne.ternary(uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341))
+            );
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
             {
                 (int256 settledSellAmount, int256 settledBuyAmount) =
-                    zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());
+                    zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
                 // Some insane hooks may increase the sell amount; obviously this may result in
                 // unavoidable reverts in some cases. But we still need to make sure that we don't
                 // underflow to avoid wildly unexpected behavior. The pool manager enforces that the

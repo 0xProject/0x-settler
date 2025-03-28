@@ -214,7 +214,7 @@ abstract contract Velodrome is SettlerAbstract {
             if (sellAmount != 0) {
                 sellToken.safeTransfer(address(pair), sellAmount);
             }
-            if (sellAmount == 0 || sellTokenHasFee) {
+            if ((sellAmount == 0).or(sellTokenHasFee)) {
                 sellAmount = sellToken.fastBalanceOf(address(pair)) - sellReserve;
             }
 
