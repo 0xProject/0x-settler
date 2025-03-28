@@ -162,8 +162,4 @@ abstract contract MainnetMixin is
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return MAINNET_POOL_MANAGER;
     }
-
-    function rebateClaimer() external view returns (address) {
-        return IOwnable(DEPLOYER).owner();
-    }
 }

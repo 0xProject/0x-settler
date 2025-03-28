@@ -385,4 +385,6 @@ abstract contract UniswapV4 is SettlerAbstract {
             return returndata;
         }
     }
+
+    address public constant rebateClaimer = 0x352650Ac2653508d946c4912B07895B22edd84CD; // an EOA owned by Scott
 }
