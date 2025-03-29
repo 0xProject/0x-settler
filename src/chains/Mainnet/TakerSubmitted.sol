@@ -77,7 +77,7 @@ contract MainnetSettler is Settler, MainnetMixin {
             );
 
             sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-        } else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
+        } /* else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
                 uint80 poolInfo,
@@ -87,7 +87,7 @@ contract MainnetSettler is Settler, MainnetMixin {
             ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
-        } else {
+        } */ else {
             return false;
         }
         return true;

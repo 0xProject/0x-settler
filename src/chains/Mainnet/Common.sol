@@ -6,7 +6,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../../core/MakerPSM.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
-import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
+// import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
@@ -52,7 +52,7 @@ abstract contract MainnetMixin is
     SettlerBase,
     MakerPSM,
     MaverickV2,
-    CurveTricrypto,
+    //CurveTricrypto,
     DodoV1,
     DodoV2,
     UniswapV4,
@@ -170,9 +170,11 @@ abstract contract MainnetMixin is
         }
     }
 
+    /*
     function _curveFactory() internal pure override returns (address) {
         return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
+    */
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return MAINNET_POOL_MANAGER;
