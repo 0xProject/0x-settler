@@ -5,7 +5,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
-import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
+// import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
@@ -49,7 +49,7 @@ abstract contract ArbitrumMixin is
     FreeMemory,
     SettlerBase,
     MaverickV2,
-    CurveTricrypto,
+    //CurveTricrypto,
     DodoV1,
     DodoV2,
     UniswapV4,
@@ -162,9 +162,11 @@ abstract contract ArbitrumMixin is
         }
     }
 
+    /*
     function _curveFactory() internal pure override returns (address) {
         return 0xbC0797015fcFc47d9C1856639CaE50D0e69FbEE8;
     }
+    */
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return ARBITRUM_POOL_MANAGER;

@@ -584,11 +584,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)
-                mstore(returndata, 0x60)
-                mstore(add(0x20, returndata), 0x20)
-                mstore(add(0x40, returndata), 0x20)
-                mstore(add(0x60, returndata), globalBuyAmount)
-                mstore(0x40, add(0x80, returndata))
+                mstore(returndata, 0x20)
+                mstore(add(0x20, returndata), globalBuyAmount)
+                mstore(0x40, add(0x40, returndata))
             }
             return returndata;
         }

@@ -70,3 +70,7 @@ error ZeroToken();
 ///         constant function when Newton-Raphson fails to converge on the solution in a
 ///         "reasonable" number of iterations.
 error NotConverged();
+
+/// @notice Thrown when the encoded pool manager ID as part of PancakeSwap Infinity fill is not on
+///         the list of recognized pool managers.
+error UnknownPoolManagerId(uint8 poolManagerId);

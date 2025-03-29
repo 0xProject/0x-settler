@@ -85,12 +85,6 @@ library UnsafeMath {
 }
 
 library Math {
-    function or(bool a, bool b) internal pure returns (bool c) {
-        assembly ("memory-safe") {
-            c := or(a, b)
-        }
-    }
-
     function inc(uint256 x, bool c) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := add(x, c)
