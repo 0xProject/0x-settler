@@ -39,6 +39,12 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* `RFQ_VIP` action is removed from all chains
+* `CURVE_TRICRYPTO_VIP` and `METATXN_CURVE_TRICRYPTO_VIP` actions are removed
+  from Mainnet and Arbitrum
+* `VELODROME` action is removed from Mainnet (it remains as default on all other
+  chains)
+
 ### Non-breaking changes
 
 * Fix a bug in the BalancerV3 action resulting in incorrect decoding of callback
