@@ -212,7 +212,7 @@ library UnsafePancakeInfinityBinPoolManager {
             mstore(add(0x20, ptr), token0)
             mcopy(add(0x40, ptr), add(0x20, key), 0xa0)
             mstore(add(0xe0, ptr), swapForY)
-            mstore(add(0x100, ptr), signextend(15, amountSpecified))
+            mstore(add(0x100, ptr), signextend(0x0f, amountSpecified))
             mstore(add(0x120, ptr), 0x120)
             mstore(add(0x140, ptr), hookData.length)
             calldatacopy(add(0x160, ptr), hookData.offset, hookData.length)
