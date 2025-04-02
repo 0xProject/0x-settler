@@ -116,6 +116,10 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
+        //// NOTICE: This function has been largely copy/paste'd into
+        //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
+        //// need to make sure that corresponding changes are made to that function.
+
         if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
