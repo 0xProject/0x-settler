@@ -164,7 +164,7 @@ library UnsafePancakeInfinityVault {
         }
     }
 
-    function unsafeSettle(IPancakeInfinityVault vault) internal returns (uint256 r) {
+    function unsafeSettle(IPancakeInfinityVault vault) internal returns (uint256) {
         return unsafeSettle(vault, 0);
     }
 }
