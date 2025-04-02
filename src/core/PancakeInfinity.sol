@@ -139,6 +139,92 @@ interface IPancakeInfinityBinPoolManager is IPancakeInfinityPoolManager {
         returns (BalanceDelta delta);
 }
 
+library UnsafePancakeInfinityVault {
+    function unsafeSync(IPancakeInfinityVault vault, IERC20 token) internal {
+        assembly ("memory-safe") {
+            mstore(0x14, token)
+            mstore(0x00, 0xa5841194000000000000000000000000) // selector for `sync(address)`
+            if iszero(call(gas(), vault, 0x00, 0x10, 0x24, 0x00, 0x00)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
+    }
+
+    function unsafeSettle(IPancakeInfinityVault vault, uint256 value) internal returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x11da60b4) // selector for `settle()`
+            if iszero(call(gas(), vault, value, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+        }
+    }
+
+    function unsafeSettle(IPancakeInfinityVault vault) internal returns (uint256 r) {
+        return unsafeSettle(vault, 0);
+    }
+}
+
+library UnsafePancakeInfinityPoolManager {
+    function unsafeSwap(
+        IPancakeInfinityCLPoolManager poolManager,
+        PoolKey memory key,
+        IPancakeInfinityCLPoolManager.SwapParams memory params,
+        bytes calldata hookData
+    ) internal returns (BalanceDelta r) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x1b13f906) // selector for `swap((address,address,address,address,uint24,int24),(bool,int256,uint160),bytes)`
+            let token0 := mload(key)
+            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
+            mstore(add(0x20, ptr), token0)
+            mcopy(add(0x40, ptr), add(0x20, key), 0xA0)
+            mcopy(add(0xe0, ptr), params, 0x60)
+            mstore(add(0x140, ptr), 0x140)
+            mstore(add(0x160, ptr), hookData.length)
+            calldatacopy(add(0x180, ptr), hookData.offset, hookData.length)
+            if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), add(0x164, hookData.length), 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+        }
+    }
+}
+
+library UnsafePancakeInfinityBinPoolManager {
+    function unsafeSwap(
+        IPancakeInfinityBinPoolManager poolManager,
+        PoolKey memory key,
+        bool swapForY,
+        int128 amountSpecified,
+        bytes calldata hookData
+    ) internal returns (BalanceDelta r) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0xa2db9d60) // selector for `swap((address,address,address,address,uint24,int24),bool,int128,bytes)`
+            let token0 := mload(key)
+            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
+            mstore(add(0x20, ptr), token0)
+            mcopy(add(0x40, ptr), add(0x20, key), 0xA0)
+            mstore(add(0xe0, ptr), swapForY)
+            mstore(add(0x100, ptr), amountSpecified)
+            mstore(add(0x120, ptr), 0x120)
+            mstore(add(0x140, ptr), hookData.length)
+            calldatacopy(add(0x160, ptr), hookData.offset, hookData.length)
+            if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), add(0x164, hookData.length), 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+        }
+    }
+}
+
 IPancakeInfinityBinPoolManager constant BIN_MANAGER =
     IPancakeInfinityBinPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
 
@@ -151,6 +237,9 @@ abstract contract PancakeInfinity is SettlerAbstract {
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
     using StateLib for StateLib.State;
+    using UnsafePancakeInfinityVault for IPancakeInfinityVault;
+    using UnsafePancakeInfinityPoolManager for IPancakeInfinityCLPoolManager;
+    using UnsafePancakeInfinityBinPoolManager for IPancakeInfinityBinPoolManager;
 
     constructor() {
         assert(BASIS == Encoder.BASIS);
@@ -247,7 +336,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
         bool isForwarded,
         bytes calldata sig
     ) private returns (uint256) {
-        IPancakeInfinityVault(msg.sender).sync(sellToken);
+        IPancakeInfinityVault(msg.sender).unsafeSync(sellToken);
         if (payer == address(this)) {
             sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
@@ -256,7 +345,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         }
-        return IPancakeInfinityVault(msg.sender).settle();
+        return IPancakeInfinityVault(msg.sender).unsafeSettle();
     }
 
     function _pancakeInfinityCallback(bytes calldata data) private returns (bytes memory) {
@@ -404,13 +493,13 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         )
                     );
 
-                    delta = CL_MANAGER.swap(poolKey, swapParams, hookData);
+                    delta = CL_MANAGER.unsafeSwap(poolKey, swapParams, hookData);
                 } else if (uint256(poolManagerId) == 1) {
                     poolKey.poolManager = BIN_MANAGER;
                     if (amountSpecified >> 127 != amountSpecified >> 128) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    delta = BIN_MANAGER.swap(poolKey, zeroForOne, int128(amountSpecified), hookData);
+                    delta = BIN_MANAGER.unsafeSwap(poolKey, zeroForOne, int128(amountSpecified), hookData);
                 } else {
                     revert UnknownPoolManagerId(poolManagerId);
                 }
@@ -463,8 +552,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     revert ZeroSellAmount(globalSellToken);
                 }
                 if (globalSellToken == ETH_ADDRESS) {
-                    IPancakeInfinityVault(msg.sender).sync(IERC20(address(0)));
-                    IPancakeInfinityVault(msg.sender).settle{value: debt}();
+                    IPancakeInfinityVault(msg.sender).unsafeSync(IERC20(address(0)));
+                    IPancakeInfinityVault(msg.sender).unsafeSettle(debt);
                 } else {
                     _pancakeInfinityPay(globalSellToken, payer, debt, permit, isForwarded, sig);
                 }
