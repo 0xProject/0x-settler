@@ -247,16 +247,47 @@ abstract contract PancakeInfinity is SettlerAbstract {
         assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
     }
 
-    // fill encoding musings:
-    //     bps (2 bytes)
-    //     packing key (1 byte)
-    //     sell/buy tokens (0, 20, or 40 bytes)
-    //     hook (20 bytes)
-    //     pool manager ID (1 byte)
-    //     fee (3 bytes)
-    //     parameters (32 bytes)
-    //     hook data length (3 bytes)
-    //     hook data (arbitrary)
+    //// How to generate `fills` for Pancake Infinity:
+    ////
+    //// Linearize your DAG of fills by doing a topological sort on the tokens involved. In the
+    //// topological sort of tokens, when there is a choice of the next token, break ties by
+    //// preferring a token if it is the lexicographically largest token that is bought among fills
+    //// with sell token equal to the previous token in the topological sort. Then sort the fills
+    //// belonging to each sell token by their buy token. This technique isn't *quite* optimal, but
+    //// it's pretty close. The buy token of the final fill is special-cased. It is the token that
+    //// will be transferred to `recipient` and have its slippage checked against `amountOutMin`. In
+    //// the event that you are encoding a series of fills with more than one output token, ensure
+    //// that at least one of the global buy token's fills is positioned appropriately.
+    ////
+    //// Take care to note that while Pancake Infinity represents the native asset of the chain as
+    //// the address of all zeroes, Settler represents this as the address of all `e`s. You must use
+    //// Settler's representation. The conversion is performed by Settler before making calls to
+    //// Pancake Infinity.
+    ////
+    //// Now that you have a list of fills, encode each fill as follows.
+    //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
+    //// running balance at the moment that the fill is settled.
+    //// Second, encode the packing key for that fill as 1 byte. The packing key byte depends on the
+    //// tokens involved in the previous fill. The packing key for the first fill must be 1;
+    //// i.e. encode only the buy token for the first fill.
+    ////   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
+    ////   1 -> sell token remains unchanged from the previous fill, buy token is encoded (diamond multiplex)
+    ////   2 -> sell token becomes the buy token from the previous fill, new buy token is encoded (multihop)
+    ////   3 -> both sell and buy token are encoded
+    //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
+    //// as appropriate.
+    //// The remaining fields of the fill are mandatory.
+    //// Third, encode the hook address as 20 bytes
+    //// Fourth, encode the identity of the pool manager for this fill as 1 byte
+    ////   0 -> discontinuous-liquidity constant-product (UniV3-like) AKA CL
+    ////   1 -> constant-sum (LFJ Liquidity Book -like) AKA Bin
+    //// Fifth, encode the pool fee as 3 bytes
+    //// Sixth, encode the pool parameters according to the semantics of the selected pool manager,
+    //// as 32 bytes
+    //// Seventh, encode the hook data for the fill. Encode the length of the hook data as 3 bytes,
+    //// then append the hook data itself.
+    ////
+    //// Repeat the process for each fill and concatenate the results without padding.
 
     function sellToPancakeInfinity(
         address recipient,
