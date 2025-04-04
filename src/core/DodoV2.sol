@@ -20,7 +20,7 @@ library FastDodoV2 {
         assembly ("memory-safe") {
             mstore(0x14, addr)
             mstore(0x00, shl(0x60, selector))
-            if iszero(call(gas(), dodo, 0x00, 0x10, 0x24, 0x00, 0x24)) {
+            if iszero(call(gas(), dodo, 0x00, 0x10, 0x24, 0x00, 0x20)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
