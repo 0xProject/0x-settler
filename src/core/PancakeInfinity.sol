@@ -447,7 +447,6 @@ abstract contract PancakeInfinity is SettlerAbstract {
             }
 
             data = Decoder.updateState(state, notes, data);
-            // TODO: check the sign convention
             int256 amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
             bool zeroForOne;
             {
