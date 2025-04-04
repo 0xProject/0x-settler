@@ -203,6 +203,16 @@ library StateLib {
         state._hashMod = hashMod;
     }
 
+    function checkZeroSellAmount(State memory state) internal pure {
+        NotesLib.Note memory globalSell = state.globalSell;
+        if (globalSell.amount == 0) {
+            assembly ("memory-safe") {
+                mstore(globalSell, 0xfb772a88) // selector for `ZeroSellAmount(address)`; clobbers `globalSell.amount`
+                revert(add(0x1c, globalSell), 0x24)
+            }
+        }
+    }
+
     function setSell(State memory state, NotesLib.NotePtr notePtr) private pure {
         assembly ("memory-safe") {
             mstore(add(0x20, state), notePtr)
