@@ -266,9 +266,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             state.globalSell.amount =
                 _pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
         }
-        if (state.globalSell.amount == 0) {
-            revert ZeroSellAmount(state.globalSell.token);
-        }
+        state.checkZeroSellAmount();
         state.globalSellAmount = state.globalSell.amount;
         data = newData;
 
@@ -349,7 +347,11 @@ abstract contract UniswapV4 is SettlerAbstract {
                     debt = state.globalSellAmount - globalSellAmount;
                 }
                 if (debt == 0) {
-                    revert ZeroSellAmount(globalSellToken);
+                    assembly ("memory-safe") {
+                        mstore(0x14, globalSellToken)
+                        mstore(0x00, 0xfb772a88000000000000000000000000) // selector for `ZeroSellAmount(address)` with `globalSellToken`'s padding
+                        revert(0x10, 0x24)
+                    }
                 }
                 if (globalSellToken == ETH_ADDRESS) {
                     IPoolManager(msg.sender).unsafeSync(IERC20(address(0)));
