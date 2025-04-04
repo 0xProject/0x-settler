@@ -3,8 +3,9 @@ pragma solidity ^0.8.25;
 
 import {Script} from "@forge-std/Script.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {Create3} from "src/utils/Create3.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
-import {Deployer, Feature} from "src/deployer/Deployer.sol";
+import {Deployer, Feature, Nonce, salt} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {SafeConfig} from "./SafeConfig.sol";
 
@@ -155,10 +156,13 @@ contract DeploySafes is Script {
         address safeMulticall,
         Feature takerSubmittedFeature,
         Feature metaTxFeature,
+        Feature intentFeature,
         string calldata initialDescriptionTakerSubmitted,
         string calldata initialDescriptionMetaTx,
+        string calldata initialDescriptionIntent,
         string calldata chainDisplayName,
-        bytes calldata constructorArgs
+        bytes calldata constructorArgs,
+        address[] calldata solvers
     ) public {
         require(address(safeFactory).codehash == factoryHash, "Safe factory codehash");
         require(safeSingleton.codehash == singletonHash, "Safe singleton codehash");
@@ -167,6 +171,7 @@ contract DeploySafes is Script {
 
         require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
         require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");
+        require(Feature.unwrap(intentFeature) == 4, "wrong intents feature (tokenId)");
 
         uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
         uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
@@ -248,18 +253,36 @@ contract DeploySafes is Script {
             )
         );
 
+        bytes memory intentSetDescriptionCall =
+            abi.encodeCall(Deployer.setDescription, (intentFeature, initialDescriptionIntent));
+        bytes memory intentAuthorizeCall =
+            abi.encodeCall(Deployer.authorize, (intentFeature, deploymentSafe, uint40(block.timestamp + 365 days)));
+        bytes memory intentDeployCall = abi.encodeCall(
+            Deployer.deploy,
+            (
+                intentFeature,
+                bytes.concat(
+                    vm.getCode(string.concat(chainDisplayName, "IntentFlat.sol:", chainDisplayName, "SettlerIntent")),
+                    constructorArgs
+                )
+            )
+        );
+        address predictedIntentSettler = Create3.predict(salt(intentFeature, Nonce.wrap(1)), deployerProxy);
+
         address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
         bytes[] memory changeOwnersCalls =
             _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
         assert(changeOwnersCalls.length == upgradeOwners.length + 1);
-        bytes[] memory upgradeSetupCalls = new bytes[](5 + changeOwnersCalls.length);
+        bytes[] memory upgradeSetupCalls = new bytes[](7 + changeOwnersCalls.length);
         upgradeSetupCalls[0] = _encodeMultisend(deployerProxy, acceptOwnershipCall);
         upgradeSetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedSetDescriptionCall);
         upgradeSetupCalls[2] = _encodeMultisend(deployerProxy, takerSubmittedAuthorizeCall);
         upgradeSetupCalls[3] = _encodeMultisend(deployerProxy, metaTxSetDescriptionCall);
         upgradeSetupCalls[4] = _encodeMultisend(deployerProxy, metaTxAuthorizeCall);
+        upgradeSetupCalls[5] = _encodeMultisend(deployerProxy, intentSetDescriptionCall);
+        upgradeSetupCalls[6] = _encodeMultisend(deployerProxy, intentAuthorizeCall);
         for (uint256 i; i < changeOwnersCalls.length; i++) {
-            upgradeSetupCalls[i + 5] = changeOwnersCalls[i];
+            upgradeSetupCalls[i + 7] = changeOwnersCalls[i];
         }
         bytes memory upgradeSetupCall = _encodeMultisend(upgradeSetupCalls);
 
@@ -267,12 +290,24 @@ contract DeploySafes is Script {
         changeOwnersCalls =
             _encodeChangeOwners(deploymentSafe, SafeConfig.deploymentSafeThreshold, moduleDeployer, deployerOwners);
         assert(changeOwnersCalls.length == deployerOwners.length + 1);
-        bytes[] memory deploySetupCalls = new bytes[](3 + changeOwnersCalls.length);
+        bytes[] memory deploySetupCalls = new bytes[](4 + solvers.length + changeOwnersCalls.length);
         deploySetupCalls[0] = _encodeMultisend(deploymentSafe, addModuleCall);
         deploySetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedDeployCall);
         deploySetupCalls[2] = _encodeMultisend(deployerProxy, metaTxDeployCall);
+        deploySetupCalls[3] = _encodeMultisend(deployerProxy, intentDeployCall);
+        {
+            address prevSolver = 0x0000000000000000000000000000000000000001;
+            for (uint256 i; i < solvers.length; i++) {
+                address solver = solvers[i];
+                deploySetupCalls[i + 4] = _encodeMultisend(
+                    predictedIntentSettler,
+                    abi.encodeWithSignature("setSolver(address,address,bool)", prevSolver, solver, true)
+                );
+                prevSolver = solver;
+            }
+        }
         for (uint256 i; i < changeOwnersCalls.length; i++) {
-            deploySetupCalls[i + 3] = changeOwnersCalls[i];
+            deploySetupCalls[i + 4 + solvers.length] = changeOwnersCalls[i];
         }
         bytes memory deploySetupCall = _encodeMultisend(deploySetupCalls);
 
@@ -338,6 +373,10 @@ contract DeploySafes is Script {
         require(deployedDeployerProxy == deployerProxy, "deployer proxy predicted mismatch");
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer not owned by upgrade safe");
         require(
+            Deployer(deployerProxy).ownerOf(Feature.unwrap(intentFeature)) == predictedIntentSettler,
+            "predicted intent settler address mismatch"
+        );
+        require(
             keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
                 == keccak256(abi.encodePacked(deployerOwners)),
             "deployment safe owners mismatch"
@@ -347,5 +386,15 @@ contract DeploySafes is Script {
                 == keccak256(abi.encodePacked(upgradeOwners)),
             "upgrade safe owners mismatch"
         );
+        {
+            (bool success, bytes memory returndata) =
+                predictedIntentSettler.staticcall(abi.encodeWithSignature("getSolvers()"));
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(0x20, returndata), mload(returndata))
+                }
+            }
+            require(keccak256(returndata) == keccak256(abi.encode(solvers)), "solvers/`getSolvers()` mismatch");
+        }
     }
 }
