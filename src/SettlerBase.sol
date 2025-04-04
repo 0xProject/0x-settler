@@ -18,7 +18,7 @@ import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {TooMuchSlippage} from "./core/SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
 
 /// @dev This library's ABIDeocding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
@@ -103,13 +103,13 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         if (buyToken == ETH_ADDRESS) {
             uint256 amountOut = address(this).balance;
             if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
             }
             payable(recipient).safeTransferETH(amountOut);
         } else {
             uint256 amountOut = buyToken.fastBalanceOf(address(this));
             if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
             }
             buyToken.safeTransfer(recipient, amountOut);
         }

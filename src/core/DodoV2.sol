@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
@@ -37,12 +37,12 @@ abstract contract DodoV2 is SettlerAbstract {
         if (quoteForBase) {
             buyAmount = dodo.sellQuote(recipient);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(dodo._BASE_TOKEN_(), minBuyAmount, buyAmount);
+                revertTooMuchSlippage(dodo._BASE_TOKEN_(), minBuyAmount, buyAmount);
             }
         } else {
             buyAmount = dodo.sellBase(recipient);
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(dodo._QUOTE_TOKEN_(), minBuyAmount, buyAmount);
+                revertTooMuchSlippage(dodo._QUOTE_TOKEN_(), minBuyAmount, buyAmount);
             }
         }
     }

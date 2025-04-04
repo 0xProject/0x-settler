@@ -10,7 +10,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import {ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
@@ -490,9 +490,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             state.globalSell.amount =
                 _balV3Pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
         }
-        if (state.globalSell.amount == 0) {
-            revert ZeroSellAmount(state.globalSell.token);
-        }
+        state.checkZeroSellAmount();
         state.globalSellAmount = state.globalSell.amount;
         data = newData;
 
@@ -576,7 +574,11 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                     debt = state.globalSellAmount - globalSellAmount;
                 }
                 if (debt == 0) {
-                    revert ZeroSellAmount(globalSellToken);
+                    assembly ("memory-safe") {
+                        mstore(0x14, globalSellToken)
+                        mstore(0x00, 0xfb772a88000000000000000000000000) // selector for `ZeroSellAmount(address)` with `globalSellToken`'s padding
+                        revert(0x10, 0x24)
+                    }
                 }
                 _balV3Pay(globalSellToken, payer, debt, permit, isForwarded, sig);
             }

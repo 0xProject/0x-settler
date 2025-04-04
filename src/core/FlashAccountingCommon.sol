@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
 
 /// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
 /// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
@@ -201,6 +201,16 @@ library StateLib {
         }
         state._hashMul = hashMul;
         state._hashMod = hashMod;
+    }
+
+    function checkZeroSellAmount(State memory state) internal pure {
+        NotesLib.Note memory globalSell = state.globalSell;
+        if (globalSell.amount == 0) {
+            assembly ("memory-safe") {
+                mstore(globalSell, 0xfb772a88) // selector for `ZeroSellAmount(address)`; clobbers `globalSell.amount`
+                revert(add(0x1c, globalSell), 0x24)
+            }
+        }
     }
 
     function setSell(State memory state, NotesLib.NotePtr notePtr) private pure {
@@ -409,7 +419,11 @@ library Decoder {
 
             state.setBuy(notes, buyToken);
             if (state.buy.eq(state.globalSell)) {
-                revert BoughtSellToken(state.globalSell.token);
+                assembly ("memory-safe") {
+                    let ptr := mload(add(0x40, state)) // dereference `state.globalSell`
+                    mstore(ptr, 0x784cb7b8) // selector for `BoughtSellToken(address)`; clobbers `state.globalSell.amount`
+                    revert(add(0x1c, ptr), 0x24)
+                }
             }
         }
 
@@ -652,7 +666,7 @@ library Take {
             IERC20 buyToken = state.buy.token;
             buyAmount = state.buy.amount;
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+                revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
             _callSelector(selector, buyToken, recipient, buyAmount);
         }
