@@ -16,10 +16,10 @@ interface IDodoV2 {
 }
 
 library FastDodoV2 {
-    function fastSellBase(IDodoV2 dodo, address to) internal returns (uint256 receiveQuoteAmount) {
+    function _callAddressReturnUint(IDodoV2 dodo, uint256 selector, address addr) private returns (uint256 r) {
         assembly ("memory-safe") {
-            mstore(0x14, to)
-            mstore(0x00, 0xbd6015b4000000000000000000000000) // selector for `sellBase(address)` with `to`'s padding
+            mstore(0x14, addr)
+            mstore(0x00, shl(0x60, selector))
             if iszero(call(gas(), dodo, 0x00, 0x10, 0x24, 0x00, 0x24)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -27,23 +27,16 @@ library FastDodoV2 {
             }
             if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
 
-            receiveQuoteAmount := mload(0x00)
+            r := mload(0x00)
         }
     }
 
-    function fastSellQuote(IDodoV2 dodo, address to) internal returns (uint256 receiveBaseAmount) {
-        assembly ("memory-safe") {
-            mstore(0x14, to)
-            mstore(0x00, 0xdd93f59a000000000000000000000000) // selector for `sellQuote(address)` with `to`'s padding
-            if iszero(call(gas(), dodo, 0x00, 0x10, 0x24, 0x00, 0x24)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
+    function fastSellBase(IDodoV2 dodo, address to) internal returns (uint256 receiveQuoteAmount) {
+        return _callAddressReturnUint(dodo, uint32(dodo.sellBase.selector), to);
+    }
 
-            receiveBaseAmount := mload(0x00)
-        }
+    function fastSellQuote(IDodoV2 dodo, address to) internal returns (uint256 receiveBaseAmount) {
+        return _callAddressReturnUint(dodo, uint32(dodo.sellQuote.selector), to);
     }
 
     function _get(IDodoV2 dodo, uint256 sig) private view returns (bytes32 r) {
