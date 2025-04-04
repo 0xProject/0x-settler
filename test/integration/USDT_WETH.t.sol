@@ -69,7 +69,7 @@ contract USDTWETHTest is
         });
     }
 
-    function curveV2TricryptoPoolId() internal pure override returns (uint80) {
+    function curveV2TricryptoPoolId() internal override returns (uint80) {
         // The CurveV2 Tricrypto factory pool actions have been disabled on Mainnet for contract size
         return super.curveV2TricryptoPoolId();
         /*
