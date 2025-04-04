@@ -419,7 +419,11 @@ library Decoder {
 
             state.setBuy(notes, buyToken);
             if (state.buy.eq(state.globalSell)) {
-                revert BoughtSellToken(state.globalSell.token);
+                assembly ("memory-safe") {
+                    let ptr := mload(add(0x40, state)) // dereference `state.globalSell`
+                    mstore(ptr, 0x784cb7b8) // selector for `BoughtSellToken(address)`; clobbers `state.globalSell.amount`
+                    revert(add(0x1c, ptr), 0x24)
+                }
             }
         }
 
