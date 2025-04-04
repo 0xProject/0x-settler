@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
 library CreditDebt {
     using UnsafeMath for int256;
@@ -692,7 +692,7 @@ library Take {
             IERC20 buyToken = state.buy.token;
             buyAmount = state.buy.amount;
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+                revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
             _callSelector(selector, buyToken, recipient, buyAmount);
         }

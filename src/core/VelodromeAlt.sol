@@ -6,7 +6,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {TooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 import {uint512, tmp, alloc} from "../utils/512Math.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -258,7 +258,7 @@ abstract contract Velodrome is SettlerAbstract {
         }
 
         if (buyAmount < minAmountOut) {
-            revert TooMuchSlippage(sellToken, minAmountOut, buyAmount);
+            revertTooMuchSlippage(sellToken, minAmountOut, buyAmount);
         }
 
         {

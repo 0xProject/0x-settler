@@ -10,7 +10,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import {ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 

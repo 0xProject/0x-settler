@@ -10,7 +10,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
-import {TooMuchSlippage, ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
+import {ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
 import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
