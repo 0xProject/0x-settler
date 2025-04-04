@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage, BoughtSellToken} from "./SettlerErrors.sol";
 
 /// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
 /// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
@@ -662,7 +662,7 @@ library Take {
             IERC20 buyToken = state.buy.token;
             buyAmount = state.buy.amount;
             if (buyAmount < minBuyAmount) {
-                revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+                revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }
             _callSelector(selector, buyToken, recipient, buyAmount);
         }

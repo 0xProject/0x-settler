@@ -9,7 +9,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage, DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
+import {DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
 import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";

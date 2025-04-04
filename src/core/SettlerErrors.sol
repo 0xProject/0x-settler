@@ -24,6 +24,16 @@ error InvalidSignatureLen();
 /// @notice Thrown when a slippage limit is exceeded
 error TooMuchSlippage(IERC20 token, uint256 expected, uint256 actual);
 
+function revertTooMuchSlippage(IERC20 buyToken, uint256 expectedBuyAmount, uint256 actualBuyAmount) pure {
+    assembly ("memory-safe") {
+        mstore(0x54, actualBuyAmount)
+        mstore(0x34, expectedBuyAmount)
+        mstore(0x14, buyToken)
+        mstore(0x00, 0x97a6f3b9000000000000000000000000) // selector for `TooMuchSlippage(address,uint256,uint256)` with `buyToken`'s padding
+        revert(0x10, 0x64)
+    }
+}
+
 /// @notice Thrown when a byte array that is supposed to encode a function from ISettlerActions is
 ///         not recognized in context.
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
