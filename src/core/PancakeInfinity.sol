@@ -529,7 +529,11 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     }
                     delta = BIN_MANAGER.unsafeSwap(poolKey, zeroForOne, int128(amountSpecified), hookData);
                 } else {
-                    revert UnknownPoolManagerId(poolManagerId);
+                    assembly ("memory-safe") {
+                        mstore(0x00, 0x0a9a7da6) // selector for `UnknownPoolManagerId(uint8)`
+                        mstore(0x20, and(0xff, poolManagerId))
+                        revert(0x1c, 0x24)
+                    }
                 }
                 (int256 settledSellAmount, int256 settledBuyAmount) =
                     zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
