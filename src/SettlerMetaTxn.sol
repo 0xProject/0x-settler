@@ -40,7 +40,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
                 i := add(0x20, i)
                 dst := add(0x20, dst)
             } {
-                let src := add(actions.offset, calldataload(i))
+                let src := add(calldataload(i), actions.offset)
                 let length := calldataload(src)
                 calldatacopy(dst, add(0x20, src), length)
                 mstore(dst, keccak256(dst, length))
