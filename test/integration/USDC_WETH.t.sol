@@ -95,6 +95,9 @@ contract USDCWETHTest is
     {}
 
     function curveV2TricryptoPoolId() internal pure override returns (uint80) {
+        // The CurveV2 Tricrypto factory pool actions have been disabled on Mainnet for contract size
+        return super.curveV2TricryptoPoolId();
+        /*
         return
         // nonce
         (
@@ -104,6 +107,7 @@ contract USDCWETHTest is
             // buyIndex
             | uint80(uint8(2))
         );
+        */
     }
 
     function maverickV2Salt() internal pure override returns (bytes32) {
