@@ -49,7 +49,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
     /// @dev Performs an direct RFQ trade between MAKER and FROM
     // Funds are transferred MAKER->FROM and FROM->MAKER
-    function testSettler_rfq() public {
+    function testSettler_rfq() public skipIf(true) { // action `RFQ_VIP` is disabled
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
