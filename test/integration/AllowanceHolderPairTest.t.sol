@@ -170,7 +170,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_rfq_VIP() public {
+    function testAllowanceHolder_rfq_VIP() public skipIf(true) { // action `RFQ_VIP` is disabled
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =

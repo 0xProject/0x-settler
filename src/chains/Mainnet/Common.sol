@@ -6,6 +6,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../../core/MakerPSM.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
+// When these actions are reenabled, reenable the integration tests by setting `curveV2TricryptoPoolId()`
 // import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
