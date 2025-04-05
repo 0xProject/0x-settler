@@ -407,7 +407,26 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         override
     {
         // `owner` is always `_msgSender()`
+        // This is effectively
+        /*
         _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
+        */
+        // but it's written in assembly for contract size reasons.
+
+        address __ALLOWANCE_HOLDER = address(_ALLOWANCE_HOLDER);
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(add(0x80, ptr), amount)
+            mstore(add(0x60, ptr), recipient)
+            mstore(add(0x4c, ptr), shl(0x60, owner)) // clears `recipient`'s padding
+            mstore(add(0x2c, ptr), shl(0x60, token)) // clears `owner`'s padding
+            mstore(add(0x0c, ptr), 0x15dacbea000000000000000000000000) // selector for `transferFrom(address,address,address,uint256)` with `token`'s padding
+
+            if iszero(call(gas(), __ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
     }
 
     modifier takerSubmitted() override {
