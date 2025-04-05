@@ -9,7 +9,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -213,7 +213,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             }
         }
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(outputToken, minBuyAmount, buyAmount);
+            revertTooMuchSlippage(outputToken, minBuyAmount, buyAmount);
         }
     }
 

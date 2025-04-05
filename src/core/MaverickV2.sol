@@ -8,7 +8,7 @@ import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 // Maverick AMM V2 is not open-source. The source code was disclosed to the
 // developers of 0x Settler confidentially and recompiled privately. The
@@ -172,7 +172,7 @@ abstract contract MaverickV2 is SettlerAbstract {
         );
         if (buyAmount < minBuyAmount) {
             IERC20 buyToken = tokenAIn ? IMaverickV2Pool(pool).tokenB() : IMaverickV2Pool(pool).tokenA();
-            revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+            revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
         }
     }
 
@@ -214,7 +214,7 @@ abstract contract MaverickV2 is SettlerAbstract {
             new bytes(0)
         );
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(tokenAIn ? pool.tokenB() : pool.tokenA(), minBuyAmount, buyAmount);
+            revertTooMuchSlippage(tokenAIn ? pool.tokenB() : pool.tokenA(), minBuyAmount, buyAmount);
         }
     }
 

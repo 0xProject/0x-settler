@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
@@ -105,7 +105,7 @@ abstract contract MakerPSM is SettlerAbstract {
                 // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
                 buyAmount = (sellAmount * USDC_basis).unsafeDiv(feeDivisor);
                 if (buyAmount < amountOutMin) {
-                    revert TooMuchSlippage(USDC, amountOutMin, buyAmount);
+                    revertTooMuchSlippage(USDC, amountOutMin, buyAmount);
                 }
 
                 // DAI.safeApproveIfBelow(address(LitePSM), sellAmount);
@@ -120,7 +120,7 @@ abstract contract MakerPSM is SettlerAbstract {
             // USDC.safeApproveIfBelow(LitePSM.gemJoin(), sellAmount);
             buyAmount = LitePSM.fastSellGem(recipient, sellAmount);
             if (buyAmount < amountOutMin) {
-                revert TooMuchSlippage(DAI, amountOutMin, buyAmount);
+                revertTooMuchSlippage(DAI, amountOutMin, buyAmount);
             }
         }
     }

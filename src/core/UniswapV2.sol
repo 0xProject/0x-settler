@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Panic} from "../utils/Panic.sol";
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -142,7 +142,7 @@ abstract contract UniswapV2 is SettlerAbstract {
             }
         }
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(
+            revertTooMuchSlippage(
                 IERC20(zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0()), minBuyAmount, buyAmount
             );
         }
