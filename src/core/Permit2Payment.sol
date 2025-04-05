@@ -89,7 +89,11 @@ library TransientStorage {
             callbackInt := tload(_OPERATOR_SLOT)
         }
         if (callbackInt != 0) {
-            revert CallbackNotSpent(callbackInt);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xd66fcc38) // selector for `CallbackNotSpent(uint256)`
+                mstore(0x20, callbackInt)
+                revert(0x1c, 0x24)
+            }
         }
     }
 
@@ -114,7 +118,11 @@ library TransientStorage {
         if (currentWitness != bytes32(0)) {
             // It should be impossible to reach this error because the first thing a metatransaction
             // does on entry is to spend the `witness` (either directly or via a callback)
-            revert ReentrantMetatransaction(currentWitness);
+            assembly ("memory-safe") {
+                mstore(0x00, 0x9936cbab) // selector for `ReentrantMetatransaction(bytes32)`
+                mstore(0x20, currentWitness)
+                revert(0x1c, 0x24)
+            }
         }
         assembly ("memory-safe") {
             tstore(_WITNESS_SLOT, newWitness)
@@ -127,7 +135,11 @@ library TransientStorage {
             currentWitness := tload(_WITNESS_SLOT)
         }
         if (currentWitness != bytes32(0)) {
-            revert WitnessNotSpent(currentWitness);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe25527c2) // selector for `WitnessNotSpent(bytes32)`
+                mstore(0x20, currentWitness)
+                revert(0x1c, 0x24)
+            }
         }
     }
 
@@ -150,7 +162,11 @@ library TransientStorage {
             oldPayer := tload(_PAYER_SLOT)
         }
         if (oldPayer != address(0)) {
-            revert ReentrantPayer(oldPayer);
+            assembly ("memory-safe") {
+                mstore(0x14, oldPayer)
+                mstore(0x00, 0x7407c0f8000000000000000000000000) // selector for `ReentrantPayer(address)` with `oldPayer`'s padding
+                revert(0x10, 0x24)
+            }
         }
         assembly ("memory-safe") {
             tstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
@@ -169,7 +185,10 @@ library TransientStorage {
             oldPayer := tload(_PAYER_SLOT)
         }
         if (oldPayer != expectedOldPayer) {
-            revert PayerSpent();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x5149e795) // selector for `PayerSpent()`
+                revert(0x1c, 0x04)
+            }
         }
         assembly ("memory-safe") {
             tstore(_PAYER_SLOT, 0x00)
@@ -389,9 +408,20 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            if (sig.length != 0) revert InvalidSignatureLen();
+            if (sig.length != 0) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xc321526c) // selector for `InvalidSignatureLen()`
+                    revert(0x1c, 0x04)
+                }
+            }
             if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-            if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
+            if (block.timestamp > permit.deadline) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
+                    mstore(0x20, mload(add(0x40, permit)))
+                    revert(0x1c, 0x24)
+                }
+            }
             // we don't check `requestedAmount` because it's checked by AllowanceHolder itself
             _allowanceHolderTransferFrom(
                 permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
