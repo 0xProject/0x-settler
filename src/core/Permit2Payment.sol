@@ -255,7 +255,39 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bool isForwarded
     ) internal override {
         if (isForwarded) revert ForwarderNotAllowed();
+
+        // This is effectively
+        /*
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+        */
+        // but it's written in assembly for contract size reasons. This produces a non-strict ABI
+        // encoding (https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode),
+        // but it's fine because Solidity's ABI *decoder* will handle anything that is validly
+        // encoded, strict or not.
+
+        ISignatureTransfer __PERMIT2 = _PERMIT2;
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x137c29fe) // selector for `permitWitnessTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes32,string,bytes)`
+            mcopy(add(0x20, ptr), mload(permit), 0x40)
+            mcopy(add(0x60, ptr), add(0x20, permit), 0x40)
+            mcopy(add(0xa0, ptr), transferDetails, 0x40)
+            mstore(add(0xe0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
+            mstore(add(0x100, ptr), witness)
+            mstore(add(0x120, ptr), 0x140)
+            let witnessTypeStringLength := mload(witnessTypeString)
+            mstore(add(0x140, ptr), add(0x160, witnessTypeStringLength))
+            mstore(add(0x160, ptr), witnessTypeStringLength)
+            mcopy(add(0x180, ptr), add(0x20, witnessTypeString), witnessTypeStringLength)
+            let sigLength := mload(sig)
+            mstore(add(0x180, add(ptr, witnessTypeStringLength)), sigLength)
+            mcopy(add(0x1a0, add(ptr, witnessTypeStringLength)), add(0x20, sig), sigLength)
+
+            if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x184, add(witnessTypeStringLength, sigLength)), 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
     }
 
     // See comment in above overload; don't use this function
