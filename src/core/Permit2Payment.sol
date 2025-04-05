@@ -482,6 +482,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         */
         // but it's written in assembly for contract size reasons.
 
+        // Solidity won't let us reference the constant `_ALLOWANCE_HOLDER` in assembly, but this
+        // compiles down to just PUSH opcode just before the CALL, with optimization turned on.
         address __ALLOWANCE_HOLDER = address(_ALLOWANCE_HOLDER);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
