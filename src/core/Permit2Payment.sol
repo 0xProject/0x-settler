@@ -265,18 +265,28 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         // but it's fine because Solidity's ABI *decoder* will handle anything that is validly
         // encoded, strict or not.
 
+        // Solidity won't let us reference the constant `_PERMIT2` in assembly, but this compiles
+        // down to just PUSH opcode just before the CALL, with optimization turned on.
         ISignatureTransfer __PERMIT2 = _PERMIT2;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x137c29fe) // selector for `permitWitnessTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes32,string,bytes)`
+
+            // The layout of nested structs in memory is different from that in calldata. We have to
+            // chase the pointer to `permit.permitted`.
             mcopy(add(0x20, ptr), mload(permit), 0x40)
+            // The rest of the members of `permit` are laid out linearly,
             mcopy(add(0x60, ptr), add(0x20, permit), 0x40)
+            // as are the members of `transferDetails.
             mcopy(add(0xa0, ptr), transferDetails, 0x40)
+            // Because we're passing `from` on the stack, it must be cleaned.
             mstore(add(0xe0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
             mstore(add(0x100, ptr), witness)
-            mstore(add(0x120, ptr), 0x140)
+            mstore(add(0x120, ptr), 0x140) // Offset to `witnessTypeString` (the end of of the non-dynamic types)
             let witnessTypeStringLength := mload(witnessTypeString)
-            mstore(add(0x140, ptr), add(0x160, witnessTypeStringLength))
+            mstore(add(0x140, ptr), add(0x160, witnessTypeStringLength)) // Offset to `sig` (past the end of `witnessTypeString`)
+
+            // Now we encode the 2 dynamic objects, `witnessTypeString` and `sig`.
             mstore(add(0x160, ptr), witnessTypeStringLength)
             mcopy(add(0x180, ptr), add(0x20, witnessTypeString), witnessTypeStringLength)
             let ptrPlusWitnessTypeStringLength := add(ptr, witnessTypeStringLength)
@@ -284,6 +294,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
             mstore(add(0x180, ptrPlusWitnessTypeStringLength), sigLength)
             mcopy(add(0x1a0, ptrPlusWitnessTypeStringLength), add(0x20, sig), sigLength)
 
+            // We don't need to check that `_PERMIT2` has code, and it always signals failure by reverting.
             if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x184, add(witnessTypeStringLength, sigLength)), 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
@@ -380,20 +391,33 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             // (https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode), but
             // it's fine because Solidity's ABI *decoder* will handle anything that is validly
             // encoded, strict or not.
+
+            // Solidity won't let us reference the constant `_PERMIT2` in assembly, but this
+            // compiles down to just PUSH opcode just before the CALL, with optimization turned on.
             ISignatureTransfer __PERMIT2 = _PERMIT2;
             address from = _msgSender();
             assembly ("memory-safe") {
                 let ptr := mload(0x40)
                 mstore(ptr, 0x30f28b7a) // selector for `permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes)`
+
+                // The layout of nested structs in memory is different from that in calldata. We
+                // have to chase the pointer to `permit.permitted`.
                 mcopy(add(0x20, ptr), mload(permit), 0x40)
+                // The rest of the members of `permit` are laid out linearly,
                 mcopy(add(0x60, ptr), add(0x20, permit), 0x40)
+                // as are the members of `transferDetails.
                 mcopy(add(0xa0, ptr), transferDetails, 0x40)
+                // Because we're passing `from` on the stack, it must be cleaned.
                 mstore(add(0xe0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
-                mstore(add(0x100, ptr), 0x100)
+                mstore(add(0x100, ptr), 0x100) // Offset to `sig` (the end of the non-dynamic types)
+
+                // Encode the dynamic object `sig`
                 let sigLength := mload(sig)
                 mstore(add(0x120, ptr), sigLength)
                 mcopy(add(0x140, ptr), add(0x20, sig), sigLength)
 
+                // We don't need to check that `_PERMIT2` has code, and it always signals failure by
+                // reverting.
                 if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x124, sigLength), 0x00, 0x00)) {
                     returndatacopy(ptr, 0x00, returndatasize())
                     revert(ptr, returndatasize())
@@ -422,6 +446,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             mstore(add(0x2c, ptr), shl(0x60, token)) // clears `owner`'s padding
             mstore(add(0x0c, ptr), 0x15dacbea000000000000000000000000) // selector for `transferFrom(address,address,address,uint256)` with `token`'s padding
 
+            // Although `transferFrom` returns `bool`, we don't need to bother checking the return
+            // value because `AllowanceHolder` always either reverts or returns `true`.
             if iszero(call(gas(), __ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
