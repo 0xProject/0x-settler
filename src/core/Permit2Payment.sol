@@ -53,7 +53,10 @@ library TransientStorage {
             currentSigner := tload(_PAYER_SLOT)
         }
         if (operator == currentSigner) {
-            revert ConfusedDeputy();
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
         }
         uint256 callbackInt;
         assembly ("memory-safe") {
@@ -63,7 +66,11 @@ library TransientStorage {
             // It should be impossible to reach this error because the first thing the fallback does
             // is clear the operator. It's also not possible to reenter the entrypoint function
             // because `_PAYER_SLOT` is an implicit reentrancy guard.
-            revert ReentrantCallback(callbackInt);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xab7646c4) // selector for `ReentrantCallback(uint256)`
+                mstore(0x20, callbackInt)
+                revert(0x1c, 0x24)
+            }
         }
         assembly ("memory-safe") {
             tstore(
@@ -133,7 +140,10 @@ library TransientStorage {
 
     function setPayer(address payer) internal {
         if (payer == address(0)) {
-            revert ConfusedDeputy();
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
         }
         address oldPayer;
         assembly ("memory-safe") {
@@ -534,7 +544,10 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     ) internal override {
         bytes32 witness = TransientStorage.getAndClearWitness();
         if (witness == bytes32(0)) {
-            revert ConfusedDeputy();
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
         }
         _transferFromIKnowWhatImDoing(
             permit, transferDetails, _msgSender(), witness, _witnessTypeSuffix(), sig, isForwarded
@@ -542,7 +555,10 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     }
 
     function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
-        revert ConfusedDeputy();
+        assembly ("memory-safe") {
+            mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+            revert(0x1c, 0x04)
+        }
     }
 
     modifier takerSubmitted() override {
@@ -552,7 +568,10 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     modifier metaTx(address msgSender, bytes32 witness) override {
         if (_isForwarded()) {
-            revert ForwarderNotAllowed();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1c500e5c) // selector for `ForwarderNotAllowed()`
+                revert(0x1c, 0x04)
+            }
         }
         TransientStorage.setWitness(witness);
         TransientStorage.setPayer(msgSender);
