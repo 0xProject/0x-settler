@@ -254,7 +254,12 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        if (isForwarded) revert ForwarderNotAllowed();
+        if (isForwarded) {
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1c500e5c) // selector for `ForwarderNotAllowed()`
+                revert(0x1c, 0x04)
+            }
+        }
 
         // This is effectively
         /*
