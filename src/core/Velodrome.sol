@@ -219,7 +219,10 @@ abstract contract Velodrome is SettlerAbstract {
                     y -= dy;
                 }
             }
-            revert NotConverged();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x481b61af) // selector for `NotConverged()`
+                revert(0x1c, 0x04)
+            }
         }
     }
 

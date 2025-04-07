@@ -173,7 +173,10 @@ abstract contract Velodrome is SettlerAbstract {
                 }
             }
         }
-        revert NotConverged();
+        assembly ("memory-safe") {
+            mstore(0x00, 0x481b61af) // selector for `NotConverged()`
+            revert(0x1c, 0x04)
+        }
     }
 
     function sellToVelodrome(address recipient, uint256 bps, IVelodromePair pair, uint24 swapInfo, uint256 minAmountOut)
