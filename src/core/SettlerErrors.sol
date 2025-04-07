@@ -42,6 +42,14 @@ error ActionInvalid(uint256 i, bytes4 action, bytes data);
 ///         recognized forks for this chain.
 error UnknownForkId(uint8 forkId);
 
+function revertUnknownForkId(uint8 forkId) pure {
+    assembly ("memory-safe") {
+        mstore(0x00, 0xd3b1276d) // selector for `UnknownForkId(uint8)`
+        mstore(0x20, and(0xff, forkId))
+        revert(0x1c, 0x24)
+    }
+}
+
 /// @notice Thrown when an AllowanceHolder transfer's permit is past its deadline
 error SignatureExpired(uint256 deadline);
 

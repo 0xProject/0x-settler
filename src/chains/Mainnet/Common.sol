@@ -20,7 +20,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -217,7 +217,7 @@ abstract contract MainnetMixin is
             initHash = solidlyV3InitHash;
             callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 
