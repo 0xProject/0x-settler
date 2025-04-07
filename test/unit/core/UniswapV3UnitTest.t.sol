@@ -213,7 +213,10 @@ contract UniswapV3UnitTest is Utils, Test {
         // cannot use abi.encodeWithSelector due to the selector overload and ambiguity
         _mockExpectCall(
             PERMIT2,
-            abi.encodeWithSelector(bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), hex"deadbeef"),
+            bytes.concat(
+                abi.encodeWithSelector(bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), uint256(0x100)),
+                abi.encodePacked(uint256(4), hex"deadbeef")
+            ),
             new bytes(0)
         );
 
