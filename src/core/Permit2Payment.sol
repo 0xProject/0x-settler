@@ -300,7 +300,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         // encoded, strict or not.
 
         // Solidity won't let us reference the constant `_PERMIT2` in assembly, but this compiles
-        // down to just PUSH opcode just before the CALL, with optimization turned on.
+        // down to just a single PUSH opcode just before the CALL, with optimization turned on.
         ISignatureTransfer __PERMIT2 = _PERMIT2;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
@@ -328,7 +328,8 @@ abstract contract Permit2Payment is Permit2PaymentBase {
             mstore(add(0x180, ptrPlusWitnessTypeStringLength), sigLength)
             mcopy(add(0x1a0, ptrPlusWitnessTypeStringLength), add(0x20, sig), sigLength)
 
-            // We don't need to check that `_PERMIT2` has code, and it always signals failure by reverting.
+            // We don't need to check that Permit2 has code, and it always signals failure by
+            // reverting.
             if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x184, add(witnessTypeStringLength, sigLength)), 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
@@ -438,7 +439,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             // encoded, strict or not.
 
             // Solidity won't let us reference the constant `_PERMIT2` in assembly, but this
-            // compiles down to just PUSH opcode just before the CALL, with optimization turned on.
+            // compiles down to just a single PUSH opcode just before the CALL, with optimization
+            // turned on.
             ISignatureTransfer __PERMIT2 = _PERMIT2;
             address from = _msgSender();
             assembly ("memory-safe") {
@@ -461,7 +463,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
                 mstore(add(0x120, ptr), sigLength)
                 mcopy(add(0x140, ptr), add(0x20, sig), sigLength)
 
-                // We don't need to check that `_PERMIT2` has code, and it always signals failure by
+                // We don't need to check that Permit2 has code, and it always signals failure by
                 // reverting.
                 if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x124, sigLength), 0x00, 0x00)) {
                     returndatacopy(ptr, 0x00, returndatasize())
@@ -483,7 +485,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         // but it's written in assembly for contract size reasons.
 
         // Solidity won't let us reference the constant `_ALLOWANCE_HOLDER` in assembly, but this
-        // compiles down to just PUSH opcode just before the CALL, with optimization turned on.
+        // compiles down to just a single PUSH opcode just before the CALL, with optimization turned
+        // on.
         address __ALLOWANCE_HOLDER = address(_ALLOWANCE_HOLDER);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
@@ -494,7 +497,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             mstore(add(0x0c, ptr), 0x15dacbea000000000000000000000000) // selector for `transferFrom(address,address,address,uint256)` with `token`'s padding
 
             // Although `transferFrom` returns `bool`, we don't need to bother checking the return
-            // value because `AllowanceHolder` always either reverts or returns `true`.
+            // value because `AllowanceHolder` always either reverts or returns `true`. We also
+            // don't need to check that it has code.
             if iszero(call(gas(), __ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
