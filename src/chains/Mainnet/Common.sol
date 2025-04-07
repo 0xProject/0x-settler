@@ -43,9 +43,6 @@ import {
 
 import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
-import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
-import {IOwnable} from "../../deployer/IOwnable.sol";
-
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -214,9 +211,5 @@ abstract contract MainnetMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return MAINNET_POOL_MANAGER;
-    }
-
-    function rebateClaimer() external view returns (address) {
-        return IOwnable(DEPLOYER).owner();
     }
 }

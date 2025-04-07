@@ -47,6 +47,9 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Replace `rebateClaimer()(address)` address (previously the `Deployer` owner
+  multisig; varies by chain) with a constant EOA owned by ZeroEx Inc
+
 ## 2025-03-11
 
 ### Breaking changes
