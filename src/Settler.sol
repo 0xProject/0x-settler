@@ -83,7 +83,16 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
             (uint256 action, bytes calldata data) = actions.decodeCall(0);
             if (!_dispatchVIP(action, data)) {
                 if (!_dispatch(0, action, data)) {
-                    revert ActionInvalid(0, bytes4(uint32(action)), data);
+                    assembly ("memory-safe") {
+                        let ptr := mload(0x40)
+                        mstore(ptr, 0x3c74eed6) // selector for `ActionInvalid(uint256,bytes4,bytes)`
+                        mstore(add(0x20, ptr), 0x00)
+                        mstore(add(0x40, ptr), shl(0xe0, action))
+                        mstore(add(0x60, ptr), 0x60) // offset to the length slot of the dynamic value `data`
+                        mstore(add(0x80, ptr), data.length)
+                        calldatacopy(add(0xa0, ptr), data.offset, data.length)
+                        revert(add(0x1c, ptr), add(0x84, data.length))
+                    }
                 }
             }
         }
@@ -91,7 +100,16 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, bytes4(uint32(action)), data);
+                assembly ("memory-safe") {
+                    let ptr := mload(0x40)
+                    mstore(ptr, 0x3c74eed6) // selector for `ActionInvalid(uint256,bytes4,bytes)`
+                    mstore(add(0x20, ptr), i)
+                    mstore(add(0x40, ptr), shl(0xe0, action))
+                    mstore(add(0x60, ptr), 0x60) // offset to the length slot of the dynamic value `data`
+                    mstore(add(0x80, ptr), data.length)
+                    calldatacopy(add(0xa0, ptr), data.offset, data.length)
+                    revert(add(0x1c, ptr), add(0x84, data.length))
+                }
             }
         }
 
