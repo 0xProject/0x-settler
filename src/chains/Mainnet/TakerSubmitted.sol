@@ -36,7 +36,7 @@ contract MainnetSettler is Settler, MainnetMixin {
             ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
+        } /* else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
                 uint80 poolInfo,
@@ -46,7 +46,7 @@ contract MainnetSettler is Settler, MainnetMixin {
             ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
-        } else {
+        } */ else {
             return false;
         }
         return true;
