@@ -105,30 +105,30 @@ if [[ -n "${deployer_address-}" ]] ; then
             )
         done
         deploy_calldatas=(
-            # 0 "$deploy_taker_calldata" "$deployer_address"
-            # 0 "$deploy_metatx_calldata" "$deployer_address"
+            0 "$deploy_taker_calldata" "$deployer_address"
+            0 "$deploy_metatx_calldata" "$deployer_address"
             0 "$deploy_intent_calldata" "$deployer_address"
             1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
         )
     else
         deploy_calldatas+=(
-            # "$(
-            #     cast concat-hex                                                   \
-            #     0x00                                                              \
-            #     "$deployer_address"                                               \
-            #     "$(cast to-uint256 0)"                                            \
-            #     "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
-            #     "$deploy_taker_calldata"
-            # )"
-            #
-            # "$(
-            #     cast concat-hex                                                   \
-            #     0x00                                                              \
-            #     "$deployer_address"                                               \
-            #     "$(cast to-uint256 0)"                                            \
-            #     "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
-            #     "$deploy_metatx_calldata"
-            # )"
+            "$(
+                cast concat-hex                                                   \
+                0x00                                                              \
+                "$deployer_address"                                               \
+                "$(cast to-uint256 0)"                                            \
+                "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
+                "$deploy_taker_calldata"
+            )"
+
+            "$(
+                cast concat-hex                                                   \
+                0x00                                                              \
+                "$deployer_address"                                               \
+                "$(cast to-uint256 0)"                                            \
+                "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
+                "$deploy_metatx_calldata"
+            )"
 
             "$(
                 cast concat-hex                                                   \

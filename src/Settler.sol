@@ -32,7 +32,11 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
+        } /*
+        // RFQ_VIP is temporarily removed because Solver has no support for it
+        // When support for RFQ_VIP is reenabled, the tests
+        // testAllowanceHolder_rfq_VIP and testSettler_rfq should be reenabled
+        else if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
@@ -53,7 +57,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
             );
 
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
-        } else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
+        } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
                 bytes memory path,

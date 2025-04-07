@@ -7,6 +7,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
+
+import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -46,6 +48,9 @@ abstract contract MainnetMixin is
     DodoV1,
     DodoV2
 {
+    using SafeTransferLib for IERC20;
+    using SafeTransferLib for address payable;
+
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -57,8 +62,53 @@ abstract contract MainnetMixin is
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
-            return true;
+        //// NOTICE: we re-implement the base `_dispatch` implementation here so that we can remove
+        //// the `VELODROME` action JUST on this chain because it does little-to-no volume.
+
+        if (action == uint32(ISettlerActions.RFQ.selector)) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                address maker,
+                bytes memory makerSig,
+                IERC20 takerToken,
+                uint256 maxTakerAmount
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
+
+            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
+        } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
+            (address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) =
+                abi.decode(data, (address, uint256, bytes, uint256));
+
+            sellToUniswapV3(recipient, bps, path, amountOutMin);
+        } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
+            (address recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 amountOutMin) =
+                abi.decode(data, (address, address, uint256, address, uint24, uint256));
+
+            sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BASIC.selector)) {
+            (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
+                abi.decode(data, (IERC20, uint256, address, uint256, bytes));
+
+            basicSellToPool(sellToken, bps, pool, offset, _data);
+        } /* `VELODROME` is removed */
+        else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
+            (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
+            if (token == ETH_ADDRESS) {
+                uint256 balance = address(this).balance;
+                if (balance > expectedAmount) {
+                    unchecked {
+                        payable(recipient).safeTransferETH(balance - expectedAmount);
+                    }
+                }
+            } else {
+                uint256 balance = token.fastBalanceOf(address(this));
+                if (balance > expectedAmount) {
+                    unchecked {
+                        token.safeTransfer(recipient, balance - expectedAmount);
+                    }
+                }
+            }
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
