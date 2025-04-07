@@ -53,7 +53,10 @@ library TransientStorage {
             currentSigner := tload(_PAYER_SLOT)
         }
         if (operator == currentSigner) {
-            revert ConfusedDeputy();
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
         }
         uint256 callbackInt;
         assembly ("memory-safe") {
@@ -63,7 +66,11 @@ library TransientStorage {
             // It should be impossible to reach this error because the first thing the fallback does
             // is clear the operator. It's also not possible to reenter the entrypoint function
             // because `_PAYER_SLOT` is an implicit reentrancy guard.
-            revert ReentrantCallback(callbackInt);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xab7646c4) // selector for `ReentrantCallback(uint256)`
+                mstore(0x20, callbackInt)
+                revert(0x1c, 0x24)
+            }
         }
         assembly ("memory-safe") {
             tstore(
@@ -82,7 +89,11 @@ library TransientStorage {
             callbackInt := tload(_OPERATOR_SLOT)
         }
         if (callbackInt != 0) {
-            revert CallbackNotSpent(callbackInt);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xd66fcc38) // selector for `CallbackNotSpent(uint256)`
+                mstore(0x20, callbackInt)
+                revert(0x1c, 0x24)
+            }
         }
     }
 
@@ -107,7 +118,11 @@ library TransientStorage {
         if (currentWitness != bytes32(0)) {
             // It should be impossible to reach this error because the first thing a metatransaction
             // does on entry is to spend the `witness` (either directly or via a callback)
-            revert ReentrantMetatransaction(currentWitness);
+            assembly ("memory-safe") {
+                mstore(0x00, 0x9936cbab) // selector for `ReentrantMetatransaction(bytes32)`
+                mstore(0x20, currentWitness)
+                revert(0x1c, 0x24)
+            }
         }
         assembly ("memory-safe") {
             tstore(_WITNESS_SLOT, newWitness)
@@ -120,7 +135,11 @@ library TransientStorage {
             currentWitness := tload(_WITNESS_SLOT)
         }
         if (currentWitness != bytes32(0)) {
-            revert WitnessNotSpent(currentWitness);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe25527c2) // selector for `WitnessNotSpent(bytes32)`
+                mstore(0x20, currentWitness)
+                revert(0x1c, 0x24)
+            }
         }
     }
 
@@ -133,14 +152,21 @@ library TransientStorage {
 
     function setPayer(address payer) internal {
         if (payer == address(0)) {
-            revert ConfusedDeputy();
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
         }
         address oldPayer;
         assembly ("memory-safe") {
             oldPayer := tload(_PAYER_SLOT)
         }
         if (oldPayer != address(0)) {
-            revert ReentrantPayer(oldPayer);
+            assembly ("memory-safe") {
+                mstore(0x14, oldPayer)
+                mstore(0x00, 0x7407c0f8000000000000000000000000) // selector for `ReentrantPayer(address)` with `oldPayer`'s padding
+                revert(0x10, 0x24)
+            }
         }
         assembly ("memory-safe") {
             tstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
@@ -159,7 +185,10 @@ library TransientStorage {
             oldPayer := tload(_PAYER_SLOT)
         }
         if (oldPayer != expectedOldPayer) {
-            revert PayerSpent();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x5149e795) // selector for `PayerSpent()`
+                revert(0x1c, 0x04)
+            }
         }
         assembly ("memory-safe") {
             tstore(_PAYER_SLOT, 0x00)
@@ -254,8 +283,55 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        if (isForwarded) revert ForwarderNotAllowed();
+        if (isForwarded) {
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1c500e5c) // selector for `ForwarderNotAllowed()`
+                revert(0x1c, 0x04)
+            }
+        }
+
+        // This is effectively
+        /*
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+        */
+        // but it's written in assembly for contract size reasons. This produces a non-strict ABI
+        // encoding (https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode),
+        // but it's fine because Solidity's ABI *decoder* will handle anything that is validly
+        // encoded, strict or not.
+
+        // Solidity won't let us reference the constant `_PERMIT2` in assembly, but this compiles
+        // down to just a single PUSH opcode just before the CALL, with optimization turned on.
+        ISignatureTransfer __PERMIT2 = _PERMIT2;
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x137c29fe) // selector for `permitWitnessTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes32,string,bytes)`
+
+            // The layout of nested structs in memory is different from that in calldata. We have to
+            // chase the pointer to `permit.permitted`.
+            mcopy(add(0x20, ptr), mload(permit), 0x40)
+            // The rest of the members of `permit` are laid out linearly,
+            mcopy(add(0x60, ptr), add(0x20, permit), 0x40)
+            // as are the members of `transferDetails.
+            mcopy(add(0xa0, ptr), transferDetails, 0x40)
+            // Because we're passing `from` on the stack, it must be cleaned.
+            mstore(add(0xe0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
+            mstore(add(0x100, ptr), witness)
+            mstore(add(0x120, ptr), 0x140) // Offset to `witnessTypeString` (the end of of the non-dynamic types)
+            let witnessTypeStringLength := mload(witnessTypeString)
+            mstore(add(0x140, ptr), add(0x160, witnessTypeStringLength)) // Offset to `sig` (past the end of `witnessTypeString`)
+
+            // Now we encode the 2 dynamic objects, `witnessTypeString` and `sig`.
+            mcopy(add(0x160, ptr), witnessTypeString, add(0x20, witnessTypeStringLength))
+            let sigLength := mload(sig)
+            mcopy(add(0x180, add(ptr, witnessTypeStringLength)), sig, add(0x20, sigLength))
+
+            // We don't need to check that Permit2 has code, and it always signals failure by
+            // reverting.
+            if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x184, add(witnessTypeStringLength, sigLength)), 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
     }
 
     // See comment in above overload; don't use this function
@@ -330,15 +406,66 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         bool isForwarded
     ) internal override {
         if (isForwarded) {
-            if (sig.length != 0) revert InvalidSignatureLen();
+            if (sig.length != 0) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xc321526c) // selector for `InvalidSignatureLen()`
+                    revert(0x1c, 0x04)
+                }
+            }
             if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-            if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
+            if (block.timestamp > permit.deadline) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
+                    mstore(0x20, mload(add(0x40, permit)))
+                    revert(0x1c, 0x24)
+                }
+            }
             // we don't check `requestedAmount` because it's checked by AllowanceHolder itself
             _allowanceHolderTransferFrom(
                 permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
             );
         } else {
+            // This is effectively
+            /*
             _PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
+            */
+            // but it's written in assembly for contract size reasons. This produces a non-strict
+            // ABI encoding
+            // (https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode), but
+            // it's fine because Solidity's ABI *decoder* will handle anything that is validly
+            // encoded, strict or not.
+
+            // Solidity won't let us reference the constant `_PERMIT2` in assembly, but this
+            // compiles down to just a single PUSH opcode just before the CALL, with optimization
+            // turned on.
+            ISignatureTransfer __PERMIT2 = _PERMIT2;
+            address from = _msgSender();
+            assembly ("memory-safe") {
+                let ptr := mload(0x40)
+                mstore(ptr, 0x30f28b7a) // selector for `permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes)`
+
+                // The layout of nested structs in memory is different from that in calldata. We
+                // have to chase the pointer to `permit.permitted`.
+                mcopy(add(0x20, ptr), mload(permit), 0x40)
+                // The rest of the members of `permit` are laid out linearly,
+                mcopy(add(0x60, ptr), add(0x20, permit), 0x40)
+                // as are the members of `transferDetails.
+                mcopy(add(0xa0, ptr), transferDetails, 0x40)
+                // Because we're passing `from` on the stack, it must be cleaned.
+                mstore(add(0xe0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
+                mstore(add(0x100, ptr), 0x100) // Offset to `sig` (the end of the non-dynamic types)
+
+                // Encode the dynamic object `sig`
+                let sigLength := mload(sig)
+                mcopy(add(0x120, ptr), sig, add(0x20, sigLength))
+
+                // We don't need to check that Permit2 has code, and it always signals failure by
+                // reverting.
+                if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x124, sigLength), 0x00, 0x00)) {
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
+                }
+            }
         }
     }
 
@@ -347,7 +474,32 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         override
     {
         // `owner` is always `_msgSender()`
+        // This is effectively
+        /*
         _ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount);
+        */
+        // but it's written in assembly for contract size reasons.
+
+        // Solidity won't let us reference the constant `_ALLOWANCE_HOLDER` in assembly, but this
+        // compiles down to just a single PUSH opcode just before the CALL, with optimization turned
+        // on.
+        address __ALLOWANCE_HOLDER = address(_ALLOWANCE_HOLDER);
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(add(0x80, ptr), amount)
+            mstore(add(0x60, ptr), recipient)
+            mstore(add(0x4c, ptr), shl(0x60, owner)) // clears `recipient`'s padding
+            mstore(add(0x2c, ptr), shl(0x60, token)) // clears `owner`'s padding
+            mstore(add(0x0c, ptr), 0x15dacbea000000000000000000000000) // selector for `transferFrom(address,address,address,uint256)` with `token`'s padding
+
+            // Although `transferFrom` returns `bool`, we don't need to bother checking the return
+            // value because `AllowanceHolder` always either reverts or returns `true`. We also
+            // don't need to check that it has code.
+            if iszero(call(gas(), __ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
     }
 
     modifier takerSubmitted() override {
@@ -424,7 +576,10 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     ) internal override {
         bytes32 witness = TransientStorage.getAndClearWitness();
         if (witness == bytes32(0)) {
-            revert ConfusedDeputy();
+            assembly ("memory-safe") {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
         }
         _transferFromIKnowWhatImDoing(
             permit, transferDetails, _msgSender(), witness, _witnessTypeSuffix(), sig, isForwarded
@@ -432,7 +587,10 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     }
 
     function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
-        revert ConfusedDeputy();
+        assembly ("memory-safe") {
+            mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+            revert(0x1c, 0x04)
+        }
     }
 
     modifier takerSubmitted() override {
@@ -442,7 +600,10 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     modifier metaTx(address msgSender, bytes32 witness) override {
         if (_isForwarded()) {
-            revert ForwarderNotAllowed();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1c500e5c) // selector for `ForwarderNotAllowed()`
+                revert(0x1c, 0x04)
+            }
         }
         TransientStorage.setWitness(witness);
         TransientStorage.setPayer(msgSender);
