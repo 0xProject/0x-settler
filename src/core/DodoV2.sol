@@ -16,10 +16,10 @@ interface IDodoV2 {
 }
 
 library FastDodoV2 {
-    function _callAddressReturnUint(IDodoV2 dodo, uint256 selector, address addr) private returns (uint256 r) {
+    function _callAddressReturnUint(IDodoV2 dodo, uint256 sig, address addr) private returns (uint256 r) {
         assembly ("memory-safe") {
             mstore(0x14, addr)
-            mstore(0x00, shl(0x60, selector))
+            mstore(0x00, shl(0x60, sig))
             if iszero(call(gas(), dodo, 0x00, 0x10, 0x24, 0x00, 0x20)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -54,13 +54,13 @@ library FastDodoV2 {
     }
 
     function fast_BASE_TOKEN_(IDodoV2 dodo) internal view returns (IERC20) {
-        uint256 result = uint256(_get(dodo, 0x4a248d2a));
+        uint256 result = uint256(_get(dodo, uint32(dodo._BASE_TOKEN_.selector)));
         require(result >> 160 == 0);
         return IERC20(address(uint160(result)));
     }
 
     function fast_QUOTE_TOKEN_(IDodoV2 dodo) internal view returns (IERC20) {
-        uint256 result = uint256(_get(dodo, 0xd4b97046));
+        uint256 result = uint256(_get(dodo, uint32(dodo._QUOTE_TOKEN_.selector)));
         require(result >> 160 == 0);
         return IERC20(address(uint160(result)));
     }

@@ -47,6 +47,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Replace `rebateClaimer()(address)` address (previously the `Deployer` owner
+  multisig; varies by chain) with a constant EOA owned by ZeroEx Inc
 * Fix a bug in the BalancerV3 action resulting in incorrect decoding of callback
   returndata
 * Add actions for PancakeSwap Infinity

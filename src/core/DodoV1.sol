@@ -34,12 +34,15 @@ interface IDodoV1 {
 }
 
 library FastDodoV1 {
-    function fastSellBaseToken(IDodoV1 dodo, uint256 amount, uint256 minReceiveQuote) internal returns (uint256 r) {
+    function _callAddressUintEmptyBytesReturnUint(IDodoV1 dodo, uint256 sig, uint256 a, uint256 b)
+        private
+        returns (uint256 r)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0x8dae7333)
-            mstore(add(0x20, ptr), amount)
-            mstore(add(0x40, ptr), minReceiveQuote)
+            mstore(ptr, sig)
+            mstore(add(0x20, ptr), a)
+            mstore(add(0x40, ptr), b)
             mstore(add(0x60, ptr), 0x60)
             mstore(add(0x80, ptr), 0x00)
 
@@ -53,23 +56,12 @@ library FastDodoV1 {
         }
     }
 
-    function fastBuyBaseToken(IDodoV1 dodo, uint256 amount, uint256 maxPayQuote) internal returns (uint256 r) {
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(ptr, 0xe67ce706)
-            mstore(add(0x20, ptr), amount)
-            mstore(add(0x40, ptr), maxPayQuote)
-            mstore(add(0x60, ptr), 0x60)
-            mstore(add(0x80, ptr), 0x00)
+    function fastSellBaseToken(IDodoV1 dodo, uint256 amount, uint256 minReceiveQuote) internal returns (uint256) {
+        return _callAddressUintEmptyBytesReturnUint(dodo, uint32(dodo.sellBaseToken.selector), amount, minReceiveQuote);
+    }
 
-            if iszero(call(gas(), dodo, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
-
-            r := mload(0x00)
-        }
+    function fastBuyBaseToken(IDodoV1 dodo, uint256 amount, uint256 maxPayQuote) internal returns (uint256) {
+        return _callAddressUintEmptyBytesReturnUint(dodo, uint32(dodo.buyBaseToken.selector), amount, maxPayQuote);
     }
 
     function _get(IDodoV1 dodo, uint256 sig) private view returns (bytes32 r) {
@@ -87,29 +79,29 @@ library FastDodoV1 {
     }
 
     function fast_R_STATUS_(IDodoV1 dodo) internal view returns (uint8) {
-        uint256 result = uint256(_get(dodo, 0x17be952e));
+        uint256 result = uint256(_get(dodo, uint32(dodo._R_STATUS_.selector)));
         require(result >> 8 == 0);
         return uint8(result);
     }
 
     function fast_QUOTE_BALANCE_(IDodoV1 dodo) internal view returns (uint256) {
-        return uint256(_get(dodo, 0x7c9b8e89));
+        return uint256(_get(dodo, uint32(dodo._QUOTE_BALANCE_.selector)));
     }
 
     function fast_BASE_BALANCE_(IDodoV1 dodo) internal view returns (uint256) {
-        return uint256(_get(dodo, 0xeab5d20e));
+        return uint256(_get(dodo, uint32(dodo._BASE_BALANCE_.selector)));
     }
 
     function fast_K_(IDodoV1 dodo) internal view returns (uint256) {
-        return uint256(_get(dodo, 0xec2fd46d));
+        return uint256(_get(dodo, uint32(dodo._K_.selector)));
     }
 
     function fast_MT_FEE_RATE_(IDodoV1 dodo) internal view returns (uint256) {
-        return uint256(_get(dodo, 0xc0ffa178));
+        return uint256(_get(dodo, uint32(dodo._MT_FEE_RATE_.selector)));
     }
 
     function fast_LP_FEE_RATE_(IDodoV1 dodo) internal view returns (uint256) {
-        return uint256(_get(dodo, 0xab44a7a3));
+        return uint256(_get(dodo, uint32(dodo._LP_FEE_RATE_.selector)));
     }
 
     function fastGetExpectedTarget(IDodoV1 dodo) internal view returns (uint256 baseTarget, uint256 quoteTarget) {
@@ -128,17 +120,17 @@ library FastDodoV1 {
     }
 
     function fastGetOraclePrice(IDodoV1 dodo) internal view returns (uint256) {
-        return uint256(_get(dodo, 0x796da7af));
+        return uint256(_get(dodo, uint32(dodo.getOraclePrice.selector)));
     }
 
     function fast_BASE_TOKEN_(IDodoV1 dodo) internal view returns (IERC20) {
-        uint256 result = uint256(_get(dodo, 0x4a248d2a));
+        uint256 result = uint256(_get(dodo, uint32(dodo._BASE_TOKEN_.selector)));
         require(result >> 160 == 0);
         return IERC20(address(uint160(result)));
     }
 
     function fast_QUOTE_TOKEN_(IDodoV1 dodo) internal view returns (IERC20) {
-        uint256 result = uint256(_get(dodo, 0xd4b97046));
+        uint256 result = uint256(_get(dodo, uint32(dodo._QUOTE_TOKEN_.selector)));
         require(result >> 160 == 0);
         return IERC20(address(uint160(result)));
     }
