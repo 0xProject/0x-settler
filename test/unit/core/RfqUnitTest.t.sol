@@ -212,12 +212,7 @@ contract RfqUnitTest is Utils, Test {
                     uint256(0x140),
                     uint256(0x160 + witnessTypeString.length)
                 ),
-                abi.encodePacked(
-                    witnessTypeString.length,
-                    witnessTypeString,
-                    uint256(2),
-                    hex"dead"
-                )
+                abi.encodePacked(witnessTypeString.length, witnessTypeString, uint256(2), hex"dead")
             ),
             new bytes(0)
         );
@@ -231,10 +226,7 @@ contract RfqUnitTest is Utils, Test {
                     address(this), /* taker + payer */
                     uint256(0x100)
                 ),
-                abi.encodePacked(
-                    uint256(2),
-                    hex"beef"
-                )
+                abi.encodePacked(uint256(2), hex"beef")
             ),
             new bytes(0)
         );
@@ -306,12 +298,7 @@ contract RfqUnitTest is Utils, Test {
                     uint256(0x140),
                     uint256(0x160 + witnessTypeString.length)
                 ),
-                abi.encodePacked(
-                    witnessTypeString.length,
-                    witnessTypeString,
-                    uint256(2),
-                    hex"dead"
-                )
+                abi.encodePacked(witnessTypeString.length, witnessTypeString, uint256(2), hex"dead")
             ),
             new bytes(0)
         );
@@ -394,12 +381,7 @@ contract RfqUnitTest is Utils, Test {
                     uint256(0x140),
                     uint256(0x160 + witnessTypeString.length)
                 ),
-                abi.encodePacked(
-                    witnessTypeString.length,
-                    witnessTypeString,
-                    uint256(2),
-                    hex"dead"
-                )
+                abi.encodePacked(witnessTypeString.length, witnessTypeString, uint256(2), hex"dead")
             ),
             new bytes(0)
         );
@@ -486,10 +468,7 @@ contract RfqUnitTest is Utils, Test {
                     uint256(0x160 + actionsAndSlippageWitnessType.length)
                 ),
                 abi.encodePacked(
-                    actionsAndSlippageWitnessType.length,
-                    actionsAndSlippageWitnessType,
-                    uint256(2),
-                    hex"beef"
+                    actionsAndSlippageWitnessType.length, actionsAndSlippageWitnessType, uint256(2), hex"beef"
                 )
             ),
             new bytes(0)
@@ -500,14 +479,15 @@ contract RfqUnitTest is Utils, Test {
             PERMIT2,
             bytes.concat(
                 abi.encodeWithSelector(
-                    bytes4(0x137c29fe), makerPermit, transferDetails, MAKER, witness, uint256(0x140), uint256(0x160+considerationWitnessType.length)
+                    bytes4(0x137c29fe),
+                    makerPermit,
+                    transferDetails,
+                    MAKER,
+                    witness,
+                    uint256(0x140),
+                    uint256(0x160 + considerationWitnessType.length)
                 ),
-                abi.encodePacked(
-                    considerationWitnessType.length,
-                    considerationWitnessType,
-                    uint256(2),
-                    hex"dead"
-                )
+                abi.encodePacked(considerationWitnessType.length, considerationWitnessType, uint256(2), hex"dead")
             ),
             new bytes(0)
         );

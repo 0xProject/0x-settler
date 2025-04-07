@@ -214,7 +214,9 @@ contract UniswapV3UnitTest is Utils, Test {
         _mockExpectCall(
             PERMIT2,
             bytes.concat(
-                abi.encodeWithSelector(bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), uint256(0x100)),
+                abi.encodeWithSelector(
+                    bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), uint256(0x100)
+                ),
                 abi.encodePacked(uint256(4), hex"deadbeef")
             ),
             new bytes(0)
