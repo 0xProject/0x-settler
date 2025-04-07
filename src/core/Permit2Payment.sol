@@ -327,7 +327,17 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 
             // We don't need to check that Permit2 has code, and it always signals failure by
             // reverting.
-            if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x184, add(witnessTypeStringLength, sigLength)), 0x00, 0x00)) {
+            if iszero(
+                call(
+                    gas(),
+                    __PERMIT2,
+                    0x00,
+                    add(0x1c, ptr),
+                    add(0x184, add(witnessTypeStringLength, sigLength)),
+                    0x00,
+                    0x00
+                )
+            ) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -515,11 +525,23 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     }
 
     // Solidity inheritance is stupid
-    function _isForwarded() internal view virtual override(AbstractContext, Context, AllowanceHolderContext) returns (bool) {
+    function _isForwarded()
+        internal
+        view
+        virtual
+        override(AbstractContext, Context, AllowanceHolderContext)
+        returns (bool)
+    {
         return super._isForwarded();
     }
 
-    function _msgData() internal view virtual override(AbstractContext, Context, AllowanceHolderContext) returns (bytes calldata) {
+    function _msgData()
+        internal
+        view
+        virtual
+        override(AbstractContext, Context, AllowanceHolderContext)
+        returns (bytes calldata)
+    {
         return super._msgData();
     }
 

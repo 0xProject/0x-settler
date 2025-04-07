@@ -85,7 +85,6 @@ contract MainnetSettler is Settler, MainnetMixin {
                 bytes memory sig,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
-
             sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } */ else {
             return false;

@@ -85,7 +85,6 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, uint256));
-
             sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } */ else {
             return false;

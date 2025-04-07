@@ -31,7 +31,7 @@ library Ternary {
             b := xor(y, t)
         }
     }
-    
+
     function maybeSwap(bool c, IERC20 x, IERC20 y) internal pure returns (IERC20 a, IERC20 b) {
         (uint256 a_, uint256 b_) = maybeSwap(c, uint160(address(x)), uint160(address(y)));
         a = IERC20(address(uint160(a_)));

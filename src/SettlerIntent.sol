@@ -269,7 +269,6 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return Context._isForwarded(); // false
     }
 
-
     // Solidity inheritance is stupid
     function _msgSender()
         internal

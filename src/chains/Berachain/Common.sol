@@ -12,7 +12,7 @@ import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {kodiakV3Factory, kodiakV3InitHash, kodiakV3ForkId} from "../../core/univ3forks/KodiakV3.sol";
 import {IUniswapV3Callback} from "../../core/univ3forks/UniswapV3.sol";
-import {bullaFactory, bullaForkId} from  "../../core/univ3forks/Bulla.sol";
+import {bullaFactory, bullaForkId} from "../../core/univ3forks/Bulla.sol";
 import {algebraV4InitHash, IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 // Solidity inheritance is stupid
