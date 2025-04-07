@@ -38,6 +38,19 @@ function revertTooMuchSlippage(IERC20 buyToken, uint256 expectedBuyAmount, uint2
 ///         not recognized in context.
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
+function revertActionInvalid(uint256 i, uint256 action, bytes calldata data) pure {
+    assembly ("memory-safe") {
+        let ptr := mload(0x40)
+        mstore(ptr, 0x3c74eed6) // selector for `ActionInvalid(uint256,bytes4,bytes)`
+        mstore(add(0x20, ptr), i)
+        mstore(add(0x40, ptr), shl(0xe0, action)) // align as `bytes4`
+        mstore(add(0x60, ptr), 0x60) // offset to the length slot of the dynamic value `data`
+        mstore(add(0x80, ptr), data.length)
+        calldatacopy(add(0xa0, ptr), data.offset, data.length)
+        revert(add(0x1c, ptr), add(0x84, data.length))
+    }
+}
+
 /// @notice Thrown when the encoded fork ID as part of UniswapV3 fork path is not on the list of
 ///         recognized forks for this chain.
 error UnknownForkId(uint8 forkId);

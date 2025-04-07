@@ -10,7 +10,7 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {ConfusedDeputy, ActionInvalid} from "./core/SettlerErrors.sol";
+import {revertActionInvalid} from "./core/SettlerErrors.sol";
 
 abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
@@ -122,14 +122,14 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
             if (!_dispatchVIP(action, data, sig)) {
-                revert ActionInvalid(0, bytes4(uint32(action)), data);
+                revertActionInvalid(0, action, data);
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, bytes4(uint32(action)), data);
+                revertActionInvalid(i, action, data);
             }
         }
 
