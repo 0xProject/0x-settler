@@ -321,12 +321,9 @@ abstract contract Permit2Payment is Permit2PaymentBase {
             mstore(add(0x140, ptr), add(0x160, witnessTypeStringLength)) // Offset to `sig` (past the end of `witnessTypeString`)
 
             // Now we encode the 2 dynamic objects, `witnessTypeString` and `sig`.
-            mstore(add(0x160, ptr), witnessTypeStringLength)
-            mcopy(add(0x180, ptr), add(0x20, witnessTypeString), witnessTypeStringLength)
-            let ptrPlusWitnessTypeStringLength := add(ptr, witnessTypeStringLength)
+            mcopy(add(0x160, ptr), witnessTypeString, add(0x20, witnessTypeStringLength))
             let sigLength := mload(sig)
-            mstore(add(0x180, ptrPlusWitnessTypeStringLength), sigLength)
-            mcopy(add(0x1a0, ptrPlusWitnessTypeStringLength), add(0x20, sig), sigLength)
+            mcopy(add(0x180, add(ptr, witnessTypeStringLength)), sig, add(0x20, sigLength))
 
             // We don't need to check that Permit2 has code, and it always signals failure by
             // reverting.
@@ -460,8 +457,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 
                 // Encode the dynamic object `sig`
                 let sigLength := mload(sig)
-                mstore(add(0x120, ptr), sigLength)
-                mcopy(add(0x140, ptr), add(0x20, sig), sigLength)
+                mcopy(add(0x120, ptr), sig, add(0x20, sigLength))
 
                 // We don't need to check that Permit2 has code, and it always signals failure by
                 // reverting.
