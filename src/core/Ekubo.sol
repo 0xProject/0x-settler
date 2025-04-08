@@ -171,7 +171,7 @@ abstract contract Ekubo is SettlerAbstract {
         if (sellToken == ETH_ADDRESS) {
             // TODO: Check if this is a valid case
             // No need to call pay, the receive function will be used to pay the debt
-            SafeTransferLib.safeTransferETH(payable(address(CORE)), sellAmount);
+            SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
             // Encode the call plus the extra data that is going to be needed in the callback
@@ -179,7 +179,7 @@ abstract contract Ekubo is SettlerAbstract {
                 abi.encodeCall(IEkuboCore.pay, address(sellToken)), abi.encode(payer, sellAmount, permit, isForwarded, sig)
             );
             bytes memory encodedPayedAmount = _setOperatorAndCall(
-                address(CORE), data, uint32(IEkuboCallbacks.payCallback.selector), payCallback
+                msg.sender, data, uint32(IEkuboCallbacks.payCallback.selector), payCallback
             );
             return abi.decode(encodedPayedAmount, (uint256));
         }
