@@ -17,6 +17,8 @@ type Config is bytes32;
 
 type SqrtRatio is uint96;
 
+error AmountSpecifiedTooLarge(int256 amount);
+
 // Each pool has its own state associated with this key
 struct PoolKey {
     address token0;
@@ -169,8 +171,6 @@ abstract contract Ekubo is SettlerAbstract {
         bytes calldata sig
     ) private returns (uint256) {
         if (sellToken == ETH_ADDRESS) {
-            // TODO: Check if this is a valid case
-            // No need to call pay, the receive function will be used to pay the debt
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
@@ -242,6 +242,9 @@ abstract contract Ekubo is SettlerAbstract {
             data = Decoder.updateState(state, notes, data);
             // TODO: check the sign convention
             int256 amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
+            if (amountSpecified > type(int128).max) {
+                revert AmountSpecifiedTooLarge(amountSpecified);
+            }
             bool zeroForOne;
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
