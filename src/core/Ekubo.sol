@@ -254,7 +254,7 @@ abstract contract Ekubo is SettlerAbstract {
                             and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
                         )
                 }
-                (poolKey.token0, poolKey.token1) = zeroForOne.maybeSwap(address(sellToken), address(buyToken));
+                (poolKey.token0, poolKey.token1) = zeroForOne.maybeSwap(address(buyToken), address(sellToken));
             }
 
             {
@@ -283,7 +283,7 @@ abstract contract Ekubo is SettlerAbstract {
                     SqrtRatio.wrap(uint96(zeroForOne.ternary(uint256(4611797791050542631), uint256(79227682466138141934206691491))));
                 (int256 delta0, int256 delta1) =
                     CORE.swap_611415377(poolKey, int128(amountSpecified), zeroForOne, sqrtRatio, skipAhead);
-                (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne.maybeSwap(delta0, delta1);
+                (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne.maybeSwap(delta1, delta0);
 
                 // TODO: Check if this comment applies to Ekubo but for extensions
                 // Some insane hooks may increase the sell amount; obviously this may result in
