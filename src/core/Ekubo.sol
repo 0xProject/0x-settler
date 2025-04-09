@@ -325,8 +325,8 @@ abstract contract Ekubo is SettlerAbstract {
             data = Decoder.updateState(state, notes, data);
             // TODO: check the sign convention
             int256 amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
-            if (amountSpecified > type(int128).max) {
-                revert AmountSpecifiedTooLarge(amountSpecified);
+            if (amountSpecified >> 127 != amountSpecified >> 128) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
             bool zeroForOne;
             {
