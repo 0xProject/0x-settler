@@ -17,8 +17,6 @@ type Config is bytes32;
 
 type SqrtRatio is uint96;
 
-error AmountSpecifiedTooLarge(int256 amount);
-
 // Each pool has its own state associated with this key
 struct PoolKey {
     address token0;
@@ -75,10 +73,12 @@ library UnsafeEkuboCore {
 
             mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
             // TODO: Check that native ETH is handled properly (0x0 vs 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)
-            mcopy(add(0x20, ptr), key, 0x60)
-            mstore(add(0x80, ptr), amount)
-            mstore(add(0xa0, ptr), isToken1)
-            mstore(add(0xc0, ptr), sqrtRatioLimit)
+            mstore(add(0x20, ptr), and(_ADDRESS_MASK, mload(poolKey)))
+            mstore(add(0x40, ptr), and(_ADDRESS_MASK, mload(add(0x20, poolKey))))
+            mstore(add(0x60, ptr), mload(add(0x40, poolKey)))
+            mstore(add(0x80, ptr), signextend(0x0f, amount))
+            mstore(add(0xa0, ptr), and(0xff, isToken1))
+            mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xe0, ptr), skipAhead)
             
             if iszero(call(gas(), core, 0x00, add(0x1c, ptr), 0xe4, 0x00, 0x40)) {
@@ -87,36 +87,6 @@ library UnsafeEkuboCore {
             }
             delta0 := mload(0x00)
             delta1 := mload(0x20)
-        }
-    }
-
-    function unsafePay(IEkuboCore core, address token) internal returns (uint128 payment) {
-        assembly ("memory-safe") {
-            mstore(0x14, token)
-            mstore(0x00, 0x0c11dedd000000000000000000000000) // selector for `pay(address)` with `token`'s padding
-            if iszero(call(gas(), core, 0x00, 0x10, 0x24, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            payment := mload(0x20)
-        }
-    }
-
-    function unsafeWithdraw(IEkuboCore core, address token, address recipient, uint128 amount) internal {
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-
-            mstore(ptr, 0x03a65ab6) // selector for `withdraw(address,address,uint128)`
-            // TODO: Check that native ETH is handled properly (0x0 vs 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)
-            mstore(add(0x20, ptr), token)
-            mstore(add(0x40, ptr), recipient)
-            mstore(add(0x60, ptr), amount)
-            
-            if iszero(call(gas(), core, 0x00, add(0x1c, ptr), 0x64, 0x00, 0x00)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
         }
     }
 }
@@ -241,11 +211,11 @@ abstract contract Ekubo is SettlerAbstract {
                 data := mload(0x40)
 
                 mstore(add(data, 0x20), 0x0c11dedd) // selector for pay(address)
-                mstore(add(data, 0x40), sellToken)
-                mstore(add(data, 0x60), payer)
+                mstore(add(data, 0x40), and(_ADDRESS_MASK, sellToken))
+                mstore(add(data, 0x60), and(_ADDRESS_MASK, payer))
                 mstore(add(data, 0x80), sellAmount)
                 calldatacopy(add(data, 0xa0), permit.offset, 0x80)
-                mstore(add(data, 0x120), isForwarded)
+                mstore(add(data, 0x120), and(0xff, isForwarded))
                 mstore(add(data, 0x140), sig.length)
                 calldatacopy(add(data, 0x160), sig.offset, sig.length)
 
@@ -254,8 +224,8 @@ abstract contract Ekubo is SettlerAbstract {
                 // update data length
                 mstore(data, size)
 
-                // update free memory pointer (word-aligned)
-                mstore(0x40, add(data, and(add(add(size, 32), 31), not(31))))
+                // update free memory pointer
+                mstore(0x40, add(0x20, add(data, size)))
             }
             bytes memory encodedPayedAmount =
                 _setOperatorAndCall(msg.sender, data, uint32(IEkuboCallbacks.payCallback.selector), payCallback);
