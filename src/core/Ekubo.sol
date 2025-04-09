@@ -285,7 +285,7 @@ abstract contract Ekubo is SettlerAbstract {
                 SqrtRatio sqrtRatio =
                     SqrtRatio.wrap(uint96(zeroForOne.ternary(uint256(4611797791050542631), uint256(79227682466138141934206691491))));
                 (int256 delta0, int256 delta1) =
-                    CORE.swap_611415377(poolKey, int128(amountSpecified), zeroForOne, sqrtRatio, skipAhead);
+                    IEkuboCore(msg.sender).swap_611415377(poolKey, int128(amountSpecified), zeroForOne, sqrtRatio, skipAhead);
                 (int256 settledSellAmount, int256 settledBuyAmount) = zeroForOne.maybeSwap(delta1, delta0);
 
                 // TODO: Check if this comment applies to Ekubo but for extensions
