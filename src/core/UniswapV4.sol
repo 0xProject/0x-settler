@@ -312,7 +312,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the pool
                 // manager later. We cannot overflow a `uint256`.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.asCredit(state.buy.token);
+                    state.buy.amount += settledBuyAmount.asCredit(state.buy);
                 }
             }
         }

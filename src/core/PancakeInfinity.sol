@@ -541,11 +541,11 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 // credit, or cause the buy amount to be debt. We need to handle all these cases by
                 // reverting.
 
-                state.sell.amount -= settledSellAmount.asDebt(state.sell.token);
+                state.sell.amount -= settledSellAmount.asDebt(state.sell);
                 // Since `settledBuyAmount` came from an `int128`, this addition cannot overflow a
                 // `uint256`. We still need to make sure it doesn't record a debt, though.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.asCredit(state.buy.token);
+                    state.buy.amount += settledBuyAmount.asCredit(state.buy);
                 }
             }
         }

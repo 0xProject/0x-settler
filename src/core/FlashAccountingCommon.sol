@@ -13,6 +13,16 @@ import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegati
 library CreditDebt {
     using UnsafeMath for int256;
 
+    function asCredit(int256 delta, NotesLib.Note memory note) internal pure returns (uint256) {
+        if (delta < 0) {
+            assembly ("memory-safe") {
+                mstore(note, 0x4c085bf1) // selector for `DeltaNotPositive(address)`; clobbers `note.amount`
+                revert(add(0x1c, note), 0x24)
+            }
+        }
+        return uint256(delta);
+    }
+
     function asCredit(int256 delta, IERC20 token) internal pure returns (uint256) {
         if (delta < 0) {
             assembly ("memory-safe") {
@@ -30,6 +40,16 @@ library CreditDebt {
                 mstore(0x14, token)
                 mstore(0x00, 0x3351b260000000000000000000000000) // selector for `DeltaNotNegative(address)` with `token`'s padding
                 revert(0x10, 0x24)
+            }
+        }
+        return uint256(delta.unsafeNeg());
+    }
+
+    function asDebt(int256 delta, NotesLib.Note memory note) internal pure returns (uint256) {
+        if (delta > 0) {
+            assembly ("memory-safe") {
+                mstore(note, 0x3351b260) // selector for `DeltaNotNegative(address)`; clobbers `note.amount`
+                revert(add(0x1c, note), 0x24)
             }
         }
         return uint256(delta.unsafeNeg());
