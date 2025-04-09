@@ -245,7 +245,7 @@ abstract contract Ekubo is SettlerAbstract {
     // 1 - pool key tokens case
     // 32 - config (8 fee, 4 tickSpacing, 20 extension)
     // 32 - skipAhead
-    uint256 private constant _HOP_DATA_LENGTH = 62;
+    uint256 private constant _HOP_DATA_LENGTH = 67;
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
