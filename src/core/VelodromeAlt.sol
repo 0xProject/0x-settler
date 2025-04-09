@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
@@ -28,6 +29,7 @@ interface IVelodromePair {
 
 abstract contract Velodrome is SettlerAbstract {
     using UnsafeMath for uint256;
+    using FastLogic for bool;
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
@@ -171,7 +173,10 @@ abstract contract Velodrome is SettlerAbstract {
                 }
             }
         }
-        revert NotConverged();
+        assembly ("memory-safe") {
+            mstore(0x00, 0x481b61af) // selector for `NotConverged()`
+            revert(0x1c, 0x04)
+        }
     }
 
     function sellToVelodrome(address recipient, uint256 bps, IVelodromePair pair, uint24 swapInfo, uint256 minAmountOut)
@@ -214,7 +219,7 @@ abstract contract Velodrome is SettlerAbstract {
             if (sellAmount != 0) {
                 sellToken.safeTransfer(address(pair), sellAmount);
             }
-            if (sellAmount == 0 || sellTokenHasFee) {
+            if ((sellAmount == 0).or(sellTokenHasFee)) {
                 sellAmount = sellToken.fastBalanceOf(address(pair)) - sellReserve;
             }
 

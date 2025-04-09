@@ -7,7 +7,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
-import {UnknownForkId} from "src/core/SettlerErrors.sol";
+import {revertUnknownForkId} from "src/core/SettlerErrors.sol";
 import {uint512} from "src/utils/512Math.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
@@ -69,7 +69,7 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 }
@@ -213,7 +213,12 @@ contract UniswapV3UnitTest is Utils, Test {
         // cannot use abi.encodeWithSelector due to the selector overload and ambiguity
         _mockExpectCall(
             PERMIT2,
-            abi.encodeWithSelector(bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), hex"deadbeef"),
+            bytes.concat(
+                abi.encodeWithSelector(
+                    bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), uint256(0x100)
+                ),
+                abi.encodePacked(uint256(4), hex"deadbeef")
+            ),
             new bytes(0)
         );
 

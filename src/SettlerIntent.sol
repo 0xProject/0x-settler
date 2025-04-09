@@ -90,14 +90,20 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         // Check that the caller (in this case `_operator()`, because we aren't using the special
         // transient-storage taker logic) is the owner.
         if (_operator() != owner()) {
-            revert IOwnable.PermissionDenied();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
+                revert(0x1c, 0x04)
+            }
         }
         _;
     }
 
     modifier onlySolver() {
         if (_$()[_operator()] == address(0)) {
-            revert IOwnable.PermissionDenied();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
+                revert(0x1c, 0x04)
+            }
         }
         _;
     }

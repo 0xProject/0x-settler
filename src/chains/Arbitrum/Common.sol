@@ -15,7 +15,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -141,7 +141,7 @@ abstract contract ArbitrumMixin is
                 initHash = uniswapV3InitHash;
                 callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
             } else {
-                revert UnknownForkId(forkId);
+                revertUnknownForkId(forkId);
             }
         } else {
             if (forkId == solidlyV3ForkId) {
@@ -157,7 +157,7 @@ abstract contract ArbitrumMixin is
                 initHash = pancakeSwapV3InitHash;
                 callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
             } else {
-                revert UnknownForkId(forkId);
+                revertUnknownForkId(forkId);
             }
         }
     }

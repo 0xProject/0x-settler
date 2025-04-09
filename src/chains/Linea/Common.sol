@@ -10,7 +10,7 @@ import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3LineaFactory,
@@ -79,7 +79,7 @@ abstract contract LineaMixin is FreeMemory, SettlerBase, DodoV1 {
             initHash = lynexInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 }

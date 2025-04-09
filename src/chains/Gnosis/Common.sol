@@ -8,7 +8,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3GnosisFactory,
@@ -59,7 +59,7 @@ abstract contract GnosisMixin is FreeMemory, SettlerBase {
             initHash = swaprInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 }

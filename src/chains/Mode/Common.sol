@@ -6,7 +6,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     supSwapV3Factory,
@@ -70,7 +70,7 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
             initHash = swapModeV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 }

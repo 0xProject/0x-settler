@@ -8,11 +8,11 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {kodiakV3Factory, kodiakV3InitHash, kodiakV3ForkId} from "../../core/univ3forks/KodiakV3.sol";
 import {IUniswapV3Callback} from "../../core/univ3forks/UniswapV3.sol";
-import {bullaFactory, bullaForkId} from  "../../core/univ3forks/Bulla.sol";
+import {bullaFactory, bullaForkId} from "../../core/univ3forks/Bulla.sol";
 import {algebraV4InitHash, IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 // Solidity inheritance is stupid
@@ -53,7 +53,7 @@ abstract contract BerachainMixin is FreeMemory, SettlerBase {
             initHash = algebraV4InitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 }
