@@ -73,11 +73,9 @@ library UnsafeEkuboCore {
 
             mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
             // TODO: Check that native ETH is handled properly (0x0 vs 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)
-            mstore(add(0x20, ptr), and(_ADDRESS_MASK, mload(poolKey)))
-            mstore(add(0x40, ptr), and(_ADDRESS_MASK, mload(add(0x20, poolKey))))
-            mstore(add(0x60, ptr), mload(add(0x40, poolKey)))
+            mcopy(add(0x20, ptr), poolKey, 0x60)
             mstore(add(0x80, ptr), signextend(0x0f, amount))
-            mstore(add(0xa0, ptr), and(0xff, isToken1))
+            mstore(add(0xa0, ptr), isToken1)
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xe0, ptr), skipAhead)
             
@@ -210,22 +208,26 @@ abstract contract Ekubo is SettlerAbstract {
             assembly ("memory-safe") {
                 data := mload(0x40)
 
-                mstore(add(data, 0x20), 0x0c11dedd) // selector for pay(address)
-                mstore(add(data, 0x40), and(_ADDRESS_MASK, sellToken))
-                mstore(add(data, 0x60), and(_ADDRESS_MASK, payer))
-                mstore(add(data, 0x80), sellAmount)
-                calldatacopy(add(data, 0xa0), permit.offset, 0x80)
-                mstore(add(data, 0x120), and(0xff, isForwarded))
-                mstore(add(data, 0x140), sig.length)
-                calldatacopy(add(data, 0x160), sig.offset, sig.length)
+                mstore(add(0x20, data), 0x0c11dedd) // selector for pay(address)
+                mstore(add(0x40, data), and(_ADDRESS_MASK, sellToken))
 
-                let size := add(0x124, sig.length)
+                mstore(add(0x60, data), sellAmount)
+                let size := 0x44
+
+                // if permit is needed add it to data
+                if iszero(eq(payer, address())) {
+                    calldatacopy(add(0xa0, data), permit, 0x80)
+                    mstore(add(0x120, data), isForwarded)
+                    mstore(add(0x140, data), sig.length)
+                    calldatacopy(add(0x160, data), sig.offset, sig.length)
+                    size := add(size, add(0xc0, sig.length))
+                }
 
                 // update data length
                 mstore(data, size)
 
                 // update free memory pointer
-                mstore(0x40, add(0x20, add(data, size)))
+                mstore(0x40, add(data, add(0x20, size)))
             }
             bytes memory encodedPayedAmount =
                 _setOperatorAndCall(msg.sender, data, uint32(IEkuboCallbacks.payCallback.selector), payCallback);
@@ -406,17 +408,39 @@ abstract contract Ekubo is SettlerAbstract {
     }
 
     function payCallback(bytes calldata data) private returns (bytes memory) {
-        (
-            IERC20 sellToken,
-            uint256 requestedAmount,
-            address payer,
-            uint256 sellAmount,
-            ISignatureTransfer.PermitTransferFrom memory permit,
-            bool isForwarded,
-            bytes memory sig
-        ) = abi.decode(data, (IERC20, uint256, address, uint256, ISignatureTransfer.PermitTransferFrom, bool, bytes));
+        IERC20 sellToken;
+        uint256 requestedAmount;
+        uint256 sellAmount;
+        
+        ISignatureTransfer.PermitTransferFrom calldata permit;
+        bool isForwarded;
+        bytes calldata sig;
+
+        
+        assembly ("memory-safe") {
+            
+        }
+        
+        assembly ("memory-safe") {
+            // Initialize permit and sig to appease the compiler
+            permit := calldatasize()
+            sig.offset := calldatasize()
+            sig.length := 0x00
+
+            sellToken := calldataload(data.offset)
+            requestedAmount := calldataload(add(0x20, data.offset))
+            sellAmount := calldataload(add(0x40, data.offset))
+
+            if gt(calldatasize(), 0x60) {
+                permit := add(0x60, data.offset)
+                isForwarded := calldataload(add(0xc0, data.offset))
+                sig.length := calldataload(add(0xe0, data.offset))
+                sig.offset := add(0x100, data.offset)
+            }
+        }
         // TODO: Check if  assert(requestedAmount == sellAmount) should be true
-        if (payer == address(this)) {
+        
+        if (sig.length == 0) {
             sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
             // assert(payer == address(0));
