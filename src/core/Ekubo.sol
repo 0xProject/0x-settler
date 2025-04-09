@@ -73,7 +73,7 @@ library UnsafeEkuboCore {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            // mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
+            mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
             // TODO: Check that native ETH is handled properly (0x0 vs 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)
             mcopy(add(0x20, ptr), key, 0x60)
             mstore(add(0x80, ptr), amount)
