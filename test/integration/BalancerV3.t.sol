@@ -82,7 +82,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         }
     }
 
-    function _setLabels() private setBalancerV3Block {
+    function _setBalancerV3Labels() private setBalancerV3Block {
         vm.label(address(VAULT), "BalancerV3 vault");
         vm.label(balancerV3Pool(), string.concat("BalancerV3 pool: ", fromToken().symbol(), "/", toToken().symbol()));
         vm.label(address(fromTokenWrapped()), fromTokenWrapped().symbol());
@@ -100,7 +100,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
             vm.makePersistent(address(toToken()));
             vm.makePersistent(address(fromTokenWrapped()));
             vm.makePersistent(address(toTokenWrapped()));
-            _setLabels();
+            _setBalancerV3Labels();
         }
     }
 
@@ -133,7 +133,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
     function testBalancerV3() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
-        (uint256 hashMul, uint256 hashMod) = perfectHash();
+        (uint256 hashMul, uint256 hashMod) = BalancerV3Test.perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
@@ -161,7 +161,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
     function testBalancerV3VIP() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
-        (uint256 hashMul, uint256 hashMod) = perfectHash();
+        (uint256 hashMul, uint256 hashMod) = BalancerV3Test.perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
         );
@@ -188,7 +188,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
         bytes memory sig = new bytes(0);
 
-        (uint256 hashMul, uint256 hashMod) = perfectHash();
+        (uint256 hashMul, uint256 hashMod) = BalancerV3Test.perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
         );
@@ -219,7 +219,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
-        (uint256 hashMul, uint256 hashMod) = perfectHash();
+        (uint256 hashMul, uint256 hashMod) = BalancerV3Test.perfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, 0))
         );
