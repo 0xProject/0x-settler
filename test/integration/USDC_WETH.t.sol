@@ -14,8 +14,8 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
-
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+import {EkuboTest} from "./Ekubo.t.sol";
 
 contract USDCWETHTest is
     AllowanceHolderPairTest,
@@ -27,7 +27,8 @@ contract USDCWETHTest is
     DodoV1PairTest,
     MaverickV2PairTest,
     TokenTransferTest,
-    Permit2TransferTest
+    Permit2TransferTest,
+    EkuboTest
 {
     function setUp()
         public
@@ -40,7 +41,8 @@ contract USDCWETHTest is
             ZeroExPairTest,
             UniswapV3PairTest,
             TokenTransferTest,
-            Permit2TransferTest
+            Permit2TransferTest,
+            EkuboTest
         )
     {
         super.setUp();
@@ -125,4 +127,9 @@ contract USDCWETHTest is
     function maverickV2TokenAIn() internal pure override returns (bool) {
         return fromToken() < toToken();
     }
+
+    // function ekuboPoolConfig() internal pure /*override*/ returns (bytes32) {
+    //     // Key for ETH_USDC pool (not WETH)
+    //     return bytes32(0x000000000000000000000000000000000000000000c49ba5e353f7ce0000175e);
+    // }
 }
