@@ -224,4 +224,14 @@ interface ISettlerActions {
         bytes memory sig,
         uint256 amountOutMin
     ) external;
+
+    function METATXN_EKUBO_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
 }
