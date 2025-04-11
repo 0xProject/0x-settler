@@ -63,6 +63,10 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
             uint256(0));
     }
 
+    function ekuboExtraActions(bytes[] memory actions) internal view virtual returns (bytes[] memory) {
+        return actions;
+    }
+
     function setUp() public virtual override {
         super.setUp();
         if (ekuboPoolConfig() != bytes32(0)) {
@@ -75,16 +79,24 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         }
     }
 
+    function recipient() internal view virtual returns (address) {
+        return FROM;
+    }
+
+    function metaTxnRecipient() internal view virtual returns (address) {
+        return FROM;
+    }
+
     function testEkubo() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
-        bytes[] memory actions = ActionDataBuilder.build(
+        bytes[] memory actions = ekuboExtraActions(ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.EKUBO, (FROM, address(fromToken()), 10_000, false, hashMul, hashMod, ekuboFills(), 0)
+                ISettlerActions.EKUBO, (recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, ekuboFills(), 0)
             )
-        );
+        ));
         
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
@@ -108,9 +120,9 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.EKUBO_VIP, (FROM, false, hashMul, hashMod, ekuboFills(), permit, sig, 0))
-        );
+        bytes[] memory actions = ekuboExtraActions(ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.EKUBO_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0))
+        ));
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
         Settler _settler = settler;
@@ -135,9 +147,9 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         bytes memory sig = new bytes(0);
 
         (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.EKUBO_VIP, (FROM, false, hashMul, hashMod, ekuboFills(), permit, sig, 0))
-        );
+        bytes[] memory actions = ekuboExtraActions(ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.EKUBO_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0))
+        ));
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -166,9 +178,9 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_EKUBO_VIP, (FROM, false, hashMul, hashMod, ekuboFills(), permit, 0))
-        );
+        bytes[] memory actions = ekuboExtraActions(ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.METATXN_EKUBO_VIP, (metaTxnRecipient(), false, hashMul, hashMod, ekuboFills(), permit, 0))
+        ));
         SettlerBase.AllowedSlippage memory allowedSlippage =
             SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
 

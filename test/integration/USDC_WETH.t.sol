@@ -16,6 +16,7 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
 
 contract USDCWETHTest is
     AllowanceHolderPairTest,
@@ -30,6 +31,8 @@ contract USDCWETHTest is
     Permit2TransferTest,
     EkuboTest
 {
+    address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     function setUp()
         public
         override(
@@ -128,8 +131,36 @@ contract USDCWETHTest is
         return fromToken() < toToken();
     }
 
-    // function ekuboPoolConfig() internal pure /*override*/ returns (bytes32) {
-    //     // Key for ETH_USDC pool (not WETH)
-    //     return bytes32(0x000000000000000000000000000000000000000000c49ba5e353f7ce0000175e);
-    // }
+    function ekuboPoolConfig() internal pure override returns (bytes32) {
+        // Key for ETH_USDC pool (not WETH)
+        return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7000003e8);
+    }
+
+    function ekuboFills() internal view virtual override returns (bytes memory) {
+        return abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x01),
+            _eth,
+            ekuboPoolConfig(),
+            uint256(0));
+    }
+
+    function recipient() internal view virtual override returns (address) {
+        return address(settler);
+    }
+
+    function metaTxnRecipient() internal view virtual override returns (address) {
+        return address(settlerMetaTxn);
+    }
+
+    function ekuboExtraActions(bytes[] memory actions) internal view virtual override returns (bytes[] memory) {
+        bytes[] memory data = new bytes[](actions.length + 2);
+        address _weth = address(toToken());
+        for (uint256 i; i < actions.length; i++) {
+            data[i] = actions[i];
+        }
+        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, ""));
+        data[actions.length + 1] = abi.encodeCall(ISettlerActions.BASIC, (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0)))));
+        return data;
+    }
 }
