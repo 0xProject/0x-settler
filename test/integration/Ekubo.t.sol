@@ -16,9 +16,10 @@ import {CORE} from "src/core/Ekubo.sol";
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
-import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
+import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
-abstract contract EkuboTest is SettlerBasePairTest {
+abstract contract EkuboTest is SettlerMetaTxnPairTest {
     using UnsafeMath for uint256;
 
     function ekuboPerfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
@@ -132,7 +133,7 @@ abstract contract EkuboTest is SettlerBasePairTest {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
         bytes memory sig = new bytes(0);
-        
+
         (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.EKUBO_VIP, (FROM, false, hashMul, hashMod, ekuboFills(), permit, sig, 0))
@@ -151,6 +152,51 @@ abstract contract EkuboTest is SettlerBasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_ekuboVIP");
         _allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+    }
+
+    function testEkuboMetaTxn() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+
+        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.METATXN_EKUBO_VIP, (FROM, false, hashMul, hashMod, ekuboFills(), permit, 0))
+        );
+        SettlerBase.AllowedSlippage memory allowedSlippage =
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
+
+        bytes32[] memory actionHashes = new bytes32[](actions.length);
+        for (uint256 i; i < actionHashes.length; i++) {
+            actionHashes[i] = keccak256(actions[i]);
+        }
+        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
+        bytes32 witness = keccak256(
+            abi.encode(
+                SLIPPAGE_AND_ACTIONS_TYPEHASH,
+                allowedSlippage.recipient,
+                allowedSlippage.buyToken,
+                allowedSlippage.minAmountOut,
+                actionsHash
+            )
+        );
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
+        );
+
+        SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
+
+        vm.startPrank(address(this), address(this));
+        snapStartName("settler_metaTxn_ekubo");
+        _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
         snapEnd();
         vm.stopPrank();
 

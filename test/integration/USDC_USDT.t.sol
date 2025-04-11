@@ -6,7 +6,7 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
-
+import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 contract USDCUSDTTest is BalancerV3Test, EkuboTest {
     function setUp() public override(BalancerV3Test, EkuboTest) {
         super.setUp();
@@ -41,7 +41,7 @@ contract USDCUSDTTest is BalancerV3Test, EkuboTest {
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override returns (bytes memory) {
+    function uniswapV3Path() internal pure override(BalancerV3Test, SettlerMetaTxnPairTest) returns (bytes memory) {
         return "";
     }
 
