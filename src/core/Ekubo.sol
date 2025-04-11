@@ -216,11 +216,12 @@ abstract contract Ekubo is SettlerAbstract {
 
                 // if permit is needed add it to data
                 if iszero(eq(payer, address())) {
-                    calldatacopy(add(0x64, data), permit, 0x80)
-                    mstore(add(0xe4, data), isForwarded)
-                    mstore(add(0x104, data), sig.length)
-                    calldatacopy(add(0x124, data), sig.offset, sig.length)
-                    size := add(size, add(0xc0, sig.length))
+                    // let's skip token and sell amount and reuse the values already in data
+                    calldatacopy(add(0x64, data), add(0x40, permit), 0x40)
+                    mstore(add(0xa4, data), isForwarded)
+                    mstore(add(0xc4, data), sig.length)
+                    calldatacopy(add(0xe4, data), sig.offset, sig.length)
+                    size := add(size, add(0x80, sig.length))
                 }
 
                 // update data length
@@ -427,10 +428,11 @@ abstract contract Ekubo is SettlerAbstract {
             sellAmount := calldataload(add(0x40, data.offset))
 
             if gt(data.length, 0x60) {
-                permit := add(0x60, data.offset)
-                isForwarded := calldataload(add(0xe0, data.offset))
+                // starts at the beginning of sellToken
+                permit := add(0x20, data.offset)
+                isForwarded := calldataload(add(0xa0, data.offset))
                 
-                sig.offset := add(0x100, data.offset)
+                sig.offset := add(0xc0, data.offset)
                 sig.length := calldataload(sig.offset)
                 sig.offset := add(0x20, sig.offset)
             }
