@@ -12,10 +12,6 @@ contract USDCUSDTTest is BalancerV3Test, EkuboTest {
         super.setUp();
     }
 
-    function perfectHash() internal view override(BalancerV3Test, EkuboTest) returns (uint256 hashMod, uint256 hashMul) {
-        return super.perfectHash();
-    }
-
     function balancerV3Pool() internal pure override returns (address) {
         // Aave-boosted USDC/USDT
         return 0x89BB794097234E5E930446C0CeC0ea66b35D7570;

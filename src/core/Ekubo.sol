@@ -72,10 +72,10 @@ library UnsafeEkuboCore {
             let ptr := mload(0x40)
 
             mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
-            let token0 := mload(poolKey)
-            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, poolKey), 0x40)
+            let poolKeyPtr := add(0x20, ptr)
+            mcopy(poolKeyPtr, poolKey, 0x60)
+            let token0 := mload(poolKeyPtr)
+            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
             mstore(add(0x80, ptr), signextend(0x0f, amount))
             mstore(add(0xa0, ptr), isToken1)
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
@@ -85,8 +85,8 @@ library UnsafeEkuboCore {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            delta0 := mload(0x00)
-            delta1 := mload(0x20)
+            delta0 := and(0xffffffffffffffffffffffffffffffff, mload(0x00))
+            delta1 := and(0xffffffffffffffffffffffffffffffff, mload(0x20))
         }
     }
 }
@@ -270,6 +270,9 @@ abstract contract Ekubo is SettlerAbstract {
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
+        if (state.sell.amount >= (1 << 127)) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
         if (payer != address(this)) {
             state.globalSell.amount = _permitToSellAmountCalldata(permit);
         }
@@ -296,25 +299,23 @@ abstract contract Ekubo is SettlerAbstract {
             }
 
             data = Decoder.updateState(state, notes, data);
-            int256 amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS));
-            if (amountSpecified >> 127 != amountSpecified >> 128) {
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            int256 amountSpecified;
+            unchecked {
+                amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS));
             }
             bool isToken1;
             {
-                bool zeroForOne;
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
                 assembly ("memory-safe") {
                     sellToken := and(_ADDRESS_MASK, sellToken)
                     buyToken := and(_ADDRESS_MASK, buyToken)
-                    zeroForOne :=
+                    isToken1 :=
                         or(
-                            eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
-                            and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
+                            eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
+                            and(iszero(eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(buyToken, sellToken))
                         )
-                    isToken1 := iszero(zeroForOne)
                 }
-                (poolKey.token0, poolKey.token1) = zeroForOne.maybeSwap(address(buyToken), address(sellToken));
+                (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
             }
 
             {
@@ -345,21 +346,16 @@ abstract contract Ekubo is SettlerAbstract {
                 (int256 delta0, int256 delta1) = IEkuboCore(msg.sender).unsafeSwap(
                     poolKey, int128(amountSpecified), isToken1, sqrtRatio, skipAhead
                 );
+                // Ekubo sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
+                // settledSellAmount is positive, settledBuyAmount is negative
                 (int256 settledSellAmount, int256 settledBuyAmount) = isToken1.maybeSwap(delta0, delta1);
 
-                // TODO: Check if this comment applies to Ekubo but for extensions
-                // Some insane hooks may increase the sell amount; obviously this may result in
-                // unavoidable reverts in some cases. But we still need to make sure that we don't
-                // underflow to avoid wildly unexpected behavior.
-
-                // TODO: verify that the vault enforces that the settled sell amount cannot be
-                // positive
-                state.sell.amount -= uint256(settledSellAmount);
+                state.sell.amount -= settledSellAmount.asCredit(state.sell.token);
 
                 // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the
                 // vault later. We cannot overflow a `uint256`.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.unsafeNeg().asCredit(state.buy.token);
+                    state.buy.amount += settledBuyAmount.asDebt(state.buy.token);
                 }
             }
         }

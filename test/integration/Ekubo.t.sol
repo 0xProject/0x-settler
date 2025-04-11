@@ -21,7 +21,7 @@ import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 abstract contract EkuboTest is SettlerBasePairTest {
     using UnsafeMath for uint256;
 
-    function perfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
+    function ekuboPerfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
         for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
             for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
                 if (
@@ -68,7 +68,7 @@ abstract contract EkuboTest is SettlerBasePairTest {
     function testEkubo() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
-        (uint256 hashMul, uint256 hashMod) = EkuboTest.perfectHash();
+        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
             bytes1(0x01),
