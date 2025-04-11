@@ -53,6 +53,15 @@ abstract contract EkuboTest is SettlerBasePairTest {
         vm.label(address(CORE), "Ekubo CORE");
     }
 
+    function ekuboFills() internal view virtual returns (bytes memory) {
+        return abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x01),
+            address(toToken()),
+            ekuboPoolConfig(),
+            uint256(0));
+    }
+
     function setUp() public virtual override {
         super.setUp();
         if (ekuboPoolConfig() != bytes32(0)) {
@@ -69,17 +78,10 @@ abstract contract EkuboTest is SettlerBasePairTest {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
-        bytes memory fills = abi.encodePacked(
-            uint16(10_000),
-            bytes1(0x01),
-            address(toToken()),
-            ekuboPoolConfig(),
-            uint256(0)
-        );
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.EKUBO, (FROM, address(fromToken()), 10_000, false, hashMul, hashMod, fills, 0)
+                ISettlerActions.EKUBO, (FROM, address(fromToken()), 10_000, false, hashMul, hashMod, ekuboFills(), 0)
             )
         );
         
@@ -91,6 +93,31 @@ abstract contract EkuboTest is SettlerBasePairTest {
 
         vm.startPrank(FROM, FROM);
         snapStartName("settler_ekubo");
+        _settler.execute(allowedSlippage, actions, bytes32(0));
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+    }
+
+    function testEkuboVIP() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
+
+        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.EKUBO_VIP, (FROM, false, hashMul, hashMod, ekuboFills(), permit, sig, 0))
+        );
+        SettlerBase.AllowedSlippage memory allowedSlippage =
+            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        Settler _settler = settler;
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_ekuboVIP");
         _settler.execute(allowedSlippage, actions, bytes32(0));
         snapEnd();
         vm.stopPrank();

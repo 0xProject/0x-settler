@@ -8,9 +8,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
-
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
-
 import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
@@ -428,14 +426,15 @@ abstract contract Ekubo is SettlerAbstract {
             // then extra data added in _ekuboPay
             sellAmount := calldataload(add(0x40, data.offset))
 
-            if gt(calldatasize(), 0x60) {
+            if gt(data.length, 0x60) {
                 permit := add(0x60, data.offset)
-                isForwarded := calldataload(add(0xc0, data.offset))
-                sig.length := calldataload(add(0xe0, data.offset))
+                isForwarded := calldataload(add(0xe0, data.offset))
+                
                 sig.offset := add(0x100, data.offset)
+                sig.length := calldataload(sig.offset)
+                sig.offset := add(0x20, sig.offset)
             }
         }
-
         if (sig.length == 0) {
             sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
