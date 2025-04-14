@@ -235,8 +235,8 @@ abstract contract Ekubo is SettlerAbstract {
             assembly ("memory-safe") {
                 data := mload(0x40)
 
-                mstore(add(0x04, data), 0x0c11dedd) // selector for pay(address)
-                mstore(add(0x24, data), and(_ADDRESS_MASK, sellToken))
+                mstore(add(0x24, data), sellToken)
+                mstore(add(0x10, data), 0x0c11dedd000000000000000000000000) // selector for pay(address) with padding for token
 
                 mstore(add(0x44, data), sellAmount)
                 let size := 0x44
