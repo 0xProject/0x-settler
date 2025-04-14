@@ -208,7 +208,7 @@ library UnsafePancakeInfinityBinPoolManager {
             let ptr := mload(0x40)
             mstore(ptr, 0xa2db9d60) // selector for `swap((address,address,address,address,uint24,int24),bool,int128,bytes)`
             let token0 := mload(key)
-            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
+            token0 := mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0)
             mstore(add(0x20, ptr), token0)
             mcopy(add(0x40, ptr), add(0x20, key), 0xa0)
             mstore(add(0xe0, ptr), swapForY)
@@ -450,12 +450,12 @@ abstract contract PancakeInfinity is SettlerAbstract {
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
                 assembly ("memory-safe") {
-                    sellToken := and(_ADDRESS_MASK, sellToken)
-                    buyToken := and(_ADDRESS_MASK, buyToken)
+                    let sellTokenShifted := shl(0x60, sellToken)
+                    let buyTokenShifted := shl(0x60, buyToken)
                     zeroForOne :=
                         or(
-                            eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
-                            and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
+                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
+                            and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)), lt(sellTokenShifted, buyTokenShifted))
                         )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);

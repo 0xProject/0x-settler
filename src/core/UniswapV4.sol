@@ -181,8 +181,6 @@ abstract contract UniswapV4 is SettlerAbstract {
     // 3 - hook data length
     uint256 private constant _HOP_DATA_LENGTH = 32;
 
-    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-
     /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
     /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
     /// the decoding process.
@@ -194,12 +192,12 @@ abstract contract UniswapV4 is SettlerAbstract {
         (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
         bool zeroForOne;
         assembly ("memory-safe") {
-            sellToken := and(_ADDRESS_MASK, sellToken)
-            buyToken := and(_ADDRESS_MASK, buyToken)
+            let sellTokenShifted := shl(0x60, sellToken)
+            let buyTokenShifted := shl(0x60, buyToken)
             zeroForOne :=
                 or(
-                    eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
-                    and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
+                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
+                    and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)), lt(sellTokenShifted, buyTokenShifted))
                 )
         }
         (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);

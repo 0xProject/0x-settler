@@ -285,8 +285,6 @@ abstract contract Ekubo is SettlerAbstract {
     // 32 - skipAhead
     uint256 private constant _HOP_DATA_LENGTH = 67;
 
-    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-
     function locked(bytes calldata data) private returns (bytes memory) {
         address recipient;
         uint256 minBuyAmount;
@@ -345,12 +343,12 @@ abstract contract Ekubo is SettlerAbstract {
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
                 assembly ("memory-safe") {
-                    sellToken := and(_ADDRESS_MASK, sellToken)
-                    buyToken := and(_ADDRESS_MASK, buyToken)
+                    let sellTokenShifted := shl(0x60, sellToken)
+                    let buyTokenShifted := shl(0x60, buyToken)
                     isToken1 :=
                         or(
-                            eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
-                            and(iszero(eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(buyToken, sellToken))
+                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
+                            and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)), lt(buyTokenShifted, sellTokenShifted))
                         )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
