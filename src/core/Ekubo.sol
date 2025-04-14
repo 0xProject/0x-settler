@@ -139,10 +139,10 @@ abstract contract Ekubo is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
-    //// Third, encode the config of the pool as 32 bytes. It contains pool parameters which are 
-    //// 20 bytes extension address, 8 bytes fee and 4 bytes tickSpacing.
-    //// Fourth, encode the skipAhead to use in the swap as 32 bytes. It specifies how many steps to do
-    //// when looking for the next/prev initialized tick in the pool.
+    //// Third, encode the config of the pool as 32 bytes. It contains pool parameters which are
+    //// 20 bytes extension address, 8 bytes fee, and 4 bytes tickSpacing.
+    //// Fourth, encode the skipAhead to use in the swap as 32 bytes. It specifies how many steps to
+    //// do when looking for the next/prev initialized tick in the pool.
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
 
@@ -380,11 +380,14 @@ abstract contract Ekubo is SettlerAbstract {
                 (int256 delta0, int256 delta1) = IEkuboCore(msg.sender).unsafeSwap(
                     poolKey, int128(amountSpecified), isToken1, sqrtRatio, skipAhead
                 );
-                // Ekubo sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
-                // settledSellAmount is positive, settledBuyAmount is negative. So the use of `asCredit` 
-                // and `asDebt` is misleading as they are actually debt and credit, respectively, in this context
+                // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
+                // `settledSellAmount` is positive, `settledBuyAmount` is negative. So the use of
+                // `asCredit` and `asDebt` below is misleading as they are actually debt and credit,
+                // respectively, in this context.
                 (int256 settledSellAmount, int256 settledBuyAmount) = isToken1.maybeSwap(delta0, delta1);
 
+                // We have to check for underflow in the sell amount (could create more debt than
+                // we're able to pay)
                 state.sell.amount -= settledSellAmount.asCredit(state.sell.token);
 
                 // We *DON'T* have to check for overflow in the buy amount because adding an
