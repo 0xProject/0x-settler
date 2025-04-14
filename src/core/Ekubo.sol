@@ -454,7 +454,7 @@ abstract contract Ekubo is SettlerAbstract {
             // then extra data added in _ekuboPay
             sellAmount := calldataload(add(0x40, data.offset))
 
-            if gt(data.length, 0x60) {
+            if lt(0x60, data.length) {
                 // starts at the beginning of sellToken
                 permit := add(0x20, data.offset)
                 isForwarded := calldataload(add(0xa0, data.offset))
