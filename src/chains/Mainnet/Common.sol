@@ -13,7 +13,7 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
-
+import {Ekubo} from "../../core/Ekubo.sol";
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
@@ -55,7 +55,8 @@ abstract contract MainnetMixin is
     DodoV1,
     DodoV2,
     UniswapV4,
-    BalancerV3
+    BalancerV3,
+    Ekubo
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
@@ -170,6 +171,19 @@ abstract contract MainnetMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToEkubo(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else {
             return false;
         }
