@@ -49,6 +49,10 @@ Master list of UniV3 forks:
 
 * Replace `rebateClaimer()(address)` address (previously the `Deployer` owner
   multisig; varies by chain) with a constant EOA owned by ZeroEx Inc
+* Add actions for Ekubo
+  * `EKUBO`, `EKUBO_VIP`, and `METATXN_EKUBO_VIP`
+  * See comments in [Ekubo.sol](src/core/Ekubo.sol) regarding how to encode
+    `fills`
 
 ## 2025-03-11
 
