@@ -145,8 +145,6 @@ abstract contract Ekubo is SettlerAbstract {
     //// The remaining fields of the fill are mandatory.
     //// Third, encode the config of the pool as 32 bytes. It contains pool parameters which are
     //// 20 bytes extension address, 8 bytes fee, and 4 bytes tickSpacing.
-    //// Fourth, encode the skipAhead to use in the swap as 32 bytes. It specifies how many steps to
-    //// do when looking for the next/prev initialized tick in the pool.
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
 
@@ -282,8 +280,7 @@ abstract contract Ekubo is SettlerAbstract {
     // 2 - sell bps
     // 1 - pool key tokens case
     // 32 - config (20 extension, 8 fee, 4 tickSpacing)
-    // 32 - skipAhead
-    uint256 private constant _HOP_DATA_LENGTH = 67;
+    uint256 private constant _HOP_DATA_LENGTH = 35;
 
     function locked(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -365,14 +362,6 @@ abstract contract Ekubo is SettlerAbstract {
                 poolKey.config = Config.wrap(config);
             }
 
-            uint256 skipAhead;
-            assembly ("memory-safe") {
-                skipAhead := calldataload(data.offset)
-                data.offset := add(0x20, data.offset)
-                data.length := sub(data.length, 0x20)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
-            }
-
             Decoder.overflowCheck(data);
 
             {
@@ -380,7 +369,7 @@ abstract contract Ekubo is SettlerAbstract {
                     uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
                 );
                 (int256 delta0, int256 delta1) = IEkuboCore(msg.sender).unsafeSwap(
-                    poolKey, amountSpecified, isToken1, sqrtRatio, skipAhead
+                    poolKey, amountSpecified, isToken1, sqrtRatio, 0
                 );
                 // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
                 // `settledSellAmount` is positive, `settledBuyAmount` is negative. So the use of

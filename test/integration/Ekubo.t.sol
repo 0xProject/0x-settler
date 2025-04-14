@@ -59,8 +59,8 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
             uint16(10_000),
             bytes1(0x01),
             address(toToken()),
-            ekuboPoolConfig(),
-            uint256(0));
+            ekuboPoolConfig()
+        );
     }
 
     function ekuboExtraActions(bytes[] memory actions) internal view virtual returns (bytes[] memory) {
