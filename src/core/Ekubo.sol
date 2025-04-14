@@ -312,9 +312,7 @@ abstract contract Ekubo is SettlerAbstract {
             state.globalSell.amount =
                 _ekuboPay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
         }
-        if (state.globalSell.amount == 0) {
-            revert ZeroSellAmount(state.globalSell.token);
-        }
+        state.checkZeroSellAmount();
         state.globalSellAmount = state.globalSell.amount;
         data = newData;
 
@@ -331,14 +329,14 @@ abstract contract Ekubo is SettlerAbstract {
             }
 
             data = Decoder.updateState(state, notes, data);
+            // It's not possible for `state.sell.amount` to even *approach* overflowing an `int256`,
+            // given that deltas are `int128`. If it overflows an `int128`, the ABI decoding in
+            // `CORE` will throw.
             int256 amountSpecified;
-            {
-                uint256 unCheckedAmountSpecified = state.sell.amount.mulDiv(bps, BASIS);
-                if (unCheckedAmountSpecified >> 127 != 0) {
-                    Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-                }
-                amountSpecified = int256(unCheckedAmountSpecified);
+            unchecked {
+                amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS));
             }
+
             bool isToken1;
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
@@ -389,8 +387,11 @@ abstract contract Ekubo is SettlerAbstract {
 
                 state.sell.amount -= settledSellAmount.asCredit(state.sell.token);
 
-                
-                state.buy.amount += settledBuyAmount.asDebt(state.buy.token);
+                // We *DON'T* have to check for overflow in the buy amount because adding an
+                // `int128` to a `uint256`, even repeatedly cannot practically overflow.
+                unchecked {
+                    state.buy.amount += settledBuyAmount.asDebt(state.buy.token);
+                }
             }
         }
 
@@ -423,7 +424,11 @@ abstract contract Ekubo is SettlerAbstract {
                     debt = state.globalSellAmount - globalSellAmount;
                 }
                 if (debt == 0) {
-                    revert ZeroSellAmount(globalSellToken);
+                    assembly ("memory-safe") {
+                        mstore(0x14, globalSellToken)
+                        mstore(0x00, 0xfb772a88000000000000000000000000) // selector for `ZeroSellAmount(address)` with `globalSellToken`'s padding
+                        revert(0x10, 0x24)
+                    }
                 }
                 _ekuboPay(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
@@ -466,7 +471,7 @@ abstract contract Ekubo is SettlerAbstract {
                 // starts at the beginning of sellToken
                 permit := add(0x20, data.offset)
                 isForwarded := calldataload(add(0xa0, data.offset))
-                
+
                 sig.offset := add(0xc0, data.offset)
                 sig.length := calldataload(sig.offset)
                 sig.offset := add(0x20, sig.offset)
