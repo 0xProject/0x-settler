@@ -135,8 +135,10 @@ abstract contract Ekubo is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
-    //// Third, encode the config of the pool as 32 bytes
-    //// Fourth, encode the skipAhead to use in the swap as 32 bytes
+    //// Third, encode the config of the pool as 32 bytes. It contains pool parameters which are 
+    //// 20 bytes extension address, 8 bytes fee and 4 bytes tickSpacing.
+    //// Fourth, encode the skipAhead to use in the swap as 32 bytes. It specifies how many steps to do
+    //// when looking for the next/prev initialized tick in the pool.
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
 
