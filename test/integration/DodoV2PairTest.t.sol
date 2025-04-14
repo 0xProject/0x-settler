@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
@@ -80,7 +81,7 @@ contract DodoV2PairTest is BasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodov2");
         _settler.execute(
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0}),
             actions,
             bytes32(0)
         );
@@ -108,7 +109,7 @@ contract DodoV2PairTest is BasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodov2_custody");
         _settler.execute(
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0}),
             actions,
             bytes32(0)
         );
