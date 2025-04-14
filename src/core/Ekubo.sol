@@ -296,7 +296,7 @@ abstract contract Ekubo is SettlerAbstract {
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
-        if (state.sell.amount >= (1 << 127)) {
+        if (state.sell.amount >> 127 != 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         if (payer != address(this)) {
