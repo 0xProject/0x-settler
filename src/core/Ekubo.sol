@@ -7,6 +7,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
 import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -61,7 +62,7 @@ library UnsafeEkuboCore {
     function unsafeSwap(
         IEkuboCore core,
         PoolKey memory poolKey,
-        int128 amount,
+        int256 amount,
         bool isToken1,
         SqrtRatio sqrtRatioLimit,
         uint256 skipAhead
@@ -74,7 +75,8 @@ library UnsafeEkuboCore {
             mcopy(poolKeyPtr, poolKey, 0x60)
             let token0 := mload(poolKeyPtr)
             mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
-            mstore(add(0x80, ptr), signextend(0x0f, amount))
+            // ABI decoding in Ekubo will check if amount fits in int128
+            mstore(add(0x80, ptr), amount)
             mstore(add(0xa0, ptr), isToken1)
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xe0, ptr), skipAhead)
@@ -92,6 +94,7 @@ library UnsafeEkuboCore {
 
 abstract contract Ekubo is SettlerAbstract {
     using UnsafeMath for uint256;
+    using FullMath for uint256;
     using UnsafeMath for int256;
     using CreditDebt for int256;
     using Ternary for bool;
@@ -329,10 +332,12 @@ abstract contract Ekubo is SettlerAbstract {
 
             data = Decoder.updateState(state, notes, data);
             int256 amountSpecified;
-            unchecked {
-                // state.sell.amount fits in 128 bits as verified above, so we can safely 
-                // multiply and divide by bps (16 bits)
-                amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS));
+            {
+                uint256 unCheckedAmountSpecified = state.sell.amount.mulDiv(bps, BASIS);
+                if (unCheckedAmountSpecified >> 127 != 0) {
+                    Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                }
+                amountSpecified = int256(unCheckedAmountSpecified);
             }
             bool isToken1;
             {
@@ -378,16 +383,14 @@ abstract contract Ekubo is SettlerAbstract {
                     poolKey, int128(amountSpecified), isToken1, sqrtRatio, skipAhead
                 );
                 // Ekubo sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
-                // settledSellAmount is positive, settledBuyAmount is negative. So the use of `asCredit` and `asDebt` is misleading as they are actually debt and credit, respectively, in this context
+                // settledSellAmount is positive, settledBuyAmount is negative. So the use of `asCredit` 
+                // and `asDebt` is misleading as they are actually debt and credit, respectively, in this context
                 (int256 settledSellAmount, int256 settledBuyAmount) = isToken1.maybeSwap(delta0, delta1);
 
                 state.sell.amount -= settledSellAmount.asCredit(state.sell.token);
 
-                // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the
-                // vault later. We cannot overflow a `uint256`.
-                unchecked {
-                    state.buy.amount += settledBuyAmount.asDebt(state.buy.token);
-                }
+                
+                state.buy.amount += settledBuyAmount.asDebt(state.buy.token);
             }
         }
 
