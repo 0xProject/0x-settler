@@ -232,4 +232,36 @@ interface ISettlerActions {
     // Pre-req: Funded
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
+
+    function EKUBO(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+    
+    function EKUBO_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+
+    function METATXN_EKUBO_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
 }

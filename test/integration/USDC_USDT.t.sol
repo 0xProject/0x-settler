@@ -5,8 +5,13 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
+import {EkuboTest} from "./Ekubo.t.sol";
+import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
+contract USDCUSDTTest is BalancerV3Test, EkuboTest {
+    function setUp() public override(BalancerV3Test, EkuboTest) {
+        super.setUp();
+    }
 
-contract USDCUSDTTest is BalancerV3Test {
     function balancerV3Pool() internal pure override returns (address) {
         // Aave-boosted USDC/USDT
         return 0x89BB794097234E5E930446C0CeC0ea66b35D7570;
@@ -36,11 +41,15 @@ contract USDCUSDTTest is BalancerV3Test {
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override returns (bytes memory) {
+    function uniswapV3Path() internal pure override(BalancerV3Test, SettlerMetaTxnPairTest) returns (bytes memory) {
         return "";
     }
 
     function uniswapV2Pool() internal pure override returns (address) {
         return address(0);
+    }
+
+    function ekuboPoolConfig() internal pure override returns (bytes32) {
+        return bytes32(0x00000000000000000000000000000000000000000000a7c5ac471b4700000032);
     }
 }
