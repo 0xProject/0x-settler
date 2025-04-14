@@ -44,6 +44,9 @@ Master list of UniV3 forks:
   from Mainnet (they remain available on Arbitrum)
 * `VELODROME` action is removed from Mainnet (it remains as default on all other
   chains)
+* The Ekubo actions (`EKUBO`, `EKUBO_VIP`, and `METATXN_EKUBO_VIP`) `fills` no
+  longer has a `skipAhead` argument. Each fill is 32 bytes shorter. The field is
+  now hardcoded to zero.
 
 ### Non-breaking changes
 
