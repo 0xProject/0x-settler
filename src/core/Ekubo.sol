@@ -63,13 +63,14 @@ library UnsafeEkuboCore {
     /// `amountSpecified` is not a clean, signed, 128-bit value, the call will revert inside the ABI
     /// decoding in `CORE`. The `delta`'s are guaranteed clean by the returndata encoding of `CORE`,
     /// but we keep them as `int256` so as not to duplicate any work.
+    ///
+    /// The `skipAhead` argument of the underlying `swap` function is hardcoded to zero.
     function unsafeSwap(
         IEkuboCore core,
         PoolKey memory poolKey,
         int256 amount,
         bool isToken1,
-        SqrtRatio sqrtRatioLimit,
-        uint256 skipAhead
+        SqrtRatio sqrtRatioLimit
     ) internal returns (int256 delta0, int256 delta1) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
@@ -83,7 +84,7 @@ library UnsafeEkuboCore {
             mstore(add(0x80, ptr), amount)
             mstore(add(0xa0, ptr), isToken1)
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
-            mstore(add(0xe0, ptr), skipAhead)
+            mstore(add(0xe0, ptr), 0x00)
 
             if iszero(call(gas(), core, 0x00, add(0x1c, ptr), 0xe4, 0x00, 0x40)) {
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -369,7 +370,7 @@ abstract contract Ekubo is SettlerAbstract {
                     uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
                 );
                 (int256 delta0, int256 delta1) = IEkuboCore(msg.sender).unsafeSwap(
-                    poolKey, amountSpecified, isToken1, sqrtRatio, 0
+                    poolKey, amountSpecified, isToken1, sqrtRatio
                 );
                 // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
                 // `settledSellAmount` is positive, `settledBuyAmount` is negative. So the use of
