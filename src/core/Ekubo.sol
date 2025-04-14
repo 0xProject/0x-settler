@@ -329,6 +329,8 @@ abstract contract Ekubo is SettlerAbstract {
             data = Decoder.updateState(state, notes, data);
             int256 amountSpecified;
             unchecked {
+                // state.sell.amount fits in 128 bits as verified above, so we can safely 
+                // multiply and divide by bps (16 bits)
                 amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS));
             }
             bool isToken1;
