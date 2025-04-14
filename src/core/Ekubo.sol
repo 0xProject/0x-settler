@@ -373,7 +373,7 @@ abstract contract Ekubo is SettlerAbstract {
                     poolKey, int128(amountSpecified), isToken1, sqrtRatio, skipAhead
                 );
                 // Ekubo sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
-                // settledSellAmount is positive, settledBuyAmount is negative
+                // settledSellAmount is positive, settledBuyAmount is negative. So the use of `asCredit` and `asDebt` is misleading as they are actually debt and credit, respectively, in this context
                 (int256 settledSellAmount, int256 settledBuyAmount) = isToken1.maybeSwap(delta0, delta1);
 
                 state.sell.amount -= settledSellAmount.asCredit(state.sell.token);
