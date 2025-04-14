@@ -83,8 +83,9 @@ library UnsafeEkuboCore {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            delta0 := and(0xffffffffffffffffffffffffffffffff, mload(0x00))
-            delta1 := and(0xffffffffffffffffffffffffffffffff, mload(0x20))
+            // Ekubo CORE returns data properly no need to mask
+            delta0 := mload(0x00)
+            delta1 := mload(0x20)
         }
     }
 }
