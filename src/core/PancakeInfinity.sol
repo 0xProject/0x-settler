@@ -420,6 +420,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
+        data = newData;
         if (payer != address(this)) {
             state.globalSell.amount = _permitToSellAmountCalldata(permit);
         }
@@ -429,7 +430,6 @@ abstract contract PancakeInfinity is SettlerAbstract {
         }
         state.checkZeroSellAmount();
         state.globalSellAmount = state.globalSell.amount;
-        data = newData;
 
         PoolKey memory poolKey;
         IPancakeInfinityCLPoolManager.SwapParams memory swapParams;

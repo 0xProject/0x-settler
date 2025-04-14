@@ -305,6 +305,7 @@ abstract contract Ekubo is SettlerAbstract {
         if (state.sell.amount >> 127 != 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
+        data = newData;
         if (payer != address(this)) {
             state.globalSell.amount = _permitToSellAmountCalldata(permit);
         }
@@ -314,7 +315,6 @@ abstract contract Ekubo is SettlerAbstract {
         }
         state.checkZeroSellAmount();
         state.globalSellAmount = state.globalSell.amount;
-        data = newData;
 
         PoolKey memory poolKey;
 
