@@ -464,7 +464,7 @@ abstract contract Ekubo is SettlerAbstract {
                 sig.offset := add(0x20, sig.offset)
             }
         }
-        if (data.length == 0x60) {
+        if (0x60 <= data.length) {
             sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
