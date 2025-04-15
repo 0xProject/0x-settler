@@ -298,11 +298,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         bytes calldata actions,
         bytes32 zid
     ) internal returns (bool r) {
-        uint256 value;
-        if (address(sellToken) == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
-            value = address(this).balance;
-        }
-
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -316,22 +311,36 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
             mstore(add(0xe4, ptr), shl(0x60, recipient)) // clears `buyToken`'s padding
             mstore(add(0xc4, ptr), 0x1fff991f000000000000000000000000) // selector for `execute((address,address,uint256),bytes[],bytes32)` with `recipient`'s padding
 
-            mstore(add(0xb4, ptr), add(0xc4, actions.length))
+            for {} 1 {} {
+                if eq(shl(0x60, sellToken), 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000) {
+                    if iszero(call(gas(), settler, selfbalance(), add(0xd4, ptr), add(0xc4, actions.length), 0x00, 0x20)) {
+                        returndatacopy(ptr, 0x00, returndatasize())
+                        revert(ptr, returndatasize())
+                    }
+                    if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+                    r := mload(0x00)
+                    break
+                }
 
-            // encode the arguments to AllowanceHolder
-            mstore(add(0x94, ptr), 0xa0)
-            mstore(add(0x74, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, settler))
-            mstore(add(0x54, ptr), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) // `sellAmount`
-            mstore(add(0x34, ptr), sellToken)
-            mstore(add(0x20, ptr), shl(0x60, settler))
-            mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
+                // length of the arguments to Settler
+                mstore(add(0xb4, ptr), add(0xc4, actions.length))
 
-            if iszero(call(gas(), _ALLOWANCE_HOLDER_ADDRESS, value, ptr, add(0x188, actions.length), 0x00, 0x60)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                // encode the arguments to AllowanceHolder
+                mstore(add(0x94, ptr), 0xa0)
+                mstore(add(0x74, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, settler))
+                mstore(add(0x54, ptr), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) // `sellAmount`
+                mstore(add(0x34, ptr), sellToken)
+                mstore(add(0x20, ptr), shl(0x60, settler))
+                mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
+
+                if iszero(call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, ptr, add(0x188, actions.length), 0x00, 0x60)) {
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
+                }
+                if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
+                r := mload(0x40)
+                break
             }
-            if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
-            r := mload(0x40)
 
             mstore(0x40, ptr)
         }
