@@ -319,9 +319,9 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 }
 
                 if eq(shl(0x60, sellToken), 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000) {
-                    if iszero(call(gas(), settler, selfbalance(), add(0xd4, ptr), add(0xc4, actions.length), 0x00, 0x20)) {
-                        bubbleRevert(ptr)
-                    }
+                    if iszero(
+                        call(gas(), settler, selfbalance(), add(0xd4, ptr), add(0xc4, actions.length), 0x00, 0x20)
+                    ) { bubbleRevert(ptr) }
                     if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
                     r := mload(0x00)
                     break
@@ -329,7 +329,8 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
                 function safeApprove(p, token, spender) {
                     function checkTokenSuccess() -> f {
-                        f := iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize())))
+                        f :=
+                            iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize())))
                     }
                     function bubbleTokenSuccess(t) {
                         if checkTokenSuccess() {
@@ -341,14 +342,10 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
                     function retry(p_, t) {
                         mstore(0x34, 0x00)
-                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) {
-                            bubbleRevert(p_)
-                        }
+                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) { bubbleRevert(p_) }
                         bubbleTokenSuccess(t)
                         mstore(0x34, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) {
-                            bubbleRevert(p_)
-                        }
+                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) { bubbleRevert(p_) }
                         bubbleTokenSuccess(t)
                     }
 
@@ -361,9 +358,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                             retry(p, token)
                             break
                         }
-                        if checkTokenSuccess() {
-                            retry(p, token)
-                        }
+                        if checkTokenSuccess() { retry(p, token) }
                     }
                 }
 
