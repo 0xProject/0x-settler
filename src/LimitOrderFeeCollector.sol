@@ -281,7 +281,11 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
             _DEPLOYER.fastOwnerOf(_SETTLER_TOKENID) != address(settler)
                 && _DEPLOYER.fastPrev(_SETTLER_TOKENID) != address(settler)
         ) {
-            revert CounterfeitSettler(settler);
+            assembly ("memory-safe") {
+                mstore(0x14, settler)
+                mstore(0x00, 0x7a1cd8fa000000000000000000000000) // selector for `CounterfeitSettler(address)` with `settler`'s padding
+                revert(0x10, 0x24)
+            }
         }
     }
 
@@ -430,7 +434,11 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         address takerAsset = order.takerAsset.get();
 
         if (takingAmount == 0) {
-            revert ZeroTakingAmount(IERC20(takerAsset));
+            assembly ("memory-safe") {
+                mstore(0x14, takerAsset)
+                mstore(0x00, 0x2ca7582e000000000000000000000000) // selector for `ZeroTakingAmount(address)` with `takerAsset`'s padding
+                revert(0x10, 0x24)
+            }
         }
 
         address receiver = order.maker.get();
