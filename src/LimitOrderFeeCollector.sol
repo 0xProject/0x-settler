@@ -308,7 +308,8 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         uint256 minBuyAmount,
         bytes calldata actions,
         bytes32 zid
-    ) internal returns (bool r) {
+    ) internal {
+        bool success;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -333,7 +334,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                         call(gas(), settler, selfbalance(), add(0xd4, ptr), add(0xc4, actions.length), 0x00, 0x20)
                     ) { bubbleRevert(ptr) }
                     if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
-                    r := mload(0x00)
+                    success := mload(0x00)
                     break
                 }
 
@@ -369,7 +370,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                     bubbleRevert(ptr)
                 }
                 if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
-                r := mload(0x40)
+                success := mload(0x40)
 
                 // collect the gas refund for zeroing the allowance slot
                 approveAllowanceHolder(ptr, sellToken, 0x00)
@@ -378,7 +379,10 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 break
             }
 
-            if shr(0x01, r) { revert(0x00, 0x00) }
+            if shr(0x01, success) { revert(0x00, 0x00) }
+        }
+        if (!success) {
+            Panic.panic(Panic.GENERIC);
         }
     }
 
@@ -392,7 +396,8 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         bytes calldata actions,
         bytes32 zid
     ) external onlyFeeCollector validSettler(settler) returns (bool) {
-        return _swap(settler, recipient, sellToken, buyToken, minBuyAmount, actions, zid);
+        _swap(settler, recipient, sellToken, buyToken, minBuyAmount, actions, zid);
+        return true;
     }
 
     /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)`.
@@ -404,19 +409,15 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     {
         for ((SwapArrayIterator i, SwapArrayIterator end) = (swaps.iter(), swaps.end()); i != end; i = i.next()) {
             Swap calldata swap_ = swaps.get(i);
-            if (
-                !_swap(
-                    settler,
-                    swap_.recipient,
-                    swap_.sellToken,
-                    swap_.buyToken,
-                    swap_.minBuyAmount,
-                    swap_.getActions(),
-                    swap_.zid
-                )
-            ) {
-                Panic.panic(Panic.GENERIC);
-            }
+            _swap(
+                settler,
+                swap_.recipient,
+                swap_.sellToken,
+                swap_.buyToken,
+                swap_.minBuyAmount,
+                swap_.getActions(),
+                swap_.zid
+            );
         }
         return true;
     }
