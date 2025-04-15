@@ -24,7 +24,7 @@ type Address is uint256;
  * @return The address representation of the provided uint256 value.
  */
 function get(Address a) pure returns (address) {
-    return address(uint160(Address.unwrap(a) & 0x00ffffffffffffffffffffffffffffffffffffffff));
+    return address(uint160(0x00ffffffffffffffffffffffffffffffffffffffff & Address.unwrap(a)));
 }
 
 using {get} for Address global;
@@ -37,7 +37,7 @@ type MakerTraits is uint256;
  * @return result A boolean indicating whether the maker needs to unwrap WETH.
  */
 function unwrapWeth(MakerTraits makerTraits) pure returns (bool) {
-    return MakerTraits.unwrap(makerTraits) & 0x80000000000000000000000000000000000000000000000000000000000000 != 0;
+    return (MakerTraits.unwrap(makerTraits) >> 247) & 1 != 0;
 }
 
 using {unwrapWeth} for MakerTraits global;
