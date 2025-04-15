@@ -327,42 +327,22 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                     break
                 }
 
-                function safeApprove(p, token, spender) {
-                    function checkTokenSuccess() -> f {
-                        f :=
-                            iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize())))
-                    }
-                    function bubbleTokenSuccess(t) {
-                        if checkTokenSuccess() {
-                            mstore(0x14, t)
-                            mstore(0x00, 0xc90bb86a000000000000000000000000) // selector for `ApproveFailed(address)` with `token`'s padding
-                            revert(0x10, 0x24)
-                        }
-                    }
+                function approveAllowanceHolder(p, token, amount) {
+                    mstore(0x00, 0x095ea7b3) // selector for `approve(address,uint256)`
+                    mstore(0x20, _ALLOWANCE_HOLDER_ADDRESS)
+                    mstore(0x40, amount)
 
-                    function retry(p_, t) {
-                        mstore(0x34, 0x00)
-                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) { bubbleRevert(p_) }
-                        bubbleTokenSuccess(t)
-                        mstore(0x34, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) { bubbleRevert(p_) }
-                        bubbleTokenSuccess(t)
+                    if iszero(call(gas(), token, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
+                        bubbleRevert(p)
                     }
-
-                    mstore(0x14, spender)
-                    mstore(0x34, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) // clobbers part of the free pointer (always zero)
-                    mstore(0x00, 0x095ea7b3000000000000000000000000) // selector for `approve(address,uint256)`, with `spender`'s padding.
-
-                    for {} 1 {} {
-                        if iszero(call(gas(), token, 0x00, 0x10, 0x44, 0x00, 0x20)) {
-                            retry(p, token)
-                            break
-                        }
-                        if checkTokenSuccess() { retry(p, token) }
+                    if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
+                        mstore(0x14, token)
+                        mstore(0x00, 0xc90bb86a000000000000000000000000) // selector for `ApproveFailed(address)` with `token`'s padding
+                        revert(0x10, 0x24)
                     }
                 }
 
-                safeApprove(ptr, sellToken, _ALLOWANCE_HOLDER_ADDRESS)
+                approveAllowanceHolder(ptr, sellToken, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
 
                 // length of the arguments to Settler
                 mstore(add(0xb4, ptr), add(0xc4, actions.length))
@@ -380,10 +360,12 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 }
                 if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
                 r := mload(0x40)
+
+                approveAllowanceHolder(ptr, sellToken, 0x00)
+
+                mstore(0x40, ptr)
                 break
             }
-
-            mstore(0x40, ptr)
         }
     }
 
