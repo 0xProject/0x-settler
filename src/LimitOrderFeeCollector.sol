@@ -123,6 +123,7 @@ struct Swap {
     IERC20 sellToken;
     IERC20 buyToken;
     uint256 minBuyAmount;
+    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)`.
     bytes actions;
     bytes32 zid;
 }
@@ -356,7 +357,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 mstore(add(0x74, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, settler))
                 mstore(add(0x54, ptr), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) // `sellAmount`
                 mstore(add(0x34, ptr), sellToken)
-                mstore(add(0x20, ptr), shl(0x60, settler))
+                mstore(add(0x20, ptr), shl(0x60, settler)) // clears `sellToken`'s padding
                 mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
 
                 if iszero(call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, ptr, add(0x188, actions.length), 0x00, 0x60)) {
@@ -365,6 +366,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
                 r := mload(0x40)
 
+                // collect the gas refund for zeroing the allowance slot
                 approveAllowanceHolder(ptr, sellToken, 0x00)
 
                 mstore(0x40, ptr)
@@ -373,6 +375,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         }
     }
 
+    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)`.
     function swap(
         ISettlerTakerSubmitted settler,
         address payable recipient,
@@ -385,6 +388,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         return _swap(settler, recipient, sellToken, buyToken, minBuyAmount, actions, zid);
     }
 
+    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)`.
     function multiSwap(ISettlerTakerSubmitted settler, Swap[] calldata swaps)
         external
         onlyFeeCollector
@@ -410,6 +414,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         return true;
     }
 
+    /// @inheritdoc IPostInteraction
     function postInteraction(
         Order calldata order,
         bytes calldata /* extension */,
