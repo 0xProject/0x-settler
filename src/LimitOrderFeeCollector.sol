@@ -232,7 +232,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     }
 
     address internal constant _ALLOWANCE_HOLDER_ADDRESS = 0x0000000000001fF3684f28c67538d4D072C22734;
-    IAllowanceHolder internal constant _ALLOWANCE_HOLDER = IAllowanceHolder(_ALLOWANCE_HOLDER_ADDRESS);
     address internal constant _LIMIT_ORDER_PROTOCOL = 0x111111125421cA6dc452d289314280a0f8842A65;
     uint256 internal constant _BASIS = 10_000;
     uint128 internal constant _SETTLER_TOKENID = 2;
