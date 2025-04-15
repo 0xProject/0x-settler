@@ -7,7 +7,6 @@ import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
-import {SettlerBase} from "src/SettlerBase.sol";
 
 abstract contract DodoV1PairTest is SettlerBasePairTest {
     function dodoV1Pool() internal virtual returns (address) {
