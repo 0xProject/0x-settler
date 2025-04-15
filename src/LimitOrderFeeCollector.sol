@@ -217,10 +217,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     using FastLogic for bool;
     using FastDeployer for IDeployer;
 
-    constructor(bytes20 gitCommit) {
-        emit GitCommit(gitCommit);
-    }
-
     address public feeCollector;
     IERC20 public immutable weth;
 
@@ -251,7 +247,8 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     error CounterfeitSettler(ISettlerTakerSubmitted counterfeitSettler);
     error ApproveFailed(IERC20 token);
 
-    constructor(address initialOwner, address initialFeeCollector, IERC20 weth_) {
+    constructor(bytes20 gitCommit, address initialOwner, address initialFeeCollector, IERC20 weth_) {
+        emit GitCommit(gitCommit);
         require(initialOwner != address(0));
         _setPendingOwner(initialOwner);
         require(initialFeeCollector != address(0));
