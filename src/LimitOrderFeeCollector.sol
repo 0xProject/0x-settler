@@ -244,6 +244,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
     error ZeroTakingAmount(IERC20 token);
     error CounterfeitSettler(ISettlerTakerSubmitted counterfeitSettler);
+    error ApproveFailed(IERC20 token);
 
     constructor(address initialOwner, address initialFeeCollector, IERC20 weth_) {
         require(initialOwner != address(0));
@@ -312,15 +313,61 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
             mstore(add(0xc4, ptr), 0x1fff991f000000000000000000000000) // selector for `execute((address,address,uint256),bytes[],bytes32)` with `recipient`'s padding
 
             for {} 1 {} {
+                function bubbleRevert(p) {
+                    returndatacopy(p, 0x00, returndatasize())
+                    revert(p, returndatasize())
+                }
+
                 if eq(shl(0x60, sellToken), 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000) {
                     if iszero(call(gas(), settler, selfbalance(), add(0xd4, ptr), add(0xc4, actions.length), 0x00, 0x20)) {
-                        returndatacopy(ptr, 0x00, returndatasize())
-                        revert(ptr, returndatasize())
+                        bubbleRevert(ptr)
                     }
                     if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
                     r := mload(0x00)
                     break
                 }
+
+                function safeApprove(p, token, spender) {
+                    function checkTokenSuccess() -> f {
+                        f := iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize())))
+                    }
+                    function bubbleTokenSuccess(t) {
+                        if checkTokenSuccess() {
+                            mstore(0x14, t)
+                            mstore(0x00, 0xc90bb86a000000000000000000000000) // selector for `ApproveFailed(address)` with `token`'s padding
+                            revert(0x10, 0x24)
+                        }
+                    }
+
+                    function retry(p_, t) {
+                        mstore(0x34, 0x00)
+                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) {
+                            bubbleRevert(p_)
+                        }
+                        bubbleTokenSuccess(t)
+                        mstore(0x34, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+                        if iszero(call(gas(), t, 0x00, 0x10, 0x44, 0x00, 0x20)) {
+                            bubbleRevert(p_)
+                        }
+                        bubbleTokenSuccess(t)
+                    }
+
+                    mstore(0x14, spender)
+                    mstore(0x34, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) // clobbers part of the free pointer (always zero)
+                    mstore(0x00, 0x095ea7b3000000000000000000000000) // selector for `approve(address,uint256)`, with `spender`'s padding.
+
+                    for {} 1 {} {
+                        if iszero(call(gas(), token, 0x00, 0x10, 0x44, 0x00, 0x20)) {
+                            retry(p, token)
+                            break
+                        }
+                        if checkTokenSuccess() {
+                            retry(p, token)
+                        }
+                    }
+                }
+
+                safeApprove(ptr, sellToken, _ALLOWANCE_HOLDER_ADDRESS)
 
                 // length of the arguments to Settler
                 mstore(add(0xb4, ptr), add(0xc4, actions.length))
@@ -334,8 +381,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
 
                 if iszero(call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, ptr, add(0x188, actions.length), 0x00, 0x60)) {
-                    returndatacopy(ptr, 0x00, returndatasize())
-                    revert(ptr, returndatasize())
+                    bubbleRevert(ptr)
                 }
                 if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
                 r := mload(0x40)
