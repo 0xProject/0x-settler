@@ -248,13 +248,17 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     error ApproveFailed(IERC20 token);
 
     constructor(bytes20 gitCommit, address initialOwner, address initialFeeCollector, IERC20 weth_) {
-        emit GitCommit(gitCommit);
         require(initialOwner != address(0));
-        _setPendingOwner(initialOwner);
         require(initialFeeCollector != address(0));
+
+        weth = weth_;
+
+        emit GitCommit(gitCommit);
+
+        _setPendingOwner(initialOwner);
+
         feeCollector = initialFeeCollector;
         emit SetFeeCollector(feeCollector);
-        weth = weth_;
     }
 
     function setFeeCollector(address newFeeCollector) external onlyOwner returns (bool) {
