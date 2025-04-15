@@ -373,6 +373,8 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 mstore(0x40, ptr)
                 break
             }
+
+            if shr(0x01, r) { revert(0x00, 0x00) }
         }
     }
 
