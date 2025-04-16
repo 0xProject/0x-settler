@@ -3,7 +3,9 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {Address, MakerTraits, Order, LIMIT_ORDER_PROTOCOL, LimitOrderFeeCollector} from "src/LimitOrderFeeCollector.sol";
+import {
+    Address, MakerTraits, Order, LIMIT_ORDER_PROTOCOL, LimitOrderFeeCollector
+} from "src/LimitOrderFeeCollector.sol";
 
 import {Test} from "@forge-std/Test.sol";
 
@@ -28,7 +30,7 @@ interface ILimitOrderProtocol {
         uint256 amount,
         TakerTraits takerTraits,
         bytes calldata args
-    ) external returns(uint256 makingAmount, uint256 takingAmount, bytes32 orderHash);
+    ) external returns (uint256 makingAmount, uint256 takingAmount, bytes32 orderHash);
 }
 
 contract LimitOrderFeeCollectorTest is Test {
@@ -41,12 +43,18 @@ contract LimitOrderFeeCollectorTest is Test {
 
     LimitOrderFeeCollector internal feeCollector;
 
-    bytes32 internal constant LIMIT_ORDER_PROTOCOL_DOMAIN = keccak256(abi.encode(keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                                                                                                                        keccak256("1inch Aggregation Router"),
-                                                                                                                        keccak256("6"),
-                                                                                                                        uint256(1),
-                                                     LIMIT_ORDER_PROTOCOL));
-    bytes32 internal constant LIMIT_ORDER_TYPEHASH = keccak256("Order(uint256 salt,address maker,address receiver,address makerAsset,address takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits)");
+    bytes32 internal constant LIMIT_ORDER_PROTOCOL_DOMAIN = keccak256(
+        abi.encode(
+            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+            keccak256("1inch Aggregation Router"),
+            keccak256("6"),
+            uint256(1),
+            LIMIT_ORDER_PROTOCOL
+        )
+    );
+    bytes32 internal constant LIMIT_ORDER_TYPEHASH = keccak256(
+        "Order(uint256 salt,address maker,address receiver,address makerAsset,address takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits)"
+    );
     ILimitOrderProtocol internal constant LIMIT_ORDER_PROTOCOL_ = ILimitOrderProtocol(LIMIT_ORDER_PROTOCOL);
 
     uint256 internal constant makingAmount = 20_000 * 1e6;
@@ -67,7 +75,13 @@ contract LimitOrderFeeCollectorTest is Test {
         deal(address(WETH), address(this), takingAmount * 100);
         require(WETH.approve(LIMIT_ORDER_PROTOCOL, type(uint256).max));
 
-        (bool success, bytes memory returndata) = _TOEHOLD1.call(bytes.concat(bytes32(0), type(LimitOrderFeeCollector).creationCode, abi.encode(bytes20(keccak256("git commit")), address(this), WETH)));
+        (bool success, bytes memory returndata) = _TOEHOLD1.call(
+            bytes.concat(
+                bytes32(0),
+                type(LimitOrderFeeCollector).creationCode,
+                abi.encode(bytes20(keccak256("git commit")), address(this), WETH)
+            )
+        );
         require(success);
         require(returndata.length == 20);
         feeCollector = LimitOrderFeeCollector(payable(address(uint160(bytes20(returndata)))));
@@ -80,7 +94,8 @@ contract LimitOrderFeeCollectorTest is Test {
     }
 
     function _extension() internal view returns (bytes memory extension, uint160 extensionHash) {
-        extension = bytes.concat(bytes4(uint32(22)), bytes28(0), bytes20(uint160(address(feeCollector))), bytes2(feeBps));
+        extension =
+            bytes.concat(bytes4(uint32(22)), bytes28(0), bytes20(uint160(address(feeCollector))), bytes2(feeBps));
         extensionHash = uint160(uint256(keccak256(extension)));
     }
 
