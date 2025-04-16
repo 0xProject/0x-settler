@@ -417,7 +417,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 // encode the arguments to AllowanceHolder
                 mstore(add(0x94, ptr), 0xa0)
                 mstore(add(0x74, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, settler))
-                mstore(add(0x54, ptr), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) // `sellAmount`
+                mcopy(add(0x54, ptr), 0x40, 0x20) // `sellAmount`
                 mstore(add(0x34, ptr), sellToken)
                 mstore(add(0x20, ptr), shl(0x60, settler)) // clears `sellToken`'s padding
                 mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
