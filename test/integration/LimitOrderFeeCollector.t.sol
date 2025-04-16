@@ -77,7 +77,8 @@ contract LimitOrderFeeCollectorTest is Test {
     uint16 internal constant feeBps = 2_500;
 
     address internal constant owner = 0x8E5DE7118a596E99B0563D3022039c11927f4827;
-    ISettlerTakerSubmitted internal constant settler = ISettlerTakerSubmitted(0x0d0E364aa7852291883C162B22D6D81f6355428F);
+    ISettlerTakerSubmitted internal constant settler =
+        ISettlerTakerSubmitted(0x0d0E364aa7852291883C162B22D6D81f6355428F);
 
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 22282373);
@@ -223,14 +224,20 @@ contract LimitOrderFeeCollectorTest is Test {
         testEOANoWrap();
 
         bytes[] memory actionsOriginal = new bytes[](1);
-        actionsOriginal[0] = abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), abi.encodePacked(WETH, uint8(0), uint24(500), USDC), ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({
-                token: address(WETH),
-                amount: type(uint256).max
-            }),
-            nonce: 0,
-            deadline: block.timestamp + 5 minutes
-        }), "", 0));
+        actionsOriginal[0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV3_VIP,
+            (
+                address(settler),
+                abi.encodePacked(WETH, uint8(0), uint24(500), USDC),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(WETH), amount: type(uint256).max}),
+                    nonce: 0,
+                    deadline: block.timestamp + 5 minutes
+                }),
+                "",
+                0
+            )
+        );
 
         bytes memory actions = abi.encode(actionsOriginal);
         assembly ("memory-safe") {
@@ -243,5 +250,7 @@ contract LimitOrderFeeCollectorTest is Test {
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
 
         feeCollector.swap(settler, payable(address(this)), WETH, USDC, 0 wei, actions, bytes32(0));
+
+        assertGt(USDC.balanceOf(address(this)), 0);
     }
 }
