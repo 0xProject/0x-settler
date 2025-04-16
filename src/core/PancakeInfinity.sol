@@ -61,7 +61,7 @@ interface IPancakeInfinityVault {
     function lock(bytes calldata data) external returns (bytes memory);
 }
 
-IPancakeInfinityVault constant VAULT = IPancakeInfinityVault(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+IPancakeInfinityVault constant VAULT = IPancakeInfinityVault(0x238a358808379702088667322f80aC48bAd5e6c4);
 
 /// @notice Interface for the callback executed when an address locks the vault
 interface IPancakeInfinityLockCallback {
@@ -127,7 +127,7 @@ interface IPancakeInfinityCLPoolManager is IPancakeInfinityPoolManager {
 }
 
 IPancakeInfinityCLPoolManager constant CL_MANAGER =
-    IPancakeInfinityCLPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+    IPancakeInfinityCLPoolManager(0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b);
 
 interface IPancakeInfinityBinPoolManager is IPancakeInfinityPoolManager {
     /// @notice Peform a swap to a pool
@@ -226,7 +226,7 @@ library UnsafePancakeInfinityBinPoolManager {
 }
 
 IPancakeInfinityBinPoolManager constant BIN_MANAGER =
-    IPancakeInfinityBinPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+    IPancakeInfinityBinPoolManager(0xC697d2898e0D09264376196696c51D7aBbbAA4a9);
 
 abstract contract PancakeInfinity is SettlerAbstract {
     using UnsafeMath for uint256;
