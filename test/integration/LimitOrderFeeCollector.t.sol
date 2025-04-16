@@ -33,6 +33,18 @@ interface ILimitOrderProtocol {
     ) external returns (uint256 makingAmount, uint256 takingAmount, bytes32 orderHash);
 }
 
+contract StupidERC1271 {
+    function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4) {
+        (bytes32 r, bytes32 vs) = abi.decode(signature, (bytes32, bytes32));
+        bytes32 s = vs & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+        uint8 v = uint8(uint256(vs >> 255)) + 27;
+        require(ecrecover(hash, v, r, s) == address(this));
+        return this.isValidSignature.selector;
+    }
+
+    receive() external payable {}
+}
+
 contract LimitOrderFeeCollectorTest is Test {
     address private constant _TOEHOLD1 = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
 
@@ -99,7 +111,8 @@ contract LimitOrderFeeCollectorTest is Test {
         extensionHash = uint160(uint256(keccak256(extension)));
     }
 
-    function _order(uint160 extensionHash, bool wrap) internal view returns (Order memory order) {
+    function _order(uint160 extensionHash, bool unwrap) internal view returns (Order memory order) {
+        uint256 unwrapFlag = (unwrap ? uint256(1) : uint256(0)) << 247;
         order.salt = extensionHash;
         order.maker = Address.wrap(uint256(uint160(address(MAKER))));
         order.receiver = Address.wrap(uint256(uint160(address(feeCollector))));
@@ -107,7 +120,7 @@ contract LimitOrderFeeCollectorTest is Test {
         order.takerAsset = Address.wrap(uint256(uint160(address(WETH))));
         order.makingAmount = makingAmount;
         order.takingAmount = takingAmount;
-        order.makerTraits = MakerTraits.wrap((1 << 251) | (1 << 249) | ((wrap ? 1 : 0) << 247));
+        order.makerTraits = MakerTraits.wrap((1 << 251) | (1 << 249) | unwrapFlag);
     }
 
     function _sign(Order memory order) internal view returns (bytes32 r, bytes32 vs) {
@@ -160,7 +173,22 @@ contract LimitOrderFeeCollectorTest is Test {
         assertEq(USDC.balanceOf(address(this)), makingAmount);
     }
 
-    function testContract() public {
+    function testContractUnwrap() public {
+        (bytes memory extension, uint160 extensionHash) = _extension();
+        Order memory order = _order(extensionHash, true);
+        (bytes32 r, bytes32 vs) = _sign(order);
 
+        TakerTraits takerTraits = _takerTraits(extension);
+
+        vm.expectEmit(address(USDC));
+        emit IERC20.Transfer(MAKER, address(this), makingAmount);
+        vm.expectEmit(address(WETH));
+        emit IERC20.Transfer(address(this), LIMIT_ORDER_PROTOCOL, takingAmount);
+
+        vm.etch(MAKER, type(StupidERC1271).runtimeCode);
+        LIMIT_ORDER_PROTOCOL_.fillContractOrderArgs(order, abi.encode(r, vs), takingAmount, takerTraits, extension);
+
+        assertEq(MAKER.balance, takingAmount * (10_000 - feeBps) / 10_000);
+        assertEq(USDC.balanceOf(address(this)), makingAmount);
     }
 }
