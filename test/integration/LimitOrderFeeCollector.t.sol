@@ -49,16 +49,22 @@ contract LimitOrderFeeCollectorTest is Test {
     bytes32 internal constant LIMIT_ORDER_TYPEHASH = keccak256("Order(uint256 salt,address maker,address receiver,address makerAsset,address takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits)");
     ILimitOrderProtocol internal constant LIMIT_ORDER_PROTOCOL_ = ILimitOrderProtocol(LIMIT_ORDER_PROTOCOL);
 
+    uint256 internal constant makingAmount = 20_000 * 1e6;
+    uint256 internal constant takingAmount = 10 * 1e18;
+    uint16 internal constant feeBps = 2_500;
+
+    address internal constant owner = 0x8E5DE7118a596E99B0563D3022039c11927f4827;
+
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 22282373);
 
         MAKER_KEY = uint256(keccak256("MAKER"));
         MAKER = payable(vm.addr(MAKER_KEY));
-        deal(address(USDC), MAKER, 2_000_000 * 1e6);
+        deal(address(USDC), MAKER, makingAmount * 100);
         vm.prank(MAKER);
         require(USDC.approve(LIMIT_ORDER_PROTOCOL, type(uint256).max));
 
-        deal(address(WETH), address(this), 1_000 * 1e18);
+        deal(address(WETH), address(this), takingAmount * 100);
         require(WETH.approve(LIMIT_ORDER_PROTOCOL, type(uint256).max));
 
         (bool success, bytes memory returndata) = _TOEHOLD1.call(bytes.concat(bytes32(0), type(LimitOrderFeeCollector).creationCode, abi.encode(bytes20(keccak256("git commit")), address(this), WETH)));
@@ -68,35 +74,75 @@ contract LimitOrderFeeCollectorTest is Test {
     }
 
     function testAcceptOwnership() public {
-        vm.prank(0x8E5DE7118a596E99B0563D3022039c11927f4827);
+        vm.prank(owner);
         feeCollector.acceptOwnership();
+        assertEq(feeCollector.owner(), owner);
+    }
+
+    function _extension() internal view returns (bytes memory extension, uint160 extensionHash) {
+        extension = bytes.concat(bytes4(uint32(22)), bytes28(0), bytes20(uint160(address(feeCollector))), bytes2(feeBps));
+        extensionHash = uint160(uint256(keccak256(extension)));
+    }
+
+    function _order(uint160 extensionHash, bool wrap) internal view returns (Order memory order) {
+        order.salt = extensionHash;
+        order.maker = Address.wrap(uint256(uint160(address(MAKER))));
+        order.receiver = Address.wrap(uint256(uint160(address(feeCollector))));
+        order.makerAsset = Address.wrap(uint256(uint160(address(USDC))));
+        order.takerAsset = Address.wrap(uint256(uint160(address(WETH))));
+        order.makingAmount = makingAmount;
+        order.takingAmount = takingAmount;
+        order.makerTraits = MakerTraits.wrap((1 << 251) | (1 << 249) | ((wrap ? 1 : 0) << 247));
+    }
+
+    function _sign(Order memory order) internal view returns (bytes32 r, bytes32 vs) {
+        bytes32 structHash = keccak256(bytes.concat(LIMIT_ORDER_TYPEHASH, abi.encode(order)));
+        bytes32 signingHash = keccak256(bytes.concat(bytes2(0x1901), LIMIT_ORDER_PROTOCOL_DOMAIN, structHash));
+        (r, vs) = vm.signCompact(MAKER_KEY, signingHash);
+    }
+
+    function _takerTraits(bytes memory extension) internal pure returns (TakerTraits) {
+        return TakerTraits.wrap(extension.length << 224);
     }
 
     function testEOAUnwrap() public {
-        uint256 makingAmount = 20_000 * 1e6;
-        uint256 takingAmount = 10 * 1e18;
+        (bytes memory extension, uint160 extensionHash) = _extension();
+        Order memory order = _order(extensionHash, true);
+        (bytes32 r, bytes32 vs) = _sign(order);
 
-        bytes memory extension = bytes.concat(bytes28(0), bytes4(uint32(22)), bytes20(uint160(address(feeCollector))), bytes2(uint16(2500)));
-        uint160 extensionHash = uint160(uint256(keccak256(extension)));
+        TakerTraits takerTraits = _takerTraits(extension);
 
-        Order memory order = Order({
-            salt: extensionHash,
-            maker: Address.wrap(uint256(uint160(address(MAKER)))),
-            receiver: Address.wrap(uint256(uint160(address(feeCollector)))),
-            makerAsset: Address.wrap(uint256(uint160(address(USDC)))),
-            takerAsset: Address.wrap(uint256(uint160(address(WETH)))),
-            makingAmount: makingAmount,
-            takingAmount: takingAmount,
-            makerTraits: MakerTraits.wrap((1 << 251) | (1 << 249) | (1 << 247))
-        });
-
-        TakerTraits takerTraits = TakerTraits.wrap(extension.length << 224);
-        
-        bytes32 structHash = keccak256(bytes.concat(LIMIT_ORDER_TYPEHASH, abi.encode(order)));
-        bytes32 signingHash = keccak256(bytes.concat(bytes2(0x1901), LIMIT_ORDER_PROTOCOL_DOMAIN, structHash));
-        (bytes32 r, bytes32 vs) = vm.signCompact(MAKER_KEY, signingHash);
+        vm.expectEmit(address(USDC));
+        emit IERC20.Transfer(MAKER, address(this), makingAmount);
+        vm.expectEmit(address(WETH));
+        emit IERC20.Transfer(address(this), LIMIT_ORDER_PROTOCOL, takingAmount);
 
         LIMIT_ORDER_PROTOCOL_.fillOrderArgs(order, r, vs, takingAmount, takerTraits, extension);
+
+        assertEq(MAKER.balance, takingAmount * (10_000 - feeBps) / 10_000);
+        assertEq(USDC.balanceOf(address(this)), makingAmount);
+    }
+
+    function testEOANoWrap() public {
+        (bytes memory extension, uint160 extensionHash) = _extension();
+        Order memory order = _order(extensionHash, false);
+        (bytes32 r, bytes32 vs) = _sign(order);
+
+        TakerTraits takerTraits = _takerTraits(extension);
+
+        vm.expectEmit(address(USDC));
+        emit IERC20.Transfer(MAKER, address(this), makingAmount);
+        vm.expectEmit(address(WETH));
+        emit IERC20.Transfer(address(this), address(feeCollector), takingAmount);
+        uint256 fee = takingAmount * feeBps / 10_000;
+        uint256 takingAmountAfterFee = takingAmount - fee;
+        emit IERC20.Transfer(address(feeCollector), MAKER, takingAmountAfterFee);
+
+        LIMIT_ORDER_PROTOCOL_.fillOrderArgs(order, r, vs, takingAmount, takerTraits, extension);
+
+        assertEq(WETH.balanceOf(MAKER), takingAmountAfterFee);
+        assertEq(WETH.balanceOf(address(feeCollector)), fee);
+        assertEq(USDC.balanceOf(address(this)), makingAmount);
     }
 
     function testContract() public {
