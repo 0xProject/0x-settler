@@ -263,7 +263,7 @@ contract LimitOrderFeeCollectorTest is Test {
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
 
-        feeCollector.swap(settler, payable(address(this)), WETH, USDC, 0 wei, actions, bytes32(0));
+        feeCollector.swap(settler, payable(address(this)), WETH, USDC, 1 wei, actions, bytes32(0));
 
         assertGt(USDC.balanceOf(address(this)), 0);
     }
@@ -297,7 +297,7 @@ contract LimitOrderFeeCollectorTest is Test {
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
 
-        feeCollector.swap(settler, payable(address(this)), ETH, USDC, 0 wei, actions, bytes32(0));
+        feeCollector.swap(settler, payable(address(this)), ETH, USDC, 1 wei, actions, bytes32(0));
 
         assertGt(USDC.balanceOf(address(this)), 0);
         assertEq(address(feeCollector).balance, 0);
@@ -361,13 +361,13 @@ contract LimitOrderFeeCollectorTest is Test {
         swaps[0].recipient = payable(address(this));
         swaps[0].sellToken = WETH;
         swaps[0].buyToken = USDC;
-        swaps[0].minBuyAmount = 0 wei;
+        swaps[0].minBuyAmount = 1 wei;
         swaps[0].actions = actions0;
         swaps[0].zid = bytes32(0);
         swaps[1].recipient = payable(address(this));
         swaps[1].sellToken = USDT;
         swaps[1].buyToken = ETH;
-        swaps[1].minBuyAmount = 0 wei;
+        swaps[1].minBuyAmount = 1 wei;
         swaps[1].actions = actions1;
         swaps[1].zid = bytes32(0);
 
