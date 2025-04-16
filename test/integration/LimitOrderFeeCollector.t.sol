@@ -300,6 +300,7 @@ contract LimitOrderFeeCollectorTest is Test {
         feeCollector.swap(settler, payable(address(this)), ETH, USDC, 0 wei, actions, bytes32(0));
 
         assertGt(USDC.balanceOf(address(this)), 0);
+        assertEq(address(feeCollector).balance, 0);
     }
 
     function testMultiSwap() public {
