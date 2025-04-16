@@ -7,7 +7,12 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
 
 import {
-    Address, MakerTraits, Order, Swap, LIMIT_ORDER_PROTOCOL, LimitOrderFeeCollector
+    Address,
+    MakerTraits,
+    Order,
+    Swap,
+    LIMIT_ORDER_PROTOCOL,
+    LimitOrderFeeCollector
 } from "src/LimitOrderFeeCollector.sol";
 
 import {Test} from "@forge-std/Test.sol";
@@ -299,13 +304,7 @@ contract LimitOrderFeeCollectorTest is Test {
         );
         actionsOriginal[1] = abi.encodeCall(
             ISettlerActions.BASIC,
-            (
-                address(WETH),
-                10_000,
-                address(WETH),
-                0x04,
-                abi.encodeWithSignature("withdraw(uint256)", 0 wei)
-            )
+            (address(WETH), 10_000, address(WETH), 0x04, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
         );
 
         bytes memory actions1 = abi.encode(actionsOriginal);
@@ -330,7 +329,7 @@ contract LimitOrderFeeCollectorTest is Test {
         swaps[1].zid = bytes32(0);
 
         uint256 beforeBalance = address(this).balance;
-        
+
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
         feeCollector.multiSwap(settler, swaps);
