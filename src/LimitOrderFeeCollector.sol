@@ -394,9 +394,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 // collecting the refund for clearing the allowance slot during `transferFrom`.
                 mstore(0x00, 0x70a08231) // selector for `balanceOf(address)`
                 mstore(0x20, address())
-                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x40, 0x20)) {
-                    bubbleRevert(ptr)
-                }
+                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x40, 0x20)) { bubbleRevert(ptr) }
                 if iszero(lt(0x1f, returndatasize())) { emptyRevert() }
 
                 // Set the exact allowance on AllowanceHolder. The amount is already in memory 0x40.

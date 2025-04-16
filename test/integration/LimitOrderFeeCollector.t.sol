@@ -263,17 +263,19 @@ contract LimitOrderFeeCollectorTest is Test {
         vm.deal(address(feeCollector), takingAmount);
 
         bytes[] memory actionsOriginal = new bytes[](2);
-        actionsOriginal[0] = abi.encodeCall(ISettlerActions.BASIC,
-            (address(ETH), 10_000, address(WETH), 0x04, bytes.concat(abi.encodeWithSignature("deposit()", 0 wei), bytes32(0)))
+        actionsOriginal[0] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (
+                address(ETH),
+                10_000,
+                address(WETH),
+                0x04,
+                bytes.concat(abi.encodeWithSignature("deposit()", 0 wei), bytes32(0))
+            )
         );
         actionsOriginal[1] = abi.encodeCall(
             ISettlerActions.UNISWAPV3,
-            (
-                address(settler),
-                10_000,
-                abi.encodePacked(WETH, uint8(0), uint24(500), USDC),
-                0
-            )
+            (address(settler), 10_000, abi.encodePacked(WETH, uint8(0), uint24(500), USDC), 0)
         );
 
         bytes memory actions = abi.encode(actionsOriginal);
