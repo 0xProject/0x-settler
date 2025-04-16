@@ -451,4 +451,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
             IERC20(takerAsset).safeTransfer(receiver, takingAmount);
         }
     }
+
+    receive() external payable {}
 }
