@@ -15,6 +15,7 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {Panic} from "./utils/Panic.sol";
+import {AddressDerivation} from "./utils/AddressDerivation.sol";
 
 type Address is uint256;
 
@@ -74,6 +75,19 @@ interface IPostInteraction {
         uint256 takingAmount,
         uint256 remainingMakingAmount,
         bytes calldata extraData
+    ) external;
+}
+
+interface ISafeSetup {
+    function setup(
+        address[] calldata owners,
+        uint256 threshold,
+        address to,
+        bytes calldata data,
+        address fallbackHandler,
+        address paymentToken,
+        uint256 payment,
+        address payable paymentReceiver
     ) external;
 }
 
@@ -233,6 +247,16 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     uint128 internal constant _SETTLER_TOKENID = 2;
     IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER_ADDRESS);
 
+    bytes32 private constant _SINGLETON_INITHASH = 0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
+    bytes32 private constant _FACTORY_INITHASH = 0x13d77c68fe7529013a9a57a295a785084b80e3d6ae9358c7f334752e0c8615f4;
+    bytes32 private constant _FALLBACK_INITHASH = 0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
+    bytes private constant _SAFE_CONSTRUCTOR =
+        hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
+
+    address private constant _TOEHOLD0 = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address private constant _TOEHOLD1 = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+    address private constant _SAFE_INITIAL_OWNER = 0x6d4197897b4e776C96c04309cF1CA47179C2B543;
+
     modifier onlyLimitOrderProtocol() {
         if (Context._msgSender() != _LIMIT_ORDER_PROTOCOL) {
             revert PermissionDenied();
@@ -246,9 +270,30 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     error CounterfeitSettler(ISettlerTakerSubmitted counterfeitSettler);
     error ApproveFailed(IERC20 token);
 
-    constructor(bytes20 gitCommit, address initialOwner, address initialFeeCollector, IERC20 weth_) {
-        require(initialOwner != address(0));
+    constructor(bytes20 gitCommit, address initialFeeCollector, IERC20 weth_) {
+        require((msg.sender == _TOEHOLD0).or(msg.sender == _TOEHOLD1));
         require(initialFeeCollector != address(0));
+        weth_.balanceOf(address(0)); // check that WETH is ERC20-ish
+
+        address singleton = AddressDerivation.deriveDeterministicContract(msg.sender, bytes32(0), _SINGLETON_INITHASH);
+        address factory = AddressDerivation.deriveDeterministicContract(msg.sender, bytes32(0), _FACTORY_INITHASH);
+        address fallback_ = AddressDerivation.deriveDeterministicContract(msg.sender, bytes32(0), _FALLBACK_INITHASH);
+        bytes32 safeInitHash = keccak256(bytes.concat(_SAFE_CONSTRUCTOR, bytes32(uint256(uint160(singleton)))));
+        address[] memory safeInitialOwners = new address[](1);
+        safeInitialOwners[0] = _SAFE_INITIAL_OWNER;
+        bytes32 safeSalt = keccak256(
+            bytes.concat(
+                keccak256(
+                    abi.encodeCall(
+                        ISafeSetup.setup,
+                        (safeInitialOwners, 1, address(0), new bytes(0), fallback_, address(0), 0, payable(address(0)))
+                    )
+                ),
+                bytes32(0)
+            )
+        );
+        address initialOwner = AddressDerivation.deriveDeterministicContract(factory, safeSalt, safeInitHash);
+        require(initialOwner.code.length != 0);
 
         weth = weth_;
 
