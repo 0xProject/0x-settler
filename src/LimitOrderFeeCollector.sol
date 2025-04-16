@@ -258,6 +258,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
     address private constant _TOEHOLD0 = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _TOEHOLD1 = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+    bytes32 private constant _TOEHOLD_CODEHASH = 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
     address private constant _SAFE_INITIAL_OWNER = 0x6d4197897b4e776C96c04309cF1CA47179C2B543;
 
     modifier onlyLimitOrderProtocol() {
@@ -275,6 +276,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
     constructor(bytes20 gitCommit, address initialFeeCollector, IERC20 weth_) {
         require((msg.sender == _TOEHOLD0).or(msg.sender == _TOEHOLD1));
+        require(msg.sender.codehash == _TOEHOLD_CODEHASH);
         require(initialFeeCollector != address(0));
         weth_.balanceOf(address(0)); // check that WETH is ERC20-ish
 
@@ -297,6 +299,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         );
         address initialOwner = AddressDerivation.deriveDeterministicContract(factory, safeSalt, safeInitHash);
         require(initialOwner.code.length != 0);
+        require(_ALLOWANCE_HOLDER_ADDRESS.code.length != 0);
 
         weth = weth_;
 
