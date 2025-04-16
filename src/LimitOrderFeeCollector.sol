@@ -243,7 +243,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     event SetFeeCollector(address indexed newFeeCollector);
     event GitCommit(bytes20 indexed commitHash);
 
-    error ZeroTakingAmount(IERC20 token);
     error CounterfeitSettler(ISettlerTakerSubmitted counterfeitSettler);
     error ApproveFailed(IERC20 token);
 
@@ -445,15 +444,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         }
 
         address takerAsset = order.takerAsset.get();
-
-        if (takingAmount == 0) {
-            assembly ("memory-safe") {
-                mstore(0x14, takerAsset)
-                mstore(0x00, 0x2ca7582e000000000000000000000000) // selector for `ZeroTakingAmount(address)` with `takerAsset`'s padding
-                revert(0x10, 0x24)
-            }
-        }
-
         address receiver = order.maker.get();
         if ((takerAsset == address(weth)).and(order.makerTraits.unwrapWeth())) {
             payable(receiver).safeTransferETH(takingAmount);
