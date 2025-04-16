@@ -333,6 +333,11 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         return true;
     }
 
+    function collectBadlyBehavedToken(IERC20 token, address recipient, uint256 amount) external onlyFeeCollector returns (bool) {
+        token.safeTransfer(recipient, amount);
+        return true;
+    }
+
     function _requireValidSettler(ISettlerTakerSubmitted settler) private view {
         // Any revert in `ownerOf` or `prev` will be bubbled. Any error in ABIDecoding the result
         // will result in a revert without a reason string.
