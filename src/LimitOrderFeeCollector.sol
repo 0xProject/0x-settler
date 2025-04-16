@@ -309,6 +309,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     }
 
     function setFeeCollector(address newFeeCollector) external onlyOwner returns (bool) {
+        require(newFeeCollector != address(0));
         feeCollector = newFeeCollector;
         emit SetFeeCollector(newFeeCollector);
         return true;
