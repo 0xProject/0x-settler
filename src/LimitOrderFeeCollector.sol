@@ -78,6 +78,8 @@ interface IPostInteraction {
     ) external;
 }
 
+address constant LIMIT_ORDER_PROTOCOL = 0x111111125421cA6dc452d289314280a0f8842A65;
+
 interface ISafeSetup {
     function setup(
         address[] calldata owners,
@@ -242,7 +244,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     }
 
     address internal constant _ALLOWANCE_HOLDER_ADDRESS = 0x0000000000001fF3684f28c67538d4D072C22734;
-    address internal constant _LIMIT_ORDER_PROTOCOL = 0x111111125421cA6dc452d289314280a0f8842A65;
     uint256 internal constant _BASIS = 10_000;
     uint128 internal constant _SETTLER_TOKENID = 2;
     IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER_ADDRESS);
@@ -258,7 +259,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     address private constant _SAFE_INITIAL_OWNER = 0x6d4197897b4e776C96c04309cF1CA47179C2B543;
 
     modifier onlyLimitOrderProtocol() {
-        if (Context._msgSender() != _LIMIT_ORDER_PROTOCOL) {
+        if (Context._msgSender() != LIMIT_ORDER_PROTOCOL) {
             revert PermissionDenied();
         }
         _;
