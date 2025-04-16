@@ -206,6 +206,7 @@ library FastDeployer {
                 revert(ptr, returndatasize())
             }
             if or(gt(0x20, returndatasize()), shr(0xa0, r)) { revert(0x00, 0x00) }
+            r := mload(0x00)
         }
     }
 
@@ -220,6 +221,7 @@ library FastDeployer {
                 revert(ptr, returndatasize())
             }
             if or(gt(0x20, returndatasize()), shr(0xa0, r)) { revert(0x00, 0x00) }
+            r := mload(0x00)
         }
     }
 }
@@ -359,14 +361,17 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
             let ptr := mload(0x40)
 
             // encode the arguments to Settler
-            calldatacopy(add(0x198, ptr), actions.offset, actions.length)
-            mstore(add(0x178, ptr), actions.length)
+            calldatacopy(add(0x178, ptr), actions.offset, actions.length)
             mstore(add(0x158, ptr), zid)
             mstore(add(0x138, ptr), 0xa0)
             mstore(add(0x118, ptr), minBuyAmount)
-            mstore(add(0x1f8, ptr), buyToken)
+            mstore(add(0xf8, ptr), buyToken)
             mstore(add(0xe4, ptr), shl(0x60, recipient)) // clears `buyToken`'s padding
             mstore(add(0xc4, ptr), 0x1fff991f000000000000000000000000) // selector for `execute((address,address,uint256),bytes[],bytes32)` with `recipient`'s padding
+
+            function emptyRevert() {
+                revert(0x00, 0x00)
+            }
 
             for {} 1 {} {
                 function bubbleRevert(p) {
@@ -376,29 +381,33 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
                 if eq(shl(0x60, sellToken), 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000) {
                     if iszero(
-                        call(gas(), settler, selfbalance(), add(0xd4, ptr), add(0xc4, actions.length), 0x00, 0x20)
+                        call(gas(), settler, selfbalance(), add(0xd4, ptr), add(0xa4, actions.length), 0x00, 0x20)
                     ) { bubbleRevert(ptr) }
-                    if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+                    if gt(0x20, returndatasize()) { emptyRevert() }
                     success := mload(0x00)
                     break
                 }
 
-                function approveAllowanceHolder(p, token, amount) {
-                    mstore(0x00, 0x095ea7b3) // selector for `approve(address,uint256)`
-                    mstore(0x20, _ALLOWANCE_HOLDER_ADDRESS)
-                    mstore(0x40, amount)
-
-                    if iszero(call(gas(), token, 0x00, 0x1c, 0x44, 0x00, 0x20)) { bubbleRevert(p) }
-                    if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
-                        mstore(0x14, token)
-                        mstore(0x00, 0xc90bb86a000000000000000000000000) // selector for `ApproveFailed(address)` with `token`'s padding
-                        revert(0x10, 0x24)
-                    }
+                // Determine the sell amount exactly so that we can set an exact allowance. This is
+                // done primarily to handle stupid tokens that don't allow you to set an allowance
+                // greater than your balance. As a secondary concern, it lets us save gas by
+                // collecting the refund for clearing the allowance slot during `transferFrom`.
+                mstore(0x00, 0x70a08231) // selector for `balanceOf(address)`
+                mstore(0x20, address())
+                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x40, 0x20)) {
+                    bubbleRevert(ptr)
                 }
+                if iszero(lt(0x1f, returndatasize())) { emptyRevert() }
 
-                approveAllowanceHolder(
-                    ptr, sellToken, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-                )
+                // Set the exact allowance on AllowanceHolder. The amount is already in memory 0x40.
+                mstore(0x00, 0x095ea7b3) // selector for `approve(address,uint256)`
+                mstore(0x20, _ALLOWANCE_HOLDER_ADDRESS)
+                if iszero(call(gas(), sellToken, 0x00, 0x1c, 0x44, 0x00, 0x20)) { bubbleRevert(ptr) }
+                if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
+                    mstore(0x14, sellToken)
+                    mstore(0x00, 0xc90bb86a000000000000000000000000) // selector for `ApproveFailed(address)` with `sellToken`'s padding
+                    revert(0x10, 0x24)
+                }
 
                 // length of the arguments to Settler
                 mstore(add(0xb4, ptr), add(0xc4, actions.length))
@@ -412,19 +421,16 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
 
                 if iszero(
-                    call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, add(0x10, ptr), add(0x188, actions.length), 0x00, 0x60)
+                    call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, add(0x10, ptr), add(0x168, actions.length), 0x00, 0x60)
                 ) { bubbleRevert(ptr) }
-                if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
+                if gt(0x60, returndatasize()) { emptyRevert() }
                 success := mload(0x40)
-
-                // collect the gas refund for zeroing the allowance slot
-                approveAllowanceHolder(ptr, sellToken, 0x00)
 
                 mstore(0x40, ptr)
                 break
             }
 
-            if shr(0x01, success) { revert(0x00, 0x00) }
+            if shr(0x01, success) { emptyRevert() }
         }
         if (!success) {
             Panic.panic(Panic.GENERIC);
