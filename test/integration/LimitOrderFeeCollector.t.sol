@@ -191,4 +191,27 @@ contract LimitOrderFeeCollectorTest is Test {
         assertEq(MAKER.balance, takingAmount * (10_000 - feeBps) / 10_000);
         assertEq(USDC.balanceOf(address(this)), makingAmount);
     }
+
+    function testContractNoWrap() public {
+        (bytes memory extension, uint160 extensionHash) = _extension();
+        Order memory order = _order(extensionHash, false);
+        (bytes32 r, bytes32 vs) = _sign(order);
+
+        TakerTraits takerTraits = _takerTraits(extension);
+
+        vm.expectEmit(address(USDC));
+        emit IERC20.Transfer(MAKER, address(this), makingAmount);
+        vm.expectEmit(address(WETH));
+        emit IERC20.Transfer(address(this), address(feeCollector), takingAmount);
+        uint256 fee = takingAmount * feeBps / 10_000;
+        uint256 takingAmountAfterFee = takingAmount - fee;
+        emit IERC20.Transfer(address(feeCollector), MAKER, takingAmountAfterFee);
+
+        vm.etch(MAKER, type(StupidERC1271).runtimeCode);
+        LIMIT_ORDER_PROTOCOL_.fillContractOrderArgs(order, abi.encode(r, vs), takingAmount, takerTraits, extension);
+
+        assertEq(WETH.balanceOf(MAKER), takingAmountAfterFee);
+        assertEq(WETH.balanceOf(address(feeCollector)), fee);
+        assertEq(USDC.balanceOf(address(this)), makingAmount);
+    }
 }
