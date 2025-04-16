@@ -387,9 +387,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                     mstore(0x20, _ALLOWANCE_HOLDER_ADDRESS)
                     mstore(0x40, amount)
 
-                    if iszero(call(gas(), token, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
-                        bubbleRevert(p)
-                    }
+                    if iszero(call(gas(), token, 0x00, 0x1c, 0x44, 0x00, 0x20)) { bubbleRevert(p) }
                     if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
                         mstore(0x14, token)
                         mstore(0x00, 0xc90bb86a000000000000000000000000) // selector for `ApproveFailed(address)` with `token`'s padding
@@ -397,7 +395,9 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                     }
                 }
 
-                approveAllowanceHolder(ptr, sellToken, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+                approveAllowanceHolder(
+                    ptr, sellToken, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                )
 
                 // length of the arguments to Settler
                 mstore(add(0xb4, ptr), add(0xc4, actions.length))
@@ -410,9 +410,9 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 mstore(add(0x20, ptr), shl(0x60, settler)) // clears `sellToken`'s padding
                 mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
 
-                if iszero(call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, add(0x10, ptr), add(0x188, actions.length), 0x00, 0x60)) {
-                    bubbleRevert(ptr)
-                }
+                if iszero(
+                    call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, add(0x10, ptr), add(0x188, actions.length), 0x00, 0x60)
+                ) { bubbleRevert(ptr) }
                 if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
                 success := mload(0x40)
 
