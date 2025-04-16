@@ -365,7 +365,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 mstore(add(0x20, ptr), shl(0x60, settler)) // clears `sellToken`'s padding
                 mstore(ptr, 0x2213bc0b000000000000000000000000) // selector for `exec(address,address,uint256,address,bytes)` with `settler`'s padding
 
-                if iszero(call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, ptr, add(0x188, actions.length), 0x00, 0x60)) {
+                if iszero(call(gas(), _ALLOWANCE_HOLDER_ADDRESS, 0x00, add(0x10, ptr), add(0x188, actions.length), 0x00, 0x60)) {
                     bubbleRevert(ptr)
                 }
                 if gt(0x60, returndatasize()) { revert(0x00, 0x00) }
