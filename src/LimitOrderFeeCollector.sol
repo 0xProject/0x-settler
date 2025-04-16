@@ -238,13 +238,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     address public feeCollector;
     IERC20 public immutable weth;
 
-    modifier onlyFeeCollector() {
-        if (_msgSender() != feeCollector) {
-            revert PermissionDenied();
-        }
-        _;
-    }
-
     address internal constant _ALLOWANCE_HOLDER_ADDRESS = 0x0000000000001fF3684f28c67538d4D072C22734;
     bytes32 private constant _ALLOWANCE_HOLDER_CODEHASH =
         0x99f5e8edaceacfdd183eb5f1da8a7757b322495b80cf7928db289a1b1a09f799;
@@ -262,13 +255,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     address private constant _TOEHOLD1 = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
     bytes32 private constant _TOEHOLD_CODEHASH = 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
     address private constant _SAFE_INITIAL_OWNER = 0x6d4197897b4e776C96c04309cF1CA47179C2B543;
-
-    modifier onlyLimitOrderProtocol() {
-        if (Context._msgSender() != LIMIT_ORDER_PROTOCOL) {
-            revert PermissionDenied();
-        }
-        _;
-    }
 
     event SetFeeCollector(address indexed newFeeCollector);
     event GitCommit(bytes20 indexed commitHash);
@@ -314,6 +300,44 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         emit SetFeeCollector(feeCollector);
     }
 
+    modifier onlyLimitOrderProtocol() {
+        if (Context._msgSender() != LIMIT_ORDER_PROTOCOL) {
+            revert PermissionDenied();
+        }
+        _;
+    }
+
+    function _requireFeeCollector() private view {
+        if (_msgSender() != feeCollector) {
+            revert PermissionDenied();
+        }
+    }
+
+    modifier onlyFeeCollector() {
+        _requireFeeCollector();
+        _;
+    }
+
+    function _requireValidSettler(ISettlerTakerSubmitted settler) private view {
+        // Any revert in `ownerOf` or `prev` will be bubbled. Any error in ABIDecoding the result
+        // will result in a revert without a reason string.
+        if (
+            _DEPLOYER.fastOwnerOf(_SETTLER_TOKENID) != address(settler)
+                && _DEPLOYER.fastPrev(_SETTLER_TOKENID) != address(settler)
+        ) {
+            assembly ("memory-safe") {
+                mstore(0x14, settler)
+                mstore(0x00, 0x7a1cd8fa000000000000000000000000) // selector for `CounterfeitSettler(address)` with `settler`'s padding
+                revert(0x10, 0x24)
+            }
+        }
+    }
+
+    modifier validSettler(ISettlerTakerSubmitted settler) {
+        _requireValidSettler(settler);
+        _;
+    }
+
     function setFeeCollector(address newFeeCollector) external onlyOwner returns (bool) {
         require(newFeeCollector != address(0));
         feeCollector = newFeeCollector;
@@ -341,26 +365,6 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     {
         token.safeTransfer(recipient, amount);
         return true;
-    }
-
-    function _requireValidSettler(ISettlerTakerSubmitted settler) private view {
-        // Any revert in `ownerOf` or `prev` will be bubbled. Any error in ABIDecoding the result
-        // will result in a revert without a reason string.
-        if (
-            _DEPLOYER.fastOwnerOf(_SETTLER_TOKENID) != address(settler)
-                && _DEPLOYER.fastPrev(_SETTLER_TOKENID) != address(settler)
-        ) {
-            assembly ("memory-safe") {
-                mstore(0x14, settler)
-                mstore(0x00, 0x7a1cd8fa000000000000000000000000) // selector for `CounterfeitSettler(address)` with `settler`'s padding
-                revert(0x10, 0x24)
-            }
-        }
-    }
-
-    modifier validSettler(ISettlerTakerSubmitted settler) {
-        _requireValidSettler(settler);
-        _;
     }
 
     function _swap(
