@@ -139,7 +139,7 @@ struct Swap {
     IERC20 sellToken;
     IERC20 buyToken;
     uint256 minBuyAmount;
-    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)`.
+    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
     bytes actions;
     bytes32 zid;
 }
@@ -289,7 +289,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
                 keccak256(
                     abi.encodeCall(
                         ISafeSetup.setup,
-                        (safeInitialOwners, 1, address(0), new bytes(0), fallback_, address(0), 0, payable(address(0)))
+                        (safeInitialOwners, 1, address(0), "", fallback_, address(0), 0, payable(address(0)))
                     )
                 ),
                 bytes32(0)
@@ -435,7 +435,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         }
     }
 
-    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)`.
+    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
     function swap(
         ISettlerTakerSubmitted settler,
         address payable recipient,
@@ -449,7 +449,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         return true;
     }
 
-    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)`.
+    /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
     function multiSwap(ISettlerTakerSubmitted settler, Swap[] calldata swaps)
         external
         onlyFeeCollector
