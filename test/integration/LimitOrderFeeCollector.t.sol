@@ -115,6 +115,15 @@ contract LimitOrderFeeCollectorTest is Test {
         assertEq(feeCollector.owner(), owner);
     }
 
+    function testSetFeeCollector() public {
+        testAcceptOwnership();
+
+        vm.prank(owner);
+        feeCollector.setFeeCollector(address(0xdead));
+
+        assertEq(feeCollector.feeCollector(), address(0xdead));
+    }
+
     function _extension() internal view returns (bytes memory extension, uint160 extensionHash) {
         extension =
             bytes.concat(bytes4(uint32(22)), bytes28(0), bytes20(uint160(address(feeCollector))), bytes2(feeBps));
@@ -368,6 +377,34 @@ contract LimitOrderFeeCollectorTest is Test {
         feeCollector.multiSwap(settler, swaps);
 
         assertGt(USDC.balanceOf(address(this)), 0);
+        assertGt(address(this).balance, beforeBalance);
+    }
+
+    function testCollectTokens() public {
+        deal(address(WETH), address(feeCollector), takingAmount);
+        deal(address(USDC), address(feeCollector), makingAmount);
+        deal(address(USDT), address(feeCollector), makingAmount);
+        IERC20[] memory tokens = new IERC20[](3);
+        tokens[0] = WETH;
+        tokens[1] = USDC;
+        tokens[2] = USDT;
+
+        vm.expectEmit(address(WETH));
+        emit IERC20.Transfer(address(feeCollector), address(this), takingAmount);
+        vm.expectEmit(address(USDC));
+        emit IERC20.Transfer(address(feeCollector), address(this), makingAmount);
+        vm.expectEmit(address(USDT));
+        emit IERC20.Transfer(address(feeCollector), address(this), makingAmount);
+
+        feeCollector.collectTokens(tokens, address(this));
+    }
+
+    function testCollectEth() public {
+        vm.deal(address(feeCollector), takingAmount);
+
+        uint256 beforeBalance = address(this).balance;
+        feeCollector.collectEth(payable(this));
+
         assertGt(address(this).balance, beforeBalance);
     }
 
