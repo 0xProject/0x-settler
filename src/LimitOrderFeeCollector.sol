@@ -246,7 +246,8 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     }
 
     address internal constant _ALLOWANCE_HOLDER_ADDRESS = 0x0000000000001fF3684f28c67538d4D072C22734;
-    bytes32 private constant _ALLOWANCE_HOLDER_CODEHASH = 0x99f5e8edaceacfdd183eb5f1da8a7757b322495b80cf7928db289a1b1a09f799;
+    bytes32 private constant _ALLOWANCE_HOLDER_CODEHASH =
+        0x99f5e8edaceacfdd183eb5f1da8a7757b322495b80cf7928db289a1b1a09f799;
     uint256 internal constant _BASIS = 10_000;
     uint128 internal constant _SETTLER_TOKENID = 2;
     IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER_ADDRESS);
@@ -333,7 +334,11 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         return true;
     }
 
-    function collectBadlyBehavedToken(IERC20 token, address recipient, uint256 amount) external onlyFeeCollector returns (bool) {
+    function collectBadlyBehavedToken(IERC20 token, address recipient, uint256 amount)
+        external
+        onlyFeeCollector
+        returns (bool)
+    {
         token.safeTransfer(recipient, amount);
         return true;
     }
