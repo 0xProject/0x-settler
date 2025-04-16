@@ -7,13 +7,14 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
 
 import {
-    Address, MakerTraits, Order, LIMIT_ORDER_PROTOCOL, LimitOrderFeeCollector
+    Address, MakerTraits, Order, Swap, LIMIT_ORDER_PROTOCOL, LimitOrderFeeCollector
 } from "src/LimitOrderFeeCollector.sol";
 
 import {Test} from "@forge-std/Test.sol";
 
 IERC20 constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+IERC20 constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
 type TakerTraits is uint256;
 
@@ -221,7 +222,7 @@ contract LimitOrderFeeCollectorTest is Test {
     }
 
     function testSwap() public {
-        testEOANoWrap();
+        deal(address(WETH), address(feeCollector), takingAmount);
 
         bytes[] memory actionsOriginal = new bytes[](1);
         actionsOriginal[0] = abi.encodeCall(
@@ -253,4 +254,90 @@ contract LimitOrderFeeCollectorTest is Test {
 
         assertGt(USDC.balanceOf(address(this)), 0);
     }
+
+    function testMultiSwap() public {
+        deal(address(WETH), address(feeCollector), takingAmount);
+        deal(address(USDT), address(feeCollector), makingAmount);
+
+        bytes[] memory actionsOriginal = new bytes[](1);
+        actionsOriginal[0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV3_VIP,
+            (
+                address(settler),
+                abi.encodePacked(WETH, uint8(0), uint24(500), USDC),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(WETH), amount: type(uint256).max}),
+                    nonce: 0,
+                    deadline: block.timestamp + 5 minutes
+                }),
+                "",
+                0
+            )
+        );
+
+        bytes memory actions0 = abi.encode(actionsOriginal);
+        assembly ("memory-safe") {
+            let len := mload(actions0)
+            actions0 := add(0x20, actions0)
+            mstore(actions0, sub(len, 0x20))
+        }
+
+        actionsOriginal = new bytes[](2);
+        actionsOriginal[0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV3_VIP,
+            (
+                address(settler),
+                abi.encodePacked(USDT, uint8(0), uint24(500), WETH),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDT), amount: type(uint256).max}),
+                    nonce: 0,
+                    deadline: block.timestamp + 5 minutes
+                }),
+                "",
+                0
+            )
+        );
+        actionsOriginal[1] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (
+                address(WETH),
+                10_000,
+                address(WETH),
+                0x04,
+                abi.encodeWithSignature("withdraw(uint256)", 0 wei)
+            )
+        );
+
+        bytes memory actions1 = abi.encode(actionsOriginal);
+        assembly ("memory-safe") {
+            let len := mload(actions1)
+            actions1 := add(0x20, actions1)
+            mstore(actions1, sub(len, 0x20))
+        }
+
+        Swap[] memory swaps = new Swap[](2);
+        swaps[0].recipient = payable(address(this));
+        swaps[0].sellToken = WETH;
+        swaps[0].buyToken = USDC;
+        swaps[0].minBuyAmount = 0 wei;
+        swaps[0].actions = actions0;
+        swaps[0].zid = bytes32(0);
+        swaps[1].recipient = payable(address(this));
+        swaps[1].sellToken = USDT;
+        swaps[1].buyToken = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+        swaps[1].minBuyAmount = 0 wei;
+        swaps[1].actions = actions1;
+        swaps[1].zid = bytes32(0);
+
+        uint256 beforeBalance = address(this).balance;
+        
+        vm.expectEmit(false, true, true, false, address(USDC));
+        emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
+        feeCollector.multiSwap(settler, swaps);
+
+        assertGt(USDC.balanceOf(address(this)), 0);
+        assertGt(address(this).balance, beforeBalance);
+    }
+
+    receive() external payable {}
 }
