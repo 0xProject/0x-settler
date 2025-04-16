@@ -18,6 +18,7 @@ import {
 import {Test} from "@forge-std/Test.sol";
 
 IERC20 constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+IERC20 constant ETH = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 IERC20 constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
@@ -59,8 +60,6 @@ contract LimitOrderFeeCollectorTest is Test {
 
     uint256 internal MAKER_KEY;
     address payable internal MAKER;
-    uint256 internal TAKER_KEY;
-    address payable internal TAKER;
 
     LimitOrderFeeCollector internal feeCollector;
 
@@ -260,6 +259,38 @@ contract LimitOrderFeeCollectorTest is Test {
         assertGt(USDC.balanceOf(address(this)), 0);
     }
 
+    function testSwapEth() public {
+        vm.deal(address(feeCollector), takingAmount);
+
+        bytes[] memory actionsOriginal = new bytes[](2);
+        actionsOriginal[0] = abi.encodeCall(ISettlerActions.BASIC,
+            (address(ETH), 10_000, address(WETH), 0x04, bytes.concat(abi.encodeWithSignature("deposit()", 0 wei), bytes32(0)))
+        );
+        actionsOriginal[1] = abi.encodeCall(
+            ISettlerActions.UNISWAPV3,
+            (
+                address(settler),
+                10_000,
+                abi.encodePacked(WETH, uint8(0), uint24(500), USDC),
+                0
+            )
+        );
+
+        bytes memory actions = abi.encode(actionsOriginal);
+        assembly ("memory-safe") {
+            let len := mload(actions)
+            actions := add(0x20, actions)
+            mstore(actions, sub(len, 0x20))
+        }
+
+        vm.expectEmit(false, true, true, false, address(USDC));
+        emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
+
+        feeCollector.swap(settler, payable(address(this)), ETH, USDC, 0 wei, actions, bytes32(0));
+
+        assertGt(USDC.balanceOf(address(this)), 0);
+    }
+
     function testMultiSwap() public {
         deal(address(WETH), address(feeCollector), takingAmount);
         deal(address(USDT), address(feeCollector), makingAmount);
@@ -323,7 +354,7 @@ contract LimitOrderFeeCollectorTest is Test {
         swaps[0].zid = bytes32(0);
         swaps[1].recipient = payable(address(this));
         swaps[1].sellToken = USDT;
-        swaps[1].buyToken = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+        swaps[1].buyToken = ETH;
         swaps[1].minBuyAmount = 0 wei;
         swaps[1].actions = actions1;
         swaps[1].zid = bytes32(0);
