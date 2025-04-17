@@ -478,13 +478,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         for ((SwapArrayIterator i, SwapArrayIterator end) = (swaps.iter(), swaps.end()); i != end; i = i.next()) {
             Swap calldata swap_ = swaps.get(i);
             _swap(
-                settler,
-                recipient,
-                swap_.sellToken,
-                swap_.buyToken,
-                swap_.minBuyAmount,
-                swap_.getActions(),
-                swap_.zid
+                settler, recipient, swap_.sellToken, swap_.buyToken, swap_.minBuyAmount, swap_.getActions(), swap_.zid
             );
         }
         return true;
