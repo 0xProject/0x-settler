@@ -482,6 +482,11 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         return true;
     }
 
+    function resetAllowance(IERC20 token) external onlyFeeCollector returns (bool) {
+        token.safeApprove(_ALLOWANCE_HOLDER_ADDRESS, 0);
+        return true;
+    }
+
     /// @inheritdoc IPostInteraction
     function postInteraction(
         Order calldata order,
