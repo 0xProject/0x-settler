@@ -268,7 +268,7 @@ contract LimitOrderFeeCollectorTest is Test {
         assertGt(USDC.balanceOf(address(this)), 0);
     }
 
-    function testSwapEth() public {
+    function testSwapFromEth() public {
         vm.deal(address(feeCollector), takingAmount);
 
         bytes[] memory actionsOriginal = new bytes[](2);
@@ -301,6 +301,43 @@ contract LimitOrderFeeCollectorTest is Test {
 
         assertGt(USDC.balanceOf(address(this)), 0);
         assertEq(address(feeCollector).balance, 0);
+    }
+
+    function testSwapToEth() public {
+        deal(address(USDC), address(feeCollector), makingAmount);
+
+        bytes[] memory actionsOriginal = new bytes[](2);
+        actionsOriginal[0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV3_VIP,
+            (
+                address(settler),
+                abi.encodePacked(USDC, uint8(0), uint24(500), WETH),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: type(uint256).max}),
+                    nonce: 0,
+                    deadline: block.timestamp + 5 minutes
+                }),
+                "",
+                0
+            )
+        );
+        actionsOriginal[1] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (address(WETH), 10_000, address(WETH), 0x04, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
+        );
+
+        bytes memory actions = abi.encode(actionsOriginal);
+        assembly ("memory-safe") {
+            let len := mload(actions)
+            actions := add(0x20, actions)
+            mstore(actions, sub(len, 0x20))
+        }
+
+        uint256 beforeBalance = address(this).balance;
+
+        feeCollector.swap(settler, payable(address(this)), USDC, ETH, 1 wei, actions, bytes32(0));
+
+        assertGt(address(this).balance, beforeBalance);
     }
 
     function testMultiSwap() public {
