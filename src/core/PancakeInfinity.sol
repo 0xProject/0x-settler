@@ -171,7 +171,7 @@ library UnsafePancakeInfinityPoolManager {
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0x1b13f906) // selector for `swap((address,address,address,address,uint24,int24),(bool,int256,uint160),bytes)`
+            mstore(ptr, 0xcd0cc1ce) // selector for `swap((address,address,address,address,uint24,bytes32),(bool,int256,uint160),bytes)`
             let token0 := mload(key)
             token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
             mstore(add(0x20, ptr), token0)
@@ -199,7 +199,7 @@ library UnsafePancakeInfinityBinPoolManager {
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0xa2db9d60) // selector for `swap((address,address,address,address,uint24,int24),bool,int128,bytes)`
+            mstore(ptr, 0x911a63b7) // selector for `swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)`
             let token0 := mload(key)
             token0 := mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0)
             mstore(add(0x20, ptr), token0)
