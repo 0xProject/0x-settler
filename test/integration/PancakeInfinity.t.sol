@@ -256,10 +256,12 @@ abstract contract PancakeInfinityTest is SettlerMetaTxnPairTest {
         snapEnd();
         vm.stopPrank();
 
+        // The pool has comparatively little liquidity, so the order cannot be
+        // fully filled. We just check that it at least partially filled.
         uint256 afterBalanceTo = toToken().balanceOf(FROM);
         assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+        assertLt(afterBalanceFrom, beforeBalanceFrom);
     }
 }
 
