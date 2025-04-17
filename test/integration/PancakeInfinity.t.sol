@@ -6,11 +6,13 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 import {Settler} from "src/Settler.sol";
+import {SettlerMetaTxn} from "src/SettlerMetaTxn.sol";
 import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {BnbSettler} from "src/chains/Bnb/TakerSubmitted.sol";
+import {BnbSettlerMetaTxn} from "src/chains/Bnb/MetaTxn.sol";
 
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
@@ -260,6 +262,14 @@ abstract contract PancakeInfinityTest is SettlerMetaTxnPairTest {
 }
 
 contract USDTCAKETest is PancakeInfinityTest {
+    function settlerInitCode() internal virtual override returns (bytes memory) {
+        return bytes.concat(type(BnbSettler).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function settlerMetaTxnInitCode() internal virtual override returns (bytes memory) {
+        return bytes.concat(type(BnbSettlerMetaTxn).creationCode, abi.encode(bytes20(0)));
+    }
+
     function testName() internal pure override returns (string memory) {
         return "USDT-CAKE";
     }
