@@ -358,13 +358,11 @@ contract LimitOrderFeeCollectorTest is Test {
         }
 
         Swap[] memory swaps = new Swap[](2);
-        swaps[0].recipient = payable(address(this));
         swaps[0].sellToken = WETH;
         swaps[0].buyToken = USDC;
         swaps[0].minBuyAmount = 1 wei;
         swaps[0].actions = actions0;
         swaps[0].zid = bytes32(0);
-        swaps[1].recipient = payable(address(this));
         swaps[1].sellToken = USDT;
         swaps[1].buyToken = ETH;
         swaps[1].minBuyAmount = 1 wei;
@@ -375,7 +373,7 @@ contract LimitOrderFeeCollectorTest is Test {
 
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
-        feeCollector.multiSwap(settler, swaps);
+        feeCollector.multiSwap(settler, payable(address(this)), swaps);
 
         assertGt(USDC.balanceOf(address(this)), 0);
         assertGt(address(this).balance, beforeBalance);

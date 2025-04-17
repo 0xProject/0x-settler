@@ -135,7 +135,6 @@ library LibTokenArrayIterator {
 using LibTokenArrayIterator for TokenArrayIterator global;
 
 struct Swap {
-    address payable recipient;
     IERC20 sellToken;
     IERC20 buyToken;
     uint256 minBuyAmount;
@@ -146,7 +145,7 @@ struct Swap {
 
 function getActions(Swap calldata swap) pure returns (bytes calldata r) {
     assembly ("memory-safe") {
-        r.offset := add(swap, calldataload(add(0x80, swap)))
+        r.offset := add(swap, calldataload(add(0x60, swap)))
         r.length := calldataload(r.offset)
         r.offset := add(0x20, r.offset)
     }
@@ -470,7 +469,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     }
 
     /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
-    function multiSwap(ISettlerTakerSubmitted settler, Swap[] calldata swaps)
+    function multiSwap(ISettlerTakerSubmitted settler, address payable recipient, Swap[] calldata swaps)
         external
         onlyFeeCollector
         validSettler(settler)
@@ -480,7 +479,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
             Swap calldata swap_ = swaps.get(i);
             _swap(
                 settler,
-                swap_.recipient,
+                recipient,
                 swap_.sellToken,
                 swap_.buyToken,
                 swap_.minBuyAmount,
