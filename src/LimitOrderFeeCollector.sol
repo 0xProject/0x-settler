@@ -467,17 +467,15 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     }
 
     /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
-    function multiSwap(ISettlerTakerSubmitted settler, address payable recipient, IERC20 buyToken, Swap[] calldata swaps)
-        external
-        onlyFeeCollector
-        validSettler(settler)
-        returns (bool)
-    {
+    function multiSwap(
+        ISettlerTakerSubmitted settler,
+        address payable recipient,
+        IERC20 buyToken,
+        Swap[] calldata swaps
+    ) external onlyFeeCollector validSettler(settler) returns (bool) {
         for ((SwapArrayIterator i, SwapArrayIterator end) = (swaps.iter(), swaps.end()); i != end; i = i.next()) {
             Swap calldata swap_ = swaps.get(i);
-            _swap(
-                settler, swap_.sellToken, recipient, buyToken, swap_.minAmountOut, swap_.getActions(), swap_.zid
-            );
+            _swap(settler, swap_.sellToken, recipient, buyToken, swap_.minAmountOut, swap_.getActions(), swap_.zid);
         }
         return true;
     }

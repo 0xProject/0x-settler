@@ -261,11 +261,8 @@ contract LimitOrderFeeCollectorTest is Test {
             mstore(actions, sub(len, 0x20))
         }
 
-        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(this)),
-            buyToken: USDC,
-            minAmountOut: 1 wei
-        });
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(this)), buyToken: USDC, minAmountOut: 1 wei});
 
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
@@ -301,11 +298,8 @@ contract LimitOrderFeeCollectorTest is Test {
             mstore(actions, sub(len, 0x20))
         }
 
-        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(this)),
-            buyToken: USDC,
-            minAmountOut: 1 wei
-        });
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(this)), buyToken: USDC, minAmountOut: 1 wei});
 
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
@@ -346,11 +340,8 @@ contract LimitOrderFeeCollectorTest is Test {
             mstore(actions, sub(len, 0x20))
         }
 
-        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(this)),
-            buyToken: ETH,
-            minAmountOut: 1 wei
-        });
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(this)), buyToken: ETH, minAmountOut: 1 wei});
 
         uint256 beforeBalance = address(this).balance;
 
