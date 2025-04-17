@@ -82,11 +82,11 @@ abstract contract PancakeInfinityTest is SettlerMetaTxnPairTest {
     }
 
     function pancakeInfinityFills() internal view virtual returns (bytes memory) {
-        bytes32 poolId = poolId();
+        bytes32 poolId_ = poolId();
         uint8 managerId = poolManagerId();
         PoolKey memory poolKey = (
             managerId == 0 ? IPancakeInfinityPoolManager(CL_MANAGER) : IPancakeInfinityPoolManager(BIN_MANAGER)
-        ).poolIdToPoolKey(PoolId.wrap(poolId));
+        ).poolIdToPoolKey(PoolId.wrap(poolId_));
 
         return abi.encodePacked(
             uint16(10_000),
