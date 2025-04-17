@@ -8,6 +8,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 10,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -35,7 +36,9 @@
     "extraFlags": "",
     "gasMultiplierPercent": 130,
     "minGasPriceGwei": 10,
+    "wnative": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -45,7 +48,9 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "limitOrderHook": "0xA33b6C189d6bf5b4B144851D0F2BEB04300da6dd",
+      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -63,7 +68,9 @@
     "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 200,
+    "wnative": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -73,7 +80,9 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "limitOrderHook": "0x40cC3Df2E28e4f133167cf2f6840fBB981473294",
+      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -91,7 +100,9 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -101,7 +112,9 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "limitOrderHook": "0x8Ce89e7fd07836bE0B2A3BAE3F36546543D3a8EE",
+      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -119,7 +132,9 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -129,7 +144,9 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "limitOrderHook": "0x8Ce89e7fd07836bE0B2A3BAE3F36546543D3a8EE",
+      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -147,7 +164,9 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 500,
     "minGasPriceGwei": 10,
+    "wnative": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -157,7 +176,9 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "limitOrderHook": "0x900087Be6473237D67390257b0Eb0efEBbB4e711",
+      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -175,7 +196,9 @@
     "extraFlags": "",
     "gasMultiplierPercent": 130,
     "minGasPriceGwei": 3,
+    "wnative": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -185,7 +208,9 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "limitOrderHook": "0x142B3C27e85136c140393E810BF9B4864C63Bfe0",
+      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -203,7 +228,9 @@
     "extraFlags": "",
     "gasMultiplierPercent": 180,
     "minGasPriceGwei": 10,
+    "wnative": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -213,7 +240,9 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "limitOrderHook": "0x26E461749FAC9a421B1527DCfe7683A24bfF97C4",
+      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -232,6 +261,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -259,6 +289,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 2,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -287,6 +318,7 @@
     "gasMultiplierPercent": 120,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -315,6 +347,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -343,6 +376,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -371,6 +405,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -398,6 +433,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -426,6 +462,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 2,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -454,6 +491,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 2,
     "safe": {
+      "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
       "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
       "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
@@ -481,6 +519,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
@@ -508,6 +547,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 50,
     "safe": {
+      "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
       "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
       "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
@@ -536,6 +576,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
       "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
       "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
@@ -564,6 +605,7 @@
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
