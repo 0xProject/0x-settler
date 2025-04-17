@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISettlerBase} from "./interfaces/ISettlerBase.sol";
 import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {MultiCallContext} from "./multicall/MultiCallContext.sol";
@@ -136,8 +137,7 @@ using LibTokenArrayIterator for TokenArrayIterator global;
 
 struct Swap {
     IERC20 sellToken;
-    IERC20 buyToken;
-    uint256 minBuyAmount;
+    uint256 minAmountOut;
     /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
     bytes actions;
     bytes32 zid;
@@ -145,7 +145,7 @@ struct Swap {
 
 function getActions(Swap calldata swap) pure returns (bytes calldata r) {
     assembly ("memory-safe") {
-        r.offset := add(swap, calldataload(add(0x60, swap)))
+        r.offset := add(swap, calldataload(add(0x40, swap)))
         r.length := calldataload(r.offset)
         r.offset := add(0x20, r.offset)
     }
@@ -368,10 +368,10 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
     function _swap(
         ISettlerTakerSubmitted settler,
-        address payable recipient,
         IERC20 sellToken,
+        address payable recipient,
         IERC20 buyToken,
-        uint256 minBuyAmount,
+        uint256 minAmountOut,
         bytes calldata actions,
         bytes32 zid
     ) internal {
@@ -383,7 +383,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
             calldatacopy(add(0x178, ptr), actions.offset, actions.length)
             mstore(add(0x158, ptr), zid)
             mstore(add(0x138, ptr), 0xa0)
-            mstore(add(0x118, ptr), minBuyAmount)
+            mstore(add(0x118, ptr), minAmountOut)
             mstore(add(0xf8, ptr), buyToken)
             mstore(add(0xe4, ptr), shl(0x60, recipient)) // clears `buyToken`'s padding
             mstore(add(0xc4, ptr), 0x1fff991f000000000000000000000000) // selector for `execute((address,address,uint256),bytes[],bytes32)` with `recipient`'s padding
@@ -457,19 +457,17 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
     function swap(
         ISettlerTakerSubmitted settler,
-        address payable recipient,
         IERC20 sellToken,
-        IERC20 buyToken,
-        uint256 minBuyAmount,
+        ISettlerBase.AllowedSlippage calldata slippage,
         bytes calldata actions,
         bytes32 zid
     ) external onlyFeeCollector validSettler(settler) returns (bool) {
-        _swap(settler, recipient, sellToken, buyToken, minBuyAmount, actions, zid);
+        _swap(settler, sellToken, slippage.recipient, slippage.buyToken, slippage.minAmountOut, actions, zid);
         return true;
     }
 
     /// While Settler takes `actions` as `bytes[]`, we take it as just `bytes`; that is `abi.encode(originalActions)[32:]`.
-    function multiSwap(ISettlerTakerSubmitted settler, address payable recipient, Swap[] calldata swaps)
+    function multiSwap(ISettlerTakerSubmitted settler, address payable recipient, IERC20 buyToken, Swap[] calldata swaps)
         external
         onlyFeeCollector
         validSettler(settler)
@@ -478,7 +476,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         for ((SwapArrayIterator i, SwapArrayIterator end) = (swaps.iter(), swaps.end()); i != end; i = i.next()) {
             Swap calldata swap_ = swaps.get(i);
             _swap(
-                settler, recipient, swap_.sellToken, swap_.buyToken, swap_.minBuyAmount, swap_.getActions(), swap_.zid
+                settler, swap_.sellToken, recipient, buyToken, swap_.minAmountOut, swap_.getActions(), swap_.zid
             );
         }
         return true;

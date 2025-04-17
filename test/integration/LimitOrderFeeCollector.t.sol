@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
 
 import {
@@ -260,10 +261,16 @@ contract LimitOrderFeeCollectorTest is Test {
             mstore(actions, sub(len, 0x20))
         }
 
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(this)),
+            buyToken: USDC,
+            minAmountOut: 1 wei
+        });
+
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
 
-        feeCollector.swap(settler, payable(address(this)), WETH, USDC, 1 wei, actions, bytes32(0));
+        feeCollector.swap(settler, WETH, slippage, actions, bytes32(0));
 
         assertGt(USDC.balanceOf(address(this)), 0);
     }
@@ -294,10 +301,16 @@ contract LimitOrderFeeCollectorTest is Test {
             mstore(actions, sub(len, 0x20))
         }
 
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(this)),
+            buyToken: USDC,
+            minAmountOut: 1 wei
+        });
+
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
 
-        feeCollector.swap(settler, payable(address(this)), ETH, USDC, 1 wei, actions, bytes32(0));
+        feeCollector.swap(settler, ETH, slippage, actions, bytes32(0));
 
         assertGt(USDC.balanceOf(address(this)), 0);
         assertEq(address(feeCollector).balance, 0);
@@ -333,9 +346,15 @@ contract LimitOrderFeeCollectorTest is Test {
             mstore(actions, sub(len, 0x20))
         }
 
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(this)),
+            buyToken: ETH,
+            minAmountOut: 1 wei
+        });
+
         uint256 beforeBalance = address(this).balance;
 
-        feeCollector.swap(settler, payable(address(this)), USDC, ETH, 1 wei, actions, bytes32(0));
+        feeCollector.swap(settler, USDC, slippage, actions, bytes32(0));
 
         assertGt(address(this).balance, beforeBalance);
     }
@@ -367,12 +386,11 @@ contract LimitOrderFeeCollectorTest is Test {
             mstore(actions0, sub(len, 0x20))
         }
 
-        actionsOriginal = new bytes[](2);
         actionsOriginal[0] = abi.encodeCall(
             ISettlerActions.UNISWAPV3_VIP,
             (
                 address(settler),
-                abi.encodePacked(USDT, uint8(0), uint24(500), WETH),
+                abi.encodePacked(USDT, uint8(0), uint24(100), USDC),
                 ISignatureTransfer.PermitTransferFrom({
                     permitted: ISignatureTransfer.TokenPermissions({token: address(USDT), amount: type(uint256).max}),
                     nonce: 0,
@@ -381,10 +399,6 @@ contract LimitOrderFeeCollectorTest is Test {
                 "",
                 0
             )
-        );
-        actionsOriginal[1] = abi.encodeCall(
-            ISettlerActions.BASIC,
-            (address(WETH), 10_000, address(WETH), 0x04, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
         );
 
         bytes memory actions1 = abi.encode(actionsOriginal);
@@ -396,24 +410,22 @@ contract LimitOrderFeeCollectorTest is Test {
 
         Swap[] memory swaps = new Swap[](2);
         swaps[0].sellToken = WETH;
-        swaps[0].buyToken = USDC;
-        swaps[0].minBuyAmount = 1 wei;
+        swaps[0].minAmountOut = 1 wei;
         swaps[0].actions = actions0;
         swaps[0].zid = bytes32(0);
         swaps[1].sellToken = USDT;
-        swaps[1].buyToken = ETH;
-        swaps[1].minBuyAmount = 1 wei;
+        swaps[1].minAmountOut = 1 wei;
         swaps[1].actions = actions1;
         swaps[1].zid = bytes32(0);
 
-        uint256 beforeBalance = address(this).balance;
-
         vm.expectEmit(false, true, true, false, address(USDC));
         emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
-        feeCollector.multiSwap(settler, payable(address(this)), swaps);
+        vm.expectEmit(false, true, true, false, address(USDC));
+        emit IERC20.Transfer(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, address(this), type(uint256).max);
+
+        feeCollector.multiSwap(settler, payable(address(this)), USDC, swaps);
 
         assertGt(USDC.balanceOf(address(this)), 0);
-        assertGt(address(this).balance, beforeBalance);
     }
 
     function testCollectTokens() public {
