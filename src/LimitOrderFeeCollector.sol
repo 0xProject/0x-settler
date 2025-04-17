@@ -235,7 +235,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     using FastDeployer for IDeployer;
 
     address public feeCollector;
-    IERC20 public immutable weth;
+    IERC20 public immutable wnative;
 
     address internal constant _ALLOWANCE_HOLDER_ADDRESS = 0x0000000000001fF3684f28c67538d4D072C22734;
     bytes32 private constant _ALLOWANCE_HOLDER_CODEHASH =
@@ -261,13 +261,13 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
     error CounterfeitSettler(ISettlerTakerSubmitted counterfeitSettler);
     error ApproveFailed(IERC20 token);
 
-    constructor(bytes20 gitCommit, address initialFeeCollector, IERC20 weth_) {
+    constructor(bytes20 gitCommit, address initialFeeCollector, IERC20 wnative_) {
         require((msg.sender == _TOEHOLD0).or(msg.sender == _TOEHOLD1));
         require(msg.sender.codehash == _TOEHOLD_CODEHASH);
         require(_ALLOWANCE_HOLDER_ADDRESS.codehash == _ALLOWANCE_HOLDER_CODEHASH);
         require(LIMIT_ORDER_PROTOCOL.code.length != 0);
         require(initialFeeCollector != address(0));
-        weth_.balanceOf(address(0)); // check that WETH is ERC20-ish
+        wnative_.balanceOf(address(0)); // check that WETH is ERC20-ish
 
         address singleton = AddressDerivation.deriveDeterministicContract(msg.sender, bytes32(0), _SINGLETON_INITHASH);
         address factory = AddressDerivation.deriveDeterministicContract(msg.sender, bytes32(0), _FACTORY_INITHASH);
@@ -289,7 +289,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
         address initialOwner = AddressDerivation.deriveDeterministicContract(factory, safeSalt, safeInitHash);
         require(initialOwner.code.length != 0);
 
-        weth = weth_;
+        wnative = wnative_;
 
         emit GitCommit(gitCommit);
 
@@ -509,7 +509,7 @@ contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostIntera
 
         address takerAsset = order.takerAsset.get();
         address receiver = order.maker.get();
-        if ((takerAsset == address(weth)).and(order.makerTraits.unwrapWeth())) {
+        if ((takerAsset == address(wnative)).and(order.makerTraits.unwrapWeth())) {
             payable(receiver).safeTransferETH(takingAmount);
         } else {
             IERC20(takerAsset).safeTransfer(receiver, takingAmount);
