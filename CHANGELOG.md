@@ -64,6 +64,8 @@ Master list of UniV3 forks:
     regarding how to encode `fills`. While there are many similarities with
     UniswapV4 and BalancerV3, additional complexity is added because there are 2
     different default/built-in CFAMM schemes in PancakeSwap Infinity.
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Bnb chain
 
 ## 2025-03-11
 
