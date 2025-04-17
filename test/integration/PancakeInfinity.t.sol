@@ -110,12 +110,14 @@ abstract contract PancakeInfinityTest is SettlerMetaTxnPairTest {
     }
 
     function setUp() public virtual override {
+        // for some reason, the RPC hangs if we don't have this
+        vm.makePersistent(address(PERMIT2));
+        vm.makePersistent(address(allowanceHolder));
+        vm.makePersistent(address(settler));
+        vm.makePersistent(address(fromToken()));
+        vm.makePersistent(address(toToken()));
+
         super.setUp();
-        // vm.makePersistent(address(PERMIT2));
-        // vm.makePersistent(address(allowanceHolder));
-        // vm.makePersistent(address(settler));
-        // vm.makePersistent(address(fromToken()));
-        // vm.makePersistent(address(toToken()));
         _setPancakeInfinityLabels();
     }
 
