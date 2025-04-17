@@ -10,8 +10,9 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
 
 import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
-abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
+abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDefaultFork {
     using SafeTransferLib for IERC20;
 
     uint256 internal constant FROM_PRIVATE_KEY = 0x1337;
@@ -27,7 +28,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     bytes32 internal immutable permit2Domain;
 
     constructor() {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
+        vm.createSelectFork(testChainId(), testBlockNumber());
         permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
         if (address(fromToken()).code.length > 0) {
             vm.label(address(fromToken()), fromToken().symbol());
@@ -43,7 +44,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature {
     function amount() internal view virtual returns (uint256);
 
     function setUp() public virtual {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
+        vm.createSelectFork(testChainId(), testBlockNumber());
         vm.label(address(this), "FoundryTest");
         vm.label(FROM, "FROM");
         vm.label(MAKER, "MAKER");

@@ -80,14 +80,7 @@ interface IPancakeInfinityPoolManager {
     function poolIdToPoolKey(PoolId id)
         external
         view
-        returns (
-            IERC20 currency0,
-            IERC20 currency1,
-            IHooks hooks,
-            IPancakeInfinityPoolManager poolManager,
-            uint24 fee,
-            bytes32 parameters
-        );
+        returns (PoolKey memory);
 }
 
 /// @notice Returns the key for identifying a pool
@@ -277,6 +270,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
+   
     //// Third, encode the hook address as 20 bytes
     //// Fourth, encode the identity of the pool manager for this fill as 1 byte
     ////   0 -> discontinuous-liquidity constant-product (UniV3-like) AKA CL
