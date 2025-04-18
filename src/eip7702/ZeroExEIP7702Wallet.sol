@@ -119,7 +119,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
             // verify that the newly-created `proxy` is the delegation target of `wallet`
             mstore(0x14, proxy)
             mstore(0x00, 0xef0100)
-            if xor(keccak256(0x2d, 0x27), extcodehash(wallet)) {
+            if xor(keccak256(0x2d, 0x17), extcodehash(wallet)) {
                 mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
                 revert(0x1c, 0x04)
             }
