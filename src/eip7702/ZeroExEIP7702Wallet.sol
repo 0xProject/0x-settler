@@ -189,8 +189,7 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
         return true;
     }
 
-
-    fallback() external payable {
+    fallback() external payable noDelegateCall {
         LibZip.cdFallback();
     }
 }
