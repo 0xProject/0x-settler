@@ -185,7 +185,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
             mstore(0x20, domainSep)
             mstore(0x40, structHash)
 
-            signingHash := keccak256(0x1e, 0x44)
+            signingHash := keccak256(0x1e, 0x42)
 
             mstore(0x40, ptr)
         }
