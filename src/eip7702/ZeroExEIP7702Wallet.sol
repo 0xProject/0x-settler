@@ -240,4 +240,6 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     fallback() external payable noDelegateCall {
         LibZip.cdFallback();
     }
+
+    receive() external payable onlyProxy {}
 }
