@@ -53,6 +53,10 @@ Master list of UniV3 forks:
   * `EKUBO`, `EKUBO_VIP`, and `METATXN_EKUBO_VIP`
   * See comments in [Ekubo.sol](src/core/Ekubo.sol) regarding how to encode
     `fills`
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Avalanche
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Gnosis
 
 ## 2025-03-11
 
