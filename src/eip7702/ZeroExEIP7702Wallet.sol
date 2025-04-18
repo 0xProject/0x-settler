@@ -131,12 +131,13 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     bytes32 private constant _NAMEHASH = 0xd4bb9fe1e9a5e4b7e7fe0f53ca19078208d7d1295e611d3f4dd0e8a5f6bcb94e;
 
     function _computeDomainSeparator() private view returns (bytes32 r) {
+        address cachedThis = _cachedThis;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, _DOMAIN_TYPEHASH)
             mstore(0x20, _NAMEHASH)
             mstore(0x40, chainid())
-            mstore(0x60, address())
+            mstore(0x60, and(0xffffffffffffffffffffffffffffffffffffffff, cachedThis))
             r := keccak256(0x00, 0x80)
             mstore(0x40, ptr)
             mstore(0x60, 0x00)
