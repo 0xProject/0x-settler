@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.28;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerBase} from "../interfaces/ISettlerBase.sol";
@@ -18,6 +18,19 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
     string public constant name = "ZeroExEIP7702Wallet";
     uint256 private immutable _cachedChainId;
     bytes32 private immutable _cachedDomainSeparator;
+
+    error DeploymentFailed();
+    error PermissionDenied();
+
+    modifier onlyProxy() {
+        require(address(this) != _cachedThis);
+        _;
+    }
+
+    modifier noDelegateCall() {
+        require(address(this) == _cachedThis);
+        _;
+    }
 
     constructor() {
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
@@ -55,19 +68,6 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
         return _$().nonce++;
     }
 
-    error DeploymentFailed();
-    error PermissionDenied();
-
-    modifier onlyProxy() {
-        require(address(this) != _cachedThis);
-        _;
-    }
-
-    modifier noDelegateCall() {
-        require(address(this) == _cachedThis);
-        _;
-    }
-
     function nonce() external view onlyProxy returns (uint256) {
         return _$().nonce;
     }
@@ -82,12 +82,11 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
         bytes32 zid
     ) external noDelegateCall {
         bytes32 salt = _hashSwap(32, 0, _msgData()[4:]);
-        ZeroExEIP7702Wallet proxy;
         assembly ("memory-safe") {
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
             mstore(0x0d, address())
             mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
-            proxy := create2(0x00, 0x0e, 0x2f, salt)
+            let proxy := create2(0x00, 0x0e, 0x2f, salt)
             if iszero(proxy) {
                 mstore(0x00, 0x30116425) // selector for `DeploymentFailed()`.
                 revert(0x1c, 0x04)
@@ -99,7 +98,7 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
                 revert(0x1c, 0x04)
             }
         }
-        proxy.swap(settler, sellToken, sellAmount, slippage, actions, zid, bytes32(0), bytes32(0));
+        ZeroExEIP7702Wallet(payable(wallet)).swap(settler, sellToken, sellAmount, slippage, actions, zid, bytes32(0), bytes32(0));
     }
 
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
@@ -159,6 +158,26 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
         }
     }
 
+    function _verifySelfSignature(bytes32 signingHash, bytes32 r, bytes32 vs) internal view {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x00, signingHash)
+            mstore(0x20, add(0x1b, shr(0xff, vs)))
+            mstore(0x40, r)
+            mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
+            pop(staticcall(gas(), 0x01, 0x00, 0x80, 0x00, 0x20))
+
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
+
+            if xor(address(), mul(mload(0x00), eq(returndatasize(), 0x20))) {
+                mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
     function swap(
         ISettlerTakerSubmitted settler,
         IERC20 sellToken,
@@ -172,24 +191,7 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
         address cachedThis = _cachedThis;
         uint256 nonce_ = _consumeNonce();
         if ((nonce_ != 0).or(_msgSender() != cachedThis)) {
-            bytes32 signingHash = _hashSwap(0, nonce_, _msgData()[4:]);
-            assembly ("memory-safe") {
-                let ptr := mload(0x40)
-
-                mstore(0x00, signingHash)
-                mstore(0x20, add(0x1b, shr(0xff, vs)))
-                mstore(0x40, r)
-                mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
-                pop(staticcall(gas(), 0x01, 0x00, 0x80, 0x00, 0x20))
-
-                mstore(0x40, ptr)
-                mstore(0x60, 0x00)
-
-                if xor(address(), mul(mload(0x00), eq(returndatasize(), 0x20))) {
-                    mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
-                    revert(0x1c, 0x04)
-                }
-            }
+            _verifySelfSignature(_hashSwap(0, nonce_, _msgData()[4:]), r, vs);
         }
 
         requireValidSettler(settler);
