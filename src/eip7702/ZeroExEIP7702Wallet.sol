@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {IERC5267} from "../interfaces/IERC5267.sol";
 import {ISettlerBase} from "../interfaces/ISettlerBase.sol";
 import {ISettlerTakerSubmitted} from "../interfaces/ISettlerTakerSubmitted.sol";
 
@@ -11,7 +12,7 @@ import {SettlerSwapper} from "../SettlerSwapper.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {LibZip} from "../vendor/LibZip.sol";
 
-contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
+contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     using FastLogic for bool;
 
     address private immutable _cachedThis;
@@ -70,6 +71,28 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
 
     function nonce() external view onlyProxy returns (uint256) {
         return _$().nonce;
+    }
+
+    /// @inheritdoc IERC5267
+    function eip712Domain()
+        external
+        view
+        override
+        noDelegateCall
+        returns (
+            bytes1 fields,
+            string memory name_,
+            string memory,
+            uint256 chainId,
+            address verifyingContract,
+            bytes32,
+            uint256[] memory
+        )
+    {
+        fields = bytes1(0x0d);
+        name_ = name;
+        chainId = block.chainid;
+        verifyingContract = address(this);
     }
 
     function entryPoint(
