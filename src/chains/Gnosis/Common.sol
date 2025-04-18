@@ -21,6 +21,9 @@ import {sushiswapV3GnosisFactory, sushiswapV3ForkId} from "../../core/univ3forks
 import {swaprFactory, swaprInitHash, swaprForkId} from "../../core/univ3forks/Swapr.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
+// Solidity inheritance is stupid
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
+
 abstract contract GnosisMixin is FreeMemory, SettlerBase, BalancerV3 {
     constructor() {
         assert(block.chainid == 100 || block.chainid == 31337);
@@ -29,7 +32,7 @@ abstract contract GnosisMixin is FreeMemory, SettlerBase, BalancerV3 {
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override(SettlerBase)
+        override(SettlerBase, SettlerAbstract)
         DANGEROUS_freeMemory
         returns (bool)
     {
