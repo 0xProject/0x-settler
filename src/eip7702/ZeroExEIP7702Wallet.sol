@@ -9,11 +9,13 @@ import {ISettlerTakerSubmitted} from "../interfaces/ISettlerTakerSubmitted.sol";
 import {Context} from "../Context.sol";
 import {SettlerSwapper} from "../SettlerSwapper.sol";
 
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {LibZip} from "../vendor/LibZip.sol";
 
 contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     using FastLogic for bool;
+    using SafeTransferLib for IERC20;
 
     address private immutable _cachedThis;
     string public constant name = "ZeroExEIP7702Wallet";
@@ -49,7 +51,10 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         }
         require($int == (uint256(_NAMEHASH) - 1) & 0xffffffffffffffffffffff00);
 
-        require(uint160(address(this)) >> 104 == 0 || block.chainid == 31337);
+        require(
+            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
+                || block.chainid == 31337
+        );
         _cachedThis = address(this);
         _cachedChainId = block.chainid;
         _cachedDomainSeparator = _computeDomainSeparator();
@@ -106,7 +111,8 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     ) external noDelegateCall {
         bytes32 salt = _hashSwap(32, 0, _msgData()[4:]);
         assembly ("memory-safe") {
-            // create a minimal proxy targeting this contract using the EIP712 hash of the swap as the salt
+            // create a minimal proxy targeting this contract using the EIP712 signing hash of the
+            // swap as the salt
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
             mstore(0x0d, address())
             mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
@@ -163,7 +169,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            let actionsOffset := add(encodedSwap.offset, calldataload(add(add(0xe0, skipBytes), encodedSwap.offset)))
+            let actionsOffset := add(calldataload(add(add(0xe0, skipBytes), encodedSwap.offset)), encodedSwap.offset)
             let actionsLength := calldataload(actionsOffset)
             actionsOffset := add(0x20, actionsOffset)
 
@@ -215,15 +221,19 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         bytes32 r,
         bytes32 vs
     ) external returns (bool) {
-        address cachedThis = _cachedThis;
         uint256 nonce_ = _consumeNonce();
-        if ((nonce_ != 0).or(_msgSender() != cachedThis)) {
+        if ((nonce_ != 0).or(_msgSender() != _cachedThis)) {
             _verifySelfSignature(_hashSwap(0, nonce_, _msgData()[4:]), r, vs);
         }
 
         requireValidSettler(settler);
 
         _swap(settler, sellToken, sellAmount, slippage, actions, zid);
+        return true;
+    }
+
+    function approvePermit2(IERC20 token) external onlyProxy returns (bool) {
+        token.safeApprove(0x000000000022D473030F116dDEE9F6B43aC78BA3, type(uint256).max);
         return true;
     }
 
