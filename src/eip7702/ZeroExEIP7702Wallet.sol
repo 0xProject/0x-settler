@@ -22,7 +22,12 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
     constructor() {
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(_NAMEHASH == keccak256(bytes(name)));
-        require(_SWAP_TYPEHASH == keccak256("Swap(uint256 nonce,address settler,address sellToken,uint256 sellAmount,address recipient,address buyToken,uint256 minAmountOut,bytes actions,bytes32 zid)"));
+        require(
+            _SWAP_TYPEHASH
+                == keccak256(
+                    "Swap(uint256 nonce,address settler,address sellToken,uint256 sellAmount,address recipient,address buyToken,uint256 minAmountOut,bytes actions,bytes32 zid)"
+                )
+        );
         uint256 $int;
         Storage storage $ = _$();
         assembly ("memory-safe") {
@@ -75,7 +80,7 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
         ISettlerBase.AllowedSlippage calldata slippage,
         bytes calldata actions,
         bytes32 zid
-     ) external noDelegateCall {
+    ) external noDelegateCall {
         bytes32 salt = _hashSwap(32, 0, _msgData()[4:]);
         ZeroExEIP7702Wallet proxy;
         assembly ("memory-safe") {
@@ -123,7 +128,11 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
 
     bytes32 private constant _SWAP_TYPEHASH = 0x6b8324cf3912163fb49c7cdbdd16dec0d26b9759d5511e5ad304d77824bedc07;
 
-    function _hashSwap(uint256 skipBytes, uint256 nonce_, bytes calldata encodedSwap) internal view returns (bytes32 signingHash) {
+    function _hashSwap(uint256 skipBytes, uint256 nonce_, bytes calldata encodedSwap)
+        internal
+        view
+        returns (bytes32 signingHash)
+    {
         bytes32 domainSep = _DOMAIN_SEPARATOR();
         assembly ("memory-safe") {
             let ptr := mload(0x40)
