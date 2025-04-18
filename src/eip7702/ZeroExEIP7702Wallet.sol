@@ -49,7 +49,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         }
         require($int == (uint256(_NAMEHASH) - 1) & 0xffffffffffffffffffffff00);
 
-        require(uint160(address(this)) >> 104 == 0);
+        require(uint160(address(this)) >> 104 == 0 || block.chainid == 31337);
         _cachedThis = address(this);
         _cachedChainId = block.chainid;
         _cachedDomainSeparator = _computeDomainSeparator();
