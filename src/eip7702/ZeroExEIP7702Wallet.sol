@@ -33,7 +33,7 @@ contract ZeroExEIP7702Wallet is Context, SettlerSwapper {
         assembly ("memory-safe") {
             $int := $.slot
         }
-        require($int == (uint256(_NAMEHASH) - 1 & 0xffffffffffffffffffffff00));
+        require($int == (uint256(_NAMEHASH) - 1) & 0xffffffffffffffffffffff00);
 
         require(uint160(address(this)) >> 104 == 0);
         _cachedThis = address(this);
