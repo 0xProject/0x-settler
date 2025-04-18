@@ -77,9 +77,7 @@ abstract contract SettlerSwapper {
     function _swapAll(
         ISettlerTakerSubmitted settler,
         IERC20 sellToken,
-        address payable recipient,
-        IERC20 buyToken,
-        uint256 minAmountOut,
+        ISettlerBase.AllowedSlippage calldata slippage,
         bytes calldata actions,
         bytes32 zid
     ) internal {
@@ -91,10 +89,8 @@ abstract contract SettlerSwapper {
             calldatacopy(add(0x178, ptr), actions.offset, actions.length)
             mstore(add(0x158, ptr), zid)
             mstore(add(0x138, ptr), 0xa0)
-            mstore(add(0x118, ptr), minAmountOut)
-            mstore(add(0xf8, ptr), buyToken)
-            mstore(add(0xe4, ptr), shl(0x60, recipient)) // clears `buyToken`'s padding
-            mstore(add(0xc4, ptr), 0x1fff991f000000000000000000000000) // selector for `execute((address,address,uint256),bytes[],bytes32)` with `recipient`'s padding
+            calldatacopy(add(0xd8, ptr), slippage, 0x60)
+            mstore(add(0xb8, ptr), 0x1fff991f) // selector for `execute((address,address,uint256),bytes[],bytes32)`
 
             function emptyRevert() {
                 revert(0x00, 0x00)
@@ -178,8 +174,8 @@ abstract contract SettlerSwapper {
             calldatacopy(add(0x178, ptr), actions.offset, actions.length)
             mstore(add(0x158, ptr), zid)
             mstore(add(0x138, ptr), 0xa0)
-            calldatacopy(add(0xc8, ptr), slippage, 0x60)
-            mstore(add(0xc4, ptr), 0x1fff991f) // selector for `execute((address,address,uint256),bytes[],bytes32)`
+            calldatacopy(add(0xd8, ptr), slippage, 0x60)
+            mstore(add(0xb8, ptr), 0x1fff991f) // selector for `execute((address,address,uint256),bytes[],bytes32)`
 
             function emptyRevert() {
                 revert(0x00, 0x00)

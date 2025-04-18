@@ -229,7 +229,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         requireValidSettler(settler);
 
         if (~sellAmount == 0) {
-            _swapAll(settler, sellToken, slippage.recipient, slippage.buyToken, slippage.minAmountOut, actions, zid);
+            _swapAll(settler, sellToken, slippage, actions, zid);
         } else {
             _swap(settler, sellToken, sellAmount, slippage, actions, zid);
         }
