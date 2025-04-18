@@ -106,6 +106,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     ) external noDelegateCall {
         bytes32 salt = _hashSwap(32, 0, _msgData()[4:]);
         assembly ("memory-safe") {
+            // create a minimal proxy targeting this contract using the EIP712 hash of the swap as the salt
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
             mstore(0x0d, address())
             mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
@@ -114,6 +115,8 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
                 mstore(0x00, 0x30116425) // selector for `DeploymentFailed()`.
                 revert(0x1c, 0x04)
             }
+
+            // verify that the newly-created `proxy` is the delegation target of `wallet`
             mstore(0x14, proxy)
             mstore(0x00, 0xef0100)
             if xor(keccak256(0x2d, 0x27), extcodehash(wallet)) {
