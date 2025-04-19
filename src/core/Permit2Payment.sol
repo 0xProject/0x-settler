@@ -19,6 +19,7 @@ import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {LibZip} from "../vendor/LibZip.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -99,10 +100,11 @@ library TransientStorage {
 
     function getAndClearOperatorAndCallback()
         internal
-        returns (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator)
+        returns (uint256 callbackInt, bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator)
     {
         assembly ("memory-safe") {
-            selector := tload(_OPERATOR_SLOT)
+            callbackInt := tload(_OPERATOR_SLOT)
+            selector := callbackInt
             callback := and(0xffff, shr(0xa0, selector))
             operator := selector
             tstore(_OPERATOR_SLOT, 0x00)
@@ -246,19 +248,25 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
     }
 
-    function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
+    function _invokeCallback(bytes calldata data) internal returns (bool, bytes memory) {
         // Retrieve callback and perform call with untrusted calldata
-        (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
+        (uint256 callbackInt, bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
             TransientStorage.getAndClearOperatorAndCallback();
+        if (callbackInt == 0) {
+            return (false, "");
+        }
         require(bytes4(data) == selector);
         require(msg.sender == operator);
-        return callback(data[4:]);
+        return (true, callback(data[4:]));
     }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
-    fallback(bytes calldata) external virtual returns (bytes memory) {
-        return _invokeCallback(_msgData());
+    fallback(bytes calldata) external payable virtual returns (bytes memory) {
+        require(msg.value == 0);
+        (bool hasCallback, bytes memory returndata) = _invokeCallback(_msgData());
+        require(hasCallback);
+        return returndata;
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
@@ -539,6 +547,15 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     constructor() {
         assert(_hasMetaTxn());
+    }
+
+    fallback(bytes calldata) external payable virtual override returns (bytes memory) {
+        (bool hasCallback, bytes memory returndata) = _invokeCallback(_msgData());
+        if (!hasCallback) {
+            LibZip.cdFallback();
+        }
+        require(msg.value == 0);
+        return returndata;
     }
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
