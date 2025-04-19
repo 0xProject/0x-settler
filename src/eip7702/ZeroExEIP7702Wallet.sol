@@ -108,7 +108,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         ISettlerBase.AllowedSlippage calldata slippage,
         bytes calldata actions,
         bytes32 zid
-    ) external noDelegateCall {
+    ) external noDelegateCall returns (bool) {
         bytes32 salt = _hashSwap(32, 0, _msgData()[4:]);
         assembly ("memory-safe") {
             // create a minimal proxy targeting this contract using the EIP712 signing hash of the
@@ -131,6 +131,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
             }
         }
         ZeroExEIP7702Wallet(payable(wallet)).swap(settler, sellToken, sellAmount, slippage, actions, zid, bytes32(0), bytes32(0));
+        return true;
     }
 
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
