@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.8;
+pragma solidity ^0.8.25;
 
 /// @notice Library for compressing and decompressing bytes.
 /// @author Solady (https://github.com/vectorized/solady/blob/main/src/utils/LibZip.sol)
@@ -33,13 +33,14 @@ library LibZip {
     function cdFallback() internal {
         assembly ("memory-safe") {
             if iszero(calldatasize()) { return(0x00, 0x00) }
-            let o := 0x00
+            let ptr := mload(0x40)
+            let o := ptr
             let f := 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc // For negating the first 4 bytes.
             for { let i := 0x00 } gt(calldatasize(), i) {} {
-                let c := byte(0x00, xor(add(i, f), calldataload(i)))
+                let c := byte(0x00, xor(add(f, i), calldataload(i)))
                 i := add(i, 1)
                 if iszero(c) {
-                    let d := byte(0x00, xor(add(i, f), calldataload(i)))
+                    let d := byte(0x00, xor(add(f, i), calldataload(i)))
                     i := add(0x01, i)
                     // Fill with either 0xff or 0x00.
                     mstore(o, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
@@ -50,10 +51,10 @@ library LibZip {
                 mstore8(o, c)
                 o := add(0x01, o)
             }
-            let success := delegatecall(gas(), address(), 0x00, o, 0x00, 0x00)
-            returndatacopy(0x00, 0x00, returndatasize())
-            if iszero(success) { revert(0x00, returndatasize()) }
-            return(0x00, returndatasize())
+            let success := delegatecall(gas(), address(), ptr, o, 0x00, 0x00)
+            returndatacopy(ptr, 0x00, returndatasize())
+            if iszero(success) { revert(ptr, returndatasize()) }
+            return(ptr, returndatasize())
         }
     }
 }
