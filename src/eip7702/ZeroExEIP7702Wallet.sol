@@ -101,7 +101,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     }
 
     function entryPoint(
-        address wallet,
+        address payable wallet,
         ISettlerTakerSubmitted settler,
         IERC20 sellToken,
         uint256 sellAmount,
@@ -130,7 +130,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
                 revert(0x1c, 0x04)
             }
         }
-        ZeroExEIP7702Wallet(payable(wallet)).swap(settler, sellToken, sellAmount, slippage, actions, zid, bytes32(0), bytes32(0));
+        require(ZeroExEIP7702Wallet(wallet).swap(settler, sellToken, sellAmount, slippage, actions, zid, bytes32(0), bytes32(0)));
         return true;
     }
 
