@@ -25,8 +25,8 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
     error DeploymentFailed();
     error PermissionDenied();
 
-    modifier onlyProxy() {
-        require(address(this) != _cachedThis);
+    modifier onlyWallet() {
+        require(address(this).code.length == 23);
         _;
     }
 
@@ -74,7 +74,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         return _$().nonce++;
     }
 
-    function nonce() external view onlyProxy returns (uint256) {
+    function nonce() external view onlyWallet returns (uint256) {
         return _$().nonce;
     }
 
@@ -221,7 +221,7 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         bytes32 zid,
         bytes32 r,
         bytes32 vs
-    ) external returns (bool) {
+    ) external /* implicitly onlyWallet */ returns (bool) {
         uint256 nonce_ = _consumeNonce();
         if ((nonce_ != 0).or(_msgSender() != _cachedThis)) {
             _verifySelfSignature(_hashSwap(0, nonce_, _msgData()[4:]), r, vs);
@@ -237,14 +237,14 @@ contract ZeroExEIP7702Wallet is IERC5267, Context, SettlerSwapper {
         return true;
     }
 
-    function approvePermit2(IERC20 token) external onlyProxy returns (bool) {
+    function approvePermit2(IERC20 token) external onlyWallet returns (bool) {
         token.safeApprove(0x000000000022D473030F116dDEE9F6B43aC78BA3, type(uint256).max);
         return true;
     }
 
-    fallback() external payable noDelegateCall {
+    fallback() external payable {
         LibZip.cdFallback();
     }
 
-    receive() external payable onlyProxy {}
+    receive() external payable onlyWallet {}
 }
