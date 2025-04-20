@@ -4,11 +4,10 @@ pragma solidity ^0.8.25;
 /// @notice Library for compressing and decompressing bytes.
 /// @author Solady (https://github.com/vectorized/solady/blob/main/src/utils/LibZip.sol)
 /// @author Calldata compression by clabby (https://github.com/clabby/op-kompressor)
-/// @author FastLZ by ariya (https://github.com/ariya/FastLZ)
 ///
 /// @dev Note:
-/// The accompanying solady.js library includes implementations of
-/// FastLZ and calldata operations for convenience.
+/// The accompanying solady.js library includes implementations of calldata
+/// operations for convenience.
 library LibZip {
     // Calldata compression and decompression using selective run length encoding:
     // - Sequences of 0x00 (up to 128 consecutive).
