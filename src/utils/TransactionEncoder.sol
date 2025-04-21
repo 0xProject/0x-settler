@@ -6,15 +6,35 @@ import {LibRLP} from "@solady/utils/LibRLP.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 import {FastLogic} from "src/utils/FastLogic.sol";
 
+struct AccessListElem {
+    address account;
+    bytes32[] slots;
+}
+
+library LibAccessList {
+    using LibRLP for LibRLP.List;
+    using UnsafeMath for uint256;
+
+    function encode(AccessListElem[] memory accessList) internal pure returns (LibRLP.List memory list) {
+        uint256 accountsLength = accessList.length;
+        for (uint256 i; i < accountsLength; i = i.unsafeInc()) {
+            AccessListElem memory elem = accessList[i];
+            LibRLP.List memory slots;
+            uint256 slotsLength = elem.slots.length;
+            for (uint256 j; j < slotsLength; j = j.unsafeInc()) {
+                slots.p(bytes.concat(elem.slots[j]));
+            }
+            list.p(LibRLP.p().p(elem.account).p(slots));
+        }
+    }
+}
+
+using LibAccessList for AccessListElem[];
+
 library TransactionEncoder {
     using LibRLP for LibRLP.List;
     using UnsafeMath for uint256;
     using FastLogic for bool;
-
-    struct AccessListElem {
-        address account;
-        bytes32[] slots;
-    }
 
     error InvalidTransaction();
 
@@ -30,7 +50,7 @@ library TransactionEncoder {
         uint256 v,
         bytes32 r,
         bytes32 s
-    ) internal pure returns (address) {
+    ) internal view returns (address) {
         uint256 eip155ChainId;
         unchecked {
             eip155ChainId = block.chainid * 2 + 35;
@@ -62,14 +82,14 @@ library TransactionEncoder {
         uint256 v,
         bytes32 r,
         bytes32 s
-    ) internal pure returns (address) {
+    ) internal view returns (address) {
         if ((v >> 1 != 0).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)) {
             revert InvalidTransaction();
         }
         unchecked {
             v += 27;
         }
-        bytes memory encoded = bytes.concat(bytes1(0x02), LibRLP.p().p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gas).p(to).p(value).p(data).p(accessList).encode());
+        bytes memory encoded = bytes.concat(bytes1(0x02), LibRLP.p().p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(accessList.encode()).encode());
         bytes32 signingHash = keccak256(encoded);
         address recovered = ecrecover(signingHash, uint8(v), bytes32(r), bytes32(s));
         if (recovered == address(0)) {
