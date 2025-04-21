@@ -50,7 +50,7 @@ library LibZip {
                 mstore8(o, c)
                 o := add(0x01, o)
             }
-            let success := delegatecall(gas(), address(), ptr, o, 0x00, 0x00)
+            let success := delegatecall(gas(), address(), ptr, sub(o, ptr), 0x00, 0x00)
             returndatacopy(ptr, 0x00, returndatasize())
             if iszero(success) { revert(ptr, returndatasize()) }
             return(ptr, returndatasize())
