@@ -25,8 +25,6 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     uint256 private immutable _cachedChainId;
     bytes32 private immutable _cachedDomainSeparator;
 
-    string private constant _TYPE_PREFIX = "TransferAnd(address token,uint256 amount,address op,uint256 exp,";
-
     constructor() {
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(_NAMEHASH == keccak256(bytes(name)));
@@ -107,12 +105,17 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     }
 
 
-    function _consumeNonce(address owner, uint256 newNonce) private {
+    function _consumeNonce(address owner, uint256 incomingNonce) private {
         uint256 currentNonce = nonces[owner];
-        nonces[owner] = newNonce;
-        if (newNonce <= currentNonce) {
-            revert NonceReplay(currentNonce, newNonce);
+        nonces[owner] = incomingNonce;
+        if (incomingNonce <= currentNonce) {
+            revert NonceReplay(currentNonce, incomingNonce);
         }
+    }
+
+    modifier consumeNonce(address owner, uint256 incomingNonce) {
+        _consumeNonce(owner, incomingNonce);
+        _;
     }
 
     function _checkAllowance(IERC20 token, address from, uint256 amount) private view {
@@ -122,10 +125,20 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         }
     }
 
+    modifier checkAllowance(IERC20 token, address from, uint256 amount) {
+        _checkAllowance(token, from, amount);
+        _;
+    }
+
     function _checkDeadline(uint256 deadline) private view {
         if (block.timestamp > deadline) {
             revert SignatureExpired(deadline);
         }
+    }
+
+    modifier checkDeadline(uint256 deadline) {
+        _checkDeadline(deadline);
+        _;
     }
 
     function _checkSigner(address from, address signer) private pure {
@@ -152,13 +165,9 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 requestedAmount,
         bytes32 r,
         bytes32 vs
-    ) external returns (bool) {
-        _checkDeadline(deadline);
-        _checkAllowance(sellToken, from, sellAmount);
-        _consumeNonce(from, nonce);
+    ) external checkDeadline(deadline) checkAllowance(sellToken, from, sellAmount) consumeNonce(from, nonce) returns (bool) {
 
         bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
-
         bytes memory data = _encodeData(sellAmount, signingHash);
         address signer = TransactionEncoder.recoverSigner155(
             nonce, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, r, vs
@@ -184,13 +193,8 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         AccessListElem[] memory accessList,
         bytes32 r,
         bytes32 vs
-    ) external returns (bool) {
-        _checkDeadline(deadline);
-        _checkAllowance(sellToken, from, sellAmount);
-        _consumeNonce(from, nonce);
-
+    ) external checkDeadline(deadline) checkAllowance(sellToken, from, sellAmount) consumeNonce(from, nonce) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
-
         bytes memory data = _encodeData(sellAmount, signingHash);
         address signer = TransactionEncoder.recoverSigner2930(
             nonce, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, accessList, r, vs
@@ -217,13 +221,8 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         AccessListElem[] memory accessList,
         bytes32 r,
         bytes32 vs
-    ) external returns (bool) {
-        _checkDeadline(deadline);
-        _checkAllowance(sellToken, from, sellAmount);
-        _consumeNonce(from, nonce);
-
+    ) external checkDeadline(deadline) checkAllowance(sellToken, from, sellAmount) consumeNonce(from, nonce) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
-
         bytes memory data = _encodeData(sellAmount, signingHash);
         address signer = TransactionEncoder.recoverSigner1559(
             nonce, gasPriorityPrice, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, accessList, r, vs
