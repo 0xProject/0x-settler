@@ -147,8 +147,19 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         }
     }
 
-    function _encodeData(uint256 sellAmount, bytes32 signingHash) private view returns (bytes memory) {
-        return bytes.concat(abi.encodeCall(IERC20.approve, (address(this), sellAmount)), signingHash);
+    function _encodeData(uint256 sellAmount, bytes32 signingHash) private view returns (bytes memory r) {
+        // return bytes.concat(abi.encodeCall(IERC20.approve, (address(this), sellAmount)), signingHash);
+        assembly ("memory-safe") {
+            let r := mload(0x40)
+
+            mstore(add(0x04, r), 0x095ea7b3) // selector for `approve(address,uint256)`
+            mstore(add(0x24, r), address())
+            mstore(add(0x44, r), sellAmount)
+            mstore(add(0x64, r), signingHash)
+            mstore(r, 0x64)
+
+            mstore(0x40, add(0xa0, r))
+        }
     }
 
     function transferFrom155(
