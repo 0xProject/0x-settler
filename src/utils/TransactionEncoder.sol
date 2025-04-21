@@ -49,7 +49,7 @@ library TransactionEncoder {
         return recovered;
     }
 
-    function _check(uint256 nonce, uint256 gasLimit, bytes32 r, bytes32 vs) private returns (uint8 v, bytes32 s) {
+    function _check(uint256 nonce, uint256 gasLimit, bytes32 r, bytes32 vs) private pure returns (uint8 v, bytes32 s) {
         unchecked {
             v = uint8(uint256(vs) >> 255) + 27;
         }
@@ -109,6 +109,7 @@ library TransactionEncoder {
         uint256 value,
         bytes memory data,
         AccessListElem[] memory accessList,
+        bytes32 r,
         bytes32 vs
     ) internal view returns (address) {
         (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
