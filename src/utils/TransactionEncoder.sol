@@ -55,13 +55,18 @@ library TransactionEncoder {
         unchecked {
             eip155ChainId = block.chainid * 2 + 35;
         }
-        if ((v != eip155ChainId).and(v != eip155ChainId.unsafeInc()).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)) {
+        if (
+            (v != eip155ChainId).and(v != eip155ChainId.unsafeInc()).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N)
+                .or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)
+        ) {
             revert InvalidTransaction();
         }
         unchecked {
             v -= 8 + block.chainid * 2;
         }
-        bytes memory encoded = LibRLP.p().p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(block.chainid).p(uint256(0)).p(uint256(0)).encode();
+        bytes memory encoded = LibRLP.p().p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(block.chainid).p(
+            uint256(0)
+        ).p(uint256(0)).encode();
         bytes32 signingHash = keccak256(encoded);
         address recovered = ecrecover(signingHash, uint8(v), bytes32(r), bytes32(s));
         if (recovered == address(0)) {
@@ -83,13 +88,22 @@ library TransactionEncoder {
         bytes32 r,
         bytes32 s
     ) internal view returns (address) {
-        if ((v >> 1 != 0).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)) {
+        if (
+            (v >> 1 != 0).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(
+                uint256(s) > _SECP256K1_N / 2
+            )
+        ) {
             revert InvalidTransaction();
         }
         unchecked {
             v += 27;
         }
-        bytes memory encoded = bytes.concat(bytes1(0x02), LibRLP.p().p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(accessList.encode()).encode());
+        bytes memory encoded = bytes.concat(
+            bytes1(0x02),
+            LibRLP.p().p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(
+                accessList.encode()
+            ).encode()
+        );
         bytes32 signingHash = keccak256(encoded);
         address recovered = ecrecover(signingHash, uint8(v), bytes32(r), bytes32(s));
         if (recovered == address(0)) {
