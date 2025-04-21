@@ -22,8 +22,11 @@ abstract contract SingleSignatureDirtyHack is AbstractContext {
         bytes32 r,
         bytes32 s
     ) internal view {
-        bytes memory data = bytes.concat(abi.encodeCall(sellToken.approve, (address(ALLOWANCE_HOLDER), sellAmount)), witness);
-        address signer = TransactionEncoder.recoverSigner155(nonce, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, v, r, s);
+        bytes memory data =
+            bytes.concat(abi.encodeCall(sellToken.approve, (address(ALLOWANCE_HOLDER), sellAmount)), witness);
+        address signer = TransactionEncoder.recoverSigner155(
+            nonce, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, v, r, s
+        );
         if (signer != _msgSender()) {
             revert InvalidSigner(_msgSender(), signer);
         }
@@ -42,8 +45,11 @@ abstract contract SingleSignatureDirtyHack is AbstractContext {
         bytes32 r,
         bytes32 s
     ) internal view {
-        bytes memory data = bytes.concat(abi.encodeCall(sellToken.approve, (address(ALLOWANCE_HOLDER), sellAmount)), witness);
-        address signer = TransactionEncoder.recoverSigner1559(nonce, gasPriorityPrice, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, accessList, v, r, s);
+        bytes memory data =
+            bytes.concat(abi.encodeCall(sellToken.approve, (address(ALLOWANCE_HOLDER), sellAmount)), witness);
+        address signer = TransactionEncoder.recoverSigner1559(
+            nonce, gasPriorityPrice, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, accessList, v, r, s
+        );
         if (signer != _msgSender()) {
             revert InvalidSigner(_msgSender(), signer);
         }
