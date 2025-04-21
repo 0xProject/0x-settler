@@ -17,7 +17,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     error InvalidSigner(address expected, address actual);
     error NonceReplay(uint256 oldNonce, uint256 newNonce);
     error InvalidAllowance(uint256 expected, uint256 actual);
-    error SignatureExpired(uint256 expiry);
+    error SignatureExpired(uint256 deadline);
 
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
     bytes32 private constant _NAMEHASH = 0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -56,29 +56,30 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
 
     function _hashStruct(
         string calldata typeSuffix,
-        IERC20 token,
-        uint256 sellAmount,
-        address operator,
-        uint256 deadline,
-        bytes32 structHash
+        TransferParams calldata transferParams
     ) internal view returns (bytes32 signingHash) {
         bytes32 domainSep = _DOMAIN_SEPARATOR();
+        address operator = _msgSender();
+        uint256 deadline = transferParams.deadline;
+        bytes32 structHash = transferParams.structHash;
+
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(ptr, "TransferAnd(address token,uint25")
-            mstore(add(0x20, ptr), "6 amount,address op,uint256 exp,")
+            mstore(ptr, 0x5472616e73666572416e64286164)
+            mstore(add(0x20, ptr), "dress operator,uint256 deadline,")
             calldatacopy(add(0x40, ptr), typeSuffix.offset, typeSuffix.length)
 
-            mstore(ptr, keccak256(ptr, add(0x40, typeSuffix.length)))
+            mstore(0x00, keccak256(add(0x12, ptr), add(0x2e, typeSuffix.length)))
 
-            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token))
-            mstore(add(0x40, ptr), sellAmount)
-            mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, operator))
-            mstore(add(0x80, ptr), deadline)
-            mstore(add(0xa0, ptr), structHash)
+            // We don't bother to clean dirty bits here. We assume that the presence of dirty bits
+            // will either cause a revert elsewhere in this context or that the (hash of the) bits
+            // are signed over, rejecting any dirtiness.
+            mstore(0x20, operator)
+            mstore(0x40, deadline)
+            mstore(0x60, structHash)
 
-            structHash := keccak256(ptr, 0xc0)
+            structHash := keccak256(0x00, 0x80)
 
             mstore(0x00, 0x1901)
             mstore(0x20, domainSep)
@@ -86,6 +87,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
 
             signingHash := keccak256(0x1e, 0x42)
 
+            mstore(0x60, 0x00)
             mstore(0x40, ptr)
         }
     }
@@ -111,6 +113,10 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         verifyingContract = address(this);
     }
 
+    // While the check on the allowance *SHOULD* be sufficient to prevent replay, we duplicate the
+    // protocol-level nonce at the application level to guard against weird ERC20s that might not
+    // decrease `allowance`. ERC20 does not require that `transferFrom` decrease the existing
+    // allowance.
     function _consumeNonce(address owner, uint256 incomingNonce) private {
         uint256 currentNonce = nonces[owner];
         nonces[owner] = incomingNonce;
@@ -198,14 +204,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 gasLimit,
         PackedSignature calldata sig
     ) external preFlightChecklist(transferParams) returns (bool) {
-        bytes32 signingHash = _hashStruct(
-            typeSuffix,
-            transferParams.token,
-            transferParams.amount,
-            _msgSender(),
-            transferParams.deadline,
-            transferParams.structHash
-        );
+        bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner155(
             transferParams.nonce, gasPrice, gasLimit, payable(address(transferParams.token)), 0 wei, data, sig
@@ -224,14 +223,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         AccessListElem[] memory accessList,
         PackedSignature calldata sig
     ) external preFlightChecklist(transferParams) returns (bool) {
-        bytes32 signingHash = _hashStruct(
-            typeSuffix,
-            transferParams.token,
-            transferParams.amount,
-            _msgSender(),
-            transferParams.deadline,
-            transferParams.structHash
-        );
+        bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner2930(
             transferParams.nonce,
@@ -258,14 +250,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         AccessListElem[] memory accessList,
         PackedSignature calldata sig
     ) external preFlightChecklist(transferParams) returns (bool) {
-        bytes32 signingHash = _hashStruct(
-            typeSuffix,
-            transferParams.token,
-            transferParams.amount,
-            _msgSender(),
-            transferParams.deadline,
-            transferParams.structHash
-        );
+        bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner1559(
             transferParams.nonce,
