@@ -40,39 +40,51 @@ library TransactionEncoder {
 
     uint256 internal constant _SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
 
-    function recoverSigner155(
-        uint256 nonce, // TODO: up to 2 ** 64 - 2
-        uint256 gasPrice,
-        uint256 gasLimit, // TODO: up to 30M; check against intrinsic gas
-        address payable to,
-        uint256 value,
-        bytes memory data,
-        uint256 v,
-        bytes32 r,
-        bytes32 s
-    ) internal view returns (address) {
-        uint256 eip155ChainId;
-        unchecked {
-            eip155ChainId = block.chainid * 2 + 35;
-        }
-        if (
-            (v != eip155ChainId).and(v != eip155ChainId.unsafeInc()).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N)
-                .or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)
-        ) {
-            revert InvalidTransaction();
-        }
-        unchecked {
-            v -= 8 + block.chainid * 2;
-        }
-        bytes memory encoded = LibRLP.p().p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(block.chainid).p(
-            uint256(0)
-        ).p(uint256(0)).encode();
-        bytes32 signingHash = keccak256(encoded);
-        address recovered = ecrecover(signingHash, uint8(v), bytes32(r), bytes32(s));
+    function _recover(bytes memory payload, uint8 v, bytes32 r, bytes32 s) private view returns (address) {
+        bytes32 signingHash = keccak256(payload);
+        address recovered = ecrecover(signingHash, v, r, s);
         if (recovered == address(0)) {
             revert InvalidTransaction();
         }
         return recovered;
+    }
+
+    function _check(uint256 nonce, uint256 gasLimit, bytes32 r, bytes32 vs) private returns (uint8 v, bytes32 s) {
+        unchecked {
+            v = uint8(uint256(vs) >> 255) + 27;
+        }
+        s = vs & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+        if ((nonce >= type(uint64).max).or(gasLimit > 30_000_000).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)) {
+            revert InvalidTransaction();
+        }
+    }
+
+    function recoverSigner155(
+        uint256 nonce,
+        uint256 gasPrice,
+        uint256 gasLimit,
+        address payable to,
+        uint256 value,
+        bytes memory data,
+        bytes32 r,
+        bytes32 vs
+    ) internal view returns (address) {
+        (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
+        bytes memory encoded = LibRLP.p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(block.chainid).p(
+            uint256(0)
+        ).p(uint256(0)).encode();
+        return _recover(encoded, v, r, s);
+    }
+
+    function recoverSigner2930(uint256 nonce, uint256 gasPrice, uint256 gasLimit, address payable to, uint256 value, bytes memory data, AccessListElem[] memory accessList, bytes32 r, bytes32 vs) internal view returns (address) {
+        (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
+        bytes memory encoded = bytes.concat(
+            bytes1(0x01),
+            LibRLP.p(block.chainid).p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(
+                accessList.encode()
+            ).encode()
+        );
+        return _recover(encoded, v, r, s);
     }
 
     function recoverSigner1559(
@@ -84,31 +96,15 @@ library TransactionEncoder {
         uint256 value,
         bytes memory data,
         AccessListElem[] memory accessList,
-        uint256 v,
-        bytes32 r,
-        bytes32 s
+        bytes32 vs
     ) internal view returns (address) {
-        if (
-            (v >> 1 != 0).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(
-                uint256(s) > _SECP256K1_N / 2
-            )
-        ) {
-            revert InvalidTransaction();
-        }
-        unchecked {
-            v += 27;
-        }
+        (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
         bytes memory encoded = bytes.concat(
             bytes1(0x02),
-            LibRLP.p().p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(
+            LibRLP.p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(
                 accessList.encode()
             ).encode()
         );
-        bytes32 signingHash = keccak256(encoded);
-        address recovered = ecrecover(signingHash, uint8(v), bytes32(r), bytes32(s));
-        if (recovered == address(0)) {
-            revert InvalidTransaction();
-        }
-        return recovered;
+        return _recover(encoded, v, r, s);
     }
 }
