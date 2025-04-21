@@ -54,7 +54,11 @@ library TransactionEncoder {
             v = uint8(uint256(vs) >> 255) + 27;
         }
         s = vs & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-        if ((nonce >= type(uint64).max).or(gasLimit > 30_000_000).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)) {
+        if (
+            (nonce >= type(uint64).max).or(gasLimit > 30_000_000).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(
+                s == bytes32(0)
+            ).or(uint256(s) > _SECP256K1_N / 2)
+        ) {
             revert InvalidTransaction();
         }
     }
@@ -76,13 +80,22 @@ library TransactionEncoder {
         return _recover(encoded, v, r, s);
     }
 
-    function recoverSigner2930(uint256 nonce, uint256 gasPrice, uint256 gasLimit, address payable to, uint256 value, bytes memory data, AccessListElem[] memory accessList, bytes32 r, bytes32 vs) internal view returns (address) {
+    function recoverSigner2930(
+        uint256 nonce,
+        uint256 gasPrice,
+        uint256 gasLimit,
+        address payable to,
+        uint256 value,
+        bytes memory data,
+        AccessListElem[] memory accessList,
+        bytes32 r,
+        bytes32 vs
+    ) internal view returns (address) {
         (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
         bytes memory encoded = bytes.concat(
             bytes1(0x01),
-            LibRLP.p(block.chainid).p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(
-                accessList.encode()
-            ).encode()
+            LibRLP.p(block.chainid).p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(accessList.encode())
+                .encode()
         );
         return _recover(encoded, v, r, s);
     }
