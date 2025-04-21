@@ -6,7 +6,7 @@ import {IERC5267} from "./interfaces/IERC5267.sol";
 
 import {AbstractContext} from "./Context.sol";
 
-import {AccessListElem, TransactionEncoder} from "./utils/TransactionEncoder.sol";
+import {AccessListElem, PackedSignature, TransactionEncoder} from "./utils/TransactionEncoder.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
 abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
@@ -147,6 +147,18 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         _;
     }
 
+    function _preFlightChecklist(TransferParams calldata transferParams)
+        private
+        checkDeadline(transferParams.deadline)
+        checkAllowance(transferParams.token, transferParams.from, transferParams.amount)
+        consumeNonce(transferParams.from, transferParams.nonce)
+    {}
+
+    modifier preFlightChecklist(TransferParams calldata transferParams) {
+        _preFlightChecklist(transferParams);
+        _;
+    }
+
     function _checkSigner(address from, address signer) private pure {
         if (signer != from) {
             revert InvalidSigner(from, signer);
@@ -156,7 +168,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     function _encodeData(uint256 sellAmount, bytes32 signingHash) private view returns (bytes memory r) {
         // return bytes.concat(abi.encodeCall(IERC20.approve, (address(this), sellAmount)), signingHash);
         assembly ("memory-safe") {
-            let r := mload(0x40)
+            r := mload(0x40)
 
             mstore(add(0x04, r), 0x095ea7b3) // selector for `approve(address,uint256)`
             mstore(add(0x24, r), address())
@@ -168,102 +180,107 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         }
     }
 
+    struct TransferParams {
+        bytes32 structHash;
+        IERC20 token;
+        address from;
+        address to;
+        uint256 amount;
+        uint256 nonce;
+        uint256 deadline;
+        uint256 requestedAmount;
+    }
+
     function transferFrom155(
         string calldata typeSuffix,
-        bytes32 structHash,
-        address from,
-        address to,
-        uint256 nonce,
-        uint256 deadline,
+        TransferParams calldata transferParams,
         uint256 gasPrice,
         uint256 gasLimit,
-        IERC20 sellToken,
-        uint256 sellAmount,
-        uint256 requestedAmount,
-        bytes32 r,
-        bytes32 vs
-    )
-        external
-        checkDeadline(deadline)
-        checkAllowance(sellToken, from, sellAmount)
-        consumeNonce(from, nonce)
-        returns (bool)
-    {
-        bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
-        bytes memory data = _encodeData(sellAmount, signingHash);
-        address signer = TransactionEncoder.recoverSigner155(
-            nonce, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, r, vs
+        PackedSignature calldata sig
+    ) external preFlightChecklist(transferParams) returns (bool) {
+        bytes32 signingHash = _hashStruct(
+            typeSuffix,
+            transferParams.token,
+            transferParams.amount,
+            _msgSender(),
+            transferParams.deadline,
+            transferParams.structHash
         );
-        _checkSigner(from, signer);
+        bytes memory data = _encodeData(transferParams.amount, signingHash);
+        address signer = TransactionEncoder.recoverSigner155(
+            transferParams.nonce, gasPrice, gasLimit, payable(address(transferParams.token)), 0 wei, data, sig
+        );
+        _checkSigner(transferParams.from, signer);
 
-        sellToken.safeTransferFrom(from, to, requestedAmount);
+        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
         return true;
     }
 
     function transferFrom2930(
         string calldata typeSuffix,
-        bytes32 structHash,
-        address from,
-        address to,
-        uint256 nonce,
-        uint256 deadline,
+        TransferParams calldata transferParams,
         uint256 gasPrice,
         uint256 gasLimit,
-        IERC20 sellToken,
-        uint256 sellAmount,
-        uint256 requestedAmount,
         AccessListElem[] memory accessList,
-        bytes32 r,
-        bytes32 vs
-    )
-        external
-        checkDeadline(deadline)
-        checkAllowance(sellToken, from, sellAmount)
-        consumeNonce(from, nonce)
-        returns (bool)
-    {
-        bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
-        bytes memory data = _encodeData(sellAmount, signingHash);
-        address signer = TransactionEncoder.recoverSigner2930(
-            nonce, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, accessList, r, vs
+        PackedSignature calldata sig
+    ) external preFlightChecklist(transferParams) returns (bool) {
+        bytes32 signingHash = _hashStruct(
+            typeSuffix,
+            transferParams.token,
+            transferParams.amount,
+            _msgSender(),
+            transferParams.deadline,
+            transferParams.structHash
         );
-        _checkSigner(from, signer);
+        bytes memory data = _encodeData(transferParams.amount, signingHash);
+        address signer = TransactionEncoder.recoverSigner2930(
+            transferParams.nonce,
+            gasPrice,
+            gasLimit,
+            payable(address(transferParams.token)),
+            0 wei,
+            data,
+            accessList,
+            sig
+        );
+        _checkSigner(transferParams.from, signer);
 
-        sellToken.safeTransferFrom(from, to, requestedAmount);
+        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
         return true;
     }
 
     function transferFrom1559(
         string calldata typeSuffix,
-        bytes32 structHash,
-        address from,
-        address to,
-        uint256 nonce,
-        uint256 deadline,
+        TransferParams calldata transferParams,
         uint256 gasPriorityPrice,
         uint256 gasPrice,
         uint256 gasLimit,
-        IERC20 sellToken,
-        uint256 sellAmount,
-        uint256 requestedAmount,
         AccessListElem[] memory accessList,
-        bytes32 r,
-        bytes32 vs
-    )
-        external
-        checkDeadline(deadline)
-        checkAllowance(sellToken, from, sellAmount)
-        consumeNonce(from, nonce)
-        returns (bool)
-    {
-        bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
-        bytes memory data = _encodeData(sellAmount, signingHash);
-        address signer = TransactionEncoder.recoverSigner1559(
-            nonce, gasPriorityPrice, gasPrice, gasLimit, payable(address(sellToken)), 0 wei, data, accessList, r, vs
+        PackedSignature calldata sig
+    ) external preFlightChecklist(transferParams) returns (bool) {
+        bytes32 signingHash = _hashStruct(
+            typeSuffix,
+            transferParams.token,
+            transferParams.amount,
+            _msgSender(),
+            transferParams.deadline,
+            transferParams.structHash
         );
-        _checkSigner(from, signer);
+        bytes memory data = _encodeData(transferParams.amount, signingHash);
+        address signer = TransactionEncoder.recoverSigner1559(
+            transferParams.nonce,
+            gasPriorityPrice,
+            gasPrice,
+            gasLimit,
+            payable(address(transferParams.token)),
+            0 wei,
+            data,
+            accessList,
+            sig
+        );
+        _checkSigner(transferParams.from, signer);
 
-        sellToken.safeTransferFrom(from, to, requestedAmount);
+        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
         return true;
     }
 }

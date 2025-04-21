@@ -31,6 +31,11 @@ library LibAccessList {
 
 using LibAccessList for AccessListElem[];
 
+struct PackedSignature {
+    bytes32 r;
+    bytes32 vs;
+}
+
 library TransactionEncoder {
     using LibRLP for LibRLP.List;
     using UnsafeMath for uint256;
@@ -49,7 +54,13 @@ library TransactionEncoder {
         return recovered;
     }
 
-    function _check(uint256 nonce, uint256 gasLimit, bytes32 r, bytes32 vs) private pure returns (uint8 v, bytes32 s) {
+    function _check(uint256 nonce, uint256 gasLimit, PackedSignature calldata sig)
+        private
+        pure
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
+        bytes32 vs;
+        (r, vs) = (sig.r, sig.vs);
         unchecked {
             v = uint8(uint256(vs) >> 255) + 27;
         }
@@ -70,10 +81,9 @@ library TransactionEncoder {
         address payable to,
         uint256 value,
         bytes memory data,
-        bytes32 r,
-        bytes32 vs
+        PackedSignature calldata sig
     ) internal view returns (address) {
-        (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
+        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);
         bytes memory encoded = LibRLP.p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(block.chainid).p(
             uint256(0)
         ).p(uint256(0)).encode();
@@ -88,10 +98,9 @@ library TransactionEncoder {
         uint256 value,
         bytes memory data,
         AccessListElem[] memory accessList,
-        bytes32 r,
-        bytes32 vs
+        PackedSignature calldata sig
     ) internal view returns (address) {
-        (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
+        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);
         bytes memory encoded = bytes.concat(
             bytes1(0x01),
             LibRLP.p(block.chainid).p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(accessList.encode())
@@ -109,10 +118,9 @@ library TransactionEncoder {
         uint256 value,
         bytes memory data,
         AccessListElem[] memory accessList,
-        bytes32 r,
-        bytes32 vs
+        PackedSignature calldata sig
     ) internal view returns (address) {
-        (uint8 v, bytes32 s) = _check(nonce, gasLimit, r, vs);
+        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);
         bytes memory encoded = bytes.concat(
             bytes1(0x02),
             LibRLP.p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(
