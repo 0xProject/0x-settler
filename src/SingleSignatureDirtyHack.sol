@@ -12,7 +12,7 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     using SafeTransferLib for IERC20;
 
-    mapping (address => uint256) public nonces;
+    mapping(address => uint256) public nonces;
 
     error InvalidSigner(address expected, address actual);
     error NonceReplay(uint256 oldNonce, uint256 newNonce);
@@ -54,7 +54,14 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         return _DOMAIN_SEPARATOR();
     }
 
-    function _hashStruct(string calldata typeSuffix, IERC20 token, uint256 sellAmount, address operator, uint256 deadline, bytes32 structHash) internal view returns (bytes32 signingHash) {
+    function _hashStruct(
+        string calldata typeSuffix,
+        IERC20 token,
+        uint256 sellAmount,
+        address operator,
+        uint256 deadline,
+        bytes32 structHash
+    ) internal view returns (bytes32 signingHash) {
         bytes32 domainSep = _DOMAIN_SEPARATOR();
         assembly ("memory-safe") {
             let ptr := mload(0x40)
@@ -103,7 +110,6 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         chainId = block.chainid;
         verifyingContract = address(this);
     }
-
 
     function _consumeNonce(address owner, uint256 incomingNonce) private {
         uint256 currentNonce = nonces[owner];
@@ -176,8 +182,13 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 requestedAmount,
         bytes32 r,
         bytes32 vs
-    ) external checkDeadline(deadline) checkAllowance(sellToken, from, sellAmount) consumeNonce(from, nonce) returns (bool) {
-
+    )
+        external
+        checkDeadline(deadline)
+        checkAllowance(sellToken, from, sellAmount)
+        consumeNonce(from, nonce)
+        returns (bool)
+    {
         bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
         bytes memory data = _encodeData(sellAmount, signingHash);
         address signer = TransactionEncoder.recoverSigner155(
@@ -204,7 +215,13 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         AccessListElem[] memory accessList,
         bytes32 r,
         bytes32 vs
-    ) external checkDeadline(deadline) checkAllowance(sellToken, from, sellAmount) consumeNonce(from, nonce) returns (bool) {
+    )
+        external
+        checkDeadline(deadline)
+        checkAllowance(sellToken, from, sellAmount)
+        consumeNonce(from, nonce)
+        returns (bool)
+    {
         bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
         bytes memory data = _encodeData(sellAmount, signingHash);
         address signer = TransactionEncoder.recoverSigner2930(
@@ -232,7 +249,13 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         AccessListElem[] memory accessList,
         bytes32 r,
         bytes32 vs
-    ) external checkDeadline(deadline) checkAllowance(sellToken, from, sellAmount) consumeNonce(from, nonce) returns (bool) {
+    )
+        external
+        checkDeadline(deadline)
+        checkAllowance(sellToken, from, sellAmount)
+        consumeNonce(from, nonce)
+        returns (bool)
+    {
         bytes32 signingHash = _hashStruct(typeSuffix, sellToken, sellAmount, _msgSender(), deadline, structHash);
         bytes memory data = _encodeData(sellAmount, signingHash);
         address signer = TransactionEncoder.recoverSigner1559(
