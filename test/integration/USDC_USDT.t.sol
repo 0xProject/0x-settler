@@ -6,10 +6,15 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
+import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 
-contract USDCUSDTTest is BalancerV3Test, EkuboTest {
-    function setUp() public override(BalancerV3Test, EkuboTest) {
+// Solidity inheritance is stupid
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+
+contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest {
+    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboTest) {
         super.setUp();
     }
 
@@ -42,15 +47,17 @@ contract USDCUSDTTest is BalancerV3Test, EkuboTest {
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override(BalancerV3Test, SettlerMetaTxnPairTest) returns (bytes memory) {
-        return "";
+    function uniswapV3Path() internal pure override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest) returns (bytes memory) {
+        return abi.encodePacked(fromToken(), uint8(0), uint24(100), toToken());
     }
 
-    function uniswapV2Pool() internal pure override returns (address) {
+    function uniswapV2Pool() internal pure override(AllowanceHolderPairTest, SettlerPairTest) returns (address) {
         return address(0);
     }
 
     function ekuboPoolConfig() internal pure override returns (bytes32) {
         return bytes32(0x00000000000000000000000000000000000000000000a7c5ac471b4700000032);
     }
+
+    function getCurveV2PoolData() internal pure override returns (ICurveV2Pool.CurveV2PoolData memory) {}
 }

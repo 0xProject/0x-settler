@@ -141,15 +141,13 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, sig, 0))
         );
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
 
         Settler _settler = settler;
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3VIP");
-        _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
-            actions,
-            bytes32(0)
-        );
+        _settler.execute(slippage, actions, bytes32(0));
         snapEnd();
     }
 
