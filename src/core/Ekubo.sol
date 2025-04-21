@@ -450,7 +450,7 @@ abstract contract Ekubo is SettlerAbstract {
         }
     }
 
-    function payCallback(bytes calldata data) private returns (bytes memory) {
+    function payCallback(bytes calldata data) private returns (bytes memory returndata) {
         IERC20 sellToken;
         uint256 sellAmount;
 
@@ -469,8 +469,9 @@ abstract contract Ekubo is SettlerAbstract {
             sellToken := calldataload(add(0x20, data.offset))
             // then extra data added in _ekuboPay
             sellAmount := calldataload(add(0x40, data.offset))
-
-            if lt(0x60, data.length) {
+        }
+        if (0x60 < data.length) {
+            assembly ("memory-safe") {
                 // starts at the beginning of sellToken
                 permit := add(0x20, data.offset)
                 isForwarded := calldataload(add(0xa0, data.offset))
@@ -479,8 +480,6 @@ abstract contract Ekubo is SettlerAbstract {
                 sig.length := calldataload(sig.offset)
                 sig.offset := add(0x20, sig.offset)
             }
-        }
-        if (0x60 < data.length) {
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
                 ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
@@ -488,7 +487,6 @@ abstract contract Ekubo is SettlerAbstract {
             sellToken.safeTransfer(msg.sender, sellAmount);
         }
         // return abi.encode(sellAmount);
-        bytes memory returndata;
         assembly ("memory-safe") {
             returndata := mload(0x40)
             mstore(returndata, 0x60)
@@ -497,6 +495,5 @@ abstract contract Ekubo is SettlerAbstract {
             mstore(add(0x60, returndata), sellAmount)
             mstore(0x40, add(0x80, returndata))
         }
-        return returndata;
     }
 }
