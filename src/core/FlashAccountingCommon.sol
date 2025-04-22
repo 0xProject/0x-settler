@@ -36,6 +36,10 @@ library CreditDebt {
     }
 }
 
+/// This type is the same as `NotesLib.Note`, but as a user-defined value type to sidestep solc's
+/// awful memory handling.
+type NotePtr is uint256;
+
 /// This library is a highly-optimized, in-memory, enumerable mapping from tokens to amounts. It
 /// consists of 2 components that must be kept synchronized. There is a `memory` array of `Note`
 /// (aka `Note[] memory`) that has up to `MAX_TOKENS` pre-allocated. And there is an implicit heap
@@ -53,7 +57,6 @@ library NotesLib {
     /// decreasing this value requires no other changes elsewhere in this file.
     uint256 internal constant MAX_TOKENS = 8;
 
-    type NotePtr is uint256;
     type NotePtrPtr is uint256;
 
     struct Note {
@@ -74,7 +77,42 @@ library NotesLib {
         }
     }
 
-    function eq(Note memory x, Note memory y) internal pure returns (bool r) {
+    function amount(NotePtr note) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mload(note)
+        }
+    }
+
+    function setAmount(NotePtr note, uint256 newAmount) internal pure {
+        assembly ("memory-safe") {
+            mstore(note, newAmount)
+        }
+    }
+
+    function token(NotePtr note) internal pure returns (IERC20 r) {
+        assembly ("memory-safe") {
+            r := mload(add(0x20, note))
+        }
+    }
+
+    function eq(Note memory x, Note memory y) internal pure returns (bool) {
+        NotePtr yp;
+        assembly ("memory-safe") {
+            yp := y
+        }
+        return eq(x, yp);
+    }
+
+    function eq(Note memory x, NotePtr y) internal pure returns (bool) {
+        NotePtr xp;
+        assembly ("memory-safe") {
+            xp := x
+        }
+        return eq(xp, y);
+    }
+
+
+    function eq(NotePtr x, NotePtr y) internal pure returns (bool r) {
         assembly ("memory-safe") {
             r := eq(x, y)
         }
@@ -145,6 +183,14 @@ library NotesLib {
     }
 
     function add(Note[] memory a, Note memory x) internal pure {
+        NotePtr xp;
+        assembly ("memory-safe") {
+            xp := x
+        }
+        return add(a, xp);
+    }
+
+    function add(Note[] memory a, NotePtr x) internal pure {
         assembly ("memory-safe") {
             let backptr_ptr := add(0x40, x)
             let backptr := mload(backptr_ptr)
@@ -162,6 +208,14 @@ library NotesLib {
     }
 
     function del(Note[] memory a, Note memory x) internal pure {
+        NotePtr xp;
+        assembly ("memory-safe") {
+            xp := x
+        }
+        return del(a, xp);
+    }
+
+    function del(Note[] memory a, NotePtr x) internal pure {
         assembly ("memory-safe") {
             let x_backptr_ptr := add(0x40, x)
             let x_backptr := mload(x_backptr_ptr)
@@ -191,32 +245,40 @@ library NotesLib {
     }
 }
 
+using NotesLib for NotePtr global;
+
+/// `State` behaves as if it were declared as:
+///     struct State {
+///         NotesLib.Note buy;
+///         NotesLib.Note sell;
+///         NotesLib.Note globalSell;
+///         uint256 globalSellAmount;
+///         uint256 _hashMul;
+///         uint256 _hashMod;
+///     }
+/// but we use a user-defined value type because solc generates very gas-inefficient boilerplate
+/// that allocates and zeroes a bunch of memory. Consequently, everything is written in assembly and
+/// accessors are provided for the relevant members.
+type State is bytes32;
+
 library StateLib {
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
 
-    struct State {
-        NotesLib.Note buy;
-        NotesLib.Note sell;
-        NotesLib.Note globalSell;
-        uint256 globalSellAmount;
-        uint256 _hashMul;
-        uint256 _hashMod;
-    }
-
-    function construct(State memory state, IERC20 token, uint256 hashMul, uint256 hashMod)
+    function construct(IERC20 token, uint256 hashMul, uint256 hashMod)
         internal
         pure
-        returns (NotesLib.Note[] memory notes)
+        returns (State state, NotesLib.Note[] memory notes)
     {
         assembly ("memory-safe") {
-            // Solc is real dumb and has allocated a bunch of extra memory for us. Thanks solc.
+            // Allocate memory
+            state := mload(0x40)
             mstore(0x40, add(0xc0, state))
         }
         // All the pointers in `state` are now pointing into unallocated memory
         notes = NotesLib.construct();
         // The pointers in `state` are now illegally aliasing elements in `notes`
-        NotesLib.NotePtr notePtr = notes.get(token, hashMul, hashMod);
+        NotePtr notePtr = notes.get(token, hashMul, hashMod);
 
         // Here we actually set the pointers into a legal area of memory
         setBuy(state, notePtr);
@@ -224,41 +286,87 @@ library StateLib {
         assembly ("memory-safe") {
             // Set `state.globalSell`
             mstore(add(0x40, state), notePtr)
+            // Set `state._hashMul`
+            mstore(add(0x80, state), hashMul)
+            // Set `state._hashMod`
+            mstore(add(0xa0, state), hashMod)
         }
-        state._hashMul = hashMul;
-        state._hashMod = hashMod;
     }
 
-    function checkZeroSellAmount(State memory state) internal pure {
-        NotesLib.Note memory globalSell = state.globalSell;
-        if (globalSell.amount == 0) {
+    function buy(State state) internal pure returns (NotePtr note) {
+        assembly ("memory-safe") {
+            note := mload(state)
+        }
+    }
+
+    function sell(State state) internal pure returns (NotePtr note) {
+        assembly ("memory-safe") {
+            note := mload(add(0x20, state))
+        }
+    }
+
+    function globalSell(State state) internal pure returns (NotePtr note) {
+        assembly ("memory-safe") {
+            note := mload(add(0x40, state))
+        }
+    }
+
+    function globalSellAmount(State state) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mload(add(0x60, state))
+        }
+    }
+
+    function setGlobalSellAmount(State state, uint256 newGlobalSellAmount) internal pure {
+        assembly ("memory-safe") {
+            mstore(add(0x60, state), newGlobalSellAmount)
+        }
+    }
+
+    function _hashMul(State state) private pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mload(add(0x80, state))
+        }
+    }
+
+    function _hashMod(State state) private pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mload(add(0xa0, state))
+        }
+    }
+
+    function checkZeroSellAmount(State state) internal pure {
+        NotePtr globalSell_ = state.globalSell();
+        if (globalSell_.amount() == 0) {
             assembly ("memory-safe") {
-                mstore(globalSell, 0xfb772a88) // selector for `ZeroSellAmount(address)`; clobbers `globalSell.amount`
-                revert(add(0x1c, globalSell), 0x24)
+                mstore(globalSell_, 0xfb772a88) // selector for `ZeroSellAmount(address)`; clobbers `globalSell_.amount()`
+                revert(add(0x1c, globalSell_), 0x24)
             }
         }
     }
 
-    function setSell(State memory state, NotesLib.NotePtr notePtr) private pure {
+    function setSell(State state, NotePtr notePtr) internal pure {
         assembly ("memory-safe") {
             mstore(add(0x20, state), notePtr)
         }
     }
 
-    function setSell(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal pure {
-        setSell(state, notes.get(token, state._hashMul, state._hashMod));
+    function setSell(State state, NotesLib.Note[] memory notes, IERC20 token) internal pure {
+        setSell(state, notes.get(token, _hashMul(state), _hashMod(state)));
     }
 
-    function setBuy(State memory state, NotesLib.NotePtr notePtr) private pure {
+    function setBuy(State state, NotePtr notePtr) internal pure {
         assembly ("memory-safe") {
             mstore(state, notePtr)
         }
     }
 
-    function setBuy(State memory state, NotesLib.Note[] memory notes, IERC20 token) internal pure {
-        setBuy(state, notes.get(token, state._hashMul, state._hashMod));
+    function setBuy(State state, NotesLib.Note[] memory notes, IERC20 token) internal pure {
+        setBuy(state, notes.get(token, _hashMul(state), _hashMod(state)));
     }
 }
+
+using StateLib for State global;
 
 library Encoder {
     uint256 internal constant BASIS = 10_000;
@@ -384,7 +492,6 @@ library Decoder {
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
-    using StateLib for StateLib.State;
 
     uint256 internal constant BASIS = 10_000;
     IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -402,7 +509,7 @@ library Decoder {
     /// This function is responsible for calling `NotesLib.get(Note[] memory, IERC20, uint256,
     /// uint256)` (via `StateLib.setSell` and `StateLib.setBuy`), which maintains the `notes` array
     /// and heap.
-    function updateState(StateLib.State memory state, NotesLib.Note[] memory notes, bytes calldata data)
+    function updateState(State state, NotesLib.Note[] memory notes, bytes calldata data)
         internal
         pure
         returns (bytes calldata)
@@ -415,14 +522,14 @@ library Decoder {
 
         uint256 caseKey = uint256(dataWord) >> 248;
         if (caseKey != 0) {
-            notes.add(state.buy);
+            notes.add(state.buy());
 
             if (caseKey > 1) {
-                if (state.sell.amount == 0) {
-                    notes.del(state.sell);
+                if (state.sell().amount() == 0) {
+                    notes.del(state.sell());
                 }
                 if (caseKey == 2) {
-                    state.sell = state.buy;
+                    state.setSell(state.buy());
                 } else {
                     assert(caseKey == 3);
 
@@ -444,7 +551,7 @@ library Decoder {
             }
 
             state.setBuy(notes, buyToken);
-            if (state.buy.eq(state.globalSell)) {
+            if (state.buy().eq(state.globalSell())) {
                 assembly ("memory-safe") {
                     let ptr := mload(add(0x40, state)) // dereference `state.globalSell`
                     mstore(ptr, 0x784cb7b8) // selector for `BoughtSellToken(address)`; clobbers `state.globalSell.amount`
@@ -530,7 +637,7 @@ library Decoder {
         view
         returns (
             bytes calldata newData,
-            StateLib.State memory state,
+            State state,
             NotesLib.Note[] memory notes,
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
@@ -545,7 +652,7 @@ library Decoder {
             // We don't advance `data` here because there's a special interaction between `payer`
             // (which is the 20 bytes in calldata immediately before `data`), `sellToken`, and
             // `permit` that's handled below.
-            notes = state.construct(sellToken, hashMul, hashMod);
+            (state, notes) = StateLib.construct(sellToken, hashMul, hashMod);
         }
 
         // This assembly block is just here to appease the compiler. We only use `permit` and `sig`
@@ -556,7 +663,7 @@ library Decoder {
             sig.length := 0x00
         }
 
-        if (state.globalSell.token == ETH_ADDRESS) {
+        if (state.globalSell().token() == ETH_ADDRESS) {
             assert(payer == address(this));
 
             uint16 bps;
@@ -572,7 +679,7 @@ library Decoder {
             }
 
             unchecked {
-                state.globalSell.amount = (address(this).balance * bps).unsafeDiv(BASIS);
+                state.globalSell().setAmount((address(this).balance * bps).unsafeDiv(BASIS));
             }
         } else {
             if (payer == address(this)) {
@@ -589,8 +696,10 @@ library Decoder {
                 }
 
                 unchecked {
-                    state.globalSell.amount =
-                        (state.globalSell.token.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                    NotePtr globalSell = state.globalSell();
+                    globalSell.setAmount(
+                        (globalSell.token().fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS)
+                    );
                 }
             } else {
                 assert(payer == address(0));
@@ -655,15 +764,15 @@ library Take {
     /// with credit causes a corresponding call to `msg.sender.<selector>(token, recipient,
     /// amount)`.
     function take(
-        StateLib.State memory state,
+        State state,
         NotesLib.Note[] memory notes,
         uint32 selector,
         address recipient,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        notes.del(state.buy);
-        if (state.sell.amount == 0) {
-            notes.del(state.sell);
+        notes.del(state.buy());
+        if (state.sell().amount() == 0) {
+            notes.del(state.sell());
         }
 
         uint256 length = notes.length;
@@ -673,7 +782,7 @@ library Take {
         if (length != 0) {
             {
                 NotesLib.Note memory firstNote = notes[0]; // out-of-bounds is impossible
-                if (!firstNote.eq(state.globalSell)) {
+                if (!firstNote.eq(state.globalSell())) {
                     // The global sell token being in a position other than the 1st would imply that
                     // at some point we _bought_ that token. This is illegal and results in a revert
                     // with reason `BoughtSellToken(address)`.
@@ -689,8 +798,8 @@ library Take {
         // The final token to be bought is considered the global buy token. We bypass `notes` and
         // read it directly from `state`. Check the slippage limit. Transfer to the recipient.
         {
-            IERC20 buyToken = state.buy.token;
-            buyAmount = state.buy.amount;
+            IERC20 buyToken = state.buy().token();
+            buyAmount = state.buy().amount();
             if (buyAmount < minBuyAmount) {
                 revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
             }

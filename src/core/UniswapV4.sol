@@ -12,7 +12,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
-import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
+import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
@@ -20,9 +20,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     using UnsafeMath for int256;
     using CreditDebt for int256;
     using UnsafePoolManager for IPoolManager;
-    using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
-    using StateLib for StateLib.State;
 
     constructor() {
         assert(BASIS == Encoder.BASIS);
@@ -154,7 +152,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     //// callback.
     ////
     //// The two major pieces of state that are maintained through the callback are `Note[] memory
-    //// notes` and `State memory state`
+    //// notes` and `State state`
     ////
     //// `notes` keeps track of the list of the tokens that have been touched throughout the
     //// callback that have nonzero credit. At the end of the fills, all tokens with credit will be
@@ -184,12 +182,12 @@ abstract contract UniswapV4 is SettlerAbstract {
     /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
     /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
     /// the decoding process.
-    function _setPoolKey(IPoolManager.PoolKey memory key, StateLib.State memory state, bytes calldata data)
+    function _setPoolKey(IPoolManager.PoolKey memory key, State state, bytes calldata data)
         private
         pure
         returns (bool, bytes calldata)
     {
-        (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
+        (IERC20 sellToken, IERC20 buyToken) = (state.sell().token(), state.buy().token());
         bool zeroForOne;
         assembly ("memory-safe") {
             sellToken := and(_ADDRESS_MASK, sellToken)
@@ -251,21 +249,25 @@ abstract contract UniswapV4 is SettlerAbstract {
         // to settle global sell token debt at the end of swapping.
         (
             bytes calldata newData,
-            StateLib.State memory state,
+            State state,
             NotesLib.Note[] memory notes,
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
-        if (payer != address(this)) {
-            state.globalSell.amount = _permitToSellAmountCalldata(permit);
-        }
-        if (feeOnTransfer) {
-            state.globalSell.amount =
-                _pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
+        {
+            NotePtr globalSell = state.globalSell();
+            if (payer != address(this)) {
+                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+            }
+            if (feeOnTransfer) {
+                globalSell.setAmount(
+                    _pay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
+                );
+            }
+            state.setGlobalSellAmount(globalSell.amount());
         }
         state.checkZeroSellAmount();
-        state.globalSellAmount = state.globalSell.amount;
         data = newData;
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
@@ -291,7 +293,7 @@ abstract contract UniswapV4 is SettlerAbstract {
 
             params.zeroForOne = zeroForOne;
             unchecked {
-                params.amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
+                params.amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
             // TODO: price limits
             params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
@@ -304,11 +306,13 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // unavoidable reverts in some cases. But we still need to make sure that we don't
                 // underflow to avoid wildly unexpected behavior. The pool manager enforces that the
                 // settled sell amount cannot be positive
-                state.sell.amount -= uint256(settledSellAmount.unsafeNeg());
+                NotePtr sell = state.sell();
+                sell.setAmount(sell.amount() - uint256(settledSellAmount.unsafeNeg()));
                 // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the pool
                 // manager later. We cannot overflow a `uint256`.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.asCredit(state.buy.token);
+                    NotePtr buy = state.buy();
+                    buy.setAmount(buy.amount() + settledBuyAmount.asCredit(buy.token()));
                 }
             }
         }
@@ -317,7 +321,8 @@ abstract contract UniswapV4 is SettlerAbstract {
         // swaps. Any credit in any token other than `state.buy.token` will be swept to
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
-            (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
+            NotePtr globalSell = state.globalSell();
+            (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IPoolManager.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -340,7 +345,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // fill. This subtraction recovers the actual debt recorded in the pool manager.
                 uint256 debt;
                 unchecked {
-                    debt = state.globalSellAmount - globalSellAmount;
+                    debt = state.globalSellAmount() - globalSellAmount;
                 }
                 if (debt == 0) {
                     assembly ("memory-safe") {
