@@ -54,10 +54,11 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         return _DOMAIN_SEPARATOR();
     }
 
-    function _hashStruct(
-        string calldata typeSuffix,
-        TransferParams calldata transferParams
-    ) internal view returns (bytes32 signingHash) {
+    function _hashStruct(string calldata typeSuffix, TransferParams calldata transferParams)
+        internal
+        view
+        returns (bytes32 signingHash)
+    {
         bytes32 domainSep = _DOMAIN_SEPARATOR();
         address operator = _msgSender();
         uint256 deadline = transferParams.deadline;
@@ -197,7 +198,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 requestedAmount;
     }
 
-    function transferFrom155(
+    function transferFrom(
         string calldata typeSuffix,
         TransferParams calldata transferParams,
         uint256 gasPrice,
@@ -206,7 +207,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     ) external preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
-        address signer = TransactionEncoder.recoverSigner155(
+        address signer = TransactionEncoder.recoverSigner(
             transferParams.nonce, gasPrice, gasLimit, payable(address(transferParams.token)), 0 wei, data, sig
         );
         _checkSigner(transferParams.from, signer);
@@ -215,7 +216,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         return true;
     }
 
-    function transferFrom2930(
+    function transferFrom(
         string calldata typeSuffix,
         TransferParams calldata transferParams,
         uint256 gasPrice,
@@ -225,7 +226,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     ) external preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
-        address signer = TransactionEncoder.recoverSigner2930(
+        address signer = TransactionEncoder.recoverSigner(
             transferParams.nonce,
             gasPrice,
             gasLimit,
@@ -241,7 +242,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         return true;
     }
 
-    function transferFrom1559(
+    function transferFrom(
         string calldata typeSuffix,
         TransferParams calldata transferParams,
         uint256 gasPriorityPrice,
@@ -252,7 +253,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     ) external preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
-        address signer = TransactionEncoder.recoverSigner1559(
+        address signer = TransactionEncoder.recoverSigner(
             transferParams.nonce,
             gasPriorityPrice,
             gasPrice,

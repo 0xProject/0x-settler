@@ -74,7 +74,8 @@ library TransactionEncoder {
         }
     }
 
-    function recoverSigner155(
+    // EIP-155
+    function recoverSigner(
         uint256 nonce,
         uint256 gasPrice,
         uint256 gasLimit,
@@ -90,7 +91,8 @@ library TransactionEncoder {
         return _recover(encoded, v, r, s);
     }
 
-    function recoverSigner2930(
+    // EIP-2930
+    function recoverSigner(
         uint256 nonce,
         uint256 gasPrice,
         uint256 gasLimit,
@@ -109,7 +111,8 @@ library TransactionEncoder {
         return _recover(encoded, v, r, s);
     }
 
-    function recoverSigner1559(
+    // EIP-1559
+    function recoverSigner(
         uint256 nonce,
         uint256 gasPriorityPrice,
         uint256 gasPrice,
