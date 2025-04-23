@@ -28,7 +28,7 @@ const readSnapshot = (name, pair) =>
       )
     : undefined;
 
-const pairs = ["USDC-WETH", "DAI-WETH", "USDT-WETH"];
+const pairs = ["USDC-WETH", "DAI-WETH", "USDT-WETH", "WETH-USDC"];
 const tables = [];
 
 /**
@@ -131,10 +131,13 @@ tables.push(
       [
         ["UniversalRouter", "UniswapV2", "universalRouter_uniswapV2"],
         ["Settler", "UniswapV2", "settler_uniswapV2_toNative"],
+        ["Settler", "UniswapV2", "settler_uniswapV2_fromNative"],
         ["UniversalRouter", "UniswapV3", "universalRouter_uniswapV3"],
         ["Settler", "UniswapV3", "settler_uniswapV3VIP_toNative"],
+        ["Settler", "UniswapV3", "settler_uniswapV3_fromNative"],
         ["UniversalRouter", "UniswapV4", "universalRouter_uniswapV4"],
         ["Settler", "UniswapV4", "settler_uniswapV4VIP_toNative"],
+        ["Settler", "UniswapV4", "settler_uniswapV4_fromNative"],
       ],
       pairs
     ),
