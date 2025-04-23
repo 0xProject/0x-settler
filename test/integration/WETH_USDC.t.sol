@@ -33,6 +33,10 @@ contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest
         return 1 ether;
     }
 
+    function slippageLimit() internal pure override returns (uint256) {
+        return 1000e6;
+    }
+
     function uniswapV3Path() internal pure override(SettlerPairTest) returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
     }

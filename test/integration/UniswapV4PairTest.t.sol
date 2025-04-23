@@ -71,7 +71,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         (commands[1], inputs[1]) = encodeV4Swap(
             FROM,
             amount(),
-            0 wei,
+            slippageLimit(),
             fromTokenCompat,
             uniswapV4FeeTier(),
             uniswapV4TickSpacing(),
@@ -98,7 +98,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         (commands[0], inputs[0]) = encodeV4Swap(
             FROM,
             amount(),
-            0 wei,
+            slippageLimit(),
             fromTokenCompat,
             uniswapV4FeeTier(),
             uniswapV4TickSpacing(),
@@ -133,7 +133,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
             ""
         );
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV4_VIP, (FROM, false, hashMul, hashMod, fills, permit, sig, 0 wei))
+            abi.encodeCall(ISettlerActions.UNISWAPV4_VIP, (FROM, false, hashMul, hashMod, fills, permit, sig, slippageLimit()))
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -169,7 +169,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV4,
-                (FROM, address(fromTokenCompat), 10_000, false, hashMul, hashMod, fills, 0 wei)
+                (FROM, address(fromTokenCompat), 10_000, false, hashMul, hashMod, fills, slippageLimit())
             )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({

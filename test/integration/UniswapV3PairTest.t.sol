@@ -65,7 +65,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
 
         (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
         (commands[1], inputs[1]) = encodeV3Swap(address(UNIVERSAL_ROUTER), amount(), 0 wei, path, true);
-        (commands[2], inputs[2]) = encodeUnwrapWeth(FROM, 0 wei);
+        (commands[2], inputs[2]) = encodeUnwrapWeth(FROM, slippageLimit());
 
         (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
@@ -88,7 +88,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         bytes memory path = uniswapV3PathCompat();
 
         (commands[0], inputs[0]) = encodeWrapEth(address(UNIVERSAL_ROUTER), amount());
-        (commands[1], inputs[1]) = encodeV3Swap(FROM, amount(), 0 wei, path, false);
+        (commands[1], inputs[1]) = encodeV3Swap(FROM, amount(), slippageLimit(), path, false);
 
         vm.deal(FROM, amount());
 
@@ -113,7 +113,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory slippage =
-            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: ETH, minAmountOut: 0 ether});
+            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: ETH, minAmountOut: slippageLimit()});
 
         (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
@@ -137,7 +137,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
                 ISettlerActions.BASIC,
                 (address(ETH), 10_000, address(WETH), 4, abi.encodeWithSignature("deposit()", 0 wei))
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0 wei))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), slippageLimit()))
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),

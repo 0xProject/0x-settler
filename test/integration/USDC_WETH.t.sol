@@ -73,6 +73,10 @@ contract USDCWETHTest is
         return 1000e6;
     }
 
+    function slippageLimit() internal pure override returns (uint256) {
+        return 0.5 ether;
+    }
+
     function testBlockNumber()
         internal
         pure
