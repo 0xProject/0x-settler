@@ -59,14 +59,19 @@ interface IEkuboCallbacks {
 }
 
 library UnsafeEkuboCore {
+    /// The `amountSpecified` as well as both `delta`'s are `int256` for contract size savings. If
+    /// `amountSpecified` is not a clean, signed, 128-bit value, the call will revert inside the ABI
+    /// decoding in `CORE`. The `delta`'s are guaranteed clean by the returndata encoding of `CORE`,
+    /// but we keep them as `int256` so as not to duplicate any work.
+    ///
+    /// The `skipAhead` argument of the underlying `swap` function is hardcoded to zero.
     function unsafeSwap(
         IEkuboCore core,
         PoolKey memory poolKey,
         int256 amount,
         bool isToken1,
-        SqrtRatio sqrtRatioLimit,
-        uint256 skipAhead
-    ) internal returns (int128 delta0, int128 delta1) {
+        SqrtRatio sqrtRatioLimit
+    ) internal returns (int256 delta0, int256 delta1) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -79,7 +84,7 @@ library UnsafeEkuboCore {
             mstore(add(0x80, ptr), amount)
             mstore(add(0xa0, ptr), isToken1)
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
-            mstore(add(0xe0, ptr), skipAhead)
+            mstore(add(0xe0, ptr), 0x00)
 
             if iszero(call(gas(), core, 0x00, add(0x1c, ptr), 0xe4, 0x00, 0x40)) {
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -141,8 +146,6 @@ abstract contract Ekubo is SettlerAbstract {
     //// The remaining fields of the fill are mandatory.
     //// Third, encode the config of the pool as 32 bytes. It contains pool parameters which are
     //// 20 bytes extension address, 8 bytes fee, and 4 bytes tickSpacing.
-    //// Fourth, encode the skipAhead to use in the swap as 32 bytes. It specifies how many steps to
-    //// do when looking for the next/prev initialized tick in the pool.
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
 
@@ -278,10 +281,7 @@ abstract contract Ekubo is SettlerAbstract {
     // 2 - sell bps
     // 1 - pool key tokens case
     // 32 - config (20 extension, 8 fee, 4 tickSpacing)
-    // 32 - skipAhead
-    uint256 private constant _HOP_DATA_LENGTH = 67;
-
-    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+    uint256 private constant _HOP_DATA_LENGTH = 35;
 
     function locked(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -341,12 +341,12 @@ abstract contract Ekubo is SettlerAbstract {
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
                 assembly ("memory-safe") {
-                    sellToken := and(_ADDRESS_MASK, sellToken)
-                    buyToken := and(_ADDRESS_MASK, buyToken)
+                    let sellTokenShifted := shl(0x60, sellToken)
+                    let buyTokenShifted := shl(0x60, buyToken)
                     isToken1 :=
                         or(
-                            eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
-                            and(iszero(eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(buyToken, sellToken))
+                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
+                            and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)), lt(buyTokenShifted, sellTokenShifted))
                         )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
@@ -363,14 +363,6 @@ abstract contract Ekubo is SettlerAbstract {
                 poolKey.config = Config.wrap(config);
             }
 
-            uint256 skipAhead;
-            assembly ("memory-safe") {
-                skipAhead := calldataload(data.offset)
-                data.offset := add(0x20, data.offset)
-                data.length := sub(data.length, 0x20)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
-            }
-
             Decoder.overflowCheck(data);
 
             {
@@ -378,7 +370,7 @@ abstract contract Ekubo is SettlerAbstract {
                     uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
                 );
                 (int256 delta0, int256 delta1) = IEkuboCore(msg.sender).unsafeSwap(
-                    poolKey, int128(amountSpecified), isToken1, sqrtRatio, skipAhead
+                    poolKey, amountSpecified, isToken1, sqrtRatio
                 );
                 // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
                 // `settledSellAmount` is positive, `settledBuyAmount` is negative. So the use of
@@ -388,12 +380,12 @@ abstract contract Ekubo is SettlerAbstract {
 
                 // We have to check for underflow in the sell amount (could create more debt than
                 // we're able to pay)
-                state.sell.amount -= settledSellAmount.asCredit(state.sell.token);
+                state.sell.amount -= settledSellAmount.asCredit(state.sell);
 
                 // We *DON'T* have to check for overflow in the buy amount because adding an
                 // `int128` to a `uint256`, even repeatedly cannot practically overflow.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.asDebt(state.buy.token);
+                    state.buy.amount += settledBuyAmount.asDebt(state.buy);
                 }
             }
         }

@@ -9,7 +9,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -93,7 +93,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4 {
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 

@@ -10,7 +10,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3AvalancheFactory,
@@ -78,7 +78,7 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4 {
         //    initHash = uniswapV3InitHash;
         //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 

@@ -14,12 +14,13 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {Ekubo} from "../../core/Ekubo.sol";
+
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -161,16 +162,6 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
-
-            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
-            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
-                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
-
-            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
             (
                 address recipient,
@@ -184,6 +175,16 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToEkubo(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
+
+            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
+
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }
@@ -213,7 +214,7 @@ abstract contract MainnetMixin is
             initHash = solidlyV3InitHash;
             callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 

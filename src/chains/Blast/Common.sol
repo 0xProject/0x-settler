@@ -10,7 +10,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3BlastFactory,
@@ -126,7 +126,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
                 initHash = fenixInitHash;
                 callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
             } else {
-                revert UnknownForkId(forkId);
+                revertUnknownForkId(forkId);
             }
         } else {
             if (forkId == dackieSwapV3ForkId) {
@@ -146,7 +146,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
                 initHash = rogueXV1InitHash;
                 callbackSelector = uint32(IRoxSpotSwapCallback.swapCallback.selector);
             } else {
-                revert UnknownForkId(forkId);
+                revertUnknownForkId(forkId);
             }
         }
     }

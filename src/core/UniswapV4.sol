@@ -8,8 +8,9 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Ternary} from "../utils/Ternary.sol";
 
-import {DeltaNotPositive, DeltaNotNegative, ZeroSellAmount} from "./SettlerErrors.sol";
+import {ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
 import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -18,6 +19,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
+    using Ternary for bool;
     using CreditDebt for int256;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note;
@@ -179,8 +181,6 @@ abstract contract UniswapV4 is SettlerAbstract {
     // 3 - hook data length
     uint256 private constant _HOP_DATA_LENGTH = 32;
 
-    uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-
     /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
     /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
     /// the decoding process.
@@ -192,15 +192,15 @@ abstract contract UniswapV4 is SettlerAbstract {
         (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
         bool zeroForOne;
         assembly ("memory-safe") {
-            sellToken := and(_ADDRESS_MASK, sellToken)
-            buyToken := and(_ADDRESS_MASK, buyToken)
+            let sellTokenShifted := shl(0x60, sellToken)
+            let buyTokenShifted := shl(0x60, buyToken)
             zeroForOne :=
                 or(
-                    eq(sellToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
-                    and(iszero(eq(buyToken, 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)), lt(sellToken, buyToken))
+                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
+                    and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)), lt(sellTokenShifted, buyTokenShifted))
                 )
         }
-        (key.token0, key.token1) = zeroForOne ? (sellToken, buyToken) : (buyToken, sellToken);
+        (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);
 
         uint256 packed;
         assembly ("memory-safe") {
@@ -294,12 +294,14 @@ abstract contract UniswapV4 is SettlerAbstract {
                 params.amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
             // TODO: price limits
-            params.sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+            params.sqrtPriceLimitX96 = uint160(
+                zeroForOne.ternary(uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341))
+            );
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
             {
                 (int256 settledSellAmount, int256 settledBuyAmount) =
-                    zeroForOne ? (delta.amount0(), delta.amount1()) : (delta.amount1(), delta.amount0());
+                    zeroForOne.maybeSwap(delta.amount1(), delta.amount0());
                 // Some insane hooks may increase the sell amount; obviously this may result in
                 // unavoidable reverts in some cases. But we still need to make sure that we don't
                 // underflow to avoid wildly unexpected behavior. The pool manager enforces that the
@@ -308,7 +310,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 // If `state.buy.amount()` overflows an `int128`, we'll get a revert inside the pool
                 // manager later. We cannot overflow a `uint256`.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.asCredit(state.buy.token);
+                    state.buy.amount += settledBuyAmount.asCredit(state.buy);
                 }
             }
         }
@@ -357,6 +359,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 }
             }
 
+            // return abi.encode(globalBuyAmount);
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)

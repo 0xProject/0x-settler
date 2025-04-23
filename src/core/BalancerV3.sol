@@ -137,19 +137,18 @@ interface IBalancerV3Vault {
 library UnsafeVault {
     function unsafeSettle(IBalancerV3Vault vault, IERC20 token, uint256 amount) internal returns (uint256 credit) {
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
+            mstore(0x14, token)
+            mstore(0x34, amount) // clobbers the upper (always zero) bits of the free memory pointer
+            mstore(0x00, 0x15afd409000000000000000000000000) // selector for `settle(address,uint256)` with `token`'s padding
 
-            mstore(0x00, 0x15afd409) // selector for `settle(address,uint256)`
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
-            mstore(0x40, amount)
-
-            if iszero(call(gas(), vault, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
+            if iszero(call(gas(), vault, 0x00, 0x10, 0x44, 0x00, 0x20)) {
+                let ptr := and(0xffffffffffffffffffffffff, mload(0x40))
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
             credit := mload(0x00)
 
-            mstore(0x40, ptr)
+            mstore(0x34, 0x00)
         }
     }
 
@@ -586,11 +585,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)
-                mstore(returndata, 0x60)
-                mstore(add(0x20, returndata), 0x20)
-                mstore(add(0x40, returndata), 0x20)
-                mstore(add(0x60, returndata), globalBuyAmount)
-                mstore(0x40, add(0x80, returndata))
+                mstore(returndata, 0x20)
+                mstore(add(0x20, returndata), globalBuyAmount)
+                mstore(0x40, add(0x40, returndata))
             }
             return returndata;
         }
