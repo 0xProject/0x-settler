@@ -61,7 +61,7 @@ interface IPancakeInfinityVault {
     function lock(bytes calldata data) external returns (bytes memory);
 }
 
-IPancakeInfinityVault constant VAULT = IPancakeInfinityVault(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+IPancakeInfinityVault constant VAULT = IPancakeInfinityVault(0x238a358808379702088667322f80aC48bAd5e6c4);
 
 /// @notice Interface for the callback executed when an address locks the vault
 interface IPancakeInfinityLockCallback {
@@ -80,14 +80,7 @@ interface IPancakeInfinityPoolManager {
     function poolIdToPoolKey(PoolId id)
         external
         view
-        returns (
-            IERC20 currency0,
-            IERC20 currency1,
-            IHooks hooks,
-            IPancakeInfinityPoolManager poolManager,
-            uint24 fee,
-            bytes32 parameters
-        );
+        returns (PoolKey memory);
 }
 
 /// @notice Returns the key for identifying a pool
@@ -127,7 +120,7 @@ interface IPancakeInfinityCLPoolManager is IPancakeInfinityPoolManager {
 }
 
 IPancakeInfinityCLPoolManager constant CL_MANAGER =
-    IPancakeInfinityCLPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+    IPancakeInfinityCLPoolManager(0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b);
 
 interface IPancakeInfinityBinPoolManager is IPancakeInfinityPoolManager {
     /// @notice Peform a swap to a pool
@@ -178,7 +171,7 @@ library UnsafePancakeInfinityPoolManager {
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0x1b13f906) // selector for `swap((address,address,address,address,uint24,int24),(bool,int256,uint160),bytes)`
+            mstore(ptr, 0xcd0cc1ce) // selector for `swap((address,address,address,address,uint24,bytes32),(bool,int256,uint160),bytes)`
             let token0 := mload(key)
             token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
             mstore(add(0x20, ptr), token0)
@@ -206,7 +199,7 @@ library UnsafePancakeInfinityBinPoolManager {
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0xa2db9d60) // selector for `swap((address,address,address,address,uint24,int24),bool,int128,bytes)`
+            mstore(ptr, 0x911a63b7) // selector for `swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)`
             let token0 := mload(key)
             token0 := mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0)
             mstore(add(0x20, ptr), token0)
@@ -226,7 +219,7 @@ library UnsafePancakeInfinityBinPoolManager {
 }
 
 IPancakeInfinityBinPoolManager constant BIN_MANAGER =
-    IPancakeInfinityBinPoolManager(0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD); // TODO: replace
+    IPancakeInfinityBinPoolManager(0xC697d2898e0D09264376196696c51D7aBbbAA4a9);
 
 abstract contract PancakeInfinity is SettlerAbstract {
     using UnsafeMath for uint256;
@@ -245,6 +238,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
         assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(block.chainid == 56 || block.chainid == 31337);
     }
 
     //// How to generate `fills` for Pancake Infinity:

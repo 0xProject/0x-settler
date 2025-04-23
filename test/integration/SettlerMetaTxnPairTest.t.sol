@@ -26,12 +26,26 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
     SettlerMetaTxn internal settlerMetaTxn;
 
+    function settlerMetaTxnInitCode() internal virtual returns (bytes memory) {
+        return bytes.concat(type(SettlerMetaTxn).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function _deploySettlerMetaTxn() private returns (SettlerMetaTxn r) {
+        bytes memory initCode = settlerMetaTxnInitCode();
+        assembly ("memory-safe") {
+            r := create(0x00, add(0x20, initCode), mload(initCode))
+            if iszero(r) {
+                revert(0x00, 0x00)
+            }
+        }
+    }
+
     function setUp() public virtual override {
         super.setUp();
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
-        settlerMetaTxn = new SettlerMetaTxn(bytes20(0));
+        settlerMetaTxn = _deploySettlerMetaTxn();
         vm.chainId(forkChainId);
 
         // ### Taker ###

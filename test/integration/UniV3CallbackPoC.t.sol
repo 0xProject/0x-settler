@@ -19,6 +19,8 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Test, console} from "@forge-std/Test.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+
 contract UniswapV3PoolDummy {
     bytes public RETURN_DATA;
 
@@ -53,7 +55,7 @@ contract Shim {
     }
 }
 
-contract UniV3CallbackPoC is Utils, Permit2Signature {
+contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
     ISignatureTransfer permit2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     bytes32 internal permit2Domain;
 
@@ -69,7 +71,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature {
     uint256 bobPk;
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 18685612);
+        vm.createSelectFork(testChainId(), testBlockNumber());
 
         (alice, alicePk) = makeAddrAndKey("Alice");
         (bob, bobPk) = makeAddrAndKey("Bob");
