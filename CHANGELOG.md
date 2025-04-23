@@ -58,6 +58,10 @@ Master list of UniV3 forks:
     `fills`
 * Fix a bug in the BalancerV3 action resulting in incorrect decoding of callback
   returndata
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Avalanche
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Gnosis
 * Add actions for PancakeSwap Infinity
   * `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and `METATXN_PANCAKE_INFINITY_VIP`
   * See comments in [PancakeInfinity.sol](src/core/PancakeInfinity.sol)
