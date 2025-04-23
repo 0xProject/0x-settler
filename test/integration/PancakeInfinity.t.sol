@@ -4,11 +4,11 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
 import {SettlerMetaTxn} from "src/SettlerMetaTxn.sol";
-import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BnbSettler} from "src/chains/Bnb/TakerSubmitted.sol";
@@ -32,7 +32,13 @@ import {
 abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxnPairTest {
     using UnsafeMath for uint256;
 
-    function uniswapV3Path() internal view virtual override(AllowanceHolderPairTest, SettlerMetaTxnPairTest) returns (bytes memory) {
+    function uniswapV3Path()
+        internal
+        view
+        virtual
+        override(AllowanceHolderPairTest, SettlerMetaTxnPairTest)
+        returns (bytes memory)
+    {
         return bytes("");
     }
 
@@ -135,16 +141,21 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         (uint256 hashMul, uint256 hashMod) = pancakeInfinityPerfectHash();
-        bytes[] memory actions = extraActions(ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(
-                ISettlerActions.PANCAKE_INFINITY,
-                (recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, pancakeInfinityFills(), 0)
+        bytes[] memory actions = extraActions(
+            ActionDataBuilder.build(
+                abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
+                abi.encodeCall(
+                    ISettlerActions.PANCAKE_INFINITY,
+                    (recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, pancakeInfinityFills(), 0)
+                )
             )
-        ));
+        );
 
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
@@ -165,14 +176,19 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         (uint256 hashMul, uint256 hashMod) = pancakeInfinityPerfectHash();
-        bytes[] memory actions = extraActions(ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.PANCAKE_INFINITY_VIP,
-                (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+        bytes[] memory actions = extraActions(
+            ActionDataBuilder.build(
+                abi.encodeCall(
+                    ISettlerActions.PANCAKE_INFINITY_VIP,
+                    (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+                )
             )
-        ));
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        );
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
@@ -197,14 +213,19 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         bytes memory sig = new bytes(0);
 
         (uint256 hashMul, uint256 hashMod) = pancakeInfinityPerfectHash();
-        bytes[] memory actions = extraActions(ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.PANCAKE_INFINITY_VIP,
-                (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+        bytes[] memory actions = extraActions(
+            ActionDataBuilder.build(
+                abi.encodeCall(
+                    ISettlerActions.PANCAKE_INFINITY_VIP,
+                    (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+                )
             )
-        ));
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        );
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
@@ -233,14 +254,19 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         (uint256 hashMul, uint256 hashMod) = pancakeInfinityPerfectHash();
-        bytes[] memory actions = extraActions(ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.METATXN_PANCAKE_INFINITY_VIP,
-                (metaTxnRecipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, 0)
+        bytes[] memory actions = extraActions(
+            ActionDataBuilder.build(
+                abi.encodeCall(
+                    ISettlerActions.METATXN_PANCAKE_INFINITY_VIP,
+                    (metaTxnRecipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, 0)
+                )
             )
-        ));
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
+        );
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
         for (uint256 i; i < actionHashes.length; i++) {
@@ -342,7 +368,9 @@ contract USDTWBNBTest is PancakeInfinityTest {
             data[i] = actions[i];
         }
         data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (bnb, 10_000, wbnb, 0, ""));
-        data[actions.length + 1] = abi.encodeCall(ISettlerActions.BASIC, (wbnb, 10_000, wbnb, 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0)))));
+        data[actions.length + 1] = abi.encodeCall(
+            ISettlerActions.BASIC, (wbnb, 10_000, wbnb, 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+        );
         return data;
     }
 
@@ -350,4 +378,3 @@ contract USDTWBNBTest is PancakeInfinityTest {
         return pancakeInfinityFills(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     }
 }
-
