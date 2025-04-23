@@ -12,7 +12,7 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {ActionInvalid} from "./core/SettlerErrors.sol";
+import {revertActionInvalid} from "./core/SettlerErrors.sol";
 
 abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
@@ -56,7 +56,6 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
                     bytes
                 )
             );
-
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
         } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
@@ -85,7 +84,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (uint256 action, bytes calldata data) = actions.decodeCall(0);
             if (!_dispatchVIP(action, data)) {
                 if (!_dispatch(0, action, data)) {
-                    revert ActionInvalid(0, bytes4(uint32(action)), data);
+                    revertActionInvalid(0, action, data);
                 }
             }
         }
@@ -93,7 +92,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, bytes4(uint32(action)), data);
+                revertActionInvalid(i, action, data);
             }
         }
 

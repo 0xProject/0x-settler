@@ -141,8 +141,8 @@ contract USDCWETHTest is
             uint16(10_000),
             bytes1(0x01),
             _eth,
-            ekuboPoolConfig(),
-            uint256(0));
+            ekuboPoolConfig()
+        );
     }
 
     function recipient() internal view virtual override returns (address) {

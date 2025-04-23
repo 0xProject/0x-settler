@@ -11,7 +11,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -90,7 +90,7 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
             initHash = quickSwapV3InitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 

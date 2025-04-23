@@ -13,7 +13,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3BaseFactory,
@@ -126,7 +126,7 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, Unis
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
                 } else {
-                    revert UnknownForkId(forkId);
+                    revertUnknownForkId(forkId);
                 }
             } else {
                 if (forkId == sushiswapV3ForkId) {
@@ -142,7 +142,7 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, Unis
                     initHash = aerodromeInitHash;
                     callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
-                    revert UnknownForkId(forkId);
+                    revertUnknownForkId(forkId);
                 }
             }
         } else {
@@ -160,7 +160,7 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, Unis
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
                 } else {
-                    revert UnknownForkId(forkId);
+                    revertUnknownForkId(forkId);
                 }
             } else {
                 if (forkId == dackieSwapV3ForkId) {
@@ -176,7 +176,7 @@ abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, Unis
                     initHash = uniswapV3InitHash;
                     callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
-                    revert UnknownForkId(forkId);
+                    revertUnknownForkId(forkId);
                 }
             }
         }

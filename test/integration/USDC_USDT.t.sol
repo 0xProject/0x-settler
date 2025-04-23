@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
+import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboTest} from "./Ekubo.t.sol";

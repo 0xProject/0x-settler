@@ -9,11 +9,13 @@ import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
+import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3BnbFactory,
@@ -34,7 +36,7 @@ import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2, UniswapV4 {
+abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2, UniswapV4, PancakeInfinity {
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
     }
@@ -72,6 +74,19 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToPancakeInfinity(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -107,7 +122,7 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV
         //    initHash = uniswapV3InitHash;
         //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 

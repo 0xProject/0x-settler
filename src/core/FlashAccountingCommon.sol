@@ -13,23 +13,21 @@ import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegati
 library CreditDebt {
     using UnsafeMath for int256;
 
-    function asCredit(int256 delta, IERC20 token) internal pure returns (uint256) {
+    function asCredit(int256 delta, NotePtr note) internal pure returns (uint256) {
         if (delta < 0) {
             assembly ("memory-safe") {
-                mstore(0x14, token)
-                mstore(0x00, 0x4c085bf1000000000000000000000000) // selector for `DeltaNotPositive(address)` with `token`'s padding
-                revert(0x10, 0x24)
+                mstore(note, 0x4c085bf1) // selector for `DeltaNotPositive(address)`; clobbers `note.amount()`
+                revert(add(0x1c, note), 0x24)
             }
         }
         return uint256(delta);
     }
 
-    function asDebt(int256 delta, IERC20 token) internal pure returns (uint256) {
+    function asDebt(int256 delta, NotePtr note) internal pure returns (uint256) {
         if (delta > 0) {
             assembly ("memory-safe") {
-                mstore(0x14, token)
-                mstore(0x00, 0x3351b260000000000000000000000000) // selector for `DeltaNotNegative(address)` with `token`'s padding
-                revert(0x10, 0x24)
+                mstore(note, 0x3351b260) // selector for `DeltaNotNegative(address)`; clobbers `note.amount()`
+                revert(add(0x1c, note), 0x24)
             }
         }
         return uint256(delta.unsafeNeg());
@@ -739,22 +737,29 @@ library Take {
 
     function _callSelector(uint256 selector, IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, token)
+            token := shl(0x60, token)
             if iszero(amount) {
-                mstore(0x00, 0xcbf0dbf5) // selector for `ZeroBuyAmount(address)`
                 mstore(0x20, token)
-                revert(0x1c, 0x24)
+                mstore(0x00, 0xcbf0dbf5000000000000000000000000) // selector for `ZeroBuyAmount(address)` with `token`'s padding
+                revert(0x10, 0x24)
             }
+
+            // save the free memory pointer because we're about to clobber it
             let ptr := mload(0x40)
-            mstore(ptr, selector)
-            token := mul(token, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token)))
-            mstore(add(0x20, ptr), token)
-            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
-            mstore(add(0x60, ptr), amount)
-            if iszero(call(gas(), caller(), 0x00, add(0x1c, ptr), 0x64, 0x00, 0x00)) {
+
+            mstore(0x60, amount)
+            mstore(0x40, to)
+            mstore(0x2c, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, token)), token)) // clears `to`'s padding
+            mstore(0x0c, shl(0x60, selector)) // clears `token`'s padding
+
+            if iszero(call(gas(), caller(), 0x00, 0x1c, 0x64, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+
+            // restore clobbered slots
+            mstore(0x60, 0x00)
+            mstore(0x40, ptr)
         }
     }
 

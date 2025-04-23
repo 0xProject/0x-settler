@@ -73,7 +73,9 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 bytes memory fills,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, uint256)
+            );
 
             sellToEkuboVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } /* else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
@@ -83,7 +85,6 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, uint256));
-
             sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } */ else {
             return false;

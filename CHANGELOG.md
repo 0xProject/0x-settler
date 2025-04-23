@@ -44,6 +44,9 @@ Master list of UniV3 forks:
   from Mainnet (they remain available on Arbitrum)
 * `VELODROME` action is removed from Mainnet (it remains as default on all other
   chains)
+* The Ekubo actions (`EKUBO`, `EKUBO_VIP`, and `METATXN_EKUBO_VIP`) `fills` no
+  longer has a `skipAhead` argument. Each fill is 32 bytes shorter. The field is
+  now hardcoded to zero.
 
 ### Non-breaking changes
 
@@ -53,6 +56,16 @@ Master list of UniV3 forks:
   * `EKUBO`, `EKUBO_VIP`, and `METATXN_EKUBO_VIP`
   * See comments in [Ekubo.sol](src/core/Ekubo.sol) regarding how to encode
     `fills`
+* Fix a bug in the BalancerV3 action resulting in incorrect decoding of callback
+  returndata
+* Add actions for PancakeSwap Infinity
+  * `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and `METATXN_PANCAKE_INFINITY_VIP`
+  * See comments in [PancakeInfinity.sol](src/core/PancakeInfinity.sol)
+    regarding how to encode `fills`. While there are many similarities with
+    UniswapV4 and BalancerV3, additional complexity is added because there are 2
+    different default/built-in CFAMM schemes in PancakeSwap Infinity.
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Bnb chain
 
 ## 2025-03-11
 
