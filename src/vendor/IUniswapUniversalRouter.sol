@@ -60,9 +60,11 @@ function encodeV4Swap(address recipient, uint256 amountIn, uint256 amountOutMin,
     Currency currency1;
     bool zeroForOne;
     if (address(sellToken) == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+        sellToken = IERC20(address(0));
         currency1 = Currency.wrap(address(buyToken));
         zeroForOne = true;
     } else if (address(buyToken) == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+        buyToken = IERC20(address(0));
         currency1 = Currency.wrap(address(sellToken));
     } else if (sellToken < buyToken) {
         currency0 = Currency.wrap(address(sellToken));
