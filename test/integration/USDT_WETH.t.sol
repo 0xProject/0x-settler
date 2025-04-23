@@ -14,6 +14,8 @@ import {CurveV2PairTest} from "./CurveV2PairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+
 contract USDTWETHTest is
     AllowanceHolderPairTest,
     CurveV2PairTest,
@@ -54,6 +56,10 @@ contract USDTWETHTest is
 
     function amount() internal pure override returns (uint256) {
         return 1000e6;
+    }
+
+    function testBlockNumber() internal pure virtual override(MainnetDefaultFork, UniswapV3PairTest) returns (uint256) {
+        return super.testBlockNumber();
     }
 
     function getCurveV2PoolData()

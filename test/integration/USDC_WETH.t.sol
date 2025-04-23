@@ -18,6 +18,8 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+
 contract USDCWETHTest is
     AllowanceHolderPairTest,
     SettlerPairTest,
@@ -65,6 +67,10 @@ contract USDCWETHTest is
 
     function amount() internal pure override returns (uint256) {
         return 1000e6;
+    }
+
+    function testBlockNumber() internal pure virtual override(MainnetDefaultFork, UniswapV3PairTest) returns (uint256) {
+        return super.testBlockNumber();
     }
 
     function dodoV1Pool() internal pure override returns (address) {

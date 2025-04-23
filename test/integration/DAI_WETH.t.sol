@@ -11,6 +11,7 @@ import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
 contract DAIWETHTest is
     AllowanceHolderPairTest,
@@ -48,6 +49,10 @@ contract DAIWETHTest is
 
     function amount() internal pure override returns (uint256) {
         return 1000e18;
+    }
+
+    function testBlockNumber() internal pure virtual override(MainnetDefaultFork, UniswapV3PairTest) returns (uint256) {
+        return super.testBlockNumber();
     }
 
     function uniswapV3Path()

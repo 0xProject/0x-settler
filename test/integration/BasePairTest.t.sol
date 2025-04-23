@@ -12,6 +12,8 @@ import {Permit2Signature} from "../utils/Permit2Signature.sol";
 import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
+import {UNIVERSAL_ROUTER} from "src/vendor/IUniswapUniversalRouter.sol";
+
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDefaultFork {
     using SafeTransferLib for IERC20;
 
@@ -82,6 +84,13 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
         bytes32 beforeValue = vm.load(address(PERMIT2), slotId);
         if (uint256(beforeValue) == 0) {
             vm.store(address(PERMIT2), slotId, bytes32(uint256(1)));
+        }
+
+        // For AllowanceTransfer, we also warm the nonce for `fromToken()`
+        slotId = keccak256(abi.encode(UNIVERSAL_ROUTER, keccak256(abi.encode(fromToken(), keccak256(abi.encode(FROM, uint256(1)))))));
+        beforeValue = vm.load(address(PERMIT2), slotId);
+        if (uint256(beforeValue) == 0) {
+            vm.store(address(PERMIT2), slotId, bytes32(uint256(1 << 208)));
         }
     }
 

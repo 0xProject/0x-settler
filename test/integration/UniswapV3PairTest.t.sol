@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IAllowanceTransfer} from "@permit2/interfaces/IAllowanceTransfer.sol";
 
-import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {UNIVERSAL_ROUTER, encodePermit2Permit, encodeV3Swap} from "src/vendor/IUniswapUniversalRouter.sol";
 
 import {BasePairTest} from "./BasePairTest.t.sol";
 import {IUniswapV3Router} from "./vendor/IUniswapV3Router.sol";
 
 abstract contract UniswapV3PairTest is BasePairTest {
-    using SafeTransferLib for IERC20;
-
     IUniswapV3Router private constant UNISWAP_ROUTER = IUniswapV3Router(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
     function setUp() public virtual override {
         super.setUp();
         safeApproveIfBelow(fromToken(), FROM, address(UNISWAP_ROUTER), amount());
+    }
+
+    function testBlockNumber() internal pure virtual override returns (uint256) {
+        return 22333955;
     }
 
     function uniswapV3PathCompat() internal view virtual returns (bytes memory);
@@ -37,7 +37,7 @@ abstract contract UniswapV3PairTest is BasePairTest {
         snapEnd();
     }
 
-    function testUniversalRouter() public {
+    function testUniswapV3UniversalRouter() public {
         bytes memory commands = new bytes(2);
         bytes[] memory inputs = new bytes[](2);
 
@@ -46,8 +46,12 @@ abstract contract UniswapV3PairTest is BasePairTest {
         bytes memory path = uniswapV3PathCompat();
 
         (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
-        (commands[1], inputs[1]) = encodeV3Swap(FROM, amount(), 0, uniswapV3PathCompat(), true);
+        (commands[1], inputs[1]) = encodeV3Swap(FROM, amount(), 0, path, true);
 
+        vm.startPrank(FROM, FROM);
+        snapStartName("universalRouter_uniswapV3");
         UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
+        snapEnd();
+        vm.stopPrank();
     }
 }
