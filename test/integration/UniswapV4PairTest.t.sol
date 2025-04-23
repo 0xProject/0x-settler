@@ -28,8 +28,8 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
             for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
                 if (
-                    mulmod(uint160(address(fromToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
-                        != mulmod(uint160(address(toToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                    mulmod(uint160(address(fromTokenCompat)), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        != mulmod(uint160(address(toTokenCompat)), hashMul, hashMod) % NotesLib.MAX_TOKENS
                 ) {
                     return (hashMul, hashMod);
                 }
