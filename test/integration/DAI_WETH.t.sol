@@ -88,6 +88,14 @@ contract DAIWETHTest is
         return 0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11;
     }
 
+    function uniswapV4FeeTier() internal view virtual override returns (uint24) {
+        return 3000;
+    }
+
+    function uniswapV4TickSpacing() internal view virtual override returns (int24) {
+        return 60;
+    }
+
     function getCurveV2PoolData()
         internal
         pure

@@ -60,6 +60,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
         vm.label(MAKER, "MAKER");
         vm.label(BURN_ADDRESS, "BURN");
 
+        vm.makePersistent(FROM);
+
         // Initialize addresses with non-zero balances
         // https://github.com/0xProject/0x-settler#gas-comparisons
         if (address(fromToken()).code.length != 0) {
