@@ -43,7 +43,7 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         bool zeroForOne = fromToken() < toToken();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(_settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.UNISWAPV2, (address(_settler), address(fromToken()), 10_000, uniswapV2Pool(), uint24((30 << 8) | (zeroForOne ? 1 : 0)), 0 wei)),
+            abi.encodeCall(ISettlerActions.UNISWAPV2, (address(_settler), address(fromToken()), 0, uniswapV2Pool(), uint24((30 << 8) | (zeroForOne ? 1 : 0)), 0 wei)),
             abi.encodeCall(ISettlerActions.BASIC, (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 10_000, 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei)))
         );
         ISettlerBase.AllowedSlippage memory slippage =
