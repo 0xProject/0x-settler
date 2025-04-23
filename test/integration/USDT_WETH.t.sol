@@ -6,7 +6,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
+import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {UniswapV4PairTest} from "./UniswapV4PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
@@ -22,7 +24,9 @@ contract USDTWETHTest is
     SettlerPairTest,
     SettlerMetaTxnPairTest,
     TokenTransferTest,
+    UniswapV2PairTest,
     UniswapV3PairTest,
+    UniswapV4PairTest,
     CurveTricryptoPairTest,
     ZeroExPairTest
 {
@@ -56,6 +60,10 @@ contract USDTWETHTest is
 
     function amount() internal pure override returns (uint256) {
         return 1000e6;
+    }
+
+    function slippageLimit() internal pure override returns (uint256) {
+        return 0.5 ether;
     }
 
     function testBlockNumber()
