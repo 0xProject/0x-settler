@@ -76,13 +76,14 @@ function target {
 #                  data length             32 bytes
 #                  data                    variable
 declare -r multisend_sig='multiSend(bytes)'
+declare -r multisend_selector="$(cast sig "$multisend_sig")"
 
 declare -r execTransaction_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
 
 declare -r eip712_message_json_template='{
     "to": $to,
     "value": 0,
-    "data": $data,
+    "data": $data[0],
     "operation": $operation,
     "safeTxGas": 0,
     "baseGas": 0,
@@ -182,7 +183,7 @@ function eip712_json {
     --arg verifyingContract "$safe_address" \
     --arg chainId "$chainid"                \
     --arg to "$_eip712_json_to"             \
-    --arg data "$_eip712_json_calldata"     \
+    --slurpfile data <(jq -R . <<<"$_eip712_json_calldata") \
     --arg operation $_eip712_json_operation \
     --arg nonce $(nonce)                    \
     <<<'{}'

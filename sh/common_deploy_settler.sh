@@ -151,8 +151,19 @@ if [[ -n "${deployer_address-}" ]] ; then
                 )"
             )
         done
+        declare multicall_args
+        multicall_args="$(cast concat-hex "${deploy_calldatas[@]}")"
+        multicall_args="${multicall_args:2}"
+
+        declare multicall_args_length="${#multicall_args}"
+        multicall_args_length=$(( multicall_args_length / 2 ))
+        multicall_args_length="$(cast to-uint256 $multicall_args_length)"
+        multicall_args_length="${multicall_args_length:2}"
+
+        multicall_args="$multisend_selector"'0000000000000000000000000000000000000000000000000000000000000020'"$multicall_args_length""$multicall_args"
+
         deploy_calldatas=(
-            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
+            1 "$multicall_args" "$multicall_address"
         )
     fi
 fi
