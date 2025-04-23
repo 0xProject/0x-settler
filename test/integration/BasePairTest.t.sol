@@ -87,7 +87,9 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
         }
 
         // For AllowanceTransfer, we also warm the nonce for `fromToken()`
-        slotId = keccak256(abi.encode(UNIVERSAL_ROUTER, keccak256(abi.encode(fromToken(), keccak256(abi.encode(FROM, uint256(1)))))));
+        slotId = keccak256(
+            abi.encode(UNIVERSAL_ROUTER, keccak256(abi.encode(fromToken(), keccak256(abi.encode(FROM, uint256(1))))))
+        );
         beforeValue = vm.load(address(PERMIT2), slotId);
         if (uint256(beforeValue) == 0) {
             vm.store(address(PERMIT2), slotId, bytes32(uint256(1 << 208)));

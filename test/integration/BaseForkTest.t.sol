@@ -10,7 +10,7 @@ contract MainnetDefaultFork is BaseForkTest {
     function testChainId() internal pure virtual override returns (string memory) {
         return "mainnet";
     }
-    
+
     function testBlockNumber() internal pure virtual override returns (uint256) {
         return 18685612;
     }

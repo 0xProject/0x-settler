@@ -345,7 +345,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory call = abi.encodeCall(
             settler.execute,
             (
-                ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+                ISettlerBase.AllowedSlippage({
+                    recipient: payable(address(0)),
+                    buyToken: IERC20(address(0)),
+                    minAmountOut: 0 ether
+                }),
                 actions,
                 bytes32(0)
             )

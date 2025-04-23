@@ -45,9 +45,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
         bytes memory initCode = settlerInitCode();
         assembly ("memory-safe") {
             r := create(0x00, add(0x20, initCode), mload(initCode))
-            if iszero(r) {
-                revert(0x00, 0x00)
-            }
+            if iszero(r) { revert(0x00, 0x00) }
         }
     }
 

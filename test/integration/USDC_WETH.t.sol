@@ -73,7 +73,13 @@ contract USDCWETHTest is
         return 1000e6;
     }
 
-    function testBlockNumber() internal pure virtual override(MainnetDefaultFork, UniswapV3PairTest) returns (uint256) {
+    function testBlockNumber()
+        internal
+        pure
+        virtual
+        override(MainnetDefaultFork, UniswapV3PairTest)
+        returns (uint256)
+    {
         return super.testBlockNumber();
     }
 
@@ -147,12 +153,7 @@ contract USDCWETHTest is
     }
 
     function ekuboFills() internal view virtual override returns (bytes memory) {
-        return abi.encodePacked(
-            uint16(10_000),
-            bytes1(0x01),
-            _eth,
-            ekuboPoolConfig()
-        );
+        return abi.encodePacked(uint16(10_000), bytes1(0x01), _eth, ekuboPoolConfig());
     }
 
     function recipient() internal view virtual override returns (address) {
@@ -170,7 +171,10 @@ contract USDCWETHTest is
             data[i] = actions[i];
         }
         data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, ""));
-        data[actions.length + 1] = abi.encodeCall(ISettlerActions.BASIC, (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0)))));
+        data[actions.length + 1] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+        );
         return data;
     }
 }

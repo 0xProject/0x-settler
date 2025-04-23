@@ -19,7 +19,12 @@ import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 abstract contract UniswapV4PairTest is SettlerBasePairTest {
     using UnsafeMath for uint256;
 
-    function uniswapV4PerfectHash(IERC20 fromTokenCompat, IERC20 toTokenCompat) internal view virtual returns (uint256 hashMod, uint256 hashMul) {
+    function uniswapV4PerfectHash(IERC20 fromTokenCompat, IERC20 toTokenCompat)
+        internal
+        view
+        virtual
+        returns (uint256 hashMod, uint256 hashMul)
+    {
         for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
             for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
                 if (
@@ -55,15 +60,26 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         bytes memory commands = new bytes(2);
         bytes[] memory inputs = new bytes[](2);
 
-        IAllowanceTransfer.PermitSingle memory permit = defaultERC20PermitSingle(address(fromToken()), PERMIT2_FROM_NONCE);
-        bytes memory signature = getPermitSingleSignature(permit, address(UNIVERSAL_ROUTER), FROM_PRIVATE_KEY, permit2Domain);
+        IAllowanceTransfer.PermitSingle memory permit =
+            defaultERC20PermitSingle(address(fromToken()), PERMIT2_FROM_NONCE);
+        bytes memory signature =
+            getPermitSingleSignature(permit, address(UNIVERSAL_ROUTER), FROM_PRIVATE_KEY, permit2Domain);
 
         (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
         IERC20 fromTokenCompat = _canonicalize(fromToken());
         IERC20 toTokenCompat = _canonicalize(toToken());
-        (commands[1], inputs[1]) = encodeV4Swap(FROM, amount(), 0 wei, fromTokenCompat, uniswapV4FeeTier(), uniswapV4TickSpacing(), uniswapV4Hook(), toTokenCompat);
+        (commands[1], inputs[1]) = encodeV4Swap(
+            FROM,
+            amount(),
+            0 wei,
+            fromTokenCompat,
+            uniswapV4FeeTier(),
+            uniswapV4TickSpacing(),
+            uniswapV4Hook(),
+            toTokenCompat
+        );
 
-        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
 
         vm.startPrank(FROM, FROM);
@@ -82,14 +98,26 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         assertEq(permit.permitted.token, address(fromTokenCompat));
 
         (uint256 hashMul, uint256 hashMod) = uniswapV4PerfectHash(fromTokenCompat, toTokenCompat);
-        bytes memory fills = abi.encodePacked(uint16(10_000), bytes1(0x01), toTokenCompat, uniswapV4FeeTier(), uniswapV4TickSpacing(), uniswapV4Hook(), uint24(0), "");
+        bytes memory fills = abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x01),
+            toTokenCompat,
+            uniswapV4FeeTier(),
+            uniswapV4TickSpacing(),
+            uniswapV4Hook(),
+            uint24(0),
+            ""
+        );
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV4_VIP, (FROM, false, hashMul, hashMod, fills, permit, sig, 0 wei))
         );
-        ISettlerBase.AllowedSlippage memory slippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
 
-        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
 
         Settler _settler = settler;

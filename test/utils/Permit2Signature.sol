@@ -42,7 +42,11 @@ contract Permit2Signature is Test {
         result.deadline = block.timestamp + 100;
     }
 
-    function defaultERC20PermitSingle(address token, uint48 nonce) internal view returns (IAllowanceTransfer.PermitSingle memory permit) {
+    function defaultERC20PermitSingle(address token, uint48 nonce)
+        internal
+        view
+        returns (IAllowanceTransfer.PermitSingle memory permit)
+    {
         permit = IAllowanceTransfer.PermitSingle({
             details: IAllowanceTransfer.PermitDetails({
                 token: address(token),
@@ -162,10 +166,16 @@ contract Permit2Signature is Test {
         return bytes.concat(r, s, bytes1(v));
     }
 
-    function getPermitSingleSignature(IAllowanceTransfer.PermitSingle memory permit, address spender, uint256 privateKey, bytes32 domainSep) internal pure returns (bytes memory sig) {
+    function getPermitSingleSignature(
+        IAllowanceTransfer.PermitSingle memory permit,
+        address spender,
+        uint256 privateKey,
+        bytes32 domainSep
+    ) internal pure returns (bytes memory sig) {
         permit.spender = spender;
         bytes32 detailsHash = keccak256(abi.encode(_PERMIT_DETAILS_TYPEHASH, permit.details));
-        bytes32 structHash = keccak256(abi.encode(_PERMIT_SINGLE_TYPEHASH, detailsHash, permit.spender, permit.sigDeadline));
+        bytes32 structHash =
+            keccak256(abi.encode(_PERMIT_SINGLE_TYPEHASH, detailsHash, permit.spender, permit.sigDeadline));
         bytes32 signingHash = keccak256(abi.encodePacked(bytes2(0x1901), domainSep, structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signingHash);
         return bytes.concat(r, s, bytes1(v));

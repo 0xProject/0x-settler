@@ -49,7 +49,12 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest {
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest) returns (bytes memory) {
+    function uniswapV3Path()
+        internal
+        pure
+        override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest)
+        returns (bytes memory)
+    {
         return abi.encodePacked(fromToken(), uint8(0), uint24(100), toToken());
     }
 

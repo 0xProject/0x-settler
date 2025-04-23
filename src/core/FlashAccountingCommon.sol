@@ -109,7 +109,6 @@ library NotesLib {
         return eq(xp, y);
     }
 
-
     function eq(NotePtr x, NotePtr y) internal pure returns (bool r) {
         assembly ("memory-safe") {
             r := eq(x, y)
@@ -695,9 +694,7 @@ library Decoder {
 
                 unchecked {
                     NotePtr globalSell = state.globalSell();
-                    globalSell.setAmount(
-                        (globalSell.token().fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS)
-                    );
+                    globalSell.setAmount((globalSell.token().fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS));
                 }
             } else {
                 assert(payer == address(0));
@@ -749,7 +746,9 @@ library Take {
 
             mstore(0x60, amount)
             mstore(0x40, to)
-            mstore(0x2c, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, token)), token)) // clears `to`'s padding
+            mstore(
+                0x2c, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, token)), token)
+            ) // clears `to`'s padding
             mstore(0x0c, shl(0x60, selector)) // clears `token`'s padding
 
             if iszero(call(gas(), caller(), 0x00, 0x1c, 0x64, 0x00, 0x00)) {
@@ -768,13 +767,10 @@ library Take {
     /// (`buyAmount`), after checking it against the slippage limit (`minBuyAmount`). Each token
     /// with credit causes a corresponding call to `msg.sender.<selector>(token, recipient,
     /// amount)`.
-    function take(
-        State state,
-        NotesLib.Note[] memory notes,
-        uint32 selector,
-        address recipient,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+    function take(State state, NotesLib.Note[] memory notes, uint32 selector, address recipient, uint256 minBuyAmount)
+        internal
+        returns (uint256 buyAmount)
+    {
         notes.del(state.buy());
         if (state.sell().amount() == 0) {
             notes.del(state.sell());

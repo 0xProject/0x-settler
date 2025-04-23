@@ -58,7 +58,13 @@ contract USDTWETHTest is
         return 1000e6;
     }
 
-    function testBlockNumber() internal pure virtual override(MainnetDefaultFork, UniswapV3PairTest) returns (uint256) {
+    function testBlockNumber()
+        internal
+        pure
+        virtual
+        override(MainnetDefaultFork, UniswapV3PairTest)
+        returns (uint256)
+    {
         return super.testBlockNumber();
     }
 

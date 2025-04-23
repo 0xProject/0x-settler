@@ -51,7 +51,13 @@ contract DAIWETHTest is
         return 1000e18;
     }
 
-    function testBlockNumber() internal pure virtual override(MainnetDefaultFork, UniswapV3PairTest) returns (uint256) {
+    function testBlockNumber()
+        internal
+        pure
+        virtual
+        override(MainnetDefaultFork, UniswapV3PairTest)
+        returns (uint256)
+    {
         return super.testBlockNumber();
     }
 

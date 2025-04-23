@@ -195,7 +195,10 @@ abstract contract UniswapV4 is SettlerAbstract {
             zeroForOne :=
                 or(
                     eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
-                    and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)), lt(sellTokenShifted, buyTokenShifted))
+                    and(
+                        iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)),
+                        lt(sellTokenShifted, buyTokenShifted)
+                    )
                 )
         }
         (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);
@@ -261,9 +264,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                 globalSell.setAmount(_permitToSellAmountCalldata(permit));
             }
             if (feeOnTransfer) {
-                globalSell.setAmount(
-                    _pay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
-                );
+                globalSell.setAmount(_pay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig));
             }
             state.setGlobalSellAmount(globalSell.amount());
         }

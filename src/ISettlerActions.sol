@@ -243,7 +243,7 @@ interface ISettlerActions {
         bytes memory fills,
         uint256 amountOutMin
     ) external;
-    
+
     function EKUBO_VIP(
         address recipient,
         bool feeOnTransfer,

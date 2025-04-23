@@ -6,7 +6,12 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IAllowanceTransfer} from "@permit2/interfaces/IAllowanceTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
-import {UNIVERSAL_ROUTER, encodePermit2Permit, encodeV3Swap, encodeUnwrapWeth} from "src/vendor/IUniswapUniversalRouter.sol";
+import {
+    UNIVERSAL_ROUTER,
+    encodePermit2Permit,
+    encodeV3Swap,
+    encodeUnwrapWeth
+} from "src/vendor/IUniswapUniversalRouter.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
@@ -47,15 +52,17 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         bytes memory commands = new bytes(3);
         bytes[] memory inputs = new bytes[](3);
 
-        IAllowanceTransfer.PermitSingle memory permit = defaultERC20PermitSingle(address(fromToken()), PERMIT2_FROM_NONCE);
-        bytes memory signature = getPermitSingleSignature(permit, address(UNIVERSAL_ROUTER), FROM_PRIVATE_KEY, permit2Domain);
+        IAllowanceTransfer.PermitSingle memory permit =
+            defaultERC20PermitSingle(address(fromToken()), PERMIT2_FROM_NONCE);
+        bytes memory signature =
+            getPermitSingleSignature(permit, address(UNIVERSAL_ROUTER), FROM_PRIVATE_KEY, permit2Domain);
         bytes memory path = uniswapV3PathCompat();
 
         (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
         (commands[1], inputs[1]) = encodeV3Swap(address(UNIVERSAL_ROUTER), amount(), 0 wei, path, true);
         (commands[2], inputs[2]) = encodeUnwrapWeth(FROM, 0 wei);
 
-        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
 
         vm.startPrank(FROM, FROM);
@@ -65,7 +72,11 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         vm.stopPrank();
     }
 
-    function testSettler_uniswapV3VIP_toNative() public skipIf(uniswapV3Path().length == 0) skipIf(toToken() != IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)) {
+    function testSettler_uniswapV3VIP_toNative()
+        public
+        skipIf(uniswapV3Path().length == 0)
+        skipIf(toToken() != IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2))
+    {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         Settler _settler = settler;
@@ -73,12 +84,24 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         bool zeroForOne = fromToken() < toToken();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), uniswapV3Path(), permit, sig, 0 wei)),
-            abi.encodeCall(ISettlerActions.BASIC, (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 10_000, 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei)))
+            abi.encodeCall(
+                ISettlerActions.BASIC,
+                (
+                    0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+                    10_000,
+                    0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+                    4,
+                    abi.encodeWithSignature("withdraw(uint256)", 0 wei)
+                )
+            )
         );
-        ISettlerBase.AllowedSlippage memory slippage =
-            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), minAmountOut: 0 ether});
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: FROM,
+            buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE),
+            minAmountOut: 0 ether
+        });
 
-        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
 
         vm.startPrank(FROM, FROM);

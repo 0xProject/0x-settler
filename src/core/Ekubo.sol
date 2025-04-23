@@ -65,13 +65,10 @@ library UnsafeEkuboCore {
     /// but we keep them as `int256` so as not to duplicate any work.
     ///
     /// The `skipAhead` argument of the underlying `swap` function is hardcoded to zero.
-    function unsafeSwap(
-        IEkuboCore core,
-        PoolKey memory poolKey,
-        int256 amount,
-        bool isToken1,
-        SqrtRatio sqrtRatioLimit
-    ) internal returns (int256 delta0, int256 delta1) {
+    function unsafeSwap(IEkuboCore core, PoolKey memory poolKey, int256 amount, bool isToken1, SqrtRatio sqrtRatioLimit)
+        internal
+        returns (int256 delta0, int256 delta1)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -348,7 +345,12 @@ abstract contract Ekubo is SettlerAbstract {
                     isToken1 :=
                         or(
                             eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
-                            and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)), lt(buyTokenShifted, sellTokenShifted))
+                            and(
+                                iszero(
+                                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)
+                                ),
+                                lt(buyTokenShifted, sellTokenShifted)
+                            )
                         )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
@@ -371,9 +373,8 @@ abstract contract Ekubo is SettlerAbstract {
                 SqrtRatio sqrtRatio = SqrtRatio.wrap(
                     uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
                 );
-                (int256 delta0, int256 delta1) = IEkuboCore(msg.sender).unsafeSwap(
-                    poolKey, amountSpecified, isToken1, sqrtRatio
-                );
+                (int256 delta0, int256 delta1) =
+                    IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
                 // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
                 // `settledSellAmount` is positive, `settledBuyAmount` is negative. So the use of
                 // `asCredit` and `asDebt` below is misleading as they are actually debt and credit,

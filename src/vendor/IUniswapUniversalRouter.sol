@@ -39,23 +39,50 @@ bytes1 constant COMMAND_PERMIT2_PERMIT = 0x0a;
 bytes1 constant COMMAND_WRAP_ETH = 0x0b;
 bytes1 constant COMMAND_UNWRAP_WETH = 0x0c;
 
-function encodeV2Swap(address recipient, uint256 amountIn, uint256 amountOutMin, IERC20 sellToken, IERC20 buyToken, bool payerIsUser) pure returns (bytes1, bytes memory) {
+function encodeV2Swap(
+    address recipient,
+    uint256 amountIn,
+    uint256 amountOutMin,
+    IERC20 sellToken,
+    IERC20 buyToken,
+    bool payerIsUser
+) pure returns (bytes1, bytes memory) {
     address[] memory path = new address[](2);
     path[0] = address(sellToken);
     path[1] = address(buyToken);
     return (COMMAND_V2_EXACT_IN, abi.encode(recipient, amountIn, amountOutMin, path, payerIsUser));
 }
 
-function encodeV3Swap(address recipient, uint256 amountIn, uint256 amountOutMin, IERC20 sellToken, uint24 feeTier, IERC20 buyToken, bool payerIsUser) pure returns (bytes1, bytes memory) {
+function encodeV3Swap(
+    address recipient,
+    uint256 amountIn,
+    uint256 amountOutMin,
+    IERC20 sellToken,
+    uint24 feeTier,
+    IERC20 buyToken,
+    bool payerIsUser
+) pure returns (bytes1, bytes memory) {
     bytes memory path = abi.encodePacked(sellToken, feeTier, buyToken);
     return (COMMAND_V3_EXACT_IN, abi.encode(recipient, amountIn, amountOutMin, path, payerIsUser));
 }
 
-function encodeV3Swap(address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bool payerIsUser) pure returns (bytes1, bytes memory) {
+function encodeV3Swap(address recipient, uint256 amountIn, uint256 amountOutMin, bytes memory path, bool payerIsUser)
+    pure
+    returns (bytes1, bytes memory)
+{
     return (COMMAND_V3_EXACT_IN, abi.encode(recipient, amountIn, amountOutMin, path, payerIsUser));
 }
 
-function encodeV4Swap(address recipient, uint256 amountIn, uint256 amountOutMin, IERC20 sellToken, uint24 feeTier, int24 tickSpacing, address hook, IERC20 buyToken) pure returns (bytes1, bytes memory) {
+function encodeV4Swap(
+    address recipient,
+    uint256 amountIn,
+    uint256 amountOutMin,
+    IERC20 sellToken,
+    uint24 feeTier,
+    int24 tickSpacing,
+    address hook,
+    IERC20 buyToken
+) pure returns (bytes1, bytes memory) {
     Currency currency0;
     Currency currency1;
     bool zeroForOne;
@@ -88,7 +115,8 @@ function encodeV4Swap(address recipient, uint256 amountIn, uint256 amountOutMin,
         hookData: ""
     });
 
-    bytes memory commands = abi.encodePacked(SUBCOMMAND_V4_SWAP_EXACT_IN_SINGLE, SUBCOMMAND_V4_TAKE_ALL, SUBCOMMAND_V4_SETTLE_ALL);
+    bytes memory commands =
+        abi.encodePacked(SUBCOMMAND_V4_SWAP_EXACT_IN_SINGLE, SUBCOMMAND_V4_TAKE_ALL, SUBCOMMAND_V4_SETTLE_ALL);
     bytes[] memory args = new bytes[](3);
     args[0] = abi.encode(params);
     args[1] = abi.encode(buyToken, amountOutMin);

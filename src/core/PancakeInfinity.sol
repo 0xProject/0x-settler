@@ -77,10 +77,7 @@ type IHooks is address;
 
 interface IPancakeInfinityPoolManager {
     /// @notice Return PoolKey for a given PoolId
-    function poolIdToPoolKey(PoolId id)
-        external
-        view
-        returns (PoolKey memory);
+    function poolIdToPoolKey(PoolId id) external view returns (PoolKey memory);
 }
 
 /// @notice Returns the key for identifying a pool
@@ -451,7 +448,12 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     zeroForOne :=
                         or(
                             eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
-                            and(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)), lt(sellTokenShifted, buyTokenShifted))
+                            and(
+                                iszero(
+                                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)
+                                ),
+                                lt(sellTokenShifted, buyTokenShifted)
+                            )
                         )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
