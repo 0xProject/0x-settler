@@ -569,65 +569,65 @@ comparison.
 | ------------------- | ---------- | --------- | ------ | ------ |
 | 0x V4 VIP           | Uniswap V3 | USDC/WETH | 124836 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 138704 | 11.11% |
-| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 182276 | 46.01% |
-| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 194649 | 55.92% |
+| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 182026 | 45.81% |
+| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 194506 | 55.81% |
 | UniswapRouter V3    | Uniswap V3 | USDC/WETH | 121145 | -2.96% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 112270 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 126138 | 12.35% |
-| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 169710 | 51.16% |
-| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 182083 | 62.18% |
+| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 169460 | 50.94% |
+| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 181940 | 62.06% |
 | UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108579 | -3.29% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | USDT/WETH | 115077 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 128945 | 12.05% |
-| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 172530 | 49.93% |
-| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 184903 | 60.68% |
+| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 172280 | 49.71% |
+| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 184760 | 60.55% |
 | UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111258 | -3.32% |
 |                     |            |           |        |        |
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 246383 | 0.00%   |
-| Settler              | Uniswap V3 | USDC/WETH | 212026 | -13.94% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 224982 | -8.69%  |
+| Settler              | Uniswap V3 | USDC/WETH | 211979 | -13.96% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 224905 | -8.72%  |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 223381 | 0.00%   |
-| Settler              | Uniswap V3 | DAI/WETH  | 195404 | -12.52% |
-| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 208360 | -6.72%  |
+| Settler              | Uniswap V3 | DAI/WETH  | 195357 | -12.55% |
+| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 208283 | -6.76%  |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230280 | 0.00%   |
-| Settler              | Uniswap V3 | USDT/WETH | 202081 | -12.25% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 215037 | -6.62%  |
+| Settler              | Uniswap V3 | USDT/WETH | 202033 | -12.27% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 214959 | -6.65%  |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %      |
 | ---------------- | ---------- | --------- | ------ | ------ |
 | 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 209131 | 0.00%  |
-| Settler          | Uniswap V3 | USDC/WETH | 238097 | 13.85% |
+| Settler          | Uniswap V3 | USDC/WETH | 237927 | 13.77% |
 |                  |            |           |        |        |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 196565 | 0.00%  |
-| Settler          | Uniswap V3 | DAI/WETH  | 221475 | 12.67% |
+| Settler          | Uniswap V3 | DAI/WETH  | 221305 | 12.59% |
 |                  |            |           |        |        |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 199372 | 0.00%  |
-| Settler          | Uniswap V3 | USDT/WETH | 228142 | 14.43% |
+| Settler          | Uniswap V3 | USDT/WETH | 227972 | 14.35% |
 |                  |            |           |        |        |
 
 | RFQ             | DEX     | Pair      | Gas    | %       |
 | --------------- | ------- | --------- | ------ | ------- |
 | 0x V4           | 0x V4   | USDC/WETH | 97972  | 0.00%   |
 | Settler         | Settler | USDC/WETH | 138983 | 41.86%  |
-| Settler         | 0x V4   | USDC/WETH | 230084 | 134.85% |
+| Settler         | 0x V4   | USDC/WETH | 230082 | 134.84% |
 | AllowanceHolder | Settler | USDC/WETH | 154663 | 57.86%  |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | DAI/WETH  | 78498  | 0.00%   |
 | Settler         | Settler | DAI/WETH  | 119509 | 52.24%  |
-| Settler         | 0x V4   | DAI/WETH  | 200174 | 155.01% |
+| Settler         | 0x V4   | DAI/WETH  | 200172 | 155.00% |
 | AllowanceHolder | Settler | DAI/WETH  | 135189 | 72.22%  |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | USDT/WETH | 89610  | 0.00%   |
 | Settler         | Settler | USDT/WETH | 130621 | 45.77%  |
-| Settler         | 0x V4   | USDT/WETH | 215506 | 140.49% |
+| Settler         | 0x V4   | USDT/WETH | 215504 | 140.49% |
 | AllowanceHolder | Settler | USDT/WETH | 146301 | 63.26%  |
 |                 |         |           |        |         |
 
@@ -637,7 +637,7 @@ comparison.
 |                   |                       |           |        |         |
 |                   |                       |           |        |         |
 | 0x V4             | Curve                 | USDT/WETH | 452963 | 0.00%   |
-| Settler           | Curve                 | USDT/WETH | 445716 | -1.60%  |
+| Settler           | Curve                 | USDT/WETH | 445714 | -1.60%  |
 | Settler           | CurveV2 Tricrypto VIP | USDT/WETH | 444877 | -1.79%  |
 | Curve             | Curve                 | USDT/WETH | 341800 | -24.54% |
 | Curve Swap Router | Curve                 | USDT/WETH | 412038 | -9.03%  |
@@ -645,57 +645,57 @@ comparison.
 
 | DODO V1 | DEX     | Pair      | Gas    | %     |
 | ------- | ------- | --------- | ------ | ----- |
-| Settler | DODO V1 | USDC/WETH | 328899 | 0.00% |
+| Settler | DODO V1 | USDC/WETH | 326149 | 0.00% |
 |         |         |           |        |       |
 |         |         |           |        |       |
 |         |         |           |        |       |
 
 | Buy token fee     | DEX        | Pair      | Gas    | %     |
 | ----------------- | ---------- | --------- | ------ | ----- |
-| Settler - custody | Uniswap V3 | USDC/WETH | 220377 | 0.00% |
+| Settler - custody | Uniswap V3 | USDC/WETH | 220275 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | DAI/WETH  | 207811 | 0.00% |
+| Settler - custody | Uniswap V3 | DAI/WETH  | 207709 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | USDT/WETH | 210631 | 0.00% |
+| Settler - custody | Uniswap V3 | USDT/WETH | 210529 | 0.00% |
 |                   |            |           |        |       |
 
 | Sell token fee | DEX        | Pair      | Gas    | %       |
 | -------------- | ---------- | --------- | ------ | ------- |
-| Settler        | Uniswap V3 | USDC/WETH | 228160 | 0.00%   |
+| Settler        | Uniswap V3 | USDC/WETH | 228124 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | DAI/WETH  | 207482 | 0.00%   |
+| Settler        | Uniswap V3 | DAI/WETH  | 207446 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | USDT/WETH | 215934 | 0.00%   |
-| Settler        | Curve      | USDT/WETH | 457501 | 111.87% |
+| Settler        | Uniswap V3 | USDT/WETH | 215897 | 0.00%   |
+| Settler        | Curve      | USDT/WETH | 457510 | 111.91% |
 |                |            |           |        |         |
 
 | AllowanceHolder                      | DEX            | Pair      | Gas    | %       |
 | ------------------------------------ | -------------- | --------- | ------ | ------- |
-| execute                              | Uniswap V3 VIP | USDC/WETH | 194649 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDC/WETH | 184887 | -5.02%  |
-| execute                              | RFQ            | USDC/WETH | 154663 | -20.54% |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 194506 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 184851 | -4.96%  |
+| execute                              | RFQ            | USDC/WETH | 154663 | -20.48% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | DAI/WETH  | 182083 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 173896 | -4.50%  |
-| execute                              | RFQ            | DAI/WETH  | 135189 | -25.75% |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 181940 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 173860 | -4.44%  |
+| execute                              | RFQ            | DAI/WETH  | 135189 | -25.70% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | USDT/WETH | 184903 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDT/WETH | 180888 | -2.17%  |
-| execute                              | RFQ            | USDT/WETH | 146301 | -20.88% |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 184760 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 180851 | -2.12%  |
+| execute                              | RFQ            | USDT/WETH | 146301 | -20.82% |
 |                                      |                |           |        |         |
 
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
 | no fee                          | RFQ | USDC/WETH | 154663 | 0.00%  |
-| proportional fee                | RFQ | USDC/WETH | 203531 | 31.60% |
+| proportional fee                | RFQ | USDC/WETH | 203496 | 31.57% |
 | fixed fee                       | RFQ | USDC/WETH | 172034 | 11.23% |
 |                                 |     |           |        |        |
 | no fee                          | RFQ | DAI/WETH  | 135189 | 0.00%  |
-| proportional fee                | RFQ | DAI/WETH  | 175948 | 30.15% |
+| proportional fee                | RFQ | DAI/WETH  | 175910 | 30.12% |
 | fixed fee                       | RFQ | DAI/WETH  | 148386 | 9.76%  |
 |                                 |     |           |        |        |
 | no fee                          | RFQ | USDT/WETH | 146301 | 0.00%  |
-| proportional fee                | RFQ | USDT/WETH | 192691 | 31.71% |
+| proportional fee                | RFQ | USDT/WETH | 192671 | 31.69% |
 | fixed fee                       | RFQ | USDT/WETH | 160610 | 9.78%  |
 |                                 |     |           |        |        |
 
