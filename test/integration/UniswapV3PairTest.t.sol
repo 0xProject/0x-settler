@@ -49,6 +49,9 @@ abstract contract UniswapV3PairTest is BasePairTest {
         (commands[1], inputs[1]) = encodeV3Swap(address(UNIVERSAL_ROUTER), amount(), 0 wei, path, true);
         (commands[2], inputs[2]) = encodeUnwrapWeth(FROM, 0 wei);
 
+        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        require(success);
+
         vm.startPrank(FROM, FROM);
         snapStartName("universalRouter_uniswapV3");
         UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);

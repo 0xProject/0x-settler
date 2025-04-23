@@ -27,6 +27,9 @@ abstract contract UniswapV4PairTest is BasePairTest {
         }
         (commands[1], inputs[1]) = encodeV4Swap(FROM, amount(), 0 wei, fromTokenCompat, 500, 10, address(0), toTokenCompat);
 
+        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        require(success);
+
         vm.startPrank(FROM, FROM);
         snapStartName("universalRouter_uniswapV4");
         UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
