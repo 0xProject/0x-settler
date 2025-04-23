@@ -97,14 +97,16 @@ library TransientStorage {
         }
     }
 
-    function getAndClearOperatorAndCallback()
+    function getAndClearCallback()
         internal
-        returns (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator)
+        returns (function (bytes calldata) internal returns (bytes memory) callback)
     {
         assembly ("memory-safe") {
-            selector := sload(_OPERATOR_SLOT)
-            callback := and(0xffff, shr(0xa0, selector))
-            operator := selector
+            let slot := sload(_OPERATOR_SLOT)
+            if or(shr(0xe0, xor(calldataload(0), slot)), shl(0x60, xor(caller(), slot))) {
+                revert(0x00, 0x00)
+            }
+            callback := and(0xffff, shr(0xa0, slot))
             sstore(_OPERATOR_SLOT, 0x00)
         }
     }
@@ -248,11 +250,7 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
 
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
         // Retrieve callback and perform call with untrusted calldata
-        (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
-            TransientStorage.getAndClearOperatorAndCallback();
-        require(bytes4(data) == selector);
-        require(msg.sender == operator);
-        return callback(data[4:]);
+        return TransientStorage.getAndClearCallback()(data[4:]);
     }
 }
 
@@ -292,7 +290,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
-    // See comment in above overload; don't use this function
+    // see comment in above overload; don't use this function
     function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,
@@ -433,11 +431,23 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     }
 
     // Solidity inheritance is stupid
-    function _isForwarded() internal view virtual override(AbstractContext, Context, AllowanceHolderContext) returns (bool) {
+    function _isForwarded()
+        internal
+        view
+        virtual
+        override(AbstractContext, Context, AllowanceHolderContext)
+        returns (bool)
+    {
         return super._isForwarded();
     }
 
-    function _msgData() internal view virtual override(AbstractContext, Context, AllowanceHolderContext) returns (bytes calldata) {
+    function _msgData()
+        internal
+        view
+        virtual
+        override(AbstractContext, Context, AllowanceHolderContext)
+        returns (bytes calldata)
+    {
         return super._msgData();
     }
 

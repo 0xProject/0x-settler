@@ -32,6 +32,7 @@ jobs:
         run: forge test --skip 'src/*' --mc MultiCall
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
       - name: Build UniswapV4
         run: forge build -- lib/v4-core/src/PoolManager.sol
@@ -46,3 +47,4 @@ jobs:
         run: forge test --skip 'src/*' --nmc MultiCall
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}

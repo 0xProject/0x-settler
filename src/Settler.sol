@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
@@ -11,9 +12,9 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {ActionInvalid} from "./core/SettlerErrors.sol";
+import {revertActionInvalid} from "./core/SettlerErrors.sol";
 
-abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
+abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
@@ -55,7 +56,6 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
                     bytes
                 )
             );
-
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
         } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
@@ -76,6 +76,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     function execute(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
         public
         payable
+        override
         takerSubmitted
         returns (bool)
     {
@@ -83,7 +84,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
             (uint256 action, bytes calldata data) = actions.decodeCall(0);
             if (!_dispatchVIP(action, data)) {
                 if (!_dispatch(0, action, data)) {
-                    revert ActionInvalid(0, bytes4(uint32(action)), data);
+                    revertActionInvalid(0, action, data);
                 }
             }
         }
@@ -91,7 +92,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, bytes4(uint32(action)), data);
+                revertActionInvalid(i, action, data);
             }
         }
 

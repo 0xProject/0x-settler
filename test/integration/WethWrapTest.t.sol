@@ -2,12 +2,12 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {Test} from "@forge-std/Test.sol";
 import {WETH} from "@solmate/tokens/WETH.sol";
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
-import {SettlerBase} from "src/SettlerBase.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {GasSnapshot} from "@forge-gas-snapshot/GasSnapshot.sol";
@@ -55,8 +55,8 @@ contract WethWrapTest is BasePairTest {
         vm.startPrank(address(this));
         snapStart("wethDeposit");
         settler.execute(
-            SettlerBase.AllowedSlippage({
-                recipient: address(this),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(this)),
                 buyToken: IERC20(address(_weth)),
                 minAmountOut: amount()
             }),
@@ -80,8 +80,8 @@ contract WethWrapTest is BasePairTest {
         vm.startPrank(address(this));
         snapStart("wethWithdraw");
         settler.execute(
-            SettlerBase.AllowedSlippage({
-                recipient: address(this),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(this)),
                 buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE),
                 minAmountOut: amount()
             }),
