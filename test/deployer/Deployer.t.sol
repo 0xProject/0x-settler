@@ -8,16 +8,22 @@ import {Create3} from "src/utils/Create3.sol";
 import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 
+import {MainnetDefaultFork} from "../integration/BaseForkTest.t.sol";
+
 import "@forge-std/Test.sol";
 
 contract Dummy {}
 
-contract DeployerTest is Test {
+contract DeployerTest is Test, MainnetDefaultFork {
     Deployer public deployer;
     address public auth = address(0xc0de60d);
 
+    function testBlockNumber() internal pure override returns (uint256) {
+        return 19921675;
+    }
+
     function setUp() public {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 19921675);
+        vm.createSelectFork(testChainId(), testBlockNumber());
 
         uint256 version = uint256(vm.load(DEPLOYER, bytes32(0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143)));
         address overwriteImpl = address(new Deployer(version));

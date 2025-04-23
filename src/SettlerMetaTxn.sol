@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerMetaTxn} from "./interfaces/ISettlerMetaTxn.sol";
 
 import {Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
 
@@ -10,9 +11,9 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {ConfusedDeputy, ActionInvalid} from "./core/SettlerErrors.sol";
+import {revertActionInvalid} from "./core/SettlerErrors.sol";
 
-abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
+abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
@@ -40,7 +41,7 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
                 i := add(0x20, i)
                 dst := add(0x20, dst)
             } {
-                let src := add(actions.offset, calldataload(i))
+                let src := add(calldataload(i), actions.offset)
                 let length := calldataload(src)
                 calldatacopy(dst, add(0x20, src), length)
                 mstore(dst, keccak256(dst, length))
@@ -122,14 +123,14 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
             if (!_dispatchVIP(action, data, sig)) {
-                revert ActionInvalid(0, bytes4(uint32(action)), data);
+                revertActionInvalid(0, action, data);
             }
         }
 
         for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
             (uint256 action, bytes calldata data) = actions.decodeCall(i);
             if (!_dispatch(i, action, data)) {
-                revert ActionInvalid(i, bytes4(uint32(action)), data);
+                revertActionInvalid(i, action, data);
             }
         }
 
@@ -140,10 +141,10 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
+        bytes32 /* zid & affiliate */,
         address msgSender,
         bytes calldata sig
-    ) public virtual metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+    ) public virtual override metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
     }
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {SettlerBasePairTest, Shim} from "./SettlerBasePairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
@@ -16,7 +17,6 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 import {Settler} from "src/Settler.sol";
-import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
@@ -26,12 +26,26 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
     SettlerMetaTxn internal settlerMetaTxn;
 
+    function settlerMetaTxnInitCode() internal virtual returns (bytes memory) {
+        return bytes.concat(type(SettlerMetaTxn).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function _deploySettlerMetaTxn() private returns (SettlerMetaTxn r) {
+        bytes memory initCode = settlerMetaTxnInitCode();
+        assembly ("memory-safe") {
+            r := create(0x00, add(0x20, initCode), mload(initCode))
+            if iszero(r) {
+                revert(0x00, 0x00)
+            }
+        }
+    }
+
     function setUp() public virtual override {
         super.setUp();
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
-        settlerMetaTxn = new SettlerMetaTxn(bytes20(0));
+        settlerMetaTxn = _deploySettlerMetaTxn();
         vm.chainId(forkChainId);
 
         // ### Taker ###
@@ -78,7 +92,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_rfq");
         _settler.execute(
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
             bytes32(0)
         );
@@ -116,7 +130,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
         _settlerMetaTxn.executeMetaTxn(
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
             bytes32(0),
             FROM,
@@ -149,7 +163,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3VIP");
         _settlerMetaTxn.executeMetaTxn(
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
             bytes32(0),
             FROM,
@@ -205,7 +219,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_rfq");
         _settlerMetaTxn.executeMetaTxn(
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
             actions,
             bytes32(0),
             FROM,
@@ -262,7 +276,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_rfq_fee_full_custody");
         _settler.execute(
-            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000}),
+            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000}),
             actions,
             bytes32(0)
         );
@@ -313,7 +327,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
         vm.expectCall(address(0x01), abi.encode(signingHash, v, r, s));
         settlerMetaTxn.executeMetaTxn(
-            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: fromToken(), minAmountOut: amount()}),
+            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: fromToken(), minAmountOut: amount()}),
             actions,
             bytes32(0),
             FROM,

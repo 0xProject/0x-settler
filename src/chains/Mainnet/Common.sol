@@ -13,7 +13,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -34,9 +34,6 @@ import {
     solidlyV3ForkId,
     ISolidlyV3Callback
 } from "../../core/univ3forks/SolidlyV3.sol";
-
-import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
-import {IOwnable} from "../../deployer/IOwnable.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -126,6 +123,8 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
+            revert("unimplemented");
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -165,11 +164,13 @@ abstract contract MainnetMixin is
             initHash = solidlyV3InitHash;
             callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 
-    function rebateClaimer() external view returns (address) {
-        return IOwnable(DEPLOYER).owner();
+    /*
+    function _curveFactory() internal pure override returns (address) {
+        return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
+    */
 }

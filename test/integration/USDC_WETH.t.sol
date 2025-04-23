@@ -13,8 +13,8 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
-
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
 
 contract USDCWETHTest is
     AllowanceHolderPairTest,
@@ -27,6 +27,8 @@ contract USDCWETHTest is
     TokenTransferTest,
     Permit2TransferTest
 {
+    address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     function setUp()
         public
         override(

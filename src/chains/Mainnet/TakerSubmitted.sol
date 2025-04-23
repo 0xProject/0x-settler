@@ -38,6 +38,8 @@ contract MainnetSettler is Settler, MainnetMixin {
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             revert("unimplemented");
+        } else if (action == uint32(ISettlerActions.EKUBO_VIP.selector)) {
+            revert("unimplemented");
         } else {
             return false;
         }

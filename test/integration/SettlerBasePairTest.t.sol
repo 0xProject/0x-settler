@@ -38,13 +38,27 @@ abstract contract SettlerBasePairTest is BasePairTest {
     IAllowanceHolder internal allowanceHolder;
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
+    function settlerInitCode() internal virtual returns (bytes memory) {
+        return bytes.concat(type(Settler).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function _deploySettler() private returns (Settler r) {
+        bytes memory initCode = settlerInitCode();
+        assembly ("memory-safe") {
+            r := create(0x00, add(0x20, initCode), mload(initCode))
+            if iszero(r) {
+                revert(0x00, 0x00)
+            }
+        }
+    }
+
     function setUp() public virtual override {
         super.setUp();
         allowanceHolder = IAllowanceHolder(0x000000000000175a8b9bC6d539B3708EEd92EA6c);
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
-        settler = new Settler(bytes20(0));
+        settler = _deploySettler();
         vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
         vm.label(address(allowanceHolder), "AllowanceHolder");
         vm.chainId(forkChainId);

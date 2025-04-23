@@ -42,6 +42,8 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
         } else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
             revert("unimplemented");
+        } else if (action == uint32(ISettlerActions.METATXN_EKUBO_VIP.selector)) {
+            revert("unimplemented");
         } else {
             return false;
         }
