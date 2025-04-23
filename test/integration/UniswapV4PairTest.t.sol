@@ -89,8 +89,11 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         ISettlerBase.AllowedSlippage memory slippage =
             ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
 
+        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        require(success);
+
         Settler _settler = settler;
-        vm.startPrank(FROM);
+        vm.startPrank(FROM, FROM);
         snapStartName("settler_uniswapV4VIP_toNative");
         _settler.execute(slippage, actions, bytes32(0));
         snapEnd();
