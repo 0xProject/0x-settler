@@ -637,14 +637,18 @@ comparison.
 
 | UniversalRouter | DEX       | Pair      | Gas    | %       |
 | --------------- | --------- | --------- | ------ | ------- |
-| UniversalRouter | UniswapV2 | USDC/WETH | 181439 | 0.00%   |
-| Settler         | UniswapV2 | USDC/WETH | 172182 | -5.10%  |
-| UniversalRouter | UniswapV3 | USDC/WETH | 177733 | -2.04%  |
-| Settler         | UniswapV3 | USDC/WETH | 174000 | -4.10%  |
-| UniversalRouter | UniswapV4 | USDC/WETH | 142445 | -21.49% |
+| UniversalRouter | UniswapV2 | USDC/WETH | 181445 | 0.00%   |
+| Settler         | UniswapV2 | USDC/WETH | 172162 | -5.12%  |
+| UniversalRouter | UniswapV3 | USDC/WETH | 177739 | -2.04%  |
+| Settler         | UniswapV3 | USDC/WETH | 173980 | -4.11%  |
+| UniversalRouter | UniswapV4 | USDC/WETH | 142451 | -21.49% |
 | Settler         | UniswapV4 | USDC/WETH | 135226 | -25.47% |
 |                 |           |           |        |         |
+| UniversalRouter | UniswapV3 | DAI/WETH  | 168397 | NaN%    |
+| Settler         | UniswapV3 | DAI/WETH  | 164713 | NaN%    |
 |                 |           |           |        |         |
+| UniversalRouter | UniswapV3 | USDT/WETH | 179978 | NaN%    |
+| Settler         | UniswapV3 | USDT/WETH | 176275 | NaN%    |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | WETH/USDC | 167008 | 0.00%   |
 | Settler         | UniswapV2 | WETH/USDC | 160748 | -3.75%  |
