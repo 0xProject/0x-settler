@@ -75,7 +75,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
     function testSettler_uniswapV3VIP_toNative()
         public
         skipIf(uniswapV3Path().length == 0)
-        skipIf(toToken() != IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2))
+        skipIf(toToken() != WETH)
     {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
@@ -87,9 +87,9 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (
-                    0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+                    address(WETH),
                     10_000,
-                    0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+                    address(WETH),
                     4,
                     abi.encodeWithSignature("withdraw(uint256)", 0 wei)
                 )
@@ -97,7 +97,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: FROM,
-            buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE),
+            buyToken: ETH,
             minAmountOut: 0 ether
         });
 

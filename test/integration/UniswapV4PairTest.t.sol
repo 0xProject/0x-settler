@@ -50,8 +50,8 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
     }
 
     function _canonicalize(IERC20 token) private pure returns (IERC20) {
-        if (token == IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)) {
-            return IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+        if (token == WETH) {
+            return ETH;
         }
         return token;
     }
@@ -89,12 +89,11 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         vm.stopPrank();
     }
 
-    function testSettler_uniswapV4VIP_toNative() public {
+    function testSettler_uniswapV4VIP_toNative() public skipIf(_canonicalize(toToken()) != ETH) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         IERC20 fromTokenCompat = _canonicalize(fromToken());
         IERC20 toTokenCompat = _canonicalize(toToken());
-        vm.assume(toTokenCompat == IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE));
         assertEq(permit.permitted.token, address(fromTokenCompat));
 
         (uint256 hashMul, uint256 hashMod) = uniswapV4PerfectHash(fromTokenCompat, toTokenCompat);

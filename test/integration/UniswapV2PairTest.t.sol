@@ -10,6 +10,7 @@ import {
     UNIVERSAL_ROUTER,
     encodePermit2Permit,
     encodeV2Swap,
+    encodeWrapEth,
     encodeUnwrapWeth
 } from "src/vendor/IUniswapUniversalRouter.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
@@ -19,7 +20,7 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 
 abstract contract UniswapV2PairTest is SettlerPairTest {
-    function testUniswapV2UniversalRouter() public skipIf(uniswapV2Pool() == address(0)) {
+    function testUniswapV2UniversalRouterToNative() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH)  {
         bytes memory commands = new bytes(3);
         bytes[] memory inputs = new bytes[](3);
 
@@ -43,10 +44,25 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         vm.stopPrank();
     }
 
+    function testUniswapV2UniversalRouterFromNative() public skipIf(uniswapV2Pool() == address(0)) skipIf(fromToken() != WETH) {
+        bytes memory commands = new bytes(2);
+        bytes[] memory inputs = new bytes[](2);
+
+        (commands[0], inputs[0]) = encodeWrapEth(address(uniswapV2Pool()), amount());
+        (commands[1], inputs[1]) = encodeV2Swap(FROM, 0 wei, 0 wei, fromToken(), toToken(), false);
+
+        vm.deal(FROM, amount());
+        vm.startPrank(FROM, FROM);
+        snapStartName("universalRouter_uniswapV2");
+        UNIVERSAL_ROUTER.execute{value: amount()}(commands, inputs, block.timestamp);
+        snapEnd();
+        vm.stopPrank();
+    }
+
     function testSettler_uniswapV2_toNative()
         public
         skipIf(uniswapV2Pool() == address(0))
-        skipIf(toToken() != IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2))
+        skipIf(toToken() != WETH)
     {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
@@ -69,9 +85,9 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (
-                    0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+                    address(WETH),
                     10_000,
-                    0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+                    address(WETH),
                     4,
                     abi.encodeWithSignature("withdraw(uint256)", 0 wei)
                 )
@@ -79,7 +95,7 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: FROM,
-            buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE),
+            buyToken: ETH,
             minAmountOut: 0 ether
         });
 
@@ -89,6 +105,51 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_uniswapV2_toNative");
         _settler.execute(slippage, actions, bytes32(0));
+        snapEnd();
+    }
+
+    function testSettler_uniswapV2_fromNative()
+        public
+        skipIf(uniswapV2Pool() == address(0))
+        skipIf(fromToken() != WETH)
+    {
+
+        bool zeroForOne = fromToken() < toToken();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.BASIC,
+                (
+                    address(ETH),
+                    10_000,
+                    address(WETH),
+                    4,
+                    bytes.concat(abi.encodeWithSignature("deposit()"), bytes32(0))
+                )
+            ),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2,
+                (
+                    FROM,
+                    address(fromToken()),
+                    10_000,
+                    uniswapV2Pool(),
+                    uint24((30 << 8) | (zeroForOne ? 1 : 0)),
+                    0 wei
+                )
+            )
+        );
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
+
+        Settler _settler = settler;
+        vm.deal(FROM, amount());
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_uniswapV2_fromNative");
+        _settler.execute{value: amount()}(slippage, actions, bytes32(0));
         snapEnd();
     }
 }
