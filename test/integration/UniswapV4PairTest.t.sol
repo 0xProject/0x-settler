@@ -167,7 +167,10 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
             ""
         );
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV4, (FROM, address(fromTokenCompat), 10_000, false, hashMul, hashMod, fills, 0 wei))
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV4,
+                (FROM, address(fromTokenCompat), 10_000, false, hashMul, hashMod, fills, 0 wei)
+            )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),

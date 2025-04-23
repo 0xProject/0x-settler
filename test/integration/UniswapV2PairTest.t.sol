@@ -20,7 +20,11 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 
 abstract contract UniswapV2PairTest is SettlerPairTest {
-    function testUniswapV2UniversalRouterToNative() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH)  {
+    function testUniswapV2UniversalRouterToNative()
+        public
+        skipIf(uniswapV2Pool() == address(0))
+        skipIf(toToken() != WETH)
+    {
         bytes memory commands = new bytes(3);
         bytes[] memory inputs = new bytes[](3);
 
@@ -44,7 +48,11 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         vm.stopPrank();
     }
 
-    function testUniswapV2UniversalRouterFromNative() public skipIf(uniswapV2Pool() == address(0)) skipIf(fromToken() != WETH) {
+    function testUniswapV2UniversalRouterFromNative()
+        public
+        skipIf(uniswapV2Pool() == address(0))
+        skipIf(fromToken() != WETH)
+    {
         bytes memory commands = new bytes(2);
         bytes[] memory inputs = new bytes[](2);
 
@@ -59,11 +67,7 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         vm.stopPrank();
     }
 
-    function testSettler_uniswapV2_toNative()
-        public
-        skipIf(uniswapV2Pool() == address(0))
-        skipIf(toToken() != WETH)
-    {
+    function testSettler_uniswapV2_toNative() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         Settler _settler = settler;
@@ -84,20 +88,11 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
             ),
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (
-                    address(WETH),
-                    10_000,
-                    address(WETH),
-                    4,
-                    abi.encodeWithSignature("withdraw(uint256)", 0 wei)
-                )
+                (address(WETH), 10_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
             )
         );
-        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
-            recipient: FROM,
-            buyToken: ETH,
-            minAmountOut: 0 ether
-        });
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: ETH, minAmountOut: 0 ether});
 
         (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
@@ -113,29 +108,15 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         skipIf(uniswapV2Pool() == address(0))
         skipIf(fromToken() != WETH)
     {
-
         bool zeroForOne = fromToken() < toToken();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (
-                    address(ETH),
-                    10_000,
-                    address(WETH),
-                    4,
-                    bytes.concat(abi.encodeWithSignature("deposit()"), bytes32(0))
-                )
+                (address(ETH), 10_000, address(WETH), 4, bytes.concat(abi.encodeWithSignature("deposit()"), bytes32(0)))
             ),
             abi.encodeCall(
                 ISettlerActions.UNISWAPV2,
-                (
-                    FROM,
-                    address(fromToken()),
-                    10_000,
-                    uniswapV2Pool(),
-                    uint24((30 << 8) | (zeroForOne ? 1 : 0)),
-                    0 wei
-                )
+                (FROM, address(fromToken()), 10_000, uniswapV2Pool(), uint24((30 << 8) | (zeroForOne ? 1 : 0)), 0 wei)
             )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({

@@ -13,14 +13,7 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
 contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest {
-    function setUp()
-        public
-        override(
-            SettlerBasePairTest,
-            SettlerPairTest,
-            UniswapV3PairTest
-        )
-    {
+    function setUp() public override(SettlerBasePairTest, SettlerPairTest, UniswapV3PairTest) {
         super.setUp();
     }
 
@@ -40,12 +33,7 @@ contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest
         return 1 ether;
     }
 
-    function uniswapV3Path()
-        internal
-        pure
-        override(SettlerPairTest)
-        returns (bytes memory)
-    {
+    function uniswapV3Path() internal pure override(SettlerPairTest) returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
     }
 
