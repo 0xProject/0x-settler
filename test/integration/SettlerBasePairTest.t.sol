@@ -31,8 +31,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
 
-    uint256 internal PERMIT2_FROM_NONCE = 1;
-    uint256 internal PERMIT2_MAKER_NONCE = 1;
+    uint256 internal constant PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
     IAllowanceHolder internal allowanceHolder;

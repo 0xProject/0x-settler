@@ -20,6 +20,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     uint256 internal constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
     address payable internal MAKER = payable(vm.addr(MAKER_PRIVATE_KEY));
 
+    uint48 internal constant PERMIT2_FROM_NONCE = 1;
+
     address internal constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 
     ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
