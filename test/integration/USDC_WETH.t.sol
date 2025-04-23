@@ -21,7 +21,6 @@ import {EkuboTest} from "./Ekubo.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
-import {BasePairTest} from "./BasePairTest.t.sol";
 
 contract USDCWETHTest is
     AllowanceHolderPairTest,
@@ -43,7 +42,6 @@ contract USDCWETHTest is
     function setUp()
         public
         override(
-            BasePairTest,
             AllowanceHolderPairTest,
             SettlerBasePairTest,
             SettlerPairTest,
