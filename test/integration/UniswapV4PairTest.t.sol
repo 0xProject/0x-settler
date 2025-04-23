@@ -56,7 +56,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         return token;
     }
 
-    function testUniswapV4UniversalRouter() public {
+    function testUniswapV4UniversalRouterToNative() public skipIf(toToken() != WETH) {
         bytes memory commands = new bytes(2);
         bytes[] memory inputs = new bytes[](2);
 
@@ -85,6 +85,31 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("universalRouter_uniswapV4");
         UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
+        snapEnd();
+        vm.stopPrank();
+    }
+
+    function testUniswapV4UniversalRouterFromNative() public skipIf(fromToken() != WETH) {
+        bytes memory commands = new bytes(1);
+        bytes[] memory inputs = new bytes[](1);
+
+        IERC20 fromTokenCompat = _canonicalize(fromToken());
+        IERC20 toTokenCompat = _canonicalize(toToken());
+        (commands[0], inputs[0]) = encodeV4Swap(
+            FROM,
+            amount(),
+            0 wei,
+            fromTokenCompat,
+            uniswapV4FeeTier(),
+            uniswapV4TickSpacing(),
+            uniswapV4Hook(),
+            toTokenCompat
+        );
+
+        vm.deal(FROM, amount());
+        vm.startPrank(FROM, FROM);
+        snapStartName("universalRouter_uniswapV4");
+        UNIVERSAL_ROUTER.execute{value: amount()}(commands, inputs, block.timestamp);
         snapEnd();
         vm.stopPrank();
     }
@@ -123,6 +148,38 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_uniswapV4VIP_toNative");
         _settler.execute(slippage, actions, bytes32(0));
+        snapEnd();
+    }
+
+    function testSettler_uniswapV4_fromNative() public skipIf(_canonicalize(fromToken()) != ETH) {
+        IERC20 fromTokenCompat = _canonicalize(fromToken());
+        IERC20 toTokenCompat = _canonicalize(toToken());
+
+        (uint256 hashMul, uint256 hashMod) = uniswapV4PerfectHash(fromTokenCompat, toTokenCompat);
+        bytes memory fills = abi.encodePacked(
+            uint16(10_000),
+            bytes1(0x01),
+            toTokenCompat,
+            uniswapV4FeeTier(),
+            uniswapV4TickSpacing(),
+            uniswapV4Hook(),
+            uint24(0),
+            ""
+        );
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.UNISWAPV4, (FROM, address(fromTokenCompat), 10_000, false, hashMul, hashMod, fills, 0 wei))
+        );
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
+
+        vm.deal(FROM, amount());
+        Settler _settler = settler;
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_uniswapV4_fromNative");
+        _settler.execute{value: amount()}(slippage, actions, bytes32(0));
         snapEnd();
     }
 }
