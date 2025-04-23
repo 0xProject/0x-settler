@@ -641,20 +641,22 @@ comparison.
 | Settler         | UniswapV2 | USDC/WETH | 172162 | -5.12%  |
 | UniversalRouter | UniswapV3 | USDC/WETH | 177739 | -2.04%  |
 | Settler         | UniswapV3 | USDC/WETH | 173980 | -4.11%  |
-| UniversalRouter | UniswapV4 | USDC/WETH | 142436 | -21.50% |
+| UniversalRouter | UniswapV4 | USDC/WETH | 142451 | -21.49% |
 | Settler         | UniswapV4 | USDC/WETH | 135226 | -25.47% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | DAI/WETH  | 163940 | 0.00%   |
 | Settler         | UniswapV2 | DAI/WETH  | 154657 | -5.66%  |
-| UniversalRouter | UniswapV3 | DAI/WETH  | 168451 | 2.75%   |
-| Settler         | UniswapV3 | DAI/WETH  | 164693 | 0.46%   |
-| UniversalRouter | UniswapV4 | DAI/WETH  | 125118 | -23.68% |
+| UniversalRouter | UniswapV3 | DAI/WETH  | 168409 | 2.73%   |
+| Settler         | UniswapV3 | DAI/WETH  | 164651 | 0.43%   |
+| UniversalRouter | UniswapV4 | DAI/WETH  | 125103 | -23.69% |
+| Settler         | UniswapV4 | DAI/WETH  | 117893 | -28.09% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | USDT/WETH | 175936 | 0.00%   |
 | Settler         | UniswapV2 | USDT/WETH | 166627 | -5.29%  |
 | UniversalRouter | UniswapV3 | USDT/WETH | 180032 | 2.33%   |
 | Settler         | UniswapV3 | USDT/WETH | 176255 | 0.18%   |
 | UniversalRouter | UniswapV4 | USDT/WETH | 136848 | -22.22% |
+| Settler         | UniswapV4 | USDT/WETH | 129623 | -26.32% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | WETH/USDC | 167008 | 0.00%   |
 | Settler         | UniswapV2 | WETH/USDC | 160748 | -3.75%  |
