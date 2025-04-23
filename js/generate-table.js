@@ -124,6 +124,22 @@ tables.push(
     ),
     { stringLength: stringWidth }
   ),
+  // Uniswap UniversalRouter comparisons
+  markdownTable(
+    generateTable(
+      "UniversalRouter",
+      [
+        ["UniversalRouter", "UniswapV2", "universalRouter_uniswapV2"],
+        ["Settler", "UniswapV2", "settler_uniswapV2_toNative"],
+        ["UniversalRouter", "UniswapV3", "universalRouter_uniswapV3"],
+        ["Settler", "UniswapV3", "settler_uniswapV3VIP_toNative"],
+        ["UniversalRouter", "UniswapV4", "universalRouter_uniswapV4"],
+        ["Settler", "UniswapV4", "settler_uniswapV4VIP_toNative"],
+      ],
+      pairs
+    ),
+    { stringLength: stringWidth }
+  ),
   // Curve comparisons
   markdownTable(
     generateTable(

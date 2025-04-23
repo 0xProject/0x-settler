@@ -631,6 +631,18 @@ comparison.
 | AllowanceHolder | Settler | USDT/WETH | 98213  | 9.60%   |
 |                 |         |           |        |         |
 
+| UniversalRouter | DEX       | Pair      | Gas    | %       |
+| --------------- | --------- | --------- | ------ | ------- |
+| UniversalRouter | UniswapV2 | USDC/WETH | 181439 | 0.00%   |
+| Settler         | UniswapV2 | USDC/WETH | 172182 | -5.10%  |
+| UniversalRouter | UniswapV3 | USDC/WETH | 177733 | -2.04%  |
+| Settler         | UniswapV3 | USDC/WETH | 174000 | -4.10%  |
+| UniversalRouter | UniswapV4 | USDC/WETH | 142445 | -21.49% |
+| Settler         | UniswapV4 | USDC/WETH | 135226 | -25.47% |
+|                 |           |           |        |         |
+|                 |           |           |        |         |
+|                 |           |           |        |         |
+
 | Curve             | DEX                   | Pair      | Gas    | %       |
 | ----------------- | --------------------- | --------- | ------ | ------- |
 | Settler           | CurveV2 Tricrypto VIP | USDC/WETH | 231504 | NaN%    |
