@@ -269,7 +269,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV2() public {
+    function testSettler_uniswapV2() public skipIf(uniswapV2Pool() == address(0)) {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
         bool sellTokenHasFee = false;
@@ -293,7 +293,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV2_multihop_single_chain() public {
+    function testSettler_uniswapV2_multihop_single_chain() public skipIf(uniswapV2Pool() == address(0)) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
@@ -328,7 +328,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         assertGt(wBTC.balanceOf(FROM), balanceBefore);
     }
 
-    function testSettler_uniswapV2_single_chain() public {
+    function testSettler_uniswapV2_single_chain() public skipIf(uniswapV2Pool() == address(0)) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
@@ -355,7 +355,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV2_multihop() public {
+    function testSettler_uniswapV2_multihop() public skipIf(uniswapV2Pool() == address(0)) {
         IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
 
