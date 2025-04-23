@@ -24,7 +24,7 @@ library LibAccessList {
             for (uint256 j; j < slotsLength; j = j.unsafeInc()) {
                 slots.p(bytes.concat(elem.slots[j]));
             }
-            list.p(LibRLP.p().p(elem.account).p(slots));
+            list.p(LibRLP.p(elem.account).p(slots));
         }
     }
 }
