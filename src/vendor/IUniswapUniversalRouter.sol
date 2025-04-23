@@ -30,12 +30,10 @@ bytes1 constant COMMAND_V3_EXACT_IN = 0x00;
 bytes1 constant COMMAND_V4_SWAP = 0x10;
 
 bytes1 constant SUBCOMMAND_V4_SWAP_EXACT_IN_SINGLE = 0x06;
-
 bytes1 constant SUBCOMMAND_V4_SETTLE_ALL = 0x0c;
 bytes1 constant SUBCOMMAND_V4_TAKE_ALL = 0x0f;
 
 bytes1 constant COMMAND_PERMIT2_PERMIT = 0x0a;
-//bytes1 constant COMMAND_PERMIT2_TRANSFER_FROM = 0x02;
 bytes1 constant COMMAND_WRAP_ETH = 0x0b;
 bytes1 constant COMMAND_UNWRAP_WETH = 0x0c;
 
