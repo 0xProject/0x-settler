@@ -10,6 +10,7 @@ import {
     UNIVERSAL_ROUTER,
     encodePermit2Permit,
     encodeV3Swap,
+    encodeWrapEth,
     encodeUnwrapWeth
 } from "src/vendor/IUniswapUniversalRouter.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
@@ -48,7 +49,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         snapEnd();
     }
 
-    function testUniswapV3UniversalRouter() public {
+    function testUniswapV3UniversalRouterToNative() public skipIf(uniswapV3PathCompat().length == 0) skipIf(toToken() != WETH) {
         bytes memory commands = new bytes(3);
         bytes[] memory inputs = new bytes[](3);
 
@@ -68,6 +69,24 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("universalRouter_uniswapV3");
         UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
+        snapEnd();
+        vm.stopPrank();
+    }
+
+    function testUniswapV3UniversalRouterFromNative() public skipIf(uniswapV3PathCompat().length == 0) skipIf(fromToken() != WETH) {
+        bytes memory commands = new bytes(2);
+        bytes[] memory inputs = new bytes[](2);
+
+        bytes memory path = uniswapV3PathCompat();
+
+        (commands[0], inputs[0]) = encodeWrapEth(address(UNIVERSAL_ROUTER), amount());
+        (commands[1], inputs[1]) = encodeV3Swap(FROM, amount(), 0 wei, path, false);
+
+        vm.deal(FROM, amount());
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("universalRouter_uniswapV3");
+        UNIVERSAL_ROUTER.execute{value: amount()}(commands, inputs, block.timestamp);
         snapEnd();
         vm.stopPrank();
     }
@@ -107,6 +126,40 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_uniswapV3VIP_toNative");
         _settler.execute(slippage, actions, bytes32(0));
+        snapEnd();
+    }
+
+    function testSettler_uniswapV3_fromNative()
+        public
+        skipIf(uniswapV3Path().length == 0)
+        skipIf(fromToken() != WETH)
+    {
+        Settler _settler = settler;
+
+        bool zeroForOne = fromToken() < toToken();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.BASIC,
+                (
+                    address(ETH),
+                    10_000,
+                    address(WETH),
+                    4,
+                    abi.encodeWithSignature("deposit()", 0 wei)
+                )
+            ),
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0 wei))
+        );
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
+
+        vm.deal(FROM, amount());
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_uniswapV3_fromNative");
+        _settler.execute{value: amount()}(slippage, actions, bytes32(0));
         snapEnd();
     }
 }
