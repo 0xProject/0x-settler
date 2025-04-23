@@ -54,7 +54,7 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
 
         bool zeroForOne = fromToken() < toToken();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(_settler), permit, sig)),
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (uniswapV2Pool(), permit, sig)),
             abi.encodeCall(
                 ISettlerActions.UNISWAPV2,
                 (
