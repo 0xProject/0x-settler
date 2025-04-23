@@ -408,7 +408,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
         unchecked {
             // `amountIn` is always exactly `swapParams.amountGiven`
-            state.sell().setAmount(state.sell().amount() - amountIn);
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
         }
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
