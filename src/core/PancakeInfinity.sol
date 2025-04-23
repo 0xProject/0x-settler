@@ -12,7 +12,7 @@ import {Ternary} from "../utils/Ternary.sol";
 
 import {ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
-import {CreditDebt, Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
+import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 /// @dev Two `int128` values packed into a single `int256` where the upper 128 bits represent the amount0
 /// and the lower 128 bits represent the amount1.
@@ -227,9 +227,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
     using Ternary for bool;
     using CreditDebt for int256;
     using SafeTransferLib for IERC20;
-    using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
-    using StateLib for StateLib.State;
     using UnsafePancakeInfinityVault for IPancakeInfinityVault;
     using UnsafePancakeInfinityPoolManager for IPancakeInfinityCLPoolManager;
     using UnsafePancakeInfinityBinPoolManager for IPancakeInfinityBinPoolManager;
@@ -408,22 +406,26 @@ abstract contract PancakeInfinity is SettlerAbstract {
         // to settle global sell token debt at the end of swapping.
         (
             bytes calldata newData,
-            StateLib.State memory state,
+            State state,
             NotesLib.Note[] memory notes,
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
-        data = newData;
-        if (payer != address(this)) {
-            state.globalSell.amount = _permitToSellAmountCalldata(permit);
-        }
-        if (feeOnTransfer) {
-            state.globalSell.amount =
-                _pancakeInfinityPay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
+        {
+            NotePtr globalSell = state.globalSell();
+            if (payer != address(this)) {
+                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+            }
+            if (feeOnTransfer) {
+                globalSell.setAmount(
+                    _pancakeInfinityPay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
+                );
+            }
+            state.setGlobalSellAmount(globalSell.amount());
         }
         state.checkZeroSellAmount();
-        state.globalSellAmount = state.globalSell.amount;
+        data = newData;
 
         PoolKey memory poolKey;
         IPancakeInfinityCLPoolManager.SwapParams memory swapParams;
@@ -439,10 +441,10 @@ abstract contract PancakeInfinity is SettlerAbstract {
             }
 
             data = Decoder.updateState(state, notes, data);
-            int256 amountSpecified = int256((state.sell.amount * bps).unsafeDiv(BASIS)).unsafeNeg();
+            int256 amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             bool zeroForOne;
             {
-                (IERC20 sellToken, IERC20 buyToken) = (state.sell.token, state.buy.token);
+                (IERC20 sellToken, IERC20 buyToken) = (state.sell().token(), state.buy().token());
                 assembly ("memory-safe") {
                     let sellTokenShifted := shl(0x60, sellToken)
                     let buyTokenShifted := shl(0x60, buyToken)
@@ -535,11 +537,13 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 // credit, or cause the buy amount to be debt. We need to handle all these cases by
                 // reverting.
 
-                state.sell.amount -= settledSellAmount.asDebt(state.sell);
+                NotePtr sell = state.sell();
+                sell.setAmount(sell.amount() - settledSellAmount.asDebt(sell));
                 // Since `settledBuyAmount` came from an `int128`, this addition cannot overflow a
                 // `uint256`. We still need to make sure it doesn't record a debt, though.
                 unchecked {
-                    state.buy.amount += settledBuyAmount.asCredit(state.buy);
+                    NotePtr buy = state.buy();
+                    buy.setAmount(buy.amount() + settledBuyAmount.asCredit(buy));
                 }
             }
         }
@@ -548,7 +552,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
         // swaps. Any credit in any token other than `state.buy.token` will be swept to
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
-            (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
+            NotePtr globalSell = state.globalSell();
+            (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IPancakeInfinityVault.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -570,7 +575,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 // fill. This subtraction recovers the actual debt recorded in the vault.
                 uint256 debt;
                 unchecked {
-                    debt = state.globalSellAmount - globalSellAmount;
+                    debt = state.globalSellAmount() - globalSellAmount;
                 }
                 if (debt == 0) {
                     assembly ("memory-safe") {

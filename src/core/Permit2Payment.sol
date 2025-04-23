@@ -97,14 +97,16 @@ library TransientStorage {
         }
     }
 
-    function getAndClearOperatorAndCallback()
+    function getAndClearCallback()
         internal
-        returns (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator)
+        returns (function (bytes calldata) internal returns (bytes memory) callback)
     {
         assembly ("memory-safe") {
-            selector := tload(_OPERATOR_SLOT)
-            callback := and(0xffff, shr(0xa0, selector))
-            operator := selector
+            let slot := tload(_OPERATOR_SLOT)
+            if or(shr(0xe0, xor(calldataload(0), slot)), shl(0x60, xor(caller(), slot))) {
+                revert(0x00, 0x00)
+            }
+            callback := and(0xffff, shr(0xa0, slot))
             tstore(_OPERATOR_SLOT, 0x00)
         }
     }
@@ -248,11 +250,7 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
 
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
         // Retrieve callback and perform call with untrusted calldata
-        (bytes4 selector, function (bytes calldata) internal returns (bytes memory) callback, address operator) =
-            TransientStorage.getAndClearOperatorAndCallback();
-        require(bytes4(data) == selector);
-        require(msg.sender == operator);
-        return callback(data[4:]);
+        return TransientStorage.getAndClearCallback()(data[4:]);
     }
 }
 

@@ -7,9 +7,13 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
+import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+
+// Solidity inheritance is stupid
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest {
     function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboTest) {

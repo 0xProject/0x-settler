@@ -12,7 +12,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
-import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
+import {Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
@@ -244,9 +244,7 @@ IBalancerV3Vault constant VAULT = IBalancerV3Vault(0xbA1333333333a1BA1108E8412f1
 abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
-    using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
-    using StateLib for StateLib.State;
 
     using UnsafeVault for IBalancerV3Vault;
 
@@ -384,7 +382,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
     function _setSwapParams(
         IBalancerV3Vault.VaultSwapParams memory swapParams,
-        StateLib.State memory state,
+        State state,
         bytes calldata data
     ) private pure returns (bytes calldata) {
         assembly ("memory-safe") {
@@ -393,14 +391,14 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             data.length := sub(data.length, 0x14)
             // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
         }
-        swapParams.tokenIn = state.sell.token;
-        swapParams.tokenOut = state.buy.token;
+        swapParams.tokenIn = state.sell().token();
+        swapParams.tokenOut = state.buy().token();
         return data;
     }
 
     function _decodeUserdataAndSwap(
         IBalancerV3Vault.VaultSwapParams memory swapParams,
-        StateLib.State memory state,
+        State state,
         bytes calldata data
     ) private DANGEROUS_freeMemory returns (bytes calldata) {
         (data, swapParams.userData) = Decoder.decodeBytes(data);
@@ -409,13 +407,15 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
         unchecked {
             // `amountIn` is always exactly `swapParams.amountGiven`
-            state.sell.amount -= amountIn;
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
         }
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
         // bits. However, `state.buy.amount` may be an agglomeration of values returned by ERC4626
         // vaults, and there is no implicit restriction on those values.
-        state.buy.amount += amountOut;
+        NotePtr buy = state.buy();
+        buy.setAmount(buy.amount() + amountOut);
         assembly ("memory-safe") {
             mstore(add(0xc0, swapParams), 0x60)
         }
@@ -425,16 +425,18 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
     function _erc4626WrapUnwrap(
         IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams,
-        StateLib.State memory state
+        State state
     ) private {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
         unchecked {
             // `amountIn` is always exactly `wrapParams.amountGiven`
-            state.sell.amount -= amountIn;
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
         }
         // `amountOut` may depend on the behavior of the ERC4626 vault. We can make no assumptions
         // about the reasonableness of the range of values that may be returned.
-        state.buy.amount += amountOut;
+        NotePtr buy = state.buy();
+        buy.setAmount(buy.amount() + amountOut);
     }
 
     function _balV3Pay(
@@ -476,21 +478,25 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         // to settle global sell token debt at the end of swapping.
         (
             bytes calldata newData,
-            StateLib.State memory state,
+            State state,
             NotesLib.Note[] memory notes,
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
-        if (payer != address(this)) {
-            state.globalSell.amount = _permitToSellAmountCalldata(permit);
-        }
-        if (feeOnTransfer) {
-            state.globalSell.amount =
-                _balV3Pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
+        {
+            NotePtr globalSell = state.globalSell();
+            if (payer != address(this)) {
+                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+            }
+            if (feeOnTransfer) {
+                globalSell.setAmount(
+                    _balV3Pay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
+                );
+            }
+            state.setGlobalSellAmount(globalSell.amount());
         }
         state.checkZeroSellAmount();
-        state.globalSellAmount = state.globalSell.amount;
         data = newData;
 
         IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams;
@@ -522,7 +528,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             if (bps & 0xc000 == 0) {
                 data = _setSwapParams(swapParams, state, data);
                 unchecked {
-                    swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                    swapParams.amountGiven = (state.sell().amount() * bps).unsafeDiv(BASIS);
                 }
                 data = _decodeUserdataAndSwap(swapParams, state, data);
             } else {
@@ -530,14 +536,14 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
                 if (bps & 0x4000 == 0) {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.WRAP;
-                    wrapParams.wrappedToken = IERC4626(address(state.buy.token));
+                    wrapParams.wrappedToken = IERC4626(address(state.buy().token()));
                 } else {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.UNWRAP;
-                    wrapParams.wrappedToken = IERC4626(address(state.sell.token));
+                    wrapParams.wrappedToken = IERC4626(address(state.sell().token()));
                 }
                 bps &= 0x3fff;
                 unchecked {
-                    wrapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                    wrapParams.amountGiven = (state.sell().amount() * bps).unsafeDiv(BASIS);
                 }
 
                 _erc4626WrapUnwrap(wrapParams, state);
@@ -548,7 +554,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         // swaps. Any credit in any token other than `state.buy.token` will be swept to
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
-            (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
+            NotePtr globalSell = state.globalSell();
+            (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -570,7 +577,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                 // fill. This subtraction recovers the actual debt recorded in the vault.
                 uint256 debt;
                 unchecked {
-                    debt = state.globalSellAmount - globalSellAmount;
+                    debt = state.globalSellAmount() - globalSellAmount;
                 }
                 if (debt == 0) {
                     assembly ("memory-safe") {
