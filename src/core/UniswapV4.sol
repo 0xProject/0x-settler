@@ -257,7 +257,6 @@ abstract contract UniswapV4 is SettlerAbstract {
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
-        data = newData;
         if (payer != address(this)) {
             state.globalSell.amount = _permitToSellAmountCalldata(permit);
         }
@@ -267,6 +266,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         }
         state.checkZeroSellAmount();
         state.globalSellAmount = state.globalSell.amount;
+        data = newData;
 
         // Now that we've unpacked and decoded the header, we can begin decoding the array of swaps
         // and executing them.

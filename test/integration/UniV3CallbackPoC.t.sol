@@ -9,6 +9,7 @@ import {IUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {uniswapV3MainnetFactory} from "src/core/univ3forks/UniswapV3.sol";
 
@@ -65,16 +66,20 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
 
     address dai;
     address token;
-    address alice;
+    address payable alice;
     uint256 alicePk;
-    address bob;
+    address payable bob;
     uint256 bobPk;
 
     function setUp() public {
         vm.createSelectFork(testChainId(), testBlockNumber());
 
-        (alice, alicePk) = makeAddrAndKey("Alice");
-        (bob, bobPk) = makeAddrAndKey("Bob");
+        address alice_;
+        (alice_, alicePk) = makeAddrAndKey("Alice");
+        alice = payable(alice_);
+        address bob_;
+        (bob_, bobPk) = makeAddrAndKey("Bob");
+        bob = payable(bob_);
 
         // Deploy dummy tokens
         dai = address(new MockERC20("DAI", "DAI", 18));

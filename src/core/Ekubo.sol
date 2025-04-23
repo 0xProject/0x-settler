@@ -302,10 +302,6 @@ abstract contract Ekubo is SettlerAbstract {
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
-        if (state.sell.amount >> 127 != 0) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        data = newData;
         if (payer != address(this)) {
             state.globalSell.amount = _permitToSellAmountCalldata(permit);
         }
@@ -313,8 +309,12 @@ abstract contract Ekubo is SettlerAbstract {
             state.globalSell.amount =
                 _ekuboPay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
         }
+        if (state.globalSell.amount >> 127 != 0) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
         state.checkZeroSellAmount();
         state.globalSellAmount = state.globalSell.amount;
+        data = newData;
 
         PoolKey memory poolKey;
 

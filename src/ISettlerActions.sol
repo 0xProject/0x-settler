@@ -226,7 +226,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function POSITIVE_SLIPPAGE(address recipient, address token, uint256 expectedAmount) external;
+    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount) external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded

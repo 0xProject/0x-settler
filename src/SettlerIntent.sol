@@ -249,7 +249,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
+        bytes32 /* zid & affiliate */,
         address msgSender,
         bytes calldata sig
     ) public virtual override onlySolver metaTx(msgSender, _hashSlippage(slippage)) returns (bool) {

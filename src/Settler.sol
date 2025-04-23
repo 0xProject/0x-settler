@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
@@ -13,7 +14,7 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertActionInvalid} from "./core/SettlerErrors.sol";
 
-abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
+abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
@@ -75,6 +76,7 @@ abstract contract Settler is Permit2PaymentTakerSubmitted, SettlerBase {
     function execute(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
         public
         payable
+        override
         takerSubmitted
         returns (bool)
     {

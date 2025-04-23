@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerMetaTxn} from "./interfaces/ISettlerMetaTxn.sol";
 
 import {Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
 
@@ -12,7 +13,7 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertActionInvalid} from "./core/SettlerErrors.sol";
 
-abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
+abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
@@ -140,10 +141,10 @@ abstract contract SettlerMetaTxn is Permit2PaymentMetaTxn, SettlerBase {
     function executeMetaTxn(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
+        bytes32 /* zid & affiliate */,
         address msgSender,
         bytes calldata sig
-    ) public virtual metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
+    ) public virtual override metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
     }
 
