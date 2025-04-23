@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IAllowanceTransfer} from "@permit2/interfaces/IAllowanceTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {UNIVERSAL_ROUTER, encodePermit2Permit, encodeV3Swap, encodeUnwrapWeth} from "src/vendor/IUniswapUniversalRouter.sol";
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
+import {Settler} from "src/Settler.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
 
-import {BasePairTest} from "./BasePairTest.t.sol";
+import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {IUniswapV3Router} from "./vendor/IUniswapV3Router.sol";
 
-abstract contract UniswapV3PairTest is BasePairTest {
+abstract contract UniswapV3PairTest is SettlerPairTest {
     IUniswapV3Router private constant UNISWAP_ROUTER = IUniswapV3Router(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
     function setUp() public virtual override {
@@ -57,5 +63,27 @@ abstract contract UniswapV3PairTest is BasePairTest {
         UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
         snapEnd();
         vm.stopPrank();
+    }
+
+    function testSettler_uniswapV3VIP_toNative() public skipIf(uniswapV3Path().length == 0) skipIf(toToken() != IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)) {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
+
+        Settler _settler = settler;
+
+        bool zeroForOne = fromToken() < toToken();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), uniswapV3Path(), permit, sig, 0 wei)),
+            abi.encodeCall(ISettlerActions.BASIC, (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 10_000, 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei)))
+        );
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), minAmountOut: 0 ether});
+
+        (bool success, ) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        require(success);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_uniswapV3VIP_toNative");
+        _settler.execute(slippage, actions, bytes32(0));
+        snapEnd();
     }
 }
