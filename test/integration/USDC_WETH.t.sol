@@ -6,6 +6,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {MaverickV2PairTest} from "./MaverickV2PairTest.t.sol";
@@ -19,6 +20,7 @@ import {EkuboTest} from "./Ekubo.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+import {BasePairTest} from "./BasePairTest.t.sol";
 
 contract USDCWETHTest is
     AllowanceHolderPairTest,
@@ -26,6 +28,7 @@ contract USDCWETHTest is
     SettlerMetaTxnPairTest,
     ZeroExPairTest,
     UniswapV3PairTest,
+    UniswapV2PairTest,
     CurveTricryptoPairTest,
     DodoV1PairTest,
     MaverickV2PairTest,
@@ -38,6 +41,7 @@ contract USDCWETHTest is
     function setUp()
         public
         override(
+            BasePairTest,
             AllowanceHolderPairTest,
             SettlerBasePairTest,
             SettlerPairTest,
