@@ -30,12 +30,18 @@ bytes1 constant COMMAND_V3_EXACT_IN = 0x00;
 bytes1 constant COMMAND_V4_SWAP = 0x10;
 
 bytes1 constant SUBCOMMAND_V4_SWAP_EXACT_IN_SINGLE = 0x06;
-bytes1 constant SUBCOMMAND_V4_SETTLE_ALL = 0x0c;
+bytes1 constant SUBCOMMAND_V4_SETTLE = 0x0b;
 bytes1 constant SUBCOMMAND_V4_TAKE_ALL = 0x0f;
 
 bytes1 constant COMMAND_PERMIT2_PERMIT = 0x0a;
 bytes1 constant COMMAND_WRAP_ETH = 0x0b;
 bytes1 constant COMMAND_UNWRAP_WETH = 0x0c;
+
+uint256 constant CONTRACT_BALANCE = 0x8000000000000000000000000000000000000000000000000000000000000000;
+uint256 constant ALREADY_PAID = 0;
+uint128 constant OPEN_DELTA = 0;
+address constant RECIPIENT_ROUTER = address(2);
+address constant RECIPIENT_TAKER = address(1);
 
 function encodeV2Swap(
     address recipient,
@@ -79,7 +85,8 @@ function encodeV4Swap(
     uint24 feeTier,
     int24 tickSpacing,
     address hook,
-    IERC20 buyToken
+    IERC20 buyToken,
+    bool payerIsUser
 ) pure returns (bytes1, bytes memory) {
     Currency currency0;
     Currency currency1;
@@ -108,17 +115,17 @@ function encodeV4Swap(
             hooks: IHooks(hook)
         }),
         zeroForOne: zeroForOne,
-        amountIn: uint128(amountIn),
-        amountOutMinimum: uint128(amountOutMin),
+        amountIn: OPEN_DELTA,
+        amountOutMinimum: 0,
         hookData: ""
     });
 
     bytes memory commands =
-        abi.encodePacked(SUBCOMMAND_V4_SWAP_EXACT_IN_SINGLE, SUBCOMMAND_V4_TAKE_ALL, SUBCOMMAND_V4_SETTLE_ALL);
+        abi.encodePacked(SUBCOMMAND_V4_SETTLE, SUBCOMMAND_V4_SWAP_EXACT_IN_SINGLE, SUBCOMMAND_V4_TAKE_ALL);
     bytes[] memory args = new bytes[](3);
-    args[0] = abi.encode(params);
-    args[1] = abi.encode(buyToken, amountOutMin);
-    args[2] = abi.encode(sellToken, amountIn);
+    args[0] = abi.encode(sellToken, amountIn, payerIsUser);
+    args[1] = abi.encode(params);
+    args[2] = abi.encode(buyToken, amountOutMin);
 
     return (COMMAND_V4_SWAP, abi.encode(commands, args));
 }

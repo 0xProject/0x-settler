@@ -8,6 +8,10 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {
     UNIVERSAL_ROUTER,
+    CONTRACT_BALANCE,
+    ALREADY_PAID,
+    RECIPIENT_ROUTER,
+    RECIPIENT_TAKER,
     encodePermit2Permit,
     encodeV2Swap,
     encodeWrapEth,
@@ -35,8 +39,8 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
 
         (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
         (commands[1], inputs[1]) =
-            encodeV2Swap(address(UNIVERSAL_ROUTER), amount(), 0 wei, fromToken(), toToken(), true);
-        (commands[2], inputs[2]) = encodeUnwrapWeth(FROM, slippageLimit());
+            encodeV2Swap(RECIPIENT_ROUTER, amount(), 0 wei, fromToken(), toToken(), true);
+        (commands[2], inputs[2]) = encodeUnwrapWeth(RECIPIENT_TAKER, slippageLimit());
 
         (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
@@ -56,8 +60,8 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         bytes memory commands = new bytes(2);
         bytes[] memory inputs = new bytes[](2);
 
-        (commands[0], inputs[0]) = encodeWrapEth(address(uniswapV2Pool()), 0 wei);
-        (commands[1], inputs[1]) = encodeV2Swap(FROM, 0 wei, slippageLimit(), fromToken(), toToken(), false);
+        (commands[0], inputs[0]) = encodeWrapEth(address(uniswapV2Pool()), CONTRACT_BALANCE);
+        (commands[1], inputs[1]) = encodeV2Swap(RECIPIENT_TAKER, ALREADY_PAID, slippageLimit(), fromToken(), toToken(), false);
 
         vm.deal(FROM, amount());
         vm.startPrank(FROM, FROM);

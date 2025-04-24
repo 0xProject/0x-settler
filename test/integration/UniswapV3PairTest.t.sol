@@ -8,6 +8,9 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {
     UNIVERSAL_ROUTER,
+    CONTRACT_BALANCE,
+    RECIPIENT_ROUTER,
+    RECIPIENT_TAKER,
     encodePermit2Permit,
     encodeV3Swap,
     encodeWrapEth,
@@ -64,8 +67,8 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         bytes memory path = uniswapV3PathCompat();
 
         (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
-        (commands[1], inputs[1]) = encodeV3Swap(address(UNIVERSAL_ROUTER), amount(), 0 wei, path, true);
-        (commands[2], inputs[2]) = encodeUnwrapWeth(FROM, slippageLimit());
+        (commands[1], inputs[1]) = encodeV3Swap(RECIPIENT_ROUTER, amount(), 0 wei, path, true);
+        (commands[2], inputs[2]) = encodeUnwrapWeth(RECIPIENT_TAKER, slippageLimit());
 
         (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
         require(success);
@@ -87,8 +90,8 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
 
         bytes memory path = uniswapV3PathCompat();
 
-        (commands[0], inputs[0]) = encodeWrapEth(address(UNIVERSAL_ROUTER), 0 wei);
-        (commands[1], inputs[1]) = encodeV3Swap(FROM, 0 wei, slippageLimit(), path, false);
+        (commands[0], inputs[0]) = encodeWrapEth(RECIPIENT_ROUTER, CONTRACT_BALANCE);
+        (commands[1], inputs[1]) = encodeV3Swap(RECIPIENT_TAKER, CONTRACT_BALANCE, slippageLimit(), path, false);
 
         vm.deal(FROM, amount());
 

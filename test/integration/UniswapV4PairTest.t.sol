@@ -11,7 +11,7 @@ import {Settler} from "src/Settler.sol";
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
-import {UNIVERSAL_ROUTER, encodePermit2Permit, encodeV4Swap} from "src/vendor/IUniswapUniversalRouter.sol";
+import {UNIVERSAL_ROUTER, CONTRACT_BALANCE, RECIPIENT_TAKER, encodePermit2Permit, encodeV4Swap} from "src/vendor/IUniswapUniversalRouter.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
@@ -69,14 +69,15 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         IERC20 fromTokenCompat = _canonicalize(fromToken());
         IERC20 toTokenCompat = _canonicalize(toToken());
         (commands[1], inputs[1]) = encodeV4Swap(
-            FROM,
+            RECIPIENT_TAKER,
             amount(),
             slippageLimit(),
             fromTokenCompat,
             uniswapV4FeeTier(),
             uniswapV4TickSpacing(),
             uniswapV4Hook(),
-            toTokenCompat
+            toTokenCompat,
+            true
         );
 
         (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
@@ -96,14 +97,15 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         IERC20 fromTokenCompat = _canonicalize(fromToken());
         IERC20 toTokenCompat = _canonicalize(toToken());
         (commands[0], inputs[0]) = encodeV4Swap(
-            FROM,
-            amount(),
+            RECIPIENT_TAKER,
+            CONTRACT_BALANCE,
             slippageLimit(),
             fromTokenCompat,
             uniswapV4FeeTier(),
             uniswapV4TickSpacing(),
             uniswapV4Hook(),
-            toTokenCompat
+            toTokenCompat,
+            false
         );
 
         vm.deal(FROM, amount());
