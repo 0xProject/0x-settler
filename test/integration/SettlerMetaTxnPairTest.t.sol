@@ -300,7 +300,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     function testSettler_eip712hash_hardcoded()
         public
         skipIf(address(fromToken()) != 0x6B175474E89094C44Da98b954EedeAC495271d0F)
-        skipIf(address(toToken()) != 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
+        skipIf(toToken() != WETH)
     {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);

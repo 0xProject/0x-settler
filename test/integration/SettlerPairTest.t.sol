@@ -310,7 +310,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV2_multihop_single_chain() public skipIf(uniswapV2Pool() == address(0)) {
+    function testSettler_uniswapV2_multihop_single_chain() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH)  {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
@@ -380,7 +380,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV2_multihop() public skipIf(uniswapV2Pool() == address(0)) {
+    function testSettler_uniswapV2_multihop() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH) {
         IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
 
