@@ -56,7 +56,7 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         bytes memory commands = new bytes(2);
         bytes[] memory inputs = new bytes[](2);
 
-        (commands[0], inputs[0]) = encodeWrapEth(address(uniswapV2Pool()), amount());
+        (commands[0], inputs[0]) = encodeWrapEth(address(uniswapV2Pool()), 0 wei);
         (commands[1], inputs[1]) = encodeV2Swap(FROM, 0 wei, slippageLimit(), fromToken(), toToken(), false);
 
         vm.deal(FROM, amount());

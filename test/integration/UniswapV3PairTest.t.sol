@@ -87,8 +87,8 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
 
         bytes memory path = uniswapV3PathCompat();
 
-        (commands[0], inputs[0]) = encodeWrapEth(address(UNIVERSAL_ROUTER), amount());
-        (commands[1], inputs[1]) = encodeV3Swap(FROM, amount(), slippageLimit(), path, false);
+        (commands[0], inputs[0]) = encodeWrapEth(address(UNIVERSAL_ROUTER), 0 wei);
+        (commands[1], inputs[1]) = encodeV3Swap(FROM, 0 wei, slippageLimit(), path, false);
 
         vm.deal(FROM, amount());
 
