@@ -20,6 +20,8 @@ import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+
 abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
@@ -302,6 +304,12 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         skipIf(address(fromToken()) != 0x6B175474E89094C44Da98b954EedeAC495271d0F)
         skipIf(toToken() != WETH)
     {
+        vm.makePersistent(address(settlerMetaTxn));
+        vm.createSelectFork(testChainId(), MainnetDefaultFork.testBlockNumber());
+        deal(address(fromToken()), FROM, amount());
+        vm.prank(FROM);
+        require(fromToken().approve(address(PERMIT2), type(uint256).max));
+
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
