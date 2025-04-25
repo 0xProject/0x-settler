@@ -5,7 +5,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
+import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {UniswapV4PairTest} from "./UniswapV4PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {MaverickV2PairTest} from "./MaverickV2PairTest.t.sol";
@@ -18,12 +20,16 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+
 contract USDCWETHTest is
     AllowanceHolderPairTest,
     SettlerPairTest,
     SettlerMetaTxnPairTest,
     ZeroExPairTest,
+    UniswapV2PairTest,
     UniswapV3PairTest,
+    UniswapV4PairTest,
     CurveTricryptoPairTest,
     DodoV1PairTest,
     MaverickV2PairTest,
@@ -65,6 +71,20 @@ contract USDCWETHTest is
 
     function amount() internal pure override returns (uint256) {
         return 1000e6;
+    }
+
+    function slippageLimit() internal pure override returns (uint256) {
+        return 0.5 ether;
+    }
+
+    function testBlockNumber()
+        internal
+        pure
+        virtual
+        override(MainnetDefaultFork, UniswapV3PairTest)
+        returns (uint256)
+    {
+        return super.testBlockNumber();
     }
 
     function dodoV1Pool() internal pure override returns (address) {
@@ -137,12 +157,7 @@ contract USDCWETHTest is
     }
 
     function ekuboFills() internal view virtual override returns (bytes memory) {
-        return abi.encodePacked(
-            uint16(10_000),
-            bytes1(0x01),
-            _eth,
-            ekuboPoolConfig()
-        );
+        return abi.encodePacked(uint16(10_000), bytes1(0x01), _eth, ekuboPoolConfig());
     }
 
     function recipient() internal view virtual override returns (address) {
@@ -160,7 +175,10 @@ contract USDCWETHTest is
             data[i] = actions[i];
         }
         data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, ""));
-        data[actions.length + 1] = abi.encodeCall(ISettlerActions.BASIC, (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0)))));
+        data[actions.length + 1] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+        );
         return data;
     }
 }

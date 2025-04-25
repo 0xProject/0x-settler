@@ -380,11 +380,11 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         return balV3UnlockCallback(_msgData());
     }
 
-    function _setSwapParams(
-        IBalancerV3Vault.VaultSwapParams memory swapParams,
-        State state,
-        bytes calldata data
-    ) private pure returns (bytes calldata) {
+    function _setSwapParams(IBalancerV3Vault.VaultSwapParams memory swapParams, State state, bytes calldata data)
+        private
+        pure
+        returns (bytes calldata)
+    {
         assembly ("memory-safe") {
             mstore(add(0x20, swapParams), shr(0x60, calldataload(data.offset)))
             data.offset := add(0x14, data.offset)
@@ -423,10 +423,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         return data;
     }
 
-    function _erc4626WrapUnwrap(
-        IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams,
-        State state
-    ) private {
+    function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, State state) private {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
         unchecked {
             // `amountIn` is always exactly `wrapParams.amountGiven`

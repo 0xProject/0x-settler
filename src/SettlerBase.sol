@@ -147,7 +147,8 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
             sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address payable recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
+            (address payable recipient, IERC20 token, uint256 expectedAmount) =
+                abi.decode(data, (address, IERC20, uint256));
             if (token == ETH_ADDRESS) {
                 uint256 balance = address(this).balance;
                 if (balance > expectedAmount) {

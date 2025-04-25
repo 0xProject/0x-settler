@@ -20,6 +20,8 @@ import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+
 abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
@@ -34,9 +36,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         bytes memory initCode = settlerMetaTxnInitCode();
         assembly ("memory-safe") {
             r := create(0x00, add(0x20, initCode), mload(initCode))
-            if iszero(r) {
-                revert(0x00, 0x00)
-            }
+            if iszero(r) { revert(0x00, 0x00) }
         }
     }
 
@@ -92,7 +92,11 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_rfq");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
@@ -130,7 +134,11 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3");
         _settlerMetaTxn.executeMetaTxn(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0),
             FROM,
@@ -163,7 +171,11 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_uniswapV3VIP");
         _settlerMetaTxn.executeMetaTxn(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0),
             FROM,
@@ -219,7 +231,11 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
         snapStartName("settler_metaTxn_rfq");
         _settlerMetaTxn.executeMetaTxn(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0),
             FROM,
@@ -286,8 +302,14 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     function testSettler_eip712hash_hardcoded()
         public
         skipIf(address(fromToken()) != 0x6B175474E89094C44Da98b954EedeAC495271d0F)
-        skipIf(address(toToken()) != 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
+        skipIf(toToken() != WETH)
     {
+        vm.makePersistent(address(settlerMetaTxn));
+        vm.createSelectFork(testChainId(), MainnetDefaultFork.testBlockNumber());
+        deal(address(fromToken()), FROM, amount());
+        vm.prank(FROM);
+        require(fromToken().approve(address(PERMIT2), type(uint256).max));
+
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 

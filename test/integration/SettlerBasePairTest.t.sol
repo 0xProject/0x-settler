@@ -31,8 +31,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
 
-    uint256 internal PERMIT2_FROM_NONCE = 1;
-    uint256 internal PERMIT2_MAKER_NONCE = 1;
+    uint256 internal constant PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
     IAllowanceHolder internal allowanceHolder;
@@ -46,9 +45,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
         bytes memory initCode = settlerInitCode();
         assembly ("memory-safe") {
             r := create(0x00, add(0x20, initCode), mload(initCode))
-            if iszero(r) {
-                revert(0x00, 0x00)
-            }
+            if iszero(r) { revert(0x00, 0x00) }
         }
     }
 

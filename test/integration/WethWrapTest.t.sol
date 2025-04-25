@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {Test} from "@forge-std/Test.sol";
-import {WETH} from "@solmate/tokens/WETH.sol";
+import {WETH as WETHERC20} from "@solmate/tokens/WETH.sol";
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
@@ -14,7 +14,7 @@ import {GasSnapshot} from "@forge-gas-snapshot/GasSnapshot.sol";
 import {BasePairTest} from "./BasePairTest.t.sol";
 
 contract WethWrapTest is BasePairTest {
-    WETH private constant _weth = WETH(payable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
+    WETHERC20 private constant _weth = WETHERC20(payable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
     address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     Settler private _settler;
 
