@@ -5,7 +5,7 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "gasMultiplierPercent": 130,
     "minGasPriceGwei": 10,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -226,7 +226,7 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 180,
+    "gasMultiplierPercent": 115,
     "minGasPriceGwei": 10,
     "wnative": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
     "safe": {
@@ -459,7 +459,7 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "gasMultiplierPercent": 140,
     "minGasPriceGwei": 2,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -488,7 +488,7 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "gasMultiplierPercent": 150,
     "minGasPriceGwei": 2,
     "safe": {
       "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
