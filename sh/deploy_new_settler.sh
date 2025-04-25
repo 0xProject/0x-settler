@@ -245,8 +245,8 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     <<<'{}'                                          \
     |                                                \
     curl --fail -s -X POST                           \
-     --url 'http://127.0.0.1:1248/'                  \
-     --data '@-'                                     \
+    --url 'http://127.0.0.1:1248/'                   \
+    --data '@-'                                      \
     &>/dev/null
 
     # submit the transaction
