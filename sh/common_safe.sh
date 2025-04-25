@@ -79,6 +79,7 @@ declare -r multisend_sig='multiSend(bytes)'
 declare -r multisend_selector="$(cast sig "$multisend_sig")"
 
 declare -r execTransaction_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
+declare -r execTransaction_selector="$(cast sig "$execTransaction_sig")"
 
 declare -r eip712_message_json_template='{
     "to": $to,
@@ -211,7 +212,10 @@ function eip712_struct_hash {
     fi
     declare -r to
 
-    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$to" 0 "$(cast keccak "$calldata")" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
+    declare calldatahash
+    calldatahash="$(xxd -r -p <<<"$calldata" | cast keccak)"
+    declare -r calldatahash
+    cast keccak "$(cast abi-encode 'foo(bytes32,address,uint256,bytes32,uint8,uint256,uint256,uint256,address,address,uint256)' "$type_hash" "$to" 0 "$calldatahash" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" $(nonce))"
 }
 
 function eip712_hash {

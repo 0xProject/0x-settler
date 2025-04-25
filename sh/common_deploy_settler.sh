@@ -156,6 +156,13 @@ if [[ -n "${deployer_address-}" ]] ; then
         multicall_args="${multicall_args:2}"
 
         declare multicall_args_length="${#multicall_args}"
+
+        declare -i padding_length=$((multicall_args_length % 64))
+        if (( padding_length )) ; then
+            padding_length=$((64 - padding_length))
+            multicall_args="$multicall_args""$(seq 1 $padding_length | xargs printf '0%.0s')"
+        fi
+
         multicall_args_length=$(( multicall_args_length / 2 ))
         multicall_args_length="$(cast to-uint256 $multicall_args_length)"
         multicall_args_length="${multicall_args_length:2}"
