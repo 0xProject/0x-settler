@@ -64,6 +64,7 @@ contract BridgeFactory is IERC1271, TwoStepOwnable, Context {
             if shl(0x60, xor(computedAddress, address())) {
                 return(0x00, 0x00)
             }
+            // Return ERC1271 magic value (isValidSignature selector)
             mstore(0x00, 0x1626ba7e)
             mstore(0x20, 0x00)
             return(0x1c, 0x20)
