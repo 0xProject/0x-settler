@@ -40,6 +40,7 @@ contract BridgeFactory is IERC1271, TwoStepOwnable, Context {
             // _signature is just going to be the proof, then we can read it as so
             proof.offset := add(0x20, _signature.offset)
             proof.length := calldataload(proof.offset)
+            proof.offset := add(0x20, proof.offset)
         }
         bytes32 root = MerkleProofLib.verify(proof, _hash);
 
