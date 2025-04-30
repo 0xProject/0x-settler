@@ -54,16 +54,13 @@ contract BridgeFactory is IERC1271, TwoStepOwnable {
             mstore(0x00, 0xff00000000000000) // 0xff with padding for factory address
             mstore(0x2d, root) // salt
             mstore(0x4d, initCodeHash) // initCode hash
-            let computedAddress := and(
-                keccak256(0x18, 0x55),
-                0xffffffffffffffffffffffffffffffffffffffff
-            )
+            let computedAddress := keccak256(0x18, 0x55)
 
             // restore clobbered slots
             mstore(0x60, 0x00)
             mstore(0x40, ptr)
 
-            if xor(computedAddress, address()) {
+            if shl(0x60, xor(computedAddress, address())) {
                 return(0x00, 0x00)
             }
             mstore(0x00, 0x1626ba7e)
