@@ -6,8 +6,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
+import {Context} from "./Context.sol";
 
-contract BridgeFactory is IERC1271, TwoStepOwnable {
+contract BridgeFactory is IERC1271, TwoStepOwnable, Context {
     using SafeTransferLib for IERC20;
 
     address private immutable _cachedThis;
@@ -96,22 +97,4 @@ contract BridgeFactory is IERC1271, TwoStepOwnable {
     function call() external {}
 
     function cleanup() external {}
-
-    function _msgSender() internal view virtual override returns (address) {
-        return msg.sender;
-    }
-
-    function _msgData()
-        internal
-        view
-        virtual
-        override
-        returns (bytes calldata)
-    {
-        return msg.data;
-    }
-
-    function _isForwarded() internal view virtual override returns (bool) {
-        return false;
-    }
 }
