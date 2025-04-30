@@ -22,7 +22,7 @@ contract BridgeFactory is IERC1271, TwoStepOwnable, Context {
     }
 
     modifier onlyWallet() {
-        require(address(this).code.length == 23);
+        require(address(this).code.length == 38);
         _;
     }
 
@@ -34,7 +34,7 @@ contract BridgeFactory is IERC1271, TwoStepOwnable, Context {
     function isValidSignature(
         bytes32 _hash,
         bytes calldata _signature
-    ) external view override returns (bytes4) {
+    ) external view override onlyWallet returns (bytes4) {
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             // _signature is just going to be the proof, then we can read it as so
