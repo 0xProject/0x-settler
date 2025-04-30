@@ -65,7 +65,8 @@ contract BridgeFactory is IERC1271, TwoStepOwnable {
                 return(0x00, 0x00)
             }
             mstore(0x00, 0x1626ba7e)
-            return(0x1c, 0x04)
+            mstore(0x20, 0x00)
+            return(0x1c, 0x20)
         }
     }
 
