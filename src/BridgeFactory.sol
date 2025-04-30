@@ -42,11 +42,13 @@ contract BridgeFactory is IERC1271, TwoStepOwnable {
         }
         bytes32 root = MerkleProofLib.verify(proof, _hash);
 
+        address factory = _cachedThis;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
+            mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
+            mstore(0x0d, factory)
             mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
-            extcodecopy(address(), 0x20, 0x09, 0x1d)
             let initCodeHash := keccak256(0x0e, 0x2f)
 
             mstore(0x00, 0xff00000000000000) // 0xff with padding for factory address
