@@ -79,7 +79,11 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             // We simultaneously transfer-in the taker's tokens and authenticate the
             // metatransaction.
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
+        } /*
+        // METATXN_RFQ_VIP is temporarily removed because Solver has no support
+        // for it. When support for METATXN_RFQ_VIP is reenabled, the test
+        // testSettler_metaTxn_rfq should be reenabled
+        else if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
             // performed inside the RfqOrderSettlement so there is no need to
@@ -96,7 +100,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             );
 
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
-        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
+        } */ else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
                 bytes memory path,
