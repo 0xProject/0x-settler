@@ -139,7 +139,21 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         }
     }
 
-    function cleanup(address payable beneficiary) external onlyOwner {
+    function cleanup(address payable beneficiary) external {
+        address owner_ = owner();
+        if (_msgSender() != owner_) {
+            if (owner_ != address(0)) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
+                    revert(0x1c, 0x04)
+                }
+            }
+            address pendingOwner_ = pendingOwner();
+            if (pendingOwner_ == address(0)) {
+                selfdestruct(beneficiary);
+            }
+            selfdestruct(payable(pendingOwner_));
+        }
         selfdestruct(beneficiary);
     }
 }
