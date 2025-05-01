@@ -42,7 +42,7 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
             proof.length := calldataload(proof.offset)
             proof.offset := add(0x20, proof.offset)
         }
-        bytes32 root = MerkleProofLib.verify(proof, _hash);
+        bytes32 salt = keccak256(abi.encodePacked(MerkleProofLib.getRoot(proof, _hash), block.chainid));
 
         address factory = _cachedThis;
         assembly ("memory-safe") {
@@ -51,9 +51,10 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
             mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
             let initCodeHash := keccak256(0x0e, 0x2f)
 
-            mstore(0x00, 0xff00000000000000) // 0xff with padding for factory address
-            mstore(0x2d, root) // salt
-            mstore(0x4d, initCodeHash) // initCode hash
+            // 0xff + factory + salt + hash(initCode)
+            mstore(0x00, 0xff00000000000000)
+            mstore(0x2d, salt)
+            mstore(0x4d, initCodeHash)
             let computedAddress := keccak256(0x18, 0x55)
 
             if shl(0x60, xor(computedAddress, address())) {
@@ -69,6 +70,7 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
     function deploy(
         bytes32 salt
     ) external noDelegateCall returns (address proxy) {
+        salt = keccak256(abi.encodePacked(salt, block.chainid));
         assembly ("memory-safe") {
             // create a minimal proxy targeting this contract
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
