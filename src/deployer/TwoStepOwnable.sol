@@ -93,7 +93,10 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
 
     function _requireOwner() internal view override {
         if (_msgSender() != owner()) {
-            revert PermissionDenied();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
+                revert(0x1c, 0x04)
+            }
         }
     }
 
@@ -178,7 +181,10 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
 
     function _requirePendingOwner() internal view override {
         if (_msgSender() != pendingOwner()) {
-            revert PermissionDenied();
+            assembly ("memory-safe") {
+                mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
+                revert(0x1c, 0x04)
+            }
         }
     }
 
