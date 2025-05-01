@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import {Context} from "../Context.sol";
 
+import {FastLogic} from "../utils/FastLogic.sol";
+
 interface IMultiCall {
     enum RevertPolicy {
         REVERT,
@@ -28,12 +30,14 @@ interface IMultiCall {
 }
 
 abstract contract MultiCallContext is Context {
+    using FastLogic for bool;
+
     address private constant _MULTICALL_ADDRESS = 0x00000000000000CF9E3c5A26621af382fA17f24f;
 
     IMultiCall internal constant _MULTICALL = IMultiCall(payable(_MULTICALL_ADDRESS));
 
     function _isForwarded() internal view virtual override returns (bool) {
-        return super._isForwarded() || super._msgSender() == address(_MULTICALL);
+        return super._isForwarded().or(super._msgSender() == address(_MULTICALL));
     }
 
     function _msgData() internal view virtual override returns (bytes calldata r) {
@@ -49,15 +53,14 @@ abstract contract MultiCallContext is Context {
         sender = super._msgSender();
         bytes calldata data = super._msgData();
         assembly ("memory-safe") {
-            sender := and(0xffffffffffffffffffffffffffffffffffffffff, sender)
             // ERC-2771. The trusted forwarder (`_MULTICALL`) has appended the appropriate
             // msg.sender to the msg data
             sender :=
                 xor(
                     sender,
                     mul(
-                        xor(shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14)))), sender),
-                        eq(_MULTICALL_ADDRESS, sender)
+                        xor(calldataload(add(data.offset, sub(data.length, 0x14))), shl(0x60, sender)),
+                        iszero(shl(0x60, xor(_MULTICALL_ADDRESS, sender)))
                     )
                 )
         }
