@@ -110,8 +110,12 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
                 mstore(0x00, 0x30116425) // selector for `DeploymentFailed()`.
                 revert(0x1c, 0x04)
             }
+
+            // set owner in proxy
+            mstore(0x14, owner)
+            mstore(0x00, 0xc42069ec000000000000000000000000) // selector for `setPendingOwner(address)` with padding for owner
+            pop(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00))
         }
-        BridgeFactory(proxy).setPendingOwner(owner);
     }
 
     function setPendingOwner(address owner) external onlyFactory {
