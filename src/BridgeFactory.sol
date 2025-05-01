@@ -136,8 +136,8 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         _setPendingOwner(owner);
     }
 
-    function approvePermit2(IERC20 token) external onlyProxy returns (bool) {
-        token.safeApprove(0x000000000022D473030F116dDEE9F6B43aC78BA3, type(uint256).max);
+    function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
+        token.safeApprove(0x000000000022D473030F116dDEE9F6B43aC78BA3, amount);
         return true;
     }
 
