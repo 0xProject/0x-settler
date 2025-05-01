@@ -46,8 +46,6 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
 
         address factory = _cachedThis;
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
-
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
             mstore(0x0d, factory)
             mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
@@ -58,12 +56,9 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
             mstore(0x4d, initCodeHash) // initCode hash
             let computedAddress := keccak256(0x18, 0x55)
 
-            // restore clobbered slots
-            mstore(0x60, 0x00)
-            mstore(0x40, ptr)
-
             if shl(0x60, xor(computedAddress, address())) {
-                return(0x60, 0x20)
+                mstore(0x00, 0x00)
+                return(0x00, 0x20)
             }
             // Return ERC1271 magic value (isValidSignature selector)
             mstore(0x00, 0x1626ba7e00000000000000000000000000000000000000000000000000000000)
