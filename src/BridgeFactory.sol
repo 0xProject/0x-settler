@@ -56,9 +56,9 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
 
             // derive creation salt
             mstore(0x00, root)
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, pendingOwner_))
-            mstore(0x40, chainid())
-            let salt := keccak256(0x00, 0x60)
+            mstore(0x14, pendingOwner_)
+            mstore(0x34, chainid())
+            let salt := keccak256(0x00, 0x54)
 
             // 0xff + factory + salt + hash(initCode)
             mstore(0x0d, factory)
@@ -105,9 +105,9 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
 
             // derive the deployment salt from the owner and chainid
             mstore(0x00, salt)
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, owner))
-            mstore(0x40, chainid())
-            salt := keccak256(0x00, 0x60)
+            mstore(0x14, owner)
+            mstore(0x34, chainid())
+            salt := keccak256(0x00, 0x54)
 
             // create a minimal proxy targeting this contract
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
