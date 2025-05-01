@@ -74,6 +74,7 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
             }
 
             // restore clobbered memory
+            mstore(0x60, 0x00)
             mstore(0x40, ptr)
         }
     }
