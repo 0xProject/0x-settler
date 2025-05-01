@@ -135,7 +135,7 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         assembly ("memory-safe") {
             let start := sub(result, 0x20) // TODO: examine bytecode to ensure this does not clobber reserved memory
             mstore(start, 0x20)
-            return(start, add(0x20, mload(result)))
+            return(start, add(0x40, mload(result)))
         }
     }
 
