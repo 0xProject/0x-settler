@@ -123,7 +123,13 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         return true;
     }
 
-    function call() external {}
+    function call(address target, uint256 value, bytes calldata data) external onlyOwner returns (bytes memory) {
+        (bool success, bytes memory result) = target.call{value: value}(data);
+        require(success);
+        return result;
+    }
 
-    function cleanup() external {}
+    function cleanup() external onlyOwner {
+        selfdestruct(payable(_msgSender()));
+    }
 }
