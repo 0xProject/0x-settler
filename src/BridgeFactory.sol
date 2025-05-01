@@ -7,12 +7,14 @@ import {IERC1271} from "./interfaces/IERC1271.sol";
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {MultiCallContext} from "./multicall/MultiCallContext.sol";
 
+import {FastLogic} from "./utils/FastLogic.sol";
 import {Revert} from "./utils/Revert.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 
 contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     using SafeTransferLib for IERC20;
+    using FastLogic for bool;
     using Revert for bool;
 
     address private immutable _cachedThis;
@@ -100,7 +102,7 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
 
     error DeploymentFailed();
 
-    function deploy(bytes32 salt, address owner) external noDelegateCall returns (address proxy) {
+    function deploy(bytes32 salt, address owner, bool setOwner) external noDelegateCall returns (address proxy) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -120,16 +122,21 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
                 revert(0x1c, 0x04)
             }
 
+            // restore clobbered memory
+            mstore(0x40, ptr)
+
+            // if `setOwner == true`, this gets the selector for `setPendingOwner(address)`
+            // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
+            // appended with `owner`'s padding
+            let selector := xor(0xfbacefce000000000000000000000000, mul(0x3f8c8622000000000000000000000000, setOwner))
+
             // set the pending owner in the proxy
             mstore(0x14, owner)
-            mstore(0x00, 0xc42069ec000000000000000000000000) // selector for `setPendingOwner(address)` with padding for owner
+            mstore(0x00, selector)
             if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-
-            // restore clobbered memory
-            mstore(0x40, ptr)
         }
     }
 
@@ -157,19 +164,18 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     }
 
     function cleanup(address payable beneficiary) external onlyProxy {
+        if (_msgSender() == _cachedThis) {
+            selfdestruct(beneficiary);
+        }
         address owner_ = owner();
         if (_msgSender() != owner_) {
             if (owner_ != address(0)) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
-                    revert(0x1c, 0x04)
-                }
+                _permissionDenied();
             }
             address pendingOwner_ = pendingOwner();
-            if (pendingOwner_ == address(0)) {
-                selfdestruct(beneficiary);
+            if ((pendingOwner_ == address(0)).or(beneficiary != pendingOwner_)) {
+                _permissionDenied();
             }
-            selfdestruct(payable(pendingOwner_));
         }
         selfdestruct(beneficiary);
     }

@@ -15,7 +15,7 @@ contract BridgeFactoryTest is Test {
     function _deployProxy(bytes32 action, uint256 privateKey) internal returns (BridgeFactory proxy) {
         address owner = vm.addr(privateKey);
 
-        proxy = BridgeFactory(factory.deploy(action, owner));
+        proxy = BridgeFactory(factory.deploy(action, owner, true));
         vm.label(address(proxy), "Proxy");
     }
 
