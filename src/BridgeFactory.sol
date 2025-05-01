@@ -31,6 +31,11 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         _;
     }
 
+    modifier onlyFactory() {
+        require(_msgSender() == _cachedThis);
+        _;
+    }
+
     function isValidSignature(bytes32 _hash, bytes calldata _signature)
         external
         view
@@ -38,14 +43,18 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         onlyProxy
         returns (bytes4)
     {
+        return _isValidSignature(_hash, _signature);
+    }
+
+    function _isValidSignature(bytes32 _leaf, bytes calldata _proof) private view returns (bytes4) {
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             // _signature is just going to be the proof, then we can read it as so
-            proof.offset := add(0x20, _signature.offset)
+            proof.offset := add(0x20, _proof.offset)
             proof.length := calldataload(proof.offset)
             proof.offset := add(0x20, proof.offset)
         }
-        bytes32 salt = keccak256(abi.encodePacked(MerkleProofLib.getRoot(proof, _hash), block.chainid));
+        bytes32 salt = keccak256(abi.encodePacked(MerkleProofLib.getRoot(proof, _leaf), block.chainid));
 
         address factory = _cachedThis;
         assembly ("memory-safe") {
@@ -70,9 +79,28 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         }
     }
 
-    function deploy(bytes32 salt) external noDelegateCall returns (address proxy) {
-        salt = keccak256(abi.encodePacked(salt, block.chainid));
+    function deploy(bytes32 salt, address owner, bytes32 r, bytes32 vs) external noDelegateCall returns (address proxy) {
         assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x00, salt)
+            mstore(0x20, add(0x1b, shr(0xff, vs)))
+            mstore(0x40, r)
+            mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
+            pop(staticcall(gas(), 0x01, 0x00, 0x80, 0x20, 0x20))
+
+            // reset clobbered memory
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
+
+            if xor(owner, mul(mload(0x20), eq(returndatasize(), 0x20))) {
+                mstore(0x00, 0x8baa579f) // selector for `InvalidSignature()`
+                revert(0x1c, 0x04)
+            }
+        
+            mstore(0x20, chainid())
+            salt := keccak256(0x00, 0x40)
+
             // create a minimal proxy targeting this contract
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
             mstore(0x0d, address())
@@ -83,6 +111,11 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
                 revert(0x1c, 0x04)
             }
         }
+        BridgeFactory(proxy).setPendingOwner(owner);
+    }
+
+    function setPendingOwner(address owner) external onlyFactory {
+        _setPendingOwner(owner);
     }
 
     function approvePermit2(IERC20 token) external onlyProxy returns (bool) {

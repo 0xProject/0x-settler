@@ -12,9 +12,17 @@ contract BridgeFactoryTest is Test {
         vm.label(address(factory), "BridgeFactory");
     }
 
-    function _deployProxy(bytes32 action) internal returns (BridgeFactory proxy) {
-        proxy = BridgeFactory(factory.deploy(action));
+    function _deployProxy(bytes32 action, uint256 privateKey) internal returns (BridgeFactory proxy) {
+        address owner = vm.addr(privateKey);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, action);
+        bytes32 vs = bytes32(uint256(s) | ((v - 27) << 255));
+        
+        proxy = BridgeFactory(factory.deploy(action, owner, r, vs));
         vm.label(address(proxy), "Proxy");
+    }
+
+    function _deployProxy(bytes32 action) internal returns (BridgeFactory proxy) {
+        return _deployProxy(action, uint256(keccak256(abi.encode("owner"))));
     }
 
     function testSingleAction() public {
@@ -37,5 +45,13 @@ contract BridgeFactoryTest is Test {
         assertEq(proxy.isValidSignature(action1, abi.encode(proof)), bytes4(0x00000000));
         proof[0] = action2;
         assertEq(proxy.isValidSignature(action1, abi.encode(proof)), bytes4(0x1626ba7e));
+    }
+
+    function testPendingOwner() public {
+        (address owner, uint256 privateKey) = makeAddrAndKey("owner");
+        BridgeFactory proxy = _deployProxy(keccak256(abi.encode("action")), privateKey);
+
+        vm.prank(owner);
+        proxy.acceptOwnership();
     }
 }
