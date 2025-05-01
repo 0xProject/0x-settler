@@ -6,9 +6,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
-import {Context} from "./Context.sol";
+import {MultiCallContext} from "./multicall/MultiCallContext.sol";
 
-contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
+contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     using SafeTransferLib for IERC20;
 
     address private immutable _cachedThis;
