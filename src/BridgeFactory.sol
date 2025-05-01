@@ -15,8 +15,8 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
 
     constructor() {
         require(
-            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C &&
-                uint160(address(this)) >> 104 == 0) || block.chainid == 31337
+            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
+                || block.chainid == 31337
         );
         _cachedThis = address(this);
     }
@@ -31,10 +31,13 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         _;
     }
 
-    function isValidSignature(
-        bytes32 _hash,
-        bytes calldata _signature
-    ) external view override onlyProxy returns (bytes4) {
+    function isValidSignature(bytes32 _hash, bytes calldata _signature)
+        external
+        view
+        override
+        onlyProxy
+        returns (bytes4)
+    {
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             // _signature is just going to be the proof, then we can read it as so
@@ -67,9 +70,7 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         }
     }
 
-    function deploy(
-        bytes32 salt
-    ) external noDelegateCall returns (address proxy) {
+    function deploy(bytes32 salt) external noDelegateCall returns (address proxy) {
         salt = keccak256(abi.encodePacked(salt, block.chainid));
         assembly ("memory-safe") {
             // create a minimal proxy targeting this contract
@@ -85,10 +86,7 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
     }
 
     function approvePermit2(IERC20 token) external onlyProxy returns (bool) {
-        token.safeApprove(
-            0x000000000022D473030F116dDEE9F6B43aC78BA3,
-            type(uint256).max
-        );
+        token.safeApprove(0x000000000022D473030F116dDEE9F6B43aC78BA3, type(uint256).max);
         return true;
     }
 
