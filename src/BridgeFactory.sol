@@ -21,8 +21,8 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         _cachedThis = address(this);
     }
 
-    modifier onlyWallet() {
-        require(address(this).code.length == 38);
+    modifier onlyProxy() {
+        require(address(this) != _cachedThis);
         _;
     }
 
@@ -34,7 +34,7 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
     function isValidSignature(
         bytes32 _hash,
         bytes calldata _signature
-    ) external view override onlyWallet returns (bytes4) {
+    ) external view override onlyProxy returns (bytes4) {
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             // _signature is just going to be the proof, then we can read it as so
@@ -82,7 +82,7 @@ contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
         }
     }
 
-    function approvePermit2(IERC20 token) external onlyWallet returns (bool) {
+    function approvePermit2(IERC20 token) external onlyProxy returns (bool) {
         token.safeApprove(
             0x000000000022D473030F116dDEE9F6B43aC78BA3,
             type(uint256).max
