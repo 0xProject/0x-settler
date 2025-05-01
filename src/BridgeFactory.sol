@@ -81,7 +81,7 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
             proof.offset := add(0x20, proof.offset)
         }
 
-        _verifyRoot(MerkleProofLib.getRoot(proof, leaf), pendingOwner());
+        _verifyRoot(MerkleProofLib.getRoot(proof, hash), pendingOwner());
         return IERC1271.isValidSignature.selector;
     }
 
