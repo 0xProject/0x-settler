@@ -35,8 +35,12 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         );
     }
 
-    modifier onlyProxy() {
+    function _requireProxy() internal view {
         require(address(this) != _cachedThis);
+    }
+
+    modifier onlyProxy() {
+        _requireProxy();
         _;
     }
 
@@ -163,10 +167,12 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         }
     }
 
-    function cleanup(address payable beneficiary) external onlyProxy {
+    function cleanup(address payable beneficiary) external {
         if (_msgSender() == _cachedThis) {
             selfdestruct(beneficiary);
         }
+
+        _requireProxy();
         address owner_ = owner();
         if (_msgSender() != owner_) {
             if (owner_ != address(0)) {
