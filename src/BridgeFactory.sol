@@ -8,7 +8,7 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 import {Context} from "./Context.sol";
 
-contract BridgeFactory is IERC1271, TwoStepOwnable, Context {
+contract BridgeFactory is IERC1271, Context, TwoStepOwnable {
     using SafeTransferLib for IERC20;
 
     address private immutable _cachedThis;
