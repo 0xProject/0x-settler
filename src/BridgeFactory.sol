@@ -24,7 +24,13 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
                 || block.chainid == 31337
         );
         _cachedThis = address(this);
-        _proxyInitHash = keccak256(bytes.concat(hex"60265f8160095f39f35f5f365f5f37365f6c", bytes13(uint104(uint160(address(this)))), hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"));
+        _proxyInitHash = keccak256(
+            bytes.concat(
+                hex"60265f8160095f39f35f5f365f5f37365f6c",
+                bytes13(uint104(uint160(address(this)))),
+                hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
+            )
+        );
     }
 
     modifier onlyProxy() {
@@ -72,7 +78,13 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         }
     }
 
-    function isValidSignature(bytes32 hash, bytes calldata signature) external view override onlyProxy returns (bytes4) {
+    function isValidSignature(bytes32 hash, bytes calldata signature)
+        external
+        view
+        override
+        onlyProxy
+        returns (bytes4)
+    {
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             // signature is just the proof, then we can read it as so
@@ -129,7 +141,11 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         return true;
     }
 
-    function call(address payable target, uint256 value, bytes calldata data) external onlyOwner returns (bytes memory) {
+    function call(address payable target, uint256 value, bytes calldata data)
+        external
+        onlyOwner
+        returns (bytes memory)
+    {
         (bool success, bytes memory result) = target.call{value: value}(data);
         success.maybeRevert(result);
         assembly ("memory-safe") {
