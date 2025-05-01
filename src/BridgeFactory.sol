@@ -24,7 +24,7 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
                 || block.chainid == 31337
         );
         _cachedThis = address(this);
-        _proxyInitHash = keccak256(bytes.concat(hex"5af43d5f5f3e6022573d5ffd5b3d5ff3", bytes13(uint104(uint160(address(this)))), hex"60265f8160095f39f35f5f365f5f37365f6c"));
+        _proxyInitHash = keccak256(bytes.concat(hex"60265f8160095f39f35f5f365f5f37365f6c", bytes13(uint104(uint160(address(this)))), hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"));
     }
 
     modifier onlyProxy() {

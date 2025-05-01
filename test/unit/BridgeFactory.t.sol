@@ -14,10 +14,8 @@ contract BridgeFactoryTest is Test {
 
     function _deployProxy(bytes32 action, uint256 privateKey) internal returns (BridgeFactory proxy) {
         address owner = vm.addr(privateKey);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, action);
-        bytes32 vs = bytes32(uint256(s) | ((v - 27) << 255));
-        
-        proxy = BridgeFactory(factory.deploy(action, owner, r, vs));
+
+        proxy = BridgeFactory(factory.deploy(action, owner));
         vm.label(address(proxy), "Proxy");
     }
 
@@ -42,7 +40,10 @@ contract BridgeFactoryTest is Test {
 
         BridgeFactory proxy = _deployProxy(root);
         assertEq(proxy.isValidSignature(action2, abi.encode(proof)), bytes4(0x1626ba7e));
-        assertEq(proxy.isValidSignature(action1, abi.encode(proof)), bytes4(0x00000000));
+
+        vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
+        proxy.isValidSignature(action1, abi.encode(proof));
+
         proof[0] = action2;
         assertEq(proxy.isValidSignature(action1, abi.encode(proof)), bytes4(0x1626ba7e));
     }
