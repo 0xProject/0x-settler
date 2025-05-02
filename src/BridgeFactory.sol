@@ -131,12 +131,12 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
             // restore clobbered memory
             mstore(0x40, ptr)
 
-            // if `setOwner == true`, this gets the selector for `setPendingOwner(address)`
+            // If `setOwner == true`, this gets the selector for `setPendingOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
             // appended with `owner`'s padding
             let selector := xor(0xfbacefce000000000000000000000000, mul(0x3f8c8622000000000000000000000000, setOwner))
 
-            // set the pending owner in the proxy
+            // set the pending owner, or `selfdestruct` to the owner
             mstore(0x14, owner)
             mstore(0x00, selector)
             if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
