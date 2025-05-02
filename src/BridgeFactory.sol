@@ -99,6 +99,8 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
             proof.length := calldataload(proof.offset)
             proof.offset := add(0x20, proof.offset)
         }
+        // TODO: figure out how to make this work with the `setOwner == false` flow in
+        // `deploy`. `pendingOwner()` will be `address(0)`.
 
         _verifyRoot(MerkleProofLib.getRoot(proof, hash), pendingOwner());
         return IERC1271.isValidSignature.selector;
