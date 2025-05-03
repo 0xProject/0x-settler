@@ -6,7 +6,6 @@ import {BridgeFactory} from "src/BridgeFactory.sol";
 
 contract BridgeFactoryTest is Test {
     BridgeFactory internal constant factory = BridgeFactory(address(0xf4c70));
-    address owner;
 
     function setUp() public {
         deployCodeTo("BridgeFactory.sol", address(factory));
@@ -19,7 +18,7 @@ contract BridgeFactoryTest is Test {
         vm.label(address(proxy), "Proxy");
     }
 
-    function _deployProxy(bytes32 action) internal returns (BridgeFactory proxy, address owner) {
+    function _deployProxy(bytes32 action) internal returns (BridgeFactory, address) {
         return _deployProxy(action, uint256(keccak256(abi.encode("owner"))));
     }
 
