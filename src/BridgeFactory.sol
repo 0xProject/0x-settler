@@ -89,20 +89,24 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         external
         view
         override
-        onlyProxy
+        /* `_verifyRoot` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
         returns (bytes4)
     {
+        address owner;
         bytes32[] calldata proof;
+
+        // This assembly block is equivalent to:
+        //     (owner, proof) = abi.decode(signature, (address, bytes32[]));
+        // except we omit all the range and overflow checking.
         assembly ("memory-safe") {
-            // signature is just the proof, then we can read it as so
-            proof.offset := add(signature.offset, calldataload(signature.offset))
+            owner := calldataload(signature.offset)
+            if shr(0xa0, owner) { revert(0x00, 0x00) }
+            proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
             proof.length := calldataload(proof.offset)
             proof.offset := add(0x20, proof.offset)
         }
-        // TODO: figure out how to make this work with the `setOwner == false` flow in
-        // `deploy`. `pendingOwner()` will be `address(0)`.
 
-        _verifyRoot(MerkleProofLib.getRoot(proof, hash), pendingOwner());
+        _verifyRoot(MerkleProofLib.getRoot(proof, hash), owner);
         return IERC1271.isValidSignature.selector;
     }
 
