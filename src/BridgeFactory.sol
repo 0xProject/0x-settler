@@ -8,14 +8,12 @@ import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {MultiCallContext} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
-import {Revert} from "./utils/Revert.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 
 contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     using SafeTransferLib for IERC20;
     using FastLogic for bool;
-    using Revert for bool;
 
     address private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
@@ -164,12 +162,21 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         onlyOwner
         returns (bytes memory)
     {
-        (bool success, bytes memory result) = target.call{value: value}(data);
-        success.maybeRevert(result);
         assembly ("memory-safe") {
-            let start := sub(result, 0x20) // TODO: examine bytecode to ensure this does not clobber reserved memory
-            mstore(start, 0x20)
-            return(start, add(0x40, mload(result)))
+            let ptr := mload(0x40)
+
+            calldatacopy(ptr, data.offset, data.length)
+            let success := call(gas(), target, value, ptr, data.length, 0x00, 0x00)
+
+            returndatacopy(add(0x40, ptr), 0x00, returndatasize())
+
+            if iszero(success) {
+                revert(add(0x40, ptr), returndatasize())
+            }
+
+            mstore(add(0x20, ptr), returndatasize())
+            mstore(ptr, 0x20)
+            return(ptr, add(0x40, returndatasize()))
         }
     }
 
