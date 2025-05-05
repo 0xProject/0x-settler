@@ -13,7 +13,7 @@ import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
 
-    address private immutable _cachedThis;
+    BridgeFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
 
     constructor() {
@@ -21,7 +21,7 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
             (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
                 || block.chainid == 31337
         );
-        _cachedThis = address(this);
+        _cachedThis = this;
         _proxyInitHash = keccak256(
             bytes.concat(
                 hex"60265f8160095f39f35f5f365f5f37365f6c",
@@ -32,23 +32,23 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     }
 
     modifier onlyProxy() {
-        require(address(this) != _cachedThis);
+        require(this != _cachedThis);
         _;
     }
 
     modifier noDelegateCall() {
-        require(address(this) == _cachedThis);
+        require(this == _cachedThis);
         _;
     }
 
     modifier onlyFactory() {
-        require(msg.sender == _cachedThis);
+        require(msg.sender == address(_cachedThis));
         _;
     }
 
     function _verifyRoot(bytes32 root, address pendingOwner_) internal view {
         bytes32 initHash = _proxyInitHash;
-        address factory = _cachedThis;
+        BridgeFactory factory = _cachedThis;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -194,7 +194,7 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     }
 
     function cleanup(address payable beneficiary) external {
-        if (msg.sender == _cachedThis) {
+        if (msg.sender == address(_cachedThis)) {
             selfdestruct(beneficiary);
         }
 
