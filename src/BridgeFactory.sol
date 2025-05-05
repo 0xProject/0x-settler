@@ -8,11 +8,9 @@ import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {MultiCallContext} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
-import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 
 contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
-    using SafeTransferLib for IERC20;
     using FastLogic for bool;
 
     address private immutable _cachedThis;
@@ -152,9 +150,28 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         _setPendingOwner(owner);
     }
 
+    error ApproveFailed();
+
     function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
-        token.safeApprove(0x000000000022D473030F116dDEE9F6B43aC78BA3, amount);
-        return true;
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x00, 0x095ea7b3) // selector for `approve(address,uint256)`
+            mstore(0x20, 0x000000000022D473030F116dDEE9F6B43aC78BA3) // Permit2
+            mstore(0x40, amount)
+
+            if iszero(call(gas(), token, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
+                mstore(0x00, 0x3e3f8f73) // selector for `ApproveFailed()`
+                revert(0x1c, 0x04)
+            }
+
+            mstore(0x00, 0x01)
+            return(0x00, 0x20)
+        }
     }
 
     function call(address payable target, uint256 value, bytes calldata data)
