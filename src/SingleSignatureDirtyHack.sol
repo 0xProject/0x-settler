@@ -20,7 +20,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     error SignatureExpired(uint256 deadline);
 
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
-    bytes32 private constant _NAMEHASH = 0x0000000000000000000000000000000000000000000000000000000000000000;
+    bytes32 private constant _NAMEHASH = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
     string public constant name = ""; // TODO: needs a name
     uint256 private immutable _cachedChainId;
     bytes32 private immutable _cachedDomainSeparator;
