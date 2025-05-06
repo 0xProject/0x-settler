@@ -6,6 +6,7 @@ import {SettlerBase} from "./SettlerBase.sol";
 import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 
 import {PaymentAbstract} from "./core/PaymentAbstract.sol";
+import {PaymentBase} from "./core/PaymentBase.sol";
 import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./core/Permit2Payment.sol";
 
 import {AbstractContext, Context} from "./Context.sol";
@@ -269,7 +270,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         internal
         view
         virtual
-        override(Permit2PaymentMetaTxn, SettlerMetaTxn, MultiCallContext)
+        override(AbstractContext, MultiCallContext, PaymentBase)
         returns (address)
     {
         return super._msgSender();

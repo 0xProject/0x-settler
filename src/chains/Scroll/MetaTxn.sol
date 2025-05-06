@@ -53,10 +53,6 @@ contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
         return super._dispatch(i, action, data);
     }
 
-    function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
-        return super._msgSender();
-    }
-
     function _div512to256(uint512 n, uint512 d)
         internal
         view

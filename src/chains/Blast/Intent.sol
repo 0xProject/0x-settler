@@ -15,6 +15,7 @@ import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext, Context} from "../../Context.sol";
 import {PaymentAbstract} from "../../core/PaymentAbstract.sol";
+import {PaymentBase} from "../../core/PaymentBase.sol";
 import {Permit2PaymentBase, Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
@@ -57,7 +58,7 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
         return super._msgData();
     }
 
-    function _msgSender() internal view override(SettlerIntent, BlastSettlerMetaTxn) returns (address) {
+    function _msgSender() internal view override(AbstractContext, SettlerIntent, PaymentBase) returns (address) {
         return super._msgSender();
     }
 

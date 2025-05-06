@@ -300,7 +300,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         internal
         view
         virtual
-        override(AllowanceHolderContext, PaymentBase)
+        override(AbstractContext, AllowanceHolderContext, PaymentBase)
         returns (address)
     {
         return super._msgSender();
@@ -309,7 +309,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 
 // DANGER: the order of the base contracts here is very significant for the use of `super` below
 // (and in derived contracts). Do not change this order.
-abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
+abstract contract Permit2PaymentMetaTxn is Permit2Payment {
     constructor() {
         assert(_hasMetaTxn());
     }
@@ -385,11 +385,6 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         // It should not be possible for this check to revert because the very first thing that a
         // metatransaction does is spend the witness.
         TransientStorage.checkSpentWitness();
-    }
-
-    // Solidity inheritance is stupid
-    function _msgSender() internal view virtual override(Context, Permit2PaymentBase) returns (address) {
-        return super._msgSender();
     }
 }
 

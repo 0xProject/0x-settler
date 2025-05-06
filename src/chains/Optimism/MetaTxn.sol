@@ -55,8 +55,4 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
     {
         return super._dispatch(i, action, data);
     }
-
-    function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
-        return super._msgSender();
-    }
 }

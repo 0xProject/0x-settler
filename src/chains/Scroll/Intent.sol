@@ -15,6 +15,7 @@ import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext, Context} from "../../Context.sol";
 import {PaymentAbstract} from "../../core/PaymentAbstract.sol";
+import {PaymentBase} from "../../core/PaymentBase.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 import {uint512} from "../../utils/512Math.sol";
 
@@ -49,7 +50,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._msgData();
     }
 
-    function _msgSender() internal view override(SettlerIntent, ScrollSettlerMetaTxn) returns (address) {
+    function _msgSender() internal view override(AbstractContext, SettlerIntent, PaymentBase) returns (address) {
         return super._msgSender();
     }
 
