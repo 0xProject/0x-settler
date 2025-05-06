@@ -283,7 +283,7 @@ contract SingleSignatureDirtyHackTest is Test {
     ) internal {
         signerPk = bound(signerPk, 2, 115792089237316195423570985008687907852837564279074904382605163141518161494336);
         gasLimit = bound(gasLimit, 0, 30_000_000);
-        deadline = bound(deadline, block.timestamp, type(uint256).max - 1);
+        deadline = bound(deadline, block.timestamp, type(uint256).max - 2);
         nonce = bound(nonce, 1, type(uint64).max - 3);
         amount = bound(amount, 2, type(uint256).max);
         requestedAmount = bound(requestedAmount, 1, amount);
