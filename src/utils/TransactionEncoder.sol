@@ -3,33 +3,111 @@ pragma solidity ^0.8.28;
 
 import {LibRLP} from "@solady/utils/LibRLP.sol";
 
-import {UnsafeMath} from "src/utils/UnsafeMath.sol";
-import {FastLogic} from "src/utils/FastLogic.sol";
+import {UnsafeMath} from "./UnsafeMath.sol";
+import {FastLogic} from "./FastLogic.sol";
 
 struct AccessListElem {
     address account;
     bytes32[] slots;
 }
 
+type AccessListIterator is uint256;
+type SlotListIterator is uint256;
+
 library LibAccessList {
     using LibRLP for LibRLP.List;
     using UnsafeMath for uint256;
 
-    function encode(AccessListElem[] memory accessList) internal pure returns (LibRLP.List memory list) {
-        uint256 accountsLength = accessList.length;
-        for (uint256 i; i < accountsLength; i = i.unsafeInc()) {
-            AccessListElem memory elem = accessList[i];
-            LibRLP.List memory slots;
-            uint256 slotsLength = elem.slots.length;
-            for (uint256 j; j < slotsLength; j = j.unsafeInc()) {
-                slots.p(bytes.concat(elem.slots[j]));
+    function iter(AccessListElem[] calldata a) internal pure returns (AccessListIterator r) {
+        assembly ("memory-safe") {
+            r := a.offset
+        }
+    }
+
+    function iter(bytes32[] calldata a) internal pure returns (SlotListIterator r) {
+        assembly ("memory-safe") {
+            r := a.offset
+        }
+    }
+
+    function next(AccessListIterator i) internal pure returns (AccessListIterator) {
+        unchecked {
+            return AccessListIterator.wrap(AccessListIterator.unwrap(i) + 32);
+        }
+    }
+
+    function next(SlotListIterator i) internal pure returns (SlotListIterator) {
+        unchecked {
+            return SlotListIterator.wrap(SlotListIterator.unwrap(i) + 32);
+        }
+    }
+
+    function end(AccessListElem[] calldata a) internal pure returns (AccessListIterator r) {
+        unchecked {
+            return AccessListIterator.wrap((a.length << 5) + AccessListIterator.unwrap(iter(a)));
+        }
+    }
+
+    function end(bytes32[] calldata a) internal pure returns (SlotListIterator r) {
+        unchecked {
+            return SlotListIterator.wrap((a.length << 5) + SlotListIterator.unwrap(iter(a)));
+        }
+    }
+
+    function get(AccessListElem[] calldata a, AccessListIterator i) internal pure returns (address account, bytes32[] calldata slots) {
+        assembly ("memory-safe") {
+            let r := add(a.offset, calldataload(i))
+            account := calldataload(r)
+            if shr(0xa0, account) { revert(0x00, 0x00) }
+            slots.offset := add(r, calldataload(add(0x20, r)))
+            slots.length := calldataload(slots.offset)
+            slots.offset := add(0x20, slots.offset)
+        }
+    }
+
+    function get(bytes32[] calldata, SlotListIterator i) internal pure returns (bytes32 slot) {
+        assembly ("memory-safe") {
+            slot := calldataload(i)
+        }
+    }
+
+    function encode(AccessListElem[] calldata accessList) internal pure returns (LibRLP.List memory list) {
+        for ((AccessListIterator i, AccessListIterator i_end) = (accessList.iter(), accessList.end()); i != i_end; i = i.next()) {
+            (address account, bytes32[] calldata slots_src) = accessList.get(i);
+            LibRLP.List memory slots_dst;
+            for ((SlotListIterator j, SlotListIterator j_end) = (slots_src.iter(), slots_src.end()); j != j_end; j = j.next()) {
+                slots_dst.p(abi.encode(slots_src.get(j)));
             }
-            list.p(LibRLP.p(elem.account).p(slots));
+            list.p(account).p(slots_dst);
         }
     }
 }
 
+function __AccessListIterator_eq(AccessListIterator a, AccessListIterator b) pure returns (bool) {
+    return AccessListIterator.unwrap(a) == AccessListIterator.unwrap(b);
+}
+
+function __AccessListIterator_ne(AccessListIterator a, AccessListIterator b) pure returns (bool) {
+    return AccessListIterator.unwrap(a) != AccessListIterator.unwrap(b);
+}
+
+using {__AccessListIterator_eq as ==, __AccessListIterator_ne as !=} for AccessListIterator global;
+
+
+function __SlotListIterator_eq(SlotListIterator a, SlotListIterator b) pure returns (bool) {
+    return SlotListIterator.unwrap(a) == SlotListIterator.unwrap(b);
+}
+
+function __SlotListIterator_ne(SlotListIterator a, SlotListIterator b) pure returns (bool) {
+    return SlotListIterator.unwrap(a) != SlotListIterator.unwrap(b);
+}
+
+using {__SlotListIterator_eq as ==, __SlotListIterator_ne as !=} for SlotListIterator global;
+
 using LibAccessList for AccessListElem[];
+using LibAccessList for bytes32[];
+using LibAccessList for AccessListIterator;
+using LibAccessList for SlotListIterator;
 
 struct PackedSignature {
     bytes32 r;
@@ -45,7 +123,7 @@ library TransactionEncoder {
 
     uint256 internal constant _SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
 
-    function _recover(bytes memory payload, uint8 v, bytes32 r, bytes32 s) private view returns (address) {
+    function _recover(bytes memory payload, uint8 v, bytes32 r, bytes32 s) private pure returns (address) {
         bytes32 signingHash = keccak256(payload);
         address recovered = ecrecover(signingHash, v, r, s);
         if (recovered == address(0)) {
@@ -99,7 +177,7 @@ library TransactionEncoder {
         address payable to,
         uint256 value,
         bytes memory data,
-        AccessListElem[] memory accessList,
+        AccessListElem[] calldata accessList,
         PackedSignature calldata sig
     ) internal view returns (address) {
         (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);
@@ -120,7 +198,7 @@ library TransactionEncoder {
         address payable to,
         uint256 value,
         bytes memory data,
-        AccessListElem[] memory accessList,
+        AccessListElem[] calldata accessList,
         PackedSignature calldata sig
     ) internal view returns (address) {
         (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);

@@ -221,7 +221,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         TransferParams calldata transferParams,
         uint256 gasPrice,
         uint256 gasLimit,
-        AccessListElem[] memory accessList,
+        AccessListElem[] calldata accessList,
         PackedSignature calldata sig
     ) external preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
@@ -248,7 +248,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 gasPriorityPrice,
         uint256 gasPrice,
         uint256 gasLimit,
-        AccessListElem[] memory accessList,
+        AccessListElem[] calldata accessList,
         PackedSignature calldata sig
     ) external preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
