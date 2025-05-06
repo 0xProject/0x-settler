@@ -31,13 +31,7 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
         MODE_SFS.assign(MODE_SFS.getTokenId(DEPLOYER));
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        virtual
-        override(PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure virtual override(PaymentAbstract) returns (bool) {
         return target == address(MODE_SFS);
     }
 

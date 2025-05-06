@@ -60,13 +60,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
         }
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        virtual
-        override(PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure virtual override(PaymentAbstract) returns (bool) {
         return target == address(BLAST);
     }
 

@@ -158,8 +158,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // new solver, then `prev` must be the last element of the list (it points at
             // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
             // `solver.
-            fail :=
-                or(xor(and(_ADDRESS_MASK, sload(prevSlot)), expectedPrevSlotValue), fail)
+            fail := or(xor(and(_ADDRESS_MASK, sload(prevSlot)), expectedPrevSlotValue), fail)
 
             // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
             // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at

@@ -56,7 +56,6 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
                     bytes
                 )
             );
-
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
         } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (

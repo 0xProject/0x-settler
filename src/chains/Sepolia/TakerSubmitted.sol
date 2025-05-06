@@ -54,12 +54,7 @@ contract SepoliaSettler is Settler, SepoliaMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        override(Settler, PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure override(Settler, PaymentAbstract) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

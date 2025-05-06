@@ -85,7 +85,6 @@ contract MainnetSettler is Settler, MainnetMixin {
                 bytes memory sig,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, uint80, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
-
             sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, minBuyAmount);
         } */ else {
             return false;
@@ -94,12 +93,7 @@ contract MainnetSettler is Settler, MainnetMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        pure
-        override(Settler, PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal pure override(Settler, PaymentAbstract) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

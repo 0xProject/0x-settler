@@ -377,9 +377,8 @@ abstract contract Ekubo is SettlerAbstract {
                 SqrtRatio sqrtRatio = SqrtRatio.wrap(
                     uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
                 );
-                (int256 delta0, int256 delta1) = IEkuboCore(msg.sender).unsafeSwap(
-                    poolKey, int128(amountSpecified), isToken1, sqrtRatio, skipAhead
-                );
+                (int256 delta0, int256 delta1) =
+                    IEkuboCore(msg.sender).unsafeSwap(poolKey, int128(amountSpecified), isToken1, sqrtRatio, skipAhead);
                 // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
                 // `settledSellAmount` is positive, `settledBuyAmount` is negative. So the use of
                 // `asCredit` and `asDebt` below is misleading as they are actually debt and credit,

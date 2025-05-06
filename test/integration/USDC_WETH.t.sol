@@ -137,12 +137,7 @@ contract USDCWETHTest is
     }
 
     function ekuboFills() internal view virtual override returns (bytes memory) {
-        return abi.encodePacked(
-            uint16(10_000),
-            bytes1(0x01),
-            _eth,
-            ekuboPoolConfig(),
-            uint256(0));
+        return abi.encodePacked(uint16(10_000), bytes1(0x01), _eth, ekuboPoolConfig(), uint256(0));
     }
 
     function recipient() internal view virtual override returns (address) {
@@ -160,7 +155,10 @@ contract USDCWETHTest is
             data[i] = actions[i];
         }
         data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, ""));
-        data[actions.length + 1] = abi.encodeCall(ISettlerActions.BASIC, (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0)))));
+        data[actions.length + 1] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+        );
         return data;
     }
 }
