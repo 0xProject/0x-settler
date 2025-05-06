@@ -5,7 +5,7 @@ import {AbstractContext} from "../Context.sol";
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
-abstract contract Permit2PaymentAbstract is AbstractContext {
+abstract contract PaymentAbstract is AbstractContext {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
     function _isRestrictedTarget(address) internal view virtual returns (bool);

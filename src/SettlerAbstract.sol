@@ -2,10 +2,10 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "./core/PaymentAbstract.sol";
 import {uint512} from "./utils/512Math.sol";
 
-abstract contract SettlerAbstract is Permit2PaymentAbstract {
+abstract contract SettlerAbstract is PaymentAbstract {
     // Permit2 Witness for meta transactions
     string internal constant SLIPPAGE_AND_ACTIONS_TYPE =
         "SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)";

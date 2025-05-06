@@ -5,7 +5,7 @@ import {SettlerAbstract} from "./SettlerAbstract.sol";
 import {SettlerBase} from "./SettlerBase.sol";
 import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 
-import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "./core/PaymentAbstract.sol";
 import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./core/Permit2Payment.sol";
 
 import {AbstractContext, Context} from "./Context.sol";
@@ -254,7 +254,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         internal
         pure
         virtual
-        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn)
+        override(PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;

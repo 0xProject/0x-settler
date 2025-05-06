@@ -12,7 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "../../core/PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
@@ -33,7 +33,7 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
         internal
         pure
         virtual
-        override(Permit2PaymentBase, ModeMixin, Permit2PaymentAbstract)
+        override(Permit2PaymentBase, ModeMixin, PaymentAbstract)
         returns (bool)
     {
         return ModeMixin._isRestrictedTarget(target) || Permit2PaymentBase._isRestrictedTarget(target);

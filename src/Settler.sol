@@ -5,7 +5,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
-import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "./core/PaymentAbstract.sol";
 
 import {AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
@@ -116,7 +116,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         internal
         pure
         virtual
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
+        override(Permit2PaymentTakerSubmitted, PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

@@ -14,7 +14,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext, Context} from "../../Context.sol";
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "../../core/PaymentAbstract.sol";
 import {Permit2PaymentBase, Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
@@ -80,7 +80,7 @@ contract ModeSettlerIntent is SettlerIntent, ModeSettlerMetaTxn {
     function _isRestrictedTarget(address target)
         internal
         pure
-        override(ModeSettlerMetaTxn, Permit2PaymentAbstract, Permit2PaymentBase)
+        override(ModeSettlerMetaTxn, PaymentAbstract, Permit2PaymentBase)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -89,7 +89,7 @@ contract ModeSettlerIntent is SettlerIntent, ModeSettlerMetaTxn {
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         pure
-        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
+        override(SettlerIntent, PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
         return super._permitToSellAmount(permit);

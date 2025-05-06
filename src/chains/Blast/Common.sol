@@ -47,7 +47,7 @@ import {IOwnable} from "../../deployer/IOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
 
 // Solidity inheritance is stupid
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "../../core/PaymentAbstract.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
@@ -64,7 +64,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
         internal
         pure
         virtual
-        override(Permit2PaymentAbstract)
+        override(PaymentAbstract)
         returns (bool)
     {
         return target == address(BLAST);

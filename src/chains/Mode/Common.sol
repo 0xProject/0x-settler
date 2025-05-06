@@ -23,7 +23,7 @@ import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
 import {MODE_SFS} from "./IModeSFS.sol";
 
 // Solidity inheritance is stupid
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "../../core/PaymentAbstract.sol";
 
 abstract contract ModeMixin is FreeMemory, SettlerBase {
     constructor() {
@@ -35,7 +35,7 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
         internal
         pure
         virtual
-        override(Permit2PaymentAbstract)
+        override(PaymentAbstract)
         returns (bool)
     {
         return target == address(MODE_SFS);

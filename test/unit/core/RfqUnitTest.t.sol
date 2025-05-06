@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
-import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
+import {PaymentAbstract} from "src/core/PaymentAbstract.sol";
 import {
     Permit2PaymentMetaTxn,
     Permit2PaymentTakerSubmitted,
@@ -96,7 +96,7 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
     function _isRestrictedTarget(address target)
         internal
         pure
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, Permit2PaymentAbstract)
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
