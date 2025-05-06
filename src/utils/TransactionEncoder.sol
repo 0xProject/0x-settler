@@ -3,15 +3,14 @@ pragma solidity ^0.8.28;
 
 import {LibRLP} from "@solady/utils/LibRLP.sol";
 
+import {PackedSignature} from "../interfaces/PackedSignature.sol";
+import {AccessListElem} from "../interfaces/AccessListElem.sol";
+
 import {UnsafeMath} from "./UnsafeMath.sol";
 import {FastLogic} from "./FastLogic.sol";
 
-struct AccessListElem {
-    address account;
-    bytes32[] slots;
-}
-
 type AccessListIterator is uint256;
+
 type SlotListIterator is uint256;
 
 library LibAccessList {
@@ -119,11 +118,6 @@ using LibAccessList for AccessListElem[];
 using LibAccessList for bytes32[];
 using LibAccessList for AccessListIterator;
 using LibAccessList for SlotListIterator;
-
-struct PackedSignature {
-    bytes32 r;
-    bytes32 vs;
-}
 
 library TransactionEncoder {
     using LibRLP for LibRLP.List;

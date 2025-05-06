@@ -3,25 +3,23 @@ pragma solidity ^0.8.28;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
+import {ISingleSignatureDirtyHack} from "./interfaces/ISingleSignatureDirtyHack.sol";
 
 import {AbstractContext} from "./Context.sol";
 
-import {AccessListElem, PackedSignature, TransactionEncoder} from "./utils/TransactionEncoder.sol";
+import {PackedSignature} from "./interfaces/PackedSignature.sol";
+import {AccessListElem} from "./interfaces/AccessListElem.sol";
+import {TransactionEncoder} from "./utils/TransactionEncoder.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
-abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
+abstract contract SingleSignatureDirtyHack is ISingleSignatureDirtyHack, AbstractContext {
     using SafeTransferLib for IERC20;
 
-    mapping(address => uint256) public nonces;
-
-    error InvalidSigner(address expected, address actual);
-    error NonceReplay(uint256 oldNonce, uint256 newNonce);
-    error InvalidAllowance(uint256 expected, uint256 actual);
-    error SignatureExpired(uint256 deadline);
+    mapping(address => uint256) public override nonces;
 
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
     bytes32 private constant _NAMEHASH = 0x0000000000000000000000000000000000000000000000000000000000000000;
-    string public constant name = ""; // TODO: needs a name
+    string public constant override name = ""; // TODO: needs a name
     uint256 private immutable _cachedChainId;
     bytes32 private immutable _cachedDomainSeparator;
 
@@ -50,7 +48,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         return block.chainid == _cachedChainId ? _cachedDomainSeparator : _computeDomainSeparator();
     }
 
-    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+    function DOMAIN_SEPARATOR() external view override returns (bytes32) {
         return _DOMAIN_SEPARATOR();
     }
 
@@ -187,24 +185,13 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         }
     }
 
-    struct TransferParams {
-        bytes32 structHash;
-        IERC20 token;
-        address from;
-        address to;
-        uint256 amount;
-        uint256 nonce;
-        uint256 deadline;
-        uint256 requestedAmount;
-    }
-
     function transferFrom(
         string calldata typeSuffix,
         TransferParams calldata transferParams,
         uint256 gasPrice,
         uint256 gasLimit,
         PackedSignature calldata sig
-    ) external preFlightChecklist(transferParams) returns (bool) {
+    ) external override preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner(
@@ -223,7 +210,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 gasLimit,
         AccessListElem[] calldata accessList,
         PackedSignature calldata sig
-    ) external preFlightChecklist(transferParams) returns (bool) {
+    ) external override preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner(
@@ -250,7 +237,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 gasLimit,
         AccessListElem[] calldata accessList,
         PackedSignature calldata sig
-    ) external preFlightChecklist(transferParams) returns (bool) {
+    ) external override preFlightChecklist(transferParams) returns (bool) {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner(
