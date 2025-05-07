@@ -168,9 +168,25 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     }
 
     function _checkNonce(address token, address owner, uint256 previousNonce) private view {
-        uint256 currentNonce = EIP2612(token).nonces(owner);
-        if (previousNonce + 1 != currentNonce) {
-            revert NonceReplay(previousNonce, currentNonce);
+        assembly ("memory-safe") {
+            mstore(0x14, owner) 
+            mstore(0x00, 0x7ecebe00000000000000000000000000) // selector for `nonces(address)` with `owner` padding
+            if iszero(staticcall(gas(), token, 0x10, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if lt(returndatasize(), 0x20) {
+                mstore(0x00, 0xc1ab6dc1) // selector for `InvalidToken()`
+                revert(0x1c, 0x04)
+            }
+            if iszero(eq(mload(0x00), add(0x01, previousNonce))) {
+                let ptr := mload(0x40)
+                mstore(ptr, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
+                mstore(add(0x20, ptr), mload(0x00))
+                mstore(add(0x40, ptr), previousNonce)
+                revert(ptr, 0x44)
+            }
         }
     }
 
@@ -229,7 +245,10 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
                 returndatacopy(ptr, 0x20, returndatasize())
                 revert(ptr, returndatasize())
             }
-            if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
+            if lt(returndatasize(), 0x20) {
+                mstore(0x00, 0xc1ab6dc1) // selector for `InvalidToken()`
+                revert(0x1c, 0x04)
+            }
 
             mstore(0x40, structHash)
             // domain separator already in 0x20
