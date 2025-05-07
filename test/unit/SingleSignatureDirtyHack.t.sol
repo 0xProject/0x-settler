@@ -3,15 +3,13 @@ pragma solidity ^0.8.28;
 
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/mocks/MockERC20.sol";
-import {LibRLP} from "@solady/utils/LibRLP.sol";
 import {Context} from "src/Context.sol";
 import {SingleSignatureDirtyHack} from "src/SingleSignatureDirtyHack.sol";
-import {LibAccessList, PackedSignature, AccessListElem, AccessListElem} from "src/utils/TransactionEncoder.sol";
+import {LibAccessList, PackedSignature, AccessListElem} from "src/utils/TransactionEncoder.sol";
 
 contract SingleSignatureDirtyHackHarness is Context, SingleSignatureDirtyHack {}
 
 contract SingleSignatureDirtyHackTest is Test {
-    using LibRLP for LibRLP.List;
     using LibAccessList for AccessListElem[];
 
     SingleSignatureDirtyHackHarness harness;
