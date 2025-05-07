@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {LibRLP} from "@solady/utils/LibRLP.sol";
+import {LibBit} from "@solady/utils/LibBit.sol";
 
 import {UnsafeMath} from "./UnsafeMath.sol";
 import {FastLogic} from "./FastLogic.sol";
@@ -16,7 +17,6 @@ type SlotListIterator is uint256;
 
 library LibAccessList {
     using LibRLP for LibRLP.List;
-    using UnsafeMath for uint256;
 
     function iter(AccessListElem[] calldata a) internal pure returns (AccessListIterator r) {
         assembly ("memory-safe") {
@@ -132,7 +132,7 @@ library TransactionEncoder {
         return recovered;
     }
 
-    function _check(uint256 nonce, uint256 gasLimit, PackedSignature calldata sig)
+    function _check(uint256 nonce, uint256 gasLimit, uint256 calldataGas, uint256 extraGas, PackedSignature calldata sig)
         private
         pure
         returns (uint8 v, bytes32 r, bytes32 s)
@@ -144,11 +144,31 @@ library TransactionEncoder {
         }
         s = vs & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
         if (
-            (nonce >= type(uint64).max).or(gasLimit > 30_000_000).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(
+            (nonce >= type(uint64).max).or(gasLimit < calldataGas.unsafeAdd(21_000) + extraGas).or(gasLimit > 30_000_000).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(
                 s == bytes32(0)
             ).or(uint256(s) > _SECP256K1_N / 2)
         ) {
             revert InvalidTransaction();
+        }
+    }
+
+    function _slice(bytes memory data, uint256 i) internal pure returns (bytes32 r) {
+        assembly ("memory-safe") {
+            r := mload(add(add(0x20, data), i))
+        }
+    }
+
+    function _calldataGas(bytes memory data) private pure returns (uint256) {
+        unchecked {
+            uint256 zeroBytes;
+            uint256 length = data.length - 32;
+            uint256 i;
+            for (; i < length; i += 32) {
+                zeroBytes += LibBit.countZeroBytes(uint256(_slice(data, i)));
+            }
+            uint256 padding = i - length;
+            zeroBytes += LibBit.countZeroBytes(uint256(_slice(data, i)) >> (padding << 3)) - padding;
+            return (data.length << 4) - zeroBytes * 12;
         }
     }
 
@@ -160,9 +180,10 @@ library TransactionEncoder {
         address payable to,
         uint256 value,
         bytes memory data,
-        PackedSignature calldata sig
+        PackedSignature calldata sig,
+        uint256 extraGas
     ) internal view returns (address) {
-        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);
+        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, _calldataGas(data), extraGas, sig);
         bytes memory encoded = LibRLP.p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(block.chainid).p(
             uint256(0)
         ).p(uint256(0)).encode();
@@ -178,9 +199,10 @@ library TransactionEncoder {
         uint256 value,
         bytes memory data,
         AccessListElem[] calldata accessList,
-        PackedSignature calldata sig
+        PackedSignature calldata sig,
+        uint256 extraGas
     ) internal view returns (address) {
-        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);
+        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, _calldataGas(data), extraGas, sig);
         bytes memory encoded = bytes.concat(
             bytes1(0x01),
             LibRLP.p(block.chainid).p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(accessList.encode())
@@ -199,9 +221,10 @@ library TransactionEncoder {
         uint256 value,
         bytes memory data,
         AccessListElem[] calldata accessList,
-        PackedSignature calldata sig
+        PackedSignature calldata sig,
+        uint256 extraGas
     ) internal view returns (address) {
-        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, sig);
+        (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, _calldataGas(data), extraGas, sig);
         bytes memory encoded = bytes.concat(
             bytes1(0x02),
             LibRLP.p(block.chainid).p(nonce).p(gasPriorityPrice).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(

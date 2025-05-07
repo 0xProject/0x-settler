@@ -41,6 +41,12 @@ library UnsafeMath {
         }
     }
 
+    function unsafeAdd(uint256 x, uint256 y) internal pure returns (uint256) {
+        unchecked {
+            return x + y;
+        }
+    }
+
     function unsafeDiv(uint256 numerator, uint256 denominator) internal pure returns (uint256 quotient) {
         assembly ("memory-safe") {
             quotient := div(numerator, denominator)
