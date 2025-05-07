@@ -174,15 +174,7 @@ library TransactionEncoder {
 
     function _calldataGas(bytes memory data) private pure returns (uint256) {
         unchecked {
-            uint256 zeroBytes;
-            uint256 length = data.length - 32;
-            uint256 i;
-            for (; i < length; i += 32) {
-                zeroBytes += LibBit.countZeroBytes(uint256(_slice(data, i)));
-            }
-            uint256 padding = i - length;
-            zeroBytes += LibBit.countZeroBytes(uint256(_slice(data, i)) >> (padding << 3)) - padding;
-            return (data.length << 4) - zeroBytes * 12;
+            return (data.length << 4) - LibBit.countZeroBytes(data) * 12;
         }
     }
 
