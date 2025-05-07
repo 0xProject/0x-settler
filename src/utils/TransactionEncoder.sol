@@ -135,13 +135,21 @@ library TransactionEncoder {
 
     uint256 internal constant _SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
 
-    function _recover(bytes memory payload, uint8 v, bytes32 r, bytes32 s) private pure returns (address) {
-        bytes32 signingHash = keccak256(payload);
-        address recovered = ecrecover(signingHash, v, r, s);
-        if (recovered == address(0)) {
-            revert InvalidTransaction();
+    function _recover(bytes memory payload, uint8 v, bytes32 r, bytes32 s) private view returns (address recovered) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x00, keccak256(add(0x20, payload), mload(payload)))
+            mstore(0x20, and(0xff, v))
+            mstore(0x40, r)
+            mstore(0x60, s)
+
+            pop(staticcall(gas(), 0x01, 0x00, 0x80, 0x00, 0x20))
+            recovered := mul(mload(0x00), eq(returndatasize(), 0x20))
+
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
         }
-        return recovered;
     }
 
     function _check(

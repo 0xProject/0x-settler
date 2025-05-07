@@ -126,7 +126,12 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             // Next nonce allways need to be greater than current nonce. It is going to fail if
             // incomingNonce is MAX_UINT256, so that nonce is never going to be accepted.
             if (nextNonce <= currentNonce) {
-                revert NonceReplay(currentNonce, incomingNonce);
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
+                    mstore(0x20, currentNonce)
+                    mstore(0x40, incomingNonce)
+                    revert(0x1c, 0x44)
+                }
             }
         }
     }
@@ -139,7 +144,12 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     function _checkAllowance(IERC20 token, address from, uint256 amount) private view {
         uint256 allowance = token.fastAllowance(from, address(this));
         if (allowance != amount) {
-            revert InvalidAllowance(amount, allowance);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xb185092e) // selector for `InvalidAllowance(uint256,uint256)`
+                mstore(0x20, amount)
+                mstore(0x40, allowance)
+                revert(0x1c, 0x44)
+            }
         }
     }
 
@@ -150,7 +160,11 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
 
     function _checkDeadline(uint256 deadline) private view {
         if (block.timestamp > deadline) {
-            revert SignatureExpired(deadline);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
+                mstore(0x20, deadline)
+                revert(0x1c, 0x24)
+            }
         }
     }
 
@@ -173,7 +187,12 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
 
     function _checkSigner(address from, address signer) private pure {
         if (signer != from) {
-            revert InvalidSigner(from, signer);
+            assembly ("memory-safe") {
+                mstore(0x40, signer)
+                mstore(0x2c, shl(0x60, from)) // clears `signer`'s padding
+                mstore(0x0c, 0x7ba5ffb5000000000000000000000000) // selector for `InvalidSigner(address,address)` with `from`'s padding
+                revert(0x1c, 0x44)
+            }
         }
     }
 
