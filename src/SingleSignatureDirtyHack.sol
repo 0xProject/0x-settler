@@ -199,7 +199,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         private
         view
         returns (bytes32 result)
-    {        
+    {
         // keccak256(abi.encodePacked(
         //    hex"1901",
         //    token.DOMAIN_SEPARATOR(),
@@ -232,12 +232,16 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             let structHash := keccak256(0x00, 0x80)
 
             mstore(0x00, 0x3644e515) // selector for `DOMAIN_SEPARATOR()`
-            if iszero(staticcall(gas(), token, 0x1c, 0x04, 0x20, 0x20)){
+            if iszero(staticcall(gas(), token, 0x1c, 0x04, 0x20, 0x20)) {
+                mstore(0x40, ptr1)
                 returndatacopy(ptr1, 0x20, returndatasize())
                 revert(ptr1, returndatasize())
             }
-            if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
-            
+            if lt(returndatasize(), 0x20) {
+                mstore(0x40, ptr1)
+                revert(0x00, 0x00)
+            }
+
             mstore(0x40, structHash)
             // domain separator already in 0x20
             mstore(0x00, 0x1901)
@@ -247,7 +251,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             mstore(0x40, ptr1)
         }
     }
-    
+
     struct TransferParams {
         bytes32 structHash;
         IERC20 token;
@@ -338,7 +342,9 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     ) external preFlightChecklist(transferParams) returns (bool) {
         _checkNonce(address(transferParams.token), transferParams.from, transferParams.nonce);
         bytes32 structHash = _hashStruct(typeSuffix, transferParams);
-        bytes32 signingHash = _encodePermitHash(transferParams.token, transferParams.from, transferParams.nonce, transferParams.amount, structHash);
+        bytes32 signingHash = _encodePermitHash(
+            transferParams.token, transferParams.from, transferParams.nonce, transferParams.amount, structHash
+        );
         (bytes32 r, bytes32 vs) = (sig.r, sig.vs);
         uint8 v;
         unchecked {
