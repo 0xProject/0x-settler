@@ -120,9 +120,16 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     // allowance.
     function _consumeNonce(address owner, uint256 incomingNonce) private {
         uint256 currentNonce = nonces[owner];
-        nonces[owner] = incomingNonce + 1;
-        if (incomingNonce < currentNonce) {
-            revert NonceReplay(currentNonce, incomingNonce);
+        unchecked {
+            uint256 nextNonce = incomingNonce + 1;
+            // for incomingNonce being MAX_UINT256, nextNonce will underflow and become 0
+            // but currentNonce + 1 will not overflow as it starts at 0 and only changes after
+            // accepting an incoming nonce, then, next condition will be true as
+            // currentNonce + 1 will be positive. MAX_UINT256 is not allowed.
+            if (nextNonce < currentNonce + 1) {
+                revert NonceReplay(currentNonce, incomingNonce);
+            }
+            nonces[owner] = nextNonce;
         }
     }
 
