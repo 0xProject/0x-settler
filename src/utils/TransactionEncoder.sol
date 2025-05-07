@@ -78,7 +78,7 @@ library LibAccessList {
             for ((SlotListIterator j, SlotListIterator j_end) = (slots_src.iter(), slots_src.end()); j != j_end; j = j.next()) {
                 slots_dst.p(abi.encode(slots_src.get(j)));
             }
-            list.p(account).p(slots_dst);
+            list.p(LibRLP.p(account).p(slots_dst));
         }
     }
 }
