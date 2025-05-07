@@ -122,12 +122,12 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 currentNonce = nonces[owner];
         unchecked {
             uint256 nextNonce = incomingNonce + 1;
-            // Next nonce allways need to be greater than current nonce. It is going to fail if 
+            nonces[owner] = nextNonce;
+            // Next nonce allways need to be greater than current nonce. It is going to fail if
             // incomingNonce is MAX_UINT256, so that nonce is never going to be accepted.
             if (nextNonce <= currentNonce) {
                 revert NonceReplay(currentNonce, incomingNonce);
             }
-            nonces[owner] = nextNonce;
         }
     }
 
