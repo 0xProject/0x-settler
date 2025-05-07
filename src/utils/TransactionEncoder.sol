@@ -13,6 +13,7 @@ struct AccessListElem {
 }
 
 type AccessListIterator is uint256;
+
 type SlotListIterator is uint256;
 
 library LibAccessList {
@@ -54,7 +55,11 @@ library LibAccessList {
         }
     }
 
-    function get(AccessListElem[] calldata a, AccessListIterator i) internal pure returns (address account, bytes32[] calldata slots) {
+    function get(AccessListElem[] calldata a, AccessListIterator i)
+        internal
+        pure
+        returns (address account, bytes32[] calldata slots)
+    {
         assembly ("memory-safe") {
             let r := add(a.offset, calldataload(i))
             account := calldataload(r)
@@ -72,10 +77,18 @@ library LibAccessList {
     }
 
     function encode(AccessListElem[] calldata accessList) internal pure returns (LibRLP.List memory list) {
-        for ((AccessListIterator i, AccessListIterator i_end) = (accessList.iter(), accessList.end()); i != i_end; i = i.next()) {
+        for (
+            (AccessListIterator i, AccessListIterator i_end) = (accessList.iter(), accessList.end());
+            i != i_end;
+            i = i.next()
+        ) {
             (address account, bytes32[] calldata slots_src) = accessList.get(i);
             LibRLP.List memory slots_dst;
-            for ((SlotListIterator j, SlotListIterator j_end) = (slots_src.iter(), slots_src.end()); j != j_end; j = j.next()) {
+            for (
+                (SlotListIterator j, SlotListIterator j_end) = (slots_src.iter(), slots_src.end());
+                j != j_end;
+                j = j.next()
+            ) {
                 slots_dst.p(abi.encode(slots_src.get(j)));
             }
             list.p(LibRLP.p(account).p(slots_dst));
@@ -92,7 +105,6 @@ function __AccessListIterator_ne(AccessListIterator a, AccessListIterator b) pur
 }
 
 using {__AccessListIterator_eq as ==, __AccessListIterator_ne as !=} for AccessListIterator global;
-
 
 function __SlotListIterator_eq(SlotListIterator a, SlotListIterator b) pure returns (bool) {
     return SlotListIterator.unwrap(a) == SlotListIterator.unwrap(b);
@@ -132,11 +144,13 @@ library TransactionEncoder {
         return recovered;
     }
 
-    function _check(uint256 nonce, uint256 gasLimit, uint256 calldataGas, uint256 extraGas, PackedSignature calldata sig)
-        private
-        pure
-        returns (uint8 v, bytes32 r, bytes32 s)
-    {
+    function _check(
+        uint256 nonce,
+        uint256 gasLimit,
+        uint256 calldataGas,
+        uint256 extraGas,
+        PackedSignature calldata sig
+    ) private pure returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 vs;
         (r, vs) = (sig.r, sig.vs);
         unchecked {
@@ -144,9 +158,9 @@ library TransactionEncoder {
         }
         s = vs & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
         if (
-            (nonce >= type(uint64).max).or(gasLimit < calldataGas.unsafeAdd(21_000) + extraGas).or(gasLimit > 30_000_000).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(
-                s == bytes32(0)
-            ).or(uint256(s) > _SECP256K1_N / 2)
+            (nonce >= type(uint64).max).or(gasLimit < calldataGas.unsafeAdd(21_000) + extraGas).or(
+                gasLimit > 30_000_000
+            ).or(r == bytes32(0)).or(uint256(r) >= _SECP256K1_N).or(s == bytes32(0)).or(uint256(s) > _SECP256K1_N / 2)
         ) {
             revert InvalidTransaction();
         }

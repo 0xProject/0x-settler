@@ -202,6 +202,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 deadline;
         uint256 requestedAmount;
     }
+
     uint256 private constant _EXTRA_GAS = 21756; // zero-to-nonzero SSTORE + LOG3 with 32 bytes of data
 
     function transferFrom(
@@ -214,7 +215,14 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner(
-            transferParams.nonce, gasPrice, gasLimit, payable(address(transferParams.token)), 0 wei, data, sig, _EXTRA_GAS
+            transferParams.nonce,
+            gasPrice,
+            gasLimit,
+            payable(address(transferParams.token)),
+            0 wei,
+            data,
+            sig,
+            _EXTRA_GAS
         );
         _checkSigner(transferParams.from, signer);
         _transfer(transferParams);
