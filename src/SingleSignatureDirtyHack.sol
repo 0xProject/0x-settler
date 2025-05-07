@@ -345,8 +345,11 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         string calldata typeSuffix,
         TransferParams calldata transferParams,
         PackedSignature calldata sig
-    ) external preFlightChecklist(transferParams) returns (bool) {
+    ) external returns (bool) {
+        _checkDeadline(transferParams.deadline);
+        _checkAllowance(transferParams.token, transferParams.from, transferParams.amount);
         _checkNonce(address(transferParams.token), transferParams.from, transferParams.nonce);
+        
         bytes32 structHash = _hashStruct(typeSuffix, transferParams);
         bytes32 signingHash = _encodePermitHash(
             transferParams.token, transferParams.from, transferParams.nonce, transferParams.amount, structHash
