@@ -172,6 +172,17 @@ library TransactionEncoder {
         }
     }
 
+    modifier freeMemory() {
+        uint256 freeMemPtr;
+        assembly ("memory-safe") {
+            freeMemPtr := mload(0x40)
+        }
+        _;
+        assembly ("memory-safe") {
+            mstore(0x40, freeMemPtr)
+        }
+    }
+
     // EIP-155
     function recoverSigner(
         uint256 nonce,
@@ -182,7 +193,7 @@ library TransactionEncoder {
         bytes memory data,
         PackedSignature calldata sig,
         uint256 extraGas
-    ) internal view returns (address) {
+    ) internal view freeMemory returns (address) {
         (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, _calldataGas(data), extraGas, sig);
         bytes memory encoded = LibRLP.p(nonce).p(gasPrice).p(gasLimit).p(to).p(value).p(data).p(block.chainid).p(
             uint256(0)
@@ -201,7 +212,7 @@ library TransactionEncoder {
         AccessListElem[] calldata accessList,
         PackedSignature calldata sig,
         uint256 extraGas
-    ) internal view returns (address) {
+    ) internal view freeMemory returns (address) {
         (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, _calldataGas(data), extraGas, sig);
         bytes memory encoded = bytes.concat(
             bytes1(0x01),
@@ -223,7 +234,7 @@ library TransactionEncoder {
         AccessListElem[] calldata accessList,
         PackedSignature calldata sig,
         uint256 extraGas
-    ) internal view returns (address) {
+    ) internal view freeMemory returns (address) {
         (uint8 v, bytes32 r, bytes32 s) = _check(nonce, gasLimit, _calldataGas(data), extraGas, sig);
         bytes memory encoded = bytes.concat(
             bytes1(0x02),
