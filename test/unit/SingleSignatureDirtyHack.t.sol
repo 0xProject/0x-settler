@@ -283,8 +283,8 @@ contract SingleSignatureDirtyHackTest is Test {
     ) internal {
         signerPk = bound(signerPk, 2, 115792089237316195423570985008687907852837564279074904382605163141518161494336);
         gasLimit = bound(gasLimit, 0, 30_000_000);
-        deadline = bound(deadline, block.timestamp, type(uint256).max - 2);
-        nonce = bound(nonce, 1, type(uint64).max - 3);
+        deadline = bound(deadline, block.timestamp, type(uint256).max - 1);
+        nonce = bound(nonce, 0, type(uint64).max - 3);
         amount = bound(amount, 2, type(uint256).max);
         requestedAmount = bound(requestedAmount, 1, amount);
 
@@ -324,7 +324,7 @@ contract SingleSignatureDirtyHackTest is Test {
         // cannot replay
         vm.prank(transferParams.from);
         token.approve(address(harness), amount);
-        vm.expectRevert(abi.encodeWithSelector(SingleSignatureDirtyHack.NonceReplay.selector, nonce, nonce));
+        vm.expectRevert(abi.encodeWithSelector(SingleSignatureDirtyHack.NonceReplay.selector, nonce + 1, nonce));
         transfer(operator, transferParams, gasPrice, gasLimit, sig, extraData);
 
         // set valid nonce
