@@ -351,14 +351,27 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         bytes32 signingHash = _encodePermitHash(
             transferParams.token, transferParams.from, transferParams.nonce, transferParams.amount, structHash
         );
-        (bytes32 r, bytes32 vs) = (sig.r, sig.vs);
-        uint8 v;
-        unchecked {
-            v = uint8(uint256(vs) >> 255) + 27;
+        address signer;
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            let vs := calldataload(add(0x20, sig))
+
+            mstore(0x00, signingHash)
+            mstore(0x20, add(0x1b, shr(0xff, vs))) // v
+            mstore(0x40, calldataload(sig)) // r
+            mstore(0x60, and(vs, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)) // s
+            
+            if iszero(staticcall(gas(), 0x01, 0x00, 0x80, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            signer := mload(0x00)
+            
+            // clear clobbered memory
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
         }
-        bytes32 s;
-        s = vs & 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-        _checkSigner(transferParams.from, ecrecover(signingHash, v, r, s));
+        _checkSigner(transferParams.from, signer);
 
         transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
         return true;
