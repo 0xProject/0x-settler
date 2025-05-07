@@ -122,11 +122,9 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 currentNonce = nonces[owner];
         unchecked {
             uint256 nextNonce = incomingNonce + 1;
-            // for incomingNonce being MAX_UINT256, nextNonce will underflow and become 0
-            // but currentNonce + 1 will not overflow as it starts at 0 and only changes after
-            // accepting an incoming nonce, then, next condition will be true as
-            // currentNonce + 1 will be positive. MAX_UINT256 is not allowed.
-            if (nextNonce < currentNonce + 1) {
+            // Next nonce allways need to be greater than current nonce. It is going to fail if 
+            // incomingNonce is MAX_UINT256, so that nonce is never going to be accepted.
+            if (nextNonce <= currentNonce) {
                 revert NonceReplay(currentNonce, incomingNonce);
             }
             nonces[owner] = nextNonce;
