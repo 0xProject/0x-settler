@@ -213,34 +213,23 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         // ))
         bytes32 permitTypeHash = PERMIT_TYPEHASH;
         assembly ("memory-safe") {
-            let ptr1 := mload(0x40)
-            let ptr2 := mload(0x80)
-            let ptr3 := mload(0xa0)
+            let ptr := mload(0x40)
 
-            mstore(0x00, permitTypeHash)
-            mstore(0x20, from)
-            mstore(0x40, address())
-            mstore(0x60, sellAmount)
-            mstore(0x80, nonce)
-            mstore(0xa0, signingHash)
+            mstore(ptr, permitTypeHash)
+            mstore(add(0x20, ptr), from)
+            mstore(add(0x40, ptr), address())
+            mstore(add(0x60, ptr), sellAmount)
+            mstore(add(0x80, ptr), nonce)
+            mstore(add(0xa0, ptr), signingHash)
 
-            // clear clobbered memory
-            mstore(0x60, 0x00)
-            mstore(0x80, ptr2)
-            mstore(0xa0, ptr3)
-
-            let structHash := keccak256(0x00, 0x80)
+            let structHash := keccak256(ptr, 0xc0)
 
             mstore(0x00, 0x3644e515) // selector for `DOMAIN_SEPARATOR()`
             if iszero(staticcall(gas(), token, 0x1c, 0x04, 0x20, 0x20)) {
-                mstore(0x40, ptr1)
-                returndatacopy(ptr1, 0x20, returndatasize())
-                revert(ptr1, returndatasize())
+                returndatacopy(ptr, 0x20, returndatasize())
+                revert(ptr, returndatasize())
             }
-            if lt(returndatasize(), 0x20) {
-                mstore(0x40, ptr1)
-                revert(0x00, 0x00)
-            }
+            if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
 
             mstore(0x40, structHash)
             // domain separator already in 0x20
@@ -248,7 +237,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             result := keccak256(0x1e, 0x42)
 
             // clear free memory pointer
-            mstore(0x40, ptr1)
+            mstore(0x40, ptr)
         }
     }
 
