@@ -19,7 +19,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     error SignatureExpired(uint256 deadline);
 
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
-    bytes32 private constant _NAMEHASH = 0x0000000000000000000000000000000000000000000000000000000000000000;
+    bytes32 private constant _NAMEHASH = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
     string public constant name = ""; // TODO: needs a name
     uint256 private immutable _cachedChainId;
     bytes32 private immutable _cachedDomainSeparator;
@@ -119,9 +119,19 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     // allowance.
     function _consumeNonce(address owner, uint256 incomingNonce) private {
         uint256 currentNonce = nonces[owner];
-        nonces[owner] = incomingNonce;
-        if (incomingNonce <= currentNonce) {
-            revert NonceReplay(currentNonce, incomingNonce);
+        unchecked {
+            uint256 nextNonce = incomingNonce + 1;
+            nonces[owner] = nextNonce;
+            // Next nonce allways need to be greater than current nonce. It is going to fail if
+            // incomingNonce is MAX_UINT256, so that nonce is never going to be accepted.
+            if (nextNonce <= currentNonce) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
+                    mstore(0x20, currentNonce)
+                    mstore(0x40, incomingNonce)
+                    revert(0x1c, 0x44)
+                }
+            }
         }
     }
 
@@ -133,7 +143,12 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
     function _checkAllowance(IERC20 token, address from, uint256 amount) private view {
         uint256 allowance = token.fastAllowance(from, address(this));
         if (allowance != amount) {
-            revert InvalidAllowance(amount, allowance);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xb185092e) // selector for `InvalidAllowance(uint256,uint256)`
+                mstore(0x20, amount)
+                mstore(0x40, allowance)
+                revert(0x1c, 0x44)
+            }
         }
     }
 
@@ -144,7 +159,11 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
 
     function _checkDeadline(uint256 deadline) private view {
         if (block.timestamp > deadline) {
-            revert SignatureExpired(deadline);
+            assembly ("memory-safe") {
+                mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
+                mstore(0x20, deadline)
+                revert(0x1c, 0x24)
+            }
         }
     }
 
@@ -167,7 +186,12 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
 
     function _checkSigner(address from, address signer) private pure {
         if (signer != from) {
-            revert InvalidSigner(from, signer);
+            assembly ("memory-safe") {
+                mstore(0x40, signer)
+                mstore(0x2c, shl(0x60, from)) // clears `signer`'s padding
+                mstore(0x0c, 0x7ba5ffb5000000000000000000000000) // selector for `InvalidSigner(address,address)` with `from`'s padding
+                revert(0x1c, 0x44)
+            }
         }
     }
 
@@ -243,6 +267,8 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 requestedAmount;
     }
 
+    uint256 private constant _EXTRA_GAS = 21756; // zero-to-nonzero SSTORE + LOG3 with 32 bytes of data
+
     function transferFromApprove(
         string calldata typeSuffix,
         TransferParams calldata transferParams,
@@ -253,11 +279,17 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         bytes32 signingHash = _hashStruct(typeSuffix, transferParams);
         bytes memory data = _encodeApproveData(transferParams.amount, signingHash);
         address signer = TransactionEncoder.recoverSigner(
-            transferParams.nonce, gasPrice, gasLimit, payable(address(transferParams.token)), 0 wei, data, sig
+            transferParams.nonce,
+            gasPrice,
+            gasLimit,
+            payable(address(transferParams.token)),
+            0 wei,
+            data,
+            sig,
+            _EXTRA_GAS
         );
         _checkSigner(transferParams.from, signer);
-
-        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
+        _transfer(transferParams);
         return true;
     }
 
@@ -279,11 +311,11 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             0 wei,
             data,
             accessList,
-            sig
+            sig,
+            _EXTRA_GAS
         );
         _checkSigner(transferParams.from, signer);
-
-        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
+        _transfer(transferParams);
         return true;
     }
 
@@ -307,11 +339,11 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             0 wei,
             data,
             accessList,
-            sig
+            sig,
+            _EXTRA_GAS
         );
         _checkSigner(transferParams.from, signer);
-
-        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
+        _transfer(transferParams);
         return true;
     }
 
@@ -396,8 +428,11 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             mstore(0x40, ptr)
         }
         _checkSigner(transferParams.from, signer);
-
-        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
+        _transfer(transferParams);
         return true;
+    }
+
+    function _transfer(TransferParams calldata transferParams) internal {
+        transferParams.token.safeTransferFrom(transferParams.from, transferParams.to, transferParams.requestedAmount);
     }
 }
