@@ -376,7 +376,6 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             signer := mul(mload(0x00), eq(returndatasize(), 0x20))
 
             // keep adding parameters to call permit
-            // TODO: check that calling ecrecover doesn't affect the previously added parameters
             mstore(add(0x74, ptr), structHash)
             mstore(add(0x54, ptr), value)
             mstore(add(0x34, ptr), address())
@@ -384,49 +383,46 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             mstore(ptr, 0xd505accf000000000000000000000000) // selector for `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)` with `owner` padding
 
             let token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x20, transferParams)))
-            if iszero(call(gas(), token, 0x00, add(0x10, ptr), 0xe4, 0x00, 0x00)) {
-                // TODO: Check why not to bubble reverts
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            // TODO: Check if the bool return type is needed to be checked, it is not part of the EIP-2612 spec
-            // Do we need to check the returned data at all? Or just checking the nonces right away does the work
+            let success := call(gas(), token, 0x00, add(0x10, ptr), 0xe4, 0x00, 0x20) 
+            
+            // if not true returned proceed to check effects
+            if xor(0x01, mul(mload(0x00), and(success, eq(0x20, returndatasize())))) {
+                // check that the nonce is correct
+                mstore(0x14, owner)
+                mstore(0x00, 0x7ecebe00000000000000000000000000) // selector for `nonces(address)` with `owner` padding
+                if iszero(staticcall(gas(), token, 0x10, 0x24, 0x00, 0x20)) {
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
+                }
+                let previousNonce := calldataload(add(0xa0, transferParams)) // nonce
+                if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
+                if xor(mload(0x00), add(0x01, previousNonce)) {
+                    mstore(ptr, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
+                    mstore(add(0x20, ptr), mload(0x00))
+                    mstore(add(0x40, ptr), previousNonce)
+                    revert(add(0x1c, ptr), 0x44)
+                }
 
-            // check that the nonce is correct
-            mstore(0x14, owner)
-            mstore(0x00, 0x7ecebe00000000000000000000000000) // selector for `nonces(address)` with `owner` padding
-            if iszero(staticcall(gas(), token, 0x10, 0x24, 0x00, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            let previousNonce := calldataload(add(0xa0, transferParams)) // nonce
-            if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
-            if xor(mload(0x00), add(0x01, previousNonce)) {
-                mstore(ptr, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
-                mstore(add(0x20, ptr), mload(0x00))
-                mstore(add(0x40, ptr), previousNonce)
-                revert(add(0x1c, ptr), 0x44)
-            }
+                // check allowance
+                mstore(0x34, address())
+                mstore(0x14, owner)
+                mstore(0x00, 0xdd62ed3e000000000000000000000000) // selector for `allowance(address,address)` with `owner` padding
+                if iszero(staticcall(gas(), token, 0x10, 0x44, 0x00, 0x20)) {
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
+                }
+                if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
+                let allowance := mload(0x00)
+                if xor(allowance, value) {
+                    mstore(ptr, 0xb185092e) // selector for `InvalidAllowance(uint256,uint256)`
+                    mstore(add(0x20, ptr), value)
+                    mstore(add(0x40, ptr), allowance)
+                    revert(add(0x1c, ptr), 0x44)
+                }
 
-            // check allowance
-            mstore(0x34, address())
-            mstore(0x14, owner)
-            mstore(0x00, 0xdd62ed3e000000000000000000000000) // selector for `allowance(address,address)` with `owner` padding
-            if iszero(staticcall(gas(), token, 0x10, 0x44, 0x00, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                // clear clobbered memory
+                mstore(0x40, ptr)
             }
-            if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
-            let allowance := mload(0x00)
-            if xor(allowance, value) {
-                mstore(ptr, 0xb185092e) // selector for `InvalidAllowance(uint256,uint256)`
-                mstore(add(0x20, ptr), value)
-                mstore(add(0x40, ptr), allowance)
-                revert(add(0x1c, ptr), 0x44)
-            }
-
-            // clear clobbered memory
-            mstore(0x40, ptr)
         }
         _checkSigner(transferParams.from, signer);
         _transfer(transferParams);

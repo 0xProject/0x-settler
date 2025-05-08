@@ -400,6 +400,8 @@ contract SingleSignatureDirtyHackTest is Test {
             requestedAmount: requestedAmount
         });
 
+        deal(address(token), address(transferParams.from), amount);
+
         vm.prank(operator);
         harness.transferFromPermit(WITNESS_TYPESTRING_SUFFIX, transferParams, sig);
     }
