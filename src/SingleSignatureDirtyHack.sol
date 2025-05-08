@@ -174,10 +174,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            if lt(returndatasize(), 0x20) {
-                mstore(0x00, 0xc1ab6dc1) // selector for `InvalidToken()`
-                revert(0x1c, 0x04)
-            }
+            if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
             if iszero(eq(mload(0x00), add(0x01, previousNonce))) {
                 let ptr := mload(0x40)
                 mstore(ptr, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
@@ -243,10 +240,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
                 returndatacopy(ptr, 0x20, returndatasize())
                 revert(ptr, returndatasize())
             }
-            if lt(returndatasize(), 0x20) {
-                mstore(0x00, 0xc1ab6dc1) // selector for `InvalidToken()`
-                revert(0x1c, 0x04)
-            }
+            if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
 
             mstore(0x40, structHash)
             // domain separator already in 0x20
@@ -349,7 +343,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         _checkDeadline(transferParams.deadline);
         _checkAllowance(transferParams.token, transferParams.from, transferParams.amount);
         _checkNonce(address(transferParams.token), transferParams.from, transferParams.nonce);
-        
+
         bytes32 structHash = _hashStruct(typeSuffix, transferParams);
         bytes32 signingHash = _encodePermitHash(
             transferParams.token, transferParams.from, transferParams.nonce, transferParams.amount, structHash
