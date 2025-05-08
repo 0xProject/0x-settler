@@ -2,10 +2,11 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "@forge-std/Test.sol";
-import {IERC20} from "@forge-std/mocks/MockERC20.sol";
+import {IERC20, MockERC20} from "@forge-std/mocks/MockERC20.sol";
 import {Context} from "src/Context.sol";
 import {SingleSignatureDirtyHack} from "src/SingleSignatureDirtyHack.sol";
 import {LibAccessList, PackedSignature, AccessListElem} from "src/utils/TransactionEncoder.sol";
+import {IEIP2612, PERMIT_TYPEHASH} from "src/interfaces/IEIP2612.sol";
 
 contract SingleSignatureDirtyHackHarness is Context, SingleSignatureDirtyHack {}
 
@@ -13,7 +14,7 @@ contract SingleSignatureDirtyHackTest is Test {
     using LibAccessList for AccessListElem[];
 
     SingleSignatureDirtyHackHarness harness;
-    IERC20 token;
+    MockERC20 token;
     uint256 signerPk;
     address from;
     uint256 gasPriorityPrice;
@@ -76,7 +77,7 @@ contract SingleSignatureDirtyHackTest is Test {
         uint256 _amount,
         uint256 _signerPk,
         bytes memory _extraData,
-        bytes32 _structHash,
+        bytes32 _witnessHash,
         string memory _testKey,
         function(uint256, bytes memory) view returns (string memory) _getTypeInformation
     ) internal returns (PackedSignature memory) {
@@ -84,15 +85,15 @@ contract SingleSignatureDirtyHackTest is Test {
             return abi.decode(vm.parseJsonBytes(signatures, string.concat(".", _testKey)), (PackedSignature));
         }
 
-        bytes32 signingHash = keccak256(
+        bytes32 structHash = keccak256(
             abi.encodePacked(
                 hex"1901",
                 harness.DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(STRUCT_TYPEHASH, _operator, _deadline, _structHash))
+                keccak256(abi.encode(STRUCT_TYPEHASH, _operator, _deadline, _witnessHash))
             )
         );
 
-        bytes memory data = abi.encodePacked(abi.encodeCall(IERC20.approve, (address(harness), _amount)), signingHash);
+        bytes memory data = abi.encodePacked(abi.encodeCall(IERC20.approve, (address(harness), _amount)), structHash);
 
         string memory txJson = string.concat(
             "{",
@@ -366,5 +367,40 @@ contract SingleSignatureDirtyHackTest is Test {
             )
         );
         transfer(operator, transferParams, gasPrice, gasLimit, sig, extraData);
+    }
+
+    function testEIP2612PermitTransfer() public {
+        bytes32 witnessHash = keccak256(abi.encode(WITNESS_TYPEHASH, salt));
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                hex"1901",
+                harness.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(STRUCT_TYPEHASH, operator, deadline, witnessHash))
+            )
+        );
+        bytes32 permitHash = keccak256(
+            abi.encodePacked(
+                hex"1901",
+                token.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(PERMIT_TYPEHASH, from, address(harness), amount, 0, structHash))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, permitHash);
+        PackedSignature memory sig = PackedSignature({r: r, vs: bytes32(uint256(s) | (uint256(v - 27) << 255))});
+
+        SingleSignatureDirtyHack.TransferParams memory transferParams = SingleSignatureDirtyHack.TransferParams({
+            structHash: witnessHash,
+            token: token,
+            from: vm.addr(signerPk),
+            to: to,
+            amount: amount,
+            nonce: 0,
+            deadline: deadline,
+            requestedAmount: requestedAmount
+        });
+
+        vm.prank(operator);
+        harness.transferFromPermit(WITNESS_TYPESTRING_SUFFIX, transferParams, sig);
     }
 }

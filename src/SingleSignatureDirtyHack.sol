@@ -210,7 +210,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         }
     }
 
-    function _encodePermitHash(IERC20 token, address from, uint256 nonce, uint256 sellAmount, bytes32 signingHash)
+    function _encodePermitHash(IERC20 token, address from, uint256 nonce, uint256 sellAmount, bytes32 structHash)
         private
         view
         returns (bytes32 result)
@@ -235,9 +235,9 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             mstore(add(0x40, ptr), address())
             mstore(add(0x60, ptr), sellAmount)
             mstore(add(0x80, ptr), nonce)
-            mstore(add(0xa0, ptr), signingHash)
+            mstore(add(0xa0, ptr), structHash)
 
-            let structHash := keccak256(ptr, 0xc0)
+            let permitHash := keccak256(ptr, 0xc0)
 
             mstore(0x00, 0x3644e515) // selector for `DOMAIN_SEPARATOR()`
             if iszero(staticcall(gas(), token, 0x1c, 0x04, 0x20, 0x20)) {
@@ -246,7 +246,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             }
             if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
 
-            mstore(0x40, structHash)
+            mstore(0x40, permitHash)
             // domain separator already in 0x20
             mstore(0x00, 0x1901)
             result := keccak256(0x1e, 0x42)
@@ -358,31 +358,32 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         bytes32 signingHash = _encodePermitHash(
             transferParams.token, transferParams.from, transferParams.nonce, transferParams.amount, structHash
         );
-        
+
         address signer;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let vs := calldataload(add(0x20, sig))
-            let owner := calldataload(add(0x60, transferParams)) // from
-            let value := calldataload(add(0xa0, transferParams)) // amount
+            let owner := calldataload(add(0x40, transferParams)) // from
+            let value := calldataload(add(0x80, transferParams)) // amount
 
             // get signer
             mstore(add(0xd4, ptr), and(vs, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)) // s
             mstore(add(0xb4, ptr), calldataload(sig)) // r
             mstore(add(0x94, ptr), add(0x1b, shr(0xff, vs))) // v
             mstore(add(0x74, ptr), signingHash)
-            
+
             pop(staticcall(gas(), 0x01, add(0x74, ptr), 0x80, 0x00, 0x20))
             signer := mul(mload(0x00), eq(returndatasize(), 0x20))
 
             // keep adding parameters to call permit
             // TODO: check that calling ecrecover doesn't affect the previously added parameters
+            mstore(add(0x74, ptr), structHash)
             mstore(add(0x54, ptr), value)
             mstore(add(0x34, ptr), address())
             mstore(add(0x14, ptr), owner)
             mstore(ptr, 0xd505accf000000000000000000000000) // selector for `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)` with `owner` padding
 
-            let token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x40, transferParams)))
+            let token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x20, transferParams)))
             if iszero(call(gas(), token, 0x00, add(0x10, ptr), 0xe4, 0x00, 0x00)) {
                 // TODO: Check why not to bubble reverts
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -392,13 +393,13 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             // Do we need to check the returned data at all? Or just checking the nonces right away does the work
 
             // check that the nonce is correct
-            mstore(0x14, owner) 
+            mstore(0x14, owner)
             mstore(0x00, 0x7ecebe00000000000000000000000000) // selector for `nonces(address)` with `owner` padding
             if iszero(staticcall(gas(), token, 0x10, 0x24, 0x00, 0x20)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            let previousNonce := calldataload(add(0xc0, transferParams)) // nonce
+            let previousNonce := calldataload(add(0xa0, transferParams)) // nonce
             if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
             if xor(mload(0x00), add(0x01, previousNonce)) {
                 mstore(ptr, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
@@ -408,7 +409,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             }
 
             // check allowance
-            mstore(add(0x34, ptr), address())
+            mstore(0x34, address())
             mstore(0x14, owner)
             mstore(0x00, 0xdd62ed3e000000000000000000000000) // selector for `allowance(address,address)` with `owner` padding
             if iszero(staticcall(gas(), token, 0x10, 0x44, 0x00, 0x20)) {
@@ -423,7 +424,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
                 mstore(add(0x40, ptr), allowance)
                 revert(add(0x1c, ptr), 0x44)
             }
-            
+
             // clear clobbered memory
             mstore(0x40, ptr)
         }
