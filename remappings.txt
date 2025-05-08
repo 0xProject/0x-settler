@@ -1,4 +1,5 @@
 @solmate/=lib/solmate/src
+@solady/=lib/solady/src
 @permit2/=lib/permit2/src
 @forge-std/=lib/forge-std/src
 @forge-gas-snapshot/=lib/forge-gas-snapshot/src

@@ -47,6 +47,24 @@ library SafeTransferLib {
         }
     }
 
+    function fastAllowance(IERC20 token, address owner, address spender) internal view returns (uint256 r) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x40, spender)
+            mstore(0x2c, shl(0x60, owner)) // clears `spender`'s padding
+            mstore(0x0c, 0xdd62ed3e000000000000000000000000) // selector for `approve(address,address)` with `owner`'s padding
+
+            if iszero(staticcall(gas(), token, 0x1c, 0x44, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+
+            r := mload(0x00)
+            mstore(0x40, ptr)
+        }
+    }
+
     function safeTransferFrom(IERC20 token, address from, address to, uint256 amount) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40) // Cache the free memory pointer.
