@@ -361,11 +361,8 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             mstore(0x40, calldataload(sig)) // r
             mstore(0x60, and(vs, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)) // s
             
-            if iszero(staticcall(gas(), 0x01, 0x00, 0x80, 0x00, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            signer := mload(0x00)
+            pop(staticcall(gas(), 0x01, 0x00, 0x80, 0x00, 0x20))
+            signer := mul(mload(0x00), eq(returndatasize(), 0x20))
             
             // clear clobbered memory
             mstore(0x40, ptr)
