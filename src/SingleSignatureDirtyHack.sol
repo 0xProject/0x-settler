@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
-import {PERMIT_TYPEHASH} from "./interfaces/IEIP2612.sol";
+import {IERC2612, PERMIT_TYPEHASH} from "./interfaces/IERC2612.sol";
 import {AbstractContext} from "./Context.sol";
 import {AccessListElem, PackedSignature, TransactionEncoder} from "./utils/TransactionEncoder.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";

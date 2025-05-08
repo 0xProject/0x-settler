@@ -6,7 +6,7 @@ import {IERC20, MockERC20} from "@forge-std/mocks/MockERC20.sol";
 import {Context} from "src/Context.sol";
 import {SingleSignatureDirtyHack} from "src/SingleSignatureDirtyHack.sol";
 import {LibAccessList, PackedSignature, AccessListElem} from "src/utils/TransactionEncoder.sol";
-import {IEIP2612, PERMIT_TYPEHASH} from "src/interfaces/IEIP2612.sol";
+import {IERC2612, PERMIT_TYPEHASH} from "src/interfaces/IERC2612.sol";
 
 contract SingleSignatureDirtyHackHarness is Context, SingleSignatureDirtyHack {}
 
@@ -369,7 +369,7 @@ contract SingleSignatureDirtyHackTest is Test {
         transfer(operator, transferParams, gasPrice, gasLimit, sig, extraData);
     }
 
-    function testEIP2612PermitTransfer() public {
+    function testERC2612PermitTransfer() public {
         bytes32 witnessHash = keccak256(abi.encode(WITNESS_TYPEHASH, salt));
         bytes32 structHash = keccak256(
             abi.encodePacked(
