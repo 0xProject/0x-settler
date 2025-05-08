@@ -267,7 +267,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
         uint256 requestedAmount;
     }
 
-    uint256 private constant _EXTRA_GAS = 21756; // zero-to-nonzero SSTORE + LOG3 with 32 bytes of data
+    uint256 private constant _EXTRA_GAS = 21_756; // zero-to-nonzero SSTORE + LOG3 with 32 bytes of data
 
     function transferFromApprove(
         string calldata typeSuffix,

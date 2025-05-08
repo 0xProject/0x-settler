@@ -50,7 +50,7 @@ contract SingleSignatureDirtyHackTest is Test {
         (from, signerPk) = makeAddrAndKey("signer");
         gasPriorityPrice = 100;
         gasPrice = 1000;
-        gasLimit = 10000;
+        gasLimit = 29_000_000;
         to = makeAddr("to");
         amount = 1 ether;
         deadline = block.timestamp + 100;
