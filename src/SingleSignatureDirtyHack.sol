@@ -207,7 +207,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             let ptr := mload(0x40)
 
             mstore(ptr, permitTypeHash)
-            mstore(add(0x20, ptr), from)
+            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
             mstore(add(0x40, ptr), address())
             mstore(add(0x60, ptr), sellAmount)
             mstore(add(0x80, ptr), nonce)
