@@ -175,7 +175,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
                 revert(ptr, returndatasize())
             }
             if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
-            if iszero(eq(mload(0x00), add(0x01, previousNonce))) {
+            if xor(mload(0x00), add(0x01, previousNonce)) {
                 let ptr := mload(0x40)
                 mstore(ptr, 0x1fa72369) // selector for `NonceReplay(uint256,uint256)`
                 mstore(add(0x20, ptr), mload(0x00))
