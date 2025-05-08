@@ -241,7 +241,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
 
             mstore(0x00, 0x3644e515) // selector for `DOMAIN_SEPARATOR()`
             if iszero(staticcall(gas(), token, 0x1c, 0x04, 0x20, 0x20)) {
-                returndatacopy(ptr, 0x20, returndatasize())
+                returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
             if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
@@ -382,7 +382,7 @@ abstract contract SingleSignatureDirtyHack is IERC5267, AbstractContext {
             mstore(add(0x14, ptr), owner)
             mstore(ptr, 0xd505accf000000000000000000000000) // selector for `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)` with `owner` padding
 
-            let token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x20, transferParams)))
+            let token := calldataload(add(0x20, transferParams))
             let success := call(gas(), token, 0x00, add(0x10, ptr), 0xe4, 0x00, 0x20) 
             
             // if not true returned proceed to check effects
