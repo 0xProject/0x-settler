@@ -1,105 +1,118 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.28;
 
-import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {IERC1271} from "./interfaces/IERC1271.sol";
+
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
-import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
-import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 import {MultiCallContext} from "./multicall/MultiCallContext.sol";
 
-contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
-    using SafeTransferLib for IERC20;
+import {FastLogic} from "./utils/FastLogic.sol";
+import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 
-    address private immutable _cachedThis;
+contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
+    using FastLogic for bool;
+
+    BridgeFactory private immutable _cachedThis;
+    bytes32 private immutable _proxyInitHash;
 
     constructor() {
         require(
             (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
                 || block.chainid == 31337
         );
-        _cachedThis = address(this);
+        _cachedThis = this;
+        _proxyInitHash = keccak256(
+            bytes.concat(
+                hex"60265f8160095f39f35f5f365f5f37365f6c",
+                bytes13(uint104(uint160(address(this)))),
+                hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
+            )
+        );
     }
 
     modifier onlyProxy() {
-        require(address(this) != _cachedThis);
+        require(this != _cachedThis);
         _;
     }
 
     modifier noDelegateCall() {
-        require(address(this) == _cachedThis);
+        require(this == _cachedThis);
         _;
     }
 
     modifier onlyFactory() {
-        require(_msgSender() == _cachedThis);
+        require(msg.sender == address(_cachedThis));
         _;
     }
 
-    function isValidSignature(bytes32 _hash, bytes calldata _signature)
-        external
-        view
-        override
-        onlyProxy
-        returns (bytes4)
-    {
-        return _isValidSignature(_hash, _signature);
-    }
-
-    function _isValidSignature(bytes32 _leaf, bytes calldata _proof) private view returns (bytes4) {
-        bytes32[] calldata proof;
-        assembly ("memory-safe") {
-            // _signature is just going to be the proof, then we can read it as so
-            proof.offset := add(0x20, _proof.offset)
-            proof.length := calldataload(proof.offset)
-            proof.offset := add(0x20, proof.offset)
-        }
-        bytes32 salt = keccak256(abi.encodePacked(MerkleProofLib.getRoot(proof, _leaf), block.chainid));
-
-        address factory = _cachedThis;
-        assembly ("memory-safe") {
-            mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
-            mstore(0x0d, factory)
-            mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
-            let initCodeHash := keccak256(0x0e, 0x2f)
-
-            // 0xff + factory + salt + hash(initCode)
-            mstore(0x00, 0xff00000000000000)
-            mstore(0x2d, salt)
-            mstore(0x4d, initCodeHash)
-            let computedAddress := keccak256(0x18, 0x55)
-
-            if shl(0x60, xor(computedAddress, address())) {
-                mstore(0x00, 0x00)
-                return(0x00, 0x20)
-            }
-            // Return ERC1271 magic value (isValidSignature selector)
-            mstore(0x00, 0x1626ba7e00000000000000000000000000000000000000000000000000000000)
-            return(0x00, 0x20)
-        }
-    }
-
-    function deploy(bytes32 salt, address owner, bytes32 r, bytes32 vs) external noDelegateCall returns (address proxy) {
+    function _verifyRoot(bytes32 root, address pendingOwner_) internal view {
+        bytes32 initHash = _proxyInitHash;
+        BridgeFactory factory = _cachedThis;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(0x00, salt)
-            mstore(0x20, add(0x1b, shr(0xff, vs)))
-            mstore(0x40, r)
-            mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
-            pop(staticcall(gas(), 0x01, 0x00, 0x80, 0x20, 0x20))
+            // derive creation salt
+            mstore(0x34, chainid())
+            mstore(0x14, pendingOwner_)
+            mstore(0x00, root)
+            let salt := keccak256(0x00, 0x54)
 
-            // reset clobbered memory
-            mstore(0x40, ptr)
-            mstore(0x60, 0x00)
+            // 0xff + factory + salt + hash(initCode)
+            mstore(0x4d, initHash)
+            mstore(0x2d, salt)
+            mstore(0x0d, factory)
+            mstore(0x00, 0xff00000000000000)
+            let computedAddress := keccak256(0x18, 0x55)
 
-            if xor(owner, mul(mload(0x20), eq(returndatasize(), 0x20))) {
-                mstore(0x00, 0x8baa579f) // selector for `InvalidSignature()`
+            // verify that `salt` was used to deploy `address(this)`
+            if shl(0x60, xor(address(), computedAddress)) {
+                mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
                 revert(0x1c, 0x04)
             }
-        
-            mstore(0x20, chainid())
-            salt := keccak256(0x00, 0x40)
+
+            // restore clobbered memory
+            mstore(0x60, 0x00)
+            mstore(0x40, ptr)
+        }
+    }
+
+    function isValidSignature(bytes32 hash, bytes calldata signature)
+        external
+        view
+        override
+        /* `_verifyRoot` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
+        returns (bytes4)
+    {
+        address owner;
+        bytes32[] calldata proof;
+
+        // This assembly block is equivalent to:
+        //     (owner, proof) = abi.decode(signature, (address, bytes32[]));
+        // except we omit all the range and overflow checking.
+        assembly ("memory-safe") {
+            owner := calldataload(signature.offset)
+            if shr(0xa0, owner) { revert(0x00, 0x00) }
+            proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
+            proof.length := calldataload(proof.offset)
+            proof.offset := add(0x20, proof.offset)
+        }
+
+        _verifyRoot(MerkleProofLib.getRoot(proof, hash), owner);
+        return IERC1271.isValidSignature.selector;
+    }
+
+    error DeploymentFailed();
+
+    function deploy(bytes32 root, address owner, bool setOwner) external noDelegateCall returns (address proxy) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            // derive the deployment salt from the owner and chainid
+            mstore(0x34, chainid())
+            mstore(0x14, owner)
+            mstore(0x00, root)
+            let salt := keccak256(0x00, 0x54)
 
             // create a minimal proxy targeting this contract
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
@@ -111,10 +124,21 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
                 revert(0x1c, 0x04)
             }
 
-            // set owner in proxy
+            // restore clobbered memory
+            mstore(0x40, ptr)
+
+            // If `setOwner == true`, this gets the selector for `setPendingOwner(address)`,
+            // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
+            // appended with `owner`'s padding
+            let selector := xor(0xfbacefce000000000000000000000000, mul(0x3f8c8622000000000000000000000000, setOwner))
+
+            // set the pending owner, or `selfdestruct` to the owner
             mstore(0x14, owner)
-            mstore(0x00, 0xc42069ec000000000000000000000000) // selector for `setPendingOwner(address)` with padding for owner
-            pop(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00))
+            mstore(0x00, selector)
+            if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
         }
     }
 
@@ -122,18 +146,68 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         _setPendingOwner(owner);
     }
 
-    function approvePermit2(IERC20 token) external onlyProxy returns (bool) {
-        token.safeApprove(0x000000000022D473030F116dDEE9F6B43aC78BA3, type(uint256).max);
-        return true;
+    error ApproveFailed();
+
+    function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x00, 0x095ea7b3) // selector for `approve(address,uint256)`
+            mstore(0x20, 0x000000000022D473030F116dDEE9F6B43aC78BA3) // Permit2
+            mstore(0x40, amount)
+
+            if iszero(call(gas(), token, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
+                mstore(0x00, 0x3e3f8f73) // selector for `ApproveFailed()`
+                revert(0x1c, 0x04)
+            }
+
+            mstore(0x00, 0x01)
+            return(0x00, 0x20)
+        }
     }
 
-    function call(address target, uint256 value, bytes calldata data) external onlyOwner returns (bytes memory) {
-        (bool success, bytes memory result) = target.call{value: value}(data);
-        require(success);
-        return result;
+    function call(address payable target, uint256 value, bytes calldata data)
+        external
+        onlyOwner
+        returns (bytes memory)
+    {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            calldatacopy(ptr, data.offset, data.length)
+            let success := call(gas(), target, value, ptr, data.length, 0x00, 0x00)
+
+            returndatacopy(add(0x40, ptr), 0x00, returndatasize())
+
+            if iszero(success) {
+                revert(add(0x40, ptr), returndatasize())
+            }
+
+            mstore(add(0x20, ptr), returndatasize())
+            mstore(ptr, 0x20)
+            return(ptr, add(0x40, returndatasize()))
+        }
     }
 
-    function cleanup() external onlyOwner {
-        selfdestruct(payable(_msgSender()));
+    function cleanup(address payable beneficiary) external {
+        if (msg.sender == address(_cachedThis)) {
+            selfdestruct(beneficiary);
+        }
+
+        address owner_ = owner();
+        if (_msgSender() != owner_) {
+            if (owner_ != address(0)) {
+                _permissionDenied();
+            }
+            address pendingOwner_ = pendingOwner();
+            if ((pendingOwner_ == address(0)).or(beneficiary != pendingOwner_)) {
+                _permissionDenied();
+            }
+        }
+        selfdestruct(beneficiary);
     }
 }

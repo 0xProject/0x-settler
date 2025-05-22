@@ -21,6 +21,13 @@ abstract contract AbstractOwnable is IOwnable {
 
     function _setOwner(address) internal virtual;
 
+    function _permissionDenied() internal pure {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
+            revert(0x1c, 0x04)
+        }
+    }
+
     constructor() {
         assert(type(IOwnable).interfaceId == 0x7f5828d0);
         assert(type(IERC165).interfaceId == 0x01ffc9a7);
@@ -93,7 +100,7 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
 
     function _requireOwner() internal view override {
         if (_msgSender() != owner()) {
-            revert PermissionDenied();
+            _permissionDenied();
         }
     }
 
@@ -178,7 +185,7 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
 
     function _requirePendingOwner() internal view override {
         if (_msgSender() != pendingOwner()) {
-            revert PermissionDenied();
+            _permissionDenied();
         }
     }
 
