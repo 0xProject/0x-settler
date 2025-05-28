@@ -9,7 +9,7 @@ import {CrossChainReceiverFactory} from "src/CrossChainReceiverFactory.sol";
 import {Recover, PackedSignature} from "src/utils/Recover.sol";
 
 contract CrossChainReceiverFactoryTest is Test {
-    CrossChainReceiverFactory internal constant factory = CrossChainReceiverFactory(address(0xf4c70));
+    CrossChainReceiverFactory internal constant factory = CrossChainReceiverFactory(payable(address(0xf4c70)));
 
     IERC20 internal constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
@@ -37,7 +37,8 @@ contract CrossChainReceiverFactoryTest is Test {
         shim.call("");
         wnativeStorage.call("");
 
-        deployCodeTo("CrossChainReceiverFactory.sol", address(factory));
+        vm.deal(address(this), 2 wei);
+        deployCodeTo("CrossChainReceiverFactory.sol", new bytes(0), 2 wei, address(factory));
         vm.label(address(factory), "CrossChainReceiverFactory");
     }
 
@@ -46,7 +47,7 @@ contract CrossChainReceiverFactoryTest is Test {
         returns (CrossChainReceiverFactory proxy, address owner)
     {
         owner = vm.addr(privateKey);
-        proxy = CrossChainReceiverFactory(factory.deploy(root, owner, setOwner));
+        proxy = factory.deploy(root, owner, setOwner);
         vm.label(address(proxy), "Proxy");
     }
 

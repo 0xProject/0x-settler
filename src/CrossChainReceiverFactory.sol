@@ -65,15 +65,8 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     error DeploymentFailed();
     error ApproveFailed();
 
-    constructor() {
-        require((msg.sender == _TOEHOLD && uint160(address(this)) >> 104 == 0) || block.chainid == 31337);
-        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
-        require(_NAMEHASH == keccak256(bytes(name)));
-        require(
-            _CALL_TYPEHASH
-                == keccak256("CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)")
-        );
-
+    constructor() payable {
+        // extract the `_WNATIVE` address from `_WNATIVE_STORAGE` and do some behavioral checks
         IERC20 wnative;
         address wnativeStorage = _WNATIVE_STORAGE;
         assembly ("memory-safe") {
@@ -81,8 +74,49 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             extcodecopy(wnativeStorage, 0x0c, sub(extcodesize(wnativeStorage), 0x14), 0x14)
             wnative := mload(0x00)
         }
-        wnative.balanceOf(address(this)); // check that `_WNATIVE` is ERC20-ish
+        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
+        // cheat code. It is a no-op at deploy time.
+        if ((block.chainid == 31337).and(msg.sender == address(wnative)).and(msg.value > 1 wei)) {
+            assembly ("memory-safe") {
+                stop()
+            }
+        }
+        {
+            // we need some value in order to perform the behavioral checks
+            uint256 beforeBalance = address(this).balance;
+            require(beforeBalance > 1 wei);
+
+            // check that `_WNATIVE` is ERC20-ish
+            uint256 beforeWrappedBalance = wnative.balanceOf(address(this));
+
+            // check that `_WNATIVE` has a `deposit()` function
+            (bool success,) = address(wnative).call{value: beforeBalance >> 1}(abi.encodeWithSignature("deposit()"));
+            require(success);
+            require(beforeWrappedBalance < (beforeWrappedBalance = wnative.balanceOf(address(this))));
+
+            // check that `_WNATIVE` has a `fallback` function that deposits
+            (success,) = address(wnative).call{value: address(this).balance}("");
+            require(success);
+            require(beforeWrappedBalance < wnative.balanceOf(address(this)));
+
+            // check that `_WNATIVE` has a `withdraw(uint256)` function
+            (success,) = address(wnative).call(abi.encodeWithSignature("withdraw(uint256)", beforeBalance));
+            require(success);
+            require(address(this).balance == beforeBalance);
+
+            // send value back to the origin
+            (success,) = payable(tx.origin).call{value: address(this).balance}("");
+            require(success);
+        }
         _WNATIVE = wnative;
+
+        require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
+        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
+        require(_NAMEHASH == keccak256(bytes(name)));
+        require(
+            _CALL_TYPEHASH
+                == keccak256("CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)")
+        );
 
         uint256 $int;
         Storage storage $ = _$();
@@ -242,7 +276,11 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         return _$().nonce;
     }
 
-    function deploy(bytes32 root, address owner, bool setOwner) external noDelegateCall returns (address proxy) {
+    function deploy(bytes32 root, address owner, bool setOwner)
+        external
+        noDelegateCall
+        returns (CrossChainReceiverFactory proxy)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -398,4 +436,6 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         }
         selfdestruct(beneficiary);
     }
+
+    receive() external payable {}
 }
