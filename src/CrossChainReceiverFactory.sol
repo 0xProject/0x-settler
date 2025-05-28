@@ -272,7 +272,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     }
 
     function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
-        if (token == _WNATIVE) {
+        if (token == _NATIVE_ADDRESS) {
             token = _WNATIVE;
             assembly ("memory-safe") {
                 if iszero(call(gas(), token, selfbalance(), 0x00, 0x00, 0x00, 0x00)) {
