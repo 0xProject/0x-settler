@@ -11,6 +11,12 @@ import {FastLogic} from "./utils/FastLogic.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 import {Recover, PackedSignature} from "./utils/Recover.sol";
 
+interface IWrappedNative is IERC20 {
+    function deposit() external payable;
+    function withdraw(uint256) external;
+    receive() external payable;
+}
+
 contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
     using Recover for bytes32;
@@ -60,14 +66,14 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             )
         )
     );
-    IERC20 private immutable _WNATIVE;
+    IWrappedNative private immutable _WNATIVE;
 
     error DeploymentFailed();
     error ApproveFailed();
 
     constructor() payable {
         // extract the `_WNATIVE` address from `_WNATIVE_STORAGE` and do some behavioral checks
-        IERC20 wnative;
+        IWrappedNative wnative;
         address wnativeStorage = _WNATIVE_STORAGE;
         assembly ("memory-safe") {
             mstore(0x00, 0x00)
@@ -89,19 +95,16 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             uint256 wrappedBalance = wnative.balanceOf(address(this));
 
             // check that `_WNATIVE` has a `deposit()` function
-            (bool success,) =
-                address(wnative).call{value: address(this).balance >> 1}(abi.encodeWithSignature("deposit()"));
-            require(success);
+            wnative.deposit{value: address(this).balance >> 1}();
             require(wrappedBalance < (wrappedBalance = wnative.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `fallback` function that deposits
-            (success,) = address(wnative).call{value: address(this).balance}("");
+            (bool success,) = payable(wnative).call{value: address(this).balance}("");
             require(success);
             require(wrappedBalance < (wrappedBalance = wnative.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `withdraw(uint256)` function
-            (success,) = address(wnative).call(abi.encodeWithSignature("withdraw(uint256)", wrappedBalance));
-            require(success);
+            wnative.withdraw(wrappedBalance);
             require(address(this).balance == wrappedBalance);
             require(wnative.balanceOf(address(this)) == 0);
 
