@@ -54,7 +54,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
                                 )
                             )
                         ),
-                        hex"80"
+                        hex"01"
                     )
                 )
             )
@@ -80,7 +80,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             mstore(0x00, 0x00)
             extcodecopy(wnativeStorage, 0x00, 0x00, 0x20)
             wnative := mload(0x00)
-            if shr(0x60, wnative) { revert(0x00, 0x00) }
+            if shr(0xa0, wnative) { revert(0x00, 0x00) }
         }
         wnative.balanceOf(address(this)); // check that `_WNATIVE` is ERC20-ish
         _WNATIVE = wnative;
