@@ -148,6 +148,19 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         bytes32[] calldata proof;
 
         // This assembly block is equivalent to:
+        //     hash = keccak256(abi.encode(hash, block.chainid));
+        // except that it's cheaper and doesn't allocate memory. We make the assumption here that
+        // `block.chainid` cannot alias a valid tree node or signing hash. Realistically,
+        // `block.chainid` cannot exceed 2**53 or it would cause significant issues elsewhere in the
+        // ecosystem. This also means that the sort order of the hash and the chainid backwards from
+        // what `MerkleProofLib` expects, again protecting us against extension attacks.
+        assembly ("memory-safe") {
+            mstore(0x00, hash)
+            mstore(0x20, chainid())
+            hash := keccak256(0x00, 0x40)
+        }
+
+        // This assembly block is equivalent to:
         //     (owner, proof) = abi.decode(signature, (address, bytes32[]));
         // except we omit all the range and overflow checking.
         assembly ("memory-safe") {
