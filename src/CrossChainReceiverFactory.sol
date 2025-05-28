@@ -27,7 +27,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     bytes32 private constant _CALL_TYPEHASH = 0x50f2ab2eac871c8aaa2eb987a8627469f3938419add9936462b32bca29e53ed3;
-    IERC20 private constant _NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _WNATIVE_SETTER = 0x7f88741Cf6fb6b54533884C001c0F5eF6706b324;
@@ -38,6 +38,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             hex"1815601c57fe5b7f36585f54601d575f555f5f37365f34f05f816017575ffd5b5260205ff35b30ff5f52595ff3"
         )
     );
+    bytes32 private constant _WNATIVE_SALT = keccak256("Wrapped Native Token Address");
     address private constant _WNATIVE_STORAGE = address(
         uint160(
             uint256(
@@ -48,7 +49,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
                             uint160(
                                 uint256(
                                     keccak256(
-                                        abi.encodePacked(hex"ff", _TOEHOLD, bytes32(0), _WNATIVE_STORAGE_INITHASH)
+                                        abi.encodePacked(hex"ff", _TOEHOLD, _WNATIVE_SALT, _WNATIVE_STORAGE_INITHASH)
                                     )
                                 )
                             )
