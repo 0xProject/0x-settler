@@ -9,18 +9,49 @@ import {MultiCallContext} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
+import {Recover, PackedSignature} from "./utils/Recover.sol";
 
-contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
+contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
+    using Recover for bytes32;
 
-    BridgeFactory private immutable _cachedThis;
+    struct Storage {
+        uint256 nonce;
+    }
+    
+    CrossChainReceiverFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
+    uint256 private immutable _cachedChainId;
+    bytes32 private immutable _cachedDomainSeparator;
+    string public constant name = "ZeroExCrossChainReceiver";
+    bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
+    bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
+    bytes32 private constant _CALL_TYPEHASH = 0x50f2ab2eac871c8aaa2eb987a8627469f3938419add9936462b32bca29e53ed3;
+
+    error DeploymentFailed();
+    error ApproveFailed();
 
     constructor() {
         require(
             (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
                 || block.chainid == 31337
         );
+        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
+        require(_NAMEHASH == keccak256(bytes(name)));
+        require(
+            _CALL_TYPEHASH
+                == keccak256(
+                    "CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)"
+                )
+        );
+
+        uint256 $int;
+        Storage storage $ = _$();
+        assembly ("memory-safe") {
+            $int := $.slot
+        }
+        require($int == (uint256(_NAMEHASH) - 1) & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00);
+
         _cachedThis = this;
         _proxyInitHash = keccak256(
             bytes.concat(
@@ -29,6 +60,8 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
                 hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
             )
         );
+        _cachedChainId = block.chainid;
+        _cachedDomainSeparator = _computeDomainSeparator();
     }
 
     modifier onlyProxy() {
@@ -46,15 +79,43 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         _;
     }
 
-    function _verifyRoot(bytes32 root, address pendingOwner_) internal view {
+    function _$() internal pure returns (Storage storage $) {
+        assembly ("memory-safe") {
+            $.slot := 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b10098000
+        }
+    }
+
+    function _computeDomainSeparator() private view returns (bytes32 r) {
+        address cachedThis = address(_cachedThis);
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, _DOMAIN_TYPEHASH)
+            mstore(0x20, _NAMEHASH)
+            mstore(0x40, chainid())
+            mstore(0x60, and(0xffffffffffffffffffffffffff, cachedThis))
+            r := keccak256(0x00, 0x80)
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
+        }
+    }
+
+    function _DOMAIN_SEPARATOR() internal view returns (bytes32) {
+        return block.chainid == _cachedChainId ? _cachedDomainSeparator : _computeDomainSeparator();
+    }
+
+    function DOMAIN_SEPARATOR() external view noDelegateCall returns (bytes32) {
+        return _DOMAIN_SEPARATOR();
+    }
+
+    function _verifyRoot(bytes32 root, address originalOwner) internal view {
         bytes32 initHash = _proxyInitHash;
-        BridgeFactory factory = _cachedThis;
+        CrossChainReceiverFactory factory = _cachedThis;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
             // derive creation salt
             mstore(0x34, chainid())
-            mstore(0x14, pendingOwner_)
+            mstore(0x14, originalOwner)
             mstore(0x00, root)
             let salt := keccak256(0x00, 0x54)
 
@@ -102,7 +163,32 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         return IERC1271.isValidSignature.selector;
     }
 
-    error DeploymentFailed();
+    function eip712Domain()
+        external
+        view
+        returns (
+            bytes1 fields,
+            string memory name_,
+            string memory,
+            uint256 chainId,
+            address verifyingContract,
+            bytes32,
+            uint256[] memory
+        )
+    {
+        fields = bytes1(0x0d);
+        name_ = name;
+        chainId = block.chainid;
+        verifyingContract = address(_cachedThis);
+    }
+
+    function _consumeNonce() internal returns (uint256) {
+        return _$().nonce++;
+    }
+
+    function nonce() external view returns (uint256) {
+        return _$().nonce;
+    }
 
     function deploy(bytes32 root, address owner, bool setOwner) external noDelegateCall returns (address proxy) {
         assembly ("memory-safe") {
@@ -146,8 +232,6 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         _setPendingOwner(owner);
     }
 
-    error ApproveFailed();
-
     function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
@@ -175,6 +259,15 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
         onlyOwner
         returns (bytes memory)
     {
+        _call(target, value, data);
+    }
+
+    function call(bytes32 root, address payable target, uint256 value, bytes calldata data, PackedSignature calldata sig) external returns (bytes memory) {
+        _verifyRoot(root, _hashCall(target, value, data, _consumeNonce()).recover(sig));
+        _call(target, value, data);
+    }
+
+    function _call(address payable target, uint256 value, bytes calldata data) internal returns (bytes memory) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -190,6 +283,32 @@ contract BridgeFactory is IERC1271, MultiCallContext, TwoStepOwnable {
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
             return(ptr, add(0x40, returndatasize()))
+        }
+    }
+
+    function _hashCall(address payable target, uint256 value, bytes calldata data, uint256 nonce_) internal view returns (bytes32 signingHash) {
+        bytes32 domainSep = _DOMAIN_SEPARATOR();
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            calldatacopy(ptr, data.offset, data.length)
+            let dataHash := keccak256(ptr, data.length)
+
+            mstore(ptr, _CALL_TYPEHASH)
+            mstore(add(0x20, ptr), nonce_)
+            mstore(add(0x40, ptr), address())
+            mstore(add(0x60, ptr), target)
+            mstore(add(0x80, ptr), value)
+            mstore(add(0xa0, ptr), dataHash)
+            let structHash := keccak256(ptr, 0xc0)
+
+            mstore(0x00, 0x1901)
+            mstore(0x20, domainSep)
+            mstore(0x40, structHash)
+
+            signingHash := keccak256(0x1e, 0x42)
+
+            mstore(0x40, ptr)
         }
     }
 
