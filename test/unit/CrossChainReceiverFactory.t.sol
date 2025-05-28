@@ -31,23 +31,27 @@ contract CrossChainReceiverFactoryTest is Test {
             address(uint160(uint256(keccak256(bytes.concat(bytes2(0xd694), bytes20(uint160(shim)), bytes1(0x01))))));
         vm.label(wnativeStorage, "wrapped native address storage");
         (success, returndata) =
-            shim.call(bytes.concat(hex"73", bytes20(uint160(address(WETH))), hex"5f52595ff3"));
+            shim.call(bytes.concat(hex"7f30ff00000000000000000000", bytes20(uint160(address(WETH))), hex"5f52595ff3"));
         require(success);
         require(returndata.length == 32);
         shim.call("");
-        require(abi.decode(wnativeStorage.code, (IERC20)) == WETH);
+        wnativeStorage.call("");
 
         deployCodeTo("CrossChainReceiverFactory.sol", address(factory));
         vm.label(address(factory), "CrossChainReceiverFactory");
     }
 
-    function _deployProxy(bytes32 action, uint256 privateKey)
+    function _deployProxy(bytes32 action, uint256 privateKey, bool setOwner)
         internal
         returns (CrossChainReceiverFactory proxy, address owner)
     {
         owner = vm.addr(privateKey);
-        proxy = CrossChainReceiverFactory(factory.deploy(action, owner, true));
+        proxy = CrossChainReceiverFactory(factory.deploy(action, owner, setOwner));
         vm.label(address(proxy), "Proxy");
+    }
+
+    function _deployProxy(bytes32 action, uint256 privateKey) internal returns (CrossChainReceiverFactory, address) {
+        return _deployProxy(action, privateKey, true);
     }
 
     function _deployProxy(bytes32 action) internal returns (CrossChainReceiverFactory, address) {
@@ -137,7 +141,7 @@ contract CrossChainReceiverFactoryTest is Test {
     function testWrap() public {
         uint256 signerKey = uint256(keccak256(abi.encode("signer")));
         bytes32 root = keccak256(abi.encode("root"));
-        (CrossChainReceiverFactory proxy, address signer) = _deployProxy(root, signerKey);
+        (CrossChainReceiverFactory proxy, address signer) = _deployProxy(root, signerKey, false);
 
         vm.deal(address(proxy), 1 ether);
         assertEq(address(proxy).balance, 1 ether);

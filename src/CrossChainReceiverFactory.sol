@@ -78,7 +78,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         address wnativeStorage = _WNATIVE_STORAGE;
         assembly ("memory-safe") {
             mstore(0x00, 0x00)
-            extcodecopy(wnativeStorage, 0x00, 0x00, 0x20)
+            extcodecopy(wnativeStorage, 0x0c, sub(extcodesize(wnativeStorage), 0x14), 0x14)
             wnative := mload(0x00)
             if shr(0xa0, wnative) { revert(0x00, 0x00) }
         }
