@@ -275,7 +275,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         if (token == _NATIVE) {
             token = _WNATIVE;
             assembly ("memory-safe") {
-                if iszero(call(gas(), token, selfbalance(), 0x00, 0x00, 0x00, 0x00)) {
+                if iszero(call(gas(), token, amount, 0x00, 0x00, 0x00, 0x00)) {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
                     revert(ptr, returndatasize())
