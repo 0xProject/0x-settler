@@ -114,10 +114,9 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             let ptr := mload(0x40)
 
             // derive creation salt
-            mstore(0x34, chainid())
             mstore(0x14, originalOwner)
             mstore(0x00, root)
-            let salt := keccak256(0x00, 0x54)
+            let salt := keccak256(0x00, 0x34)
 
             // 0xff + factory + salt + hash(initCode)
             mstore(0x4d, initHash)
@@ -195,10 +194,9 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             let ptr := mload(0x40)
 
             // derive the deployment salt from the owner and chainid
-            mstore(0x34, chainid())
             mstore(0x14, owner)
             mstore(0x00, root)
-            let salt := keccak256(0x00, 0x54)
+            let salt := keccak256(0x00, 0x34)
 
             // create a minimal proxy targeting this contract
             mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
