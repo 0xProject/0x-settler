@@ -31,7 +31,7 @@ contract CrossChainReceiverFactoryTest is Test {
             address(uint160(uint256(keccak256(bytes.concat(bytes2(0xd694), bytes20(uint160(shim)), bytes1(0x01))))));
         vm.label(wnativeStorage, "wrapped native address storage");
         (success, returndata) =
-            shim.call(bytes.concat(hex"7f000000000000000000000000", bytes20(uint160(address(WETH))), hex"5f52595ff3"));
+            shim.call(bytes.concat(hex"73", bytes20(uint160(address(WETH))), hex"5f52595ff3"));
         require(success);
         require(returndata.length == 32);
         shim.call("");
