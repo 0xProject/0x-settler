@@ -18,7 +18,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     struct Storage {
         uint256 nonce;
     }
-    
+
     CrossChainReceiverFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
     uint256 private immutable _cachedChainId;
@@ -27,23 +27,62 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     bytes32 private constant _CALL_TYPEHASH = 0x50f2ab2eac871c8aaa2eb987a8627469f3938419add9936462b32bca29e53ed3;
+    address private constant _NATIVE_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address private constant _WNATIVE_SETTER = 0x7f88741Cf6fb6b54533884C001c0F5eF6706b324;
+    bytes32 private constant _WNATIVE_STORAGE_INITHASH = keccak256(
+        abi.encodePacked(
+            hex"3273",
+            _WNATIVE_SETTER,
+            hex"1815601c57fe5b7f36585f54601d575f555f5f37365f34f05f816017575ffd5b5260205ff35b30ff5f52595ff3"
+        )
+    );
+    address private constant _WNATIVE_STORAGE = address(
+        uint160(
+            uint256(
+                keccak256(
+                    abi.encodePacked(
+                        hex"d694",
+                        address(
+                            uint160(
+                                uint256(
+                                    keccak256(
+                                        abi.encodePacked(hex"ff", _TOEHOLD, bytes32(0), _WNATIVE_STORAGE_INITHASH)
+                                    )
+                                )
+                            )
+                        ),
+                        hex"80"
+                    )
+                )
+            )
+        )
+    );
+    IERC20 private immutable _WNATIVE;
 
     error DeploymentFailed();
     error ApproveFailed();
 
     constructor() {
-        require(
-            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
-                || block.chainid == 31337
-        );
+        require((msg.sender == _TOEHOLD && uint160(address(this)) >> 104 == 0) || block.chainid == 31337);
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(_NAMEHASH == keccak256(bytes(name)));
         require(
             _CALL_TYPEHASH
-                == keccak256(
-                    "CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)"
-                )
+                == keccak256("CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)")
         );
+
+        IERC20 wnative;
+        address wnativeStorage = _WNATIVE_STORAGE;
+        assembly ("memory-safe") {
+            mstore(0x00, 0x00)
+            extcodecopy(wnativeStorage, 0x00, 0x00, 0x20)
+            wnative := mload(0x00)
+            if shr(0x60, wnative) { revert(0x00, 0x00) }
+        }
+        wnative.balanceOf(address(this)); // check that `_WNATIVE` is ERC20-ish
+        _WNATIVE = wnative;
 
         uint256 $int;
         Storage storage $ = _$();
@@ -233,6 +272,16 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     }
 
     function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
+        if (token == _WNATIVE) {
+            token = _WNATIVE;
+            assembly ("memory-safe") {
+                if iszero(call(gas(), token, selfbalance(), 0x00, 0x00, 0x00, 0x00)) {
+                    let ptr := mload(0x40)
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
+                }
+            }
+        }
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -262,7 +311,13 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         _call(target, value, data);
     }
 
-    function call(bytes32 root, address payable target, uint256 value, bytes calldata data, PackedSignature calldata sig) external returns (bytes memory) {
+    function call(
+        bytes32 root,
+        address payable target,
+        uint256 value,
+        bytes calldata data,
+        PackedSignature calldata sig
+    ) external returns (bytes memory) {
         _verifyRoot(root, _hashCall(target, value, data, _consumeNonce()).recover(sig));
         _call(target, value, data);
     }
@@ -276,9 +331,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
 
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
-            if iszero(success) {
-                revert(add(0x40, ptr), returndatasize())
-            }
+            if iszero(success) { revert(add(0x40, ptr), returndatasize()) }
 
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
@@ -286,7 +339,11 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         }
     }
 
-    function _hashCall(address payable target, uint256 value, bytes calldata data, uint256 nonce_) internal view returns (bytes32 signingHash) {
+    function _hashCall(address payable target, uint256 value, bytes calldata data, uint256 nonce_)
+        internal
+        view
+        returns (bytes32 signingHash)
+    {
         bytes32 domainSep = _DOMAIN_SEPARATOR();
         assembly ("memory-safe") {
             let ptr := mload(0x40)
