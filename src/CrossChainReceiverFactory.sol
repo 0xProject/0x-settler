@@ -27,7 +27,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     bytes32 private constant _CALL_TYPEHASH = 0x50f2ab2eac871c8aaa2eb987a8627469f3938419add9936462b32bca29e53ed3;
-    address private constant _NATIVE_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    IERC20 private constant _NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _WNATIVE_SETTER = 0x7f88741Cf6fb6b54533884C001c0F5eF6706b324;
@@ -272,7 +272,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     }
 
     function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
-        if (token == _NATIVE_ADDRESS) {
+        if (token == _NATIVE) {
             token = _WNATIVE;
             assembly ("memory-safe") {
                 if iszero(call(gas(), token, selfbalance(), 0x00, 0x00, 0x00, 0x00)) {
