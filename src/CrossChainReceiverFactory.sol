@@ -83,26 +83,27 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         }
         {
             // we need some value in order to perform the behavioral checks
-            uint256 beforeBalance = address(this).balance;
-            require(beforeBalance > 1 wei);
+            require(address(this).balance > 1 wei);
 
             // check that `_WNATIVE` is ERC20-ish
-            uint256 beforeWrappedBalance = wnative.balanceOf(address(this));
+            uint256 wrappedBalance = wnative.balanceOf(address(this));
 
             // check that `_WNATIVE` has a `deposit()` function
-            (bool success,) = address(wnative).call{value: beforeBalance >> 1}(abi.encodeWithSignature("deposit()"));
+            (bool success,) =
+                address(wnative).call{value: address(this).balance >> 1}(abi.encodeWithSignature("deposit()"));
             require(success);
-            require(beforeWrappedBalance < (beforeWrappedBalance = wnative.balanceOf(address(this))));
+            require(wrappedBalance < (wrappedBalance = wnative.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `fallback` function that deposits
             (success,) = address(wnative).call{value: address(this).balance}("");
             require(success);
-            require(beforeWrappedBalance < wnative.balanceOf(address(this)));
+            require(wrappedBalance < (wrappedBalance = wnative.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `withdraw(uint256)` function
-            (success,) = address(wnative).call(abi.encodeWithSignature("withdraw(uint256)", beforeBalance));
+            (success,) = address(wnative).call(abi.encodeWithSignature("withdraw(uint256)", wrappedBalance));
             require(success);
-            require(address(this).balance == beforeBalance);
+            require(address(this).balance == wrappedBalance);
+            require(wnative.balanceOf(address(this)) == 0);
 
             // send value back to the origin
             (success,) = payable(tx.origin).call{value: address(this).balance}("");
