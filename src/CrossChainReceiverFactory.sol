@@ -153,7 +153,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         // `block.chainid` cannot alias a valid tree node or signing hash. Realistically,
         // `block.chainid` cannot exceed 2**53 or it would cause significant issues elsewhere in the
         // ecosystem. This also means that the sort order of the hash and the chainid backwards from
-        // what `MerkleProofLib` expects, again protecting us against extension attacks.
+        // what `MerkleProofLib` produces, again protecting us against extension attacks.
         assembly ("memory-safe") {
             mstore(0x00, hash)
             mstore(0x20, chainid())

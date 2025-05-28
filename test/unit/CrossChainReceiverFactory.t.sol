@@ -14,10 +14,18 @@ contract CrossChainReceiverFactoryTest is Test {
         vm.label(address(factory), "CrossChainReceiverFactory");
     }
 
-    function _deployProxy(bytes32 action, uint256 privateKey) internal returns (CrossChainReceiverFactory proxy, address owner) {
+    function _deployProxyToRoot(bytes32 root, uint256 privateKey)
+        internal
+        returns (CrossChainReceiverFactory proxy, address owner)
+    {
         owner = vm.addr(privateKey);
-        proxy = CrossChainReceiverFactory(factory.deploy(action, owner, true));
+        proxy = CrossChainReceiverFactory(factory.deploy(root, owner, true));
         vm.label(address(proxy), "Proxy");
+    }
+
+    function _deployProxy(bytes32 action, uint256 privateKey) internal returns (CrossChainReceiverFactory, address) {
+        bytes32 root = keccak256(abi.encode(action, block.chainid));
+        return _deployProxyToRoot(root, privateKey);
     }
 
     function _deployProxy(bytes32 action) internal returns (CrossChainReceiverFactory, address) {
@@ -34,18 +42,26 @@ contract CrossChainReceiverFactoryTest is Test {
     function testMultipleActions() public {
         bytes32 action1 = keccak256(abi.encode("action1"));
         bytes32 action2 = keccak256(abi.encode("action2"));
-        bytes32 root = keccak256(abi.encodePacked(action1, action2));
+        bytes32 leaf1 = keccak256(abi.encode(action1, block.chainid));
+        bytes32 leaf2 = keccak256(abi.encode(action2, block.chainid));
+        bytes32 root;
+        if (leaf2 < leaf1) {
+            root = keccak256(abi.encodePacked(leaf2, leaf1));
+        } else {
+            root = keccak256(abi.encodePacked(leaf1, leaf2));
+        }
 
         bytes32[] memory proof = new bytes32[](1);
-        proof[0] = action1;
+        proof[0] = leaf1;
 
-        (CrossChainReceiverFactory proxy, address owner) = _deployProxy(root);
+        (CrossChainReceiverFactory proxy, address owner) =
+            _deployProxyToRoot(root, uint256(keccak256(abi.encode("owner"))));
         assertEq(proxy.isValidSignature(action2, abi.encode(owner, proof)), bytes4(0x1626ba7e));
 
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
         proxy.isValidSignature(action1, abi.encode(owner, proof));
 
-        proof[0] = action2;
+        proof[0] = leaf2;
         assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof)), bytes4(0x1626ba7e));
     }
 
@@ -58,8 +74,8 @@ contract CrossChainReceiverFactoryTest is Test {
 
     function testExec() public {
         uint256 signerKey = uint256(keccak256(abi.encode("signer")));
-        bytes32 root = keccak256(abi.encode("root"));
-        (CrossChainReceiverFactory proxy, address signer) = _deployProxy(root, signerKey);
+        bytes32 leaf = keccak256("leaf");
+        (CrossChainReceiverFactory proxy, address signer) = _deployProxy(leaf, signerKey);
 
         MockERC20 target = deployMockERC20("Test Token", "TT", 18);
         deal(address(target), address(proxy), 1 ether);
@@ -89,6 +105,7 @@ contract CrossChainReceiverFactoryTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerKey, signingHash);
         PackedSignature memory sig = Recover.packSignature(v, r, s);
 
+        bytes32 root = keccak256(abi.encode(leaf, block.chainid));
         vm.prank(signer);
         bytes memory result = proxy.call(root, payable(address(target)), 0, data, sig);
 
