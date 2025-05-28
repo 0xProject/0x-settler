@@ -29,10 +29,16 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         uint256 nonce;
     }
 
-    CrossChainReceiverFactory private immutable _cachedThis;
-    bytes32 private immutable _proxyInitHash;
-    uint256 private immutable _cachedChainId;
-    bytes32 private immutable _cachedDomainSeparator;
+    CrossChainReceiverFactory private immutable _cachedThis = this;
+    bytes32 private immutable _proxyInitHash = keccak256(
+        bytes.concat(
+            hex"60265f8160095f39f35f5f365f5f37365f6c",
+            bytes13(uint104(uint160(address(this)))),
+            hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
+        )
+    );
+    uint256 private immutable _cachedChainId = block.chainid;
+    bytes32 private immutable _cachedDomainSeparator = _computeDomainSeparator();
     string public constant name = "ZeroExCrossChainReceiver";
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
@@ -70,53 +76,46 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             )
         )
     );
-    IWrappedNative private immutable _WNATIVE;
+    IWrappedNative private immutable _WNATIVE =
+        IWrappedNative(payable(address(uint160(uint256(bytes32(_WNATIVE_STORAGE.code))))));
 
     error DeploymentFailed();
     error ApproveFailed();
 
     constructor() payable {
-        // extract the `_WNATIVE` address from `_WNATIVE_STORAGE` and do some behavioral checks
-        IWrappedNative wnative;
-        address wnativeStorage = _WNATIVE_STORAGE;
-        assembly ("memory-safe") {
-            mstore(0x00, 0x00)
-            extcodecopy(wnativeStorage, 0x0c, sub(extcodesize(wnativeStorage), 0x14), 0x14)
-            wnative := mload(0x00)
-        }
         // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
         // cheat code. It is a no-op at deploy time.
-        if ((block.chainid == 31337).and(msg.sender == address(wnative)).and(msg.value > 1 wei)) {
+        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
             assembly ("memory-safe") {
                 stop()
             }
         }
+        // do some behavioral checks on `_WNATIVE`
         {
             // we need some value in order to perform the behavioral checks
             require(address(this).balance > 1 wei);
 
             // check that `_WNATIVE` is ERC20-ish
-            uint256 wrappedBalance = wnative.balanceOf(address(this));
+            uint256 wrappedBalance = _WNATIVE.balanceOf(address(this));
 
             // check that `_WNATIVE` has a `deposit()` function
-            wnative.deposit{value: address(this).balance >> 1}();
-            require(wrappedBalance < (wrappedBalance = wnative.balanceOf(address(this))));
+            _WNATIVE.deposit{value: address(this).balance >> 1}();
+            require(wrappedBalance < (wrappedBalance = _WNATIVE.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `fallback` function that deposits
-            (bool success,) = payable(wnative).call{value: address(this).balance}("");
+            (bool success,) = payable(_WNATIVE).call{value: address(this).balance}("");
             require(success);
-            require(wrappedBalance < (wrappedBalance = wnative.balanceOf(address(this))));
+            require(wrappedBalance < (wrappedBalance = _WNATIVE.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `withdraw(uint256)` function
-            wnative.withdraw(wrappedBalance);
+            _WNATIVE.withdraw(wrappedBalance);
             require(address(this).balance == wrappedBalance);
-            require(wnative.balanceOf(address(this)) == 0);
+            require(_WNATIVE.balanceOf(address(this)) == 0);
 
             // send value back to the origin
             (success,) = payable(tx.origin).call{value: address(this).balance}("");
             require(success);
         }
-        _WNATIVE = wnative;
 
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
@@ -132,17 +131,6 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             $int := $.slot
         }
         require($int == (uint256(_NAMEHASH) - 1) & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00);
-
-        _cachedThis = this;
-        _proxyInitHash = keccak256(
-            bytes.concat(
-                hex"60265f8160095f39f35f5f365f5f37365f6c",
-                bytes13(uint104(uint160(address(this)))),
-                hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
-            )
-        );
-        _cachedChainId = block.chainid;
-        _cachedDomainSeparator = _computeDomainSeparator();
     }
 
     modifier onlyProxy() {
