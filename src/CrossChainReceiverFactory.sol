@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
+import {IERC5267} from "./interfaces/IERC5267.sol";
 
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {MultiCallContext} from "./multicall/MultiCallContext.sol";
@@ -11,7 +12,7 @@ import {FastLogic} from "./utils/FastLogic.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 import {Recover, PackedSignature} from "./utils/Recover.sol";
 
-contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable {
+contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
     using Recover for bytes32;
 
@@ -127,6 +128,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         }
     }
 
+    // @inheritdoc IERC1271
     function isValidSignature(bytes32 hash, bytes calldata signature)
         external
         view
@@ -182,6 +184,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         return IERC1271.isValidSignature.selector;
     }
 
+    // @inheritdoc IERC5267
     function eip712Domain()
         external
         view
