@@ -90,6 +90,15 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
                 stop()
             }
         }
+
+        require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
+        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
+        require(_NAMEHASH == keccak256(bytes(name)));
+        require(
+            _CALL_TYPEHASH
+                == keccak256("CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)")
+        );
+
         // do some behavioral checks on `_WNATIVE`
         {
             // we need some value in order to perform the behavioral checks
@@ -116,14 +125,6 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             (success,) = payable(tx.origin).call{value: address(this).balance}("");
             require(success);
         }
-
-        require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
-        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
-        require(_NAMEHASH == keccak256(bytes(name)));
-        require(
-            _CALL_TYPEHASH
-                == keccak256("CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)")
-        );
 
         uint256 $int;
         Storage storage $ = _$();
