@@ -18,9 +18,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     CrossChainReceiverFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
     uint256 private immutable _cachedChainId;
-    bytes32 private immutable _cachedDomainSeparator;
     string public constant name = "ZeroExCrossChainReceiver";
-    bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
@@ -61,7 +59,6 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
 
     constructor() {
         require((msg.sender == _TOEHOLD && uint160(address(this)) >> 104 == 0) || block.chainid == 31337);
-        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(_NAMEHASH == keccak256(bytes(name)));
 
         IERC20 wnative;
@@ -83,7 +80,6 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             )
         );
         _cachedChainId = block.chainid;
-        _cachedDomainSeparator = _computeDomainSeparator();
     }
 
     modifier onlyProxy() {
@@ -99,23 +95,6 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     modifier onlyFactory() {
         require(msg.sender == address(_cachedThis));
         _;
-    }
-
-    function _computeDomainSeparator() private view returns (bytes32 r) {
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(0x00, _DOMAIN_TYPEHASH)
-            mstore(0x20, _NAMEHASH)
-            mstore(0x40, chainid())
-            mstore(0x60, address())
-            r := keccak256(0x00, 0x80)
-            mstore(0x40, ptr)
-            mstore(0x60, 0x00)
-        }
-    }
-
-    function DOMAIN_SEPARATOR() public view onlyProxy returns (bytes32) {
-        return _computeDomainSeparator();
     }
 
     function _verifyRoot(bytes32 root, address originalOwner) internal view {
@@ -335,7 +314,6 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         selfdestruct(beneficiary);
     }
 
-    /// @dev [MODIFIED] Returns whether the `signature` is valid for the `hash.
     function _erc1271IsValidSignature(bytes32 hash, bytes calldata signature, address owner)
         internal
         view
@@ -378,7 +356,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
                         if iszero(gt(lt(e, c), eq(byte(0x00, mload(sub(q, e))), 0x29))) { break }
                     }
                     c := sub(c, e) // Truncate `contentsDescription` to `contentsType`.
-                    calldatacopy(p, add(add(o, 0x40), c), e) // Copy `contentsName`.
+                    calldatacopy(p, add(add(0x40, o), c), e) // Copy `contentsName`.
                     mstore8(add(p, e), 0x28) // Store a '(' exactly right after the end.
                 }
                 // `d & 1 == 1` means that `contentsName` is invalid.
@@ -396,7 +374,8 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
                 mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typedDataSignTypehash`.
                 // The "\x19\x01" prefix is already at 0x00.
                 // `APP_DOMAIN_SEPARATOR` is already at 0x20.
-                mstore(0x40, keccak256(ptr, 0xe0)) // `hashStruct(typedDataSign)`.
+                nameHash := keccak256(ptr, 0xa0)
+                mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
                 // Compute the final hash, corrupted if `contentsName` is invalid.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
                 signature.length := sub(signature.length, l) // Truncate the signature.
@@ -404,11 +383,11 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
                 // Signature is expected to be 64 bytes
                 if xor(0x40, signature.length) { break }
                 let vs := calldataload(add(0x20, signature.offset))
+
+                mstore(0x00, hash)
                 mstore(0x20, add(0x1b, shr(0xff, vs))) // `v`.
                 mstore(0x40, calldataload(signature.offset)) // `r`.
                 mstore(0x60, shr(0x01, shl(0x01, vs))) // `s`.
-
-                mstore(0x00, hash)
                 let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
                 result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
                 mstore(0x60, 0x00) // Restore the zero slot.
