@@ -30,6 +30,9 @@ contract CrossChainReceiverFactoryTest is Test {
         require(returndata.length == 20);
         require(address(uint160(bytes20(returndata))) == 0x00000000000000CF9E3c5A26621af382fA17f24f);
 
+        // In production, this call would be bundled with the `MultiCall`s below, but that requires
+        // that it go through a shim that strips the forwarded sender. That's a pain, so it's not
+        // done in this test setup.
         vm.prank(0x000000000000fFffFFffFFfFffFffffffFFFFfFf, 0x000000000000fFffFFffFFfFffFffffffFFFFfFf);
         (success, returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call(
             hex"40d0824c8df4e3642c10f547614c683762a4702daa5ec86bd42ec64291679b44326dffffffffffffffffffffffffffff1815601657fe5b7f60143603803560601c6dffffffffffffffffffffffffffff14336ccf9e3c5a265f527f621af382fa17f24f1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
