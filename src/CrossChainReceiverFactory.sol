@@ -46,12 +46,14 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address private constant _WNATIVE_SETTER = 0x7f88741Cf6fb6b54533884C001c0F5eF6706b324;
+    address private constant _WNATIVE_SETTER = 0x000000000000fFffFFffFFfFffFffffffFFFFfFf;
     bytes32 private constant _WNATIVE_STORAGE_INITHASH = keccak256(
         abi.encodePacked(
-            hex"3273",
-            _WNATIVE_SETTER,
-            hex"1815601c57fe5b7f36585f54601d575f555f5f37365f34f05f816017575ffd5b5260205ff35b30ff5f52595ff3"
+            hex"326d",
+            uint112(uint160(_WNATIVE_SETTER)),
+            hex"1815601657fe5b7f60143603803560601c6d",
+            uint112(uint160(_WNATIVE_SETTER)),
+            hex"14336ccf9e3c5a265f527f621af382fa17f24f1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
         )
     );
     bytes32 private constant _WNATIVE_SALT = keccak256("Wrapped Native Token Address");
@@ -92,6 +94,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         }
 
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
+        require(uint160(_WNATIVE_SETTER) >> 112 == 0);
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(_NAMEHASH == keccak256(bytes(name)));
         require(
