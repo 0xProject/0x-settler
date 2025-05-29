@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
 
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
-import {MultiCallContext} from "./multicall/MultiCallContext.sol";
+import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
@@ -53,7 +53,11 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
             uint112(uint160(_WNATIVE_SETTER)),
             hex"1815601657fe5b7f60143603803560601c6d",
             uint112(uint160(_WNATIVE_SETTER)),
-            hex"14336ccf9e3c5a265f527f621af382fa17f24f1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
+            hex"14336c",
+            uint40(uint104(uint160(MULTICALL_ADDRESS)) >> 64),
+            hex"5f527f",
+            uint64(uint104(uint160(MULTICALL_ADDRESS))),
+            hex"1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
         )
     );
     bytes32 private constant _WNATIVE_SALT = keccak256("Wrapped Native Token Address");
