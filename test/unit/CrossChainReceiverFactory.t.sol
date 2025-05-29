@@ -70,7 +70,8 @@ contract CrossChainReceiverFactoryTest is Test {
         bytes32 action = keccak256(abi.encode("action"));
         (CrossChainReceiverFactory proxy, address owner) = _deployProxy(action);
 
-        assertEq(proxy.isValidSignature(action, abi.encode(owner, uint256(0x60), bytes(""))), bytes4(0x1626ba7e));
+        bytes32[] memory proof = new bytes32[](0);
+        assertEq(proxy.isValidSignature(action, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e));
     }
 
     function testMultipleActions() public {
@@ -90,20 +91,20 @@ contract CrossChainReceiverFactoryTest is Test {
 
         (CrossChainReceiverFactory proxy, address owner) =
             _deployProxyToRoot(root, uint256(keccak256(abi.encode("owner"))), false);
-        assertEq(proxy.isValidSignature(action2, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e));
+        assertEq(proxy.isValidSignature(action2, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action2 failed");
 
         vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
         proxy.isValidSignature(action1, abi.encode(owner, proof, bytes("")));
 
         proof[0] = leaf2;
-        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e));
+        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action1 failed");
     }
 
-    function testPendingOwner() public {
+    function testOwner() public {
         (CrossChainReceiverFactory proxy, address owner) = _deployProxy(keccak256(abi.encode("action")));
 
         vm.prank(owner);
-        proxy.acceptOwnership();
+        assertEq(proxy.owner(), owner, "Owner not set");
     }
 
     function testWrap() public {
