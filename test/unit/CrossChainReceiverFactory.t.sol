@@ -93,8 +93,7 @@ contract CrossChainReceiverFactoryTest is Test {
             _deployProxyToRoot(root, uint256(keccak256(abi.encode("owner"))), false);
         assertEq(proxy.isValidSignature(action2, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action2 failed");
 
-        vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        proxy.isValidSignature(action1, abi.encode(owner, proof, bytes("")));
+        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0xffffffff), "Invalid signature allowed");
 
         proof[0] = leaf2;
         assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action1 failed");

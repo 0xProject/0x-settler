@@ -98,10 +98,10 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         _;
     }
 
-    function _verifyRoot(bytes32 root, address originalOwner) internal view {
+    function _verifyRoot(bytes32 root, address originalOwner) internal view returns (bool result) {
         bytes32 initHash = _proxyInitHash;
         CrossChainReceiverFactory factory = _cachedThis;
-        assembly ("memory-safe") {
+        assembly ("memory-safe") {  
             let ptr := mload(0x40)
 
             // derive creation salt
@@ -116,15 +116,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             mstore(0x00, 0xff00000000000000)
             let computedAddress := keccak256(0x18, 0x55)
 
-            // verify that `salt` was used to deploy `address(this)`
-            if shl(0x60, xor(address(), computedAddress)) {
-                mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
-                revert(0x1c, 0x04)
-            }
-
             // restore clobbered memory
             mstore(0x60, 0x00)
             mstore(0x40, ptr)
+
+            // verify that `salt` was used to deploy `address(this)`
+            result := iszero(shl(0x60, xor(address(), computedAddress)))
         }
     }
 
@@ -136,7 +133,46 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         /* `_verifyRoot` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
         returns (bytes4)
     {
-        {
+        { // Merkle proof validation
+            address owner;
+            bool validOwner;
+            bytes32 leaf;
+            bytes32[] calldata proof;
+
+            assembly ("memory-safe") {
+                // This assembly block is equivalent to:
+                //     leaf = keccak256(abi.encode(hash, block.chainid));
+                // except that it's cheaper and doesn't allocate memory. We make the assumption here that
+                // `block.chainid` cannot alias a valid tree node or signing hash. Realistically,
+                // `block.chainid` cannot exceed 2**53 - 1 or it would cause significant issues elsewhere in
+                // the ecosystem. This also means that the sort order of the hash and the chainid is
+                // backwards from what `MerkleProofLib` produces, again protecting us against extension
+                // attacks.
+                mstore(0x00, hash)
+                mstore(0x20, chainid())
+                leaf := keccak256(0x00, 0x40)
+
+                // Following assembly blocks are equivalent to:
+                //     (owner, proof) = abi.decode(signature, (address, bytes32[]));
+                // except we omit all the range and overflow checking.
+                owner := calldataload(signature.offset)
+                validOwner := iszero(shr(0xa0, owner))
+            }
+
+            if (validOwner) {
+               assembly ("memory-safe") {
+                    // continuation of previous abi.decode
+                    proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
+                    proof.length := calldataload(proof.offset)
+                    proof.offset := add(0x20, proof.offset)
+               }
+               if (_verifyRoot(MerkleProofLib.getRoot(proof, leaf), owner)) {
+                    return IERC1271.isValidSignature.selector;
+                }
+            }  
+        }
+
+        { // ERC7733 validation
             // For automatic detection that the smart account supports the nested EIP-712 workflow,
             // See: https://eips.ethereum.org/EIPS/eip-7739.
             // If `hash` is `0x7739...7739`, returns `bytes4(0x77390001)`.
@@ -147,41 +183,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     if (uint256(hash) == ~signature.length / 0xffff * 0x7739) return 0x77390001;
                 }
             }
-            if (_erc1271IsValidSignature(hash, signature, owner())) {
+            address owner_ = owner();
+            if ((owner_ != address(0)) && _erc1271IsValidSignature(hash, signature, owner_)) {
                 return IERC1271.isValidSignature.selector;
             }
+            return 0xffffffff;
         }
-
-        // This assembly block is equivalent to:
-        //     hash = keccak256(abi.encode(hash, block.chainid));
-        // except that it's cheaper and doesn't allocate memory. We make the assumption here that
-        // `block.chainid` cannot alias a valid tree node or signing hash. Realistically,
-        // `block.chainid` cannot exceed 2**53 - 1 or it would cause significant issues elsewhere in
-        // the ecosystem. This also means that the sort order of the hash and the chainid is
-        // backwards from what `MerkleProofLib` produces, again protecting us against extension
-        // attacks.
-        assembly ("memory-safe") {
-            mstore(0x00, hash)
-            mstore(0x20, chainid())
-            hash := keccak256(0x00, 0x40)
-        }
-
-        address owner;
-        bytes32[] calldata proof;
-
-        // This assembly block is equivalent to:
-        //     (owner, proof) = abi.decode(signature, (address, bytes32[]));
-        // except we omit all the range and overflow checking.
-        assembly ("memory-safe") {
-            owner := calldataload(signature.offset)
-            if shr(0xa0, owner) { revert(0x00, 0x00) }
-            proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
-            proof.length := calldataload(proof.offset)
-            proof.offset := add(0x20, proof.offset)
-        }
-
-        _verifyRoot(MerkleProofLib.getRoot(proof, hash), owner);
-        return IERC1271.isValidSignature.selector;
     }
 
     // @inheritdoc IERC5267
