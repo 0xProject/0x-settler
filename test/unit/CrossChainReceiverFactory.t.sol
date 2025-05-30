@@ -33,9 +33,9 @@ contract CrossChainReceiverFactoryTest is Test {
         // In production, this call would be bundled with the `MultiCall`s below, but that requires
         // that it go through a shim that strips the forwarded sender. That's a pain, so it's not
         // done in this test setup.
-        vm.prank(0x000000000000fFffFFffFFfFffFffffffFFFFfFf, 0x000000000000fFffFFffFFfFffFffffffFFFFfFf);
+        vm.prank(0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc, 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc);
         (success, returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call(
-            hex"40d0824c8df4e3642c10f547614c683762a4702daa5ec86bd42ec64291679b44326dffffffffffffffffffffffffffff1815601657fe5b7f60143603803560601c6dffffffffffffffffffffffffffff14336ccf9e3c5a265f527f621af382fa17f24f1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
+            hex"40d0824c8df4e3642c10f547614c683762a4702daa5ec86bd42ec64291679b44326df01b1d1c8eef6c6cf71a0b658fbc1815601657fe5b7f60143603803560601c6df01b1d1c8eef6c6cf71a0b658fbc14336ccf9e3c5a265f527f621af382fa17f24f1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
         );
         require(success);
         require(returndata.length == 20);
@@ -44,17 +44,17 @@ contract CrossChainReceiverFactoryTest is Test {
         address wnativeStorage =
             address(uint160(uint256(keccak256(bytes.concat(bytes2(0xd694), bytes20(uint160(shim)), bytes1(0x01))))));
         vm.label(wnativeStorage, "wrapped native address storage");
-        vm.prank(0x000000000000fFffFFffFFfFffFffffffFFFFfFf);
-        IMultiCall.Call[] memory calls = new IMultiCall.Call[](2);
+        vm.prank(0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc);
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](3);
         calls[0].target = shim;
         calls[0].data = bytes.concat(hex"7f30ff00000000000000000000", bytes20(uint160(address(WETH))), hex"5f52595ff3");
         calls[1].target = shim;
+        calls[1].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         calls[1].data = hex"00000000";
+        calls[2].target = wnativeStorage;
+        calls[2].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
         multicall.multicall(calls, 0);
         require(wnativeStorage.code.length != 0);
-        (success, returndata) = wnativeStorage.call("");
-        require(success);
-        require(returndata.length == 0);
 
         vm.deal(address(this), 2 wei);
         deployCodeTo("CrossChainReceiverFactory.sol", new bytes(0), 2 wei, address(factory));

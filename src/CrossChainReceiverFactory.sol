@@ -46,7 +46,7 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address private constant _WNATIVE_SETTER = 0x000000000000fFffFFffFFfFffFffffffFFFFfFf; // TODO:
+    address private constant _WNATIVE_SETTER = 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc;
     bytes32 private constant _WNATIVE_STORAGE_INITHASH = keccak256(
         abi.encodePacked(
             hex"326d",
