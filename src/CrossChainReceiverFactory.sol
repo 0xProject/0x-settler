@@ -441,5 +441,5 @@ contract CrossChainReceiverFactory is IERC1271, MultiCallContext, TwoStepOwnable
         selfdestruct(beneficiary);
     }
 
-    receive() external payable {}
+    receive() external payable onlyProxy {}
 }
