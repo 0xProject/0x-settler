@@ -18,7 +18,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
     CrossChainReceiverFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
-    uint256 private immutable _cachedChainId;
     string public constant name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -80,7 +79,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
             )
         );
-        _cachedChainId = block.chainid;
     }
 
     modifier onlyProxy() {
@@ -331,12 +329,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         returns (bool result)
     {
         bytes32 nameHash = _NAMEHASH;
-        uint256 chainId = _cachedChainId;
         assembly ("memory-safe") {
             let ptr := mload(0x40) // Grab the free memory pointer.
             // Skip 2 words for the `typedDataSignTypehash` and `contents` struct hash.
             mstore(add(0x40, ptr), nameHash)
-            mstore(add(0x60, ptr), chainId)
+            mstore(add(0x60, ptr), chainid())
             mstore(add(0x80, ptr), address())
             
             // `c` is `contentsDescription.length`, which is stored in the last 2 bytes of the signature.
