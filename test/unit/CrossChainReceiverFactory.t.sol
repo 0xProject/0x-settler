@@ -90,7 +90,8 @@ contract CrossChainReceiverFactoryTest is Test {
         bytes32 action = keccak256(abi.encode("action"));
         (CrossChainReceiverFactory proxy, address owner) = _deployProxy(action);
 
-        assertEq(proxy.isValidSignature(action, abi.encode(owner, uint256(0x40))), bytes4(0x1626ba7e));
+        bytes32[] memory proof = new bytes32[](0);
+        assertEq(proxy.isValidSignature(action, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e));
     }
 
     function testMultipleActions() public {
@@ -110,69 +111,19 @@ contract CrossChainReceiverFactoryTest is Test {
 
         (CrossChainReceiverFactory proxy, address owner) =
             _deployProxyToRoot(root, uint256(keccak256(abi.encode("owner"))), false);
-        assertEq(proxy.isValidSignature(action2, abi.encode(owner, proof)), bytes4(0x1626ba7e));
+        assertEq(proxy.isValidSignature(action2, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action2 failed");
 
-        vm.expectRevert(abi.encodeWithSignature("PermissionDenied()"));
-        proxy.isValidSignature(action1, abi.encode(owner, proof));
+        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0xffffffff), "Invalid signature allowed");
 
         proof[0] = leaf2;
-        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof)), bytes4(0x1626ba7e));
+        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action1 failed");
     }
 
-    function testPendingOwner() public {
+    function testOwner() public {
         (CrossChainReceiverFactory proxy, address owner) = _deployProxy(keccak256(abi.encode("action")));
 
         vm.prank(owner);
-        proxy.acceptOwnership();
-    }
-
-    function testExec() public {
-        uint256 signerKey = uint256(keccak256(abi.encode("signer")));
-        bytes32 leaf = keccak256("leaf");
-        (CrossChainReceiverFactory proxy, address signer) = _deployProxy(leaf, signerKey);
-
-        MockERC20 target = deployMockERC20("Test Token", "TT", 18);
-        deal(address(target), address(proxy), 1 ether);
-
-        bytes memory data = abi.encodeCall(target.transfer, (address(this), 0.5 ether));
-        bytes32 signingHash = keccak256(
-            bytes.concat(
-                hex"1901",
-                abi.encode(
-                    keccak256(
-                        abi.encode(
-                            keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"),
-                            keccak256("ZeroExCrossChainReceiver"),
-                            block.chainid,
-                            address(factory)
-                        )
-                    ),
-                    keccak256(
-                        abi.encode(
-                            keccak256(
-                                "CALL(uint256 nonce,address crossChainReceiver,address target,uint256 value,bytes data)"
-                            ),
-                            uint256(0),
-                            address(proxy),
-                            address(target),
-                            uint256(0),
-                            keccak256(data)
-                        )
-                    )
-                )
-            )
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerKey, signingHash);
-        PackedSignature memory sig = Recover.packSignature(v, r, s);
-
-        bytes32 root = keccak256(abi.encode(leaf, block.chainid));
-        vm.prank(signer);
-        bytes memory result = proxy.call(root, payable(address(target)), 0, data, sig);
-
-        bool success = abi.decode(result, (bool));
-        assertTrue(success, "transfer failed");
-        assertEq(target.balanceOf(address(this)), 0.5 ether, "wrong balance after transfer 1");
-        assertEq(target.balanceOf(address(proxy)), 0.5 ether, "wrong balance after transfer 2");
+        assertEq(proxy.owner(), owner, "Owner not set");
     }
 
     function testWrap() public {
@@ -192,5 +143,57 @@ contract CrossChainReceiverFactoryTest is Test {
 
         vm.expectRevert(new bytes(0));
         proxy.approvePermit2(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), 0.7 ether + 1 wei);
+    }
+
+    function testNestedEIP712Signature() public {
+        uint256 ownerKey = uint256(keccak256(abi.encode("owner")));
+        (CrossChainReceiverFactory proxy,) = _deployProxy(keccak256(abi.encode("action")), ownerKey);
+
+        bytes32 testDomainSeparator = keccak256(abi.encode(
+            keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"),
+            keccak256("TestEIP712Name"),
+            block.chainid,
+            address(this)
+        ));
+        bytes32 structHash = keccak256(abi.encode(
+            keccak256("TestData(uint256 a,uint256 b)"),
+            uint256(0x1234),
+            uint256(0x5678)
+        ));
+        bytes32 eip721Hash = keccak256(bytes.concat(
+            hex"1901",
+            testDomainSeparator,
+            structHash
+        ));
+
+        bytes32 signingHash = keccak256(bytes.concat(
+            hex"1901",
+            abi.encode(
+                testDomainSeparator,
+                keccak256(abi.encode(
+                    keccak256("TypedDataSign(TestData contents,string name,uint256 chainId,address verifyingContract)TestData(uint256 a,uint256 b)"),
+                    structHash,
+                    keccak256("ZeroExCrossChainReceiver"),
+                    block.chainid,
+                    address(proxy)
+                ))
+            )
+        ));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, signingHash);
+
+        assertEq(
+            proxy.isValidSignature(
+                eip721Hash,
+                abi.encodePacked(
+                    r,
+                    bytes32(uint256(uint8(v) - 27) << 255 | uint256(s)),
+                    testDomainSeparator,
+                    structHash,
+                    "TestData(uint256 a,uint256 b)",
+                    uint16(29)
+                )
+            ),
+            bytes4(0x1626ba7e)
+        );
     }
 }
