@@ -237,7 +237,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             // appended with `owner`'s padding
             let selector := xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwner))
 
-            // set the pending owner, or `selfdestruct` to the owner
+            // set the owner, or `selfdestruct` to the owner
             mstore(0x14, owner)
             mstore(0x00, selector)
             if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
