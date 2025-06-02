@@ -10,7 +10,6 @@ import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.
 
 import {FastLogic} from "./utils/FastLogic.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
-import {Recover, PackedSignature} from "./utils/Recover.sol";
 
 interface IWrappedNative is IERC20 {
     function deposit() external payable;
@@ -24,7 +23,6 @@ interface IWrappedNative is IERC20 {
 
 contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
-    using Recover for bytes32;
 
     struct Storage {
         uint256 nonce;
@@ -140,39 +138,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         _;
     }
 
-    function _verifyRoot(bytes32 root, address originalOwner) internal view returns (bool result) {
-        bytes32 initHash = _proxyInitHash;
-        CrossChainReceiverFactory factory = _cachedThis;
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-
-            // derive creation salt
-            mstore(0x14, originalOwner)
-            mstore(0x00, root)
-            let salt := keccak256(0x00, 0x34)
-
-            // 0xff + factory + salt + hash(initCode)
-            mstore(0x4d, initHash)
-            mstore(0x2d, salt)
-            mstore(0x0d, factory)
-            mstore(0x00, 0xff00000000000000)
-            let computedAddress := keccak256(0x18, 0x55)
-
-            // restore clobbered memory
-            mstore(0x60, 0x00)
-            mstore(0x40, ptr)
-
-            // verify that `salt` was used to deploy `address(this)`
-            result := iszero(shl(0x60, xor(address(), computedAddress)))
-        }
-    }
-
     // @inheritdoc IERC1271
     function isValidSignature(bytes32 hash, bytes calldata signature)
         external
         view
         override
-        /* `_verifyRoot` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
+        /* `_verifyDeploymentData` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
         returns (bytes4)
     {
         { // Merkle proof validation
@@ -194,21 +165,20 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x20, chainid())
                 leaf := keccak256(0x00, 0x40)
 
-                // Following assembly blocks are equivalent to:
-                //     (owner, proof) = abi.decode(signature, (address, bytes32[]));
-                // except we omit all the range and overflow checking.
+                // In merkle proof validation flow, signature is formed by (owner, proof)
+                // Following assembly decodes the owner and checks it is a valid address
                 owner := calldataload(signature.offset)
                 validOwner := iszero(shr(0xa0, owner))
             }
 
             if (validOwner) {
-               assembly ("memory-safe") {
-                    // continuation of previous abi.decode
+                assembly ("memory-safe") {
+                    // Following assembly decodes the proof without range and overflow checking
                     proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
-               }
-               if (_verifyRoot(MerkleProofLib.getRoot(proof, leaf), owner)) {
+                }
+                if (_verifyDeploymentData(MerkleProofLib.getRoot(proof, leaf), owner)) {
                     return IERC1271.isValidSignature.selector;
                 }
             }
@@ -225,8 +195,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     if (uint256(hash) == ~signature.length / 0xffff * 0x7739) return 0x77390001;
                 }
             }
-            address owner_ = owner();
-            if ((owner_ != address(0)) && _erc1271IsValidSignature(hash, signature, owner_)) {
+            if (_verifyTypedDataSignature(hash, signature, owner())) {
                 return IERC1271.isValidSignature.selector;
             }
             return 0xffffffff;
@@ -254,7 +223,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         verifyingContract = address(this);
     }
 
-    function deploy(bytes32 root, address owner, bool setOwner)
+    function deploy(bytes32 root, address owner, bool setOwnerNotSelfdestruct)
         external
         noDelegateCall
         returns (CrossChainReceiverFactory proxy)
@@ -280,12 +249,13 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             // restore clobbered memory
             mstore(0x40, ptr)
 
-            // If `setOwner == true`, this gets the selector for `setOwner(address)`,
+            // If `setOwnerNotSelfdestruct == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
             // appended with `owner`'s padding
-            let selector := xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwner))
+            let selector :=
+                xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwnerNotSelfdestruct))
 
-            // set the pending owner, or `selfdestruct` to the owner
+            // set the owner, or `selfdestruct` to the owner
             mstore(0x14, owner)
             mstore(0x00, selector)
             if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
@@ -370,7 +340,35 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         selfdestruct(beneficiary);
     }
 
-    function _erc1271IsValidSignature(bytes32 hash, bytes calldata signature, address owner)
+    function _verifyDeploymentData(bytes32 root, address originalOwner) internal view returns (bool result) {
+        bytes32 initHash = _proxyInitHash;
+        CrossChainReceiverFactory factory = _cachedThis;
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            // derive creation salt
+            mstore(0x14, originalOwner)
+            mstore(0x00, root)
+            let salt := keccak256(0x00, 0x34)
+
+            // 0xff + factory + salt + hash(initCode)
+            mstore(0x4d, initHash)
+            mstore(0x2d, salt)
+            mstore(0x0d, factory)
+            mstore(0x00, 0xff00000000000000)
+            let computedAddress := keccak256(0x18, 0x55)
+
+            // restore clobbered memory
+            mstore(0x60, 0x00)
+            mstore(0x40, ptr)
+
+            // verify that `salt` was used to deploy `address(this)`
+            result := iszero(shl(0x60, xor(address(), computedAddress)))
+        }
+    }
+
+    // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287)
+    function _verifyTypedDataSignature(bytes32 hash, bytes calldata signature, address owner)
         internal
         view
         virtual
@@ -385,19 +383,19 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
             // `c` is `contentsDescription.length`, which is stored in the last 2 bytes of the signature.
             let c := shr(0xf0, calldataload(add(signature.offset, sub(signature.length, 0x02))))
-            for {} 1 {} {
-                let l := add(0x42, c) // Total length of appended data (32 + 32 + c + 2).
-                let o := add(signature.offset, sub(signature.length, l)) // Offset of appended data.
-                mstore(0x00, 0x1901) // Store the "\x19\x01" prefix.
-                calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
-                // Dismiss the signature if the reconstructed hash doesn't match,
-                // or if the appended data is invalid, i.e.
-                // `appendedData.length > signature.length || contentsDescription.length == 0`.
-                if or(xor(keccak256(0x1e, 0x42), hash), or(lt(signature.length, l), iszero(c))) {
-                    break
-                }
-                // Else, use the `TypedDataSign` workflow.
+            let l := add(0x42, c) // Total length of appended data (32 + 32 + c + 2).
+            let o := add(signature.offset, sub(signature.length, l)) // Offset of appended data.
+            mstore(0x00, 0x1901) // Store the "\x19\x01" prefix.
+            calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
+            // Dismiss the signature if:
+            // 1. the reconstructed hash doesn't match,
+            // 2. the appended data is invalid, i.e.
+            //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
+            // 3. the signature is not 64 bytes long
+            if iszero(or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c)))) {
+                // Generate the `TypedDataSign` struct.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
+                // and check it was signed by the owner
                 let m := add(0xa0, ptr)
                 mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
@@ -414,9 +412,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     mstore8(add(p, e), 0x28) // Store a '(' exactly right after the end.
                 }
                 // `d & 1 == 1` means that `contentsName` is invalid.
-                let d := shr(byte(0, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
+                let d := shr(byte(0x00, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
                 // Advance `p` until we encounter '('.
-                for {} iszero(eq(byte(0x00, mload(p)), 0x28)) { p := add(0x01, p) } {
+                for {} xor(0x28, shr(0xf8, mload(p))) { p := add(0x01, p) } {
                     d := or(shr(byte(0x00, mload(p)), 0x120100000001), d) // Has a byte in ", )\x00".
                 }
                 mstore(p, " contents,string name,uint256 ch") // Store the rest of the encoding.
@@ -431,22 +429,20 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
                 // Compute the final hash, corrupted if `contentsName` is invalid.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
-                signature.length := sub(signature.length, l) // Truncate the signature.
 
-                // Signature is expected to be 64 bytes
-                if xor(0x40, signature.length) { break }
                 let vs := calldataload(add(0x20, signature.offset))
 
                 mstore(0x00, hash)
                 mstore(0x20, add(0x1b, shr(0xff, vs))) // `v`.
                 mstore(0x40, calldataload(signature.offset)) // `r`.
-                mstore(0x60, shr(0x01, shl(0x01, vs))) // `s`.
+                mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
                 let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
                 result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
-                mstore(0x60, 0x00) // Restore the zero slot.
-                break
+
+                // Restore clobbered memory
+                mstore(0x60, 0x00)
             }
-            mstore(0x40, ptr) // Restore the free memory pointer.
+            mstore(0x40, ptr)
         }
     }
 

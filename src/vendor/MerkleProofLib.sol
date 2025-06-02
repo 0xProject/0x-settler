@@ -4,10 +4,7 @@ pragma solidity >=0.8.0;
 /// @notice Gas optimized merkle root calculation library.
 /// @author Modified from Solmate (https://github.com/transmissions11/solmate/blob/main/src/utils/MerkleProofLib.sol)
 library MerkleProofLib {
-    function getRoot(
-        bytes32[] calldata proof,
-        bytes32 leaf
-    ) internal pure returns (bytes32 root) {
+    function getRoot(bytes32[] calldata proof, bytes32 leaf) internal pure returns (bytes32 root) {
         /// @solidity memory-safe-assembly
         assembly {
             if proof.length {
@@ -39,7 +36,7 @@ library MerkleProofLib {
                     if iszero(lt(offset, end)) { break }
                 }
             }
-            root := leaf 
+            root := leaf
         }
     }
 }
