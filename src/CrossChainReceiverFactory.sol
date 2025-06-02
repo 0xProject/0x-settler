@@ -336,18 +336,17 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             
             // `c` is `contentsDescription.length`, which is stored in the last 2 bytes of the signature.
             let c := shr(0xf0, calldataload(add(signature.offset, sub(signature.length, 0x02))))
-            for {} 1 {} {
-                let l := add(0x42, c) // Total length of appended data (32 + 32 + c + 2).
-                let o := add(signature.offset, sub(signature.length, l)) // Offset of appended data.
-                mstore(0x00, 0x1901) // Store the "\x19\x01" prefix.
-                calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
-                // Dismiss the signature if the reconstructed hash doesn't match,
-                // or if the appended data is invalid, i.e.
-                // `appendedData.length > signature.length || contentsDescription.length == 0`.
-                if or(xor(keccak256(0x1e, 0x42), hash), or(lt(signature.length, l), iszero(c))) {
-                    break
-                }
-                // Else, generate the `TypedDataSign` struct.
+            let l := add(0x42, c) // Total length of appended data (32 + 32 + c + 2).
+            let o := add(signature.offset, sub(signature.length, l)) // Offset of appended data.
+            mstore(0x00, 0x1901) // Store the "\x19\x01" prefix.
+            calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
+            // Dismiss the signature if:
+            // 1. the reconstructed hash doesn't match,
+            // 2. the appended data is invalid, i.e. 
+            //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
+            // 3. the signature is not 64 bytes long
+            if iszero(or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c)))) {
+                // Generate the `TypedDataSign` struct.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
                 // and check it was signed by the owner
                 let m := add(0xa0, ptr)
@@ -383,10 +382,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
                 // Compute the final hash, corrupted if `contentsName` is invalid.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
-                signature.length := sub(signature.length, l) // Truncate the signature.
                 
-                // Signature is expected to be 64 bytes
-                if xor(0x40, signature.length) { break }
                 let vs := calldataload(add(0x20, signature.offset))
 
                 mstore(0x00, hash)
@@ -395,10 +391,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
                 let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
                 result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
-                mstore(0x60, 0x00) // Restore the zero slot.
-                break
+
+                // Restore clobbered memory
+                mstore(0x40, ptr)
+                mstore(0x60, 0x00)
             }
-            mstore(0x40, ptr) // Restore the free memory pointer.
         }
     }
 }
