@@ -150,21 +150,20 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x20, chainid())
                 leaf := keccak256(0x00, 0x40)
 
-                // Following assembly blocks are equivalent to:
-                //     (owner, proof) = abi.decode(signature, (address, bytes32[]));
-                // except we omit all the range and overflow checking.
+                // In merkle proof validation flow, signature is formed by (owner, proof)
+                // Following assembly decodes the owner and checks it is a valid address
                 owner := calldataload(signature.offset)
                 validOwner := iszero(shr(0xa0, owner))
             }
 
             if (validOwner) {
-               assembly ("memory-safe") {
-                    // continuation of previous abi.decode
+                assembly ("memory-safe") {
+                    // Following assembly decodes the proof without range and overflow checking
                     proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
-               }
-               if (_verifyRoot(MerkleProofLib.getRoot(proof, leaf), owner)) {
+                }
+                if (_verifyRoot(MerkleProofLib.getRoot(proof, leaf), owner)) {
                     return IERC1271.isValidSignature.selector;
                 }
             }  
