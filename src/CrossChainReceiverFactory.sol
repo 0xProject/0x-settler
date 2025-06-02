@@ -392,9 +392,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
 
                 // Restore clobbered memory
-                mstore(0x40, ptr)
                 mstore(0x60, 0x00)
             }
+            mstore(0x40, ptr)
         }
     }
 }
