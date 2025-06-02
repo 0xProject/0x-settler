@@ -209,7 +209,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         verifyingContract = address(this);
     }
 
-    function deploy(bytes32 root, address owner, bool setOwner) external noDelegateCall returns (address proxy) {
+    function deploy(bytes32 root, address owner, bool action) external noDelegateCall returns (address proxy) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -231,10 +231,10 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             // restore clobbered memory
             mstore(0x40, ptr)
 
-            // If `setOwner == true`, this gets the selector for `setOwner(address)`,
+            // If `action == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
             // appended with `owner`'s padding
-            let selector := xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwner))
+            let selector := xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, action))
 
             // set the owner, or `selfdestruct` to the owner
             mstore(0x14, owner)
