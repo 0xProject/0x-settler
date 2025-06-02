@@ -349,7 +349,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
                 // and check it was signed by the owner
                 let m := add(0xa0, ptr)
-                mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
+                mstore(m, 0x5479706564446174615369676e28000000000000000000000000000000000000) // Store the start of `TypedDataSign`'s type encoding.
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
                 calldatacopy(p, add(0x40, o), c) // Copy `contentsName`, optimistically.
                 mstore(add(p, c), 0x28) // Store a '(' after the end.
@@ -364,9 +364,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     mstore8(add(p, e), 0x28) // Store a '(' exactly right after the end.
                 }
                 // `d & 1 == 1` means that `contentsName` is invalid.
-                let d := shr(byte(0, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
+                let d := shr(byte(0x00, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
                 // Advance `p` until we encounter '('.
-                for {} iszero(eq(byte(0x00, mload(p)), 0x28)) { p := add(0x01, p) } {
+                for {} xor(0x28, shr(0xf8, mload(p))) { p := add(0x01, p) } {
                     d := or(shr(byte(0x00, mload(p)), 0x120100000001), d) // Has a byte in ", )\x00".
                 }
                 mstore(p, " contents,string name,uint256 ch") // Store the rest of the encoding.
