@@ -17,7 +17,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     CrossChainReceiverFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
     string public constant name = "ZeroExCrossChainReceiver";
-    uint256 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
+    bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _WNATIVE_SETTER = 0x7f88741Cf6fb6b54533884C001c0F5eF6706b324;
@@ -57,7 +57,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
     constructor() {
         require((msg.sender == _TOEHOLD && uint160(address(this)) >> 104 == 0) || block.chainid == 31337);
-        require(_NAMEHASH == uint256(keccak256(bytes(name))));
+        require(_NAMEHASH == keccak256(bytes(name)));
 
         IERC20 wnative;
         address wnativeStorage = _WNATIVE_STORAGE;
@@ -348,7 +348,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
                 // and check it was signed by the owner
                 let m := add(0xa0, ptr)
-                mstore(m, 0x5479706564446174615369676e28000000000000000000000000000000000000) // Store the start of `TypedDataSign`'s type encoding.
+                mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
                 calldatacopy(p, add(0x40, o), c) // Copy `contentsName`, optimistically.
                 mstore(add(p, c), 0x28) // Store a '(' after the end.
