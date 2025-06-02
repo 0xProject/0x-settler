@@ -29,12 +29,12 @@ interface IMultiCall {
     receive() external payable;
 }
 
+address constant MULTICALL_ADDRESS = 0x00000000000000CF9E3c5A26621af382fA17f24f;
+
 abstract contract MultiCallContext is Context {
     using FastLogic for bool;
 
-    address private constant _MULTICALL_ADDRESS = 0x00000000000000CF9E3c5A26621af382fA17f24f;
-
-    IMultiCall internal constant _MULTICALL = IMultiCall(payable(_MULTICALL_ADDRESS));
+    IMultiCall internal constant _MULTICALL = IMultiCall(payable(MULTICALL_ADDRESS));
 
     function _isForwarded() internal view virtual override returns (bool) {
         return super._isForwarded().or(super._msgSender() == address(_MULTICALL));
@@ -45,7 +45,7 @@ abstract contract MultiCallContext is Context {
         r = super._msgData();
         assembly ("memory-safe") {
             r.length :=
-                sub(r.length, mul(0x14, eq(_MULTICALL_ADDRESS, and(0xffffffffffffffffffffffffffffffffffffffff, sender))))
+                sub(r.length, mul(0x14, eq(MULTICALL_ADDRESS, and(0xffffffffffffffffffffffffffffffffffffffff, sender))))
         }
     }
 
@@ -60,7 +60,7 @@ abstract contract MultiCallContext is Context {
                     sender,
                     mul(
                         xor(calldataload(add(data.offset, sub(data.length, 0x14))), shl(0x60, sender)),
-                        iszero(shl(0x60, xor(_MULTICALL_ADDRESS, sender)))
+                        iszero(shl(0x60, xor(MULTICALL_ADDRESS, sender)))
                     )
                 )
         }

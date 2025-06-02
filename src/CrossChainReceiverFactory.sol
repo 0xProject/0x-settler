@@ -6,26 +6,52 @@ import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
 
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
-import {MultiCallContext} from "./multicall/MultiCallContext.sol";
+import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 
+interface IWrappedNative is IERC20 {
+    function deposit() external payable;
+    function withdraw(uint256) external;
+
+    event Deposit(address indexed, uint256);
+    event Withdrawal(address indexed, uint256);
+
+    receive() external payable;
+}
+
 contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
 
-    CrossChainReceiverFactory private immutable _cachedThis;
-    bytes32 private immutable _proxyInitHash;
+    struct Storage {
+        uint256 nonce;
+    }
+
+    CrossChainReceiverFactory private immutable _cachedThis = this;
+    bytes32 private immutable _proxyInitHash = keccak256(
+        bytes.concat(
+            hex"60265f8160095f39f35f5f365f5f37365f6c",
+            bytes13(uint104(uint160(address(this)))),
+            hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
+        )
+    );
     string public constant name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address private constant _WNATIVE_SETTER = 0x7f88741Cf6fb6b54533884C001c0F5eF6706b324;
+    address private constant _WNATIVE_SETTER = 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc;
     bytes32 private constant _WNATIVE_STORAGE_INITHASH = keccak256(
         abi.encodePacked(
-            hex"3273",
-            _WNATIVE_SETTER,
-            hex"1815601c57fe5b7f36585f54601d575f555f5f37365f34f05f816017575ffd5b5260205ff35b30ff5f52595ff3"
+            hex"326d",
+            uint112(uint160(_WNATIVE_SETTER)),
+            hex"1815601657fe5b7f60143603803560601c6d",
+            uint112(uint160(_WNATIVE_SETTER)),
+            hex"14336c",
+            uint40(uint104(uint160(MULTICALL_ADDRESS)) >> 64),
+            hex"5f527f",
+            uint64(uint104(uint160(MULTICALL_ADDRESS))),
+            hex"1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
         )
     );
     bytes32 private constant _WNATIVE_SALT = keccak256("Wrapped Native Token Address");
@@ -50,33 +76,51 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             )
         )
     );
-    IERC20 private immutable _WNATIVE;
+    IWrappedNative private immutable _WNATIVE =
+        IWrappedNative(payable(address(uint160(uint256(bytes32(_WNATIVE_STORAGE.code))))));
 
     error DeploymentFailed();
     error ApproveFailed();
 
-    constructor() {
-        require((msg.sender == _TOEHOLD && uint160(address(this)) >> 104 == 0) || block.chainid == 31337);
+    constructor() payable {
+        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
+        // cheat code. It is a no-op at deploy time.
+        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
+            assembly ("memory-safe") {
+                stop()
+            }
+        }
+
+        require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
+        require(uint160(_WNATIVE_SETTER) >> 112 == 0);
         require(_NAMEHASH == keccak256(bytes(name)));
 
-        IERC20 wnative;
-        address wnativeStorage = _WNATIVE_STORAGE;
-        assembly ("memory-safe") {
-            mstore(0x00, 0x00)
-            extcodecopy(wnativeStorage, 0x0c, sub(extcodesize(wnativeStorage), 0x14), 0x14)
-            wnative := mload(0x00)
-        }
-        wnative.balanceOf(address(this)); // check that `_WNATIVE` is ERC20-ish
-        _WNATIVE = wnative;
+        // do some behavioral checks on `_WNATIVE`
+        {
+            // we need some value in order to perform the behavioral checks
+            require(address(this).balance > 1 wei);
 
-        _cachedThis = this;
-        _proxyInitHash = keccak256(
-            bytes.concat(
-                hex"60265f8160095f39f35f5f365f5f37365f6c",
-                bytes13(uint104(uint160(address(this)))),
-                hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
-            )
-        );
+            // check that `_WNATIVE` is ERC20-ish
+            uint256 wrappedBalance = _WNATIVE.balanceOf(address(this));
+
+            // check that `_WNATIVE` has a `deposit()` function
+            _WNATIVE.deposit{value: address(this).balance >> 1}();
+            require(wrappedBalance < (wrappedBalance = _WNATIVE.balanceOf(address(this))));
+
+            // check that `_WNATIVE` has a `fallback` function that deposits
+            (bool success,) = payable(_WNATIVE).call{value: address(this).balance}("");
+            require(success);
+            require(wrappedBalance < (wrappedBalance = _WNATIVE.balanceOf(address(this))));
+
+            // check that `_WNATIVE` has a `withdraw(uint256)` function
+            _WNATIVE.withdraw(wrappedBalance);
+            require(address(this).balance == wrappedBalance);
+            require(_WNATIVE.balanceOf(address(this)) == 0);
+
+            // send value back to the origin
+            (success,) = payable(tx.origin).call{value: address(this).balance}("");
+            require(success);
+        }
     }
 
     modifier onlyProxy() {
@@ -102,7 +146,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         /* `_verifyDeploymentData` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
         returns (bytes4)
     {
-        { // Merkle proof validation
+        // Merkle proof validation
+        {
             address owner;
             bool validOwner;
             bytes32 leaf;
@@ -137,10 +182,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 if (_verifyDeploymentData(MerkleProofLib.getRoot(proof, leaf), owner)) {
                     return IERC1271.isValidSignature.selector;
                 }
-            }  
+            }
         }
 
-        { // ERC7733 validation
+        // ERC7733 validation
+        {
             // For automatic detection that the smart account supports the nested EIP-712 workflow,
             // See: https://eips.ethereum.org/EIPS/eip-7739.
             // If `hash` is `0x7739...7739`, returns `bytes4(0x77390001)`.
@@ -179,7 +225,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         verifyingContract = address(this);
     }
 
-    function deploy(bytes32 root, address owner, bool action) external noDelegateCall returns (address proxy) {
+    function deploy(bytes32 root, address owner, bool setOwnerNotSelfdestruct)
+        external
+        noDelegateCall
+        returns (CrossChainReceiverFactory proxy)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -201,10 +251,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             // restore clobbered memory
             mstore(0x40, ptr)
 
-            // If `action == true`, this gets the selector for `setOwner(address)`,
+            // If `setOwnerNotSelfdestruct == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
             // appended with `owner`'s padding
-            let selector := xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, action))
+            let selector :=
+                xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwnerNotSelfdestruct))
 
             // set the owner, or `selfdestruct` to the owner
             mstore(0x14, owner)
@@ -294,7 +345,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     function _verifyDeploymentData(bytes32 root, address originalOwner) internal view returns (bool result) {
         bytes32 initHash = _proxyInitHash;
         CrossChainReceiverFactory factory = _cachedThis;
-        assembly ("memory-safe") {  
+        assembly ("memory-safe") {
             let ptr := mload(0x40)
 
             // derive creation salt
@@ -318,7 +369,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287)
+    // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287) under the MIT license
     function _verifyTypedDataSignature(bytes32 hash, bytes calldata signature, address owner)
         internal
         view
@@ -331,7 +382,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             mstore(add(0x40, ptr), _NAMEHASH)
             mstore(add(0x60, ptr), chainid())
             mstore(add(0x80, ptr), address())
-            
+
             // `c` is `contentsDescription.length`, which is stored in the last 2 bytes of the signature.
             let c := shr(0xf0, calldataload(add(signature.offset, sub(signature.length, 0x02))))
             let l := add(0x42, c) // Total length of appended data (32 + 32 + c + 2).
@@ -340,7 +391,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
             // Dismiss the signature if:
             // 1. the reconstructed hash doesn't match,
-            // 2. the appended data is invalid, i.e. 
+            // 2. the appended data is invalid, i.e.
             //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
             // 3. the signature is not 64 bytes long
             if iszero(or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c)))) {
@@ -380,7 +431,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
                 // Compute the final hash, corrupted if `contentsName` is invalid.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
-                
+
                 let vs := calldataload(add(0x20, signature.offset))
 
                 mstore(0x00, hash)
@@ -396,4 +447,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             mstore(0x40, ptr)
         }
     }
+
+    receive() external payable onlyProxy {}
 }

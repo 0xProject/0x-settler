@@ -86,9 +86,18 @@ contract ModeSettlerIntent is SettlerIntent, ModeSettlerMetaTxn {
         return super._isRestrictedTarget(target);
     }
 
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
+    }
+
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        pure
+        view
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
