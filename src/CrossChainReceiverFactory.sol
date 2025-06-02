@@ -17,7 +17,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     CrossChainReceiverFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
     string public constant name = "ZeroExCrossChainReceiver";
-    bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
+    uint256 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _WNATIVE_SETTER = 0x7f88741Cf6fb6b54533884C001c0F5eF6706b324;
@@ -57,7 +57,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
     constructor() {
         require((msg.sender == _TOEHOLD && uint160(address(this)) >> 104 == 0) || block.chainid == 31337);
-        require(_NAMEHASH == keccak256(bytes(name)));
+        require(_NAMEHASH == uint256(keccak256(bytes(name))));
 
         IERC20 wnative;
         address wnativeStorage = _WNATIVE_STORAGE;
@@ -325,11 +325,10 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         virtual
         returns (bool result)
     {
-        bytes32 nameHash = _NAMEHASH;
         assembly ("memory-safe") {
             let ptr := mload(0x40) // Grab the free memory pointer.
             // Skip 2 words for the `typedDataSignTypehash` and `contents` struct hash.
-            mstore(add(0x40, ptr), nameHash)
+            mstore(add(0x40, ptr), _NAMEHASH)
             mstore(add(0x60, ptr), chainid())
             mstore(add(0x80, ptr), address())
             
