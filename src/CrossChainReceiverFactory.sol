@@ -38,8 +38,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
         )
     );
-    uint256 private immutable _cachedChainId = block.chainid;
-    bytes32 private immutable _cachedDomainSeparator = _computeDomainSeparator();
     string public constant name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -97,7 +95,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
         require(uint160(_WNATIVE_SETTER) >> 112 == 0);
-        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(_NAMEHASH == keccak256(bytes(name)));
 
         // do some behavioral checks on `_WNATIVE`
@@ -379,11 +376,10 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         virtual
         returns (bool result)
     {
-        bytes32 nameHash = _NAMEHASH;
         assembly ("memory-safe") {
             let ptr := mload(0x40) // Grab the free memory pointer.
             // Skip 2 words for the `typedDataSignTypehash` and `contents` struct hash.
-            mstore(add(0x40, ptr), nameHash)
+            mstore(add(0x40, ptr), _NAMEHASH)
             mstore(add(0x60, ptr), chainid())
             mstore(add(0x80, ptr), address())
 
@@ -432,7 +428,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typedDataSignTypehash`.
                 // The "\x19\x01" prefix is already at 0x00.
                 // `APP_DOMAIN_SEPARATOR` is already at 0x20.
-                nameHash := keccak256(ptr, 0xa0)
                 mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
                 // Compute the final hash, corrupted if `contentsName` is invalid.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
