@@ -151,8 +151,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     if (uint256(hash) == ~signature.length / 0xffff * 0x7739) return 0x77390001;
                 }
             }
-            address owner_ = owner();
-            if ((owner_ != address(0)) && _verifyTypedDataSignature(hash, signature, owner_)) {
+            if (_verifyTypedDataSignature(hash, signature, owner())) {
                 return IERC1271.isValidSignature.selector;
             }
             return 0xffffffff;
