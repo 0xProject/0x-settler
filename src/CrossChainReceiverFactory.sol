@@ -96,39 +96,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         _;
     }
 
-    function _verifyRoot(bytes32 root, address originalOwner) internal view returns (bool result) {
-        bytes32 initHash = _proxyInitHash;
-        CrossChainReceiverFactory factory = _cachedThis;
-        assembly ("memory-safe") {  
-            let ptr := mload(0x40)
-
-            // derive creation salt
-            mstore(0x14, originalOwner)
-            mstore(0x00, root)
-            let salt := keccak256(0x00, 0x34)
-
-            // 0xff + factory + salt + hash(initCode)
-            mstore(0x4d, initHash)
-            mstore(0x2d, salt)
-            mstore(0x0d, factory)
-            mstore(0x00, 0xff00000000000000)
-            let computedAddress := keccak256(0x18, 0x55)
-
-            // restore clobbered memory
-            mstore(0x60, 0x00)
-            mstore(0x40, ptr)
-
-            // verify that `salt` was used to deploy `address(this)`
-            result := iszero(shl(0x60, xor(address(), computedAddress)))
-        }
-    }
-
     // @inheritdoc IERC1271
     function isValidSignature(bytes32 hash, bytes calldata signature)
         external
         view
         override
-        /* `_verifyRoot` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
+        /* `_verifyDeploymentData` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
         returns (bytes4)
     {
         { // Merkle proof validation
@@ -163,7 +136,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
                 }
-                if (_verifyRoot(MerkleProofLib.getRoot(proof, leaf), owner)) {
+                if (_verifyDeploymentData(MerkleProofLib.getRoot(proof, leaf), owner)) {
                     return IERC1271.isValidSignature.selector;
                 }
             }  
@@ -181,7 +154,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 }
             }
             address owner_ = owner();
-            if ((owner_ != address(0)) && _erc1271IsValidSignature(hash, signature, owner_)) {
+            if ((owner_ != address(0)) && _verifyTypedDataSignature(hash, signature, owner_)) {
                 return IERC1271.isValidSignature.selector;
             }
             return 0xffffffff;
@@ -321,7 +294,35 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         selfdestruct(beneficiary);
     }
 
-    function _erc1271IsValidSignature(bytes32 hash, bytes calldata signature, address owner)
+    function _verifyDeploymentData(bytes32 root, address originalOwner) internal view returns (bool result) {
+        bytes32 initHash = _proxyInitHash;
+        CrossChainReceiverFactory factory = _cachedThis;
+        assembly ("memory-safe") {  
+            let ptr := mload(0x40)
+
+            // derive creation salt
+            mstore(0x14, originalOwner)
+            mstore(0x00, root)
+            let salt := keccak256(0x00, 0x34)
+
+            // 0xff + factory + salt + hash(initCode)
+            mstore(0x4d, initHash)
+            mstore(0x2d, salt)
+            mstore(0x0d, factory)
+            mstore(0x00, 0xff00000000000000)
+            let computedAddress := keccak256(0x18, 0x55)
+
+            // restore clobbered memory
+            mstore(0x60, 0x00)
+            mstore(0x40, ptr)
+
+            // verify that `salt` was used to deploy `address(this)`
+            result := iszero(shl(0x60, xor(address(), computedAddress)))
+        }
+    }
+
+    // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287)
+    function _verifyTypedDataSignature(bytes32 hash, bytes calldata signature, address owner)
         internal
         view
         virtual
