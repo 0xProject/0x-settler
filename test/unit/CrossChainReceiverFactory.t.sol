@@ -90,12 +90,20 @@ contract CrossChainReceiverFactoryTest is Test {
 
         (CrossChainReceiverFactory proxy, address owner) =
             _deployProxyToRoot(root, uint256(keccak256(abi.encode("owner"))), false);
-        assertEq(proxy.isValidSignature(action2, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action2 failed");
+        assertEq(
+            proxy.isValidSignature(action2, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action2 failed"
+        );
 
-        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0xffffffff), "Invalid signature allowed");
+        assertEq(
+            proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))),
+            bytes4(0xffffffff),
+            "Invalid signature allowed"
+        );
 
         proof[0] = leaf2;
-        assertEq(proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action1 failed");
+        assertEq(
+            proxy.isValidSignature(action1, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action1 failed"
+        );
     }
 
     function testOwner() public {
@@ -128,36 +136,37 @@ contract CrossChainReceiverFactoryTest is Test {
         uint256 ownerKey = uint256(keccak256(abi.encode("owner")));
         (CrossChainReceiverFactory proxy,) = _deployProxy(keccak256(abi.encode("action")), ownerKey);
 
-        bytes32 testDomainSeparator = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"),
-            keccak256("TestEIP712Name"),
-            block.chainid,
-            address(this)
-        ));
-        bytes32 structHash = keccak256(abi.encode(
-            keccak256("TestData(uint256 a,uint256 b)"),
-            uint256(0x1234),
-            uint256(0x5678)
-        ));
-        bytes32 eip721Hash = keccak256(bytes.concat(
-            hex"1901",
-            testDomainSeparator,
-            structHash
-        ));
-
-        bytes32 signingHash = keccak256(bytes.concat(
-            hex"1901",
+        bytes32 testDomainSeparator = keccak256(
             abi.encode(
-                testDomainSeparator,
-                keccak256(abi.encode(
-                    keccak256("TypedDataSign(TestData contents,string name,uint256 chainId,address verifyingContract)TestData(uint256 a,uint256 b)"),
-                    structHash,
-                    keccak256("ZeroExCrossChainReceiver"),
-                    block.chainid,
-                    address(proxy)
-                ))
+                keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"),
+                keccak256("TestEIP712Name"),
+                block.chainid,
+                address(this)
             )
-        ));
+        );
+        bytes32 structHash =
+            keccak256(abi.encode(keccak256("TestData(uint256 a,uint256 b)"), uint256(0x1234), uint256(0x5678)));
+        bytes32 eip721Hash = keccak256(bytes.concat(hex"1901", testDomainSeparator, structHash));
+
+        bytes32 signingHash = keccak256(
+            bytes.concat(
+                hex"1901",
+                abi.encode(
+                    testDomainSeparator,
+                    keccak256(
+                        abi.encode(
+                            keccak256(
+                                "TypedDataSign(TestData contents,string name,uint256 chainId,address verifyingContract)TestData(uint256 a,uint256 b)"
+                            ),
+                            structHash,
+                            keccak256("ZeroExCrossChainReceiver"),
+                            block.chainid,
+                            address(proxy)
+                        )
+                    )
+                )
+            )
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, signingHash);
 
         assertEq(

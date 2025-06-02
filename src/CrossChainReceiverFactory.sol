@@ -102,7 +102,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         /* `_verifyDeploymentData` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
         returns (bytes4)
     {
-        { // Merkle proof validation
+        // Merkle proof validation
+        {
             address owner;
             bool validOwner;
             bytes32 leaf;
@@ -137,10 +138,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 if (_verifyDeploymentData(MerkleProofLib.getRoot(proof, leaf), owner)) {
                     return IERC1271.isValidSignature.selector;
                 }
-            }  
+            }
         }
 
-        { // ERC7733 validation
+        // ERC7733 validation
+        {
             // For automatic detection that the smart account supports the nested EIP-712 workflow,
             // See: https://eips.ethereum.org/EIPS/eip-7739.
             // If `hash` is `0x7739...7739`, returns `bytes4(0x77390001)`.
@@ -294,7 +296,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     function _verifyDeploymentData(bytes32 root, address originalOwner) internal view returns (bool result) {
         bytes32 initHash = _proxyInitHash;
         CrossChainReceiverFactory factory = _cachedThis;
-        assembly ("memory-safe") {  
+        assembly ("memory-safe") {
             let ptr := mload(0x40)
 
             // derive creation salt
@@ -318,7 +320,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287)
+    // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287) under the MIT license
     function _verifyTypedDataSignature(bytes32 hash, bytes calldata signature, address owner)
         internal
         view
@@ -332,7 +334,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             mstore(add(0x40, ptr), nameHash)
             mstore(add(0x60, ptr), chainid())
             mstore(add(0x80, ptr), address())
-            
+
             // `c` is `contentsDescription.length`, which is stored in the last 2 bytes of the signature.
             let c := shr(0xf0, calldataload(add(signature.offset, sub(signature.length, 0x02))))
             let l := add(0x42, c) // Total length of appended data (32 + 32 + c + 2).
@@ -341,7 +343,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
             // Dismiss the signature if:
             // 1. the reconstructed hash doesn't match,
-            // 2. the appended data is invalid, i.e. 
+            // 2. the appended data is invalid, i.e.
             //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
             // 3. the signature is not 64 bytes long
             if iszero(or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c)))) {
@@ -381,7 +383,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
                 // Compute the final hash, corrupted if `contentsName` is invalid.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
-                
+
                 let vs := calldataload(add(0x20, signature.offset))
 
                 mstore(0x00, hash)
