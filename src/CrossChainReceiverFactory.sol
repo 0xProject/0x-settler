@@ -10,11 +10,9 @@ import {MultiCallContext} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
-import {Recover, PackedSignature} from "./utils/Recover.sol";
 
 contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
-    using Recover for bytes32;
 
     CrossChainReceiverFactory private immutable _cachedThis;
     bytes32 private immutable _proxyInitHash;
@@ -382,7 +380,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typedDataSignTypehash`.
                 // The "\x19\x01" prefix is already at 0x00.
                 // `APP_DOMAIN_SEPARATOR` is already at 0x20.
-                nameHash := keccak256(ptr, 0xa0)
                 mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
                 // Compute the final hash, corrupted if `contentsName` is invalid.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
@@ -395,7 +392,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 mstore(0x00, hash)
                 mstore(0x20, add(0x1b, shr(0xff, vs))) // `v`.
                 mstore(0x40, calldataload(signature.offset)) // `r`.
-                mstore(0x60, shr(0x01, shl(0x01, vs))) // `s`.
+                mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
                 let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
                 result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
                 mstore(0x60, 0x00) // Restore the zero slot.
