@@ -349,8 +349,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 if or(xor(keccak256(0x1e, 0x42), hash), or(lt(signature.length, l), iszero(c))) {
                     break
                 }
-                // Else, use the `TypedDataSign` workflow.
+                // Else, generate the `TypedDataSign` struct.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
+                // and check it was signed by the owner
                 let m := add(0xa0, ptr)
                 mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
