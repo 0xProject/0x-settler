@@ -374,6 +374,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     {
         assembly ("memory-safe") {
             let ptr := mload(0x40) // Grab the free memory pointer.
+
             // Skip 2 words for the `typedDataSignTypehash` and `contents` struct hash.
             mstore(add(0x40, ptr), _NAMEHASH)
             mstore(add(0x60, ptr), chainid())
@@ -394,54 +395,55 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) {
                     break
                 }
-                    // Generate the `TypedDataSign` struct.
-                    // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
-                    // and check it was signed by the owner
-                    let m := add(0xa0, ptr)
-                    mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
-                    let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
-                    calldatacopy(p, add(0x40, o), c) // Copy `contentsName`, optimistically.
-                    mstore(add(p, c), 0x28) // Store a '(' after the end.
-                    if iszero(eq(byte(0x00, mload(sub(add(p, c), 0x01))), 0x29)) {
-                        let e := 0x00 // Length of `contentsName` in explicit mode.
-                        for { let q := sub(add(p, c), 0x01) } 1 {} {
-                            e := add(e, 0x01) // Scan backwards until we encounter a ')'.
-                            if iszero(gt(lt(e, c), eq(byte(0x00, mload(sub(q, e))), 0x29))) { break }
-                        }
-                        c := sub(c, e) // Truncate `contentsDescription` to `contentsType`.
-                        calldatacopy(p, add(add(0x40, o), c), e) // Copy `contentsName`.
-                        mstore8(add(p, e), 0x28) // Store a '(' exactly right after the end.
+                // Generate the `TypedDataSign` struct.
+                // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
+                // and check it was signed by the owner
+                let m := add(0xa0, ptr)
+                mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
+                let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
+                calldatacopy(p, add(0x40, o), c) // Copy `contentsName`, optimistically.
+                mstore(add(p, c), 0x28) // Store a '(' after the end.
+                if iszero(eq(byte(0x00, mload(sub(add(p, c), 0x01))), 0x29)) {
+                    let e := 0x00 // Length of `contentsName` in explicit mode.
+                    for { let q := sub(add(p, c), 0x01) } 1 {} {
+                        e := add(e, 0x01) // Scan backwards until we encounter a ')'.
+                        if iszero(gt(lt(e, c), eq(byte(0x00, mload(sub(q, e))), 0x29))) { break }
                     }
-                    // `d & 1 == 1` means that `contentsName` is invalid.
-                    let d := shr(byte(0x00, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
-                    // Advance `p` until we encounter '('.
-                    for {} xor(0x28, shr(0xf8, mload(p))) { p := add(0x01, p) } {
-                        d := or(shr(byte(0x00, mload(p)), 0x120100000001), d) // Has a byte in ", )\x00".
-                    }
-                    mstore(p, " contents,string name,uint256 ch") // Store the rest of the encoding.
-                    mstore(add(0x20, p), "ainId,address verifyingContract)")
-                    p := add(0x40, p)
-                    calldatacopy(p, add(0x40, o), c) // Copy `contentsType`.
-                    // Fill in the missing fields of the `TypedDataSign`.
-                    calldatacopy(ptr, o, 0x40) // Copy the `contents` struct hash to `add(ptr, 0x20)`.
-                    mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typedDataSignTypehash`.
-                    // The "\x19\x01" prefix is already at 0x00.
-                    // `APP_DOMAIN_SEPARATOR` is already at 0x20.
-                    mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
-                    // Compute the final hash, corrupted if `contentsName` is invalid.
-                    hash := keccak256(0x1e, add(0x42, and(0x01, d)))
+                    c := sub(c, e) // Truncate `contentsDescription` to `contentsType`.
+                    calldatacopy(p, add(add(0x40, o), c), e) // Copy `contentsName`.
+                    mstore8(add(p, e), 0x28) // Store a '(' exactly right after the end.
+                }
+                // `d & 1 == 1` means that `contentsName` is invalid.
+                let d := shr(byte(0x00, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
+                // Advance `p` until we encounter '('.
+                for {} xor(0x28, shr(0xf8, mload(p))) { p := add(0x01, p) } {
+                    d := or(shr(byte(0x00, mload(p)), 0x120100000001), d) // Has a byte in ", )\x00".
+                }
+                mstore(p, " contents,string name,uint256 ch") // Store the rest of the encoding.
+                mstore(add(0x20, p), "ainId,address verifyingContract)")
+                p := add(0x40, p)
+                calldatacopy(p, add(0x40, o), c) // Copy `contentsType`.
+                // Fill in the missing fields of the `TypedDataSign`.
+                calldatacopy(ptr, o, 0x40) // Copy the `contents` struct hash to `add(ptr, 0x20)`.
+                mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typedDataSignTypehash`.
+                // The "\x19\x01" prefix is already at 0x00.
+                // `APP_DOMAIN_SEPARATOR` is already at 0x20.
+                mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
+                // Compute the final hash, corrupted if `contentsName` is invalid.
+                hash := keccak256(0x1e, add(0x42, and(0x01, d)))
 
-                    let vs := calldataload(add(0x20, signature.offset))
+                let vs := calldataload(add(0x20, signature.offset))
 
-                    mstore(0x00, hash)
-                    mstore(0x20, add(0x1b, shr(0xff, vs))) // `v`.
-                    mstore(0x40, calldataload(signature.offset)) // `r`.
-                    mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
-                    let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
-                    result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
+                mstore(0x00, hash)
+                mstore(0x20, add(0x1b, shr(0xff, vs))) // `v`.
+                mstore(0x40, calldataload(signature.offset)) // `r`.
+                mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
+                let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
+                result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
 
-                    // Restore clobbered memory
-                    mstore(0x60, 0x00)
+                // Restore clobbered memory
+                mstore(0x60, 0x00)
+                break
             }
             mstore(0x40, ptr)
         }
