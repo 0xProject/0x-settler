@@ -24,10 +24,6 @@ interface IWrappedNative is IERC20 {
 contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
 
-    struct Storage {
-        uint256 nonce;
-    }
-
     CrossChainReceiverFactory private immutable _cachedThis = this;
     bytes32 private immutable _proxyInitHash = keccak256(
         bytes.concat(
@@ -78,9 +74,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     );
     IWrappedNative private immutable _WNATIVE =
         IWrappedNative(payable(address(uint160(uint256(bytes32(_WNATIVE_STORAGE.code))))));
-
-    error DeploymentFailed();
-    error ApproveFailed();
 
     constructor() payable {
         // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
