@@ -225,7 +225,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         verifyingContract = address(this);
     }
 
-    function deploy(bytes32 root, address owner, bool setOwnerNotSelfdestruct)
+    function deploy(bytes32 root, address owner, bool setOwnerNotCleanup)
         external
         noDelegateCall
         returns (CrossChainReceiverFactory proxy)
@@ -251,11 +251,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             // restore clobbered memory
             mstore(0x40, ptr)
 
-            // If `setOwnerNotSelfdestruct == true`, this gets the selector for `setOwner(address)`,
+            // If `setOwnerNotCleanup == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
             // appended with `owner`'s padding
             let selector :=
-                xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwnerNotSelfdestruct))
+                xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwnerNotCleanup))
 
             // set the owner, or `selfdestruct` to the owner
             mstore(0x14, owner)
