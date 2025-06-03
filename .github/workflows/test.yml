@@ -38,13 +38,13 @@ jobs:
           FOUNDRY_OPTIMIZER_RUNS: 1000000
 
       - name: Run MultiCall tests
-        run: forge test -vvvv --skip 'src/*' --mp test/MultiCall.t.sol
+        run: forge test --skip 'src/*' --mp test/MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
       - name: Run tests that depend on MultiCall
-        run: forge test -vvvv --skip 'src/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+        run: forge test --skip 'src/*' --mp test/unit/CrossChainReceiverFactory.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
