@@ -414,15 +414,21 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
             // 3. the ECDSA signature is not 64 bytes long
             for {} 1 {} {
-                if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) { break }
-                // Generate the `TypedDataSign` struct.
+                if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) {
+                    // The reconstructed hash does not match. This is not a correct encoding of the
+                    // additional ERC7739 data.
+                    break
+                }
+
+                // Generate the EIP712 serialization `encodeType(TypedDataSign)` of the specific
+                // instance of the `TypedDataSign` struct for this signature.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
-                // and check it was signed by the owner
+                // Check that it was signed by the owner.
                 let m := add(0xa0, ptr)
                 mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
                 calldatacopy(p, add(0x40, o), c) // Copy `contentsName`, optimistically.
-                mstore(add(p, c), 0x28) // Store a '(' after the end.
+                mstore(add(p, c), 0x28) // Store a '(' *AFTER* the end (not *AT* the end).
                 if iszero(eq(byte(0x00, mload(sub(add(p, c), 0x01))), 0x29)) {
                     let e := 0x00 // Length of `contentsName` in explicit mode.
                     for { let q := sub(add(p, c), 0x01) } 1 {} {
@@ -431,25 +437,40 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     }
                     c := sub(c, e) // Truncate `contentsDescription` to `contentsType`.
                     calldatacopy(p, add(add(0x40, o), c), e) // Copy `contentsName`.
-                    mstore8(add(p, e), 0x28) // Store a '(' exactly right after the end.
+                    mstore8(add(p, e), 0x28) // Store a '(' exactly right *AT* the end.
                 }
-                // `d & 1 == 1` means that `contentsName` is invalid.
+
+                // Check that `contentsName` is a well-formed EIP712 type name. `d & 1 == 1` means
+                // that `contentsName` is invalid.
                 let d := shr(byte(0x00, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
                 // Advance `p` until we encounter '('.
                 for {} xor(0x28, shr(0xf8, mload(p))) { p := add(0x01, p) } {
                     d := or(shr(byte(0x00, mload(p)), 0x120100000001), d) // Has a byte in ", )\x00".
                 }
+
+                // Finish out the shallow `encodeType(TypedDataSign)` with the fields from *OUR*
+                // domain separator.
                 mstore(p, " contents,string name,uint256 ch") // Store the rest of the encoding.
                 mstore(add(0x20, p), "ainId,address verifyingContract)")
                 p := add(0x40, p)
-                calldatacopy(p, add(0x40, o), c) // Copy `contentsType`.
+                // Complete the full, recursive serialization with the referenced type
+                // `contentsType`.
+                calldatacopy(p, add(0x40, o), c) // Copy `encodeType(contentsType)`.
+
+                // The EIP712 `encodeType(TypedDataSign)` is now in memory, starting at `p`. Below
+                // we hash it along with `hashStruct(contentsType, contents)` to form
+                // `hashStruct(TypedDataSign, ...)`. Then we combine it with the application domain
+                // separator (not our domain separator) to form the defensively-rehashed signing
+                // hash (the one that `owner()` actually signed).
+
                 // Fill in the missing fields of the `TypedDataSign`.
                 calldatacopy(ptr, o, 0x40) // Copy the `contents` struct hash to `add(ptr, 0x20)`.
                 mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typedDataSignTypehash`.
                 // The "\x19\x01" prefix is already at 0x00.
                 // `APP_DOMAIN_SEPARATOR` is already at 0x20.
                 mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
-                // Compute the final hash, corrupted if `contentsName` is invalid.
+                // Compute the final hash. The hash will be corrupted if `contentsName` is invalid
+                // from the above check.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
 
                 let vs := calldataload(add(0x20, signature.offset))
