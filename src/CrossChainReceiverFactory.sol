@@ -391,7 +391,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     function _verifyERC7739NestedTypedSignature(bytes32 hash, bytes calldata signature, address owner_)
         internal
         view
-        virtual
         returns (bool result)
     {
         assembly ("memory-safe") {
