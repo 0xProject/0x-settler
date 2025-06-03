@@ -29,7 +29,7 @@ jobs:
         run: forge build --skip MultiCall.sol --skip 'test/*'
 
       - name: Build UniswapV4
-        run: forge build -- lib/v4-core/src/PoolManager.sol
+        run: forge build --skip MultiCall.sol -- lib/v4-core/src/PoolManager.sol
 
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
@@ -37,8 +37,8 @@ jobs:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 1000000
 
-      - name: Run all the other tests
-        run: forge test -vvvv --skip 'src/*' --nmc MultiCall
+      - name: Run all the tests
+        run: forge test -vvvv --skip 'src/*' --skip MultiCall.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
