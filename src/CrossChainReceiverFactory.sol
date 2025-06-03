@@ -139,65 +139,87 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         external
         view
         override
-        /* `_verifyDeploymentData` hashes `_cachedThis`, making this function implicitly `onlyProxy` */
+        /*
+        `_verifyDeploymentRootHash` hashes `_cachedThis`, and the factory has `owner() ==
+        address(0)`. That makes this function implicitly `onlyProxy`.
+        */
         returns (bytes4)
     {
+        // There are two types of signatures accepted:
+        // 1. Merkle proof
+        //    The encoded signature is formed by ABIEncoding `(address owner, bytes32[] proof)`.
+        //    `keccak256(abi.encode(hash, block.chainid))` must be a leaf in the Merkle tree whose
+        //    root formed the salt that deployed `address(this)`. The `owner` that is encoded must
+        //    be the one that was used at deploy time, independent of any subsequent changes to
+        //    `owner()`.
+        // 2. ERC7739 defensively-rehashed nested typed data
+        //    The signature must be constructed exactly as described by the ERC.
+        //
+        // Because the ERC7739 encoding of the nested signature begins with `r`, it is
+        // computationally infeasible to create a signature that can be validly decoded both as an
+        // ERC7739 signature and as a Merkle proof signature (beginning with a correctly padded
+        // address). This would require either computing `k` from a chosen `r` for the ECDSA
+        // signature (violates the discrete logarithm) or controlling the upper 96 bits of `r` by
+        // choosing `k` (violates decisional Diffie-Hellman). Additionally, the second word of the
+        // ERC7739 encoding (the application `DOMAIN_SEPARATOR`) would need to encode a valid
+        // calldata offset (the upper 232 bits would need to be cleared). While a malicious
+        // application could choose an arbitrarily-matching value for this, a user would not sign
+        // such a domain because no `EIP712Domain` struct hash preimage would match.
+
+        // ERC7739 requires a specific response to `hash == 0x7739...7739 && signature == ""`. We
+        // must return `bytes4(0x77390001)` in that case. This is the requirement of the current
+        // revision of ERC7739; future ERC7739 versions may increment the return value.
+        if (signature.length >> 6 == 0) {
+            unchecked {
+                // Forces the compiler to optimize for smaller bytecode size.
+                return (signature.length == uint256(0)).and(uint256(hash) == ~signature.length / 0xffff * 0x7739) ? bytes4(0x77390001) : bytes4(0xffffffff);
+            }
+        }
+
         // Merkle proof validation
         {
-            address owner;
+            address owner_;
             bool validOwner;
-            bytes32 leaf;
-            bytes32[] calldata proof;
-
             assembly ("memory-safe") {
-                // This assembly block is equivalent to:
-                //     leaf = keccak256(abi.encode(hash, block.chainid));
-                // except that it's cheaper and doesn't allocate memory. We make the assumption here that
-                // `block.chainid` cannot alias a valid tree node or signing hash. Realistically,
-                // `block.chainid` cannot exceed 2**53 - 1 or it would cause significant issues elsewhere in
-                // the ecosystem. This also means that the sort order of the hash and the chainid is
-                // backwards from what `MerkleProofLib` produces, again protecting us against extension
-                // attacks.
-                mstore(0x00, hash)
-                mstore(0x20, chainid())
-                leaf := keccak256(0x00, 0x40)
-
-                // In merkle proof validation flow, signature is formed by (owner, proof)
-                // Following assembly decodes the owner and checks it is a valid address
-                owner := calldataload(signature.offset)
-                validOwner := iszero(shr(0xa0, owner))
+                // This assembly block decodes the `owner` of the ABIEncoded `(address owner,
+                // bytes32[] proof)`, but without reverting if the padding bytes of `owner` are not
+                // cleared. We also return a flag variable `validOwner` that indicates whether those
+                // bytes are in fact clear.
+                owner_ := calldataload(signature.offset)
+                validOwner := iszero(shr(0xa0, owner_))
             }
 
             if (validOwner) {
                 assembly ("memory-safe") {
-                    // Following assembly decodes the proof without range and overflow checking
+                    // This assembly block is equivalent to:
+                    //     hash = keccak256(abi.encode(hash, block.chainid));
+                    // except that it's cheaper and doesn't allocate memory. We make the assumption
+                    // here that `block.chainid` cannot alias a valid tree node or signing
+                    // hash. Realistically, `block.chainid` cannot exceed 2**53 - 1 or it would
+                    // cause significant issues elsewhere in the ecosystem. This also means that the
+                    // sort order of the hash and the chainid is backwards from what
+                    // `MerkleProofLib` produces, again protecting us against extension attacks.
+                    mstore(0x00, hash)
+                    mstore(0x20, chainid())
+                    hash := keccak256(0x00, 0x40)
+                }
+
+                bytes32[] calldata proof;
+                assembly ("memory-safe") {
+                    // This assembly block simply ABIDecodes `proof` as the second element of the
+                    // encoded anonymous struct `(owner, proof)`. It omits range and overflow
+                    // checking.
                     proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
                 }
-                if (_verifyDeploymentData(MerkleProofLib.getRoot(proof, leaf), owner)) {
-                    return IERC1271.isValidSignature.selector;
-                }
+
+                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), owner_) ? IERC1271.isValidSignature.selector : bytes4(0xffffffff);
             }
         }
 
-        // ERC7733 validation
-        {
-            // For automatic detection that the smart account supports the nested EIP-712 workflow,
-            // See: https://eips.ethereum.org/EIPS/eip-7739.
-            // If `hash` is `0x7739...7739`, returns `bytes4(0x77390001)`.
-            // The returned number MAY be increased in future ERC7739 versions.
-            unchecked {
-                if (signature.length == uint256(0)) {
-                    // Forces the compiler to optimize for smaller bytecode size.
-                    if (uint256(hash) == ~signature.length / 0xffff * 0x7739) return 0x77390001;
-                }
-            }
-            if (_verifyTypedDataSignature(hash, signature, owner())) {
-                return IERC1271.isValidSignature.selector;
-            }
-            return 0xffffffff;
-        }
+        // ERC7739 validation
+        return _verifyERC7739NestedTypedSignature(hash, signature, owner()) ? IERC1271.isValidSignature.selector : bytes4(0xffffffff);
     }
 
     // @inheritdoc IERC5267
@@ -338,7 +360,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         selfdestruct(beneficiary);
     }
 
-    function _verifyDeploymentData(bytes32 root, address originalOwner) internal view returns (bool result) {
+    function _verifyDeploymentRootHash(bytes32 root, address originalOwner) internal view returns (bool result) {
         bytes32 initHash = _proxyInitHash;
         CrossChainReceiverFactory factory = _cachedThis;
         assembly ("memory-safe") {
@@ -366,7 +388,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     }
 
     // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287) under the MIT license
-    function _verifyTypedDataSignature(bytes32 hash, bytes calldata signature, address owner)
+    function _verifyERC7739NestedTypedSignature(bytes32 hash, bytes calldata signature, address owner)
         internal
         view
         virtual
