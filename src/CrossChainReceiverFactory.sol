@@ -388,7 +388,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     }
 
     // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287) under the MIT license
-    function _verifyERC7739NestedTypedSignature(bytes32 hash, bytes calldata signature, address owner)
+    function _verifyERC7739NestedTypedSignature(bytes32 hash, bytes calldata signature, address owner_)
         internal
         view
         virtual
@@ -423,7 +423,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // Generate the EIP712 serialization `encodeType(TypedDataSign)` of the specific
                 // instance of the `TypedDataSign` struct for this signature.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
-                // Check that it was signed by the owner.
+                // Check that it was signed by `owner_`.
                 let m := add(0xa0, ptr)
                 mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
@@ -461,7 +461,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // we hash it along with `hashStruct(contentsType, contents)` to form
                 // `hashStruct(TypedDataSign, ...)`. Then we combine it with the application domain
                 // separator (not our domain separator) to form the defensively-rehashed signing
-                // hash (the one that `owner()` actually signed).
+                // hash (the one that `owner_` actually signed).
 
                 // Fill in the missing fields of the `TypedDataSign`.
                 calldatacopy(ptr, o, 0x40) // Copy the `contents` struct hash to `add(ptr, 0x20)`.
@@ -473,19 +473,20 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // from the above check.
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
 
+                // Verify the ECDSA signature by `owner_` over `hash`.
                 let vs := calldataload(add(0x20, signature.offset))
-
                 mstore(0x00, hash)
                 mstore(0x20, add(0x1b, shr(0xff, vs))) // `v`.
                 mstore(0x40, calldataload(signature.offset)) // `r`.
                 mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
                 let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
-                result := gt(returndatasize(), shl(0x60, xor(owner, recovered)))
+                result := gt(returndatasize(), shl(0x60, xor(owner_, recovered)))
 
                 // Restore clobbered memory
                 mstore(0x60, 0x00)
                 break
             }
+            // Restore clobbered memory
             mstore(0x40, ptr)
         }
     }
