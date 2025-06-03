@@ -172,7 +172,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         if (signature.length >> 6 == 0) {
             unchecked {
                 // Forces the compiler to optimize for smaller bytecode size.
-                return (signature.length == uint256(0)).and(uint256(hash) == ~signature.length / 0xffff * 0x7739) ? bytes4(0x77390001) : bytes4(0xffffffff);
+                return (signature.length == uint256(0)).and(uint256(hash) == ~signature.length / 0xffff * 0x7739)
+                    ? bytes4(0x77390001)
+                    : bytes4(0xffffffff);
             }
         }
 
@@ -214,12 +216,16 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     proof.offset := add(0x20, proof.offset)
                 }
 
-                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), owner_) ? IERC1271.isValidSignature.selector : bytes4(0xffffffff);
+                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), owner_)
+                    ? IERC1271.isValidSignature.selector
+                    : bytes4(0xffffffff);
             }
         }
 
         // ERC7739 validation
-        return _verifyERC7739NestedTypedSignature(hash, signature, owner()) ? IERC1271.isValidSignature.selector : bytes4(0xffffffff);
+        return _verifyERC7739NestedTypedSignature(hash, signature, owner())
+            ? IERC1271.isValidSignature.selector
+            : bytes4(0xffffffff);
     }
 
     // @inheritdoc IERC5267
@@ -414,9 +420,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
             // 3. the signature is not 64 bytes long
             for {} 1 {} {
-                if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) {
-                    break
-                }
+                if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) { break }
                 // Generate the `TypedDataSign` struct.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
                 // and check it was signed by the owner

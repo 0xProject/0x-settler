@@ -136,7 +136,7 @@ contract CrossChainReceiverFactoryTest is Test {
     function testWrap() public {
         uint256 signerKey = uint256(keccak256(abi.encode("signer")));
         bytes32 root = keccak256(abi.encode("root"));
-        (CrossChainReceiverFactory proxy, ) = _deployProxy(root, signerKey, false);
+        (CrossChainReceiverFactory proxy,) = _deployProxy(root, signerKey, false);
 
         vm.deal(address(proxy), 1 ether);
         assertEq(address(proxy).balance, 1 ether);
