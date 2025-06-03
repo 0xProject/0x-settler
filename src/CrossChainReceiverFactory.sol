@@ -349,18 +349,16 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     }
 
     function cleanup(address payable beneficiary) external {
-        if (msg.sender == address(_cachedThis)) {
-            selfdestruct(beneficiary);
-        }
-
-        address owner_ = owner();
-        if (_msgSender() != owner_) {
-            if (owner_ != address(0)) {
-                _permissionDenied();
-            }
-            address pendingOwner_ = pendingOwner();
-            if ((pendingOwner_ == address(0)).or(beneficiary != pendingOwner_)) {
-                _permissionDenied();
+        if (msg.sender != address(_cachedThis)) {
+            address owner_ = owner();
+            if (_msgSender() != owner_) {
+                if (owner_ != address(0)) {
+                    _permissionDenied();
+                }
+                address pendingOwner_ = pendingOwner();
+                if ((pendingOwner_ == address(0)).or(beneficiary != pendingOwner_)) {
+                    _permissionDenied();
+                }
             }
         }
         selfdestruct(beneficiary);
