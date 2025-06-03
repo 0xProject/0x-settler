@@ -9,6 +9,7 @@ import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
+import {Ternary} from "./utils/Ternary.sol";
 import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 
 interface IWrappedNative is IERC20 {
@@ -23,6 +24,7 @@ interface IWrappedNative is IERC20 {
 
 contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
+    using Ternary for bool;
 
     CrossChainReceiverFactory private immutable _cachedThis = this;
     bytes32 private immutable _proxyInitHash = keccak256(
@@ -173,8 +175,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             unchecked {
                 // Forces the compiler to optimize for smaller bytecode size.
                 return (signature.length == uint256(0)).and(uint256(hash) == ~signature.length / 0xffff * 0x7739)
-                    ? bytes4(0x77390001)
-                    : bytes4(0xffffffff);
+                    .ternary(bytes4(0x77390001), bytes4(0xffffffff));
             }
         }
 
@@ -216,16 +217,16 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     proof.offset := add(0x20, proof.offset)
                 }
 
-                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), originalOwner)
-                    ? IERC1271.isValidSignature.selector
-                    : bytes4(0xffffffff);
+                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), originalOwner).ternary(
+                    IERC1271.isValidSignature.selector, bytes4(0xffffffff)
+                );
             }
         }
 
         // ERC7739 validation
-        return _verifyERC7739NestedTypedSignature(hash, signature, owner())
-            ? IERC1271.isValidSignature.selector
-            : bytes4(0xffffffff);
+        return _verifyERC7739NestedTypedSignature(hash, signature, owner()).ternary(
+            IERC1271.isValidSignature.selector, bytes4(0xffffffff)
+        );
     }
 
     // @inheritdoc IERC5267

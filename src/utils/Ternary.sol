@@ -16,6 +16,12 @@ library Ternary {
         }
     }
 
+    function ternary(bool c, bytes4 x, bytes4 y) internal pure returns (bytes4 r) {
+        assembly ("memory-safe") {
+            r := xor(y, mul(xor(x, y), c))
+        }
+    }
+
     function maybeSwap(bool c, uint256 x, uint256 y) internal pure returns (uint256 a, uint256 b) {
         assembly ("memory-safe") {
             let t := mul(xor(x, y), c)
