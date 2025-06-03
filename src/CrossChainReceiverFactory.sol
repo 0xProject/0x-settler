@@ -180,15 +180,15 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
         // Merkle proof validation
         {
-            address owner_;
+            address originalOwner;
             bool validOwner;
             assembly ("memory-safe") {
                 // This assembly block decodes the `owner` of the ABIEncoded `(address owner,
                 // bytes32[] proof)`, but without reverting if the padding bytes of `owner` are not
                 // cleared. We also return a flag variable `validOwner` that indicates whether those
                 // bytes are in fact clear.
-                owner_ := calldataload(signature.offset)
-                validOwner := iszero(shr(0xa0, owner_))
+                originalOwner := calldataload(signature.offset)
+                validOwner := iszero(shr(0xa0, originalOwner))
             }
 
             if (validOwner) {
@@ -216,7 +216,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     proof.offset := add(0x20, proof.offset)
                 }
 
-                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), owner_)
+                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), originalOwner)
                     ? IERC1271.isValidSignature.selector
                     : bytes4(0xffffffff);
             }
@@ -249,7 +249,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         verifyingContract = address(this);
     }
 
-    function deploy(bytes32 root, address owner, bool setOwnerNotCleanup)
+    function deploy(bytes32 root, address initialOwner, bool setOwnerNotCleanup)
         external
         noDelegateCall
         returns (CrossChainReceiverFactory proxy)
@@ -257,8 +257,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            // derive the deployment salt from the owner and chainid
-            mstore(0x14, owner)
+            // derive the deployment salt from the owner
+            mstore(0x14, initialOwner)
             mstore(0x00, root)
             let salt := keccak256(0x00, 0x34)
 
@@ -277,12 +277,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
             // If `setOwnerNotCleanup == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
-            // appended with `owner`'s padding
+            // appended with `initialOwner`'s padding
             let selector :=
                 xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwnerNotCleanup))
 
             // set the owner, or `selfdestruct` to the owner
-            mstore(0x14, owner)
+            mstore(0x14, initialOwner)
             mstore(0x00, selector)
             if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
