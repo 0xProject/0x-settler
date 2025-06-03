@@ -412,7 +412,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             // 1. the reconstructed hash doesn't match,
             // 2. the appended data is invalid, i.e.
             //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
-            // 3. the signature is not 64 bytes long
+            // 3. the ECDSA signature is not 64 bytes long
             for {} 1 {} {
                 if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) { break }
                 // Generate the `TypedDataSign` struct.
