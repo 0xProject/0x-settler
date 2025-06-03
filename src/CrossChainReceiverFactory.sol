@@ -157,7 +157,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         // 2. ERC7739 defensively-rehashed nested typed data
         //    The signature must be constructed exactly as described by the ERC.
         //
-        // Because the ERC7739 encoding of the nested signature begins with `r`, it is
+        // Because the ERC7739 encoding of the nested signature begins with the ECDSA `r`, it is
         // computationally infeasible to create a signature that can be validly decoded both as an
         // ERC7739 signature and as a Merkle proof signature (beginning with a correctly padded
         // address). This would require either computing `k` from a chosen `r` for the ECDSA
