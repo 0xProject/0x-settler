@@ -188,6 +188,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // bytes32[] proof)`, but without reverting if the padding bytes of `owner` are not
                 // cleared. We also return a flag variable `validOwner` that indicates whether those
                 // bytes are in fact clear.
+                //     owner = abi.decode(signature, (address));
                 originalOwner := calldataload(signature.offset)
                 validOwner := iszero(shr(0xa0, originalOwner))
             }
@@ -212,6 +213,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     // This assembly block simply ABIDecodes `proof` as the second element of the
                     // encoded anonymous struct `(owner, proof)`. It omits range and overflow
                     // checking.
+                    //     (, proof = abi.decode(signature, (address, bytes32[]));
                     proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
