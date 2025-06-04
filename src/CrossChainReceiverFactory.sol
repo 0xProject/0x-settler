@@ -143,10 +143,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         external
         view
         override
-        /*
-        `_verifyDeploymentRootHash` hashes `_cachedThis`, and the factory has `owner() ==
-        address(0)`. That makes this function implicitly `onlyProxy`.
-        */
+        onlyProxy
         returns (bytes4)
     {
         // There are two types of signatures accepted:
