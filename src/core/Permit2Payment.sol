@@ -382,7 +382,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             unchecked {
                 sellAmount -= type(uint256).max - BASIS;
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
         }
     }
 
@@ -397,7 +397,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             unchecked {
                 sellAmount -= type(uint256).max - BASIS;
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
         }
     }
 
@@ -663,7 +663,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
                 unchecked {
                     sellAmount -= type(uint256).max - BASIS;
                 }
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
         }
     }
@@ -681,7 +681,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
                 unchecked {
                     sellAmount -= type(uint256).max - BASIS;
                 }
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
         }
     }
