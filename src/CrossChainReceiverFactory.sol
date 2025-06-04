@@ -52,7 +52,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             hex"1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
         )
     );
-    bytes32 private constant _WNATIVE_SALT = keccak256("Wrapped Native Token Address");
+    bytes32 private constant _WNATIVE_STORAGE_SALT = keccak256("Wrapped Native Token Address");
     address private constant _WNATIVE_STORAGE = address(
         uint160(
             uint256(
@@ -63,7 +63,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                             uint160(
                                 uint256(
                                     keccak256(
-                                        abi.encodePacked(hex"ff", _TOEHOLD, _WNATIVE_SALT, _WNATIVE_STORAGE_INITHASH)
+                                        abi.encodePacked(hex"ff", _TOEHOLD, _WNATIVE_STORAGE_SALT, _WNATIVE_STORAGE_INITHASH)
                                     )
                                 )
                             )
