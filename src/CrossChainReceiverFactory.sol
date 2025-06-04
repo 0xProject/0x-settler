@@ -456,10 +456,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 calldatacopy(p, add(0x40, o), c) // Copy `encodeType(contentsType)`.
 
                 // The EIP712 `encodeType(TypedDataSign)` is now in memory, starting at `p`. Below
-                // we hash it along with `hashStruct(contentsType, contents)` to form
-                // `hashStruct(TypedDataSign, ...)`. Then we combine it with the application domain
-                // separator (not our domain separator) to form the defensively-rehashed signing
-                // hash (the one that `owner_` actually signed).
+                // we hash it along with `hashStruct(contentsType, contents)` (which is just the
+                // fourth word of `signature`) to form `hashStruct(TypedDataSign, ...)`. Then we
+                // combine it with the application domain separator (not our own domain separator)
+                // to form the defensively-rehashed signing hash (the one that `owner_` actually
+                // signed).
 
                 // Fill in the missing fields of the `TypedDataSign`.
                 calldatacopy(ptr, o, 0x40) // Copy the `contents` struct hash to `add(ptr, 0x20)`.
