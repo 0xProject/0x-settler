@@ -647,7 +647,8 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
         return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
     }
 
-    bytes32 private constant _BRIDGE_WALLET_CODEHASH = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff; // TODO
+    bytes32 private constant _BRIDGE_WALLET_CODEHASH =
+        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff; // TODO
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
@@ -658,16 +659,12 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     {
         sellAmount = super._permitToSellAmountCalldata(permit);
         if (sellAmount > type(uint256).max - BASIS) {
-            if (_msgSender().codehash != _BRIDGE_WALLET_CODEHASH) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
-                    revert(0x1c, 0x04)
+            if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                unchecked {
+                    sellAmount -= type(uint256).max - BASIS;
                 }
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
             }
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
-            }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 
@@ -680,16 +677,12 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     {
         sellAmount = super._permitToSellAmount(permit);
         if (sellAmount > type(uint256).max - BASIS) {
-            if (_msgSender().codehash != _BRIDGE_WALLET_CODEHASH) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
-                    revert(0x1c, 0x04)
+            if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                unchecked {
+                    sellAmount -= type(uint256).max - BASIS;
                 }
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
             }
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
-            }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 }
