@@ -63,7 +63,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                             uint160(
                                 uint256(
                                     keccak256(
-                                        abi.encodePacked(hex"ff", _TOEHOLD, _WNATIVE_STORAGE_SALT, _WNATIVE_STORAGE_INITHASH)
+                                        abi.encodePacked(
+                                            hex"ff", _TOEHOLD, _WNATIVE_STORAGE_SALT, _WNATIVE_STORAGE_INITHASH
+                                        )
                                     )
                                 )
                             )
