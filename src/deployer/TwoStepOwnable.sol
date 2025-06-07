@@ -5,7 +5,7 @@ import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {AbstractContext} from "../Context.sol";
 import {IOwnable} from "./IOwnable.sol";
 
-abstract contract AbstractOwnable is IOwnable {
+abstract contract AbstractOwnable is IOwnable, AbstractContext {
     // This looks stupid (and it is), but this is required due to the glaring
     // deficiencies in Solidity's inheritance system.
 
@@ -85,7 +85,7 @@ abstract contract OwnableStorage is OwnableStorageBase {
     }
 }
 
-abstract contract OwnableBase is AbstractContext, AbstractOwnable {
+abstract contract OwnableBase is AbstractOwnable {
     function renounceOwnership() public virtual returns (bool);
 }
 
