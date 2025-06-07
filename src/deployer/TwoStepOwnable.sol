@@ -100,7 +100,7 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
     }
 
     function _requireOwner() internal view override {
-        if (_msgSender() != owner()) {
+        if (owner() != _msgSender()) {
             _permissionDenied();
         }
     }
@@ -191,7 +191,7 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
     }
 
     function _requirePendingOwner() internal view override {
-        if (_msgSender() != pendingOwner()) {
+        if (pendingOwner() != _msgSender()) {
             _permissionDenied();
         }
     }
