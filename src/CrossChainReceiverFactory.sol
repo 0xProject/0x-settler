@@ -277,9 +277,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 revert(0x1c, 0x04)
             }
 
-            // restore clobbered memory
-            mstore(0x40, ptr)
-
             // If `setOwnerNotCleanup == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
             // appended with `initialOwner`'s padding
