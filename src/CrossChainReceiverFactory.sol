@@ -82,6 +82,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
     error DeploymentFailed();
     error ApproveFailed();
+    error BalanceNotZero(uint256 balance);
 
     constructor() payable {
         // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
@@ -357,7 +358,15 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     }
 
     function cleanup(address payable beneficiary) external {
-        if (msg.sender != address(_cachedThis)) {
+        if (msg.sender == address(_cachedThis)) {
+            if (address(this).balance != 0) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x41b70667) // selector for `BalanceNotZero(uint256)`
+                    mstore(0x20, selfbalance())
+                    revert(0x1c, 0x24)
+                }
+            }
+        } else {
             if (_msgSender() != owner()) {
                 _permissionDenied();
             }
