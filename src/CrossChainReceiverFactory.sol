@@ -279,12 +279,14 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
             // If `setOwnerNotCleanup == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
-            // appended with `initialOwner`'s padding
+            // appended with `argument`'s padding.
             let selector :=
                 xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwnerNotCleanup))
+            // If `setOwnerNotCleanup == true`, this gets `initialOwner`, otherwise you get `proxy`.
+            let argument := xor(proxy, mul(xor(proxy, initialOwner), setOwnerNotCleanup))
 
-            // set the owner, or `selfdestruct` to the owner
-            mstore(0x14, initialOwner)
+            // set the owner, or `selfdestruct`
+            mstore(0x14, argument)
             mstore(0x00, selector)
             if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
