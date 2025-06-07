@@ -164,15 +164,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         //    The signature must be constructed exactly as described by the ERC.
         //
         // Because the ERC7739 encoding of the nested signature begins with the ECDSA `r`, it is
-        // computationally infeasible to create a signature that can be validly decoded both as an
-        // ERC7739 signature and as a Merkle proof signature (beginning with a correctly padded
-        // address). This would require either computing `k` from a chosen `r` for the ECDSA
-        // signature (violates the discrete logarithm) or controlling the upper 96 bits of `r` by
-        // choosing `k` (violates decisional Diffie-Hellman). Additionally, the second word of the
-        // ERC7739 encoding (the ECDSA `s`) would need to encode a valid calldata offset (the upper
-        // 232 bits would need to be cleared). Because this is derived from both `r` and `hash`,
-        // this further frustrates the ability of the attacker to form a combination of values that
-        // are confusable.
+        // computationally impractical (96-bit security level) to create a signature that can be
+        // validly decoded both as an ERC7739 signature and as a Merkle proof signature (beginning
+        // with a correctly padded address). This would require either computing `k` from a chosen
+        // `r` for the ECDSA signature (violates the discrete logarithm) or controlling the upper 96
+        // bits of `r` by choosing `k` (violates decisional Diffie-Hellman).
 
         // ERC7739 requires a specific response to `hash == 0x7739...7739 && signature == ""`. We
         // must return `bytes4(0x77390001)` in that case. This is the requirement of the current
