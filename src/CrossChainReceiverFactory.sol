@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
 
@@ -138,7 +139,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         _;
     }
 
-    // @inheritdoc IERC1271
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId) public view override onlyProxy returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+
+    /// @inheritdoc IERC1271
     function isValidSignature(bytes32 hash, bytes calldata signature)
         external
         view
@@ -230,7 +236,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         );
     }
 
-    // @inheritdoc IERC5267
+    /// @inheritdoc IERC5267
     function eip712Domain()
         external
         view

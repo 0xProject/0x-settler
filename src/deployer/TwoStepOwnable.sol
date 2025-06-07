@@ -33,6 +33,7 @@ abstract contract AbstractOwnable is IOwnable {
         assert(type(IERC165).interfaceId == 0x01ffc9a7);
     }
 
+    /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IERC165).interfaceId || interfaceId == type(IOwnable).interfaceId;
     }
