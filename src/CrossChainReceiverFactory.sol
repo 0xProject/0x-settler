@@ -382,7 +382,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             mstore(0x40, ptr)
 
             // verify that `salt` was used to deploy `address(this)`
-            result := iszero(shl(0x60, xor(address(), computedAddress)))
+            result := eq(address(), and(0xffffffffffffffffffffffffffffffffffffffff, computedAddress))
         }
     }
 
