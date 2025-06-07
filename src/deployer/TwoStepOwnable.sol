@@ -38,7 +38,7 @@ abstract contract AbstractOwnable is IOwnable, AbstractContext {
         return interfaceId == type(IERC165).interfaceId || interfaceId == type(IOwnable).interfaceId;
     }
 
-    /// This modifier is not virtual on purpose; override _requireOwner instead.
+    /// This modifier is not virtual on purpose; override `_requireOwner` instead.
     modifier onlyOwner() {
         _requireOwner();
         _;
@@ -95,7 +95,7 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
     }
 
     function _setOwner(address newOwner) internal virtual override {
-        emit OwnershipTransferred(owner(), newOwner);
+        emit OwnershipTransferred(_ownerImpl(), newOwner);
         _set(_ownerSlot(), newOwner);
     }
 
@@ -124,11 +124,17 @@ abstract contract Ownable is OwnableStorage, OwnableImpl {}
 abstract contract AbstractTwoStepOwnable is AbstractOwnable {
     function _requirePendingOwner() internal view virtual;
 
-    function pendingOwner() public view virtual returns (address);
+    /// This function should be overridden exactly once. This provides the base
+    /// implementation. Mixin classes may modify `pendingOwner`.
+    function _pendingOwnerImpl() internal view virtual returns (address);
+
+    function pendingOwner() public view virtual returns (address) {
+        return _pendingOwnerImpl();
+    }
 
     function _setPendingOwner(address) internal virtual;
 
-    /// This modifier is not virtual on purpose; override _requirePendingOwner
+    /// This modifier is not virtual on purpose; override `_requirePendingOwner`
     /// instead.
     modifier onlyPendingOwner() {
         _requirePendingOwner();
@@ -159,7 +165,7 @@ abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase {
 abstract contract TwoStepOwnableBase is OwnableBase, AbstractTwoStepOwnable {}
 
 abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnableBase {
-    function pendingOwner() public view override returns (address) {
+    function _pendingOwnerImpl() internal view override returns (address) {
         return _get(_pendingOwnerSlot());
     }
 

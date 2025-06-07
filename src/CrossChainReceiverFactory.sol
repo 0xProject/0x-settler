@@ -125,8 +125,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    modifier onlyProxy() {
+    function _requireProxy() private view {
         require(this != _cachedThis);
+    }
+
+    modifier onlyProxy() {
+        _requireProxy();
         _;
     }
 
@@ -143,6 +147,19 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view override onlyProxy returns (bool) {
         return super.supportsInterface(interfaceId);
+    }
+
+    // This function is overridden so that it is explicit that it is only meaningful on the
+    // proxy. This also makes any function that is `onlyOwner` implicitly `onlyProxy`, including
+    // `renounceOwnership` and `transferOwnership`.
+    function owner() public view override onlyProxy returns (address) {
+        return super.owner();
+    }
+
+    // Like `owner()`, function is overridden so that it is explicit that it is only meaningful on
+    // the proxy. This also makes `acceptOwnership` and `rejectOwnership` implicitly `onlyProxy`.
+    function pendingOwner() public view override onlyProxy returns (address) {
+        return super.pendingOwner();
     }
 
     /// @inheritdoc IERC1271
@@ -228,7 +245,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
 
         // ERC7739 validation
-        return _verifyERC7739NestedTypedSignature(hash, signature, owner()).ternary(
+        return _verifyERC7739NestedTypedSignature(hash, signature, super.owner()).ternary(
             IERC1271.isValidSignature.selector, bytes4(0xffffffff)
         );
     }
@@ -362,7 +379,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 }
             }
         } else {
-            if (_msgSender() != owner()) {
+            _requireProxy();
+            if (_msgSender() != super.owner()) {
                 _permissionDenied();
             }
         }
