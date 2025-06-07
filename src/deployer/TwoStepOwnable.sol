@@ -28,6 +28,13 @@ abstract contract AbstractOwnable is IOwnable, AbstractContext {
         }
     }
 
+    function _zeroAddress() internal pure {
+        assembly ("memory-safe") {
+            mstore(0x00, 0xd92e233d) // selector for `ZeroAddress()`
+            revert(0x1c, 0x04)
+        }
+    }
+
     constructor() {
         assert(type(IOwnable).interfaceId == 0x7f5828d0);
         assert(type(IERC165).interfaceId == 0x01ffc9a7);
@@ -112,7 +119,7 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
 
     function transferOwnership(address newOwner) public virtual override onlyOwner returns (bool) {
         if (newOwner == address(0)) {
-            revert ZeroAddress();
+            _zeroAddress();
         }
         _setOwner(newOwner);
         return true;
@@ -184,7 +191,7 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
 
     function transferOwnership(address newOwner) public virtual override onlyOwner returns (bool) {
         if (newOwner == address(0)) {
-            revert ZeroAddress();
+            _zeroAddress();
         }
         _setPendingOwner(newOwner);
         return true;
