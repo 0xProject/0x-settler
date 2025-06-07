@@ -338,6 +338,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // allow `approve` to either return `true` or empty to signal success
             if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
                 mstore(0x00, 0x3e3f8f73) // selector for `ApproveFailed()`
                 revert(0x1c, 0x04)
