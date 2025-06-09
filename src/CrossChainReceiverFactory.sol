@@ -406,17 +406,13 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             let o := add(signature.offset, sub(signature.length, l)) // Offset of appended data.
             mstore(0x00, 0x1901) // Store the "\x19\x01" prefix.
             calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
-            // Dismiss the signature if:
-            // 1. the reconstructed hash doesn't match,
-            // 2. the appended data is invalid, i.e.
-            //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
-            // 3. the ECDSA signature is not 64 bytes long
             for {} 1 {} {
-                if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) {
-                    // The reconstructed hash does not match. This is not a correct encoding of the
-                    // additional ERC7739 data.
-                    break
-                }
+                // Dismiss the signature as invalid if:
+                // 1. the reconstructed hash doesn't match,
+                // 2. the appended data is invalid, i.e.
+                //    (`appendedData.length > signature.length || contentsDescription.length == 0`.)
+                // 3. the ECDSA signature is not 64 bytes long
+                if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) { break }
 
                 // Generate the EIP712 serialization `encodeType(TypedDataSign)` of the specific
                 // instance of the `TypedDataSign` struct for this signature.
