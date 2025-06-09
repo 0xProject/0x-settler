@@ -414,6 +414,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // 3. the ECDSA signature is not 64 bytes long
                 if or(xor(keccak256(0x1e, 0x42), hash), or(xor(add(0x40, l), signature.length), iszero(c))) { break }
 
+                // Now that it's apparent that the signature is well-formed relative to `hash`, the
+                // `content` hash, and the application domain separator, we check that
+                // `ContentsType` is syntactically well-formed while simultaneously preparing to
+                // defensively rehash it into the nested `TypedDataSign` type.
+
                 // Generate the EIP712 serialization `encodeType(TypedDataSign)` of the specific
                 // instance of the `TypedDataSign` struct for this signature.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
