@@ -421,7 +421,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // Generate the EIP712 serialization `encodeType(TypedDataSign)` of the specific
                 // instance of the `TypedDataSign` struct for this signature.
                 // `TypedDataSign({ContentsName} contents,string name,...){ContentsType}`.
-                // Check that it was signed by `owner_`.
                 let m := add(0xa0, ptr)
                 mstore(m, "TypedDataSign(") // Store the start of `TypedDataSign`'s type encoding.
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
