@@ -455,7 +455,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 // `contentsType`.
                 calldatacopy(p, add(0x40, o), c) // Copy `encodeType(contentsType)`.
 
-                // The EIP712 `encodeType(TypedDataSign)` is now in memory, starting at `p`. Below
+                // The EIP712 `encodeType(TypedDataSign)` is now in memory, starting at `p`. Next,
                 // we hash it along with `hashStruct(contentsType, contents)` (which is just the
                 // fourth word of `signature`) to form `hashStruct(TypedDataSign, ...)`. Then we
                 // combine it with the application domain separator (not our own domain separator)
@@ -464,12 +464,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
                 // Fill in the missing fields of the `TypedDataSign`.
                 calldatacopy(ptr, o, 0x40) // Copy the `contents` struct hash to `add(ptr, 0x20)`.
-                mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typedDataSignTypehash`.
+                mstore(ptr, keccak256(m, sub(add(p, c), m))) // Store `typeHash(TypedDataSign)`.
                 // The "\x19\x01" prefix is already at 0x00.
                 // `APP_DOMAIN_SEPARATOR` is already at 0x20.
-                mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(typedDataSign)`.
+                mstore(0x40, keccak256(ptr, 0xa0)) // `hashStruct(TypedDataSign, ...)`.
                 // Compute the final hash. The hash will be corrupted if `contentsName` is invalid
-                // from the above check.
+                // from the above check (`d & 1 == 1`).
                 hash := keccak256(0x1e, add(0x42, and(0x01, d)))
 
                 // Verify the ECDSA signature by `owner_` over `hash`.
