@@ -286,8 +286,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             mstore(0x14, initialOwner)
             mstore(returndatasize(), selector)
             if iszero(call(gas(), proxy, returndatasize(), 0x10, 0x24, codesize(), returndatasize())) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
         }
     }
