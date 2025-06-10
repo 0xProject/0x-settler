@@ -86,8 +86,9 @@ library UnsafeEkuboCore {
             mstore(add(0xe0, ptr), 0x00)
 
             if iszero(call(gas(), core, 0x00, add(0x1c, ptr), 0xe4, 0x00, 0x40)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
             // Ekubo CORE returns data properly no need to mask
             delta0 := mload(0x00)
@@ -105,8 +106,8 @@ library UnsafeEkuboCore {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mcopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey` as the `to` argument
-            mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `extension`'s padding
+            mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `to`'s padding
+            mcopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey.config` as the `to` argument
 
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
@@ -118,8 +119,9 @@ library UnsafeEkuboCore {
             mstore(add(0xf4, ptr), 0x00)
 
             if iszero(call(gas(), core, 0x00, add(0x10, ptr), 0x104, 0x00, 0x40)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
             delta0 := mload(0x00)
             delta1 := mload(0x20)
