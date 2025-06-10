@@ -99,7 +99,7 @@ library UnsafeEkuboCore {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            calldatacopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey` as the `to` argument
+            memcpy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey` as the `to` argument
             mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `extension`'s padding
 
             let poolKeyPtr := add(0x34, ptr)
