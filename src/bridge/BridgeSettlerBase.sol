@@ -4,12 +4,13 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "../IERC721Owner.sol";
 import {DEPLOYER} from "../deployer/DeployerAddress.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {BridgeSettlerAbstract} from "./BridgeSettlerAbstract.sol";
 import {IBridgeSettlerActions} from "./IBridgeSettlerActions.sol";
 import {ALLOWANCE_HOLDER} from "../allowanceholder/IAllowanceHolder.sol";
-import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 
-abstract contract BridgeSettlerBase is BridgeSettlerAbstract {
+abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbstract {
     using SafeTransferLib for IERC20;
 
     event GitCommit(bytes20 indexed);
@@ -28,6 +29,8 @@ abstract contract BridgeSettlerBase is BridgeSettlerAbstract {
         if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
             (address token, uint256 amount, address settler, bytes memory settlerData) = abi.decode(data, (address, uint256, address, bytes));
             
+            ALLOWANCE_HOLDER.transferFrom(token, _msgSender(), address(this), amount);
+            IERC20(token).approve(address(ALLOWANCE_HOLDER), amount);
             ALLOWANCE_HOLDER.exec(
                 settler,
                 token,
