@@ -10,7 +10,6 @@ import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.
 
 import {FastLogic} from "./utils/FastLogic.sol";
 import {Ternary} from "./utils/Ternary.sol";
-import {MerkleProofLib} from "./vendor/MerkleProofLib.sol";
 
 interface IWrappedNative is IERC20 {
     function deposit() external payable;
@@ -201,7 +200,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     // hash. Realistically, `block.chainid` cannot exceed 2**53 - 1 or it would
                     // cause significant issues elsewhere in the ecosystem. This also means that the
                     // sort order of the hash and the chainid is backwards from what
-                    // `MerkleProofLib` produces, again protecting us against extension attacks.
+                    // `_getMerkleRoot` produces, again protecting us against extension attacks.
                     mstore(returndatasize(), hash)
                     mstore(0x20, chainid())
                     hash := keccak256(returndatasize(), 0x40)
@@ -218,7 +217,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     proof.offset := add(0x20, proof.offset)
                 }
 
-                return _verifyDeploymentRootHash(MerkleProofLib.getRoot(proof, hash), originalOwner).ternary(
+                return _verifyDeploymentRootHash(_getMerkleRoot(proof, hash), originalOwner).ternary(
                     IERC1271.isValidSignature.selector, bytes4(0xffffffff)
                 );
             }
