@@ -29,9 +29,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     CrossChainReceiverFactory private immutable _cachedThis = this;
     bytes32 private immutable _proxyInitHash = keccak256(
         bytes.concat(
-            hex"60265f8160095f39f35f5f365f5f37365f6c",
+            hex"60253d8160093d39f33d3d3d3d363d3d37363d6c",
             bytes13(uint104(uint160(address(this)))),
-            hex"5af43d5f5f3e6022573d5ffd5b3d5ff3"
+            hex"5af43d3d93803e602357fd5bf3"
         )
     );
     string public constant name = "ZeroExCrossChainReceiver";
@@ -47,9 +47,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             uint112(uint160(_WNATIVE_SETTER)),
             hex"14336c",
             uint40(uint104(uint160(MULTICALL_ADDRESS)) >> 64),
-            hex"5f527f",
+            hex"3d527f",
             uint64(uint104(uint160(MULTICALL_ADDRESS))),
-            hex"1416602e57fe5b5f54604b57585f55805f5f375f34f05f8159526d6045575ffd5b5260205ff35b30ff60901b5952604e5ff3"
+            hex"1416602e57fe5b3d54604b57583d55803d3d373d34f03d8159526d6045573dfd5b5260203df35b30ff60901b5952604e3df3"
         )
     );
     bytes32 private constant _WNATIVE_STORAGE_SALT = keccak256("Wrapped Native Token Address");
@@ -265,10 +265,10 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             let salt := keccak256(0x00, 0x34)
 
             // create a minimal proxy targeting this contract
-            mstore(0x1d, 0x5af43d5f5f3e6022573d5ffd5b3d5ff3)
+            mstore(0x1a, 0x5af43d3d93803e602357fd5bf3)
             mstore(0x0d, address())
-            mstore(0x00, 0x60265f8160095f39f35f5f365f5f37365f6c)
-            proxy := create2(0x00, 0x0e, 0x2f, salt)
+            mstore(0x00, 0x60253d8160093d39f33d3d3d3d363d3d37363d6c)
+            proxy := create2(0x00, 0x0c, 0x2e, salt)
             if iszero(proxy) {
                 mstore(0x00, 0x30116425) // selector for `DeploymentFailed()`.
                 revert(0x1c, 0x04)
