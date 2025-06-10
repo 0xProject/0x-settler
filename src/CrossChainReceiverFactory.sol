@@ -107,8 +107,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             require(wrappedBalance < (wrappedBalance = _WNATIVE.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `fallback` function that deposits
-            (bool success,) = payable(_WNATIVE).call{value: address(this).balance}("");
+            (bool success, bytes memory returndata) = payable(_WNATIVE).call{value: address(this).balance}("");
             require(success);
+            require(returndata.length == 0);
             require(wrappedBalance < (wrappedBalance = _WNATIVE.balanceOf(address(this))));
 
             // check that `_WNATIVE` has a `withdraw(uint256)` function
