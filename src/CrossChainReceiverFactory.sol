@@ -138,7 +138,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         _;
     }
 
-    // @inheritdoc IERC1271
+    /// @inheritdoc IERC1271
     function isValidSignature(bytes32 hash, bytes calldata signature)
         external
         view
@@ -202,9 +202,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     // cause significant issues elsewhere in the ecosystem. This also means that the
                     // sort order of the hash and the chainid is backwards from what
                     // `MerkleProofLib` produces, again protecting us against extension attacks.
-                    mstore(0x00, hash)
+                    mstore(returndatasize(), hash)
                     mstore(0x20, chainid())
-                    hash := keccak256(0x00, 0x40)
+                    hash := keccak256(returndatasize(), 0x40)
                 }
 
                 bytes32[] calldata proof;
@@ -230,7 +230,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         );
     }
 
-    // @inheritdoc IERC5267
+    /// @inheritdoc IERC5267
     function eip712Domain()
         external
         view
@@ -261,16 +261,16 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
             // derive the deployment salt from the owner
             mstore(0x14, initialOwner)
-            mstore(0x00, root)
-            let salt := keccak256(0x00, 0x34)
+            mstore(returndatasize(), root)
+            let salt := keccak256(returndatasize(), 0x34)
 
             // create a minimal proxy targeting this contract
             mstore(0x1a, 0x5af43d3d93803e602357fd5bf3)
             mstore(0x0d, address())
-            mstore(0x00, 0x60253d8160093d39f33d3d3d3d363d3d37363d6c)
-            proxy := create2(0x00, 0x0c, 0x2e, salt)
+            mstore(returndatasize(), 0x60253d8160093d39f33d3d3d3d363d3d37363d6c)
+            proxy := create2(returndatasize(), 0x0c, 0x2e, salt)
             if iszero(proxy) {
-                mstore(0x00, 0x30116425) // selector for `DeploymentFailed()`.
+                mstore(returndatasize(), 0x30116425) // selector for `DeploymentFailed()`.
                 revert(0x1c, 0x04)
             }
 
@@ -285,8 +285,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
             // set the owner, or `selfdestruct` to the owner
             mstore(0x14, initialOwner)
-            mstore(0x00, selector)
-            if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, codesize(), 0x00)) {
+            mstore(returndatasize(), selector)
+            if iszero(call(gas(), proxy, returndatasize(), 0x10, 0x24, codesize(), returndatasize())) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -301,7 +301,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         if (token == _NATIVE) {
             token = _WNATIVE;
             assembly ("memory-safe") {
-                if iszero(call(gas(), token, amount, codesize(), 0x00, codesize(), 0x00)) {
+                if iszero(call(gas(), token, amount, codesize(), returndatasize(), codesize(), returndatasize())) {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
                     revert(ptr, returndatasize())
@@ -311,11 +311,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(0x00, 0x095ea7b3) // selector for `approve(address,uint256)`
+            mstore(returndatasize(), 0x095ea7b3) // selector for `approve(address,uint256)`
             mstore(0x20, 0x000000000022D473030F116dDEE9F6B43aC78BA3) // Permit2
             mstore(0x40, amount)
 
-            if iszero(call(gas(), token, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
+            if iszero(call(gas(), token, returndatasize(), 0x1c, 0x44, returndatasize(), 0x20)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -338,7 +338,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             let ptr := mload(0x40)
 
             calldatacopy(ptr, data.offset, data.length)
-            let success := call(gas(), target, value, ptr, data.length, codesize(), 0x00)
+            let success := call(gas(), target, value, ptr, data.length, codesize(), returndatasize())
 
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
@@ -359,6 +359,41 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         selfdestruct(beneficiary);
     }
 
+    /// Modified from Solady (https://github.com/Vectorized/solady/blob/b609a9c79ce541c2beca7a7d247665e7c93942a3/src/utils/MerkleProofLib.sol)
+    /// Modified from Solmate (https://github.com/transmissions11/solmate/blob/main/src/utils/MerkleProofLib.sol)
+    function _getMerkleRoot(bytes32[] calldata proof, bytes32 leaf) private pure returns (bytes32 root) {
+        assembly ("memory-safe") {
+            if proof.length {
+                // Left shifting by 5 is like multiplying by 32.
+                let end := add(proof.offset, shl(0x05, proof.length))
+
+                // Initialize offset to the offset of the proof in calldata.
+                let offset := proof.offset
+
+                // Iterate over proof elements to compute root hash.
+                for {} 1 {} {
+                    // Slot where the leaf should be put in scratch space. If
+                    // leaf > calldataload(offset): slot 32, otherwise: slot 0.
+                    let leafSlot := shl(0x05, lt(calldataload(offset), leaf))
+
+                    // Store elements to hash contiguously in scratch space.
+                    // The xor puts calldataload(offset) in whichever slot leaf
+                    // is not occupying, so 0 if leafSlot is 32, and 32 otherwise.
+                    mstore(leafSlot, leaf)
+                    mstore(xor(0x20, leafSlot), calldataload(offset))
+
+                    // Reuse leaf to store the hash to reduce stack operations.
+                    leaf := keccak256(returndatasize(), 0x40) // Hash both slots of scratch space.
+
+                    offset := add(0x20, offset) // Shift 1 word per cycle.
+
+                    if iszero(lt(offset, end)) { break }
+                }
+            }
+            root := leaf
+        }
+    }
+
     function _verifyDeploymentRootHash(bytes32 root, address originalOwner) internal view returns (bool result) {
         bytes32 initHash = _proxyInitHash;
         CrossChainReceiverFactory factory = _cachedThis;
@@ -367,18 +402,18 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
             // derive creation salt
             mstore(0x14, originalOwner)
-            mstore(0x00, root)
-            let salt := keccak256(0x00, 0x34)
+            mstore(returndatasize(), root)
+            let salt := keccak256(returndatasize(), 0x34)
 
             // 0xff + factory + salt + hash(initCode)
             mstore(0x4d, initHash)
             mstore(0x2d, salt)
             mstore(0x0d, factory)
-            mstore(0x00, 0xff00000000000000)
+            mstore(returndatasize(), 0xff00000000000000)
             let computedAddress := keccak256(0x18, 0x55)
 
             // restore clobbered memory
-            mstore(0x60, 0x00)
+            mstore(0x60, returndatasize())
             mstore(0x40, ptr)
 
             // verify that `salt` was used to deploy `address(this)`
@@ -386,7 +421,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    // Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287) under the MIT license
+    /// Modified from Solady (https://github.com/Vectorized/solady/blob/c4d32c3e6e89da0321fda127ff024eecd5b57bc6/src/accounts/ERC1271.sol#L120-L287) under the MIT license
     function _verifyERC7739NestedTypedSignature(bytes32 hash, bytes calldata signature, address owner_)
         internal
         view
@@ -404,7 +439,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             let c := shr(0xf0, calldataload(add(signature.offset, sub(signature.length, 0x02))))
             let l := add(0x42, c) // Total length of appended data (32 + 32 + c + 2).
             let o := add(signature.offset, sub(signature.length, l)) // Offset of appended data.
-            mstore(0x00, 0x1901) // Store the "\x19\x01" prefix.
+            mstore(returndatasize(), 0x1901) // Store the "\x19\x01" prefix.
             calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
             for {} 1 {} {
                 // Dismiss the signature as invalid if:
@@ -427,11 +462,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 let p := add(0x0e, m) // Advance 14 bytes to skip "TypedDataSign(".
                 calldatacopy(p, add(0x40, o), c) // Copy `contentsName`, optimistically.
                 mstore(add(p, c), 0x28) // Store a '(' *AFTER* the end (not *AT* the end).
-                if iszero(eq(byte(0x00, mload(sub(add(p, c), 0x01))), 0x29)) {
-                    let e := 0x00 // Length of `contentsName` in explicit mode.
+                if iszero(eq(byte(returndatasize(), mload(sub(add(p, c), 0x01))), 0x29)) {
+                    let e := returndatasize() // Length of `contentsName` in explicit mode.
                     for { let q := sub(add(p, c), 0x01) } 1 {} {
                         e := add(e, 0x01) // Scan backwards until we encounter a ')'.
-                        if iszero(gt(lt(e, c), eq(byte(0x00, mload(sub(q, e))), 0x29))) { break }
+                        if iszero(gt(lt(e, c), eq(byte(returndatasize(), mload(sub(q, e))), 0x29))) { break }
                     }
                     c := sub(c, e) // Truncate `contentsDescription` to `contentsType`.
                     calldatacopy(p, add(add(0x40, o), c), e) // Copy `contentsName`.
@@ -440,10 +475,10 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
                 // Check that `contentsName` is a well-formed EIP712 type name. `d & 1 == 1` means
                 // that `contentsName` is invalid.
-                let d := shr(byte(0x00, mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
+                let d := shr(byte(returndatasize(), mload(p)), 0x7fffffe000000000000010000000000) // Starts with `[a-z(]`.
                 // Advance `p` until we encounter '('.
                 for {} xor(0x28, shr(0xf8, mload(p))) { p := add(0x01, p) } {
-                    d := or(shr(byte(0x00, mload(p)), 0x120100000001), d) // Has a byte in ", )\x00".
+                    d := or(shr(byte(returndatasize(), mload(p)), 0x120100000001), d) // Has a byte in ", )\x00".
                 }
 
                 // Finish out the shallow `encodeType(TypedDataSign)` with the fields from *OUR*
@@ -474,11 +509,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
                 // Verify the ECDSA signature by `owner_` over `hash`.
                 let vs := calldataload(add(0x20, signature.offset))
-                mstore(0x00, hash)
+                mstore(returndatasize(), hash)
                 mstore(0x20, add(0x1b, shr(0xff, vs))) // `v`.
                 mstore(0x40, calldataload(signature.offset)) // `r`.
                 mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
-                let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
+                let recovered := mload(staticcall(gas(), 0x01, returndatasize(), 0x80, 0x01, 0x20))
                 result := gt(returndatasize(), shl(0x60, xor(owner_, recovered)))
 
                 // Restore clobbered memory
