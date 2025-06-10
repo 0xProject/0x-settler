@@ -99,15 +99,14 @@ library UnsafeEkuboCore {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            calldatacopy(add(0x20, ptr), add(0x40, poolKey), 0x14)
+            calldatacopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey` as the `to` argument
             mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `extension`'s padding
 
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
             let token0 := mload(poolKeyPtr)
             mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
-            // ABI decoding in Ekubo will check if amount fits in int128
-            mstore(add(0x94, ptr), amount)
+            mstore(add(0x94, ptr), signextend(0x0f, amount))
             mstore(add(0xb4, ptr), isToken1)
             mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xf4, ptr), 0x00)
@@ -116,10 +115,9 @@ library UnsafeEkuboCore {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            // Ekubo CORE returns data properly no need to mask
             delta0 := mload(0x00)
             delta1 := mload(0x20)
-            if or(or(gt(0x40, returndatasize()), xor(sar(0x80, delta0), sar(0x7f, delta0))), xor(sar(0x80, delta1), sar(0x7f, delta1))) {
+            if or(or(gt(0x40, returndatasize()), xor(signextend(0x0f, delta0), delta0)), xor(signextend(0x0f, delta1), delta1)) {
                 revert(0x00, 0x00)
             }
         }
