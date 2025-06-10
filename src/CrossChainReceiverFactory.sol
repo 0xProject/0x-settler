@@ -404,14 +404,13 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             let salt := keccak256(returndatasize(), 0x34)
 
             // 0xff + factory + salt + hash(initCode)
-            mstore(0x4d, initHash)
-            mstore(0x2d, salt)
-            mstore(0x0d, factory)
-            mstore(returndatasize(), 0xff00000000000000)
-            let computedAddress := keccak256(0x18, 0x55)
+            mstore(0x40, initHash)
+            mstore(0x20, salt)
+            mstore(returndatasize(), factory)
+            mstore8(0x0b, 0xff)
+            let computedAddress := keccak256(0x0b, 0x55)
 
             // restore clobbered memory
-            mstore(0x60, returndatasize())
             mstore(0x40, ptr)
 
             // verify that `salt` was used to deploy `address(this)`
