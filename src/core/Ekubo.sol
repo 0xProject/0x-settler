@@ -414,11 +414,11 @@ abstract contract Ekubo is SettlerAbstract {
                 );
                 int256 delta0;
                 int256 delta1;
-                if (bps & 0x8000) {
+                if (bps & 0x8000 == 0) {
+                    (delta0, delta1) = IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
+                } else {
                     (delta0, delta1) =
                         IEkuboCore(msg.sender).unsafeForward(poolKey, amountSpecified, isToken1, sqrtRatio);
-                } else {
-                    (delta0, delta1) = IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
                 }
 
                 // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
