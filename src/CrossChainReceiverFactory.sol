@@ -368,7 +368,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 let offset := proof.offset
 
                 // Iterate over proof elements to compute root hash.
-                for {} 1 {} {
+                for {} true {} {
                     // Slot where the leaf should be put in scratch space. If
                     // leaf > calldataload(offset): slot 32, otherwise: slot 0.
                     let leafSlot := shl(0x05, lt(calldataload(offset), leaf))
@@ -438,7 +438,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             let o := add(signature.offset, sub(signature.length, l)) // Offset of appended data.
             mstore(returndatasize(), 0x1901) // Store the "\x19\x01" prefix.
             calldatacopy(0x20, o, 0x40) // Copy the `APP_DOMAIN_SEPARATOR` and `contents` struct hash.
-            for {} 1 {} {
+            for {} true {} {
                 // Dismiss the signature as invalid if:
                 // 1. the reconstructed hash doesn't match,
                 // 2. the appended data is invalid, i.e.
