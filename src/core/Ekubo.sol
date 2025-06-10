@@ -95,11 +95,17 @@ library UnsafeEkuboCore {
         }
     }
 
-    function unsafeForward(IEkuboCore core, PoolKey memory poolKey, int256 amount, bool isToken1, SqrtRatio sqrtRatioLimit) internal returns (int256 delta0, int256 delta1) {
+    function unsafeForward(
+        IEkuboCore core,
+        PoolKey memory poolKey,
+        int256 amount,
+        bool isToken1,
+        SqrtRatio sqrtRatioLimit
+    ) internal returns (int256 delta0, int256 delta1) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            memcpy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey` as the `to` argument
+            mcopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey` as the `to` argument
             mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `extension`'s padding
 
             let poolKeyPtr := add(0x34, ptr)
@@ -117,9 +123,10 @@ library UnsafeEkuboCore {
             }
             delta0 := mload(0x00)
             delta1 := mload(0x20)
-            if or(or(gt(0x40, returndatasize()), xor(signextend(0x0f, delta0), delta0)), xor(signextend(0x0f, delta1), delta1)) {
-                revert(0x00, 0x00)
-            }
+            if or(
+                or(gt(0x40, returndatasize()), xor(signextend(0x0f, delta0), delta0)),
+                xor(signextend(0x0f, delta1), delta1)
+            ) { revert(0x00, 0x00) }
         }
     }
 }
@@ -408,7 +415,8 @@ abstract contract Ekubo is SettlerAbstract {
                 int256 delta0;
                 int256 delta1;
                 if (bps & 0x8000) {
-                    (delta0, delta1) = IEkuboCore(msg.sender).unsafeForward(poolKey, amountSpecified, isToken1, sqrtRatio);
+                    (delta0, delta1) =
+                        IEkuboCore(msg.sender).unsafeForward(poolKey, amountSpecified, isToken1, sqrtRatio);
                 } else {
                     (delta0, delta1) = IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
                 }
