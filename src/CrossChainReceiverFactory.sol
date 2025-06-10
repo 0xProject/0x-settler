@@ -286,7 +286,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             // set the owner, or `selfdestruct` to the owner
             mstore(0x14, initialOwner)
             mstore(0x00, selector)
-            if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, 0x00, 0x00)) {
+            if iszero(call(gas(), proxy, 0x00, 0x10, 0x24, codesize(), 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -301,7 +301,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         if (token == _NATIVE) {
             token = _WNATIVE;
             assembly ("memory-safe") {
-                if iszero(call(gas(), token, amount, 0x00, 0x00, 0x00, 0x00)) {
+                if iszero(call(gas(), token, amount, codesize(), 0x00, codesize(), 0x00)) {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
                     revert(ptr, returndatasize())
@@ -338,7 +338,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             let ptr := mload(0x40)
 
             calldatacopy(ptr, data.offset, data.length)
-            let success := call(gas(), target, value, ptr, data.length, 0x00, 0x00)
+            let success := call(gas(), target, value, ptr, data.length, codesize(), 0x00)
 
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
