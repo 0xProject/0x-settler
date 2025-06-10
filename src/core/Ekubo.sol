@@ -36,6 +36,8 @@ interface IEkuboCore {
         uint256 skipAhead
     ) external payable returns (int128 delta0, int128 delta1);
 
+    function forward(address to) external;
+
     // Pay for swapped tokens
     function pay(address token) external returns (uint128 payment);
 
@@ -92,6 +94,36 @@ library UnsafeEkuboCore {
             delta1 := mload(0x20)
         }
     }
+
+    function unsafeForward(IEkuboCore core, PoolKey memory poolKey, int256 amount, bool isToken1, SqrtRatio sqrtRatioLimit) internal returns (int256 delta0, int256 delta1) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            calldatacopy(add(0x20, ptr), add(0x40, poolKey), 0x14)
+            mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `extension`'s padding
+
+            let poolKeyPtr := add(0x34, ptr)
+            mcopy(poolKeyPtr, poolKey, 0x60)
+            let token0 := mload(poolKeyPtr)
+            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
+            // ABI decoding in Ekubo will check if amount fits in int128
+            mstore(add(0x94, ptr), amount)
+            mstore(add(0xb4, ptr), isToken1)
+            mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
+            mstore(add(0xf4, ptr), 0x00)
+
+            if iszero(call(gas(), core, 0x00, add(0x10, ptr), 0x104, 0x00, 0x40)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            // Ekubo CORE returns data properly no need to mask
+            delta0 := mload(0x00)
+            delta1 := mload(0x20)
+            if or(or(gt(0x40, returndatasize()), xor(sar(0x80, delta0), sar(0x7f, delta0))), xor(sar(0x80, delta1), sar(0x7f, delta1))) {
+                revert(0x00, 0x00)
+            }
+        }
+    }
 }
 
 abstract contract Ekubo is SettlerAbstract {
@@ -128,7 +160,9 @@ abstract contract Ekubo is SettlerAbstract {
     ////
     //// Now that you have a list of fills, encode each fill as follows.
     //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
-    //// running balance at the moment that the fill is settled.
+    //// running balance at the moment that the fill is settled. If the uppermost bit of `bps` is
+    //// set, then the swap is treated as a swap through an extension that requires forwarding. Only
+    //// the lower 15 bits of `bps` are used for the amount calculation.
     //// Second, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
     //// i.e. encode only the buy token for the first fill.
@@ -333,7 +367,7 @@ abstract contract Ekubo is SettlerAbstract {
             // `CORE` will throw.
             int256 amountSpecified;
             unchecked {
-                amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS));
+                amountSpecified = int256((state.sell().amount() * (bps & 0x7fff)).unsafeDiv(BASIS));
             }
 
             bool isToken1;
@@ -373,8 +407,14 @@ abstract contract Ekubo is SettlerAbstract {
                 SqrtRatio sqrtRatio = SqrtRatio.wrap(
                     uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
                 );
-                (int256 delta0, int256 delta1) =
-                    IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
+                int256 delta0;
+                int256 delta1;
+                if (bps & 0x8000) {
+                    (delta0, delta1) = IEkuboCore(msg.sender).unsafeForward(poolKey, amountSpecified, isToken1, sqrtRatio);
+                } else {
+                    (delta0, delta1) = IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
+                }
+
                 // Ekubo's sign convention here is backwards compared to UniV4/BalV3/PancakeInfinity
                 // `settledSellAmount` is positive, `settledBuyAmount` is negative. So the use of
                 // `asCredit` and `asDebt` below is misleading as they are actually debt and credit,
