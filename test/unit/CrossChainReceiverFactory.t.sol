@@ -89,7 +89,12 @@ contract CrossChainReceiverFactoryTest is Test {
         bytes32 action = keccak256(abi.encode("action"));
         (CrossChainReceiverFactory proxy, address owner) = _deployProxy(action);
 
-        assertEq(address(proxy).code, abi.encodePacked(hex"3d3d3d3d363d3d37363d6c", uint104(uint160(address(factory))), hex"5af43d3d93803e602357fd5bf3"));
+        assertEq(
+            address(proxy).code,
+            abi.encodePacked(
+                hex"3d3d3d3d363d3d37363d6c", uint104(uint160(address(factory))), hex"5af43d3d93803e602357fd5bf3"
+            )
+        );
     }
 
     function testSingleAction() public {
