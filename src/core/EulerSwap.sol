@@ -4,6 +4,8 @@ pragma solidity ^0.8.25;
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
+import {Ternary} from "../utils/Ternary.sol";
+
 interface IEulerSwap {
     /// @dev Immutable pool parameters. Passed to the instance via proxy trailing data.
     struct Params {
@@ -124,6 +126,7 @@ library ParamsLib {
 }
 
 abstract contract EulerSwap is SettlerAbstract {
+    using Ternary for bool;
     using ParamsLib for ParamsLib.Params;
     using ParamsLib for IEulerSwap;
 
@@ -132,7 +135,7 @@ abstract contract EulerSwap is SettlerAbstract {
     function findCurvePoint(IEulerSwap eulerSwap, uint256 amount, bool asset0IsInput)
         internal
         view
-        returns (uint256 output)
+        returns (uint256)
     {
         ParamsLib.Params p = eulerSwap.getParams();
         uint256 px = p.priceX();
@@ -143,12 +146,10 @@ abstract contract EulerSwap is SettlerAbstract {
         uint256 cy = p.concentrationY();
         (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
 
-        uint256 xNew;
-        uint256 yNew;
-
         if (asset0IsInput) {
             // swap X in and Y out
-            xNew = reserve0 + amount;
+            uint256 xNew = reserve0 + amount;
+            uint256 yNew;
             if (xNew <= x0) {
                 // remain on f()
                 yNew = CurveLib.f(xNew, px, py, x0, y0, cx);
@@ -156,10 +157,11 @@ abstract contract EulerSwap is SettlerAbstract {
                 // move to g()
                 yNew = CurveLib.fInverse(xNew, py, px, y0, x0, cy);
             }
-            output = reserve1 > yNew ? reserve1 - yNew : 0;
+            return (reserve1 > yNew).ternary(reserve1 - yNew, 0);
         } else {
             // swap Y in and X out
-            yNew = reserve1 + amount;
+            uint256 xNew;
+            uint256 yNew = reserve1 + amount;
             if (yNew <= y0) {
                 // remain on g()
                 xNew = CurveLib.f(yNew, py, px, y0, x0, cy);
@@ -167,7 +169,7 @@ abstract contract EulerSwap is SettlerAbstract {
                 // move to f()
                 xNew = CurveLib.fInverse(yNew, px, py, x0, y0, cx);
             }
-            output = reserve0 > xNew ? reserve0 - xNew : 0;
+            return (reserve0 > xNew).ternary(reserve0 - xNew, 0);
         }
     }
 
