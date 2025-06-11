@@ -142,9 +142,12 @@ abstract contract EulerSwap is SettlerAbstract {
         uint256 py = p.priceY();
         uint256 x0 = p.equilibriumReserve0();
         uint256 y0 = p.equilibriumReserve1();
-        uint256 cx = p.concentrationX();
-        uint256 cy = p.concentrationY();
+        uint256 fee = p.fee();
         (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
+
+        unchecked {
+            amount = amount - (amount * fee / 1e18);
+        }
 
         if (asset0IsInput) {
             // swap X in and Y out
@@ -152,10 +155,10 @@ abstract contract EulerSwap is SettlerAbstract {
             uint256 yNew;
             if (xNew <= x0) {
                 // remain on f()
-                yNew = CurveLib.f(xNew, px, py, x0, y0, cx);
+                yNew = CurveLib.f(xNew, px, py, x0, y0, p.concentrationX());
             } else {
                 // move to g()
-                yNew = CurveLib.fInverse(xNew, py, px, y0, x0, cy);
+                yNew = CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
             }
             return (reserve1 > yNew).ternary(reserve1 - yNew, 0);
         } else {
@@ -164,10 +167,10 @@ abstract contract EulerSwap is SettlerAbstract {
             uint256 yNew = reserve1 + amount;
             if (yNew <= y0) {
                 // remain on g()
-                xNew = CurveLib.f(yNew, py, px, y0, x0, cy);
+                xNew = CurveLib.f(yNew, py, px, y0, x0, p.concentrationY());
             } else {
                 // move to f()
-                xNew = CurveLib.fInverse(yNew, px, py, x0, y0, cx);
+                xNew = CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
             }
             return (reserve0 > xNew).ternary(reserve0 - xNew, 0);
         }
