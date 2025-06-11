@@ -129,7 +129,7 @@ abstract contract EulerSwap is SettlerAbstract {
 
     error SwapLimitExceeded();
 
-    function findCurvePoint(IEulerSwap eulerSwap, uint256 amount, bool exactIn, bool asset0IsInput)
+    function findCurvePoint(IEulerSwap eulerSwap, uint256 amount, bool asset0IsInput)
         internal
         view
         returns (uint256 output)
@@ -146,62 +146,28 @@ abstract contract EulerSwap is SettlerAbstract {
         uint256 xNew;
         uint256 yNew;
 
-        if (exactIn) {
-            // exact in
-            if (asset0IsInput) {
-                // swap X in and Y out
-                xNew = reserve0 + amount;
-                if (xNew <= x0) {
-                    // remain on f()
-                    yNew = CurveLib.f(xNew, px, py, x0, y0, cx);
-                } else {
-                    // move to g()
-                    yNew = CurveLib.fInverse(xNew, py, px, y0, x0, cy);
-                }
-                output = reserve1 > yNew ? reserve1 - yNew : 0;
+        if (asset0IsInput) {
+            // swap X in and Y out
+            xNew = reserve0 + amount;
+            if (xNew <= x0) {
+                // remain on f()
+                yNew = CurveLib.f(xNew, px, py, x0, y0, cx);
             } else {
-                // swap Y in and X out
-                yNew = reserve1 + amount;
-                if (yNew <= y0) {
-                    // remain on g()
-                    xNew = CurveLib.f(yNew, py, px, y0, x0, cy);
-                } else {
-                    // move to f()
-                    xNew = CurveLib.fInverse(yNew, px, py, x0, y0, cx);
-                }
-                output = reserve0 > xNew ? reserve0 - xNew : 0;
+                // move to g()
+                yNew = CurveLib.fInverse(xNew, py, px, y0, x0, cy);
             }
+            output = reserve1 > yNew ? reserve1 - yNew : 0;
         } else {
-            // exact out
-            if (asset0IsInput) {
-                // swap Y out and X in
-                if (reserve1 <= amount) {
-                    revert SwapLimitExceeded();
-                }
-                yNew = reserve1 - amount;
-                if (yNew <= y0) {
-                    // remain on g()
-                    xNew = CurveLib.f(yNew, py, px, y0, x0, cy);
-                } else {
-                    // move to f()
-                    xNew = CurveLib.fInverse(yNew, px, py, x0, y0, cx);
-                }
-                output = xNew > reserve0 ? xNew - reserve0 : 0;
+            // swap Y in and X out
+            yNew = reserve1 + amount;
+            if (yNew <= y0) {
+                // remain on g()
+                xNew = CurveLib.f(yNew, py, px, y0, x0, cy);
             } else {
-                // swap X out and Y in
-                if (reserve0 <= amount) {
-                    revert SwapLimitExceeded();
-                }
-                xNew = reserve0 - amount;
-                if (xNew <= x0) {
-                    // remain on f()
-                    yNew = CurveLib.f(xNew, px, py, x0, y0, cx);
-                } else {
-                    // move to g()
-                    yNew = CurveLib.fInverse(xNew, py, px, y0, x0, cy);
-                }
-                output = yNew > reserve1 ? yNew - reserve1 : 0;
+                // move to f()
+                xNew = CurveLib.fInverse(yNew, px, py, x0, y0, cx);
             }
+            output = reserve0 > xNew ? reserve0 - xNew : 0;
         }
     }
 
