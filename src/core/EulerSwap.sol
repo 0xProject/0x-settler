@@ -132,7 +132,7 @@ abstract contract EulerSwap is SettlerAbstract {
 
     error SwapLimitExceeded();
 
-    function findCurvePoint(IEulerSwap eulerSwap, uint256 amount, bool asset0IsInput)
+    function findCurvePoint(IEulerSwap eulerSwap, uint112 amount, bool asset0IsInput)
         internal
         view
         returns (uint256)
@@ -146,33 +146,31 @@ abstract contract EulerSwap is SettlerAbstract {
         (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
 
         unchecked {
-            amount = amount - (amount * fee / 1e18);
-        }
-
-        if (asset0IsInput) {
-            // swap X in and Y out
-            uint256 xNew = reserve0 + amount;
-            uint256 yNew;
-            if (xNew <= x0) {
-                // remain on f()
-                yNew = CurveLib.f(xNew, px, py, x0, y0, p.concentrationX());
+            if (asset0IsInput) {
+                // swap X in and Y out
+                uint256 xNew = reserve0 + uint256(amount) - (uint256(amount) * fee / 1e18);
+                uint256 yNew;
+                if (xNew <= x0) {
+                    // remain on f()
+                    yNew = CurveLib.f(xNew, px, py, x0, y0, p.concentrationX());
+                } else {
+                    // move to g()
+                    yNew = CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
+                }
+                return (reserve1 > yNew).ternary(reserve1 - yNew, 0);
             } else {
-                // move to g()
-                yNew = CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
+                // swap Y in and X out
+                uint256 xNew;
+                uint256 yNew = reserve1 + uint256(amount) - (uint256(amount) * fee / 1e18);
+                if (yNew <= y0) {
+                    // remain on g()
+                    xNew = CurveLib.f(yNew, py, px, y0, x0, p.concentrationY());
+                } else {
+                    // move to f()
+                    xNew = CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
+                }
+                return (reserve0 > xNew).ternary(reserve0 - xNew, 0);
             }
-            return (reserve1 > yNew).ternary(reserve1 - yNew, 0);
-        } else {
-            // swap Y in and X out
-            uint256 xNew;
-            uint256 yNew = reserve1 + amount;
-            if (yNew <= y0) {
-                // remain on g()
-                xNew = CurveLib.f(yNew, py, px, y0, x0, p.concentrationY());
-            } else {
-                // move to f()
-                xNew = CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
-            }
-            return (reserve0 > xNew).ternary(reserve0 - xNew, 0);
         }
     }
 
