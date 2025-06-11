@@ -39,6 +39,8 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Update Scroll to the Cancun hardfork
+
 ### Non-breaking changes
 
 ## 2025-04-25
