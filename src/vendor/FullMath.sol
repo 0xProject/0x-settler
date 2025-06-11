@@ -148,4 +148,31 @@ library FullMath {
         (uint256 prod0, uint256 prod1, uint256 remainder) = _mulDivSetup(a, b, denominator);
         return _mulDivInvert(prod0, prod1, denominator, remainder);
     }
+
+    /// @notice Calculates a×b÷denominator with full precision then rounds towards positive infinity. Overflowing a uint256 or denominator == 0 are GIGO errors
+    /// @param a The multiplicand
+    /// @param b The multiplier
+    /// @param denominator The divisor
+    /// @return The 256-bit result
+    function unsafeMulDivUp(uint256 a, uint256 b, uint256 denominator) internal pure returns (uint256) {
+        (uint256 prod0, uint256 prod1, uint256 remainder) = _mulDivSetup(a, b, denominator);
+        // Overflow and zero-division checks are skipped
+        // Handle non-overflow cases, 256 by 256 division
+        if (prod1 == 0) {
+            return prod0.unsafeDivUp(denominator);
+        }
+        return _mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(0 < remainder);
+    }
+
+
+    /// @notice Calculates a×b÷denominator with full precision then rounds towards positive infinity. Overflowing a uint256 or denominator == 0 are GIGO errors
+    /// @param a The multiplicand
+    /// @param b The multiplier
+    /// @param denominator The divisor
+    /// @dev This is the branchless, straight line version of `unsafeMulDivUp`. If we know that `prod1 != 0` this may be faster. Also this gives Solc a better chance to optimize.
+    /// @return The 256-bit result
+    function unsafeMulDivUpAlt(uint256 a, uint256 b, uint256 denominator) internal pure returns (uint256) {
+        (uint256 prod0, uint256 prod1, uint256 remainder) = _mulDivSetup(a, b, denominator);
+        return _mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(0 < remainder);
+    }
 }
