@@ -81,9 +81,15 @@ contract BridgeSettlerTest is Test {
             )
         );
         
-        bytes[] memory bridgeActions = new bytes[](2);
-        // Do a swap (that just takes and returns the assets)
+        bytes[] memory bridgeActions = new bytes[](3);
+        // Take the assets from the BridgeSettler
         bridgeActions[0] = abi.encodeWithSelector(
+            IBridgeSettlerActions.TAKE.selector,
+            address(token),
+            1000
+        );
+        // Do a swap (that just takes and returns the assets)
+        bridgeActions[1] = abi.encodeWithSelector(
             IBridgeSettlerActions.SETTLER_SWAP.selector,
             address(token),
             1000,
@@ -100,7 +106,7 @@ contract BridgeSettlerTest is Test {
             )
         );
         // Bridge the assets to the dummy bridge
-        bridgeActions[1] = abi.encodeWithSelector(
+        bridgeActions[2] = abi.encodeWithSelector(
             IBridgeSettlerActions.BRIDGE.selector,
             address(token),
             address(bridgeDummy),

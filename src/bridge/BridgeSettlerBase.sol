@@ -26,10 +26,13 @@ abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbst
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
-        if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
+        if (action == uint32(IBridgeSettlerActions.TAKE.selector)) {
+            (address token, uint256 amount) = abi.decode(data, (address, uint256));
+            ALLOWANCE_HOLDER.transferFrom(token, _msgSender(), address(this), amount);
+        }
+        else if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
             (address token, uint256 amount, address settler, bytes memory settlerData) = abi.decode(data, (address, uint256, address, bytes));
             
-            ALLOWANCE_HOLDER.transferFrom(token, _msgSender(), address(this), amount);
             IERC20(token).approve(address(ALLOWANCE_HOLDER), amount);
             ALLOWANCE_HOLDER.exec(
                 settler,

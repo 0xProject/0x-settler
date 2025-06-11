@@ -8,5 +8,9 @@ interface IBridgeSettlerActions {
     function SETTLER_SWAP(address token, uint256 amount, address settler, bytes calldata settlerData) external;
 
     /// @dev Bridge through a generic bridge
+    /// @dev Entire balance of token is bridged
     function BRIDGE(address token, address bridge, bytes calldata bridgeData) external;
+
+    /// @dev Move assets from the AllowanceHolder to the BridgeSettler
+    function TAKE(address token, uint256 amount) external;
 }
