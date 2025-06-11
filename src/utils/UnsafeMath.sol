@@ -41,6 +41,12 @@ library UnsafeMath {
         }
     }
 
+    function unsafeAbs(int256 x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mul(or(0x01, sar(0xff, x)), x)
+        }
+    }
+
     function unsafeDiv(uint256 numerator, uint256 denominator) internal pure returns (uint256 quotient) {
         assembly ("memory-safe") {
             quotient := div(numerator, denominator)
