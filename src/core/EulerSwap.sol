@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {CurveLib} from "./EulerSwapBUSL.sol";
 
 interface IEulerSwap {
     /// @dev Immutable pool parameters. Passed to the instance via proxy trailing data.
@@ -126,13 +127,13 @@ abstract contract EulerSwap is SettlerAbstract {
     using ParamsLib for ParamsLib.Params;
     using ParamsLib for IEulerSwap;
 
+    error SwapLimitExceeded();
+
     function findCurvePoint(IEulerSwap eulerSwap, uint256 amount, bool exactIn, bool asset0IsInput)
         internal
         view
         returns (uint256 output)
     {
-        CtxLib.Storage storage s = CtxLib.getStorage();
-
         ParamsLib.Params p = eulerSwap.getParams();
         uint256 px = p.priceX();
         uint256 py = p.priceY();
@@ -174,7 +175,9 @@ abstract contract EulerSwap is SettlerAbstract {
             // exact out
             if (asset0IsInput) {
                 // swap Y out and X in
-                require(reserve1 > amount, SwapLimitExceeded());
+                if (reserve1 <= amount) {
+                    revert SwapLimitExceeded();
+                }
                 yNew = reserve1 - amount;
                 if (yNew <= y0) {
                     // remain on g()
@@ -186,7 +189,9 @@ abstract contract EulerSwap is SettlerAbstract {
                 output = xNew > reserve0 ? xNew - reserve0 : 0;
             } else {
                 // swap X out and Y in
-                require(reserve0 > amount, SwapLimitExceeded());
+                if (reserve0 <= amount) {
+                    revert SwapLimitExceeded();
+                }
                 xNew = reserve0 - amount;
                 if (xNew <= x0) {
                     // remain on f()
