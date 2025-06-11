@@ -216,7 +216,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     // This assembly block simply ABIDecodes `proof` as the second element of the
                     // encoded anonymous struct `(owner, proof)`. It omits range and overflow
                     // checking.
-                    //     (, proof = abi.decode(signature, (address, bytes32[]));
+                    //     (, proof) = abi.decode(signature, (address, bytes32[]));
                     proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
@@ -537,12 +537,14 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     }
 
     receive() external payable onlyProxy {
-        IWrappedNative wnative = _WNATIVE;
-        assembly ("memory-safe") {
-            if iszero(call(gas(), wnative, callvalue(), 0x00, 0x00, 0x00, 0x00)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+        if (msg.sender != address(_WNATIVE)) {
+            IWrappedNative wnative = _WNATIVE;
+            assembly ("memory-safe") {
+                if iszero(call(gas(), wnative, callvalue(), 0x00, 0x00, 0x00, 0x00)) {
+                    let ptr := mload(0x40)
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
+                }
             }
         }
     }
