@@ -130,9 +130,7 @@ abstract contract EulerSwap is SettlerAbstract {
     using ParamsLib for ParamsLib.Params;
     using ParamsLib for IEulerSwap;
 
-    error SwapLimitExceeded();
-
-    function findCurvePoint(IEulerSwap eulerSwap, uint112 amount, bool asset0IsInput)
+    function findCurvePoint(IEulerSwap eulerSwap, uint112 amount, bool zeroForOne)
         internal
         view
         returns (uint256)
@@ -146,9 +144,10 @@ abstract contract EulerSwap is SettlerAbstract {
         (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
 
         unchecked {
-            if (asset0IsInput) {
+            uint256 amount_ = amount - (uint256(amount) * fee / 1e18)
+            if (zeroForOne) {
                 // swap X in and Y out
-                uint256 xNew = reserve0 + uint256(amount) - (uint256(amount) * fee / 1e18);
+                uint256 xNew = reserve0 + amount;
                 uint256 yNew;
                 if (xNew <= x0) {
                     // remain on f()
@@ -161,7 +160,7 @@ abstract contract EulerSwap is SettlerAbstract {
             } else {
                 // swap Y in and X out
                 uint256 xNew;
-                uint256 yNew = reserve1 + uint256(amount) - (uint256(amount) * fee / 1e18);
+                uint256 yNew = reserve1 + amount;
                 if (yNew <= y0) {
                     // remain on g()
                     xNew = CurveLib.f(yNew, py, px, y0, x0, p.concentrationY());
