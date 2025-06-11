@@ -522,5 +522,14 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    receive() external payable onlyProxy {}
+    receive() external payable onlyProxy {
+        IWrappedNative wnative = _WNATIVE;
+        assembly ("memory-safe") {
+            if iszero(call(gas(), wnative, callvalue(), 0x00, 0x00, 0x00, 0x00)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
+    }
 }
