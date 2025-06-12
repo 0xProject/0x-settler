@@ -51,8 +51,13 @@ abstract contract BridgeSettlerBase is SettlerAbstract {
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
         if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
             (address token, uint256 amount, address settler, bytes memory settlerData) = abi.decode(data, (address, uint256, address, bytes));
-            
+            // Swaps are going to be directed to Settler, so `settler` must be an active settler
             _requireValidSettler(settler);
+            // To effectively do a swap we need to make funds accessible to Settler
+            // It is not possible to call it directly as the taker is going to be the BridgeSettler
+            // instead of the user, so, user assets needs to be pulled to BridgeSettler before
+            // attempting to do this swap.
+            // Security risks are inherited from Settler
             IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
             ALLOWANCE_HOLDER.exec(
                 settler,
