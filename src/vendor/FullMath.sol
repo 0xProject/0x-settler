@@ -164,7 +164,6 @@ library FullMath {
         return _mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(0 < remainder);
     }
 
-
     /// @notice Calculates a×b÷denominator with full precision then rounds towards positive infinity. Overflowing a uint256 or denominator == 0 are GIGO errors
     /// @param a The multiplicand
     /// @param b The multiplier
@@ -174,5 +173,14 @@ library FullMath {
     function unsafeMulDivUpAlt(uint256 a, uint256 b, uint256 denominator) internal pure returns (uint256) {
         (uint256 prod0, uint256 prod1, uint256 remainder) = _mulDivSetup(a, b, denominator);
         return _mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(0 < remainder);
+    }
+
+    function unsafeMulShift(uint256 a, uint256 b, uint256 s) internal pure returns (uint256 result) {
+        assembly ("memory-safe") {
+            let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let prod0 := mul(a, b)
+            let prod1 := sub(sub(mm, prod0), lt(mm, prod0))
+            result := or(shr(s, prod0), shl(sub(0x100, s), prod1))
+        }
     }
 }
