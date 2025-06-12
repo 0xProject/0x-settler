@@ -33,7 +33,7 @@ abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbst
         else if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
             (address token, uint256 amount, address settler, bytes memory settlerData) = abi.decode(data, (address, uint256, address, bytes));
             
-            IERC20(token).approve(address(ALLOWANCE_HOLDER), amount);
+            IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
             ALLOWANCE_HOLDER.exec(
                 settler,
                 token,
@@ -45,7 +45,7 @@ abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbst
             (address token, address bridge, bytes memory bridgeData) = abi.decode(data, (address, address, bytes));
 
             uint256 balance = IERC20(token).fastBalanceOf(address(this));
-            IERC20(token).approve(bridge, balance);
+            IERC20(token).safeApproveIfBelow(bridge, balance);
             (bool success, ) = bridge.call(bridgeData);
             if (!success) return false;
         } else {
