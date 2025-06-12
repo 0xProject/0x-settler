@@ -21,6 +21,7 @@ abstract contract BridgeSettler is IBridgeSettlerTakerSubmitted, Permit2PaymentT
     using UnsafeMath for uint256;
 
     function _tokenId() internal pure override returns (uint256) {
+        // TODO: Add this number to the README
         return 5;
     }
 

@@ -21,7 +21,7 @@ abstract contract BridgeSettlerBase is SettlerAbstract {
     event GitCommit(bytes20 indexed);
 
     IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER);
-    uint128 internal constant _SETTLER_TOKENID = 2;
+    uint128 internal constant _SETTLER_TAKER_SUBMITTED_TOKENID = 2;
 
     // TODO: Create script to deploy Bridge settler
     constructor(bytes20 gitCommit) {
@@ -37,8 +37,8 @@ abstract contract BridgeSettlerBase is SettlerAbstract {
         // Any revert in `ownerOf` or `prev` will be bubbled. Any error in ABIDecoding the result
         // will result in a revert without a reason string.
         if (
-            _DEPLOYER.fastOwnerOf(_SETTLER_TOKENID) != settler
-                && _DEPLOYER.fastPrev(_SETTLER_TOKENID) != settler
+            _DEPLOYER.fastOwnerOf(_SETTLER_TAKER_SUBMITTED_TOKENID) != settler
+                && _DEPLOYER.fastPrev(_SETTLER_TAKER_SUBMITTED_TOKENID) != settler
         ) {
             assembly ("memory-safe") {
                 mstore(0x14, settler)
