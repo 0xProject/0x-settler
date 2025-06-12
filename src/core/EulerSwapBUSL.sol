@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
-// The contents of this file were provided to ZeroEx Inc. by Euler Labs
-// Ltd. under an exception to the original license terms (BUSL with no
+// The contents of this file were provided to ZeroEx Inc. by Euler Labs Ltd. on
+// 12 June 2025 under an exception to the original license terms (BUSL with no
 // additional use grant, change date 2030-05-14, change license GPLv2) for the
 // specific purpose of integration into 0x Settler smart contracts for
 // deployment to Ethereum mainnet to implement gas-optimized settlement against
