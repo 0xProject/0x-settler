@@ -13,6 +13,9 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {DAI, USDC} from "src/core/MakerPSM.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {Utils} from "./Utils.sol";
+import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
+import {IERC721View} from "src/deployer/IDeployer.sol";
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}
@@ -24,7 +27,7 @@ contract BridgeDummy {
     }
 }
 
-contract BridgeSettlerTest is Test {
+contract BridgeSettlerTest is Utils, Test {
     BridgeSettler bridgeSettler;
     ISettlerTakerSubmitted settler;
     IERC20 token;
@@ -78,8 +81,18 @@ contract BridgeSettlerTest is Test {
         bytes[] memory bridgeActions = new bytes[](3);
         // Take the assets from the BridgeSettler
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TAKE,
-            (address(token), 1000)
+            IBridgeSettlerActions.TRANSFER_FROM, (
+                address(bridgeSettler),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({
+                        token: address(token),
+                        amount: 1000
+                    }),
+                    nonce: 0,
+                    deadline: block.timestamp
+                }),
+                bytes("")
+            )
         );
         // Do a swap (that just takes and returns the assets)
         bridgeActions[1] = abi.encodeCall(
@@ -116,6 +129,11 @@ contract BridgeSettlerTest is Test {
         token.approve(address(ALLOWANCE_HOLDER), type(uint256).max);
         deal(address(token), user, 1000);
 
+        _mockExpectCall(
+            address(DEPLOYER),
+            abi.encodeCall(IERC721View.ownerOf, (2)), 
+            abi.encode(address(settler))
+        );
         vm.prank(user);
         ALLOWANCE_HOLDER.exec(
             address(bridgeSettler), 

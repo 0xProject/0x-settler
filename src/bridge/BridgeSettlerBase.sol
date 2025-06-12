@@ -5,17 +5,23 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "../IERC721Owner.sol";
 import {DEPLOYER} from "../deployer/DeployerAddress.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {BridgeSettlerAbstract} from "./BridgeSettlerAbstract.sol";
 import {IBridgeSettlerActions} from "./IBridgeSettlerActions.sol";
 import {ALLOWANCE_HOLDER} from "../allowanceholder/IAllowanceHolder.sol";
-import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
 import {Revert} from "../utils/Revert.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {uint512} from "../utils/512Math.sol";
+import {IDeployer} from "../deployer/IDeployer.sol";
+import {FastDeployer} from "../deployer/FastDeployer.sol";
 
-abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbstract {
+abstract contract BridgeSettlerBase is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using Revert for bool;
+    using FastDeployer for IDeployer;
 
     event GitCommit(bytes20 indexed);
+
+    IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER);
+    uint128 internal constant _SETTLER_TOKENID = 2;
 
     // TODO: Create script to deploy Bridge settler
     constructor(bytes20 gitCommit) {
@@ -27,14 +33,26 @@ abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbst
         }
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
-        if (action == uint32(IBridgeSettlerActions.TAKE.selector)) {
-            (address token, uint256 amount) = abi.decode(data, (address, uint256));
-            ALLOWANCE_HOLDER.transferFrom(token, _msgSender(), address(this), amount);
+    function _requireValidSettler(address settler) private view {
+        // Any revert in `ownerOf` or `prev` will be bubbled. Any error in ABIDecoding the result
+        // will result in a revert without a reason string.
+        if (
+            _DEPLOYER.fastOwnerOf(_SETTLER_TOKENID) != settler
+                && _DEPLOYER.fastPrev(_SETTLER_TOKENID) != settler
+        ) {
+            assembly ("memory-safe") {
+                mstore(0x14, settler)
+                mstore(0x00, 0x7a1cd8fa000000000000000000000000) // selector for `CounterfeitSettler(address)` with `settler`'s padding
+                revert(0x10, 0x24)
+            }
         }
-        else if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
+    }
+
+    function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
+        if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
             (address token, uint256 amount, address settler, bytes memory settlerData) = abi.decode(data, (address, uint256, address, bytes));
             
+            _requireValidSettler(settler);
             IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
             ALLOWANCE_HOLDER.exec(
                 settler,
@@ -54,6 +72,10 @@ abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbst
             return false;
         }
         return true;
+    }
+
+    function _div512to256(uint512 n, uint512 d) internal view virtual override returns (uint256) {
+        return n.div(d);
     }
 
     receive() external payable {}
