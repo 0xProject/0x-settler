@@ -68,15 +68,15 @@ library CurveLib {
 
         unchecked {
             int256 term1 = int256((py * 1e18).unsafeMulDivUp(y - y0, px)); // scale: 1e36
-            int256 term2 = (2 * int256(c) - int256(1e18)) * int256(x0); // scale: 1e36
+            int256 term2 = (int256(c << 1) - int256(1e18)) * int256(x0); // scale: 1e36
             B = (term1 - term2).unsafeDiv(1e18); // scale: 1e18
             C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
-            fourAC = (4 * c).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
+            fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
         }
 
         uint256 absB = uint256(B.unsafeAbs());
         uint256 sqrt;
-        if (absB < 1e36) {
+        if (1e36 > absB) {
             // B^2 can be calculated directly at 1e18 scale without overflowing
             unchecked {
                 uint256 squaredB = absB * absB; // scale: 1e36
