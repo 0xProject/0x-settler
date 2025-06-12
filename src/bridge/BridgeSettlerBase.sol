@@ -9,9 +9,11 @@ import {BridgeSettlerAbstract} from "./BridgeSettlerAbstract.sol";
 import {IBridgeSettlerActions} from "./IBridgeSettlerActions.sol";
 import {ALLOWANCE_HOLDER} from "../allowanceholder/IAllowanceHolder.sol";
 import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
+import {Revert} from "../utils/Revert.sol";
 
 abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbstract {
     using SafeTransferLib for IERC20;
+    using Revert for bool;
 
     event GitCommit(bytes20 indexed);
 
@@ -46,8 +48,8 @@ abstract contract BridgeSettlerBase is AllowanceHolderContext, BridgeSettlerAbst
 
             uint256 balance = IERC20(token).fastBalanceOf(address(this));
             IERC20(token).safeApproveIfBelow(bridge, balance);
-            (bool success, ) = bridge.call(bridgeData);
-            if (!success) return false;
+            (bool success, bytes memory returnData) = bridge.call(bridgeData);
+            success.maybeRevert(returnData);
         } else {
             return false;
         }
