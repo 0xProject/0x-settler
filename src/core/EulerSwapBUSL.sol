@@ -28,8 +28,6 @@ library CurveLib {
     using Clz for uint256;
     using FullMath for uint256;
 
-    error Overflow();
-
     /// @dev EulerSwap curve
     /// @notice Computes the output `y` for a given input `x`.
     /// @param x The input reserve value, constrained to 1 <= x <= x0.
@@ -95,14 +93,15 @@ library CurveLib {
         }
 
         uint256 x;
-        if (B <= 0) {
-            // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
-            x = (absB + sqrt).unsafeMulDivUp(1e18, 2 * c) + 1;
-        } else {
-            // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
-            x = (2 * C).unsafeDivUp(absB + sqrt) + 1;
+        unchecked {
+            x = (
+                B > 0
+                    // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
+                    ? (C << 1).unsafeDivUp(absB + sqrt)
+                    // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
+                    : (absB + sqrt).unsafeMulDivUp(1e18, c << 1)
+            ) + 1;
         }
-
         return (x < x0).ternary(x, x0);
     }
 
