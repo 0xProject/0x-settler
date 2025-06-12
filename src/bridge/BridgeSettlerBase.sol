@@ -69,6 +69,13 @@ abstract contract BridgeSettlerBase is SettlerAbstract {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE.selector)) {
             (address token, address bridge, bytes memory bridgeData) = abi.decode(data, (address, address, bytes));
 
+            if(_isRestrictedTarget(bridge)) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                    revert(0x1c, 0x04)
+                }
+            }
+
             uint256 balance = IERC20(token).fastBalanceOf(address(this));
             IERC20(token).safeApproveIfBelow(bridge, balance);
             (bool success, bytes memory returnData) = bridge.call(bridgeData);
