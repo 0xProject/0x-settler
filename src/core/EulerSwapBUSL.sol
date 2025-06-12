@@ -110,7 +110,7 @@ library CurveLib {
         uint256 bits = x.bitLength();
         // 2^(bits - 128) is how much we need to scale down to prevent overflow when squaring x
         unchecked {
-            return (128 < bits).ternary(bits - 128, 0);
+            return (128 < bits).orZero(bits - 128);
         }
     }
 }
