@@ -27,9 +27,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     using Ternary for bool;
 
     CrossChainReceiverFactory private immutable _cachedThis = this;
-    bytes32 private immutable _factoryWithFF = bytes32(
-        0x0000000000000000000000ff0000000000000000000000000000000000000000
-    ) | bytes32(uint256(uint160(address(this))));
+    uint168 private immutable _factoryWithFF =
+        0xff0000000000000000000000000000000000000000 | uint168(uint160(address(this)));
     bytes32 private immutable _proxyInitHash = keccak256(
         bytes.concat(
             hex"60253d8160093d39f33d3d3d3d363d3d37363d6c",
@@ -433,7 +432,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
     function _verifyDeploymentRootHash(bytes32 root, address originalOwner) internal view returns (bool result) {
         bytes32 initHash = _proxyInitHash;
-        bytes32 factoryWithFF = _factoryWithFF;
+        uint168 factoryWithFF = _factoryWithFF;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
