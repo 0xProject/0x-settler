@@ -431,8 +431,14 @@ abstract contract Ekubo is SettlerAbstract {
 
                 // We have to check for underflow in the sell amount (could create more debt than
                 // we're able to pay)
-                NotePtr sell = state.sell();
-                sell.setAmount(sell.amount() - settledSellAmount.asCredit(sell));
+                {
+                    NotePtr sell = state.sell();
+                    uint256 sellAmountActual = settledSellAmount.asCredit(sell);
+                    if (sellAmountActual > uint256(amountSpecified)) {
+                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                    }
+                    sell.setAmount(sell.amount() - sellAmountActual);
+                }
 
                 // We *DON'T* have to check for overflow in the buy amount because adding an
                 // `int128` to a `uint256`, even repeatedly cannot practically overflow.
