@@ -278,8 +278,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         returns (CrossChainReceiverFactory proxy)
     {
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
-
             // derive the deployment salt from the owner
             mstore(0x14, initialOwner)
             mstore(returndatasize(), root)
@@ -307,9 +305,9 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             mstore(0x14, argument)
             mstore(returndatasize(), selector)
             if iszero(call(gas(), proxy, callvalue(), 0x10, 0x24, codesize(), returndatasize())) {
-                let ptr_ := mload(0x40)
-                returndatacopy(ptr_, 0x00, returndatasize())
-                revert(ptr_, returndatasize())
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
             }
         }
     }
