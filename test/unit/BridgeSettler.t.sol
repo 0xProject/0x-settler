@@ -67,13 +67,13 @@ contract BridgeSettlerTest is Utils, Test {
         // Just send them back to BridgeSettler
         settlerActions[1] = abi.encodeCall(
             ISettlerActions.BASIC, (
-                address(0),
-                0,
                 address(token),
-                0,
+                10_000,
+                address(token),
+                0x24,
                 abi.encodeCall(
                     IERC20.transfer,
-                    (address(bridgeSettler), 1000)
+                    (address(bridgeSettler), 0)
                 )
             )
         );
@@ -115,12 +115,14 @@ contract BridgeSettlerTest is Utils, Test {
         );
         // Bridge the assets to the dummy bridge
         bridgeActions[2] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE, (
+            IBridgeSettlerActions.BASIC, (
                 address(token),
+                10_000,
                 address(bridgeDummy),
+                0x24,
                 abi.encodeCall(
                     BridgeDummy.take,
-                    (address(token), 1000)
+                    (address(token), 0)
                 )
             )
         );

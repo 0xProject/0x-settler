@@ -11,7 +11,7 @@ interface IBridgeSettlerActions {
     /// @dev Execute swaps in Settler
     function SETTLER_SWAP(address token, uint256 amount, address settler, bytes calldata settlerData) external;
 
-    /// @dev Bridge through a generic bridge
-    /// @dev Entire balance of token is bridged
-    function BRIDGE(address token, address bridge, bytes calldata bridgeData) external;
+    /// @dev Bridge through a Bridge that follows the approval, transferFrom(msg.sender) interaction
+    /// Pre-req: Funded
+    function BASIC(address bridgeToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 }

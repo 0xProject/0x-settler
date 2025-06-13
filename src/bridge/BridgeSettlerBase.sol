@@ -8,12 +8,12 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {IBridgeSettlerActions} from "./IBridgeSettlerActions.sol";
 import {ALLOWANCE_HOLDER} from "../allowanceholder/IAllowanceHolder.sol";
 import {Revert} from "../utils/Revert.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {uint512} from "../utils/512Math.sol";
 import {IDeployer} from "../deployer/IDeployer.sol";
 import {FastDeployer} from "../deployer/FastDeployer.sol";
+import {Basic} from "../core/Basic.sol";
 
-abstract contract BridgeSettlerBase is SettlerAbstract {
+abstract contract BridgeSettlerBase is Basic {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -66,20 +66,16 @@ abstract contract BridgeSettlerBase is SettlerAbstract {
                 payable(settler),
                 settlerData
             );
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE.selector)) {
-            (address token, address bridge, bytes memory bridgeData) = abi.decode(data, (address, address, bytes));
+        } else if (action == uint32(IBridgeSettlerActions.BASIC.selector)) {
+            (
+                address bridgeToken, 
+                uint256 bps, 
+                address pool, 
+                uint256 offset, 
+                bytes memory bridgeData
+            ) = abi.decode(data, (address, uint256, address, uint256, bytes));
 
-            if(_isRestrictedTarget(bridge)) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
-                    revert(0x1c, 0x04)
-                }
-            }
-
-            uint256 balance = IERC20(token).fastBalanceOf(address(this));
-            IERC20(token).safeApproveIfBelow(bridge, balance);
-            (bool success, bytes memory returnData) = bridge.call(bridgeData);
-            success.maybeRevert(returnData);
+            basicSellToPool(IERC20(bridgeToken), bps, pool, offset, bridgeData);
         } else {
             return false;
         }
