@@ -95,7 +95,7 @@ library CurveLib {
         uint256 x;
         unchecked {
             x = (
-                B > 0
+                0 < B
                     // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
                     ? (C << 1).unsafeDivUp(absB + sqrt)
                     // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
