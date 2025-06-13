@@ -5,6 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FullMath} from "../vendor/FullMath.sol";
@@ -138,6 +139,7 @@ abstract contract Ekubo is SettlerAbstract {
     using FullMath for uint256;
     using UnsafeMath for int256;
     using CreditDebt for int256;
+    using FastLogic for bool;
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using NotesLib for NotesLib.Note[];
@@ -431,13 +433,14 @@ abstract contract Ekubo is SettlerAbstract {
 
                 // We have to check for underflow in the sell amount (could create more debt than
                 // we're able to pay)
-                {
+                unchecked {
                     NotePtr sell = state.sell();
                     uint256 sellAmountActual = settledSellAmount.asCredit(sell);
-                    if (sellAmountActual > uint256(amountSpecified)) {
+                    uint256 sellCreditBefore = sell.amount();
+                    sell.setAmount(sellCreditBefore - sellAmountActual);
+                    if ((sellAmountActual > uint256(amountSpecified)).or(sellAmountActual > sellCreditBefore)) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    sell.setAmount(sell.amount() - sellAmountActual);
                 }
 
                 // We *DON'T* have to check for overflow in the buy amount because adding an
