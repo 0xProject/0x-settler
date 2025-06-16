@@ -41,6 +41,9 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Optimism
+
 ## 2025-04-25
 
 ### Breaking changes
