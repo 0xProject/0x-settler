@@ -4,13 +4,13 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-contract Relayer {
+contract Relay {
     using SafeTransferLib for IERC20;
 
-    event RelayerAction(); // Graffiti for bridging operations through Relayer
+    event RelayAction(); // Graffiti for bridging operations through Relay
 
-    function bridgeERC20ToRelayer(IERC20 token, address to, bytes32 requestId) internal {
-        emit RelayerAction();
+    function bridgeERC20ToRelay(IERC20 token, address to, bytes32 requestId) internal {
+        emit RelayAction();
 
         uint256 amount = token.fastBalanceOf(address(this));
         assembly ("memory-safe") {
@@ -35,8 +35,8 @@ contract Relayer {
         }
     }
 
-    function bridgeNativeToRelayer(address to, bytes32 requestId) internal {
-        emit RelayerAction();
+    function bridgeNativeToRelay(address to, bytes32 requestId) internal {
+        emit RelayAction();
 
         assembly ("memory-safe") {
             mstore(0x00, requestId)

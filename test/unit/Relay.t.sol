@@ -8,14 +8,14 @@ import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BridgeSettlerTestBase} from "./BridgeSettler.t.sol";
 import {Utils} from "./Utils.sol";
 
-contract RelayerTest is BridgeSettlerTestBase, Utils {
+contract RelayTest is BridgeSettlerTestBase, Utils {
     function testBridgeNative() public {
         address to = makeAddr("to");
         bytes32 requestId = keccak256("requestId - native transfer");
 
         bytes[] memory bridgeActions = new bytes[](1);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAYER, (
+            IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY, (
                 to,
                 requestId
             )
@@ -50,7 +50,7 @@ contract RelayerTest is BridgeSettlerTestBase, Utils {
             )
         );
         bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAYER, (
+            IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY, (
                 address(token),
                 to,
                 requestId
