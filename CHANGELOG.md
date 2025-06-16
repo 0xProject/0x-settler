@@ -41,6 +41,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Configure Safe{Wallet} API on Berachain
+
 ## 2025-06-16
 
 ### Breaking changes
