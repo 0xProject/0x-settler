@@ -39,6 +39,12 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+### Non-breaking changes
+
+## 2025-06-16
+
+### Breaking changes
+
 * `METATXN_RFQ_VIP` action is removed from all chains
 
 ### Non-breaking changes
