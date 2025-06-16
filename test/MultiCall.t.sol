@@ -548,5 +548,13 @@ contract MultiCallTest is Test {
         assertEq(result.length, 1);
         assertTrue(result[0].success);
         assertEq(result[0].data, bytes.concat(bytes20(uint160(address(this)))));
+
+        call_.data = hex"000000";
+
+        result = multicall.multicall(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, bytes.concat(bytes20(uint160(address(multicall)))));
     }
 }
