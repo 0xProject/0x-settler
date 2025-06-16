@@ -14,4 +14,10 @@ interface IBridgeSettlerActions {
     /// @dev Bridge through a Bridge that follows the approval, transferFrom(msg.sender) interaction
     /// Pre-req: Funded
     function BASIC(address bridgeToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
+
+    /// @dev Bridge ERC20 tokens through Relayer
+    function BRIDGE_ERC20_TO_RELAYER(address token, address to, bytes32 requestId) external;
+
+    /// @dev Bridge native tokens through Relayer
+    function BRIDGE_NATIVE_TO_RELAYER(address to, bytes32 requestId) external;
 }
