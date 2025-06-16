@@ -59,7 +59,7 @@ abstract contract MultiCallContext is Context {
                 xor(
                     sender,
                     mul(
-                        xor(calldataload(add(data.offset, sub(data.length, 0x14))), shl(0x60, sender)),
+                        xor(shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14)))), sender),
                         iszero(shl(0x60, xor(MULTICALL_ADDRESS, sender)))
                     )
                 )

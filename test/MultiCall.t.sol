@@ -3,7 +3,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "@forge-std/Test.sol";
 
-import {IMultiCall} from "src/multicall/MultiCallContext.sol";
+import {IMultiCall, MultiCallContext} from "src/multicall/MultiCallContext.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 contract Echo {
@@ -47,6 +47,16 @@ contract Empty {
     }
 }
 
+contract MsgSenderEcho is MultiCallContext {
+    fallback() external payable {
+        address msgSender = _msgSender();
+        assembly ("memory-safe") {
+            mstore(0x00, msgSender)
+            return(0x0c, 0x14)
+        }
+    }
+}
+
 contract MultiCallTest is Test {
     IMultiCall multicall;
     Echo echo;
@@ -54,6 +64,7 @@ contract MultiCallTest is Test {
     Reject reject;
     OOG oog;
     Empty empty;
+    MsgSenderEcho senderEcho;
 
     uint256 internal constant contextdepth = 4;
 
@@ -74,6 +85,7 @@ contract MultiCallTest is Test {
         payable_ = new Payable();
         reject = new Reject();
         oog = new OOG();
+        senderEcho = new MsgSenderEcho();
 
         assembly ("memory-safe") {
             mstore(0x00, 0x60016000f3)
@@ -517,5 +529,24 @@ contract MultiCallTest is Test {
         assertEq(result.length, 1);
         assertTrue(result[0].success);
         assertEq(result[0].data, "");
+    }
+
+    function testMultiCallContext() external {
+        (bool success, bytes memory returndata) = address(senderEcho).call("");
+        assertTrue(success);
+        assertEq(returndata, bytes.concat(bytes20(uint160(address(this)))));
+
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+        IMultiCall.Call memory call_ = calls[0];
+        call_.target = payable(senderEcho);
+        call_.revertPolicy = IMultiCall.RevertPolicy.HALT;
+        call_.value = 0 ether;
+        call_.data = hex"00000000";
+
+        IMultiCall.Result[] memory result = multicall.multicall(calls, contextdepth);
+
+        assertEq(result.length, 1);
+        assertTrue(result[0].success);
+        assertEq(result[0].data, bytes.concat(bytes20(uint160(address(this)))));
     }
 }
