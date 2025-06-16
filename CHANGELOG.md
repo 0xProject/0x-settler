@@ -41,6 +41,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Remove Safe{Wallet} API configuration from Base
+
 ## 2025-06-16
 
 ### Breaking changes
