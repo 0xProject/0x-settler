@@ -358,7 +358,7 @@ abstract contract EulerSwap is SettlerAbstract {
         }
 
         sellToken.safeTransfer(address(eulerSwap), amount);
-        (uint256 amount0Out, uint256 amount1Out) = zeroForOne.maybeSwap(0, amountOut);
+        (uint256 amount0Out, uint256 amount1Out) = zeroForOne.maybeSwap(amountOut, 0);
         eulerSwap.fastSwap(amount0Out, amount1Out, recipient);
     }
 
