@@ -140,9 +140,9 @@ library FastEvault {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            if gt(0x40, returndatasize()) { revert(0x00, 0x00) }
             supplyCap := mload(0x00)
-            borrowCap := mload(0x40)
+            borrowCap := mload(0x20)
+            if or(gt(0x40, returndatasize()), or(shr(0x10, supplyCap), shr(0x10, borrowCap))) { revert(0x00, 0x00) }
         }
     }
 }
