@@ -5,10 +5,10 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
-import {BridgeSettlerTestBase} from "./BridgeSettler.t.sol";
+import {BridgeSettlerUnitTest} from "./BridgeSettler.t.sol";
 import {Utils} from "./Utils.sol";
 
-contract RelayTest is BridgeSettlerTestBase, Utils {
+contract RelayTest is BridgeSettlerUnitTest, Utils {
     function testBridgeNative() public {
         address to = makeAddr("to");
         bytes32 requestId = keccak256("requestId - native transfer");
