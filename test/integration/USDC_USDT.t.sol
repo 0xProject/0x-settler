@@ -35,15 +35,11 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTe
     }
 
     function eulerSwapPool() internal pure override returns (address) {
-        return 0xA6D3fD91CCF4851a2b74AeaDBc64569F2D1d68a8;
+        return 0x47bF727906669E8d06993e8D252912B4B90C28a8;
     }
 
     function eulerSwapBlock() internal pure override returns (uint256) {
-        return 22726751;
-    }
-
-    function eulerSwapAmount() internal pure override returns (uint256) {
-        return 10e6;
+        return 22727039;
     }
 
     function testName() internal pure override returns (string memory) {
