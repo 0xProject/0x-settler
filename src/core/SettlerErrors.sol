@@ -109,3 +109,6 @@ error UnknownPoolManagerId(uint8 poolManagerId);
 /// @notice Thrown when trying to settle against an EulerSwap pool that is either reentrancy locked
 ///         or unactivated (dead).
 error InvalidEulerSwapPoolStatus(uint32);
+
+/// @notice Thrown when the amount-out for settling against an EulerSwap pool exceeds the pool's limits
+error EulerSwapAmountOutTooHigh(uint256 limit, uint256 actual);

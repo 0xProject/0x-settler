@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
-import {InvalidEulerSwapPoolStatus} from "./SettlerErrors.sol";
+import {InvalidEulerSwapPoolStatus, EulerSwapAmountOutTooHigh} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
@@ -185,12 +185,21 @@ abstract contract EulerSwap is SettlerAbstract {
         }
         (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
         if (amount > inLimit) {
-            // TODO:
+            // TODO: maybe just truncate the amount in to the limit?
         }
         uint256 amountOut = findCurvePoint(amount, zeroForOne, p, reserve0, reserve1);
         if (amountOut > outLimit) {
-            // TODO:
+            assembly ("memory-safe") {
+                mstore(0x00, 0xa78258f2) // selector for `EulerSwapAmountOutTooHigh(uint256,uint256)`
+                mstore(0x20, outLimit)
+                mstore(0x40, amountOut)
+                revert(0x1c, 0x44)
+            }
         }
+
+        sellToken.safeTransfer(address(eulerSwap), amount);
+        (uint256 amount0Out, uint256 amount1Out) = zeroForOne.maybeSwap(0, amountOut);
+        eulerSwap.swap(amount0Out, amount1Out, recipient, new bytes(0));
     }
 
     function findCurvePoint(uint112 amount, bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
