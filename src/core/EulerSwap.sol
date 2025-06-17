@@ -18,6 +18,24 @@ interface IEVC {
     function isAccountOperatorAuthorized(address account, address operator) external view returns (bool authorized);
 }
 
+library FastEvc {
+    function fastIsAccountOperatorAuthorized(IEVC evc, address account, address operator) internal view returns (bool authorized) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x40, operator)
+            mstore(0x2c, shl(0x60, account))
+            mstore(0x0c, 0x1647292a000000000000000000000000) // selector for `isAccountOperatorAuthorized(address,address)` with `account`'s padding
+            if iszero(staticcall(gas(), evc, 0x1c, 0x44, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            authorized := mload(0x00)
+            mstore(0x40, ptr)
+        }
+    }
+}
+
 interface IEVault is IERC4626 {
     /// @notice Sum of all outstanding debts, in underlying units (increases as interest is accrued)
     /// @return The total borrows in asset units
@@ -161,6 +179,7 @@ abstract contract EulerSwap is SettlerAbstract {
     using Ternary for bool;
     using ParamsLib for ParamsLib.Params;
     using ParamsLib for IEulerSwap;
+    using FastEvc for IEVC;
 
     IEVC internal constant _EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
@@ -179,7 +198,7 @@ abstract contract EulerSwap is SettlerAbstract {
             // TODO: maybe just abort silently?
             _revertInvalidStatus(status);
         }
-        if (!_EVC.isAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
+        if (!_EVC.fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
             // TODO: maybe just abort silently?
             _revertInvalidStatus(0);
         }
