@@ -42,8 +42,8 @@ interface IEulerSwap {
     /// @dev Immutable pool parameters. Passed to the instance via proxy trailing data.
     struct Params {
         // Entities
-        address vault0;
-        address vault1;
+        IEVault vault0;
+        IEVault vault1;
         address eulerAccount;
         // Curve
         uint112 equilibriumReserve0;
@@ -84,13 +84,13 @@ library ParamsLib {
         }
     }
 
-    function vault0(Params p) internal pure returns (address r) {
+    function vault0(Params p) internal pure returns (IEVault r) {
         assembly ("memory-safe") {
             r := mload(p)
         }
     }
 
-    function vault1(Params p) internal pure returns (address r) {
+    function vault1(Params p) internal pure returns (IEVault r) {
         assembly ("memory-safe") {
             r := mload(add(0x20, p))
         }
@@ -258,33 +258,34 @@ abstract contract EulerSwap is SettlerAbstract {
         outLimit = type(uint112).max;
 
         address eulerAccount = p.eulerAccount();
-        (IEVault vault0, IEVault vault1) = (IEVault(p.vault0()), IEVault(p.vault1()));
+        IEVault vault0 = p.vault0();
+        IEVault vault1 = p.vault1();
         // Supply caps on input
         {
-            IEVault vault = (zeroForOne ? vault0 : vault1);
+            IEVault vault = zeroForOne.ternary(vault0, vault1);
             uint256 maxDeposit = vault.debtOf(eulerAccount) + vault.maxDeposit(eulerAccount);
-            if (maxDeposit < inLimit) inLimit = maxDeposit;
+            inLimit = (maxDeposit < inLimit).ternary(maxDeposit, inLimit);
         }
 
         // Remaining reserves of output
         {
-            uint112 reserveLimit = zeroForOne ? reserve1 : reserve0;
-            if (reserveLimit < outLimit) outLimit = reserveLimit;
+            uint112 reserveLimit = zeroForOne.ternary(reserve1, reserve0);
+            outLimit = (reserveLimit < outLimit).ternary(reserveLimit, outLimit);
         }
 
         // Remaining cash and borrow caps in output
         {
-            IEVault vault = (zeroForOne ? vault1 : vault0);
+            IEVault vault = zeroForOne.ternary(vault1, vault0);
 
             uint256 cash = vault.cash();
-            if (cash < outLimit) outLimit = cash;
+            outLimit = (cash < outLimit).ternary(cash, outLimit);
 
             (, uint16 borrowCap) = vault.caps();
             uint256 maxWithdraw = decodeCap(uint256(borrowCap));
             maxWithdraw = vault.totalBorrows() > maxWithdraw ? 0 : maxWithdraw - vault.totalBorrows();
             if (maxWithdraw < outLimit) {
                 maxWithdraw += vault.convertToAssets(vault.balanceOf(eulerAccount));
-                if (maxWithdraw < outLimit) outLimit = maxWithdraw;
+                outLimit = (maxWithdraw < outLimit).ternary(maxWithdraw, outLimit);
             }
         }
     }
