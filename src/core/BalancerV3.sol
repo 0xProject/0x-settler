@@ -142,7 +142,7 @@ library UnsafeVault {
             mstore(0x00, 0x15afd409000000000000000000000000) // selector for `settle(address,uint256)` with `token`'s padding
 
             if iszero(call(gas(), vault, 0x00, 0x10, 0x44, 0x00, 0x20)) {
-                let ptr := and(0xffffffffffffffffffffffff, mload(0x40))
+                let ptr := and(0xffffff, mload(0x40))
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }

@@ -492,11 +492,11 @@ abstract contract EulerSwap is SettlerAbstract {
     ///      - The upper bits (>> 6) represent the mantissa
     ///      - The formula is: (10^exponent * mantissa) / 100
     /// @param amountCap The compact-format cap value to decode
-    /// @return The actual numerical cap value (type(uint256).max if uncapped)
+    /// @return The actual numerical cap value (type(uint112).max if uncapped)
     /// @custom:security Uses unchecked math for gas optimization as calculations cannot overflow:
     ///                  maximum possible value 10^(2^6-1) * (2^10-1) ≈ 1.023e+66 < 2^256
     function decodeCap(uint256 amountCap) private pure returns (uint256) {
-        if (amountCap == 0) return type(uint256).max;
+        if (amountCap == 0) return type(uint112).max;
 
         unchecked {
             // Cannot overflow because this is less than 2**256:
