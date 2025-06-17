@@ -89,7 +89,7 @@ library CurveLib {
             uint256 twoScale = scale << 1;
             uint256 squaredB = absB.unsafeMulShift(absB, twoScale);
             uint256 discriminant = squaredB + (fourAC >> twoScale);
-            sqrt = discriminant.sqrtUp() << scale;
+            sqrt = discriminant.sqrtUp() << scale; // TODO: there's probably a way to avoid this by keeping everything as a uint512 until we have to sqrt
         }
 
         uint256 x;

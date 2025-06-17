@@ -105,3 +105,7 @@ error NotConverged();
 /// @notice Thrown when the encoded pool manager ID as part of PancakeSwap Infinity fill is not on
 ///         the list of recognized pool managers.
 error UnknownPoolManagerId(uint8 poolManagerId);
+
+/// @notice Thrown when trying to settle against an EulerSwap pool that is either reentrancy locked
+///         or unactivated (dead).
+error InvalidEulerSwapPoolStatus(uint32);

@@ -1,10 +1,42 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
+
+import {InvalidEulerSwapPoolStatus} from "./SettlerErrors.sol";
+
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
 import {Ternary} from "../utils/Ternary.sol";
+
+interface IEVC {
+    /// @notice Returns whether a given operator has been authorized for a given account.
+    /// @param account The address of the account whose operator is being checked.
+    /// @param operator The address of the operator that is being checked.
+    /// @return authorized A boolean value that indicates whether the operator is authorized for the account.
+    function isAccountOperatorAuthorized(address account, address operator) external view returns (bool authorized);
+}
+
+interface IEVault is IERC4626 {
+    /// @notice Sum of all outstanding debts, in underlying units (increases as interest is accrued)
+    /// @return The total borrows in asset units
+    function totalBorrows() external view returns (uint256);
+
+    /// @notice Balance of vault assets as tracked by deposits/withdrawals and borrows/repays
+    /// @return The amount of assets the vault tracks as current direct holdings
+    function cash() external view returns (uint256);
+
+    /// @notice Debt owed by a particular account, in underlying units
+    /// @param account Address to query
+    /// @return The debt of the account in asset units
+    function debtOf(address account) external view returns (uint256);
+
+    /// @notice Retrieves supply and borrow caps in AmountCap format
+    /// @return supplyCap The supply cap in AmountCap format
+    /// @return borrowCap The borrow cap in AmountCap format
+    function caps() external view returns (uint16 supplyCap, uint16 borrowCap);
+}
 
 interface IEulerSwap {
     /// @dev Immutable pool parameters. Passed to the instance via proxy trailing data.
@@ -130,18 +162,47 @@ abstract contract EulerSwap is SettlerAbstract {
     using ParamsLib for ParamsLib.Params;
     using ParamsLib for IEulerSwap;
 
-    function findCurvePoint(IEulerSwap eulerSwap, uint112 amount, bool zeroForOne)
-        internal
-        view
+    IEVC internal constant _EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
+
+    function _revertInvalidStatus(uint32 status) private pure {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x215f0a29) // selector for `InvalidEulerSwapPoolStatus(uint32)`
+            mstore(0x20, and(0xffffffff, status))
+            revert(0x1c, 0x24)
+        }
+    }
+
+    function _foo(IEulerSwap eulerSwap, uint112 amount, bool zeroForOne) internal {
+        ParamsLib.Params p = eulerSwap.getParams();
+        (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.getReserves();
+        if (status != 1) {
+            // TODO: maybe just abort silently?
+            _revertInvalidStatus(status);
+        }
+        if (!_EVC.isAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
+            // TODO: maybe just abort silently?
+            _revertInvalidStatus(0);
+        }
+        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
+        if (amount > inLimit) {
+            // TODO:
+        }
+        uint256 amountOut = findCurvePoint(amount, zeroForOne, p, reserve0, reserve1);
+        if (amountOut > outLimit) {
+            // TODO:
+        }
+    }
+
+    function findCurvePoint(uint112 amount, bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
+        private
+        pure
         returns (uint256)
     {
-        ParamsLib.Params p = eulerSwap.getParams();
         uint256 px = p.priceX();
         uint256 py = p.priceY();
         uint256 x0 = p.equilibriumReserve0();
         uint256 y0 = p.equilibriumReserve1();
         uint256 fee = p.fee();
-        (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
 
         unchecked {
             uint256 amountWithFee = amount - (uint256(amount) * fee / 1e18);
@@ -170,6 +231,72 @@ abstract contract EulerSwap is SettlerAbstract {
                 }
                 return (reserve0 > xNew).ternary(reserve0 - xNew, 0);
             }
+        }
+    }
+
+    /// @notice Calculates the maximum input and output amounts for a swap based on protocol constraints
+    /// @dev Determines limits by checking multiple factors:
+    ///      1. Supply caps and existing debt for the input token
+    ///      2. Available reserves in the EulerSwap for the output token
+    ///      3. Available cash and borrow caps for the output token
+    ///      4. Account balances in the respective vaults
+    /// @param p The EulerSwap params
+    /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
+    /// @return inLimit Maximum amount of input token that can be deposited
+    /// @return outLimit Maximum amount of output token that can be withdrawn
+        function calcLimits(bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1) private view returns (uint256 inLimit, uint256 outLimit) {
+        inLimit = type(uint112).max;
+        outLimit = type(uint112).max;
+
+        address eulerAccount = p.eulerAccount();
+        (IEVault vault0, IEVault vault1) = (IEVault(p.vault0()), IEVault(p.vault1()));
+        // Supply caps on input
+        {
+            IEVault vault = (zeroForOne ? vault0 : vault1);
+            uint256 maxDeposit = vault.debtOf(eulerAccount) + vault.maxDeposit(eulerAccount);
+            if (maxDeposit < inLimit) inLimit = maxDeposit;
+        }
+
+        // Remaining reserves of output
+        {
+            uint112 reserveLimit = zeroForOne ? reserve1 : reserve0;
+            if (reserveLimit < outLimit) outLimit = reserveLimit;
+        }
+
+        // Remaining cash and borrow caps in output
+        {
+            IEVault vault = (zeroForOne ? vault1 : vault0);
+
+            uint256 cash = vault.cash();
+            if (cash < outLimit) outLimit = cash;
+
+            (, uint16 borrowCap) = vault.caps();
+            uint256 maxWithdraw = decodeCap(uint256(borrowCap));
+            maxWithdraw = vault.totalBorrows() > maxWithdraw ? 0 : maxWithdraw - vault.totalBorrows();
+            if (maxWithdraw < outLimit) {
+                maxWithdraw += vault.convertToAssets(vault.balanceOf(eulerAccount));
+                if (maxWithdraw < outLimit) outLimit = maxWithdraw;
+            }
+        }
+    }
+
+    /// @notice Decodes a compact-format cap value to its actual numerical value
+    /// @dev The cap uses a compact-format where:
+    ///      - If amountCap == 0, there's no cap (returns max uint256)
+    ///      - Otherwise, the lower 6 bits represent the exponent (10^exp)
+    ///      - The upper bits (>> 6) represent the mantissa
+    ///      - The formula is: (10^exponent * mantissa) / 100
+    /// @param amountCap The compact-format cap value to decode
+    /// @return The actual numerical cap value (type(uint256).max if uncapped)
+    /// @custom:security Uses unchecked math for gas optimization as calculations cannot overflow:
+    ///                  maximum possible value 10^(2^6-1) * (2^10-1) ≈ 1.023e+66 < 2^256
+    function decodeCap(uint256 amountCap) private pure returns (uint256) {
+        if (amountCap == 0) return type(uint256).max;
+
+        unchecked {
+            // Cannot overflow because this is less than 2**256:
+            //   10**(2**6 - 1) * (2**10 - 1) = 1.023e+66
+            return 10 ** (amountCap & 63) * (amountCap >> 6) / 100;
         }
     }
 
