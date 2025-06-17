@@ -414,7 +414,7 @@ abstract contract EulerSwap is SettlerAbstract {
                     // move to g()
                     yNew = CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
                 }
-                return (reserve1 > yNew).ternary(reserve1 - yNew, 0);
+                return (reserve1 > yNew).orZero(reserve1 - yNew);
             } else {
                 // swap Y in and X out
                 uint256 xNew;
@@ -426,7 +426,7 @@ abstract contract EulerSwap is SettlerAbstract {
                     // move to f()
                     xNew = CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
                 }
-                return (reserve0 > xNew).ternary(reserve0 - xNew, 0);
+                return (reserve0 > xNew).orZero(reserve0 - xNew);
             }
         }
     }
@@ -477,7 +477,7 @@ abstract contract EulerSwap is SettlerAbstract {
             (, uint16 borrowCap) = buyVault.fastCaps();
             uint256 maxWithdraw = decodeCap(uint256(borrowCap));
             uint256 totalBorrows = buyVault.fastTotalBorrows();
-            maxWithdraw = (totalBorrows > maxWithdraw).ternary(0, maxWithdraw - totalBorrows);
+            maxWithdraw = (totalBorrows <= maxWithdraw).orZero(maxWithdraw - totalBorrows);
             if (maxWithdraw < outLimit) {
                 maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(eulerAccount));
                 outLimit = (maxWithdraw < outLimit).ternary(maxWithdraw, outLimit);
