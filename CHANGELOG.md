@@ -39,7 +39,12 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Update Scroll to the Cancun hardfork
+
 ### Non-breaking changes
+
+* Remove Safe{Wallet} API configuration from Base
+* Configure Safe{Wallet} API on Berachain
 
 ## 2025-06-16
 
