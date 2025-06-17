@@ -16,6 +16,12 @@ library Ternary {
         }
     }
 
+    function ternary(bool c, address x, address y) internal pure returns (address r) {
+        assembly ("memory-safe") {
+            r := xor(y, mul(xor(x, y), c))
+        }
+    }
+
     function orZero(bool c, uint256 x) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := mul(x, c)
