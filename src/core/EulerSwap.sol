@@ -6,7 +6,7 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {InvalidEulerSwapPoolStatus, EulerSwapAmountOutTooHigh} from "./SettlerErrors.sol";
+import {InvalidEulerSwapPoolStatus, EulerSwapAmountOutTooHigh, revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
@@ -64,6 +64,19 @@ interface IEVault is IERC4626 {
 }
 
 library FastEvault {
+    function fastAsset(IERC4626 vault) internal view returns (IERC20 asset) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x38d52e0f) // selector for `asset()`
+            if iszero(staticcall(gas(), vault, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            asset := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0xa0, asset)) { revert(0x00, 0x00) }
+        }
+    }
+
     function fastMaxDeposit(IERC4626 vault, address receiver) internal view returns (uint256 maxAssets) {
         assembly ("memory-safe") {
             mstore(0x14, receiver)
@@ -355,6 +368,13 @@ abstract contract EulerSwap is SettlerAbstract {
                 mstore(0x40, amountOut)
                 revert(0x1c, 0x44)
             }
+        }
+        if (amountOut < amountOutMin) {
+            revertTooMuchSlippage(
+                IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
+                amountOutMin,
+                amountOut
+            );
         }
 
         sellToken.safeTransfer(address(eulerSwap), amount);
