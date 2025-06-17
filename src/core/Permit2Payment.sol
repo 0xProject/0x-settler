@@ -334,8 +334,9 @@ abstract contract Permit2Payment is Permit2PaymentBase {
                     0x00
                 )
             ) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
         }
     }
@@ -468,8 +469,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
                 // We don't need to check that Permit2 has code, and it always signals failure by
                 // reverting.
                 if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x124, sigLength), 0x00, 0x00)) {
-                    returndatacopy(ptr, 0x00, returndatasize())
-                    revert(ptr, returndatasize())
+                    let ptr_ := mload(0x40)
+                    returndatacopy(ptr_, 0x00, returndatasize())
+                    revert(ptr_, returndatasize())
                 }
             }
         }
@@ -502,8 +504,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             // value because `AllowanceHolder` always either reverts or returns `true`. We also
             // don't need to check that it has code.
             if iszero(call(gas(), __ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
         }
     }

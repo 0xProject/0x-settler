@@ -38,6 +38,10 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         return bytes32(0);
     }
 
+    function ekuboExtensionConfig() internal view virtual returns (bytes32) {
+        return bytes32(0);
+    }
+
     function ekuboBlockNumber() internal view virtual returns (uint256) {
         return 22239136;
     }
@@ -55,6 +59,10 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
 
     function ekuboFills() internal view virtual returns (bytes memory) {
         return abi.encodePacked(uint16(10_000), bytes1(0x01), address(toToken()), ekuboPoolConfig());
+    }
+
+    function ekuboExtensionFills() internal view virtual returns (bytes memory) {
+        return abi.encodePacked(uint16(42768), bytes1(0x01), address(toToken()), ekuboExtensionConfig());
     }
 
     function ekuboExtraActions(bytes[] memory actions) internal view virtual returns (bytes[] memory) {
@@ -106,6 +114,41 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
 
         vm.startPrank(FROM, FROM);
         snapStartName("settler_ekubo");
+        _settler.execute(allowedSlippage, actions, bytes32(0));
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+    }
+
+    function testEkuboExtension() public skipIf(ekuboExtensionConfig() == bytes32(0)) setEkuboBlock {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
+
+        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        bytes[] memory actions = ekuboExtraActions(
+            ActionDataBuilder.build(
+                abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
+                abi.encodeCall(
+                    ISettlerActions.EKUBO,
+                    (recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, ekuboExtensionFills(), 0)
+                )
+            )
+        );
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
+        Settler _settler = settler;
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_ekuboExtension");
         _settler.execute(allowedSlippage, actions, bytes32(0));
         snapEnd();
         vm.stopPrank();
