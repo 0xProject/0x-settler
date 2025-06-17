@@ -22,7 +22,11 @@ interface IEVC {
 }
 
 library FastEvc {
-    function fastIsAccountOperatorAuthorized(IEVC evc, address account, address operator) internal view returns (bool authorized) {
+    function fastIsAccountOperatorAuthorized(IEVC evc, address account, address operator)
+        internal
+        view
+        returns (bool authorized)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -281,7 +285,9 @@ abstract contract EulerSwap is SettlerAbstract {
         }
     }
 
-    function _foo(address recipient, IERC20 sellToken, IEulerSwap eulerSwap, uint112 amount, bool zeroForOne) internal {
+    function _foo(address recipient, IERC20 sellToken, IEulerSwap eulerSwap, uint112 amount, bool zeroForOne)
+        internal
+    {
         ParamsLib.Params p = eulerSwap.getParams();
         (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.getReserves();
         if (status != 1) {
@@ -362,7 +368,11 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
-        function calcLimits(bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1) private view returns (uint256 inLimit, uint256 outLimit) {
+    function calcLimits(bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
+        private
+        view
+        returns (uint256 inLimit, uint256 outLimit)
+    {
         inLimit = type(uint112).max;
         outLimit = type(uint112).max;
 
@@ -421,5 +431,4 @@ abstract contract EulerSwap is SettlerAbstract {
             return 10 ** (amountCap & 63) * (amountCap >> 6) / 100;
         }
     }
-
 }
