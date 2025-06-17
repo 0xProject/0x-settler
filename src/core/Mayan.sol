@@ -32,9 +32,9 @@ contract Mayan {
             // it is stored at 0x134, so we need to skip size (0x20), selector (0x04) and token (0x20)
             mstore(add(0x178, ptr), amount)
 
-            if iszero(call(gas(), forwarder, 0x0, add(0x10, ptr), add(0x144, size), 0x00, 0x00)) {
+            if iszero(call(gas(), forwarder, 0x00, add(0x10, ptr), add(0x144, size), 0x00, 0x00)) {
                 let ptr_ := mload(0x40)
-                returndatacopy(ptr_, 0x0, returndatasize())
+                returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
         }   
@@ -57,7 +57,7 @@ contract Mayan {
 
             if iszero(call(gas(), forwarder, selfbalance(), add(0x10, ptr), add(0x64, size), 0x00, 0x00)) {
                 let ptr_ := mload(0x40)
-                returndatacopy(ptr_, 0x0, returndatasize())
+                returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
         }
