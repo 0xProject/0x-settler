@@ -33,12 +33,19 @@ contract BridgeSettlerTestBase is Test {
     IERC20 token;
     BridgeDummy bridgeDummy;
 
-    function setUp() public {
+    function setUp() public virtual {
         bridgeSettler = new BridgeSettlerDummy(bytes20(0));
+        bridgeDummy = new BridgeDummy();
+        token = deployMockERC20("Test Token", "TT", 18);
+    }
+}
+
+contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
+    function setUp() public override {
+        super.setUp();
+
         AllowanceHolder ah = new AllowanceHolder();
         vm.etch(address(ALLOWANCE_HOLDER), address(ah).code);
-        token = deployMockERC20("Test Token", "TT", 18);
-        bridgeDummy = new BridgeDummy();
         // Mock DAI and USDC for MainnetSettler to be usable
         vm.etch(address(DAI), address(token).code);
         vm.etch(address(USDC), address(token).code);
@@ -46,7 +53,7 @@ contract BridgeSettlerTestBase is Test {
     }
 }
 
-contract BridgeSettlerTest is BridgeSettlerTestBase, Utils {
+contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
     function testUserFlow() public {
         address user = makeAddr("user");
 
