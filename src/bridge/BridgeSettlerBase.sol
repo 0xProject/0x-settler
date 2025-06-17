@@ -58,7 +58,8 @@ abstract contract BridgeSettlerBase is Basic {
             // It is not possible to call it directly as the taker is going to be the BridgeSettler
             // instead of the user, so, user assets needs to be pulled to BridgeSettler before
             // attempting to do this swap.
-            // Security risks are inherited from Settler
+            // Settler can take over the assets if settlerData starts with TRANSFER_FROM which
+            // can put them at risk if AllowedSlippage is not properly set.
             IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
             ALLOWANCE_HOLDER.exec(
                 settler,
