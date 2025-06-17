@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -30,7 +31,7 @@ import {algebraV4InitHash, IAlgebraCallback} from "../../core/univ3forks/Algebra
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract SonicMixin is FreeMemory, SettlerBase {
+abstract contract SonicMixin is FreeMemory, SettlerBase, EulerSwap {
     constructor() {
         assert(block.chainid == 146 || block.chainid == 31337);
     }
@@ -38,12 +39,23 @@ abstract contract SonicMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override(/* SettlerAbstract, */ SettlerBase)
+        override( /* SettlerAbstract, */ SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IEulerSwap eulerSwap,
+                bool zeroForOne,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+
+            sellToEulerSwap(recipient, sellToken, bps, eulerSwap, zeroForOne, amountOutMin);
         } else {
             return false;
         }
@@ -79,5 +91,9 @@ abstract contract SonicMixin is FreeMemory, SettlerBase {
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+
+    function _EVC() internal pure override returns (IEVC) {
+        return IEVC(0x4860C903f6Ad709c3eDA46D3D502943f184D4315);
     }
 }

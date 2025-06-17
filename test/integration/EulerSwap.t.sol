@@ -9,9 +9,11 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {Settler} from "src/Settler.sol";
 
-import {EVC} from "src/core/EulerSwap.sol";
+import {IEVC} from "src/core/EulerSwap.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+
+IEVC constant EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
 abstract contract EulerSwapTest is AllowanceHolderPairTest {
     function eulerSwapPool() internal view virtual returns (address) {

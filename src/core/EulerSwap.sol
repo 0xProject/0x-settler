@@ -44,8 +44,6 @@ library FastEvc {
     }
 }
 
-IEVC constant EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
-
 interface IEVault is IERC4626 {
     /// @notice Sum of all outstanding debts, in underlying units (increases as interest is accrued)
     /// @return The total borrows in asset units
@@ -337,6 +335,8 @@ abstract contract EulerSwap is SettlerAbstract {
     using FastEvault for IEVault;
     using FastEulerSwap for IEulerSwap;
 
+    function _EVC() internal view virtual returns (IEVC);
+
     function _revertTooMuchSlippage(
         bool zeroForOne,
         ParamsLib.Params p,
@@ -364,7 +364,7 @@ abstract contract EulerSwap is SettlerAbstract {
         }
         (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.fastGetReserves();
         ParamsLib.Params p = eulerSwap.fastGetParams();
-        if ((status != 1).or(!EVC.fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap)))) {
+        if ((status != 1).or(!_EVC().fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap)))) {
             if (amountOutMin != 0) {
                 _revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
             }
