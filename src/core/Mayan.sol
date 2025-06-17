@@ -17,10 +17,11 @@ contract Mayan {
             mcopy(add(0x134, ptr), protocolData, add(0x20, size))
             mstore(add(0x114, ptr), 0x120)
             mstore(add(0xf4, ptr), mayanProtocol)
-            // permit empty data as it is not going to be used
-            // zeroed to save gas
-            codecopy(add(0x54, ptr), codesize(), 0xa0)
-            // end of permit data
+            // permit data is not going to be used as we are approving forwarder.
+            // As it is not used, then we can send anything we have in memory
+            // which is most likely empty but might be dirty. Even if it is dirty,
+            // permit's contents are not even verified so compiler will not complain.
+            // Permit data is 0xa0 bytes long
             mstore(add(0x34, ptr), amount)
             mstore(add(0x14, ptr), token)
             // selector for `forwardERC20(address,uint256,(uint256,uint256,uint8,bytes32,bytes32),address,bytes)` with `token` padding
