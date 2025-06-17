@@ -180,6 +180,41 @@ interface IEulerSwap {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
+library FastEulerSwap {
+    function fastGetReserves(IEulerSwap eulerSwap) internal view returns (uint112 reserve0, uint112 reserve1, uint32 status) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
+            if iszero(staticcall(gas(), eulerSwap, 0x1c, 0x04, 0x00, 0x60)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            reserve0 := mload(0x00)
+            reserve1 := mload(0x20)
+            status := mload(0x40)
+            if or(or(gt(0x60, returndatasize()), shr(0x20, status)), or(shr(0x70, reserve1), shr(0x70, reserve0))) { revert(0x00, 0x00) }
+            mstore(0x40, ptr)
+        }
+    }
+
+    function fastSwap(IEulerSwap eulerSwap, uint256 amount0Out, uint256 amount1Out, address to) internal {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
+            mstore(add(0x20, ptr), amount0Out)
+            mstore(add(0x40, ptr), amount1Out)
+            mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
+            mstore(add(0x80, ptr), 0x80)
+            mstore(add(0xa0, ptr), 0x00)
+            if iszero(call(gas(), eulerSwap, 0x00, add(0x1c, ptr), 0xa4, 0x00, 0x00)) {
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
+            }
+        }
+    }
+}
+
 library ParamsLib {
     // This type is exactly the same as `IEulerSwap.Params`, but memory is managed manually because
     // solc is shit at it.
@@ -274,6 +309,7 @@ abstract contract EulerSwap is SettlerAbstract {
     using ParamsLib for IEulerSwap;
     using FastEvc for IEVC;
     using FastEvault for IEVault;
+    using FastEulerSwap for IEulerSwap;
 
     IEVC internal constant _EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
@@ -289,7 +325,7 @@ abstract contract EulerSwap is SettlerAbstract {
         internal
     {
         ParamsLib.Params p = eulerSwap.getParams();
-        (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.getReserves();
+        (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.fastGetReserves();
         if (status != 1) {
             // TODO: maybe just abort silently?
             _revertInvalidStatus(status);
@@ -314,7 +350,7 @@ abstract contract EulerSwap is SettlerAbstract {
 
         sellToken.safeTransfer(address(eulerSwap), amount);
         (uint256 amount0Out, uint256 amount1Out) = zeroForOne.maybeSwap(0, amountOut);
-        eulerSwap.swap(amount0Out, amount1Out, recipient, new bytes(0));
+        eulerSwap.fastSwap(amount0Out, amount1Out, recipient);
     }
 
     function findCurvePoint(uint112 amount, bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
