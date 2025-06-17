@@ -73,8 +73,15 @@ abstract contract SettlerBasePairTest is BasePairTest {
     }
 
     function _getDefaultFromPermit2() internal returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
+        return _getDefaultFromPermit2(amount());
+    }
+
+    function _getDefaultFromPermit2(uint256 amount_)
+        internal
+        returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
+    {
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+            defaultERC20PermitTransfer(address(fromToken()), amount_, PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
         return (permit, sig);
     }

@@ -6,11 +6,12 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {InvalidEulerSwapPoolStatus, EulerSwapAmountOutTooHigh, revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {EulerSwapAmountOutTooHigh, revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
+import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 interface IEVC {
@@ -42,6 +43,8 @@ library FastEvc {
         }
     }
 }
+
+IEVC constant EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
 interface IEVault is IERC4626 {
     /// @notice Sum of all outstanding debts, in underlying units (increases as interest is accrued)
@@ -324,6 +327,7 @@ library ParamsLib {
 }
 
 abstract contract EulerSwap is SettlerAbstract {
+    using FastLogic for bool;
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using SafeTransferLib for IEVault;
@@ -333,9 +337,12 @@ abstract contract EulerSwap is SettlerAbstract {
     using FastEvault for IEVault;
     using FastEulerSwap for IEulerSwap;
 
-    IEVC internal constant _EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
-
-    function revertTooMuchSlippage(bool zeroForOne, ParamsLib.Params p, uint256 expectedBuyAmount, uint256 actualBuyAmount) private pure {
+    function _revertTooMuchSlippage(
+        bool zeroForOne,
+        ParamsLib.Params p,
+        uint256 expectedBuyAmount,
+        uint256 actualBuyAmount
+    ) private view {
         revertTooMuchSlippage(
             IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
             expectedBuyAmount,
@@ -357,9 +364,9 @@ abstract contract EulerSwap is SettlerAbstract {
         }
         (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.fastGetReserves();
         ParamsLib.Params p = eulerSwap.fastGetParams();
-        if ((status != 1).or(!_EVC.fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap)))) {
+        if ((status != 1).or(!EVC.fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap)))) {
             if (amountOutMin != 0) {
-                revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
+                _revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
             }
             return;
         }
@@ -375,7 +382,7 @@ abstract contract EulerSwap is SettlerAbstract {
             }
         }
         if (amountOut < amountOutMin) {
-            revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
+            _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
         }
 
         sellToken.safeTransfer(address(eulerSwap), sellAmount);

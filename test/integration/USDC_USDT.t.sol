@@ -7,6 +7,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
+import {EulerSwapTest} from "./EulerSwap.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
@@ -15,8 +16,8 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest {
-    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboTest) {
+contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTest {
+    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTest) {
         super.setUp();
     }
 
@@ -31,6 +32,18 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest {
 
     function toTokenWrapped() internal pure override returns (IERC4626) {
         return IERC4626(0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8); // aUSDT
+    }
+
+    function eulerSwapPool() internal pure override returns (address) {
+        return 0xA6D3fD91CCF4851a2b74AeaDBc64569F2D1d68a8;
+    }
+
+    function eulerSwapBlock() internal pure override returns (uint256) {
+        return 22726751;
+    }
+
+    function eulerSwapAmount() internal pure override returns (uint256) {
+        return 10e6;
     }
 
     function testName() internal pure override returns (string memory) {
@@ -52,7 +65,7 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest {
     function uniswapV3Path()
         internal
         pure
-        override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest)
+        override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest, AllowanceHolderPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint8(0), uint24(100), toToken());
