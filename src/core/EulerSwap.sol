@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
+
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {InvalidEulerSwapPoolStatus, EulerSwapAmountOutTooHigh} from "./SettlerErrors.sol";
 
@@ -24,7 +27,7 @@ library FastEvc {
             let ptr := mload(0x40)
 
             mstore(0x40, operator)
-            mstore(0x2c, shl(0x60, account))
+            mstore(0x2c, shl(0x60, account)) // clears `operator`'s padding
             mstore(0x0c, 0x1647292a000000000000000000000000) // selector for `isAccountOperatorAuthorized(address,address)` with `account`'s padding
             if iszero(staticcall(gas(), evc, 0x1c, 0x44, 0x00, 0x20)) {
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -54,6 +57,90 @@ interface IEVault is IERC4626 {
     /// @return supplyCap The supply cap in AmountCap format
     /// @return borrowCap The borrow cap in AmountCap format
     function caps() external view returns (uint16 supplyCap, uint16 borrowCap);
+}
+
+library FastEvault {
+    function fastMaxDeposit(IERC4626 vault, address receiver) internal view returns (uint256 maxAssets) {
+        assembly ("memory-safe") {
+            mstore(0x14, receiver)
+            mstore(0x00, 0x402d267d000000000000000000000000) // selector for `maxDeposit(address)` with `receiver`'s padding
+            if iszero(staticcall(gas(), vault, 0x10, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+            maxAssets := mload(0x00)
+        }
+    }
+
+    function fastConvertToAssets(IERC4626 vault, uint256 shares) internal view returns (uint256 assets) {
+        assembly ("memory-safe") {
+            mstore(0x20, shares)
+            mstore(0x00, 0x07a2d13a) // selector for `convertToAssets(uint256)`
+            if iszero(staticcall(gas(), vault, 0x1c, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+            assets := mload(0x00)
+        }
+    }
+
+    function fastTotalBorrows(IEVault vault) internal view returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x47bd3718) // selector for `totalBorrows()`
+            if iszero(staticcall(gas(), vault, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+            r := mload(0x00)
+        }
+    }
+
+    function fastCash(IEVault vault) internal view returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x961be391) // selector for `cash()`
+            if iszero(staticcall(gas(), vault, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+            r := mload(0x00)
+        }
+    }
+
+    function fastDebtOf(IEVault vault, address account) internal view returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x14, account)
+            mstore(0x00, 0xd283e75f000000000000000000000000) // selector for `debtOf(address)` with `account`'s padding
+            if iszero(staticcall(gas(), vault, 0x10, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+            r := mload(0x00)
+        }
+    }
+
+    function fastCaps(IEVault vault) internal view returns (uint16 supplyCap, uint16 borrowCap) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x18e22d98) // selector for `caps()`
+            if iszero(staticcall(gas(), vault, 0x1c, 0x04, 0x00, 0x40)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x40, returndatasize()) { revert(0x00, 0x00) }
+            supplyCap := mload(0x00)
+            borrowCap := mload(0x40)
+        }
+    }
 }
 
 interface IEulerSwap {
@@ -177,9 +264,12 @@ library ParamsLib {
 
 abstract contract EulerSwap is SettlerAbstract {
     using Ternary for bool;
+    using SafeTransferLib for IERC20;
+    using SafeTransferLib for IEVault;
     using ParamsLib for ParamsLib.Params;
     using ParamsLib for IEulerSwap;
     using FastEvc for IEVC;
+    using FastEvault for IEVault;
 
     IEVC internal constant _EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
@@ -191,7 +281,7 @@ abstract contract EulerSwap is SettlerAbstract {
         }
     }
 
-    function _foo(IEulerSwap eulerSwap, uint112 amount, bool zeroForOne) internal {
+    function _foo(address recipient, IERC20 sellToken, IEulerSwap eulerSwap, uint112 amount, bool zeroForOne) internal {
         ParamsLib.Params p = eulerSwap.getParams();
         (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.getReserves();
         if (status != 1) {
@@ -277,33 +367,36 @@ abstract contract EulerSwap is SettlerAbstract {
         outLimit = type(uint112).max;
 
         address eulerAccount = p.eulerAccount();
-        IEVault vault0 = p.vault0();
-        IEVault vault1 = p.vault1();
+        IEVault sellVault;
+        IEVault buyVault;
+        {
+            (address sellVault_, address buyVault_) = zeroForOne.maybeSwap(address(p.vault1()), address(p.vault0()));
+            sellVault = IEVault(sellVault_);
+            buyVault = IEVault(buyVault_);
+        }
         // Supply caps on input
         {
-            IEVault vault = zeroForOne.ternary(vault0, vault1);
-            uint256 maxDeposit = vault.debtOf(eulerAccount) + vault.maxDeposit(eulerAccount);
+            uint256 maxDeposit = sellVault.fastDebtOf(eulerAccount) + sellVault.fastMaxDeposit(eulerAccount);
             inLimit = (maxDeposit < inLimit).ternary(maxDeposit, inLimit);
         }
 
         // Remaining reserves of output
         {
-            uint112 reserveLimit = zeroForOne.ternary(reserve1, reserve0);
+            uint256 reserveLimit = zeroForOne.ternary(reserve1, reserve0);
             outLimit = (reserveLimit < outLimit).ternary(reserveLimit, outLimit);
         }
 
         // Remaining cash and borrow caps in output
         {
-            IEVault vault = zeroForOne.ternary(vault1, vault0);
-
-            uint256 cash = vault.cash();
+            uint256 cash = buyVault.fastCash();
             outLimit = (cash < outLimit).ternary(cash, outLimit);
 
-            (, uint16 borrowCap) = vault.caps();
+            (, uint16 borrowCap) = buyVault.fastCaps();
             uint256 maxWithdraw = decodeCap(uint256(borrowCap));
-            maxWithdraw = vault.totalBorrows() > maxWithdraw ? 0 : maxWithdraw - vault.totalBorrows();
+            uint256 totalBorrows = buyVault.fastTotalBorrows();
+            maxWithdraw = (totalBorrows > maxWithdraw).ternary(0, maxWithdraw - totalBorrows);
             if (maxWithdraw < outLimit) {
-                maxWithdraw += vault.convertToAssets(vault.balanceOf(eulerAccount));
+                maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(eulerAccount));
                 outLimit = (maxWithdraw < outLimit).ternary(maxWithdraw, outLimit);
             }
         }
