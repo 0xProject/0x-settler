@@ -12,8 +12,9 @@ import {uint512} from "../utils/512Math.sol";
 import {IDeployer} from "../deployer/IDeployer.sol";
 import {FastDeployer} from "../deployer/FastDeployer.sol";
 import {Basic} from "../core/Basic.sol";
+import {Relay} from "../core/Relay.sol";
 
-abstract contract BridgeSettlerBase is Basic {
+abstract contract BridgeSettlerBase is Basic, Relay {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -78,6 +79,12 @@ abstract contract BridgeSettlerBase is Basic {
             ) = abi.decode(data, (address, uint256, address, uint256, bytes));
 
             basicSellToPool(IERC20(bridgeToken), bps, pool, offset, bridgeData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY.selector)) {
+            (address token, address to, bytes32 requestId) = abi.decode(data, (address, address, bytes32));
+            bridgeERC20ToRelay(IERC20(token), to, requestId);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY.selector)) {
+            (address to, bytes32 requestId) = abi.decode(data, (address, bytes32));
+            bridgeNativeToRelay(to, requestId);
         } else {
             return false;
         }

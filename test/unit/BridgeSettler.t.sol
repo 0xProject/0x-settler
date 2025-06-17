@@ -27,7 +27,7 @@ contract BridgeDummy {
     }
 }
 
-contract BridgeSettlerTest is Utils, Test {
+contract BridgeSettlerTestBase is Test {
     BridgeSettler bridgeSettler;
     ISettlerTakerSubmitted settler;
     IERC20 token;
@@ -44,7 +44,9 @@ contract BridgeSettlerTest is Utils, Test {
         vm.etch(address(USDC), address(token).code);
         settler = new MainnetSettler(bytes20(0));
     }
+}
 
+contract BridgeSettlerTest is BridgeSettlerTestBase, Utils {
     function testUserFlow() public {
         address user = makeAddr("user");
 
