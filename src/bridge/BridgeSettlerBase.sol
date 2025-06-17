@@ -19,6 +19,7 @@ abstract contract BridgeSettlerBase is Basic {
     using FastDeployer for IDeployer;
 
     event GitCommit(bytes20 indexed);
+    error CounterfeitSettler(address counterfeitSettler);
 
     IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER);
     uint128 internal constant _SETTLER_TAKER_SUBMITTED_TOKENID = 2;
