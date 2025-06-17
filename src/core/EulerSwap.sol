@@ -335,12 +335,12 @@ abstract contract EulerSwap is SettlerAbstract {
 
     IEVC internal constant _EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
-    function _revertInvalidStatus(uint32 status) private pure {
-        assembly ("memory-safe") {
-            mstore(0x00, 0x215f0a29) // selector for `InvalidEulerSwapPoolStatus(uint32)`
-            mstore(0x20, and(0xffffffff, status))
-            revert(0x1c, 0x24)
-        }
+    function revertTooMuchSlippage(bool zeroForOne, ParamsLib.Params p, uint256 expectedBuyAmount, uint256 actualBuyAmount) private pure {
+        revertTooMuchSlippage(
+            IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
+            expectedBuyAmount,
+            actualBuyAmount
+        );
     }
 
     function sellToEulerSwap(
@@ -356,19 +356,15 @@ abstract contract EulerSwap is SettlerAbstract {
             sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
         }
         (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.fastGetReserves();
-        if (status != 1) {
-            // TODO: maybe just abort silently?
-            _revertInvalidStatus(status);
-        }
         ParamsLib.Params p = eulerSwap.fastGetParams();
-        if (!_EVC.fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
-            // TODO: maybe just abort silently?
-            _revertInvalidStatus(0);
+        if ((status != 1).or(!_EVC.fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap)))) {
+            if (amountOutMin != 0) {
+                revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
+            }
+            return;
         }
         (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
-        if (sellAmount > inLimit) {
-            // TODO: maybe just truncate the sellAmount in to the limit?
-        }
+        sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
         uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
         if (amountOut > outLimit) {
             assembly ("memory-safe") {
@@ -379,11 +375,7 @@ abstract contract EulerSwap is SettlerAbstract {
             }
         }
         if (amountOut < amountOutMin) {
-            revertTooMuchSlippage(
-                IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
-                amountOutMin,
-                amountOut
-            );
+            revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
         }
 
         sellToken.safeTransfer(address(eulerSwap), sellAmount);
