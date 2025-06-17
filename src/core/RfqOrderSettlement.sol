@@ -65,7 +65,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         assert(RFQ_ORDER_TYPEHASH == keccak256(bytes(RFQ_ORDER_TYPE_RECURSIVE)));
     }
 
-    /// @dev Settle an RfqOrder between maker and taker transfering funds directly between the counterparties. Either
+    /// @dev Settle an RfqOrder between maker and taker transferring funds directly between the counterparties. Either
     ///      two Permit2 signatures are consumed, with the maker Permit2 containing a witness of the RfqOrder, or
     ///      AllowanceHolder is supported for the taker payment. The Maker has signed the same order as the
     ///      Taker. Submission may be directly by the taker or via a third party with the Taker signing a witness.
