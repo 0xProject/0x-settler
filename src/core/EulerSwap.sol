@@ -181,7 +181,11 @@ interface IEulerSwap {
 }
 
 library FastEulerSwap {
-    function fastGetReserves(IEulerSwap eulerSwap) internal view returns (uint112 reserve0, uint112 reserve1, uint32 status) {
+    function fastGetReserves(IEulerSwap eulerSwap)
+        internal
+        view
+        returns (uint112 reserve0, uint112 reserve1, uint32 status)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
@@ -192,7 +196,9 @@ library FastEulerSwap {
             reserve0 := mload(0x00)
             reserve1 := mload(0x20)
             status := mload(0x40)
-            if or(or(gt(0x60, returndatasize()), shr(0x20, status)), or(shr(0x70, reserve1), shr(0x70, reserve0))) { revert(0x00, 0x00) }
+            if or(or(gt(0x60, returndatasize()), shr(0x20, status)), or(shr(0x70, reserve1), shr(0x70, reserve0))) {
+                revert(0x00, 0x00)
+            }
             mstore(0x40, ptr)
         }
     }
