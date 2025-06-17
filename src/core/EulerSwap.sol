@@ -167,6 +167,9 @@ interface IEulerSwap {
         address protocolFeeRecipient;
     }
 
+    /// @notice Retrieves the pool's immutable parameters.
+    function getParams() external view returns (Params memory);
+
     /// @notice Retrieves the current reserves from storage, along with the pool's lock status.
     /// @return reserve0 The amount of asset0 in the pool
     /// @return reserve1 The amount of asset1 in the pool
@@ -226,7 +229,7 @@ library ParamsLib {
     // solc is shit at it.
     type Params is uint256;
 
-    function getParams(IEulerSwap eulerSwap) internal view returns (Params p) {
+    function fastGetParams(IEulerSwap eulerSwap) internal view returns (Params p) {
         assembly ("memory-safe") {
             p := mload(0x40)
             mstore(0x40, add(0x180, p))
@@ -330,12 +333,12 @@ abstract contract EulerSwap is SettlerAbstract {
     function _foo(address recipient, IERC20 sellToken, IEulerSwap eulerSwap, uint112 amount, bool zeroForOne)
         internal
     {
-        ParamsLib.Params p = eulerSwap.getParams();
         (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.fastGetReserves();
         if (status != 1) {
             // TODO: maybe just abort silently?
             _revertInvalidStatus(status);
         }
+        ParamsLib.Params p = eulerSwap.fastGetParams();
         if (!_EVC.fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
             // TODO: maybe just abort silently?
             _revertInvalidStatus(0);
