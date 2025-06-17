@@ -343,9 +343,18 @@ abstract contract EulerSwap is SettlerAbstract {
         }
     }
 
-    function _foo(address recipient, IERC20 sellToken, IEulerSwap eulerSwap, uint112 amount, bool zeroForOne)
-        internal
-    {
+    function sellToEulerSwap(
+        address recipient,
+        IERC20 sellToken,
+        uint256 bps,
+        IEulerSwap eulerSwap,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) internal {
+        uint256 sellAmount;
+        unchecked {
+            sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+        }
         (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.fastGetReserves();
         if (status != 1) {
             // TODO: maybe just abort silently?
@@ -357,10 +366,10 @@ abstract contract EulerSwap is SettlerAbstract {
             _revertInvalidStatus(0);
         }
         (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
-        if (amount > inLimit) {
-            // TODO: maybe just truncate the amount in to the limit?
+        if (sellAmount > inLimit) {
+            // TODO: maybe just truncate the sellAmount in to the limit?
         }
-        uint256 amountOut = findCurvePoint(amount, zeroForOne, p, reserve0, reserve1);
+        uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
         if (amountOut > outLimit) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xa78258f2) // selector for `EulerSwapAmountOutTooHigh(uint256,uint256)`
@@ -377,12 +386,12 @@ abstract contract EulerSwap is SettlerAbstract {
             );
         }
 
-        sellToken.safeTransfer(address(eulerSwap), amount);
+        sellToken.safeTransfer(address(eulerSwap), sellAmount);
         (uint256 amount0Out, uint256 amount1Out) = zeroForOne.maybeSwap(amountOut, 0);
         eulerSwap.fastSwap(amount0Out, amount1Out, recipient);
     }
 
-    function findCurvePoint(uint112 amount, bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
+    function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
         private
         pure
         returns (uint256)
