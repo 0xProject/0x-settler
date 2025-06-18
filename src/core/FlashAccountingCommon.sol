@@ -657,7 +657,7 @@ library Decoder {
         if (state.globalSell().tokenIsEth()) {
             assert(payer == address(this));
 
-            uint256 bps;
+            uint16 bps;
             assembly ("memory-safe") {
                 // `data` hasn't been advanced from decoding `sellToken` above. so we have to
                 // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
@@ -674,7 +674,7 @@ library Decoder {
             }
         } else {
             if (payer == address(this)) {
-                uint256 bps;
+                uint16 bps;
                 assembly ("memory-safe") {
                     // `data` hasn't been advanced from decoding `sellToken` above. so we have to
                     // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
