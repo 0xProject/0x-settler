@@ -298,7 +298,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
             // TODO: price limits
             params.sqrtPriceLimitX96 = uint160(
-                zeroForOne.ternary(uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341))
+                (!zeroForOne).ternary(uint160(1461446703485210103287273052203988822378723970341), uint160(4295128740))
             );
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);

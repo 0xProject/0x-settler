@@ -414,7 +414,7 @@ abstract contract Ekubo is SettlerAbstract {
 
             {
                 SqrtRatio sqrtRatio = SqrtRatio.wrap(
-                    uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
+                    uint96((!isToken1).ternary(uint256(4611797791050542631), uint256(79227682466138141934206691491)))
                 );
                 int256 delta0;
                 int256 delta1;
