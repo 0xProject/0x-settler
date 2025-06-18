@@ -148,7 +148,7 @@ abstract contract Ekubo is SettlerAbstract {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
 
     //// How to generate `fills` for Ekubo

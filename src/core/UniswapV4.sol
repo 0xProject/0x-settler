@@ -27,7 +27,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
 
     function _POOL_MANAGER() internal view virtual returns (IPoolManager);

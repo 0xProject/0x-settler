@@ -50,6 +50,7 @@ type NotePtr is uint256;
 /// signature `TokenHashCollision(address,address)`.
 library NotesLib {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// This is the maximum number of tokens that may be involved in an action. Increasing or
     /// decreasing this value requires no other changes elsewhere in this file.
@@ -90,6 +91,12 @@ library NotesLib {
     function token(NotePtr note) internal pure returns (IERC20 r) {
         assembly ("memory-safe") {
             r := mload(add(0x20, note))
+        }
+    }
+
+    function tokenIsEth(NotePtr note) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := eq(ETH_ADDRESS, mload(add(0x20, note)))
         }
     }
 
@@ -491,7 +498,6 @@ library Decoder {
     using NotesLib for NotesLib.Note[];
 
     uint256 internal constant BASIS = 10_000;
-    IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     /// Update `state` for the next fill packed in `data`. This also may allocate/append `Note`s
     /// into `notes`. Returns the suffix of the bytes that are not consumed in the decoding
@@ -660,7 +666,7 @@ library Decoder {
             sig.length := 0x00
         }
 
-        if (state.globalSell().token() == ETH_ADDRESS) {
+        if (state.globalSell().tokenIsEth()) {
             assert(payer == address(this));
 
             uint16 bps;

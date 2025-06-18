@@ -232,7 +232,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
         assert(block.chainid == 56 || block.chainid == 31337);
     }
 

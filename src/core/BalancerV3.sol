@@ -251,7 +251,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
 
     //// How to generate `fills` for BalancerV3:
