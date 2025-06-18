@@ -411,7 +411,7 @@ library Encoder {
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0x6f, pathLen))
             mstore(add(0x24, data), 0x20)
-            mstore(add(0x04, data), and(0xffffffff, unlockSelector))
+            mstore(add(0x04, data), unlockSelector)
             mstore(data, add(0xb3, pathLen))
             mstore8(add(0xa8, data), feeOnTransfer)
 
@@ -471,7 +471,7 @@ library Encoder {
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0xd1, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
-            mstore(add(0x04, data), and(0xffffffff, unlockSelector))
+            mstore(add(0x04, data), unlockSelector)
             mstore(data, add(0x115, add(pathLen, sigLen)))
 
             mstore8(add(0xa8, data), feeOnTransfer)
