@@ -146,7 +146,8 @@ library FastEvault {
         }
     }
 
-    function fastCaps(IEVault vault) internal view returns (uint16 supplyCap, uint16 borrowCap) {
+    // Caps are returned as `uint256` for efficiency, but they are checked to ensure that they do not overflow a `uint16`.
+    function fastCaps(IEVault vault) internal view returns (uint256 supplyCap, uint256 borrowCap) {
         assembly ("memory-safe") {
             mstore(0x00, 0x18e22d98) // selector for `caps()`
             if iszero(staticcall(gas(), vault, 0x1c, 0x04, 0x00, 0x40)) {
@@ -198,7 +199,8 @@ interface IEulerSwap {
 }
 
 library FastEulerSwap {
-    function fastGetReserves(IEulerSwap eulerSwap) internal view returns (uint112 reserve0, uint112 reserve1) {
+    // Reserves are returned as `uint256` for efficiency, but they are checked to ensure that they do not overflow a `uint112`.
+    function fastGetReserves(IEulerSwap eulerSwap) internal view returns (uint256 reserve0, uint256 reserve1) {
         assembly ("memory-safe") {
             mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
             if iszero(staticcall(gas(), eulerSwap, 0x1c, 0x04, 0x00, 0x40)) {
@@ -267,13 +269,15 @@ library ParamsLib {
         }
     }
 
-    function equilibriumReserve0(Params p) internal pure returns (uint112 r) {
+    // The result is a `uint256` for efficiency. EulerSwap's ABI states that this is a `uint112`. Overflow is not checked.
+    function equilibriumReserve0(Params p) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := mload(add(0x60, p))
         }
     }
 
-    function equilibriumReserve1(Params p) internal pure returns (uint112 r) {
+    // The result is a `uint256` for efficiency. EulerSwap's ABI states that this is a `uint112`. Overflow is not checked.
+    function equilibriumReserve1(Params p) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := mload(add(0x80, p))
         }
@@ -416,7 +420,7 @@ abstract contract EulerSwap is SettlerAbstract {
         uint256 y0 = p.equilibriumReserve1();
 
         unchecked {
-            uint256 amountWithFee = amount - (uint256(amount) * p.fee() / 1e18);
+            uint256 amountWithFee = amount - (amount * p.fee() / 1e18);
             if (zeroForOne) {
                 // swap X in and Y out
                 uint256 xNew = reserve0 + amountWithFee;
@@ -474,8 +478,8 @@ abstract contract EulerSwap is SettlerAbstract {
             uint256 cash = buyVault.fastCash();
             outLimit = (cash < outLimit).ternary(cash, outLimit);
 
-            (, uint16 borrowCap) = buyVault.fastCaps();
-            uint256 maxWithdraw = decodeCap(uint256(borrowCap)).saturatingSub(buyVault.fastTotalBorrows());
+            (, uint256 borrowCap) = buyVault.fastCaps();
+            uint256 maxWithdraw = decodeCap(borrowCap).saturatingSub(buyVault.fastTotalBorrows());
             if (maxWithdraw < outLimit) {
                 unchecked {
                     maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(ownerAccount));
