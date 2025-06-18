@@ -37,7 +37,6 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     }
 
     address private constant _SENTINEL_SOLVER = 0x0000000000000000000000000000000000000001;
-    address private constant _ADDRESS_MASK = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
 
     constructor() {
         assert(_SOLVER_LIST_BASE_SLOT == bytes32(uint256(uint128(uint256(keccak256("SettlerIntentSolverList")) - 1))));
@@ -131,8 +130,8 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         */
         assembly ("memory-safe") {
             // Clean dirty bits.
-            prev := and(_ADDRESS_MASK, prev)
-            solver := and(_ADDRESS_MASK, solver)
+            prev := shr(0x60, shl(0x60, prev))
+            solver := shr(0x60, shl(0x60, solver))
 
             // A solver of zero is special-cased. It is forbidden to set it because that would
             // corrupt the list.
@@ -142,7 +141,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             mstore(0x00, solver)
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
             let solverSlot := keccak256(0x00, 0x40)
-            let solverSlotValue := and(_ADDRESS_MASK, sload(solverSlot))
+            let solverSlotValue := shr(0x60, shl(0x60, sload(solverSlot)))
 
             // If the slot contains zero, `addNotRemove` must be true (we are adding a new
             // solver). Likewise if the slot contains nonzero, `addNotRemove` must be false (we are
@@ -163,7 +162,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // new solver, then `prev` must be the last element of the list (it points at
             // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
             // `solver.
-            fail := or(xor(and(_ADDRESS_MASK, sload(prevSlot)), expectedPrevSlotValue), fail)
+                fail := or(shl(0x60, xor(sload(prevSlot), expectedPrevSlotValue)), fail)
 
             // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
             // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at
@@ -207,10 +206,10 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
                 let i := start
                 for {
                     mstore(0x20, _SOLVER_LIST_BASE_SLOT)
-                    let x := and(_ADDRESS_MASK, sload(_SOLVER_LIST_START_SLOT))
+                    let x := shr(0x60, shl(0x60, sload(_SOLVER_LIST_START_SLOT)))
                 } xor(_SENTINEL_SOLVER, x) {
                     i := add(0x20, i)
-                    x := and(_ADDRESS_MASK, sload(keccak256(0x00, 0x40)))
+                    x := shr(0x60, shl(0x60, sload(keccak256(0x00, 0x40))))
                 } {
                     mstore(i, x)
                     mstore(0x00, x)
