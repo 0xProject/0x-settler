@@ -37,7 +37,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     address private constant _SENTINEL_SOLVER = 0x0000000000000000000000000000000000000001;
 
     constructor() {
-        assert(_SOLVER_LIST_BASE_SLOT == bytes32(uint256(uint128(uint256(keccak256("SettlerIntentSolverList")) - 1))));
+        assert(_SOLVER_LIST_BASE_SLOT == bytes32(uint256(uint96(uint256(keccak256("SettlerIntentSolverList")) - 1))));
         _$()[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
