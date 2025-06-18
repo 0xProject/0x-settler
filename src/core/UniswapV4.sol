@@ -6,7 +6,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 

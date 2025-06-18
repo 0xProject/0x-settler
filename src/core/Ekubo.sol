@@ -197,9 +197,6 @@ abstract contract Ekubo is SettlerAbstract {
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         bytes memory data = Encoder.encode(
             uint32(IEkuboCore.lock.selector),
             recipient,
