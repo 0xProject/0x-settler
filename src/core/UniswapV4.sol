@@ -276,7 +276,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         IPoolManager.PoolKey memory key;
         IPoolManager.SwapParams memory params;
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps;
+            uint256 bps;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
 

@@ -361,7 +361,7 @@ abstract contract Ekubo is SettlerAbstract {
         PoolKey memory poolKey;
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps;
+            uint256 bps;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
 
