@@ -561,7 +561,8 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
-        pure
+        view
+        virtual
         override
         returns (uint256)
     {
@@ -570,7 +571,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        pure
+        view
         virtual
         override
         returns (uint256)
@@ -639,7 +640,56 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 }
 
 abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
+    using FullMath for uint256;
+    using SafeTransferLib for IERC20;
+
     function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
         return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
+    }
+
+    bytes32 private constant _BRIDGE_WALLET_CODEHASH = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff; // TODO
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = super._permitToSellAmountCalldata(permit);
+        if (sellAmount > type(uint256).max - BASIS) {
+            if (_msgSender().codehash != _BRIDGE_WALLET_CODEHASH) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                    revert(0x1c, 0x04)
+                }
+            }
+            unchecked {
+                sellAmount -= type(uint256).max - BASIS;
+            }
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+        }
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = super._permitToSellAmount(permit);
+        if (sellAmount > type(uint256).max - BASIS) {
+            if (_msgSender().codehash != _BRIDGE_WALLET_CODEHASH) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                    revert(0x1c, 0x04)
+                }
+            }
+            unchecked {
+                sellAmount -= type(uint256).max - BASIS;
+            }
+            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
+        }
     }
 }

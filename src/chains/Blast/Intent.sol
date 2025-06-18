@@ -86,9 +86,18 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
         return super._dispatchVIP(action, data, sig);
     }
 
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
+    }
+
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        pure
+        view
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
