@@ -480,7 +480,7 @@ abstract contract EulerSwap is SettlerAbstract {
                 unchecked {
                     maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(ownerAccount));
                 }
-                outLimit = (maxWithdraw < outLimit).ternary(maxWithdraw, outLimit);
+                outLimit = (maxWithdraw >= outLimit).ternary(outLimit, maxWithdraw);
             }
         }
 
