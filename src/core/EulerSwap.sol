@@ -378,10 +378,8 @@ abstract contract EulerSwap is SettlerAbstract {
         if (bps != 0) {
             unchecked {
                 sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
-                sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
             }
-        }
-        if (sellAmount != 0) {
+            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
             sellToken.safeTransfer(address(eulerSwap), sellAmount);
         }
         if (sellAmount == 0) {
