@@ -49,7 +49,6 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         */
         address deployer_ = DEPLOYER;
         uint256 tokenId_ = _tokenId();
-        uint40 expiry;
         assembly ("memory-safe") {
             // We lay out the calldata in memory in the first 2 slots. The first slot is the
             // selector, but aligned incorrectly (this significantly saves on contract size). The
@@ -72,9 +71,11 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // Load the return values that were automatically written into the first 2 slots of
             // memory.
             owner_ := mload(0x00)
-            expiry := mload(0x20)
+            let expiry := mload(0x20)
 
-            // If there are any dirty bits in the return values, revert with an empty reason. Likewise, if `expiry` has elapsed, there is no owner; revert with an empty reason.
+            // If there are any dirty bits in the return values, revert with an empty
+            // reason. Likewise, if `expiry` has elapsed, there is no owner; revert with an empty
+            // reason.
             if or(gt(timestamp(), expiry), or(shr(0xa0, owner_), shr(0x28, expiry))) { revert(0x00, 0x00) }
         }
     }
@@ -82,8 +83,10 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     modifier onlyOwner() {
         // Check that the caller (in this case `_operator()`, because we aren't using the special
         // transient-storage taker logic) is the owner.
-        if (_operator() != owner()) {
-            assembly ("memory-safe") {
+        address operator = _operator();
+        address owner_ = owner();
+        assembly ("memory-safe") {
+            if shl(0x60, xor(operator, owner_)) {
                 mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
                 revert(0x1c, 0x04)
             }
@@ -92,8 +95,11 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     }
 
     modifier onlySolver() {
-        if (_$()[_operator()] == address(0)) {
-            assembly ("memory-safe") {
+        address operator = _operator();
+        assembly ("memory-safe") {
+            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
+            mstore(0x20, _SOLVER_LIST_BASE_SLOT)
+            if iszero(shl(0x60, sload(keccak256(0x00, 0x40)))) {
                 mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
                 revert(0x1c, 0x04)
             }
