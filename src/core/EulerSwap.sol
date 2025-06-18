@@ -6,11 +6,12 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {EulerSwapAmountOutTooHigh, revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {EulerSwapAmountTooHigh, revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
+import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 interface IEVC {
@@ -322,6 +323,7 @@ library ParamsLib {
 }
 
 abstract contract EulerSwap is SettlerAbstract {
+    using FastLogic for bool;
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using SafeTransferLib for IEVault;
@@ -333,6 +335,10 @@ abstract contract EulerSwap is SettlerAbstract {
 
     function _EVC() internal view virtual returns (IEVC);
 
+    function _getToken(bool zeroForOne, ParamsLib.Params p) private view returns (IERC20) {
+        return IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset();
+    }
+
     function _revertTooMuchSlippage(
         bool zeroForOne,
         ParamsLib.Params p,
@@ -340,7 +346,7 @@ abstract contract EulerSwap is SettlerAbstract {
         uint256 actualBuyAmount
     ) private view {
         revertTooMuchSlippage(
-            IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
+            _getToken(zeroForOne, p),
             expectedBuyAmount,
             actualBuyAmount
         );
@@ -354,34 +360,53 @@ abstract contract EulerSwap is SettlerAbstract {
         bool zeroForOne,
         uint256 amountOutMin
     ) internal {
-        uint256 sellAmount;
-        unchecked {
-            sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
-        }
-        (uint112 reserve0, uint112 reserve1) = eulerSwap.fastGetReserves();
         ParamsLib.Params p = eulerSwap.fastGetParams();
+        (uint112 reserve0, uint112 reserve1) = eulerSwap.fastGetReserves();
+        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
         if (!_EVC().fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
             if (amountOutMin != 0) {
                 _revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
             }
             return;
         }
-        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
-        sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
+
+        uint256 sellAmount;
+        if (bps != 0) {
+            unchecked {
+                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+            }
+        }
+        if (sellAmount != 0) {
+            sellToken.safeTransfer(address(eulerSwap), sellAmount);
+        }
+        if (sellAmount == 0) {
+            sellAmount = sellToken.fastBalanceOf(address(eulerSwap));
+        } else {
+            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
+        }
+
         uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
-        if (amountOut > outLimit) {
+        if ((amountOut > outLimit).or(sellAmount > inLimit)) {
+            // if zeroforone is true and the limit being violated is the amount out, then the token being violated is one
+            // if zeroforone is false and the limit being violated is the amount out, then the token being violated is zero
+            // if zeroforone is true and the limit being violated is the amount in, then the token being violated is zero
+            // if zeroforone is false and the limit being violated is the amount in, then the token being violated is one
+            bool c = amountOut > outLimit;
+            IERC20 token = _getToken(zeroForOne == c, p);
+            uint256 limit = c.ternary(outLimit, inLimit);
+            uint256 actual = c.ternary(amountOut, sellAmount);
             assembly ("memory-safe") {
-                mstore(0x00, 0xa78258f2) // selector for `EulerSwapAmountOutTooHigh(uint256,uint256)`
-                mstore(0x20, outLimit)
-                mstore(0x40, amountOut)
-                revert(0x1c, 0x44)
+                mstore(0x60, actual)
+                mstore(0x40, limit)
+                mstore(0x20, token)
+                mstore(0x0c, 0xe486e901000000000000000000000000) // selector for `EulerSwapAmountTooHigh(address,uint256,uint256)` with `token`'s padding
+                revert(0x1c, 0x64)
             }
         }
         if (amountOut < amountOutMin) {
             _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
         }
 
-        sellToken.safeTransfer(address(eulerSwap), sellAmount);
         (uint256 amount0Out, uint256 amount1Out) = zeroForOne.maybeSwap(amountOut, 0);
         eulerSwap.fastSwap(amount0Out, amount1Out, recipient);
     }

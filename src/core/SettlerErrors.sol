@@ -106,5 +106,5 @@ error NotConverged();
 ///         the list of recognized pool managers.
 error UnknownPoolManagerId(uint8 poolManagerId);
 
-/// @notice Thrown when the amount-out for settling against an EulerSwap pool exceeds the pool's limits
-error EulerSwapAmountOutTooHigh(uint256 limit, uint256 actual);
+/// @notice Thrown when the amount for settling against an EulerSwap pool exceeds the pool's limits and partial filling is impossible
+error EulerSwapAmountTooHigh(IERC20 token, uint256 limit, uint256 actual);
