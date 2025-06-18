@@ -198,11 +198,7 @@ interface IEulerSwap {
 }
 
 library FastEulerSwap {
-    function fastGetReserves(IEulerSwap eulerSwap)
-        internal
-        view
-        returns (uint112 reserve0, uint112 reserve1)
-    {
+    function fastGetReserves(IEulerSwap eulerSwap) internal view returns (uint112 reserve0, uint112 reserve1) {
         assembly ("memory-safe") {
             mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
             if iszero(staticcall(gas(), eulerSwap, 0x1c, 0x04, 0x00, 0x40)) {
@@ -212,9 +208,7 @@ library FastEulerSwap {
             }
             reserve0 := mload(0x00)
             reserve1 := mload(0x20)
-            if or(gt(0x60, returndatasize()), or(shr(0x70, reserve1), shr(0x70, reserve0))) {
-                revert(0x00, 0x00)
-            }
+            if or(gt(0x60, returndatasize()), or(shr(0x70, reserve1), shr(0x70, reserve0))) { revert(0x00, 0x00) }
         }
     }
 
@@ -351,11 +345,7 @@ abstract contract EulerSwap is SettlerAbstract {
         uint256 expectedBuyAmount,
         uint256 actualBuyAmount
     ) private view {
-        revertTooMuchSlippage(
-            _getToken(zeroForOne, p),
-            expectedBuyAmount,
-            actualBuyAmount
-        );
+        revertTooMuchSlippage(_getToken(zeroForOne, p), expectedBuyAmount, actualBuyAmount);
     }
 
     function sellToEulerSwap(
