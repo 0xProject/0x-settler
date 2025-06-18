@@ -11,12 +11,13 @@ import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {IAllowanceHolder} from "./allowanceholder/IAllowanceHolder.sol";
 import {DEPLOYER as DEPLOYER_ADDRESS} from "./deployer/DeployerAddress.sol";
 import {IDeployer} from "./deployer/IDeployer.sol";
-
+import {FastDeployer} from "./deployer/FastDeployer.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {Panic} from "./utils/Panic.sol";
 import {AddressDerivation} from "./utils/AddressDerivation.sol";
+
 
 type Address is uint256;
 
@@ -192,38 +193,6 @@ library LibSwapArrayIterator {
 }
 
 using LibSwapArrayIterator for SwapArrayIterator global;
-
-library FastDeployer {
-    function fastOwnerOf(IDeployer deployer, uint256 tokenId) internal view returns (address r) {
-        assembly ("memory-safe") {
-            mstore(0x00, 0x6352211e) // selector for `ownerOf(uint256)`
-            mstore(0x20, tokenId)
-
-            if iszero(staticcall(gas(), deployer, 0x1c, 0x24, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            if or(gt(0x20, returndatasize()), shr(0xa0, r)) { revert(0x00, 0x00) }
-            r := mload(0x00)
-        }
-    }
-
-    function fastPrev(IDeployer deployer, uint128 tokenId) internal view returns (address r) {
-        assembly ("memory-safe") {
-            mstore(0x10, tokenId)
-            mstore(0x00, 0xe2603dc200000000000000000000000000000000) // selector for `prev(uint128)` with `tokenId`'s padding
-
-            if iszero(staticcall(gas(), deployer, 0x0c, 0x24, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            if or(gt(0x20, returndatasize()), shr(0xa0, r)) { revert(0x00, 0x00) }
-            r := mload(0x00)
-        }
-    }
-}
 
 contract LimitOrderFeeCollector is MultiCallContext, TwoStepOwnable, IPostInteraction {
     using SafeTransferLib for IERC20;

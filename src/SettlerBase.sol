@@ -21,7 +21,7 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
 
-/// @dev This library's ABIDeocding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
+/// @dev This library's ABIDecoding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
 /// means that it is possible that `args` will run off the end of calldata and be implicitly padded with zeroes. That we
 /// don't check for overflow means that offsets can be negative. This can also result in `args` that alias other parts

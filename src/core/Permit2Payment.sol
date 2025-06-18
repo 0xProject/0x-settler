@@ -25,7 +25,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Revert} from "../utils/Revert.sol";
 
 import {AbstractContext, Context} from "../Context.sol";
-import {AllowanceHolderContext} from "../allowanceholder/AllowanceHolderContext.sol";
+import {AllowanceHolderContext, ALLOWANCE_HOLDER} from "../allowanceholder/AllowanceHolderContext.sol";
 
 library TransientStorage {
     // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint128).max)
@@ -402,7 +402,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     }
 
     function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
-        return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
+        return target == address(ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
     }
 
     function _transferFrom(
@@ -489,7 +489,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         // Solidity won't let us reference the constant `_ALLOWANCE_HOLDER` in assembly, but this
         // compiles down to just a single PUSH opcode just before the CALL, with optimization turned
         // on.
-        address __ALLOWANCE_HOLDER = address(_ALLOWANCE_HOLDER);
+        address _ALLOWANCE_HOLDER = address(ALLOWANCE_HOLDER);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(add(0x80, ptr), amount)
@@ -501,7 +501,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             // Although `transferFrom` returns `bool`, we don't need to bother checking the return
             // value because `AllowanceHolder` always either reverts or returns `true`. We also
             // don't need to check that it has code.
-            if iszero(call(gas(), __ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
+            if iszero(call(gas(), _ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
