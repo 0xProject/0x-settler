@@ -360,20 +360,25 @@ abstract contract EulerSwap is SettlerAbstract {
         bool zeroForOne,
         uint256 amountOutMin
     ) internal {
+        // Doing this first violates the general rule that we ought to interact with the token
+        // before checking the state of the pool. However, this is safe because Euler doesn't admit
+        // badly-behaved tokens and a token must be available on Euler before it can be added to
+        // EulerSwap.
         ParamsLib.Params p = eulerSwap.fastGetParams();
-        (uint112 reserve0, uint112 reserve1) = eulerSwap.fastGetReserves();
-        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
         if (!_EVC().fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
             if (amountOutMin != 0) {
                 _revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
             }
             return;
         }
+        (uint112 reserve0, uint112 reserve1) = eulerSwap.fastGetReserves();
+        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
 
         uint256 sellAmount;
         if (bps != 0) {
             unchecked {
                 sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+                sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
             }
         }
         if (sellAmount != 0) {
@@ -381,16 +386,10 @@ abstract contract EulerSwap is SettlerAbstract {
         }
         if (sellAmount == 0) {
             sellAmount = sellToken.fastBalanceOf(address(eulerSwap));
-        } else {
-            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
         }
 
         uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
         if ((amountOut > outLimit).or(sellAmount > inLimit)) {
-            // if zeroforone is true and the limit being violated is the amount out, then the token being violated is one
-            // if zeroforone is false and the limit being violated is the amount out, then the token being violated is zero
-            // if zeroforone is true and the limit being violated is the amount in, then the token being violated is zero
-            // if zeroforone is false and the limit being violated is the amount in, then the token being violated is one
             bool c = amountOut > outLimit;
             IERC20 token = _getToken(zeroForOne == c, p);
             uint256 limit = c.ternary(outLimit, inLimit);
