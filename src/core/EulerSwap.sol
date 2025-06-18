@@ -6,7 +6,7 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {EulerSwapAmountTooHigh, revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
@@ -340,17 +340,17 @@ abstract contract EulerSwap is SettlerAbstract {
 
     function _EVC() internal view virtual returns (IEVC);
 
-    function _getToken(bool zeroForOne, ParamsLib.Params p) private view returns (IERC20) {
-        return IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset();
-    }
-
     function _revertTooMuchSlippage(
         bool zeroForOne,
         ParamsLib.Params p,
         uint256 expectedBuyAmount,
         uint256 actualBuyAmount
     ) private view {
-        revertTooMuchSlippage(_getToken(zeroForOne, p), expectedBuyAmount, actualBuyAmount);
+        revertTooMuchSlippage(
+            IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
+            expectedBuyAmount,
+            actualBuyAmount
+        );
     }
 
     function sellToEulerSwap(
@@ -392,16 +392,6 @@ abstract contract EulerSwap is SettlerAbstract {
         }
 
         uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
-        if (amountOut > outLimit) {
-            IERC20 buyToken = _getToken(zeroForOne, p);
-            assembly ("memory-safe") {
-                mstore(0x60, amountOut)
-                mstore(0x40, outLimit)
-                mstore(0x20, buyToken)
-                mstore(0x0c, 0xe486e901000000000000000000000000) // selector for `EulerSwapAmountTooHigh(address,uint256,uint256)` with `buyToken`'s padding
-                revert(0x1c, 0x64)
-            }
-        }
         if (amountOut < amountOutMin) {
             _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
         }
