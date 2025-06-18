@@ -11,7 +11,6 @@ import {EulerSwapAmountOutTooHigh, revertTooMuchSlippage} from "./SettlerErrors.
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
-import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 interface IEVC {
@@ -201,22 +200,20 @@ library FastEulerSwap {
     function fastGetReserves(IEulerSwap eulerSwap)
         internal
         view
-        returns (uint112 reserve0, uint112 reserve1, uint32 status)
+        returns (uint112 reserve0, uint112 reserve1)
     {
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
             mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
-            if iszero(staticcall(gas(), eulerSwap, 0x1c, 0x04, 0x00, 0x60)) {
+            if iszero(staticcall(gas(), eulerSwap, 0x1c, 0x04, 0x00, 0x40)) {
+                let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
             reserve0 := mload(0x00)
             reserve1 := mload(0x20)
-            status := mload(0x40)
-            if or(or(gt(0x60, returndatasize()), shr(0x20, status)), or(shr(0x70, reserve1), shr(0x70, reserve0))) {
+            if or(gt(0x60, returndatasize()), or(shr(0x70, reserve1), shr(0x70, reserve0))) {
                 revert(0x00, 0x00)
             }
-            mstore(0x40, ptr)
         }
     }
 
@@ -325,7 +322,6 @@ library ParamsLib {
 }
 
 abstract contract EulerSwap is SettlerAbstract {
-    using FastLogic for bool;
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using SafeTransferLib for IEVault;
@@ -362,9 +358,9 @@ abstract contract EulerSwap is SettlerAbstract {
         unchecked {
             sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
         }
-        (uint112 reserve0, uint112 reserve1, uint32 status) = eulerSwap.fastGetReserves();
+        (uint112 reserve0, uint112 reserve1) = eulerSwap.fastGetReserves();
         ParamsLib.Params p = eulerSwap.fastGetParams();
-        if ((status != 1).or(!_EVC().fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap)))) {
+        if (!_EVC().fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
             if (amountOutMin != 0) {
                 _revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
             }
