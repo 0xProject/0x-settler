@@ -74,12 +74,9 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             owner_ := mload(0x00)
             expiry := mload(0x20)
 
-            // If there are any dirty bits in the return values, revert with an empty reason.
-            if or(shr(0xa0, owner_), shr(0x28, expiry)) { revert(0x00, 0x00) }
+            // If there are any dirty bits in the return values, revert with an empty reason. Likewise, if `expiry` has elapsed, there is no owner; revert with an empty reason.
+            if or(gt(timestamp(), expiry), or(shr(0xa0, owner_), shr(0x28, expiry))) { revert(0x00, 0x00) }
         }
-
-        // Check that the owner actually exists, that is that their authority hasn't expired.
-        require(block.timestamp <= expiry);
     }
 
     modifier onlyOwner() {
@@ -159,7 +156,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // new solver, then `prev` must be the last element of the list (it points at
             // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
             // `solver.
-                fail := or(shl(0x60, xor(sload(prevSlot), expectedPrevSlotValue)), fail)
+            fail := or(shl(0x60, xor(sload(prevSlot), expectedPrevSlotValue)), fail)
 
             // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
             // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at
