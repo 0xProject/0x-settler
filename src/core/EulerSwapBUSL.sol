@@ -13,7 +13,7 @@ pragma solidity ^0.8.25;
 // (That means don't fork this without explicit permission from Euler Labs.)
 
 import {Ternary} from "../utils/Ternary.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
 import {Clz} from "../vendor/Clz.sol";
 import {FullMath} from "../vendor/FullMath.sol";
@@ -24,6 +24,7 @@ library CurveLib {
     using Ternary for bool;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
+    using Math for uint256;
     using Sqrt for uint256;
     using Clz for uint256;
     using FullMath for uint256;
@@ -110,7 +111,7 @@ library CurveLib {
         uint256 bits = x.bitLength();
         // 2^(bits - 128) is how much we need to scale down to prevent overflow when squaring x
         unchecked {
-            return (128 < bits).orZero(bits - 128);
+            return bits.saturatingSub(128);
         }
     }
 }

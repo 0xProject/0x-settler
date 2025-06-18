@@ -12,6 +12,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
 import {Ternary} from "../utils/Ternary.sol";
+import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 
 interface IEVC {
     /// @notice Returns whether a given operator has been authorized for a given account.
@@ -323,6 +324,8 @@ library ParamsLib {
 
 abstract contract EulerSwap is SettlerAbstract {
     using Ternary for bool;
+    using UnsafeMath for uint256;
+    using Math for uint256;
     using SafeTransferLib for IERC20;
     using SafeTransferLib for IEVault;
     using ParamsLib for ParamsLib.Params;
@@ -366,7 +369,7 @@ abstract contract EulerSwap is SettlerAbstract {
             }
             return;
         }
-        (uint112 reserve0, uint112 reserve1) = eulerSwap.fastGetReserves();
+        (uint256 reserve0, uint256 reserve1) = eulerSwap.fastGetReserves();
         (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1, ownerAccount);
 
         uint256 sellAmount;
@@ -402,7 +405,7 @@ abstract contract EulerSwap is SettlerAbstract {
         eulerSwap.fastSwap(zeroForOne, amountOut, recipient);
     }
 
-    function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
+    function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
         private
         pure
         returns (uint256)
@@ -411,34 +414,27 @@ abstract contract EulerSwap is SettlerAbstract {
         uint256 py = p.priceY();
         uint256 x0 = p.equilibriumReserve0();
         uint256 y0 = p.equilibriumReserve1();
-        uint256 fee = p.fee();
 
         unchecked {
-            uint256 amountWithFee = amount - (uint256(amount) * fee / 1e18);
+            uint256 amountWithFee = amount - (uint256(amount) * p.fee() / 1e18);
             if (zeroForOne) {
                 // swap X in and Y out
                 uint256 xNew = reserve0 + amountWithFee;
-                uint256 yNew;
-                if (xNew <= x0) {
+                uint256 yNew = xNew <= x0
                     // remain on f()
-                    yNew = CurveLib.f(xNew, px, py, x0, y0, p.concentrationX());
-                } else {
+                    ? CurveLib.f(xNew, px, py, x0, y0, p.concentrationX())
                     // move to g()
-                    yNew = CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
-                }
-                return (reserve1 > yNew).orZero(reserve1 - yNew);
+                    : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
+                return reserve1.saturatingSub(yNew);
             } else {
                 // swap Y in and X out
-                uint256 xNew;
                 uint256 yNew = reserve1 + amountWithFee;
-                if (yNew <= y0) {
+                uint256 xNew = yNew <= y0
                     // remain on g()
-                    xNew = CurveLib.f(yNew, py, px, y0, x0, p.concentrationY());
-                } else {
+                    ? CurveLib.f(yNew, py, px, y0, x0, p.concentrationY())
                     // move to f()
-                    xNew = CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
-                }
-                return (reserve0 > xNew).orZero(reserve0 - xNew);
+                    : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
+                return reserve0.saturatingSub(xNew);
             }
         }
     }
@@ -453,7 +449,7 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
-    function calcLimits(bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1, address ownerAccount)
+    function calcLimits(bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1, address ownerAccount)
         private
         view
         returns (uint256 inLimit, uint256 outLimit)
@@ -490,6 +486,39 @@ abstract contract EulerSwap is SettlerAbstract {
                 }
                 outLimit = (maxWithdraw < outLimit).ternary(maxWithdraw, outLimit);
             }
+        }
+
+        uint256 inLimitFromOutLimit;
+        {
+            uint256 px = p.priceX();
+            uint256 py = p.priceY();
+            uint256 x0 = p.equilibriumReserve0();
+            uint256 y0 = p.equilibriumReserve1();
+
+            if (zeroForOne) {
+                // swap Y out and X in
+                uint256 yNew = reserve1.saturatingSub(outLimit);
+                uint256 xNew = yNew <= y0
+                    // remain on g()
+                    ? CurveLib.f(yNew, py, px, y0, x0, p.concentrationY())
+                    // move to f()
+                    : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
+                inLimitFromOutLimit = xNew.saturatingSub(reserve0);
+            } else {
+                // swap X out and Y in
+                uint256 xNew = reserve0.saturatingSub(outLimit);
+                uint256 yNew = xNew <= x0
+                    // remain on f()
+                    ? CurveLib.f(xNew, px, py, x0, y0, p.concentrationX())
+                    // move to g()
+                    : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
+                inLimitFromOutLimit = yNew.saturatingSub(reserve1);
+            }
+        }
+
+        unchecked {
+            inLimit = (inLimitFromOutLimit < inLimit).ternary(inLimitFromOutLimit, inLimit);
+            inLimit = (inLimit * 1e18).unsafeDiv(1e18 - p.fee());
         }
     }
 
