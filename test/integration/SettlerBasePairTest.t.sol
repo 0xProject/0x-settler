@@ -56,6 +56,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
         settler = _deploySettler();
+        vm.label(address(settler), "Settler");
         vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
         vm.label(address(allowanceHolder), "AllowanceHolder");
         vm.chainId(forkChainId);
