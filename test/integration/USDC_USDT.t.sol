@@ -46,6 +46,10 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTe
         return "USDC-USDT";
     }
 
+    function reverseTestName() internal pure override returns (string memory) {
+        return "USDT-USDC";
+    }
+
     function fromToken() internal pure override returns (IERC20) {
         return IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC
     }

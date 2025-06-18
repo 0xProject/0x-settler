@@ -9,6 +9,8 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {Settler} from "src/Settler.sol";
 
+import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
+
 import {IEVC} from "src/core/EulerSwap.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
@@ -16,6 +18,8 @@ import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 IEVC constant EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
 abstract contract EulerSwapTest is AllowanceHolderPairTest {
+    using SafeTransferLib for IERC20;
+
     function eulerSwapPool() internal view virtual returns (address) {
         return address(0);
     }
@@ -27,6 +31,8 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
     function eulerSwapAmount() internal view virtual returns (uint256) {
         return amount();
     }
+
+    function reverseTestName() internal view virtual returns (string memory);
 
     modifier setEulerSwapBlock() {
         uint256 blockNumber = vm.getBlockNumber();
@@ -48,6 +54,9 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
             vm.makePersistent(address(settler));
             vm.makePersistent(address(fromToken()));
             vm.makePersistent(address(toToken()));
+            deal(address(toToken()), FROM, eulerSwapAmount());
+            vm.prank(FROM, FROM);
+            toToken().safeApprove(address(PERMIT2), type(uint256).max);
             _setEulerSwapLabels();
         }
     }
@@ -79,6 +88,36 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         uint256 afterBalanceTo = toToken().balanceOf(FROM);
         assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + eulerSwapAmount(), beforeBalanceFrom);
+    }
+
+    function testEulerSwapReverse() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+            _getDefaultFromPermit2(toToken(), eulerSwapAmount());
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
+            abi.encodeCall(ISettlerActions.EULERSWAP, (FROM, address(toToken()), 10_000, eulerSwapPool(), false, 0))
+        );
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
+        Settler _settler = settler;
+        uint256 beforeBalanceFrom = balanceOf(toToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(fromToken(), FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStart(string.concat("settler_eulerSwap_", reverseTestName()));
+        _settler.execute(allowedSlippage, actions, bytes32(0));
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = fromToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = toToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + eulerSwapAmount(), beforeBalanceFrom);
     }
 }
