@@ -11,7 +11,6 @@ import {EulerSwapAmountTooHigh, revertTooMuchSlippage} from "./SettlerErrors.sol
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
-import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 interface IEVC {
@@ -323,7 +322,6 @@ library ParamsLib {
 }
 
 abstract contract EulerSwap is SettlerAbstract {
-    using FastLogic for bool;
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using SafeTransferLib for IEVault;
@@ -381,19 +379,19 @@ abstract contract EulerSwap is SettlerAbstract {
         }
         if (sellAmount == 0) {
             sellAmount = sellToken.fastBalanceOf(address(eulerSwap));
+            // If the sell amount is over the limit, the excess is donated. Obviously, this may
+            // result in a slippage revert.
+            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
         }
 
         uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
-        if ((amountOut > outLimit).or(sellAmount > inLimit)) {
-            bool c = amountOut > outLimit;
-            IERC20 token = _getToken(zeroForOne == c, p);
-            uint256 limit = c.ternary(outLimit, inLimit);
-            uint256 actual = c.ternary(amountOut, sellAmount);
+        if (amountOut > outLimit) {
+            IERC20 buyToken = _getToken(zeroForOne, p);
             assembly ("memory-safe") {
-                mstore(0x60, actual)
-                mstore(0x40, limit)
-                mstore(0x20, token)
-                mstore(0x0c, 0xe486e901000000000000000000000000) // selector for `EulerSwapAmountTooHigh(address,uint256,uint256)` with `token`'s padding
+                mstore(0x60, amountOut)
+                mstore(0x40, outLimit)
+                mstore(0x20, buyToken)
+                mstore(0x0c, 0xe486e901000000000000000000000000) // selector for `EulerSwapAmountTooHigh(address,uint256,uint256)` with `buyToken`'s padding
                 revert(0x1c, 0x64)
             }
         }
