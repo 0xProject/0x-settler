@@ -43,7 +43,7 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Remove Safe{Wallet} API configuration from Base
+* Remove Safe{Wallet} API configuration from Blast
 * Configure Safe{Wallet} API on Berachain
 * Add EulerSwap action `EULERSWAP`
   * Add `EULERSWAP` action to Mainnet
