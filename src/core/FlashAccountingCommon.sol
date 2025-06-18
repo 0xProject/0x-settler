@@ -379,7 +379,7 @@ library Encoder {
     uint256 internal constant BASIS = 10_000;
 
     function encode(
-        uint32 unlockSelector,
+        uint256 unlockSelector,
         address recipient,
         IERC20 sellToken,
         uint256 bps,
@@ -420,7 +420,7 @@ library Encoder {
     }
 
     function encodeVIP(
-        uint32 unlockSelector,
+        uint256 unlockSelector,
         address recipient,
         bool feeOnTransfer,
         uint256 hashMul,
