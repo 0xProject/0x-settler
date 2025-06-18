@@ -60,8 +60,8 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan {
             // It is not possible to call it directly as the taker is going to be the BridgeSettler
             // instead of the user, so, user assets needs to be pulled to BridgeSettler before
             // attempting to do this swap.
-            // Settler can take over the assets if settlerData starts with TRANSFER_FROM which
-            // can put them at risk if AllowedSlippage is not properly set.
+            // Settler can take over the assets if settlerData starts with a VIP action making this
+            // call subsectible to MEV attacks that force the swap to its Slippage limit.
             IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
             ALLOWANCE_HOLDER.exec(
                 settler,
