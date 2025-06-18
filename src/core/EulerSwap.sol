@@ -371,14 +371,15 @@ abstract contract EulerSwap is SettlerAbstract {
         // badly-behaved tokens, and a token must be available on Euler before it can be added to
         // EulerSwap.
         ParamsLib.Params p = eulerSwap.fastGetParams();
-        if (!_EVC().fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
+        address ownerAccount = p.eulerAccount();
+        if (!_EVC().fastIsAccountOperatorAuthorized(ownerAccount, address(eulerSwap))) {
             if (amountOutMin != 0) {
                 _revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
             }
             return;
         }
         (uint112 reserve0, uint112 reserve1) = eulerSwap.fastGetReserves();
-        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1);
+        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1, ownerAccount);
 
         uint256 sellAmount;
         if (bps != 0) {
@@ -464,7 +465,7 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
-    function calcLimits(bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
+    function calcLimits(bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1, address ownerAccount)
         private
         view
         returns (uint256 inLimit, uint256 outLimit)
@@ -472,7 +473,6 @@ abstract contract EulerSwap is SettlerAbstract {
         inLimit = type(uint112).max;
         outLimit = type(uint112).max;
 
-        address eulerAccount = p.eulerAccount();
         IEVault sellVault;
         IEVault buyVault;
         {
@@ -482,7 +482,7 @@ abstract contract EulerSwap is SettlerAbstract {
         }
         // Supply caps on input
         unchecked {
-            uint256 maxDeposit = sellVault.fastDebtOf(eulerAccount) + sellVault.fastMaxDeposit(eulerAccount);
+            uint256 maxDeposit = sellVault.fastDebtOf(ownerAccount) + sellVault.fastMaxDeposit(ownerAccount);
             inLimit = (maxDeposit < inLimit).ternary(maxDeposit, inLimit);
         }
 
@@ -505,7 +505,7 @@ abstract contract EulerSwap is SettlerAbstract {
             }
             if (maxWithdraw < outLimit) {
                 unchecked {
-                    maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(eulerAccount));
+                    maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(ownerAccount));
                 }
                 outLimit = (maxWithdraw < outLimit).ternary(maxWithdraw, outLimit);
             }
