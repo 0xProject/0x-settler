@@ -56,20 +56,31 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan {
             (address token, uint256 amount, address settler, bytes memory settlerData) = abi.decode(data, (address, uint256, address, bytes));
             // Swaps are going to be directed to Settler, so `settler` must be an active settler
             _requireValidSettler(settler);
-            // To effectively do a swap we need to make funds accessible to Settler
-            // It is not possible to call it directly as the taker is going to be the BridgeSettler
-            // instead of the user, so, user assets needs to be pulled to BridgeSettler before
-            // attempting to do this swap.
-            // Settler can take over the assets if settlerData starts with a VIP action making this
-            // call subsectible to MEV attacks that force the swap to its Slippage limit.
-            IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
-            ALLOWANCE_HOLDER.exec(
-                settler,
-                token,
-                amount,
-                payable(settler),
-                settlerData
-            );
+            if (token == address(ETH_ADDRESS)) {
+                // Native token swap
+                // Settler address was validated to be a correct settler, so we pass the
+                // arbitrary data as we know it is not a restricted target.
+                // Eth sent to Settler is available to any action being executed making this
+                // call subsectible to MEV attacks that force the swap to its Slippage limit.
+                (bool success, bytes memory retData) = settler.call{value: amount}(settlerData);
+                success.maybeRevert(retData);
+            }
+            else {
+                // To effectively do a swap we need to make funds accessible to Settler
+                // It is not possible to call it directly as the taker is going to be the BridgeSettler
+                // instead of the user, so, user assets needs to be pulled to BridgeSettler before
+                // attempting to do this swap.
+                // Settler can take over the assets if settlerData starts with a VIP action making this
+                // call subsectible to MEV attacks that force the swap to its Slippage limit.
+                IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
+                ALLOWANCE_HOLDER.exec(
+                    settler,
+                    token,
+                    amount,
+                    payable(settler),
+                    settlerData
+                );
+            }
         } else if (action == uint32(IBridgeSettlerActions.BASIC.selector)) {
             (
                 address bridgeToken, 
