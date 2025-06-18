@@ -22,8 +22,6 @@ import {IOwnable} from "./deployer/IOwnable.sol";
 // inside `MultiCallContext` if `super._msgSender` is `Permit2PaymentMetaTxn._msgSender`.
 abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, SettlerMetaTxn {
     bytes32 private constant _SOLVER_LIST_BASE_SLOT = 0x000000000000000000000000000000000000000008054751d605e5c08a2210bf; // uint96(uint256(keccak256("SettlerIntentSolverList")) - 1)
-    bytes32 private constant _SOLVER_LIST_START_SLOT =
-        0x165458a486c543a8294bbc8a8476cd9020f962f9e80991591ef8c2860c5c5490; // keccak256(abi.encode(_SENTINEL_SOLVER, _SOLVER_LIST_BASE_SLOT))
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
     /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant
@@ -40,7 +38,6 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
 
     constructor() {
         assert(_SOLVER_LIST_BASE_SLOT == bytes32(uint256(uint128(uint256(keccak256("SettlerIntentSolverList")) - 1))));
-        assert(_SOLVER_LIST_START_SLOT == keccak256(abi.encode(_SENTINEL_SOLVER, _SOLVER_LIST_BASE_SLOT)));
         _$()[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
@@ -206,7 +203,8 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
                 let i := start
                 for {
                     mstore(0x20, _SOLVER_LIST_BASE_SLOT)
-                    let x := shr(0x60, shl(0x60, sload(_SOLVER_LIST_START_SLOT)))
+                    mstore(0x00, _SENTINEL_SOLVER)
+                    let x := shr(0x60, shl(0x60, sload(keccak256(0x00, 0x40))))
                 } xor(_SENTINEL_SOLVER, x) {
                     i := add(0x20, i)
                     x := shr(0x60, shl(0x60, sload(keccak256(0x00, 0x40))))
