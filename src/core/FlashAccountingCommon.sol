@@ -7,6 +7,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 
 import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
@@ -373,6 +374,8 @@ library StateLib {
 using StateLib for State global;
 
 library Encoder {
+    using FastLogic for bool;
+
     uint256 internal constant BASIS = 10_000;
 
     function encode(
@@ -386,18 +389,9 @@ library Encoder {
         bytes memory fills,
         uint256 amountOutMin
     ) internal view returns (bytes memory data) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (amountOutMin > uint128(type(int128).max)) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         hashMul *= 96;
         hashMod *= 96;
-        if (hashMul > type(uint128).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (hashMod > type(uint128).max) {
+        if ((bps > BASIS).or(amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
@@ -437,15 +431,9 @@ library Encoder {
         bool isForwarded,
         uint256 amountOutMin
     ) internal pure returns (bytes memory data) {
-        if (amountOutMin > uint128(type(int128).max)) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         hashMul *= 96;
         hashMod *= 96;
-        if (hashMul > type(uint128).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (hashMod > type(uint128).max) {
+        if ((amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
@@ -669,7 +657,7 @@ library Decoder {
         if (state.globalSell().tokenIsEth()) {
             assert(payer == address(this));
 
-            uint16 bps;
+            uint256 bps;
             assembly ("memory-safe") {
                 // `data` hasn't been advanced from decoding `sellToken` above. so we have to
                 // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
@@ -686,7 +674,7 @@ library Decoder {
             }
         } else {
             if (payer == address(this)) {
-                uint16 bps;
+                uint256 bps;
                 assembly ("memory-safe") {
                     // `data` hasn't been advanced from decoding `sellToken` above. so we have to
                     // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
