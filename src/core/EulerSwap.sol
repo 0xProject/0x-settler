@@ -454,7 +454,7 @@ abstract contract EulerSwap is SettlerAbstract {
             buyVault = IEVault(buyVault_);
         }
         // Supply caps on input
-        {
+        unchecked {
             uint256 maxDeposit = sellVault.fastDebtOf(eulerAccount) + sellVault.fastMaxDeposit(eulerAccount);
             inLimit = (maxDeposit < inLimit).ternary(maxDeposit, inLimit);
         }
@@ -473,9 +473,13 @@ abstract contract EulerSwap is SettlerAbstract {
             (, uint16 borrowCap) = buyVault.fastCaps();
             uint256 maxWithdraw = decodeCap(uint256(borrowCap));
             uint256 totalBorrows = buyVault.fastTotalBorrows();
-            maxWithdraw = (totalBorrows <= maxWithdraw).orZero(maxWithdraw - totalBorrows);
+            unchecked {
+                maxWithdraw = (totalBorrows <= maxWithdraw).orZero(maxWithdraw - totalBorrows);
+            }
             if (maxWithdraw < outLimit) {
-                maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(eulerAccount));
+                unchecked {
+                    maxWithdraw += buyVault.fastConvertToAssets(buyVault.fastBalanceOf(eulerAccount));
+                }
                 outLimit = (maxWithdraw < outLimit).ternary(maxWithdraw, outLimit);
             }
         }
