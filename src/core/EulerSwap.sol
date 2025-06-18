@@ -470,9 +470,6 @@ abstract contract EulerSwap is SettlerAbstract {
         view
         returns (uint256 inLimit, uint256 outLimit)
     {
-        inLimit = type(uint112).max;
-        outLimit = type(uint112).max;
-
         IEVault sellVault;
         IEVault buyVault;
         {
@@ -482,15 +479,11 @@ abstract contract EulerSwap is SettlerAbstract {
         }
         // Supply caps on input
         unchecked {
-            uint256 maxDeposit = sellVault.fastDebtOf(ownerAccount) + sellVault.fastMaxDeposit(ownerAccount);
-            inLimit = (maxDeposit < inLimit).ternary(maxDeposit, inLimit);
+            inLimit = sellVault.fastDebtOf(ownerAccount) + sellVault.fastMaxDeposit(ownerAccount);
         }
 
         // Remaining reserves of output
-        {
-            uint256 reserveLimit = zeroForOne.ternary(reserve1, reserve0);
-            outLimit = (reserveLimit < outLimit).ternary(reserveLimit, outLimit);
-        }
+        outLimit = zeroForOne.ternary(reserve1, reserve0);
 
         // Remaining cash and borrow caps in output
         {

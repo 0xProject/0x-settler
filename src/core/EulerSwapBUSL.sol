@@ -68,7 +68,7 @@ library CurveLib {
 
         unchecked {
             int256 term1 = int256((py * 1e18).unsafeMulDivUp(y - y0, px)); // scale: 1e36
-            int256 term2 = (int256(c << 1) - int256(1e18)) * int256(x0); // scale: 1e36
+            int256 term2 = int256(((c << 1) - 1e18) * x0); // scale: 1e36
             B = (term1 - term2).unsafeDiv(1e18); // scale: 1e18
             C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
             fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
