@@ -120,4 +120,34 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         uint256 afterBalanceFrom = toToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + eulerSwapAmount(), beforeBalanceFrom);
     }
+
+    function testEulerSwapCustody() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+            _getDefaultFromPermit2(eulerSwapAmount());
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (eulerSwapPool(), permit, sig)),
+            abi.encodeCall(ISettlerActions.EULERSWAP, (FROM, address(fromToken()), 0, eulerSwapPool(), true, 0))
+        );
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
+        Settler _settler = settler;
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_eulerSwapCustody");
+        _settler.execute(allowedSlippage, actions, bytes32(0));
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + eulerSwapAmount(), beforeBalanceFrom);
+    }
 }
