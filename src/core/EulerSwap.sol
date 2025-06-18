@@ -218,12 +218,18 @@ library FastEulerSwap {
         }
     }
 
-    function fastSwap(IEulerSwap eulerSwap, uint256 amount0Out, uint256 amount1Out, address to) internal {
+    function fastSwap(IEulerSwap eulerSwap, bool zeroForOne, uint256 amountOut, address to) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
-            mstore(add(0x20, ptr), amount0Out)
-            mstore(add(0x40, ptr), amount1Out)
+            {
+                zeroForOne := shl(0x05, zeroForOne)
+                let amountsStart := add(0x20, ptr)
+                let amountWord := add(amountsStart, zeroForOne)
+                let zeroWord := add(xor(0x20, zeroForOne), amountsStart)
+                mstore(amountWord, amountOut)
+                mstore(zeroWord, 0x00)
+            }
             mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
             mstore(add(0x80, ptr), 0x80)
             mstore(add(0xa0, ptr), 0x00)
@@ -362,7 +368,7 @@ abstract contract EulerSwap is SettlerAbstract {
     ) internal {
         // Doing this first violates the general rule that we ought to interact with the token
         // before checking the state of the pool. However, this is safe because Euler doesn't admit
-        // badly-behaved tokens and a token must be available on Euler before it can be added to
+        // badly-behaved tokens, and a token must be available on Euler before it can be added to
         // EulerSwap.
         ParamsLib.Params p = eulerSwap.fastGetParams();
         if (!_EVC().fastIsAccountOperatorAuthorized(p.eulerAccount(), address(eulerSwap))) {
@@ -404,8 +410,7 @@ abstract contract EulerSwap is SettlerAbstract {
             _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
         }
 
-        (uint256 amount0Out, uint256 amount1Out) = zeroForOne.maybeSwap(amountOut, 0);
-        eulerSwap.fastSwap(amount0Out, amount1Out, recipient);
+        eulerSwap.fastSwap(zeroForOne, amountOut, recipient);
     }
 
     function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint112 reserve0, uint112 reserve1)
