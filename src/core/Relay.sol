@@ -7,10 +7,10 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 contract Relay {
     using SafeTransferLib for IERC20;
 
-    event RelayAction(); // Graffiti for bridging operations through Relay
+    event RelayAction(bytes32 requestId); // Graffiti for bridging operations through Relay
 
     function bridgeERC20ToRelay(IERC20 token, address to, bytes32 requestId) internal {
-        emit RelayAction();
+        emit RelayAction(requestId);
 
         uint256 amount = token.fastBalanceOf(address(this));
         assembly ("memory-safe") {
@@ -36,7 +36,7 @@ contract Relay {
     }
 
     function bridgeNativeToRelay(address to, bytes32 requestId) internal {
-        emit RelayAction();
+        emit RelayAction(requestId);
 
         assembly ("memory-safe") {
             mstore(0x00, requestId)
