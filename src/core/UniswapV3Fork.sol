@@ -51,8 +51,6 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x48;
     uint256 private constant PERMIT_DATA_SIZE = 0x60;
     uint256 private constant ISFORWARDED_DATA_SIZE = 0x01;
-    /// @dev Mask of lower 20 bytes.
-    uint256 private constant ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
 
@@ -286,13 +284,12 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         // )))
         bytes32 salt;
         assembly ("memory-safe") {
-            token0 := and(ADDRESS_MASK, token0)
-            token1 := and(ADDRESS_MASK, token1)
             poolId := and(UINT24_MASK, poolId)
             let ptr := mload(0x40)
-            mstore(0x00, token0)
-            mstore(0x20, token1)
             mstore(0x40, poolId)
+            mstore(0x20, token1)
+            mstore(0x00, 0x00)
+            mstore(0x0c, shl(0x60, token0))
             salt := keccak256(0x00, sub(0x60, shl(0x05, iszero(poolId))))
             mstore(0x40, ptr)
         }
