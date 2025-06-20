@@ -201,10 +201,10 @@ interface IEulerSwap {
 
 library FastEulerSwap {
     // Reserves are returned as `uint256` for efficiency, but they are checked to ensure that they do not overflow a `uint112`.
-    function fastGetReserves(IEulerSwap eulerSwap) internal view returns (uint256 reserve0, uint256 reserve1) {
+    function fastGetReserves(IEulerSwap pool) internal view returns (uint256 reserve0, uint256 reserve1) {
         assembly ("memory-safe") {
             mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
-            if iszero(staticcall(gas(), eulerSwap, 0x1c, 0x04, 0x00, 0x40)) {
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
@@ -215,7 +215,7 @@ library FastEulerSwap {
         }
     }
 
-    function fastSwap(IEulerSwap eulerSwap, bool zeroForOne, uint256 amountOut, address to) internal {
+    function fastSwap(IEulerSwap pool, bool zeroForOne, uint256 amountOut, address to) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
@@ -230,7 +230,7 @@ library FastEulerSwap {
             mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, to))
             mstore(add(0x80, ptr), 0x80)
             mstore(add(0xa0, ptr), 0x00)
-            if iszero(call(gas(), eulerSwap, 0x00, add(0x1c, ptr), 0xa4, 0x00, 0x00)) {
+            if iszero(call(gas(), pool, 0x00, add(0x1c, ptr), 0xa4, 0x00, 0x00)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
@@ -244,11 +244,11 @@ library ParamsLib {
     // solc is shit at it.
     type Params is uint256;
 
-    function fastGetParams(IEulerSwap eulerSwap) internal view returns (Params p) {
+    function fastGetParams(IEulerSwap pool) internal view returns (Params p) {
         assembly ("memory-safe") {
             p := mload(0x40)
             mstore(0x40, add(0x180, p))
-            extcodecopy(eulerSwap, p, 0x36, 0x180)
+            extcodecopy(pool, p, 0x36, 0x180)
         }
     }
 
@@ -359,7 +359,7 @@ abstract contract EulerSwap is SettlerAbstract {
         address recipient,
         IERC20 sellToken,
         uint256 bps,
-        IEulerSwap eulerSwap,
+        IEulerSwap pool,
         bool zeroForOne,
         uint256 amountOutMin
     ) internal {
@@ -367,9 +367,9 @@ abstract contract EulerSwap is SettlerAbstract {
         // before checking the state of the pool. However, this is safe because Euler doesn't admit
         // badly-behaved tokens, and a token must be available on Euler before it can be added to
         // EulerSwap.
-        ParamsLib.Params p = eulerSwap.fastGetParams();
-        (uint256 reserve0, uint256 reserve1) = eulerSwap.fastGetReserves();
-        (uint256 inLimit,) = calcLimits(eulerSwap, zeroForOne, p, reserve0, reserve1);
+        ParamsLib.Params p = pool.fastGetParams();
+        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        (uint256 inLimit,) = calcLimits(pool, zeroForOne, p, reserve0, reserve1);
 
         uint256 sellAmount;
         if (bps != 0) {
@@ -377,10 +377,10 @@ abstract contract EulerSwap is SettlerAbstract {
                 sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
             }
             sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
-            sellToken.safeTransfer(address(eulerSwap), sellAmount);
+            sellToken.safeTransfer(address(pool), sellAmount);
         }
         if (sellAmount == 0) {
-            sellAmount = sellToken.fastBalanceOf(address(eulerSwap));
+            sellAmount = sellToken.fastBalanceOf(address(pool));
             // If the sell amount is over the limit, the excess is donated. Obviously, this may
             // result in a slippage revert.
             sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
@@ -391,7 +391,7 @@ abstract contract EulerSwap is SettlerAbstract {
             _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
         }
 
-        eulerSwap.fastSwap(zeroForOne, amountOut, recipient);
+        pool.fastSwap(zeroForOne, amountOut, recipient);
     }
 
     function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
@@ -438,7 +438,7 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
-    function calcLimits(IEulerSwap eulerSwap, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
+    function calcLimits(IEulerSwap pool, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
         private
         view
         returns (uint256 inLimit, uint256 outLimit)
@@ -455,7 +455,7 @@ abstract contract EulerSwap is SettlerAbstract {
         // Supply caps on input
         unchecked {
             inLimit = sellVault.fastDebtOf(ownerAccount) + sellVault.fastMaxDeposit(ownerAccount);
-            inLimit = _EVC().fastIsAccountOperatorAuthorized(ownerAccount, address(eulerSwap)).orZero(inLimit);
+            inLimit = _EVC().fastIsAccountOperatorAuthorized(ownerAccount, address(pool)).orZero(inLimit);
         }
 
         // Remaining reserves of output
