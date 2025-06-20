@@ -32,8 +32,7 @@ contract MayanTest is BridgeSettlerIntegrationTest {
         uint256 amount = 1000;
         bytes32 someExtraBytes = keccak256("someExtraBytesForNativeTransfer");
 
-        deal(address(token), address(this), amount);
-        token.approve(address(ALLOWANCE_HOLDER), amount);
+        deal(address(this), amount);
 
         bytes[] memory bridgeActions = new bytes[](1);
         bridgeActions[0] = abi.encodeCall(
