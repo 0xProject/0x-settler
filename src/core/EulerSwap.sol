@@ -11,6 +11,7 @@ import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
+import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 
@@ -327,6 +328,7 @@ library ParamsLib {
 }
 
 abstract contract EulerSwap is SettlerAbstract {
+    using FastLogic for bool;
     using Ternary for bool;
     using UnsafeMath for uint256;
     using Math for uint256;
@@ -366,15 +368,8 @@ abstract contract EulerSwap is SettlerAbstract {
         // badly-behaved tokens, and a token must be available on Euler before it can be added to
         // EulerSwap.
         ParamsLib.Params p = eulerSwap.fastGetParams();
-        address ownerAccount = p.eulerAccount();
-        if (!_EVC().fastIsAccountOperatorAuthorized(ownerAccount, address(eulerSwap))) {
-            if (amountOutMin != 0) {
-                _revertTooMuchSlippage(zeroForOne, p, amountOutMin, 0);
-            }
-            return;
-        }
         (uint256 reserve0, uint256 reserve1) = eulerSwap.fastGetReserves();
-        (uint256 inLimit, uint256 outLimit) = calcLimits(zeroForOne, p, reserve0, reserve1, ownerAccount);
+        (uint256 inLimit,) = calcLimits(eulerSwap, zeroForOne, p, reserve0, reserve1);
 
         uint256 sellAmount;
         if (bps != 0) {
@@ -443,7 +438,7 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
-    function calcLimits(bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1, address ownerAccount)
+    function calcLimits(IEulerSwap eulerSwap, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
         private
         view
         returns (uint256 inLimit, uint256 outLimit)
@@ -455,9 +450,12 @@ abstract contract EulerSwap is SettlerAbstract {
             sellVault = IEVault(sellVault_);
             buyVault = IEVault(buyVault_);
         }
+        address ownerAccount = p.eulerAccount();
+
         // Supply caps on input
         unchecked {
             inLimit = sellVault.fastDebtOf(ownerAccount) + sellVault.fastMaxDeposit(ownerAccount);
+            inLimit = _EVC().fastIsAccountOperatorAuthorized(ownerAccount, address(eulerSwap)).orZero(inLimit);
         }
 
         // Remaining reserves of output
