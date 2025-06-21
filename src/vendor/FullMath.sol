@@ -183,4 +183,15 @@ library FullMath {
             result := or(shr(s, prod0), shl(sub(0x100, s), prod1))
         }
     }
+
+    function unsafeMulShiftUp(uint256 a, uint256 b, uint256 s) internal pure returns (uint256 result) {
+        assembly ("memory-safe") {
+            let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let prod0 := mul(a, b)
+            let prod1 := sub(sub(mm, prod0), lt(mm, prod0))
+            let s_ := sub(0x100, s)
+            result := or(shr(s, prod0), shl(s_, prod1))
+            result := add(lt(0x00, shl(s_, prod0)), result)
+        }
+    }
 }

@@ -88,7 +88,7 @@ library CurveLib {
             // B^2 cannot be calculated directly at 1e18 scale without overflowing
             uint256 scale = computeScale(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
             uint256 twoScale = scale << 1;
-            uint256 squaredB = absB.unsafeMulShift(absB, twoScale);
+            uint256 squaredB = absB.unsafeMulShiftUp(absB, twoScale);
             uint256 discriminant = squaredB + (fourAC >> twoScale);
             sqrt = discriminant.sqrtUp() << scale; // TODO: there's probably a way to avoid this by keeping everything as a uint512 until we have to sqrt
         }
