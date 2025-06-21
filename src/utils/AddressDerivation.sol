@@ -106,12 +106,16 @@ library AddressDerivation {
     {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+
             // we don't care about dirty bits in `deployer`; they'll be overwritten later
-            mstore(ptr, deployer)
-            mstore8(add(ptr, 0x0b), 0xff)
-            mstore(add(ptr, 0x20), salt)
-            mstore(add(ptr, 0x40), initHash)
-            result := keccak256(add(ptr, 0x0b), 0x55)
+            mstore(0x00, deployer)
+            mstore(0x20, salt)
+            mstore(0x40, initHash)
+            mstore8(0x0b, 0xff)
+
+            result := keccak256(0x0b, 0x55)
+
+            mstore(0x40, ptr)
         }
     }
 }

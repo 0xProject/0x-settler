@@ -6,7 +6,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
@@ -27,7 +26,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
 
     function _POOL_MANAGER() internal view virtual returns (IPoolManager);
@@ -276,7 +275,7 @@ abstract contract UniswapV4 is SettlerAbstract {
         IPoolManager.PoolKey memory key;
         IPoolManager.SwapParams memory params;
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps;
+            uint256 bps;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
 
@@ -298,7 +297,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             }
             // TODO: price limits
             params.sqrtPriceLimitX96 = uint160(
-                zeroForOne.ternary(uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341))
+                (!zeroForOne).ternary(uint160(1461446703485210103287273052203988822378723970341), uint160(4295128740))
             );
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);

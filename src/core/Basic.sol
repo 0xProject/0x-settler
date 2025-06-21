@@ -31,7 +31,9 @@ abstract contract Basic is SettlerAbstract {
         bytes memory returnData;
         uint256 value;
         if (sellToken == ETH_ADDRESS) {
-            value = (address(this).balance * bps).unsafeDiv(BASIS);
+            unchecked {
+                value = (address(this).balance * bps).unsafeDiv(BASIS);
+            }
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
                 (success, returnData) = payable(pool).call{value: value}("");

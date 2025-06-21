@@ -264,4 +264,13 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin
     ) external;
+
+    function EULERSWAP(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) external;
 }
