@@ -17,7 +17,6 @@ import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
 import {Clz} from "../vendor/Clz.sol";
 import {FullMath} from "../vendor/FullMath.sol";
-import {Panic} from "../utils/Panic.sol";
 
 /// @author Modified from EulerSwap by Euler Labs Ltd. https://github.com/euler-xyz/euler-swap/blob/aa87a6bc1ca01bf6e5a8e14c030bbe0d008cf8bf/src/libraries/CurveLib.sol . See above for copyright and usage terms.
 library CurveLib {
@@ -41,9 +40,6 @@ library CurveLib {
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         unchecked {
             uint256 v = (px * (x0 - x)).unsafeMulDivUp(c * x + (1e18 - c) * x0, x * 1e18);
-            if (v >> 248 != 0) {
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-            }
             return y0 + (v + (py - 1)).unsafeDivUp(py);
         }
     }
@@ -63,7 +59,7 @@ library CurveLib {
         returns (uint256)
     {
         // The value `B` is implicitly computed as:
-        //     [(py * 1e18) * (y - y0) - (c * 2 - 1e18) * x0 * px] / px
+        //     [(y - y0) * py * 1e18 - (c * 2 - 1e18) * x0 * px] / px
         // But the intermediate products can overflow 256 bits. Therefore, we have to perform
         // 512-bit multiplications and a subtraction to get the correct value.
         // Additionally, we only care about the absolute value of `B` for use later, so we
@@ -77,7 +73,7 @@ library CurveLib {
                 uint256 denom = px * 1e18; // scale: 1e36
 
                 // perform the two 256-by-256 into 512 multiplications
-                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(py * 1e18, y - y0, denom); // scale: 1e54
+                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(y - y0, py * 1e18, denom); // scale: 1e54
                 (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denom); // scale: 1e54
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
