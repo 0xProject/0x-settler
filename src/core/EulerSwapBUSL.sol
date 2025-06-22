@@ -44,7 +44,7 @@ library CurveLib {
             if (v >> 248 != 0) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
-            return y0 + (v + (py - 1)).unsafeDiv(py);
+            return y0 + (v + (py - 1)).unsafeDivUp(py);
         }
     }
 
