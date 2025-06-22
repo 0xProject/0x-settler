@@ -77,26 +77,34 @@ library CurveLib {
             uint256 absB; // scale: 1e18
 
             {
-                uint256 denominator = px * 1e18;
+                uint256 denominator = px * 1e18; // scale: 1e36
+
+                // perform the two 256-by-256 into 512 multiplications
                 (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(py * 1e18, y - y0, denominator); // scale: 1e54
                 (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denominator); // scale: 1e54
+
+                // compare the resulting 512-bit integers to determine which branch below we need to take
                 assembly ("memory-safe") {
                     sign := or(gt(term2_hi, term1_hi), and(eq(term2_hi, term1_hi), gt(term2_lo, term1_lo)))
                 }
 
+                // ensure that the result is positive
                 (uint256 a_lo, uint256 b_lo) = sign.maybeSwap(term1_lo, term2_lo);
                 (uint256 a_hi, uint256 b_hi) = sign.maybeSwap(term1_hi, term2_hi);
                 (uint256 a_rem, uint256 b_rem) = sign.maybeSwap(term1_rem, term2_rem);
-                uint256 prod0;
-                uint256 prod1;
-                uint256 remainder;
+
+                // perform the 512-bit subtraction
+                uint256 prod0 = a_lo - b_lo;
+                uint256 prod1 = (a_hi - b_hi).unsafeDec(prod0 > a_lo);
+                uint256 remainder = a_rem.unsafeAddMod(denominator - b_rem, denominator);
+
+                // if `sign` is true, then we want to round up. compute the carry bit
                 bool carry;
                 assembly ("memory-safe") {
-                    prod0 := sub(a_lo, b_lo)
-                    prod1 := sub(sub(a_hi, b_hi), gt(prod0, a_lo))
-                    remainder := addmod(a_rem, sub(denominator, b_rem), denominator)
-                    carry := mul(lt(0x00, remainder), carry)
+                    carry := mul(lt(0x00, remainder), sign)
                 }
+
+                // 512-bit by 256-bit division
                 absB = FullMath._mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(carry);
             }
 

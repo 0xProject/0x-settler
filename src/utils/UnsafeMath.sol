@@ -10,11 +10,10 @@ library UnsafeMath {
         }
     }
 
-    function unsafeInc(uint256 x, bool b) internal pure returns (uint256) {
+    function unsafeInc(uint256 x, bool b) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            x := add(x, b)
+            r := add(x, b)
         }
-        return x;
     }
 
     function unsafeInc(int256 x) internal pure returns (int256) {
@@ -26,6 +25,12 @@ library UnsafeMath {
     function unsafeDec(uint256 x) internal pure returns (uint256) {
         unchecked {
             return x - 1;
+        }
+    }
+
+    function unsafeDec(uint256 x, bool b) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sub(x, b)
         }
     }
 
