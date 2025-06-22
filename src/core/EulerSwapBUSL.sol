@@ -89,8 +89,10 @@ library CurveLib {
             uint256 shift = computeShift(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
             uint256 twoShift = shift << 1;
             uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
-            uint256 discriminant = squaredB + (fourAC >> twoShift);
-            sqrt = discriminant.sqrtUp() << shift; // TODO: there's probably a way to avoid this by keeping everything as a uint512 until we have to sqrt
+            unchecked {
+                uint256 discriminant = squaredB + (fourAC >> twoShift).inc(0 < fourAC << (256 - twoShift));
+                sqrt = discriminant.sqrtUp() << shift;
+            }
         }
 
         uint256 x;
