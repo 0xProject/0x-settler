@@ -73,12 +73,31 @@ library CurveLib {
         // resulting subtraction
 
         unchecked {
-            uint256 denominator = px * 1e18;
-            (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(py * 1e18, y - y0, denominator); // scale: 1e54
-            (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denominator); // scale: 1e54
             bool sign; // true when `term1 - term2` is negative
-            assembly ("memory-safe") {
-                sign := or(gt(term2_hi, term1_hi), and(eq(term2_hi, term1_hi), gt(term2_lo, term1_lo)))
+            uint256 absB; // scale: 1e18
+
+            {
+                uint256 denominator = px * 1e18;
+                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(py * 1e18, y - y0, denominator); // scale: 1e54
+                (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denominator); // scale: 1e54
+                assembly ("memory-safe") {
+                    sign := or(gt(term2_hi, term1_hi), and(eq(term2_hi, term1_hi), gt(term2_lo, term1_lo)))
+                }
+
+                (uint256 a_lo, uint256 b_lo) = sign.maybeSwap(term1_lo, term2_lo);
+                (uint256 a_hi, uint256 b_hi) = sign.maybeSwap(term1_hi, term2_hi);
+                (uint256 a_rem, uint256 b_rem) = sign.maybeSwap(term1_rem, term2_rem);
+                uint256 prod0;
+                uint256 prod1;
+                uint256 remainder;
+                bool carry;
+                assembly ("memory-safe") {
+                    prod0 := sub(a_lo, b_lo)
+                    prod1 := sub(sub(a_hi, b_hi), gt(prod0, a_lo))
+                    remainder := addmod(a_rem, sub(denominator, b_rem), denominator)
+                    carry := mul(lt(0x00, remainder), carry)
+                }
+                absB = FullMath._mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(carry);
             }
 
             uint256 x;
@@ -88,8 +107,6 @@ library CurveLib {
                 // absB and sqrt round up
                 // squaredB and fourAC round up
                 // C rounds down
-
-                uint256 absB = subDiv(term2_lo, term2_hi, term2_rem, term1_lo, term1_hi, term1_rem, denominator); // scale: 1e18
 
                 uint256 C = (1e18 - c).unsafeMulDivAlt(x0 * x0, 1e18); // scale: 1e36
                 uint256 fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
@@ -116,8 +133,6 @@ library CurveLib {
                 // C rounds up
                 // squaredB and fourAC round down
 
-                uint256 absB = subDiv(term1_lo, term1_hi, term1_rem, term2_lo, term2_hi, term2_rem, denominator); // scale: 1e18
-
                 uint256 C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
                 uint256 fourAC = (c << 2).unsafeMulDivAlt(C, 1e18); // scale: 1e36
 
@@ -140,18 +155,6 @@ library CurveLib {
             }
             return (x < x0).ternary(x, x0);
         }
-    }
-
-    function subDiv(uint256 a_lo, uint256 a_hi, uint256 a_rem, uint256 b_lo, uint256 b_hi, uint256 b_rem, uint256 denominator) private pure returns (uint256) {
-        uint256 prod0;
-        uint256 prod1;
-        uint256 remainder;
-        assembly ("memory-safe") {
-            prod0 := sub(a_lo, b_lo)
-            prod1 := sub(sub(a_hi, b_hi), gt(prod0, a_lo))
-            remainder := addmod(a_rem, sub(denominator, b_rem), denominator)
-        }
-        return FullMath._mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(0 < remainder);
     }
 
     /// @dev Utility to derive optimal scale for computations in fInverse
