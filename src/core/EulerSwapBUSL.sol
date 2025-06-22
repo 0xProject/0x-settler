@@ -62,50 +62,96 @@ library CurveLib {
         pure
         returns (uint256)
     {
-        // components of quadratic equation
-        int256 B;
-        uint256 C;
-        uint256 fourAC;
+        // We need to do 3 things simultaneously:
+        //   * compute `term1 = (py * 1e18) * (y - y0) / px`
+        //   * compute `term2 = (c * 2 - 1e18) * x0`
+        //   * determine the sign of `term1 - term2` *WITHOUT ROUNDING*
+        // To achive this, we first perform 2 512-bit multiplications:
+        //   * (py * 1e18) * (y - y0)
+        //   * (c * 2 - 1e18) * x0 * px
+        // Before comparing the intermediate products and branching based on the sign of the
+        // resulting subtraction
 
         unchecked {
-            int256 term1 = int256((py * 1e18).unsafeMulDivUp(y - y0, px)); // scale: 1e36
-            int256 term2 = ((int256(c) << 1) - 1e18) * int256(x0); // scale: 1e36
-            B = (term1 - term2).unsafeDiv(1e18); // scale: 1e18
-            C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
-            fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
-        }
-
-        uint256 absB = uint256(B.unsafeAbs());
-        uint256 sqrt;
-        if (1e36 > absB) {
-            // B^2 can be calculated directly at 1e18 scale without overflowing
-            unchecked {
-                uint256 squaredB = absB * absB; // scale: 1e36
-                uint256 discriminant = squaredB + fourAC; // scale: 1e36
-                sqrt = discriminant.sqrtUp(); // scale: 1e18
+            uint256 denominator = px * 1e18;
+            (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(py * 1e18, y - y0, denominator); // scale: 1e54
+            (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denominator); // scale: 1e54
+            bool sign; // true when `term1 - term2` is negative
+            assembly ("memory-safe") {
+                sign := or(gt(term2_hi, term1_hi), and(eq(term2_hi, term1_hi), gt(term2_lo, term1_lo)))
             }
-        } else {
-            // B^2 cannot be calculated directly at 1e18 scale without overflowing
-            uint256 shift = computeShift(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
-            uint256 twoShift = shift << 1;
-            uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
-            unchecked {
-                uint256 discriminant = squaredB + (fourAC >> twoShift).inc(0 < fourAC << (256 - twoShift));
-                sqrt = discriminant.sqrtUp() << shift;
-            }
-        }
 
-        uint256 x;
-        unchecked {
-            x = (
-                0 < B
-                    // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
-                    ? (C << 1).unsafeDivUp(absB + sqrt)
-                    // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
-                    : (absB + sqrt).unsafeMulDivUp(1e18, c << 1)
-            ) + 1;
+            uint256 x;
+            if (sign) {
+                // B is negative; use regular quadratic formula
+
+                // absB and sqrt round up
+                // squaredB and fourAC round up
+                // C rounds down
+
+                uint256 absB = subDiv(term2_lo, term2_hi, term2_rem, term1_lo, term1_hi, term1_rem, denominator); // scale: 1e18
+
+                uint256 C = (1e18 - c).unsafeMulDivAlt(x0 * x0, 1e18); // scale: 1e36
+                uint256 fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
+                uint256 sqrt;
+                if (1e36 > absB) {
+                    // B^2 can be calculated directly at 1e18 scale without overflowing
+                    uint256 squaredB = absB * absB; // scale: 1e36
+                    uint256 discriminant = squaredB + fourAC; // scale: 1e36
+                    sqrt = discriminant.sqrtUp(); // scale: 1e18
+                } else {
+                    // B^2 cannot be calculated directly at 1e18 scale without overflowing
+                    uint256 shift = computeShift(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
+                    uint256 twoShift = shift << 1;
+                    uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
+                    uint256 discriminant = squaredB + (fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift));
+                    sqrt = discriminant.sqrtUp() << shift;
+                }
+                // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
+                x = (absB + sqrt).unsafeMulDivUp(1e18, c << 1);
+            } else {
+                // B is nonnegative; use "citardauq" quadratic formula
+
+                // absB and sqrt round down
+                // C rounds up
+                // squaredB and fourAC round down
+
+                uint256 absB = subDiv(term1_lo, term1_hi, term1_rem, term2_lo, term2_hi, term2_rem, denominator); // scale: 1e18
+
+                uint256 C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
+                uint256 fourAC = (c << 2).unsafeMulDivAlt(C, 1e18); // scale: 1e36
+
+                uint256 sqrt;
+                if (1e36 > absB) {
+                    // B^2 can be calculated directly at 1e18 scale without overflowing
+                    uint256 squaredB = absB * absB; // scale: 1e36
+                    uint256 discriminant = squaredB + fourAC; // scale: 1e36
+                    sqrt = discriminant.sqrt(); // scale: 1e18
+                } else {
+                    // B^2 cannot be calculated directly at 1e18 scale without overflowing
+                    uint256 shift = computeShift(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
+                    uint256 twoShift = shift << 1;
+                    uint256 squaredB = absB.unsafeMulShift(absB, twoShift);
+                    uint256 discriminant = squaredB + (fourAC >> twoShift); // TODO: can this addition overflow?
+                    sqrt = discriminant.sqrt() << shift;
+                }
+                // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
+                x = (C << 1).unsafeDivUp(absB + sqrt);
+            }
+            return (x < x0).ternary(x, x0);
         }
-        return (x < x0).ternary(x, x0);
+    }
+
+    function subDiv(uint256 a_lo, uint256 a_hi, uint256 a_rem, uint256 b_lo, uint256 b_hi, uint256 b_rem, uint256 denominator) private pure returns (uint256) {
+        uint256 prod0;
+        uint256 prod1;
+        uint256 remainder;
+        assembly ("memory-safe") {
+            prod0 := sub(a_lo, b_lo)
+            prod1 := sub(sub(a_hi, b_hi), gt(prod0, a_lo))
+            remainder := addmod(a_rem, sub(denominator, b_rem), denominator)
+        }
+        return FullMath._mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(0 < remainder);
     }
 
     /// @dev Utility to derive optimal scale for computations in fInverse
