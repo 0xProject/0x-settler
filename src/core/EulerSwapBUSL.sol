@@ -74,11 +74,11 @@ library CurveLib {
             uint256 absB; // scale: 1e18
 
             {
-                uint256 denominator = px * 1e18; // scale: 1e36
+                uint256 denom = px * 1e18; // scale: 1e36
 
                 // perform the two 256-by-256 into 512 multiplications
-                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(py * 1e18, y - y0, denominator); // scale: 1e54
-                (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denominator); // scale: 1e54
+                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(py * 1e18, y - y0, denom); // scale: 1e54
+                (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denom); // scale: 1e54
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
                 assembly ("memory-safe") {
@@ -91,19 +91,23 @@ library CurveLib {
                 (uint256 a_rem, uint256 b_rem) = sign.maybeSwap(term1_rem, term2_rem);
 
                 // perform the 512-bit subtraction
-                uint256 prod0 = a_lo - b_lo;
-                uint256 prod1 = (a_hi - b_hi).unsafeDec(prod0 > a_lo);
-                uint256 remainder = a_rem.unsafeAddMod(denominator - b_rem, denominator);
+                uint256 lo = a_lo - b_lo;
+                uint256 hi = (a_hi - b_hi).unsafeDec(lo > a_lo);
+                uint256 rem = a_rem.unsafeAddMod(denom - b_rem, denom);
 
                 // if `sign` is true, then we want to round up. compute the carry bit
                 bool carry;
                 assembly ("memory-safe") {
-                    carry := mul(lt(0x00, remainder), sign)
+                    carry := mul(lt(0x00, rem), sign)
                 }
 
                 // 512-bit by 256-bit division
-                absB = FullMath._mulDivInvert(prod0, prod1, denominator, remainder).unsafeInc(carry);
+                absB = FullMath._mulDivInvert(lo, hi, denom, rem).unsafeInc(carry);
             }
+
+            // `shift` is how much we need to shift right (the log of the scaling factor) to prevent overflow when computing B^2
+            uint256 shift = absB.bitLength().saturatingSub(128);
+            uint256 twoShift = shift << 1;
 
             uint256 x;
             if (sign) {
@@ -115,20 +119,11 @@ library CurveLib {
 
                 uint256 C = (1e18 - c).unsafeMulDivAlt(x0 * x0, 1e18); // scale: 1e36
                 uint256 fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
-                uint256 sqrt;
-                if (1e36 > absB) {
-                    // B^2 can be calculated directly at 1e18 scale without overflowing
-                    uint256 squaredB = absB * absB; // scale: 1e36
-                    uint256 discriminant = squaredB + fourAC; // scale: 1e36
-                    sqrt = discriminant.sqrtUp(); // scale: 1e18
-                } else {
-                    // B^2 cannot be calculated directly at 1e18 scale without overflowing
-                    uint256 shift = computeShift(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
-                    uint256 twoShift = shift << 1;
-                    uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
-                    uint256 discriminant = squaredB + (fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift));
-                    sqrt = discriminant.sqrtUp() << shift;
-                }
+
+                uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
+                uint256 discriminant = squaredB + (fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift));
+                uint256 sqrt = discriminant.sqrtUp() << shift;
+
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
                 x = (absB + sqrt).unsafeMulDivUp(1e18, c << 1);
             } else {
@@ -141,33 +136,14 @@ library CurveLib {
                 uint256 C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
                 uint256 fourAC = (c << 2).unsafeMulDivAlt(C, 1e18); // scale: 1e36
 
-                uint256 sqrt;
-                if (1e36 > absB) {
-                    // B^2 can be calculated directly at 1e18 scale without overflowing
-                    uint256 squaredB = absB * absB; // scale: 1e36
-                    uint256 discriminant = squaredB + fourAC; // scale: 1e36
-                    sqrt = discriminant.sqrt(); // scale: 1e18
-                } else {
-                    // B^2 cannot be calculated directly at 1e18 scale without overflowing
-                    uint256 shift = computeShift(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
-                    uint256 twoShift = shift << 1;
-                    uint256 squaredB = absB.unsafeMulShift(absB, twoShift);
-                    uint256 discriminant = squaredB + (fourAC >> twoShift); // TODO: can this addition overflow?
-                    sqrt = discriminant.sqrt() << shift;
-                }
+                uint256 squaredB = absB.unsafeMulShift(absB, twoShift);
+                uint256 discriminant = squaredB + (fourAC >> twoShift); // TODO: can this addition overflow?
+                uint256 sqrt = discriminant.sqrt() << shift;
+
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
                 x = (C << 1).unsafeDivUp(absB + sqrt);
             }
             return (x < x0).ternary(x, x0);
-        }
-    }
-
-    /// @dev Utility to derive optimal scale for computations in fInverse
-    function computeShift(uint256 x) private pure returns (uint256) {
-        uint256 bits = x.bitLength();
-        // `bits - 128` is how much we need to shift right to prevent overflow when squaring x
-        unchecked {
-            return bits.saturatingSub(128);
         }
     }
 }
