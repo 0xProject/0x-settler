@@ -37,6 +37,12 @@ jobs:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 1000000
 
+      - name: Build CrossChainReceiverFactory
+        run: forge build -- src/CrossChainReceiverFactory.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 1000000
+
       - name: Run MultiCall tests
         run: forge test --skip 'src/*' --mp test/MultiCall.t.sol
         env:
