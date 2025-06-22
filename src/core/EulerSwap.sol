@@ -512,7 +512,7 @@ abstract contract EulerSwap is SettlerAbstract {
 
     /// @notice Decodes a compact-format cap value to its actual numerical value
     /// @dev The cap uses a compact-format where:
-    ///      - If amountCap == 0, there's no cap (returns max uint256)
+    ///      - If amountCap == 0, there's no cap (returns type(uint112).max)
     ///      - Otherwise, the lower 6 bits represent the exponent (10^exp)
     ///      - The upper bits (>> 6) represent the mantissa
     ///      - The formula is: (10^exponent * mantissa) / 100
