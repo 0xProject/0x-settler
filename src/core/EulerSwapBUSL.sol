@@ -62,18 +62,15 @@ library CurveLib {
         pure
         returns (uint256)
     {
-        // We need to do 3 things simultaneously:
-        //   * compute `term1 = (py * 1e18) * (y - y0) / px`
-        //   * compute `term2 = (c * 2 - 1e18) * x0`
-        //   * determine the sign of `term1 - term2` *WITHOUT ROUNDING*
-        // To achive this, we first perform 2 512-bit multiplications:
-        //   * (py * 1e18) * (y - y0)
-        //   * (c * 2 - 1e18) * x0 * px
-        // Before comparing the intermediate products and branching based on the sign of the
-        // resulting subtraction
+        // The value `B` is implicitly computed as:
+        //     [(py * 1e18) * (y - y0) - (c * 2 - 1e18) * x0 * px] / px
+        // But the intermediate products can overflow 256 bits. Therefore, we have to perform
+        // 512-bit multiplications and a subtraction to get the correct value.
+        // Additionally, we only care about the absolute value of `B` for use later, so we
+        // separately extract the sign of `B` and its absolute value.
 
         unchecked {
-            bool sign; // true when `term1 - term2` is negative
+            bool sign; // true when `B` is negative
             uint256 absB; // scale: 1e18
 
             {
@@ -88,7 +85,7 @@ library CurveLib {
                     sign := or(gt(term2_hi, term1_hi), and(eq(term2_hi, term1_hi), gt(term2_lo, term1_lo)))
                 }
 
-                // ensure that the result is positive
+                // ensure that the result will be positive
                 (uint256 a_lo, uint256 b_lo) = sign.maybeSwap(term1_lo, term2_lo);
                 (uint256 a_hi, uint256 b_hi) = sign.maybeSwap(term1_hi, term2_hi);
                 (uint256 a_rem, uint256 b_rem) = sign.maybeSwap(term1_rem, term2_rem);
