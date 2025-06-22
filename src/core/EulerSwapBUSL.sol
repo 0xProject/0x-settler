@@ -86,11 +86,11 @@ library CurveLib {
             }
         } else {
             // B^2 cannot be calculated directly at 1e18 scale without overflowing
-            uint256 scale = computeScale(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
-            uint256 twoScale = scale << 1;
-            uint256 squaredB = absB.unsafeMulShiftUp(absB, twoScale);
-            uint256 discriminant = squaredB + (fourAC >> twoScale);
-            sqrt = discriminant.sqrtUp() << scale; // TODO: there's probably a way to avoid this by keeping everything as a uint512 until we have to sqrt
+            uint256 shift = computeShift(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
+            uint256 twoShift = shift << 1;
+            uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
+            uint256 discriminant = squaredB + (fourAC >> twoShift);
+            sqrt = discriminant.sqrtUp() << shift; // TODO: there's probably a way to avoid this by keeping everything as a uint512 until we have to sqrt
         }
 
         uint256 x;
@@ -107,9 +107,9 @@ library CurveLib {
     }
 
     /// @dev Utility to derive optimal scale for computations in fInverse
-    function computeScale(uint256 x) private pure returns (uint256) {
+    function computeShift(uint256 x) private pure returns (uint256) {
         uint256 bits = x.bitLength();
-        // 2^(bits - 128) is how much we need to scale down to prevent overflow when squaring x
+        // `bits - 128` is how much we need to shift right to prevent overflow when squaring x
         unchecked {
             return bits.saturatingSub(128);
         }
