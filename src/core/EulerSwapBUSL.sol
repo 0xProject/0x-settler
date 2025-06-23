@@ -76,7 +76,7 @@ library CurveLib {
                     FullMath._mulDivSetup(y - y0, py * 1e18, px); // scale: 1e54
                 (uint256 term2_lo, uint256 term2_hi, ) =
                     FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, px); // scale: 1e54
-                uint256 term2_rem = 0; // TODO: see if this gives the compiler enough of a hint
+                uint256 term2_rem = 0;
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
                 sign = (term2_hi > term1_hi).or((term2_hi == term1_hi).and(term2_lo > term1_lo));
@@ -98,7 +98,8 @@ library CurveLib {
                 absB = FullMath._mulDivInvert(lo, hi, px, rem).unsafeInc(carry);
             }
 
-            // `shift` is how much we need to shift right (the log of the scaling factor) to prevent overflow when computing B^2
+            // `shift` is how much we need to shift right (the log of the scaling factor) to prevent
+            // overflow when computing B^2
             uint256 shift = absB.bitLength().saturatingSub(128);
             uint256 twoShift = shift << 1;
 
