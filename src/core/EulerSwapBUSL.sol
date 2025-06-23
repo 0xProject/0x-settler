@@ -12,6 +12,7 @@ pragma solidity ^0.8.25;
 //
 // (That means don't fork this without explicit permission from Euler Labs.)
 
+import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
@@ -20,6 +21,7 @@ import {FullMath} from "../vendor/FullMath.sol";
 
 /// @author Modified from EulerSwap by Euler Labs Ltd. https://github.com/euler-xyz/euler-swap/blob/aa87a6bc1ca01bf6e5a8e14c030bbe0d008cf8bf/src/libraries/CurveLib.sol . See above for copyright and usage terms.
 library CurveLib {
+    using FastLogic for bool;
     using Ternary for bool;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
@@ -58,25 +60,23 @@ library CurveLib {
         pure
         returns (uint256)
     {
-        // The value `B` is implicitly computed as:
-        //     [(y - y0) * py * 1e18 - (c * 2 - 1e18) * x0 * px] / px
-        // But the intermediate products can overflow 256 bits. Therefore, we have to perform
-        // 512-bit multiplications and a subtraction to get the correct value.
-        // Additionally, we only care about the absolute value of `B` for use later, so we
-        // separately extract the sign of `B` and its absolute value.
-
         unchecked {
+            // The value `B` is implicitly computed as:
+            //     [(y - y0) * py * 1e18 - (c * 2 - 1e18) * x0 * px] / px
+            // But the intermediate products can overflow 256 bits. Therefore, we have to perform
+            // 512-bit multiplications and a subtraction to get the correct value.
+            // Additionally, we only care about the absolute value of `B` for use later, so we
+            // separately extract the sign of `B` and its absolute value.
             bool sign; // true when `B` is negative
-            uint256 absB; // scale: 1e18
+            uint256 absB; // scale: 1e36
 
             {
-                uint256 denom = px * 1e18; // scale: 1e36
-
                 // perform the two 256-by-256 into 512 multiplications
                 (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) =
-                    FullMath._mulDivSetup(y - y0, py * 1e18, denom); // scale: 1e54
-                (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) =
-                    FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denom); // scale: 1e54
+                    FullMath._mulDivSetup(y - y0, py * 1e18, px); // scale: 1e54
+                (uint256 term2_lo, uint256 term2_hi, ) =
+                    FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, px); // scale: 1e54
+                uint256 term2_rem = 0; // TODO: see if this gives the compiler enough of a hint
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
                 sign = (term2_hi > term1_hi).or((term2_hi == term1_hi).and(term2_lo > term1_lo));
@@ -89,13 +89,13 @@ library CurveLib {
                 // perform the 512-bit subtraction
                 uint256 lo = a_lo - b_lo;
                 uint256 hi = (a_hi - b_hi).unsafeDec(lo > a_lo);
-                uint256 rem = a_rem.unsafeAddMod(denom - b_rem, denom);
+                uint256 rem = a_rem.unsafeAddMod(px - b_rem, px);
 
                 // if `sign` is true, then we want to round up. compute the carry bit
                 bool carry = (0 < rem).and(sign);
 
                 // 512-bit by 256-bit division
-                absB = FullMath._mulDivInvert(lo, hi, denom, rem).unsafeInc(carry);
+                absB = FullMath._mulDivInvert(lo, hi, px, rem).unsafeInc(carry);
             }
 
             // `shift` is how much we need to shift right (the log of the scaling factor) to prevent overflow when computing B^2
