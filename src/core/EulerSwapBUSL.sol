@@ -82,9 +82,9 @@ library CurveLib {
                 }
 
                 // ensure that the result will be positive
-                (uint256 a_lo, uint256 b_lo) = sign.maybeSwap(term1_lo, term2_lo);
-                (uint256 a_hi, uint256 b_hi) = sign.maybeSwap(term1_hi, term2_hi);
-                (uint256 a_rem, uint256 b_rem) = sign.maybeSwap(term1_rem, term2_rem);
+                (uint256 a_lo, uint256 b_lo, uint256 a_hi, uint256 b_hi, uint256 a_rem, uint256 b_rem) = sign
+                    ? (term2_lo, term1_lo, term2_hi, term1_hi, term2_rem, term1_rem)
+                    : (term1_lo, term2_lo, term1_hi, term2_hi, term1_rem, term2_rem);
 
                 // perform the 512-bit subtraction
                 uint256 lo = a_lo - b_lo;
