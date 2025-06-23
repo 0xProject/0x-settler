@@ -63,10 +63,8 @@ library CurveLib {
         unchecked {
             // The value `B` is implicitly computed as:
             //     [(y - y0) * py * 1e18 - (c * 2 - 1e18) * x0 * px] / px
-            // But the intermediate products can overflow 256 bits. Therefore, we have to perform
-            // 512-bit multiplications and a subtraction to get the correct value.
-            // Additionally, we only care about the absolute value of `B` for use later, so we
-            // separately extract the sign of `B` and its absolute value.
+            // We only care about the absolute value of `B` for use later, so we separately extract
+            // the sign of `B` and its absolute value.
             bool sign; // true when `B` is negative
             uint256 absB; // scale: 1e36
             {
@@ -121,8 +119,10 @@ library CurveLib {
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
                 x = (C.unsafeInc(carryC) << 1).unsafeMulDivUpAlt(1e18, absB + sqrt); // scale: 1e18
+                // if `c == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. this
+                // just so happens to be the correct answer.
             }
-            return (x < x0).ternary(x, x0);
+            return (x < x0).ternary(x, x0); // TODO: if we've been careful about rounding, this should be unnecessary
         }
     }
 }
