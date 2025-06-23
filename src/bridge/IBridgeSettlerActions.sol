@@ -26,4 +26,10 @@ interface IBridgeSettlerActions {
 
     /// @dev Bridge native through Mayan
     function BRIDGE_NATIVE_TO_MAYAN(address forwarder, address mayanProtocol, bytes calldata protocolData) external;
+
+    /// @dev Bridge ERC20 through Across
+    function BRIDGE_ERC20_TO_ACROSS(address spoke, bytes calldata depositData) external;
+
+    /// @dev Bridge native through Across
+    function BRIDGE_NATIVE_TO_ACROSS(address spoke, bytes calldata depositData) external;
 }

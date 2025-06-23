@@ -14,8 +14,9 @@ import {FastDeployer} from "../deployer/FastDeployer.sol";
 import {Basic} from "../core/Basic.sol";
 import {Relay} from "../core/Relay.sol";
 import {Mayan} from "../core/Mayan.sol";
+import {Across} from "../core/Across.sol";
 
-abstract contract BridgeSettlerBase is Basic, Relay, Mayan {
+abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -103,6 +104,12 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
             (address forwarder, address mayanProtocol, bytes memory protocolData) = abi.decode(data, (address, address, bytes));
             bridgeNativeToMayan(forwarder, mayanProtocol, protocolData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS.selector)) {
+            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
+            bridgeERC20ToAcross(spoke, depositData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS.selector)) {
+            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
+            bridgeNativeToAcross(spoke, depositData);
         } else {
             return false;
         }
