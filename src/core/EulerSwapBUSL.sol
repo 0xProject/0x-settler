@@ -41,8 +41,8 @@ library CurveLib {
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         unchecked {
-            uint256 v = (px * (x0 - x)).unsafeMulDivUp(c * x + (1e18 - c) * x0, x * 1e18); // scale: 1e36
-            return y0 + (v + py - 1).unsafeDivUp(py);
+            uint256 v = (px * (x0 - x)).unsafeMulDivUp(c * x + (1e18 - c) * x0, 1e18 * x * py);
+            return y0 + v;
         }
     }
 
@@ -69,33 +69,20 @@ library CurveLib {
             // separately extract the sign of `B` and its absolute value.
             bool sign; // true when `B` is negative
             uint256 absB; // scale: 1e36
-
             {
-                // perform the two 256-by-256 into 512 multiplications
-                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(y - y0, py * 1e18, px); // scale: 1e54
-                (uint256 term2_lo, uint256 term2_hi,) = FullMath._mulDivSetup(1e18 * x0, px, px); // scale: 1e54
-                // 512-bit addition
-                term1_lo += term2_lo;
-                term1_hi += term2_hi.unsafeInc(term1_lo < term2_lo);
-                (uint256 term3_lo, uint256 term3_hi,) = FullMath._mulDivSetup((c << 1) * x0, px, px); // scale: 1e54
+                uint256 term1 = 1e18 * ((y - y0) * py + x0 * px) ; // scale: 1e54
+                uint256 term2 = (c << 1) * x0 * px; // scale: 1e54
 
-                // compare the resulting 512-bit integers to determine which branch below we need to take
-                sign = (term3_hi > term1_hi).or((term3_hi == term1_hi).and(term3_lo > term1_lo));
+                // compare to determine which branch below we need to take
+                sign = term2 > term1;
 
                 // ensure that the result will be positive
-                (uint256 a_lo, uint256 b_lo, uint256 a_hi, uint256 b_hi, uint256 rem) = sign
-                    ? (term3_lo, term1_lo, term3_hi, term1_hi, px - term1_rem)
-                    : (term1_lo, term3_lo, term1_hi, term3_hi, term1_rem);
-
-                // perform the 512-bit subtraction
-                uint256 lo = a_lo - b_lo;
-                uint256 hi = (a_hi - b_hi).unsafeDec(lo > a_lo);
+                (uint256 a, uint256 b) = sign.maybeSwap(term1, term2);
+                uint256 difference = a - b; // scale: 1e54
 
                 // if `sign` is true, then we want to round up. compute the carry bit
-                bool carry = (0 < rem).and(sign);
-
-                // 512-bit by 256-bit division
-                absB = FullMath._mulDivInvert(lo, hi, px, rem).unsafeInc(carry);
+                bool carry = (0 < difference.unsafeMod(px)).and(sign);
+                absB = difference.unsafeDiv(px).unsafeInc(carry);
             }
 
             // `shift` is how much we need to shift right (the log of the scaling factor) to prevent
