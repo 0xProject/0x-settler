@@ -39,7 +39,7 @@ library CurveLib {
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         unchecked {
-            uint256 v = (px * (x0 - x)).unsafeMulDivUp(c * x + (1e18 - c) * x0, x * 1e18);
+            uint256 v = (px * (x0 - x)).unsafeMulDivUp(c * x + (1e18 - c) * x0, x * 1e18); // scale: 1e36
             return y0 + (v + (py - 1)).unsafeDivUp(py);
         }
     }
