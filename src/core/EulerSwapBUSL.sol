@@ -79,9 +79,7 @@ library CurveLib {
                     FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denom); // scale: 1e54
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
-                assembly ("memory-safe") {
-                    sign := or(gt(term2_hi, term1_hi), and(eq(term2_hi, term1_hi), gt(term2_lo, term1_lo)))
-                }
+                sign = (term2_hi > term1_hi).or((term2_hi == term1_hi).and(term2_lo > term1_lo));
 
                 // ensure that the result will be positive
                 (uint256 a_lo, uint256 b_lo, uint256 a_hi, uint256 b_hi, uint256 a_rem, uint256 b_rem) = sign
@@ -94,10 +92,7 @@ library CurveLib {
                 uint256 rem = a_rem.unsafeAddMod(denom - b_rem, denom);
 
                 // if `sign` is true, then we want to round up. compute the carry bit
-                bool carry;
-                assembly ("memory-safe") {
-                    carry := and(lt(0x00, rem), sign)
-                }
+                bool carry = (0 < rem).and(sign);
 
                 // 512-bit by 256-bit division
                 absB = FullMath._mulDivInvert(lo, hi, denom, rem).unsafeInc(carry);
@@ -117,7 +112,7 @@ library CurveLib {
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
                 uint256 discriminant =
                     squaredB.saturatingAdd((fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift)));
-                uint256 sqrt = discriminant.sqrtUp() << shift;
+                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18
 
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
                 x = (absB + sqrt).unsafeMulDivUp(1e18, c << 1);
@@ -135,7 +130,7 @@ library CurveLib {
 
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift);
                 uint256 discriminant = squaredB.saturatingAdd(fourAC >> twoShift);
-                uint256 sqrt = discriminant.sqrt() << shift;
+                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
                 x = (C.unsafeInc(carryC) << 1).unsafeDivUp(absB + sqrt);
