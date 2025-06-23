@@ -113,7 +113,7 @@ library CurveLib {
                 uint256 fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
 
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
-                uint256 discriminant = squaredB + (fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift));
+                uint256 discriminant = squaredB.saturatingAdd((fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift)));
                 uint256 sqrt = discriminant.sqrtUp() << shift;
 
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
@@ -131,7 +131,7 @@ library CurveLib {
                 uint256 fourAC = (c << 2).unsafeMulDivAlt(C, 1e18); // scale: 1e36
 
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift);
-                uint256 discriminant = squaredB + (fourAC >> twoShift); // TODO: can this addition overflow?
+                uint256 discriminant = squaredB.saturatingAdd(fourAC >> twoShift);
                 uint256 sqrt = discriminant.sqrt() << shift;
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
