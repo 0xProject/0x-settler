@@ -73,15 +73,19 @@ library CurveLib {
             {
                 // perform the two 256-by-256 into 512 multiplications
                 (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(y - y0, py * 1e18, px); // scale: 1e54
-                (uint256 term2_lo, uint256 term2_hi,) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, px); // scale: 1e54
+                (uint256 term2_lo, uint256 term2_hi,) = FullMath._mulDivSetup(1e18 * x0, px, px); // scale: 1e54
+                // 512-bit addition
+                term1_lo += term2_lo;
+                term1_hi += term2_hi.unsafeInc(term1_lo < term2_lo);
+                (uint256 term3_lo, uint256 term3_hi,) = FullMath._mulDivSetup((c << 1) * x0, px, px); // scale: 1e54
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
-                sign = (term2_hi > term1_hi).or((term2_hi == term1_hi).and(term2_lo > term1_lo));
+                sign = (term3_hi > term1_hi).or((term3_hi == term1_hi).and(term3_lo > term1_lo));
 
                 // ensure that the result will be positive
                 (uint256 a_lo, uint256 b_lo, uint256 a_hi, uint256 b_hi, uint256 rem) = sign
-                    ? (term2_lo, term1_lo, term2_hi, term1_hi, px - term1_rem)
-                    : (term1_lo, term2_lo, term1_hi, term2_hi, term1_rem);
+                    ? (term3_lo, term1_lo, term3_hi, term1_hi, px - term1_rem)
+                    : (term1_lo, term3_lo, term1_hi, term3_hi, term1_rem);
 
                 // perform the 512-bit subtraction
                 uint256 lo = a_lo - b_lo;
