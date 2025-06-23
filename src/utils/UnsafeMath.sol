@@ -121,6 +121,13 @@ library Math {
         }
     }
 
+    function saturatingAdd(uint256 x, uint256 y) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := add(x, y)
+            r := or(r, sub(0x00, lt(r, y)))
+        }
+    }
+
     function saturatingSub(uint256 x, uint256 y) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := mul(gt(x, y), sub(x, y))
