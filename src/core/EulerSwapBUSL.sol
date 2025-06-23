@@ -74,20 +74,18 @@ library CurveLib {
                 // perform the two 256-by-256 into 512 multiplications
                 (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(y - y0, py * 1e18, px); // scale: 1e54
                 (uint256 term2_lo, uint256 term2_hi,) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, px); // scale: 1e54
-                uint256 term2_rem = 0;
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
                 sign = (term2_hi > term1_hi).or((term2_hi == term1_hi).and(term2_lo > term1_lo));
 
                 // ensure that the result will be positive
-                (uint256 a_lo, uint256 b_lo, uint256 a_hi, uint256 b_hi, uint256 a_rem, uint256 b_rem) = sign
-                    ? (term2_lo, term1_lo, term2_hi, term1_hi, term2_rem, term1_rem)
-                    : (term1_lo, term2_lo, term1_hi, term2_hi, term1_rem, term2_rem);
+                (uint256 a_lo, uint256 b_lo, uint256 a_hi, uint256 b_hi, uint256 rem) = sign
+                    ? (term2_lo, term1_lo, term2_hi, term1_hi, px - term1_rem)
+                    : (term1_lo, term2_lo, term1_hi, term2_hi, term1_rem);
 
                 // perform the 512-bit subtraction
                 uint256 lo = a_lo - b_lo;
                 uint256 hi = (a_hi - b_hi).unsafeDec(lo > a_lo);
-                uint256 rem = a_rem.unsafeAddMod(px - b_rem, px);
 
                 // if `sign` is true, then we want to round up. compute the carry bit
                 bool carry = (0 < rem).and(sign);
