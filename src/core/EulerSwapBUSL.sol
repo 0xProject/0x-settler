@@ -94,7 +94,7 @@ library CurveLib {
                 // if `sign` is true, then we want to round up. compute the carry bit
                 bool carry;
                 assembly ("memory-safe") {
-                    carry := mul(lt(0x00, rem), sign)
+                    carry := and(lt(0x00, rem), sign)
                 }
 
                 // 512-bit by 256-bit division
