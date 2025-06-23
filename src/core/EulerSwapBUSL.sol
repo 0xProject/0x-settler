@@ -107,13 +107,9 @@ library CurveLib {
 
             uint256 x;
             if (sign) {
-                // B is negative; use regular quadratic formula
+                // B is negative; use regular quadratic formula; everything rounds up
 
-                // absB and sqrt round up
-                // squaredB and fourAC round up
-                // C rounds down
-
-                uint256 C = (1e18 - c).unsafeMulDivAlt(x0 * x0, 1e18); // scale: 1e36
+                uint256 C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
                 uint256 fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
 
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
@@ -123,13 +119,15 @@ library CurveLib {
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
                 x = (absB + sqrt).unsafeMulDivUp(1e18, c << 1);
             } else {
-                // B is nonnegative; use "citardauq" quadratic formula
+                // B is nonnegative; use "citardauq" quadratic formula; everything except C rounds down
 
-                // absB and sqrt round down
-                // C rounds up
-                // squaredB and fourAC round down
-
-                uint256 C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
+                uint256 C; // scale: 1e36
+                bool carryC; // true when we need to round C up
+                {
+                    (uint256 C_lo, uint256 C_hi, uint256 C_rem) = FullMath._mulDivSetup(1e18 - c, x0 * x0, 1e18);
+                    C = FullMath._mulDivInvert(C_lo, C_hi, 1e18, C_rem);
+                    carryC = 0 < C_rem;
+                }
                 uint256 fourAC = (c << 2).unsafeMulDivAlt(C, 1e18); // scale: 1e36
 
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift);
@@ -137,7 +135,7 @@ library CurveLib {
                 uint256 sqrt = discriminant.sqrt() << shift;
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
-                x = (C << 1).unsafeDivUp(absB + sqrt);
+                x = (C.unsafeInc(carryC) << 1).unsafeDivUp(absB + sqrt);
             }
             return (x < x0).ternary(x, x0);
         }
