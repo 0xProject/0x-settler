@@ -10,14 +10,13 @@ contract Across {
     using FullMath for uint256;
 
     function bridgeERC20ToAcross(address spoke, bytes memory depositData) internal {
-        // considering this approach versus sending the token as a parameter,
         IERC20 inputToken;
         assembly ("memory-safe") {
             inputToken := mload(add(0x60, depositData))
         }
         uint256 amount = inputToken.fastBalanceOf(address(this));
         inputToken.safeApproveIfBelow(spoke, amount);
-        _bridgeToAcross(amount, 0x00, spoke, depositData);
+        _bridgeToAcross(amount, 0 wei, spoke, depositData);
     }
 
     function bridgeNativeToAcross(address spoke, bytes memory depositData) internal {
@@ -26,7 +25,6 @@ contract Across {
     }
 
     function _bridgeToAcross(uint256 updatedInputAmount, uint256 value, address spoke, bytes memory depositData) internal { 
-        // considering this approach versus sending the token as a parameter,
         uint256 inputAmount;
         uint256 outputAmount;
         assembly ("memory-safe") {
@@ -40,7 +38,7 @@ contract Across {
             mstore(add(0xc0, depositData), updatedOutputAmount)
 
             let len := mload(depositData)
-            // temporarly clobbeer `depositData` size memory area
+            // temporarily clobber `depositData` size memory area
             mstore(depositData, 0x7b939232) // selector for `depositV3(address,address,address,address,uint256,uint256,uint256,address,uint32,uint32,uint32,bytes)`
             // `depositV3` doesn't clash with any relevant function of restricted targets so we can skip checking spoke
             if iszero(call(gas(), spoke, value, add(0x1c, depositData), add(0x04, len), 0x00, 0x00)) {
