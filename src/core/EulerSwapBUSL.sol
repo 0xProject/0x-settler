@@ -107,15 +107,14 @@ library CurveLib {
                 // B is negative; use regular quadratic formula; everything rounds up
 
                 uint256 C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
-                uint256 fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
 
-                uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
-                uint256 discriminant =
-                    squaredB.saturatingAdd((fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift)));
-                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18
+                uint256 fourAC = (c * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e72 >> twoShift
+                uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e72 >> twoShift
+                uint256 discriminant = squaredB.saturatingAdd(fourAC); // scale: 1e72 >> twoShift
+                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e36
 
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
-                x = (absB + sqrt).unsafeMulDivUp(1e18, c << 1);
+                x = (absB + sqrt).unsafeDivUp(c << 1); // scale: 1e18
             } else {
                 // B is nonnegative; use "citardauq" quadratic formula; everything except C rounds down
 
@@ -126,14 +125,14 @@ library CurveLib {
                     C = FullMath._mulDivInvert(C_lo, C_hi, 1e18, C_rem);
                     carryC = 0 < C_rem;
                 }
-                uint256 fourAC = (c << 2).unsafeMulDivAlt(C, 1e18); // scale: 1e36
 
-                uint256 squaredB = absB.unsafeMulShift(absB, twoShift);
-                uint256 discriminant = squaredB.saturatingAdd(fourAC >> twoShift);
-                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18
+                uint256 fourAC = (c * 4e18).unsafeMulShift(C, twoShift); // scale: 1e72 >> twoShift
+                uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e72 >> twoShift
+                uint256 discriminant = squaredB.saturatingAdd(fourAC); // scale: 1e72 >> twoShift
+                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e36
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
-                x = (C.unsafeInc(carryC) << 1).unsafeDivUp(absB + sqrt);
+                x = (C.unsafeInc(carryC) << 1).unsafeMulDivUpAlt(1e18, absB + sqrt); // scale: 1e18
             }
             return (x < x0).ternary(x, x0);
         }
