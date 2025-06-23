@@ -73,8 +73,10 @@ library CurveLib {
                 uint256 denom = px * 1e18; // scale: 1e36
 
                 // perform the two 256-by-256 into 512 multiplications
-                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) = FullMath._mulDivSetup(y - y0, py * 1e18, denom); // scale: 1e54
-                (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) = FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denom); // scale: 1e54
+                (uint256 term1_lo, uint256 term1_hi, uint256 term1_rem) =
+                    FullMath._mulDivSetup(y - y0, py * 1e18, denom); // scale: 1e54
+                (uint256 term2_lo, uint256 term2_hi, uint256 term2_rem) =
+                    FullMath._mulDivSetup(((c << 1) - 1e18) * x0, px, denom); // scale: 1e54
 
                 // compare the resulting 512-bit integers to determine which branch below we need to take
                 assembly ("memory-safe") {
@@ -113,7 +115,8 @@ library CurveLib {
                 uint256 fourAC = (c << 2).unsafeMulDivUpAlt(C, 1e18); // scale: 1e36
 
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift);
-                uint256 discriminant = squaredB.saturatingAdd((fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift)));
+                uint256 discriminant =
+                    squaredB.saturatingAdd((fourAC >> twoShift).unsafeInc(0 < fourAC << (256 - twoShift)));
                 uint256 sqrt = discriminant.sqrtUp() << shift;
 
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
