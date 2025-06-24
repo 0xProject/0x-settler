@@ -83,16 +83,30 @@ library CurveLib {
                 absB = difference.unsafeDiv(px).unsafeInc(carry);
             }
 
+            uint256 C; // scale: 1e36
+            bool carryC; // true when we need to round C up
+            {
+                (uint256 C_lo, uint256 C_hi, uint256 C_rem) = FullMath._mulDivSetup(1e18 - c, x0 * x0, 1e18);
+                C = FullMath._mulDivInvert(C_lo, C_hi, 1e18, C_rem);
+                carryC = 0 < C_rem;
+            }
+
             // `shift` is how much we need to shift right (the log of the scaling factor) to prevent
-            // overflow when computing B^2
-            uint256 shift = absB.bitLength().saturatingSub(128);
-            uint256 twoShift = shift << 1;
+            // overflow when computing squaredB or fourAC
+            uint256 twoShift;
+            {
+                uint256 twoShiftSquaredB = absB.bitLength().saturatingSub(128) << 1;
+                uint256 twoShiftFourAc = C.unsafeInc(carryC).bitLength().saturatingSub(134);
+                twoShiftFourAc += twoShiftFourAc & 1;
+                twoShift = (twoShiftSquaredB < twoShiftFourAc).ternary(twoShiftFourAc, twoShiftSquaredB);
+            }
+            uint256 shift = twoShift >> 1;
 
             uint256 x;
             if (sign) {
                 // B is negative; use regular quadratic formula; everything rounds up
 
-                uint256 C = (1e18 - c).unsafeMulDivUpAlt(x0 * x0, 1e18); // scale: 1e36
+                C = C.unsafeInc(carryC);
 
                 uint256 fourAC = (c * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e72 >> twoShift
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e72 >> twoShift
@@ -103,14 +117,6 @@ library CurveLib {
                 x = (absB + sqrt).unsafeDivUp(c << 1); // scale: 1e18
             } else {
                 // B is nonnegative; use "citardauq" quadratic formula; everything except C rounds down
-
-                uint256 C; // scale: 1e36
-                bool carryC; // true when we need to round C up
-                {
-                    (uint256 C_lo, uint256 C_hi, uint256 C_rem) = FullMath._mulDivSetup(1e18 - c, x0 * x0, 1e18);
-                    C = FullMath._mulDivInvert(C_lo, C_hi, 1e18, C_rem);
-                    carryC = 0 < C_rem;
-                }
 
                 uint256 fourAC = (c * 4e18).unsafeMulShift(C, twoShift); // scale: 1e72 >> twoShift
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e72 >> twoShift
