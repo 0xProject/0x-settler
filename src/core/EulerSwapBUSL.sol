@@ -30,6 +30,27 @@ library CurveLib {
     using Clz for uint256;
     using FullMath for uint256;
 
+    /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
+    /// Acceptable points are on, or above and to-the-right of the swapping curve.
+    function verify(uint256 newReserve0, uint256 newReserve1, uint256 equilibriumReserve0, uint256 equilibriumReserve1, uint256 priceX, uint256 priceY, uint256 concentrationX, uint256 concentrationY)
+        internal
+        pure
+        returns (bool)
+    {
+        if ((newReserve0 | newReserve1) >> 112 != 0) return false;
+
+        if (newReserve0 >= equilibriumReserve0) {
+            if (newReserve1 >= equilibriumReserve1) return true;
+            return newReserve0
+                >= f(newReserve1, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
+        } else {
+            if (newReserve1 < equilibriumReserve1) return false;
+            return newReserve1
+                >= f(newReserve0, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX);
+        }
+    }
+
+
     /// @dev EulerSwap curve
     /// @notice Computes the output `y` for a given input `x`.
     /// @param x The input reserve value, constrained to 1 <= x <= x0.
