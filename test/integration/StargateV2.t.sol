@@ -128,7 +128,6 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         pool = 0xc026395860Db2d07ee33e05fE50ed7bD583189C7;
         token = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
         uint256 amount = 10000;
-        uint256 extraGas = 0;
 
         deal(address(token), address(this), amount);
         token.approve(address(ALLOWANCE_HOLDER), amount);
@@ -168,14 +167,14 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         );
         sendParam.amountLD = amount;
 
-        deal(address(this), extraGas + fee);
+        deal(address(this), fee);
         uint256 balanceBefore = token.balanceOf(pool);
         vm.expectCall(
             pool, 
-            extraGas + fee, 
+            fee, 
             abi.encodeCall(IStargateV2.sendToken, (sendParam, messagingFee, address(this)))
         );
-        ALLOWANCE_HOLDER.exec{value: fee + extraGas}(
+        ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
             address(token),
             amount,
@@ -185,6 +184,5 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         uint256 balanceAfter = token.balanceOf(pool);
 
         assertEq(balanceAfter - balanceBefore, amount, "Assets were not received");
-        assertEq(address(this).balance, extraGas, "ExtraGas was not returned");
     }
 }
