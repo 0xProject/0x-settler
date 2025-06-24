@@ -116,8 +116,8 @@ library CurveLib {
                 carryC = 0 < C_rem;
             }
 
-            // `shift` is how much we need to shift right (the log of the scaling factor) to prevent
-            // overflow when computing squaredB or fourAC
+            // `twoShift` is how much we need to shift right (the log of the scaling factor) to
+            // prevent overflow when computing `squaredB` or `fourAC`
             uint256 twoShift;
             {
                 uint256 twoShiftSquaredB = (absB.bitLength() << 1).saturatingSub(255);
@@ -125,6 +125,8 @@ library CurveLib {
                 twoShift = (twoShiftSquaredB < twoShiftFourAc).ternary(twoShiftFourAc, twoShiftSquaredB);
                 twoShift += twoShift & 1;
             }
+            // `shift` is how much we have to shift up by after taking the square root of
+            // `discriminant` to get back to a basis of 1e36
             uint256 shift = twoShift >> 1;
 
             uint256 x;
