@@ -95,10 +95,10 @@ library CurveLib {
             // overflow when computing squaredB or fourAC
             uint256 twoShift;
             {
-                uint256 twoShiftSquaredB = absB.bitLength().saturatingSub(128) << 1;
-                uint256 twoShiftFourAc = C.unsafeInc(carryC).bitLength().saturatingSub(134);
-                twoShiftFourAc += twoShiftFourAc & 1;
+                uint256 twoShiftSquaredB = (absB.bitLength() << 1).saturatingSub(255);
+                uint256 twoShiftFourAc = C.unsafeInc(carryC).bitLength().saturatingSub(133); // 4e36 has 122 bits
                 twoShift = (twoShiftSquaredB < twoShiftFourAc).ternary(twoShiftFourAc, twoShiftSquaredB);
+                twoShift += twoShift & 1;
             }
             uint256 shift = twoShift >> 1;
 
@@ -110,7 +110,7 @@ library CurveLib {
 
                 uint256 fourAC = (c * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e72 >> twoShift
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e72 >> twoShift
-                uint256 discriminant = squaredB.saturatingAdd(fourAC); // scale: 1e72 >> twoShift
+                uint256 discriminant = squaredB + fourAC; // scale: 1e72 >> twoShift
                 uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e36
 
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
@@ -120,7 +120,7 @@ library CurveLib {
 
                 uint256 fourAC = (c * 4e18).unsafeMulShift(C, twoShift); // scale: 1e72 >> twoShift
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e72 >> twoShift
-                uint256 discriminant = squaredB.saturatingAdd(fourAC); // scale: 1e72 >> twoShift
+                uint256 discriminant = squaredB + fourAC; // scale: 1e72 >> twoShift
                 uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e36
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
