@@ -64,7 +64,7 @@ library Sqrt {
     function sqrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _sqrt(x);
         assembly ("memory-safe") {
-            z := add(gt(div(x, z), z), z)
+            z := add(lt(mul(z, z), x), z)
         }
     }
 }
