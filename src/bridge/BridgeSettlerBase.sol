@@ -15,8 +15,9 @@ import {Basic} from "../core/Basic.sol";
 import {Relay} from "../core/Relay.sol";
 import {Mayan} from "../core/Mayan.sol";
 import {Across} from "../core/Across.sol";
+import {StargateV2} from "../core/StargateV2.sol";
 
-abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
+abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across, StargateV2 {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -110,6 +111,12 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS.selector)) {
             (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
             bridgeNativeToAcross(spoke, depositData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_STARGATE_V2.selector)) {
+            (address token, address pool, bytes memory sendData) = abi.decode(data, (address, address, bytes));
+            bridgeERC20ToStargateV2(IERC20(token), pool, sendData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_STARGATE_V2.selector)) {
+            (address pool, uint256 destinationGas, bytes memory sendData) = abi.decode(data, (address, uint256, bytes));
+            bridgeNativeToStargateV2(pool, destinationGas, sendData);
         } else {
             return false;
         }
