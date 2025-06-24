@@ -32,24 +32,28 @@ library CurveLib {
 
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
-    function verify(uint256 newReserve0, uint256 newReserve1, uint256 equilibriumReserve0, uint256 equilibriumReserve1, uint256 priceX, uint256 priceY, uint256 concentrationX, uint256 concentrationY)
-        internal
-        pure
-        returns (bool)
-    {
+    function verify(
+        uint256 newReserve0,
+        uint256 newReserve1,
+        uint256 equilibriumReserve0,
+        uint256 equilibriumReserve1,
+        uint256 priceX,
+        uint256 priceY,
+        uint256 concentrationX,
+        uint256 concentrationY
+    ) internal pure returns (bool) {
         if ((newReserve0 | newReserve1) >> 112 != 0) return false;
 
         if (newReserve0 >= equilibriumReserve0) {
             if (newReserve1 >= equilibriumReserve1) return true;
-            return newReserve0
-                >= f(newReserve1, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
+            return
+                newReserve0 >= f(newReserve1, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
         } else {
             if (newReserve1 < equilibriumReserve1) return false;
-            return newReserve1
-                >= f(newReserve0, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX);
+            return
+                newReserve1 >= f(newReserve0, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX);
         }
     }
-
 
     /// @dev EulerSwap curve
     /// @notice Computes the output `y` for a given input `x`.
@@ -89,7 +93,7 @@ library CurveLib {
             bool sign; // true when `B` is negative
             uint256 absB; // scale: 1e36
             {
-                uint256 term1 = 1e18 * ((y - y0) * py + x0 * px) ; // scale: 1e54
+                uint256 term1 = 1e18 * ((y - y0) * py + x0 * px); // scale: 1e54
                 uint256 term2 = (c << 1) * x0 * px; // scale: 1e54
 
                 // compare to determine which branch below we need to take
