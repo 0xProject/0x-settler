@@ -128,7 +128,11 @@ library CurveLib {
                 // if `c == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. this
                 // just so happens to be the correct answer.
             }
-            return (x < x0).ternary(x, x0); // TODO: if we've been careful about rounding, this should be unnecessary
+
+            uint256 result = (x < x0).ternary(x, x0);
+            // this fixup step is only needed because the reference implementation of `verify` (by
+            // way of `f`) can't handle `x == 0` without dividing by zero
+            return result.unsafeInc(result == 0);
         }
     }
 }
