@@ -125,7 +125,7 @@ library CurveLib {
                 twoShift = (twoShiftSquaredB < twoShiftFourAc).ternary(twoShiftFourAc, twoShiftSquaredB);
                 twoShift += twoShift & 1;
             }
-            // `shift` is how much we have to shift up by after taking the square root of
+            // `shift` is how much we have to shift left by after taking the square root of
             // `discriminant` to get back to a basis of 1e36
             uint256 shift = twoShift >> 1;
 
