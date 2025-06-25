@@ -12,6 +12,7 @@ pragma solidity ^0.8.25;
 //
 // (That means don't fork this without explicit permission from Euler Labs.)
 
+import {Panic} from "../utils/Panic.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
@@ -52,9 +53,13 @@ library CurveLib {
             : (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
 
         unchecked {
-            (uint256 a_lo, uint256 a_hi) = (y - y0).fullMul(1e18 * x * py);
-            (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(cx * x + (1e18 - cx) * x0);
-            return !FullMath.fullLt(a_lo, a_hi, b_lo, b_hi);
+            if ((x == 0).and(cx == 1e18)) {
+                return y - y0 >= (x0 * px).unsafeDivUp(py);
+            } else {
+                (uint256 a_lo, uint256 a_hi) = (y - y0).fullMul(1e18 * x * py);
+                (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(cx * x + (1e18 - cx) * x0);
+                return !FullMath.fullLt(a_lo, a_hi, b_lo, b_hi);
+            }
         }
     }
 
@@ -69,11 +74,19 @@ library CurveLib {
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
         unchecked {
-            uint256 a = px * (x0 - x); // scale: 1e36; range: 196 bits
-            uint256 b = cx * x + (1e18 - cx) * x0; // scale: 1e36; range: 173 bits
-            uint256 d = 1e18 * x * py; // scale: 1e54; range: 255 bits
-            uint256 v = a.unsafeMulDivUp(b, d); // scale: 1e36
-            return (d == 0).ternary(type(uint112).max, y0 + v);
+            uint256 v; // scale: 1e18
+            if ((x == 0).and(cx == 1e18)) {
+                v = (x0 * px).unsafeDivUp(py);
+            } else {
+                if (x == 0) {
+                    Panic.panic(Panic.DIVISION_BY_ZERO);
+                }
+                uint256 a = px * (x0 - x); // scale: 1e36; range: 196 bits
+                uint256 b = cx * x + (1e18 - cx) * x0; // scale: 1e36; range: 173 bits
+                uint256 d = 1e18 * x * py; // scale: 1e54; range: 255 bits
+                v = a.unsafeMulDivUp(b, d);
+            }
+            return y0 + v;
         }
     }
 
