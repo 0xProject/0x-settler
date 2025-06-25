@@ -45,15 +45,15 @@ library CurveLib {
     ) internal pure returns (bool) {
         if ((newReserve0 | newReserve1) >> 112 != 0) return false;
         if ((newReserve0 >= equilibriumReserve0).and(newReserve1 >= equilibriumReserve1)) return true;
-        if ((newReserve0 < equilibriumReserve0).and(newReserve1 < equilibriumReserve1)) return false;
+        if ((newReserve0 <= equilibriumReserve0).and(newReserve1 <= equilibriumReserve1)) return false;
 
-        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 c) = (newReserve0 >= equilibriumReserve0)
-            ? (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, concentrationY)
-            : (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, concentrationX);
+        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) = (newReserve0 < equilibriumReserve0)
+            ? (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX)
+            : (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
 
         unchecked {
             (uint256 a_lo, uint256 a_hi) = y.fullMul(1e18 * x * py);
-            (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(c * x + (1e18 - c) * x0);
+            (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(cx * x + (1e18 - cx) * x0);
             return !FullMath.fullLt(a_lo, a_hi, b_lo, b_hi);
         }
     }
