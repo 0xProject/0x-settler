@@ -31,10 +31,18 @@ contract CurveLibTest is Test {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
-        x0 = bound(x0, 1, 1e28);
-        y0 = bound(y0, 1, 1e28);
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
+        if (cx == 1e18) {
+            x0 = bound(x0, 0, 1e28);
+        } else {
+            x0 = bound(x0, 1, 1e28);
+        }
+        if (cy == 1e18) {
+            y0 = bound(y0, 0, 1e28);
+        } else {
+            y0 = bound(y0, 1, 1e28);
+        }
         console.log("px", px);
         console.log("py", py);
         console.log("x0", x0);
@@ -57,7 +65,11 @@ contract CurveLibTest is Test {
             protocolFeeRecipient: address(0)
         });
 
-        x = bound(x, 0, x0);
+        if (cx == 1e18) {
+            x = bound(x, 0, x0);
+        } else {
+            x = bound(x, 1, x0);
+        }
         console.log("x    ", x);
 
         uint256 yBin = binSearchY(x, x0, y0, px, py, cx, cy);
@@ -103,10 +115,18 @@ contract CurveLibTest is Test {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
-        x0 = bound(x0, 1, 1e28);
-        y0 = bound(y0, 1, 1e28);
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
+        if (cx == 1e18) {
+            x0 = bound(x0, 0, 1e28);
+        } else {
+            x0 = bound(x0, 1, 1e28);
+        }
+        if (cy == 1e18) {
+            y0 = bound(y0, 0, 1e28);
+        } else {
+            y0 = bound(y0, 1, 1e28);
+        }
         console.log("px", px);
         console.log("py", py);
         console.log("x0", x0);
@@ -129,7 +149,11 @@ contract CurveLibTest is Test {
             protocolFeeRecipient: address(0)
         });
 
-        x = bound(x, 0, x0);
+        if (cx == 1e18) {
+            x = bound(x, 0, x0);
+        } else {
+            x = bound(x, 1, x0);
+        }
 
         uint256 y = binSearchY(x, x0, y0, px, py, cx, cy);
 
