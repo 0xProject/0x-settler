@@ -44,8 +44,8 @@ library CurveLib {
         uint256 concentrationY
     ) internal pure returns (bool) {
         if ((newReserve0 | newReserve1) >> 112 != 0) return false;
-        if ((newReserve0 >= equilibriumReserve0).and(newReserve1 >= equilibriumReserve1)) return true;
-        if ((newReserve0 <= equilibriumReserve0).and(newReserve1 <= equilibriumReserve1)) return false;
+        if (!(newReserve0 < equilibriumReserve0).or(newReserve1 < equilibriumReserve1)) return true;
+        if (!(newReserve0 > equilibriumReserve0).or(newReserve1 > equilibriumReserve1)) return false;
 
         (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 cx) = (newReserve0 < equilibriumReserve0)
             ? (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, concentrationX)
