@@ -65,12 +65,15 @@ library CurveLib {
     /// @param py (1 <= py <= 1e25).
     /// @param x0 (0 <= x0 <= 2^112 - 1).
     /// @param y0 (0 <= y0 <= 2^112 - 1).
-    /// @param c (0 <= c <= 1e18).
+    /// @param cx (0 <= cx <= 1e18).
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
-    function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+    function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
         unchecked {
-            uint256 v = (px * (x0 - x)).unsafeMulDivUp(c * x + (1e18 - c) * x0, 1e18 * x * py);
-            return y0 + v;
+            uint256 a = (px * (x0 - x)); // scale: 1e36; range: 196 bits
+            uint256 b = cx * x + (1e18 - cx) * x0; // scale: 1e36; range: 173 bits
+            uint256 d = 1e18 * x * py; // scale: 1e54; range: 255 bits
+            uint256 v = a.unsafeMulDivUp(b, d); // scale: 1e36
+            return (d == 0).ternary(type(uint112).max, y0 + v);
         }
     }
 
@@ -81,23 +84,23 @@ library CurveLib {
     /// @param py (1 <= py <= 1e25).
     /// @param x0 (0 <= x0 <= 2^112 - 1).
     /// @param y0 (0 <= y0 <= 2^112 - 1).
-    /// @param c (0 <= c <= 1e18).
+    /// @param cx (0 <= cx <= 1e18).
     /// @return x The output reserve value corresponding to input `y`, guaranteed to satisfy `0 <= x <= x0`.
-    function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+    function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx)
         internal
         pure
         returns (uint256)
     {
         unchecked {
             // The value `B` is implicitly computed as:
-            //     [(y - y0) * py * 1e18 - (c * 2 - 1e18) * x0 * px] / px
+            //     [(y - y0) * py * 1e18 - (cx * 2 - 1e18) * x0 * px] / px
             // We only care about the absolute value of `B` for use later, so we separately extract
             // the sign of `B` and its absolute value.
             bool sign; // true when `B` is negative
             uint256 absB; // scale: 1e36
             {
                 uint256 term1 = 1e18 * ((y - y0) * py + x0 * px); // scale: 1e54
-                uint256 term2 = (c << 1) * x0 * px; // scale: 1e54
+                uint256 term2 = (cx << 1) * x0 * px; // scale: 1e54
 
                 // compare to determine which branch below we need to take
                 sign = term2 > term1;
@@ -114,7 +117,7 @@ library CurveLib {
             uint256 C; // scale: 1e36
             bool carryC; // true when we need to round C up
             {
-                (uint256 C_lo, uint256 C_hi, uint256 C_rem) = FullMath._mulDivSetup(1e18 - c, x0 * x0, 1e18);
+                (uint256 C_lo, uint256 C_hi, uint256 C_rem) = FullMath._mulDivSetup(1e18 - cx, x0 * x0, 1e18);
                 C = FullMath._mulDivInvert(C_lo, C_hi, 1e18, C_rem);
                 carryC = 0 < C_rem;
             }
@@ -138,24 +141,24 @@ library CurveLib {
 
                 C = C.unsafeInc(carryC);
 
-                uint256 fourAC = (c * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e72 >> twoShift
+                uint256 fourAC = (cx * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e72 >> twoShift
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e72 >> twoShift
                 uint256 discriminant = squaredB + fourAC; // scale: 1e72 >> twoShift
                 uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e36
 
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
-                x = (absB + sqrt).unsafeDivUp(c << 1); // scale: 1e18
+                x = (absB + sqrt).unsafeDivUp(cx << 1); // scale: 1e18
             } else {
                 // B is nonnegative; use "citardauq" quadratic formula; everything except C rounds down
 
-                uint256 fourAC = (c * 4e18).unsafeMulShift(C, twoShift); // scale: 1e72 >> twoShift
+                uint256 fourAC = (cx * 4e18).unsafeMulShift(C, twoShift); // scale: 1e72 >> twoShift
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e72 >> twoShift
                 uint256 discriminant = squaredB + fourAC; // scale: 1e72 >> twoShift
                 uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e36
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
                 x = (C.unsafeInc(carryC) << 1).unsafeMulDivUpAlt(1e18, absB + sqrt); // scale: 1e18
-                // if `c == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. this
+                // if `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. this
                 // just so happens to be the correct answer.
             }
 
