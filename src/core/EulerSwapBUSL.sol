@@ -60,11 +60,11 @@ library CurveLib {
 
     /// @dev EulerSwap curve
     /// @notice Computes the output `y` for a given input `x`.
-    /// @param x The input reserve value, constrained to 1 <= x <= x0.
+    /// @param x The input reserve value, constrained to 0 <= x <= x0.
     /// @param px (1 <= px <= 1e25).
     /// @param py (1 <= py <= 1e25).
-    /// @param x0 (0 <= x0 <= 2^112 - 1).
-    /// @param y0 (0 <= y0 <= 2^112 - 1).
+    /// @param x0 (1 <= x0 <= 2^112 - 1).
+    /// @param y0 (1 <= y0 <= 2^112 - 1).
     /// @param cx (0 <= cx <= 1e18).
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
@@ -82,8 +82,8 @@ library CurveLib {
     /// @param y The input reserve value, constrained to y0 <= y <= 2^112 - 1.
     /// @param px (1 <= px <= 1e25).
     /// @param py (1 <= py <= 1e25).
-    /// @param x0 (0 <= x0 <= 2^112 - 1).
-    /// @param y0 (0 <= y0 <= 2^112 - 1).
+    /// @param x0 (1 <= x0 <= 2^112 - 1).
+    /// @param y0 (1 <= y0 <= 2^112 - 1).
     /// @param cx (0 <= cx <= 1e18).
     /// @return x The output reserve value corresponding to input `y`, guaranteed to satisfy `0 <= x <= x0`.
     function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx)

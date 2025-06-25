@@ -31,8 +31,8 @@ contract CurveLibTest is Test {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
-        x0 = bound(x0, 0, 1e28);
-        y0 = bound(y0, 0, 1e28);
+        x0 = bound(x0, 1, 1e28);
+        y0 = bound(y0, 1, 1e28);
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         console.log("px", px);
@@ -103,8 +103,8 @@ contract CurveLibTest is Test {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
-        x0 = bound(x0, 0, 1e28);
-        y0 = bound(y0, 0, 1e28);
+        x0 = bound(x0, 1, 1e28);
+        y0 = bound(y0, 1, 1e28);
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         console.log("px", px);
