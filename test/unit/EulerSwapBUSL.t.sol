@@ -209,17 +209,25 @@ contract CurveLibTest is Test {
         }
     }
 
-    function test_fuzzFEquillibrium(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
+    function test_fuzzFEquilibrium(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
         public
         pure
     {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
-        x0 = bound(x0, 0, 1e28);
-        y0 = bound(y0, 0, 1e28);
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
+        if (cx == 1e18) {
+            x0 = bound(x0, 0, 1e28);
+        } else {
+            x0 = bound(x0, 1, 1e28);
+        }
+        if (cy == 1e18) {
+            y0 = bound(y0, 0, 1e28);
+        } else {
+            y0 = bound(y0, 1, 1e28);
+        }
 
         uint256 y = CurveLib.f(x0, px, py, x0, y0, cx);
         uint256 x = CurveLib.f(y0, py, px, y0, x0, cy);
