@@ -88,7 +88,7 @@ contract CurveLibTest is Test {
         assertTrue(CurveLib.verify(x, yCalc, x0, y0, px, py, cx, cy), "verification failed");
 
         // `yCalc` is computed with only a single division, so it can be off by at most 1 wei
-        //assertLe(yCalc - yBin, 1, "y margin of error");
+        assertLe(yCalc - yBin, 1, "y margin of error");
 
         if (x != 0) {
             // the reference implementation of `f` sometimes returns 0, even though it's not a valid input
