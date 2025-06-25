@@ -20,6 +20,7 @@ import {Clz} from "../vendor/Clz.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 
 /// @author Modified from EulerSwap by Euler Labs Ltd. https://github.com/euler-xyz/euler-swap/blob/aa87a6bc1ca01bf6e5a8e14c030bbe0d008cf8bf/src/libraries/CurveLib.sol . See above for copyright and usage terms.
+/// @author Extensively modified by Duncan Townsend for Zero Ex Inc. (modifications released under MIT license)
 library CurveLib {
     using FastLogic for bool;
     using Ternary for bool;
@@ -43,15 +44,15 @@ library CurveLib {
         uint256 concentrationY
     ) internal pure returns (bool) {
         if ((newReserve0 | newReserve1) >> 112 != 0) return false;
+        if ((newReserve0 >= equilibriumReserve0).and(newReserve1 >= equilibriumReserve1)) return true;
+        if ((newReserve0 < equilibriumReserve0).and(newReserve1 < equilibriumReserve1)) return false;
 
-        if (newReserve0 >= equilibriumReserve0) {
-            if (newReserve1 >= equilibriumReserve1) return true;
-            return
-                newReserve0 >= f(newReserve1, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
-        } else {
-            if (newReserve1 < equilibriumReserve1) return false;
-            return
-                newReserve1 >= f(newReserve0, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX);
+        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 c) = (newReserve0 >= equilibriumReserve0) ? (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, concentrationY) : (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, concentrationX);
+
+        unchecked {
+            (uint256 a_lo, uint256 a_hi) = y.fullMul(1e18 * x * py);
+            (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(c * x + (1e18 - c) * x0);
+            return !FullMath.fullLt(a_lo, a_hi, b_lo, b_hi);
         }
     }
 

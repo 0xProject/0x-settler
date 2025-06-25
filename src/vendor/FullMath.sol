@@ -14,6 +14,28 @@ library FullMath {
     /// @notice 512-bit multiply [prod1 prod0] = a * b
     /// @param a The multiplicand
     /// @param b The multiplier
+    /// @return lo Least significant 256 bits of the product
+    /// @return hi Most significant 256 bits of the product
+    function fullMul(uint256 a, uint256 b) internal pure returns (uint256 lo, uint256 hi) {
+        // Compute the product mod 2**256 and mod 2**256 - 1 then use the Chinese
+        // Remainder Theorem to reconstruct the 512 bit result. The result is stored
+        // in two 256 variables such that product = prod1 * 2**256 + prod0
+        assembly ("memory-safe") {
+            let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            lo := mul(a, b)
+            hi := sub(sub(mm, lo), lt(mm, lo))
+        }
+    }
+
+    function fullLt(uint256 a_lo, uint256 a_hi, uint256 b_lo, uint256 b_hi) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := or(lt(a_hi, b_hi), and(eq(a_hi, b_hi), lt(a_lo, b_lo)))
+        }
+    }
+
+    /// @notice 512-bit multiply [prod1 prod0] = a * b
+    /// @param a The multiplicand
+    /// @param b The multiplier
     /// @param denominator The divisor
     /// @return prod0 Least significant 256 bits of the product
     /// @return prod1 Most significant 256 bits of the product
@@ -23,18 +45,8 @@ library FullMath {
         pure
         returns (uint256 prod0, uint256 prod1, uint256 remainder)
     {
-        // Compute the product mod 2**256 and mod 2**256 - 1 then use the Chinese
-        // Remainder Theorem to reconstruct the 512 bit result. The result is stored
-        // in two 256 variables such that product = prod1 * 2**256 + prod0
-        assembly ("memory-safe") {
-            // Full-precision multiplication
-            {
-                let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-                prod0 := mul(a, b)
-                prod1 := sub(sub(mm, prod0), lt(mm, prod0))
-            }
-            remainder := mulmod(a, b, denominator)
-        }
+        (prod0, prod1) = fullMul(a, b);
+        remainder = a.unsafeMulMod(b, denominator);
     }
 
     /// @notice 512-bit by 256-bit division.
