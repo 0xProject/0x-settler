@@ -47,7 +47,9 @@ library CurveLib {
         if ((newReserve0 >= equilibriumReserve0).and(newReserve1 >= equilibriumReserve1)) return true;
         if ((newReserve0 < equilibriumReserve0).and(newReserve1 < equilibriumReserve1)) return false;
 
-        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 c) = (newReserve0 >= equilibriumReserve0) ? (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, concentrationY) : (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, concentrationX);
+        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 c) = (newReserve0 >= equilibriumReserve0)
+            ? (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, concentrationY)
+            : (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, concentrationX);
 
         unchecked {
             (uint256 a_lo, uint256 a_hi) = y.fullMul(1e18 * x * py);
