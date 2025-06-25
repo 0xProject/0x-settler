@@ -65,7 +65,8 @@ library CurveLib {
 
     /// @dev EulerSwap curve
     /// @notice Computes the output `y` for a given input `x`.
-    /// @param x The input reserve value, constrained to 0 <= x <= x0.
+    /// @notice The combination `x0 == 0 && cx < 1e18` is invalid.
+    /// @param x The input reserve value, constrained to `0 <= x <= x0`.
     /// @param px (1 <= px <= 1e25).
     /// @param py (1 <= py <= 1e25).
     /// @param x0 (0 <= x0 <= 2^112 - 1).
@@ -92,7 +93,8 @@ library CurveLib {
 
     /// @dev EulerSwap inverse curve
     /// @notice Computes the output `x` for a given input `y`.
-    /// @param y The input reserve value, constrained to y0 <= y <= 2^112 - 1.
+    /// @notice The combination `x0 == 0 && cx < 1e18` is invalid.
+    /// @param y The input reserve value, constrained to `y0 <= y <= 2^112 - 1`.
     /// @param px (1 <= px <= 1e25).
     /// @param py (1 <= py <= 1e25).
     /// @param x0 (0 <= x0 <= 2^112 - 1).
