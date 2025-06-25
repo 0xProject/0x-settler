@@ -414,6 +414,7 @@ abstract contract EulerSwap is SettlerAbstract {
                     ? CurveLib.f(xNew, px, py, x0, y0, p.concentrationX())
                     // move to g()
                     : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
+                yNew = yNew.unsafeInc(yNew == 0);
                 return reserve1.saturatingSub(yNew);
             } else {
                 // swap Y in and X out
@@ -423,6 +424,7 @@ abstract contract EulerSwap is SettlerAbstract {
                     ? CurveLib.f(yNew, py, px, y0, x0, p.concentrationY())
                     // move to f()
                     : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
+                xNew = xNew.unsafeInc(xNew == 0);
                 return reserve0.saturatingSub(xNew);
             }
         }
