@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 
 /// @title Contains 512-bit math functions
@@ -10,6 +10,8 @@ import {Panic} from "../utils/Panic.sol";
 /// @dev Credit to Remco Bloemen under MIT license https://xn--2-umb.com/21/muldiv
 library FullMath {
     using UnsafeMath for uint256;
+    using UnsafeMath for uint8;
+    using Math for uint256;
 
     /// @notice 512-bit multiply [prod1 prod0] = a * b
     /// @param a The multiplicand
@@ -125,7 +127,9 @@ library FullMath {
         // Make sure the result is less than 2**256.
         // Also prevents denominator == 0
         if (denominator <= prod1) {
-            Panic.panic(denominator == 0 ? Panic.DIVISION_BY_ZERO : Panic.ARITHMETIC_OVERFLOW);
+            unchecked {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW.unsafeInc(denominator == 0));
+            }
         }
 
         // Handle non-overflow cases, 256 by 256 division
@@ -133,6 +137,28 @@ library FullMath {
             return prod0.unsafeDiv(denominator);
         }
         return _mulDivInvert(prod0, prod1, denominator, remainder);
+    }
+
+    /// @notice Calculates a×b÷denominator with full precision then rounds towards positive infinity. Throws if result overflows a uint256 or denominator == 0
+    /// @param a The multiplicand
+    /// @param b The multiplier
+    /// @param denominator The divisor
+    /// @return The 256-bit result
+    function mulDivUp(uint256 a, uint256 b, uint256 denominator) internal pure returns (uint256) {
+        (uint256 prod0, uint256 prod1, uint256 remainder) = _mulDivSetup(a, b, denominator);
+        // Make sure the result is less than 2**256.
+        // Also prevents denominator == 0
+        if (denominator <= prod1) {
+            unchecked {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW.unsafeInc(denominator == 0));
+            }
+        }
+
+        // Handle non-overflow cases, 256 by 256 division
+        if (prod1 == 0) {
+            return prod0.unsafeDiv(denominator);
+        }
+        return _mulDivInvert(prod0, prod1, denominator, remainder).inc(0 < remainder);
     }
 
     /// @notice Calculates a×b÷denominator with full precision then rounds towards 0. Overflowing a uint256 or denominator == 0 are GIGO errors
