@@ -169,6 +169,10 @@ contract CurveLibTest is Test {
 
         uint256 xCalc = CurveLib.fInverse(y, px, py, x0, y0, cx);
         console.log("xCalc", xCalc);
+        // double rounding in `fInverse`, compared to the exact computation in `verify` (and
+        // consequently `binSearchX`) can result in substantial amounts of error compared to
+        // `xBin`. all we can do is assert that the approximate closed-form solution is greater than
+        // (valid) the exact solution
         assertGe(xCalc, xBin);
 
         assertTrue(CurveLib.verify(xBin, y, x0, y0, px, py, cx, cy), "binary search verification failed");
