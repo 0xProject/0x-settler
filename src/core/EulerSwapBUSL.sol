@@ -47,12 +47,12 @@ library CurveLib {
         if (!(newReserve0 < equilibriumReserve0).or(newReserve1 < equilibriumReserve1)) return true;
         if (!(newReserve0 > equilibriumReserve0).or(newReserve1 > equilibriumReserve1)) return false;
 
-        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 cx) = (newReserve0 < equilibriumReserve0)
-            ? (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, concentrationX)
-            : (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, concentrationY);
+        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) = (newReserve0 < equilibriumReserve0)
+            ? (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX)
+            : (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
 
         unchecked {
-            (uint256 a_lo, uint256 a_hi) = y.fullMul(1e18 * x * py);
+            (uint256 a_lo, uint256 a_hi) = (y - y0).fullMul(1e18 * x * py);
             (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(cx * x + (1e18 - cx) * x0);
             return !FullMath.fullLt(a_lo, a_hi, b_lo, b_hi);
         }
@@ -69,7 +69,7 @@ library CurveLib {
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
         unchecked {
-            uint256 a = (px * (x0 - x)); // scale: 1e36; range: 196 bits
+            uint256 a = px * (x0 - x); // scale: 1e36; range: 196 bits
             uint256 b = cx * x + (1e18 - cx) * x0; // scale: 1e36; range: 173 bits
             uint256 d = 1e18 * x * py; // scale: 1e54; range: 255 bits
             uint256 v = a.unsafeMulDivUp(b, d); // scale: 1e36
