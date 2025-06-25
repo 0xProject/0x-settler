@@ -183,6 +183,10 @@ contract CurveLibTest is Test {
                 xCalc++;
             }
             assertTrue(CurveLibReference.verify(p, xCalc, y), "reference verification failed");
+            if (xBin == 0) {
+                xBin++;
+            }
+            assertTrue(CurveLibReference.verify(p, xBin, y), "reference verification failed");
         }
     }
 
