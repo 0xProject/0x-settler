@@ -7,7 +7,12 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 contract Mayan {
     using SafeTransferLib for IERC20;
 
-    function bridgeERC20ToMayan(IERC20 token, address forwarder, address mayanProtocol, bytes memory protocolData) internal {
+    function bridgeERC20ToMayan(address forwarder, address mayanProtocol, bytes memory protocolData) internal {
+        IERC20 token;
+        assembly ("memory-safe") {
+            // protocolData is (4 bytes selector, 32 bytes token, 32 bytes amount, ...anything else)
+            token := mload(add(0x24, protocolData))
+        }
         uint256 amount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(forwarder, amount);
         assembly ("memory-safe") {
@@ -28,8 +33,7 @@ contract Mayan {
             mstore(ptr, 0xe4269fc4000000000000000000000000) 
 
             // modify copied amount in protocolData
-            // protocolData is (4 bytes selector, 32 bytes token, 32 bytes amount, ...anything else)
-            // it is stored at 0x134, so we need to skip size (0x20), selector (0x04) and token (0x20)
+            // protocolData was copied to 0x134, so, amountIn is at 0x178 after skipping size (0x20), selector (0x04) and token (0x20)
             mstore(add(0x178, ptr), amount)
 
             // `forwarder` is user provided and we don't check if it is a restricted target before calling it.

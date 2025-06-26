@@ -22,7 +22,7 @@ interface IBridgeSettlerActions {
     function BRIDGE_NATIVE_TO_RELAY(address to, bytes32 requestId) external;
 
     /// @dev Bridge ERC20 through Mayan
-    function BRIDGE_ERC20_TO_MAYAN(address token, address forwarder, address mayanProtocol, bytes calldata protocolData) external;
+    function BRIDGE_ERC20_TO_MAYAN(address forwarder, address mayanProtocol, bytes calldata protocolData) external;
 
     /// @dev Bridge native through Mayan
     function BRIDGE_NATIVE_TO_MAYAN(address forwarder, address mayanProtocol, bytes calldata protocolData) external;

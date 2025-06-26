@@ -100,8 +100,8 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across, StargateV2 {
             (address to, bytes32 requestId) = abi.decode(data, (address, bytes32));
             bridgeNativeToRelay(to, requestId);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN.selector)) {
-            (address token, address forwarder, address mayanProtocol, bytes memory protocolData) = abi.decode(data, (address, address, address, bytes));
-            bridgeERC20ToMayan(IERC20(token), forwarder, mayanProtocol, protocolData);
+            (address forwarder, address mayanProtocol, bytes memory protocolData) = abi.decode(data, (address, address, bytes));
+            bridgeERC20ToMayan(forwarder, mayanProtocol, protocolData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
             (address forwarder, address mayanProtocol, bytes memory protocolData) = abi.decode(data, (address, address, bytes));
             bridgeNativeToMayan(forwarder, mayanProtocol, protocolData);
