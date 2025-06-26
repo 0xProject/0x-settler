@@ -174,7 +174,7 @@ library FullMath {
             overflow = (denominator > prod1).toInt() - 1;
         }
         if (prod1 == 0) {
-            return prod0.unsafeDiv(denominator).saturatingAdd(overflow);
+            return prod0.unsafeDivUp(denominator).saturatingAdd(overflow);
         }
         return _mulDivInvert(prod0, prod1, denominator, remainder).inc(0 < remainder).saturatingAdd(overflow);
     }
