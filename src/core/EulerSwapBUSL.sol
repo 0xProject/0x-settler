@@ -72,20 +72,20 @@ library CurveLib {
     /// @param x0 (0 <= x0 <= 2^112 - 1). An amount of tokens in base units.
     /// @param y0 (0 <= y0 <= 2^112 - 1). An amount of tokens in base units.
     /// @param cx (0 <= cx <= 1e18). A fixnum with a basis of 1e18.
-    /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`. (An amount of tokens in base units.)
+    /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y`. (An amount of tokens in base units.)
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
-        unchecked {
+        if ((x == 0).and(cx == 1e18)) {
+            unchecked {
+                uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
+                return y0 + v;
+            }
+        } else {
             uint256 v; // scale: 1; units: token Y
-            if ((x == 0).and(cx == 1e18)) {
-                v = (x0 * px).unsafeDivUp(py);
-            } else {
-                if (x == 0) {
-                    Panic.panic(Panic.DIVISION_BY_ZERO);
-                }
+            unchecked {
                 uint256 a = px * (x0 - x); // scale: 1e18; units: none; range: 196 bits
                 uint256 b = cx * x + (1e18 - cx) * x0; // scale: 1e18; units: token X; range: 173 bits
                 uint256 d = 1e18 * x * py; // scale: 1e36; units: token X / token Y; range: 255 bits
-                v = a.unsafeMulDivUp(b, d);
+                v = a.mulDivUp(b, d);
             }
             return y0 + v;
         }
