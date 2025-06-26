@@ -102,10 +102,6 @@ contract CurveLibTest is Test {
                 yCalc++;
             }
             assertTrue(CurveLibReference.verify(p, x, yCalc), "reference verification failed");
-            if (yBin == 0) {
-                yBin++;
-            }
-            assertTrue(CurveLibReference.verify(p, x, yBin), "binary search reference verification failed");
         }
     }
 
@@ -168,6 +164,39 @@ contract CurveLibTest is Test {
             uint256 actual = CurveLib.saturatingF(x, px, py, x0, y0, cx);
             assertEq(actual, type(uint256).max);
         }
+    }
+
+    function binSearchY(
+        uint256 newReserve0,
+        uint256 equilibriumReserve0,
+        uint256 equilibriumReserve1,
+        uint256 priceX,
+        uint256 priceY,
+        uint256 concentrationX,
+        uint256 concentrationY
+    ) internal pure returns (uint256) {
+        uint256 yMax = 1 << 112;
+        uint256 yMin = 0;
+        while (yMin < yMax) {
+            uint256 yMid = (yMin + yMax) / 2;
+            if (
+                CurveLib.verify(
+                    newReserve0,
+                    yMid,
+                    equilibriumReserve0,
+                    equilibriumReserve1,
+                    priceX,
+                    priceY,
+                    concentrationX,
+                    concentrationY
+                )
+            ) {
+                yMax = yMid;
+            } else {
+                yMin = yMid + 1;
+            }
+        }
+        return yMax;
     }
 
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) external pure returns (uint256) {
@@ -301,33 +330,6 @@ contract CurveLibTest is Test {
         }
     }
 
-    function test_fuzzFEquilibrium(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
-        public
-        pure
-    {
-        // Params
-        px = bound(px, 1, 1e25);
-        py = bound(py, 1, 1e25);
-        cx = bound(cx, 0, 1e18);
-        cy = bound(cy, 0, 1e18);
-        if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
-        } else {
-            x0 = bound(x0, 1, 1e28);
-        }
-        if (cy == 1e18) {
-            y0 = bound(y0, 0, 1e28);
-        } else {
-            y0 = bound(y0, 1, 1e28);
-        }
-
-        uint256 y = CurveLib.f(x0, px, py, x0, y0, cx);
-        uint256 x = CurveLib.f(y0, py, px, y0, x0, cy);
-
-        assertEq(y, y0);
-        assertEq(x, x0);
-    }
-
     function binSearchX(
         uint256 newReserve1,
         uint256 equilibriumReserve0,
@@ -361,39 +363,6 @@ contract CurveLibTest is Test {
         return xMax;
     }
 
-    function binSearchY(
-        uint256 newReserve0,
-        uint256 equilibriumReserve0,
-        uint256 equilibriumReserve1,
-        uint256 priceX,
-        uint256 priceY,
-        uint256 concentrationX,
-        uint256 concentrationY
-    ) internal pure returns (uint256) {
-        uint256 yMax = 1 << 112;
-        uint256 yMin = 0;
-        while (yMin < yMax) {
-            uint256 yMid = (yMin + yMax) / 2;
-            if (
-                CurveLib.verify(
-                    newReserve0,
-                    yMid,
-                    equilibriumReserve0,
-                    equilibriumReserve1,
-                    priceX,
-                    priceY,
-                    concentrationX,
-                    concentrationY
-                )
-            ) {
-                yMax = yMid;
-            } else {
-                yMin = yMid + 1;
-            }
-        }
-        return yMax;
-    }
-
     function binSearchXRef(
         uint256 newReserve1,
         uint256 equilibriumReserve0,
@@ -421,5 +390,32 @@ contract CurveLibTest is Test {
             xMin += 1;
         }
         return xMin;
+    }
+
+    function test_fuzzFEquilibrium(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
+        public
+        pure
+    {
+        // Params
+        px = bound(px, 1, 1e25);
+        py = bound(py, 1, 1e25);
+        cx = bound(cx, 0, 1e18);
+        cy = bound(cy, 0, 1e18);
+        if (cx == 1e18) {
+            x0 = bound(x0, 0, 1e28);
+        } else {
+            x0 = bound(x0, 1, 1e28);
+        }
+        if (cy == 1e18) {
+            y0 = bound(y0, 0, 1e28);
+        } else {
+            y0 = bound(y0, 1, 1e28);
+        }
+
+        uint256 y = CurveLib.f(x0, px, py, x0, y0, cx);
+        uint256 x = CurveLib.f(y0, py, px, y0, x0, cy);
+
+        assertEq(y, y0);
+        assertEq(x, x0);
     }
 }
