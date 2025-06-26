@@ -12,6 +12,7 @@ library FullMath {
     using UnsafeMath for uint256;
     using UnsafeMath for uint8;
     using Math for uint256;
+    using Math for bool;
 
     /// @notice 512-bit multiply [prod1 prod0] = a * b
     /// @param a The multiplicand
@@ -159,6 +160,23 @@ library FullMath {
             return prod0.unsafeDiv(denominator);
         }
         return _mulDivInvert(prod0, prod1, denominator, remainder).inc(0 < remainder);
+    }
+
+    /// @notice Calculates a×b÷denominator with full precision then rounds towards positive infinity. Returns `type(uint256).max` if result overflows a uint256 or denominator == 0
+    /// @param a The multiplicand
+    /// @param b The multiplier
+    /// @param denominator The divisor
+    /// @return The 256-bit result
+    function saturatingMulDivUp(uint256 a, uint256 b, uint256 denominator) internal pure returns (uint256) {
+        (uint256 prod0, uint256 prod1, uint256 remainder) = _mulDivSetup(a, b, denominator);
+        uint256 overflow;
+        unchecked {
+            overflow = (denominator > prod1).toInt() - 1;
+        }
+        if (prod1 == 0) {
+            return prod0.unsafeDiv(denominator).saturatingAdd(overflow);
+        }
+        return _mulDivInvert(prod0, prod1, denominator, remainder).inc(0 < remainder).saturatingAdd(overflow);
     }
 
     /// @notice Calculates a×b÷denominator with full precision then rounds towards 0. Overflowing a uint256 or denominator == 0 are GIGO errors

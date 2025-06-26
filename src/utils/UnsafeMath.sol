@@ -121,6 +121,12 @@ library Math {
         }
     }
 
+    function toInt(bool c) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := c
+        }
+    }
+
     function saturatingAdd(uint256 x, uint256 y) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := add(x, y)
