@@ -263,11 +263,16 @@ contract CurveLibTest is Test {
                 mcopy(add(0x40, ptr), add(0x60, p), 0x40)
                 mcopy(add(0x80, ptr), add(0xa0, p), 0x40)
                 mstore(add(0xa0, ptr), mload(add(0xe0, p)))
-                switch staticcall(gas(), address(), add(0x1c, ptr), 0xc4, 0x00, 0x20)
+                switch staticcall(gas(), address(), add(0x1c, ptr), 0xc4, 0x00, 0x40)
                 case 0 {
-                    if or(
-                        xor(0x04, returndatasize()),
-                        xor(0x35278d12, shr(0xe0, mload(0x00))) // CurveLibReference.Overflow.selector
+                    if iszero(
+                        or(
+                            and(eq(0x04, returndatasize()), eq(0x35278d12, shr(0xe0, mload(0x00)))), // CurveLibReference.Overflow.selector
+                            and(
+                                and(eq(0x24, returndatasize()), eq(0x4e487b71, shr(0xe0, mload(0x00)))), // Panic.selector
+                                eq(0x12, mload(0x04))
+                            )
+                        )
                     ) { revert(0x00, 0x00) }
                 }
                 default { xBinRef := mload(0x00) }
