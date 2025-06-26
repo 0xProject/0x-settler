@@ -137,15 +137,40 @@ contract CurveLibTest is Test {
             x = bound(x, 1, x0);
         }
 
-        try this.f(x, px, py, x0, y0, cx) returns (uint256 expected) {
+        // ugh. stack-too-deep
+        bool success;
+        bytes memory returndata;
+        uint256 expected;
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x5eb69a95) // this.f.selector
+            mstore(add(0x20, ptr), x)
+            mstore(add(0x40, ptr), px)
+            mstore(add(0x60, ptr), py)
+            mstore(add(0x80, ptr), x0)
+            mstore(add(0xa0, ptr), y0)
+            mstore(add(0xc0, ptr), cx)
+            success := staticcall(gas(), address(), add(0x1c, ptr), 0xc4, 0x00, 0x20)
+            switch success
+            case 0 {
+                returndata := ptr
+                mstore(returndata, returndatasize())
+                returndatacopy(add(0x20, returndata), 0x00, returndatasize())
+                mstore(0x40, add(returndatasize(), add(0x20, returndata)))
+            }
+            default {
+                expected := mload(0x00)
+            }
+        }
+        if (success) {
             uint256 actual = CurveLib.saturatingF(x, px, py, x0, y0, cx);
             assertEq(expected, actual);
-        } catch (bytes memory data) {
-            assertEq(data.length, 36);
-            assertEq(uint32(bytes4(data)), 0x4e487b71);
+        } else {
+            assertEq(returndata.length, 36);
+            assertEq(uint32(bytes4(returndata)), 0x4e487b71);
             uint256 arg;
             assembly ("memory-safe") {
-                arg := mload(add(0x24, data))
+                arg := mload(add(0x24, returndata))
             }
             assertTrue(arg == Panic.ARITHMETIC_OVERFLOW || arg == Panic.DIVISION_BY_ZERO);
             uint256 actual = CurveLib.saturatingF(x, px, py, x0, y0, cx);
