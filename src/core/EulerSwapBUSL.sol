@@ -65,6 +65,19 @@ library CurveLib {
         }
     }
 
+    /// This function is common to both `f` and `saturatingF` and is broken out here to avoid duplication.
+    function _setupF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 cx)
+        private
+        pure
+        returns (uint256 a, uint256 b, uint256 d)
+    {
+        unchecked {
+            a = px * (x0 - x); // scale: 1e18; units: none; range: 196 bits
+            b = cx * x + (1e18 - cx) * x0; // scale: 1e18; units: token X; range: 173 bits
+            d = 1e18 * x * py; // scale: 1e36; units: token X / token Y; range: 255 bits
+        }
+    }
+
     /// @dev EulerSwap curve
     /// @notice Computes the output `y` for a given input `x`.
     /// @notice The combination `x0 == 0 && cx < 1e18` is invalid.
@@ -85,9 +98,7 @@ library CurveLib {
         } else {
             uint256 v; // scale: 1; units: token Y
             unchecked {
-                uint256 a = px * (x0 - x); // scale: 1e18; units: none; range: 196 bits
-                uint256 b = cx * x + (1e18 - cx) * x0; // scale: 1e18; units: token X; range: 173 bits
-                uint256 d = 1e18 * x * py; // scale: 1e36; units: token X / token Y; range: 255 bits
+                (uint256 a, uint256 b, uint256 d) = _setupF(x, px, py, x0, cx);
                 v = a.mulDivUp(b, d);
             }
             return y0 + v;
@@ -115,9 +126,7 @@ library CurveLib {
                 uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
                 return y0 + v;
             } else {
-                uint256 a = px * (x0 - x); // scale: 1e18; units: none; range: 196 bits
-                uint256 b = cx * x + (1e18 - cx) * x0; // scale: 1e18; units: token X; range: 172 bits
-                uint256 d = 1e18 * x * py; // scale: 1e36; units: token X / token Y; range: 255 bits
+                (uint256 a, uint256 b, uint256 d) = _setupF(x, px, py, x0, cx);
                 uint256 v = a.saturatingMulDivUp(b, d); // scale: 1; units: token Y
                 return y0.saturatingAdd(v);
             }
