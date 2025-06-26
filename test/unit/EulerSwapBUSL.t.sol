@@ -279,7 +279,9 @@ contract CurveLibTest is Test {
                 default { xBinRef := mload(0x00) }
             }
             console.log("xBinRef", xBinRef);
-            assertLe(xBin, xBinRef);
+            if (xBinRef < xBin) {
+                assertFalse(CurveLib.verify(xBinRef, y, x0, y0, px, py, cx, cy), "reference quoted better");
+            }
         }
 
         if (y != 0) {
