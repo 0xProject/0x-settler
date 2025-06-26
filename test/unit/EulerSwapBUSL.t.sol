@@ -184,15 +184,29 @@ contract CurveLibTest is Test {
         }
         assertTrue(CurveLib.verify(xCalc, y, x0, y0, px, py, cx, cy), "verification failed");
 
-        /*
-        try this.binSearchXRef(y, x0, y0, px, py, cx) returns (uint256 xBinRef) {
+        // work around stack-too-deep
+        {
+            uint256 xBinRef = type(uint256).max;
+            assembly ("memory-safe") {
+                let ptr := mload(0x40)
+                mstore(ptr, 0xf626f3ed)
+                mstore(add(0x20, ptr), y)
+                mcopy(add(0x40, ptr), add(0x60, p), 0x40)
+                mcopy(add(0x80, ptr), add(0xa0, p), 0x40)
+                mstore(add(0xa0, ptr), mload(add(0xe0, p)))
+                switch staticcall(gas(), address(), add(0x1c, ptr), 0xc4, 0x00, 0x20)
+                case 0 {
+                    if or(xor(0x04, returndatasize()), xor(0x35278d12, shr(0xe0, mload(0x00)))) {
+                        revert(0x00, 0x00)
+                    }
+                }
+                default {
+                    xBinRef := mload(0x00)
+                }
+            }
             console.log("xBinRef", xBinRef);
             assertLe(xBin, xBinRef);
-        } catch (bytes memory data) {
-            require(data.length == 4);
-            require(bytes4(data) == CurveLibReference.Overflow.selector);
         }
-        */
 
         if (y != 0) {
             // the reference implementation of `fInverse` sometimes returns 0, even though it's not a valid input
