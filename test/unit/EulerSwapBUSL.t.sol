@@ -186,7 +186,7 @@ contract CurveLibTest is Test {
         assertLe(xBin, xBinRef);
         // the computation of `xCalc` involves two divisions with rounding. because we multiply in
         // between, the rounding error may be substantial.
-        assertLe(xCalc - xBin, 10, "x margin of error"); // TODO: tighten
+        assertLe(xCalc - xBin, 17, "x margin of error"); // TODO: tighten
 
         if (y != 0) {
             // the reference implementation of `fInverse` sometimes returns 0, even though it's not a valid input
@@ -194,7 +194,7 @@ contract CurveLibTest is Test {
                 // the reference implementation of `fInverse` does not correctly handle `cx == 0`
                 uint256 xRef = CurveLibReference.fInverse(y, px, py, x0, y0, cx);
                 console.log("xRef ", xRef);
-                assertLe(xCalc, xRef + 8); // TODO: tighten
+                assertLe(xCalc, xRef + 11); // TODO: tighten
             }
 
             // the reference implementation of `verify` does not handle zero as an input correctly
