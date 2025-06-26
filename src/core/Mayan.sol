@@ -50,7 +50,7 @@ contract Mayan {
             let size := mload(protocolData)
             mcopy(add(0x54, ptr), protocolData, add(0x20, size))
             mstore(add(0x34, ptr), 0x40)
-            mstore(add(0x14, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, mayanProtocol))
+            mstore(add(0x14, ptr), mayanProtocol)
             mstore(ptr, 0xb0f584ff000000000000000000000000) // selector for `forwardEth(address,bytes)` with `mayanProtocol` padding
 
             // modify copied amount in protocolData
