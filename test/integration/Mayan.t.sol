@@ -38,17 +38,18 @@ contract MayanTest is BridgeSettlerIntegrationTest {
         bridgeActions[0] = abi.encodeCall(
             IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN, (
                 forwarder,
-                mayanProtocol,
-                abi.encodeCall(
-                    MayanProtocolDummy.mayanNativeReceiver,
-                    (someExtraBytes)
+                abi.encode(
+                    mayanProtocol,
+                    abi.encodeCall(
+                        MayanProtocolDummy.mayanNativeReceiver,
+                        (someExtraBytes)
+                    )
                 )
             )
         );
 
         vm.expectCall(mayanProtocol, amount, abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (someExtraBytes)));
         bridgeSettler.execute{value: amount}(bridgeActions, bytes32(0));
-
         assertEq(mayanProtocol.balance, amount, "Assets were not received");
     }
 
@@ -77,10 +78,12 @@ contract MayanTest is BridgeSettlerIntegrationTest {
         bridgeActions[1] = abi.encodeCall(
             IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN, (
                 forwarder,
-                mayanProtocol,
-                abi.encodeCall(
-                    MayanProtocolDummy.mayanERC20Receiver,
-                    (address(token), 0, someExtraBytes)
+                abi.encode(
+                    uint256(uint160(mayanProtocol)),
+                    abi.encodeCall(
+                        MayanProtocolDummy.mayanERC20Receiver,
+                        (address(token), 0, someExtraBytes)
+                    )
                 )
             )
         );
@@ -93,7 +96,6 @@ contract MayanTest is BridgeSettlerIntegrationTest {
             payable(address(bridgeSettler)),
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
-
         assertEq(token.balanceOf(mayanProtocol), amount, "Assets were not received");
     }
 }
