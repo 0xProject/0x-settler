@@ -77,11 +77,12 @@ contract CurveLibTest is Test {
         console.log("x    ", x);
 
         uint256 yBin = binSearchY(x, x0, y0, px, py, cx, cy);
-        uint256 yCalc = CurveLib.f(x, px, py, x0, y0, cx);
         console.log("yBin ", yBin);
-        console.log("yCalc", yCalc);
 
         vm.assume(yBin >> 112 == 0);
+
+        uint256 yCalc = CurveLib.f(x, px, py, x0, y0, cx);
+        console.log("yCalc", yCalc);
 
         assertGe(yCalc, yBin);
 
