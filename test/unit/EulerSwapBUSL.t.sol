@@ -81,19 +81,15 @@ contract CurveLibTest is Test {
 
         vm.assume(yBin >> 112 == 0);
 
-        uint256 yCalc = CurveLib.f(x, px, py, x0, y0, cx);
-        console.log("yCalc", yCalc);
-
-        assertGe(yCalc, yBin);
-
         assertTrue(CurveLib.verify(x, yBin, x0, y0, px, py, cx, cy), "binary search verification failed");
         if (yBin != 0) {
             assertFalse(CurveLib.verify(x, yBin - 1, x0, y0, px, py, cx, cy), "binary search not smallest");
         }
-        assertTrue(CurveLib.verify(x, yCalc, x0, y0, px, py, cx, cy), "verification failed");
 
-        // `yCalc` is computed with only a single division, so it can be off by at most 1 wei
-        assertLe(yCalc - yBin, 1, "y margin of error");
+        uint256 yCalc = CurveLib.f(x, px, py, x0, y0, cx);
+        console.log("yCalc", yCalc);
+
+        assertEq(yCalc, yBin, "CurveLib.f solution not exact");
 
         if (x != 0) {
             // the reference implementation of `f` sometimes returns 0, even though it's not a valid input
