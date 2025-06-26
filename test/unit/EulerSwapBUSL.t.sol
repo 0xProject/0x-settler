@@ -112,10 +112,7 @@ contract CurveLibTest is Test {
         }
     }
 
-    function test_fuzzSaturatingF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx)
-        public
-        view
-    {
+    function test_fuzzSaturatingF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) public view {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
@@ -158,9 +155,7 @@ contract CurveLibTest is Test {
                 returndatacopy(add(0x20, returndata), 0x00, returndatasize())
                 mstore(0x40, add(returndatasize(), add(0x20, returndata)))
             }
-            default {
-                expected := mload(0x00)
-            }
+            default { expected := mload(0x00) }
         }
         if (success) {
             uint256 actual = CurveLib.saturatingF(x, px, py, x0, y0, cx);
