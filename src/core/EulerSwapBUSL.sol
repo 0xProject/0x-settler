@@ -112,24 +112,24 @@ library CurveLib {
             // We only care about the absolute value of `B` for use later, so we separately extract
             // the sign of `B` and its absolute value.
             bool sign; // true when `B` is negative
-            uint256 absB; // scale: 1e18; units: token X
+            uint256 absB; // scale: 1e18; units: token X; range: 255 bits
             {
-                uint256 term1 = 1e18 * ((y - y0) * py + x0 * px); // scale: 1e36; units: none
-                uint256 term2 = (cx << 1) * x0 * px; // scale: 1e36; units: none
+                uint256 term1 = 1e18 * ((y - y0) * py + x0 * px); // scale: 1e36; units: none; range: 256 bits
+                uint256 term2 = (cx << 1) * x0 * px; // scale: 1e36; units: none; range: 256 bits
 
                 // compare to determine which branch below we need to take
                 sign = term2 > term1;
 
                 // ensure that the result will be positive
                 (uint256 a, uint256 b) = sign.maybeSwap(term1, term2);
-                uint256 difference = a - b; // scale: 1e36; units: none
+                uint256 difference = a - b; // scale: 1e36; units: none; range: 256 bits
 
                 // if `sign` is true, then we want to round up. compute the carry bit
                 bool carry = (0 < difference.unsafeMod(px)).and(sign);
                 absB = difference.unsafeDiv(px).unsafeInc(carry);
             }
 
-            uint256 C; // scale: 1; units: (token X)^2
+            uint256 C; // scale: 1; units: (token X)^2; range: 224 bits
             bool carryC; // true when we need to round C up
             {
                 (uint256 C_lo, uint256 C_hi, uint256 C_rem) = FullMath._mulDivSetup(1e18 - cx, x0 * x0, 1e18);
@@ -156,23 +156,23 @@ library CurveLib {
 
                 C = C.unsafeInc(carryC);
 
-                uint256 fourAC = (cx * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2
-                uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2
-                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2
-                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X
+                uint256 fourAC = (cx * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
+                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 256 bits
 
                 // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
-                x = (absB + sqrt).unsafeDivUp(cx << 1); // scale: 1; units: token X
+                x = (absB + sqrt).unsafeDivUp(cx << 1); // scale: 1; units: token X; range: 112 bits
             } else {
                 // B is nonnegative; use "citardauq" quadratic formula; everything except C rounds down
 
-                uint256 fourAC = (cx * 4e18).unsafeMulShift(C, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2
-                uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2
-                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2
-                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X
+                uint256 fourAC = (cx * 4e18).unsafeMulShift(C, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
+                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 256 bits
 
                 // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
-                x = (C.unsafeInc(carryC) << 1).unsafeMulDivUpAlt(1e18, absB + sqrt); // scale: 1; units: token X
+                x = (C.unsafeInc(carryC) << 1).unsafeMulDivUpAlt(1e18, absB + sqrt); // scale: 1; units: token X; range: 112 bits
                 // if `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. this
                 // just so happens to be the correct answer.
             }
