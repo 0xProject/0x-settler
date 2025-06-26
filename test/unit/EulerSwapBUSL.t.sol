@@ -27,7 +27,10 @@ contract CurveLibTest is Test {
         console.log("yCalc", yCalc);
     }
 
-    function test_fuzzF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy) public pure {
+    function test_fuzzF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
+        public
+        pure
+    {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
@@ -189,20 +192,19 @@ contract CurveLibTest is Test {
             uint256 xBinRef = type(uint256).max;
             assembly ("memory-safe") {
                 let ptr := mload(0x40)
-                mstore(ptr, 0xf626f3ed)
+                mstore(ptr, 0xf626f3ed) // this.binSearchXRef.selector
                 mstore(add(0x20, ptr), y)
                 mcopy(add(0x40, ptr), add(0x60, p), 0x40)
                 mcopy(add(0x80, ptr), add(0xa0, p), 0x40)
                 mstore(add(0xa0, ptr), mload(add(0xe0, p)))
                 switch staticcall(gas(), address(), add(0x1c, ptr), 0xc4, 0x00, 0x20)
                 case 0 {
-                    if or(xor(0x04, returndatasize()), xor(0x35278d12, shr(0xe0, mload(0x00)))) {
-                        revert(0x00, 0x00)
-                    }
+                    if or(
+                        xor(0x04, returndatasize()),
+                        xor(0x35278d12, shr(0xe0, mload(0x00))) // CurveLibReference.Overflow.selector
+                    ) { revert(0x00, 0x00) }
                 }
-                default {
-                    xBinRef := mload(0x00)
-                }
+                default { xBinRef := mload(0x00) }
             }
             console.log("xBinRef", xBinRef);
             assertLe(xBin, xBinRef);
@@ -256,12 +258,31 @@ contract CurveLibTest is Test {
         assertEq(x, x0);
     }
 
-    function binSearchX(uint256 newReserve1, uint256 equilibriumReserve0, uint256 equilibriumReserve1, uint256 priceX, uint256 priceY, uint256 concentrationX, uint256 concentrationY) internal pure returns (uint256) {
+    function binSearchX(
+        uint256 newReserve1,
+        uint256 equilibriumReserve0,
+        uint256 equilibriumReserve1,
+        uint256 priceX,
+        uint256 priceY,
+        uint256 concentrationX,
+        uint256 concentrationY
+    ) internal pure returns (uint256) {
         uint256 xMax = 1 << 112;
         uint256 xMin = 0;
         while (xMin < xMax) {
             uint256 xMid = (xMin + xMax) / 2;
-            if (CurveLib.verify(xMid, newReserve1, equilibriumReserve0, equilibriumReserve1, priceX, priceY, concentrationX, concentrationY)) {
+            if (
+                CurveLib.verify(
+                    xMid,
+                    newReserve1,
+                    equilibriumReserve0,
+                    equilibriumReserve1,
+                    priceX,
+                    priceY,
+                    concentrationX,
+                    concentrationY
+                )
+            ) {
                 xMax = xMid;
             } else {
                 xMin = xMid + 1;
@@ -270,12 +291,31 @@ contract CurveLibTest is Test {
         return xMax;
     }
 
-    function binSearchY(uint256 newReserve0, uint256 equilibriumReserve0, uint256 equilibriumReserve1, uint256 priceX, uint256 priceY, uint256 concentrationX, uint256 concentrationY) internal pure returns (uint256) {
+    function binSearchY(
+        uint256 newReserve0,
+        uint256 equilibriumReserve0,
+        uint256 equilibriumReserve1,
+        uint256 priceX,
+        uint256 priceY,
+        uint256 concentrationX,
+        uint256 concentrationY
+    ) internal pure returns (uint256) {
         uint256 yMax = 1 << 112;
         uint256 yMin = 0;
         while (yMin < yMax) {
             uint256 yMid = (yMin + yMax) / 2;
-            if (CurveLib.verify(newReserve0, yMid, equilibriumReserve0, equilibriumReserve1, priceX, priceY, concentrationX, concentrationY)) {
+            if (
+                CurveLib.verify(
+                    newReserve0,
+                    yMid,
+                    equilibriumReserve0,
+                    equilibriumReserve1,
+                    priceX,
+                    priceY,
+                    concentrationX,
+                    concentrationY
+                )
+            ) {
                 yMax = yMid;
             } else {
                 yMin = yMid + 1;
@@ -284,11 +324,14 @@ contract CurveLibTest is Test {
         return yMax;
     }
 
-    function binSearchXRef(uint256 newReserve1, uint256 equilibriumReserve0, uint256 equilibriumReserve1, uint256 priceX, uint256 priceY, uint256 concentrationX)
-        external
-        pure
-        returns (uint256)
-    {
+    function binSearchXRef(
+        uint256 newReserve1,
+        uint256 equilibriumReserve0,
+        uint256 equilibriumReserve1,
+        uint256 priceX,
+        uint256 priceY,
+        uint256 concentrationX
+    ) external pure returns (uint256) {
         uint256 xMax = equilibriumReserve0;
         uint256 xMin = 1;
         while (xMin < xMax) {
