@@ -6,6 +6,7 @@ import {console} from "@forge-std/console.sol";
 import {IEulerSwap} from "@eulerswap/interfaces/IEulerSwap.sol";
 import {CurveLib} from "src/core/EulerSwapBUSL.sol";
 import {CurveLib as CurveLibReference} from "@eulerswap/libraries/CurveLib.sol";
+import {Panic} from "src/utils/Panic.sol";
 
 contract CurveLibTest is Test {
     function test_fInverse() public pure {
@@ -109,6 +110,51 @@ contract CurveLibTest is Test {
             }
             assertTrue(CurveLibReference.verify(p, x, yBin), "binary search reference verification failed");
         }
+    }
+
+    function test_fuzzSaturatingF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx)
+        public
+        view
+    {
+        // Params
+        px = bound(px, 1, 1e25);
+        py = bound(py, 1, 1e25);
+        cx = bound(cx, 0, 1e18);
+        if (cx == 1e18) {
+            x0 = bound(x0, 0, 1e28);
+        } else {
+            x0 = bound(x0, 1, 1e28);
+        }
+        console.log("px", px);
+        console.log("py", py);
+        console.log("x0", x0);
+        console.log("y0", y0);
+        console.log("cx", cx);
+
+        if (cx == 1e18) {
+            x = bound(x, 0, x0);
+        } else {
+            x = bound(x, 1, x0);
+        }
+
+        try this.f(x, px, py, x0, y0, cx) returns (uint256 expected) {
+            uint256 actual = CurveLib.saturatingF(x, px, py, x0, y0, cx);
+            assertEq(expected, actual);
+        } catch (bytes memory data) {
+            assertEq(data.length, 36);
+            assertEq(uint32(bytes4(data)), 0x4e487b71);
+            uint256 arg;
+            assembly ("memory-safe") {
+                arg := mload(add(0x24, data))
+            }
+            assertTrue(arg == Panic.ARITHMETIC_OVERFLOW || arg == Panic.DIVISION_BY_ZERO);
+            uint256 actual = CurveLib.saturatingF(x, px, py, x0, y0, cx);
+            assertEq(actual, type(uint256).max);
+        }
+    }
+
+    function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) external pure returns (uint256) {
+        return CurveLib.f(x, px, py, x0, y0, cx);
     }
 
     function test_fuzzFInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)

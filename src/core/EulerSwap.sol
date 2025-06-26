@@ -411,7 +411,7 @@ abstract contract EulerSwap is SettlerAbstract {
                 uint256 xNew = reserve0 + amountWithFee;
                 uint256 yNew = xNew <= x0
                     // remain on f()
-                    ? CurveLib.f(xNew, px, py, x0, y0, p.concentrationX())
+                    ? CurveLib.saturatingF(xNew, px, py, x0, y0, p.concentrationX())
                     // move to g()
                     : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
                 yNew = yNew.unsafeInc(yNew == 0);
@@ -421,7 +421,7 @@ abstract contract EulerSwap is SettlerAbstract {
                 uint256 yNew = reserve1 + amountWithFee;
                 uint256 xNew = yNew <= y0
                     // remain on g()
-                    ? CurveLib.f(yNew, py, px, y0, x0, p.concentrationY())
+                    ? CurveLib.saturatingF(yNew, py, px, y0, x0, p.concentrationY())
                     // move to f()
                     : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
                 xNew = xNew.unsafeInc(xNew == 0);
@@ -490,7 +490,7 @@ abstract contract EulerSwap is SettlerAbstract {
                 uint256 yNew = reserve1.saturatingSub(outLimit);
                 uint256 xNew = yNew <= y0
                     // remain on g()
-                    ? CurveLib.f(yNew, py, px, y0, x0, p.concentrationY())
+                    ? CurveLib.saturatingF(yNew, py, px, y0, x0, p.concentrationY())
                     // move to f()
                     : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
                 inLimitFromOutLimit = xNew.saturatingSub(reserve0);
@@ -499,7 +499,7 @@ abstract contract EulerSwap is SettlerAbstract {
                 uint256 xNew = reserve0.saturatingSub(outLimit);
                 uint256 yNew = xNew <= x0
                     // remain on f()
-                    ? CurveLib.f(xNew, px, py, x0, y0, p.concentrationX())
+                    ? CurveLib.saturatingF(xNew, px, py, x0, y0, p.concentrationX())
                     // move to g()
                     : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
                 inLimitFromOutLimit = yNew.saturatingSub(reserve1);
