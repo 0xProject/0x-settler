@@ -34,6 +34,14 @@ library CurveLib {
 
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
+    /// @param newReserve0 An amount of vault0.asset() tokens in that token's base unit. No constraint on range.
+    /// @param newReserve1 An amount of vault1.asset() tokens in that token's base unit. No constraint on range.
+    /// @param equilibriumReserve0 An amount of vault0.asset() tokens in that token's base unit. No constraint on range.
+    /// @param equilibriumReserve1 An amount of vault1.asset() tokens in that token's base unit. No constraint on range.
+    /// @param priceX (1 <= priceX <= 1e25). The price of vault0.asset(). A fixnum with a basis of 1e18.
+    /// @param priceY (1 <= priceY <= 1e25). The price of vault1.asset(). A fixnum with a basis of 1e18.
+    /// @param concentrationX (0 <= concentrationX <= 1e18). The liquidity concentration of vault0.asset() on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
+    /// @param concentrationY (0 <= concentrationY <= 1e18). The liquidity concentration of vault1.asset() on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
     function verify(
         uint256 newReserve0,
         uint256 newReserve1,
