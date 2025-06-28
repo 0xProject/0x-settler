@@ -7,7 +7,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
@@ -142,7 +141,7 @@ library UnsafeVault {
             mstore(0x00, 0x15afd409000000000000000000000000) // selector for `settle(address,uint256)` with `token`'s padding
 
             if iszero(call(gas(), vault, 0x00, 0x10, 0x44, 0x00, 0x20)) {
-                let ptr := and(0xffffffffffffffffffffffff, mload(0x40))
+                let ptr := and(0xffffff, mload(0x40))
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -251,7 +250,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
 
     //// How to generate `fills` for BalancerV3:
@@ -305,9 +304,6 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         bytes memory data = Encoder.encode(
             uint32(IBalancerV3Vault.unlock.selector),
             recipient,
@@ -511,7 +507,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         */
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps;
+            uint256 bps;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
 

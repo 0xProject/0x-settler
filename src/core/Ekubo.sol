@@ -148,7 +148,7 @@ abstract contract Ekubo is SettlerAbstract {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
 
     //// How to generate `fills` for Ekubo
@@ -197,9 +197,6 @@ abstract contract Ekubo is SettlerAbstract {
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         bytes memory data = Encoder.encode(
             uint32(IEkuboCore.lock.selector),
             recipient,
@@ -361,7 +358,7 @@ abstract contract Ekubo is SettlerAbstract {
         PoolKey memory poolKey;
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps;
+            uint256 bps;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
 
@@ -414,7 +411,7 @@ abstract contract Ekubo is SettlerAbstract {
 
             {
                 SqrtRatio sqrtRatio = SqrtRatio.wrap(
-                    uint96(isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631)))
+                    uint96((!isToken1).ternary(uint256(4611797791050542631), uint256(79227682466138141934206691491)))
                 );
                 int256 delta0;
                 int256 delta1;

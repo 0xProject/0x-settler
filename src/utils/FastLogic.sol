@@ -13,4 +13,10 @@ library FastLogic {
             r := and(a, b)
         }
     }
+
+    function andNot(bool a, bool b) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := gt(a, b)
+        }
+    }
 }
