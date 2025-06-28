@@ -28,6 +28,29 @@ contract CurveLibTest is Test {
         console.log("yCalc", yCalc);
     }
 
+    /*
+    function test_extremeF0(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) public view {
+        uint256 x = 0;
+        x0 = bound(x0, 0, 1e28);
+        cx = bound(cx, 0, 1e18 - 1);
+
+        try this.f(x, px, py, x0, y0, cx) returns (uint256 fResult) {
+            revert("succeeded unexpectedly");
+        } catch {
+            assertEq(CurveLib.saturatingF(x, px, py, x0, y0, cx), type(uint256).max);
+        }
+    }
+    */
+
+    function test_extremeF1(uint256 px, uint256 py, uint256 y0) public pure {
+        uint256 x = 0;
+        uint256 x0 = 0;
+        uint256 cx = 1e18;
+
+        assertEq(CurveLib.f(x, px, py, x0, y0, cx), CurveLib.saturatingF(x, px, py, x0, y0, cx));
+    }
+
+
     function test_fuzzF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
         public
         pure
