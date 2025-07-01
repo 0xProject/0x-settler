@@ -378,11 +378,11 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        if (sellAmount > type(uint256).max - BASIS) {
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                sellAmount = BASIS - ~sellAmount;
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
         }
     }
 
@@ -393,11 +393,11 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        if (sellAmount > type(uint256).max - BASIS) {
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                sellAmount = BASIS - ~sellAmount;
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
         }
     }
 
@@ -658,12 +658,12 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
         returns (uint256 sellAmount)
     {
         sellAmount = super._permitToSellAmountCalldata(permit);
-        if (sellAmount > type(uint256).max - BASIS) {
-            if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
-                unchecked {
-                    sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                    sellAmount = BASIS - ~sellAmount;
+                    sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
                 }
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
         }
     }
@@ -676,12 +676,12 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
         returns (uint256 sellAmount)
     {
         sellAmount = super._permitToSellAmount(permit);
-        if (sellAmount > type(uint256).max - BASIS) {
-            if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
-                unchecked {
-                    sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                    sellAmount = BASIS - ~sellAmount;
+                    sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
                 }
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
         }
     }
