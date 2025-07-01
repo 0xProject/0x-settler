@@ -378,11 +378,11 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        if (sellAmount > type(uint256).max - BASIS) {
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                sellAmount = BASIS - ~sellAmount;
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 
@@ -393,11 +393,11 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        if (sellAmount > type(uint256).max - BASIS) {
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                sellAmount = BASIS - ~sellAmount;
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 
@@ -561,7 +561,8 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
-        pure
+        view
+        virtual
         override
         returns (uint256)
     {
@@ -570,7 +571,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        pure
+        view
         virtual
         override
         returns (uint256)
@@ -639,7 +640,49 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 }
 
 abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
+    using FullMath for uint256;
+    using SafeTransferLib for IERC20;
+
     function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
         return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
+    }
+
+    bytes32 private constant _BRIDGE_WALLET_CODEHASH =
+        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff; // TODO
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = super._permitToSellAmountCalldata(permit);
+        unchecked {
+            if (~sellAmount < BASIS) {
+                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                    sellAmount = BASIS - ~sellAmount;
+                    sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                }
+            }
+        }
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = super._permitToSellAmount(permit);
+        unchecked {
+            if (~sellAmount < BASIS) {
+                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                    sellAmount = BASIS - ~sellAmount;
+                    sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                }
+            }
+        }
     }
 }
