@@ -17,7 +17,6 @@ import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
-import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
 abstract contract EkuboTest is SettlerMetaTxnPairTest {
     using UnsafeMath for uint256;
