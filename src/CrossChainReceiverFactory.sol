@@ -83,7 +83,6 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
     error DeploymentFailed();
     error ApproveFailed();
-    error BalanceNotZero(uint256 balance);
 
     constructor() payable {
         // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
