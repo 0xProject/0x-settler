@@ -48,7 +48,6 @@ contract CurveLibTest is Test {
         assertEq(CurveLib.f(x, px, py, x0, y0, cx), CurveLib.saturatingF(x, px, py, x0, y0, cx));
     }
 
-
     function test_fuzzF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
         public
         pure

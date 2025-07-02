@@ -22,6 +22,7 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
     using FastDeployer for IDeployer;
 
     event GitCommit(bytes20 indexed);
+
     error CounterfeitSettler(address counterfeitSettler);
 
     IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER);
@@ -54,7 +55,8 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
         if (action == uint32(IBridgeSettlerActions.SETTLER_SWAP.selector)) {
-            (address token, uint256 amount, address settler, bytes memory settlerData) = abi.decode(data, (address, uint256, address, bytes));
+            (address token, uint256 amount, address settler, bytes memory settlerData) =
+                abi.decode(data, (address, uint256, address, bytes));
             // Swaps are going to be directed to Settler, so `settler` must be an active settler
             _requireValidSettler(settler);
             if (token == address(ETH_ADDRESS)) {
@@ -65,8 +67,7 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
                 // call subsectible to MEV attacks that force the swap to its Slippage limit.
                 (bool success, bytes memory retData) = settler.call{value: amount}(settlerData);
                 success.maybeRevert(retData);
-            }
-            else {
+            } else {
                 // To effectively do a swap we need to make funds accessible to Settler
                 // It is not possible to call it directly as the taker is going to be the BridgeSettler
                 // instead of the user, so, user assets needs to be pulled to BridgeSettler before
@@ -74,22 +75,11 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
                 // Settler can take over the assets if settlerData starts with a VIP action making this
                 // call subsectible to MEV attacks that force the swap to its Slippage limit.
                 IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
-                ALLOWANCE_HOLDER.exec(
-                    settler,
-                    token,
-                    amount,
-                    payable(settler),
-                    settlerData
-                );
+                ALLOWANCE_HOLDER.exec(settler, token, amount, payable(settler), settlerData);
             }
         } else if (action == uint32(IBridgeSettlerActions.BASIC.selector)) {
-            (
-                address bridgeToken, 
-                uint256 bps, 
-                address pool, 
-                uint256 offset, 
-                bytes memory bridgeData
-            ) = abi.decode(data, (address, uint256, address, uint256, bytes));
+            (address bridgeToken, uint256 bps, address pool, uint256 offset, bytes memory bridgeData) =
+                abi.decode(data, (address, uint256, address, uint256, bytes));
 
             basicSellToPool(IERC20(bridgeToken), bps, pool, offset, bridgeData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY.selector)) {
@@ -99,10 +89,12 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across {
             (address to, bytes32 requestId) = abi.decode(data, (address, bytes32));
             bridgeNativeToRelay(to, requestId);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN.selector)) {
-            (address token, address forwarder, address mayanProtocol, bytes memory protocolData) = abi.decode(data, (address, address, address, bytes));
+            (address token, address forwarder, address mayanProtocol, bytes memory protocolData) =
+                abi.decode(data, (address, address, address, bytes));
             bridgeERC20ToMayan(IERC20(token), forwarder, mayanProtocol, protocolData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
-            (address forwarder, address mayanProtocol, bytes memory protocolData) = abi.decode(data, (address, address, bytes));
+            (address forwarder, address mayanProtocol, bytes memory protocolData) =
+                abi.decode(data, (address, address, bytes));
             bridgeNativeToMayan(forwarder, mayanProtocol, protocolData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS.selector)) {
             (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));

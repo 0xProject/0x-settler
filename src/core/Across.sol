@@ -24,7 +24,9 @@ contract Across {
         _bridgeToAcross(amount, amount, spoke, depositData);
     }
 
-    function _bridgeToAcross(uint256 updatedInputAmount, uint256 value, address spoke, bytes memory depositData) internal { 
+    function _bridgeToAcross(uint256 updatedInputAmount, uint256 value, address spoke, bytes memory depositData)
+        internal
+    {
         uint256 inputAmount;
         uint256 outputAmount;
         assembly ("memory-safe") {

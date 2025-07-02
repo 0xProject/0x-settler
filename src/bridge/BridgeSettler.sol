@@ -10,10 +10,7 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {Permit2PaymentTakerSubmitted} from "../core/Permit2Payment.sol";
 
 interface IBridgeSettlerTakerSubmitted {
-    function execute(bytes[] calldata, bytes32)
-        external
-        payable
-        returns (bool);
+    function execute(bytes[] calldata, bytes32) external payable returns (bool);
 }
 
 abstract contract BridgeSettler is IBridgeSettlerTakerSubmitted, Permit2PaymentTakerSubmitted, BridgeSettlerBase {
@@ -32,8 +29,7 @@ abstract contract BridgeSettler is IBridgeSettlerTakerSubmitted, Permit2PaymentT
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        }
-        else {
+        } else {
             return false;
         }
         return true;
@@ -46,7 +42,6 @@ abstract contract BridgeSettler is IBridgeSettlerTakerSubmitted, Permit2PaymentT
         takerSubmitted
         returns (bool)
     {
-
         if (actions.length != 0) {
             (uint256 action, bytes calldata data) = actions.decodeCall(0);
             if (!_dispatchVIP(action, data)) {
