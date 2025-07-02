@@ -82,14 +82,14 @@ abstract contract MakerPSM is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using FastPSM for IPSM;
 
-    uint256 private immutable USDC_basis;
+    uint256 private constant USDC_basis = 1_000_000;
 
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
+        assert(USDC_basis == 10 ** USDC.decimals());
         DAI.safeApprove(address(LitePSM), type(uint256).max);
         // LitePSM is its own join
         USDC.safeApprove(address(LitePSM), type(uint256).max);
-        USDC_basis = 10 ** USDC.decimals();
     }
 
     function sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin)

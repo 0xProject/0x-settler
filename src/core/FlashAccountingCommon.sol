@@ -7,6 +7,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 
 import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
@@ -50,6 +51,7 @@ type NotePtr is uint256;
 /// signature `TokenHashCollision(address,address)`.
 library NotesLib {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
+    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// This is the maximum number of tokens that may be involved in an action. Increasing or
     /// decreasing this value requires no other changes elsewhere in this file.
@@ -90,6 +92,12 @@ library NotesLib {
     function token(NotePtr note) internal pure returns (IERC20 r) {
         assembly ("memory-safe") {
             r := mload(add(0x20, note))
+        }
+    }
+
+    function tokenIsEth(NotePtr note) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := eq(ETH_ADDRESS, mload(add(0x20, note)))
         }
     }
 
@@ -366,10 +374,12 @@ library StateLib {
 using StateLib for State global;
 
 library Encoder {
+    using FastLogic for bool;
+
     uint256 internal constant BASIS = 10_000;
 
     function encode(
-        uint32 unlockSelector,
+        uint256 unlockSelector,
         address recipient,
         IERC20 sellToken,
         uint256 bps,
@@ -379,18 +389,9 @@ library Encoder {
         bytes memory fills,
         uint256 amountOutMin
     ) internal view returns (bytes memory data) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (amountOutMin > uint128(type(int128).max)) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         hashMul *= 96;
         hashMod *= 96;
-        if (hashMul > type(uint128).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (hashMod > type(uint128).max) {
+        if ((bps > BASIS).or(amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
@@ -410,7 +411,7 @@ library Encoder {
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0x6f, pathLen))
             mstore(add(0x24, data), 0x20)
-            mstore(add(0x04, data), and(0xffffffff, unlockSelector))
+            mstore(add(0x04, data), unlockSelector)
             mstore(data, add(0xb3, pathLen))
             mstore8(add(0xa8, data), feeOnTransfer)
 
@@ -419,7 +420,7 @@ library Encoder {
     }
 
     function encodeVIP(
-        uint32 unlockSelector,
+        uint256 unlockSelector,
         address recipient,
         bool feeOnTransfer,
         uint256 hashMul,
@@ -430,15 +431,9 @@ library Encoder {
         bool isForwarded,
         uint256 amountOutMin
     ) internal pure returns (bytes memory data) {
-        if (amountOutMin > uint128(type(int128).max)) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         hashMul *= 96;
         hashMod *= 96;
-        if (hashMul > type(uint128).max) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-        if (hashMod > type(uint128).max) {
+        if ((amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
@@ -476,7 +471,7 @@ library Encoder {
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0xd1, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
-            mstore(add(0x04, data), and(0xffffffff, unlockSelector))
+            mstore(add(0x04, data), unlockSelector)
             mstore(data, add(0x115, add(pathLen, sigLen)))
 
             mstore8(add(0xa8, data), feeOnTransfer)
@@ -491,7 +486,6 @@ library Decoder {
     using NotesLib for NotesLib.Note[];
 
     uint256 internal constant BASIS = 10_000;
-    IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     /// Update `state` for the next fill packed in `data`. This also may allocate/append `Note`s
     /// into `notes`. Returns the suffix of the bytes that are not consumed in the decoding
@@ -660,7 +654,7 @@ library Decoder {
             sig.length := 0x00
         }
 
-        if (state.globalSell().token() == ETH_ADDRESS) {
+        if (state.globalSell().tokenIsEth()) {
             assert(payer == address(this));
 
             uint16 bps;
