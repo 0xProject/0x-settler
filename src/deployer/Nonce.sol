@@ -8,11 +8,11 @@ function incr(Nonce a) pure returns (Nonce) {
     return Nonce.wrap(Nonce.unwrap(a) + 1);
 }
 
-function gt(Nonce a, Nonce b) pure returns (bool) {
+function Nonce_gt(Nonce a, Nonce b) pure returns (bool) {
     return Nonce.unwrap(a) > Nonce.unwrap(b);
 }
 
-function eq(Nonce a, Nonce b) pure returns (bool) {
+function Nonce_eq(Nonce a, Nonce b) pure returns (bool) {
     return Nonce.unwrap(a) == Nonce.unwrap(b);
 }
 
@@ -20,6 +20,6 @@ function isNull(Nonce a) pure returns (bool) {
     return Nonce.unwrap(a) == 0;
 }
 
-using {incr, gt as >, eq as ==, isNull} for Nonce global;
+using {incr, Nonce_gt as >, Nonce_eq as ==, isNull} for Nonce global;
 
 Nonce constant zero = Nonce.wrap(0);
