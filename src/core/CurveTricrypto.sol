@@ -9,7 +9,7 @@ import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
-import {ConfusedDeputy} from "./SettlerErrors.sol";
+import {revertConfusedDeputy} from "./SettlerErrors.sol";
 
 interface ICurveTricrypto {
     function exchange_extended(
@@ -64,7 +64,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
             codePrefixHashActual := keccak256(ptr, codePrefixLen)
         }
         if (codePrefixHashActual != codePrefixHash) {
-            revert ConfusedDeputy();
+            revertConfusedDeputy();
         }
         */
         bool isForwarded = _isForwarded();
