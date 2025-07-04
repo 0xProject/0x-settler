@@ -79,7 +79,7 @@ contract MayanTest is BridgeSettlerIntegrationTest {
             IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN, (
                 forwarder,
                 abi.encode(
-                    uint256(uint160(mayanProtocol)),
+                    mayanProtocol,
                     abi.encodeCall(
                         MayanProtocolDummy.mayanERC20Receiver,
                         (address(token), 0, someExtraBytes)
