@@ -170,12 +170,9 @@ library CurveLib {
                 uint256 term1 = 1e18 * ((y - y0) * py + x0 * px); // scale: 1e36; units: none; range: 256 bits
                 uint256 term2 = (cx << 1) * x0 * px; // scale: 1e36; units: none; range: 256 bits
 
-                // Compare to determine which branch below we need to take
-                sign = term2 > term1;
-
                 // Ensure that the result will be positive
-                (uint256 a, uint256 b) = sign.maybeSwap(term1, term2);
-                uint256 difference = a - b; // scale: 1e36; units: none; range: 256 bits
+                uint256 difference; // scale: 1e36; units: none; range: 256 bits
+                (difference, sign) = term1.absDiff(term2);
 
                 // If `sign` is true, then we want to round up. Compute the carry bit
                 bool carry = (0 < difference.unsafeMod(px)).and(sign);

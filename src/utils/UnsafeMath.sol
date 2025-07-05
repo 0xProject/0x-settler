@@ -139,4 +139,12 @@ library Math {
             r := mul(gt(x, y), sub(x, y))
         }
     }
+
+    function absDiff(uint256 x, uint256 y) internal pure returns (uint256 r, bool sign) {
+        assembly ("memory-safe") {
+            sign := lt(x, y)
+            let m := sub(0x00, sign)
+            r := sub(xor(sub(x, y), m), m)
+        }
+    }
 }
