@@ -30,7 +30,7 @@ contract CurveLibTest is Test {
 
     function test_extremeF0(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) public view {
         uint256 x = 0;
-        x0 = bound(x0, 0, 1e28);
+        x0 = bound(x0, 0, type(uint112).max);
         cx = bound(cx, 0, 1e18 - 1);
 
         try this.f(x, px, py, x0, y0, cx) returns (uint256) {
@@ -59,14 +59,14 @@ contract CurveLibTest is Test {
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         if (cy == 1e18) {
-            y0 = bound(y0, 0, 1e28);
+            y0 = bound(y0, 0, type(uint112).max);
         } else {
-            y0 = bound(y0, 1, 1e28);
+            y0 = bound(y0, 1, type(uint112).max);
         }
         console.log("px", px);
         console.log("py", py);
@@ -132,9 +132,9 @@ contract CurveLibTest is Test {
         py = bound(py, 1, 1e25);
         cx = bound(cx, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         console.log("px", px);
         console.log("py", py);
@@ -234,14 +234,14 @@ contract CurveLibTest is Test {
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         if (cy == 1e18) {
-            y0 = bound(y0, 0, 1e28);
+            y0 = bound(y0, 0, type(uint112).max);
         } else {
-            y0 = bound(y0, 1, 1e28);
+            y0 = bound(y0, 1, type(uint112).max);
         }
         console.log("px", px);
         console.log("py", py);
@@ -423,14 +423,14 @@ contract CurveLibTest is Test {
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         if (cy == 1e18) {
-            y0 = bound(y0, 0, 1e28);
+            y0 = bound(y0, 0, type(uint112).max);
         } else {
-            y0 = bound(y0, 1, 1e28);
+            y0 = bound(y0, 1, type(uint112).max);
         }
 
         uint256 y = CurveLib.f(x0, px, py, x0, y0, cx);
