@@ -223,7 +223,10 @@ library CurveLib {
 
             uint256 x;
             if (sign) {
-                // `B` is negative; use regular quadratic formula; everything rounds up
+                // `B` is negative; use the regular quadratic formula; everything rounds up.
+                //     (-b + sqrt(b^2 - 4ac)) / 2a
+                // Because `B` is negative, `absB == -B`; we can avoid negation. Recall that `C` is
+                // actually `-c`, so we can also avoid subtraction
 
                 C = C.unsafeInc(carryC);
 
@@ -232,21 +235,19 @@ library CurveLib {
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
                 uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 256 bits
 
-                // Use the regular quadratic formula solution `(-b + sqrt(b^2 - 4ac)) / 2a`. Because
-                // `B` is negative, `absB == -B`. Recall that `C` is actually `-c`, so we can avoid
-                // subtraction
                 x = (absB + sqrt).unsafeDivUp(cx << 1); // scale: 1; units: token X; range: 112 bits
             } else {
-                // `B` is nonnegative; use "citardauq" quadratic formula; everything except `C`
-                // rounds down
+                // `B` is nonnegative; use the "citardauq" quadratic formula; everything except `C`
+                // rounds down.
+                //     2c / (-b - sqrt(b^2 - 4ac))
+                // Because `C` is the negation of `c`, we can avoid negation of `absB` and both
+                // subtractions
 
                 uint256 fourAC = (cx * 4e18).unsafeMulShift(C, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
                 uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 256 bits
 
-                // Use the "citardauq" formula solution `2c / (-b - sqrt(b^2 - 4ac))`. Because `C`
-                // is the negation of `c`, we can avoid subtraction and negation of `absB`
                 x = (C.unsafeInc(carryC) << 1).unsafeMulDivUpAlt(1e18, absB + sqrt); // scale: 1; units: token X; range: 112 bits
                 // If `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. This
                 // just so happens to be the correct answer
