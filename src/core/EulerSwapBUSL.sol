@@ -22,6 +22,7 @@ import {FullMath} from "../vendor/FullMath.sol";
 
 /// @author Modified from EulerSwap by Euler Labs Ltd. https://github.com/euler-xyz/euler-swap/blob/aa87a6bc1ca01bf6e5a8e14c030bbe0d008cf8bf/src/libraries/CurveLib.sol . See above for copyright and usage terms.
 /// @author Extensively modified by Duncan Townsend for Zero Ex Inc. (modifications released under MIT license)
+/// @dev Refer to https://raw.githubusercontent.com/euler-xyz/euler-swap/7080c3fe0c9f935c05849a0756ed43d959130afd/docs/whitepaper/EulerSwap_White_Paper.pdf for the underlying equations and their derivation.
 library CurveLib {
     using FastLogic for bool;
     using Ternary for bool;
@@ -83,6 +84,16 @@ library CurveLib {
         returns (uint256 a, uint256 b, uint256 d)
     {
         unchecked {
+            // Equation 2 (and 20):
+            //     y = y0 + (px/py) * (x0 - x) * (cx + (1 - cx) * (x0/x))
+            // We move `py` and `x` to the shared denominator and multiply the uninvolved term
+            // (`cx`) by the `x`. The resulting numerator expression:
+            //     px * (x0 - x) * (cx * x + (1 - cx) * x0)
+            // has a basis of 1e36 from `px` and `cx` that we need to divide out. The denominator
+            // expression gets a factor of 1e18 from `py`, so we need to get the other 1e18
+            // explicitly.
+            // The denominator expression is simply the `x` and `py` from before with the 1e18 to
+            // correct the basis to match the numerator.
             a = px * (x0 - x); // scale: 1e18; units: none; range: 196 bits
             b = cx * x + (1e18 - cx) * x0; // scale: 1e18; units: token X; range: 172 bits
             d = 1e18 * x * py; // scale: 1e36; units: token X / token Y; range: 255 bits
@@ -90,6 +101,7 @@ library CurveLib {
     }
 
     /// @dev EulerSwap curve
+    /// @dev Implements equation 2 (and 20) from the whitepaper.
     /// @notice Computes the output `y` for a given input `x`.
     /// @notice The combination `x0 == 0 && cx < 1e18` is invalid.
     /// @dev Throws on overflow or `x0 == 0 && cx < 1e18`.
@@ -103,6 +115,8 @@ library CurveLib {
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
         if ((x == 0).and(cx == 1e18)) {
             unchecked {
+                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x0` into `y`
+                // using `px` and `py`
                 uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
                 return y0 + v;
             }
@@ -110,13 +124,14 @@ library CurveLib {
             uint256 v; // scale: 1; units: token Y
             unchecked {
                 (uint256 a, uint256 b, uint256 d) = _setupF(x, px, py, x0, cx);
-                v = a.mulDivUp(b, d);
+                v = a.mulDivUp(b, d); // Throws on divide by zero and overflow
             }
-            return y0 + v;
+            return y0 + v; // Throws on overflow
         }
     }
 
     /// @dev EulerSwap curve
+    /// @dev Implements equation 2 (and 20) from the whitepaper.
     /// @notice Computes the output `y` for a given input `x`.
     /// @notice The combination `x0 == 0 && cx < 1e18` is invalid.
     /// @dev Returns `type(uint256).max` on overflow or `x0 == 0 && cx < 1e18`.
@@ -134,6 +149,8 @@ library CurveLib {
     {
         unchecked {
             if ((x == 0).and(cx == 1e18)) {
+                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x0` into `y`
+                // using `px` and `py`
                 uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
                 return y0 + v;
             } else {
@@ -145,6 +162,7 @@ library CurveLib {
     }
 
     /// @dev EulerSwap inverse curve
+    /// @dev Implements equations 23 through 27 from the whitepaper.
     /// @notice Computes the output `x` for a given input `y`.
     /// @notice The combination `x0 == 0 && cx < 1e18` is invalid.
     /// @param y The input reserve value, constrained to `y0 <= y <= 2^112 - 1`. (An amount of tokens in base units.)
