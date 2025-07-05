@@ -84,7 +84,7 @@ library CurveLib {
     {
         unchecked {
             a = px * (x0 - x); // scale: 1e18; units: none; range: 196 bits
-            b = cx * x + (1e18 - cx) * x0; // scale: 1e18; units: token X; range: 173 bits
+            b = cx * x + (1e18 - cx) * x0; // scale: 1e18; units: token X; range: 172 bits
             d = 1e18 * x * py; // scale: 1e36; units: token X / token Y; range: 255 bits
         }
     }
@@ -234,7 +234,7 @@ library CurveLib {
                 // just so happens to be the correct answer
             }
 
-            // Hande any rounding error that could produce a value out of the bounds established by
+            // Handle any rounding error that could produce a value out of the bounds established by
             // the NatSpec
             return (x < x0).ternary(x, x0);
         }
