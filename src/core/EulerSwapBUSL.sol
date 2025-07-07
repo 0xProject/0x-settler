@@ -199,8 +199,8 @@ library CurveLib {
             }
 
             // `twoShift` is how much we need to shift right (the log of the scaling factor) to
-            // prevent overflow when computing `squaredB`, `fourAC`, or `squaredB + fourAC`. `shift`
-            // is half that; the amount we have to shift left by after taking the square root of
+            // prevent overflow when computing `squaredB`, `fourAC`, or `discriminant`. `shift` is
+            // half that; the amount we have to shift left by after taking the square root of
             // `discriminant` to get back to a basis of 1e18
             uint256 shift;
             {
