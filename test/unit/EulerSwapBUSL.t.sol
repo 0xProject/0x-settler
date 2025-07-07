@@ -292,7 +292,7 @@ contract CurveLibTest is Test {
         assertGe(xCalc, xBin);
         // the computation of `xCalc` involves two divisions with rounding. because we multiply in
         // between, the rounding error may be substantial.
-        assertLe(xCalc - xBin, 2, "x margin of error"); // TODO: tighten
+        assertLe(xCalc - xBin, 1, "x margin of error");
 
         assertTrue(CurveLib.verify(xBin, y, x0, y0, px, py, cx, cy), "binary search verification failed");
         if (xBin != 0) {
@@ -336,7 +336,7 @@ contract CurveLibTest is Test {
                 // the reference implementation of `fInverse` does not correctly handle `cx == 0`
                 uint256 xRef = CurveLibReference.fInverse(y, px, py, x0, y0, cx);
                 console.log("xRef ", xRef);
-                assertLe(xCalc, xRef + 2, "x reference margin of error"); // TODO: tighten
+                assertLe(xCalc, xRef, "x reference margin of error");
             }
 
             // the reference implementation of `verify` does not handle zero as an input correctly
