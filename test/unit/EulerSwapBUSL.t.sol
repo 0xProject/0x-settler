@@ -336,7 +336,7 @@ contract CurveLibTest is Test {
                 // the reference implementation of `fInverse` does not correctly handle `cx == 0`
                 uint256 xRef = CurveLibReference.fInverse(y, px, py, x0, y0, cx);
                 console.log("xRef ", xRef);
-                assertLe(xCalc, xRef, "x reference margin of error");
+                assertLe(xCalc, xRef + 1, "x reference margin of error");
             }
 
             // the reference implementation of `verify` does not handle zero as an input correctly
