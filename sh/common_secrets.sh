@@ -3,6 +3,11 @@ if ! hash sha256sum &>/dev/null ; then
     exit 1
 fi
 
+if ! hash scrypt &>/dev/null ; then
+    echo 'scrypt is not installed' >&2
+    exit 1
+fi
+
 if [ ! -f "$project_root"/secrets.json.scrypt ] ; then
     echo 'secrets.json.scrypt is missing' >&2
     exit 1
@@ -23,29 +28,20 @@ if [ -f "$project_root"/secrets.json ] ; then
     exit 1
 fi
 
-declare secrets_storage
+declare secrets
 
 function decrypt_secrets {
-    local password
-    echo 'Enter passphrase for secrets.json.scrypt'
-    local decrypted
-    decrypted="$(scrypt dec "$project_root"/secrets.json.scrypt)"
-    if [ $? -ne 0 ]; then
-        echo "Failed to decrypt secrets.json.scrypt" >&2
-        exit 1
-    fi
+    secrets="$(scrypt dec "$project_root"/secrets.json.scrypt)"
 
-    # 24290900be9575d1fb6349098b1c11615a2eac8091bc486bec6cf67239b7846a previous version prior to allowanceHolderLondon
-    if ! echo "$decrypted" | sha256sum | grep -q "^bb82de121880f1182dbae410b341749e5ac1355954ae6c03151a1826e7bba745"; then
+    if [[ "$(sha256sum <<<"$secrets")" != '22ee172d78023ae1bd0f6009d7f2facebbb86ecbc2469908e28314d6436c83fc  -' ]] ; then
         echo "Decrypted secrets.json hash verification failed" >&2
         exit 1
     fi
-    secrets_storage="$decrypted"
 }
 
 function get_secret {
-    if [ -z "$secrets_storage" ]; then
+    if [[ -z "${secrets-}" ]]; then
         decrypt_secrets
     fi
-    jq -Mr ."$1"."$2" <<< "$secrets_storage"
+    jq -Mr ."$1"."$2" <<<"$secrets"
 }
