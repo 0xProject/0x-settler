@@ -204,7 +204,7 @@ library CurveLib {
             uint256 shift;
             {
                 uint256 shiftSquaredB = absB.bitLength().saturatingSub(127);
-                uint256 shiftFourAc = (x0 * 1e18).bitLength().saturatingSub(126);
+                uint256 shiftFourAc = (x0 * 5e17).bitLength().saturatingSub(126);
                 shift = (shiftSquaredB < shiftFourAc).ternary(shiftFourAc, shiftSquaredB);
             }
             uint256 twoShift = shift << 1;
