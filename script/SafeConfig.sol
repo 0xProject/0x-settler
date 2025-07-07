@@ -20,6 +20,7 @@ library SafeConfig {
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
+                || block.chainid == 999 // hyperevm
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 34443 // mode
@@ -49,6 +50,7 @@ library SafeConfig {
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
+                || block.chainid == 999 // hyperevm
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 10143 // monad testnet
