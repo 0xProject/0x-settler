@@ -188,7 +188,7 @@
     "etherscanApi": "https://api.arbiscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
-  "bnb": {
+  "bsc": {
     "chainId": 56,
     "displayName": "Bnb",
     "isShanghai": true,
@@ -424,7 +424,7 @@
     },
     "etherscanApi": "https://api.taikoscan.io/api"
   },
-  "worldchain": {
+  "world": {
     "chainId": 480,
     "displayName": "WorldChain",
     "isShanghai": true,
@@ -453,7 +453,7 @@
     "etherscanApi": "https://api.worldscan.org/api",
     "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
   },
-  "gnosis": {
+  "xdai": {
     "chainId": 100,
     "displayName": "Gnosis",
     "isShanghai": true,
@@ -538,7 +538,7 @@
     },
     "blockscoutApi": "https://explorer.inkonchain.com/api"
   },
-  "monad_testnet": {
+  "monad-testnet": {
     "chainId": 10143,
     "displayName": "MonadTestnet",
     "isShanghai": true,
