@@ -126,7 +126,7 @@ function verify_contract {
         if [[ ${_verify_etherscanKey:-null} == [nN][uU][lL][lL] ]] ; then
             forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         else
-            forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --chain "$chain_name" --verifier etherscan --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         fi
     fi
 
