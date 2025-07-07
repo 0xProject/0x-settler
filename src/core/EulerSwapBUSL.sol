@@ -247,7 +247,7 @@ library CurveLib {
 
             // Handle any rounding error that could produce a value out of the bounds established by
             // the NatSpec
-            return (x < x0).ternary(x, x0);
+            return x.unsafeDec(x > x0);
         }
     }
 }
