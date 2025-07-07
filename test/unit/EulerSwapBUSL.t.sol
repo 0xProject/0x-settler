@@ -290,8 +290,8 @@ contract CurveLibTest is Test {
         // `xBin`. all we can do is assert that the approximate closed-form solution is greater than
         // (valid) the exact solution
         assertGe(xCalc, xBin);
-        // the computation of `xCalc` involves two divisions with rounding. because we multiply in
-        // between, the rounding error may be substantial.
+        // the computation of `xCalc` involves four lossy operations with rounding. because we
+        // multiply in between, the rounding error may be substantial.
         assertLe(xCalc - xBin, 1, "x margin of error");
 
         assertTrue(CurveLib.verify(xBin, y, x0, y0, px, py, cx, cy), "binary search verification failed");
