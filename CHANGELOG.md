@@ -44,6 +44,10 @@ Master list of UniV3 forks:
 
 * Update Scroll to the Cancun hardfork
 
+## 2025-07-07
+
+### Breaking changes
+
 ### Non-breaking changes
 
 * Deploy Settler to HyperEVM (Hyperliquid) network
