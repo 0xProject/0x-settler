@@ -197,58 +197,49 @@ library CurveLib {
                 absB = difference.unsafeDiv(px).unsafeInc(carry);
             }
 
-            // `C` is actually the value `-c` from the "normal" conversion of the constant function
-            // to its quadratic form. Computing it like this means that we can completely avoid
-            // subtraction and underflow later
-            uint256 C; // scale: 1; units: (token X)^2; range: 224 bits
-            bool carryC; // `true` when we need to round `C` up
-            {
-                (uint256 C_lo, uint256 C_hi, uint256 C_rem) = FullMath._mulDivSetup(1e18 - cx, x0 * x0, 1e18);
-                C = FullMath._mulDivInvert(C_lo, C_hi, 1e18, C_rem);
-                carryC = 0 < C_rem;
-            }
-
             // `twoShift` is how much we need to shift right (the log of the scaling factor) to
-            // prevent overflow when computing `squaredB` or `fourAC`
-            uint256 twoShift;
-            {
-                uint256 twoShiftSquaredB = (absB.bitLength() << 1).saturatingSub(255);
-                uint256 twoShiftFourAc = C.unsafeInc(carryC).bitLength().saturatingSub(133); // 4e36 has 122 bits
-                twoShift = (twoShiftSquaredB < twoShiftFourAc).ternary(twoShiftFourAc, twoShiftSquaredB);
-                twoShift += twoShift & 1;
-            }
-            // `shift` is how much we have to shift left by after taking the square root of
+            // prevent overflow when computing `squaredB`, `fourAC`, or `squaredB + fourAC`. `shift`
+            // is half that; the amount we have to shift left by after taking the square root of
             // `discriminant` to get back to a basis of 1e18
-            uint256 shift = twoShift >> 1;
+            uint256 shift;
+            {
+                uint256 shiftSquaredB = absB.bitLength().saturatingSub(127);
+                uint256 shiftFourAc = (x0 * 1e18).bitLength().saturatingSub(126);
+                shift = (shiftSquaredB < shiftFourAc).ternary(shiftFourAc, shiftSquaredB);
+            }
+            uint256 twoShift = shift << 1;
 
             uint256 x;
             if (sign) {
                 // `B` is negative; use the regular quadratic formula; everything rounds up.
                 //     (-b + sqrt(b^2 - 4ac)) / 2a
-                // Because `B` is negative, `absB == -B`; we can avoid negation. Recall that `C` is
-                // actually `-c`, so we can also avoid subtraction
+                // Because `B` is negative, `absB == -B`; we can avoid negation.
 
-                C = C.unsafeInc(carryC);
+                // `fourAC` is actually the value `-4ac` from the "normal" conversion of the
+                // constant function to its quadratic form. Computing it like this means we can
+                // avoid subtraction (and potential underflow)
+                uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShiftUp(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
 
-                uint256 fourAC = (cx * 4e18).unsafeMulShiftUp(C, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
                 uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 256 bits
 
                 x = (absB + sqrt).unsafeDivUp(cx << 1); // scale: 1; units: token X; range: 112 bits
             } else {
-                // `B` is nonnegative; use the "citardauq" quadratic formula; everything except `C`
-                // rounds down.
+                // `B` is nonnegative; use the "citardauq" quadratic formula; everything except the
+                // final division rounds down.
                 //     2c / (-b - sqrt(b^2 - 4ac))
-                // Because `C` is the negation of `c`, we can avoid negation of `absB` and both
-                // subtractions
 
-                uint256 fourAC = (cx * 4e18).unsafeMulShift(C, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                // `fourAC` is actually the value `-4ac` from the "normal" conversion of the
+                // constant function to its quadratic form. Therefore, we can avoid negation of
+                // `absB` and both subtractions
+                uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShift(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
                 uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 256 bits
 
-                x = (C.unsafeInc(carryC) << 1).unsafeMulDivUpAlt(1e18, absB + sqrt); // scale: 1; units: token X; range: 112 bits
+                x = ((1e18 - cx) << 1).unsafeMulDivUpAlt(x0 * x0, absB + sqrt); // scale: 1; units: token X; range: 112 bits
                 // If `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. This
                 // just so happens to be the correct answer
             }
