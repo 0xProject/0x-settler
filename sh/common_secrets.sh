@@ -31,7 +31,7 @@ fi
 declare secrets
 
 function decrypt_secrets {
-    secrets="$(scrypt dec "$project_root"/secrets.json.scrypt)"
+    secrets="$(scrypt dec -f "$project_root"/secrets.json.scrypt)"
 
     if [[ "$(sha256sum <<<"$secrets")" != '22ee172d78023ae1bd0f6009d7f2facebbb86ecbc2469908e28314d6436c83fc  -' ]] ; then
         echo "Decrypted secrets.json hash verification failed" >&2
@@ -41,7 +41,8 @@ function decrypt_secrets {
 
 function get_secret {
     if [[ -z "${secrets-}" ]]; then
-        decrypt_secrets
+        echo 'You forgot to run `decrypt_secrets` before accessing secrets' >&2
+        exit 1
     fi
     jq -Mr ."$1"."$2" <<<"$secrets"
 }

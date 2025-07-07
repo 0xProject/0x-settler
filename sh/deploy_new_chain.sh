@@ -132,6 +132,8 @@ fi
 . "$project_root"/sh/common_secrets.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
+decrypt_secrets
+
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
 declare -r module_deployer

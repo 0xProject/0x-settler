@@ -1375,7 +1375,9 @@ Zeroth, verify the configuration for your chain in
 of `AllowanceHolder` addresses at the top of this file.
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
-this, give up. Also populate `api_secrets.json` by copying
+this, give up. Install [`scrypt`](https://github.com/Tarsnap/scrypt) and use it
+to encrypt `secrets.json` to `secrets.json.scrypt`. Also populate
+`api_secrets.json` by copying
 [`api_secrets.json.template`](api_secrets.json.template) and adding your own
 block explorer API key and RPC.
 
@@ -1447,7 +1449,7 @@ addresses (there are two: `iceColdCoffee` and `deployer`) listed in
 how much isn't obvious to you, you can run the main deployment script with
 `BROADCAST=no` to simulate. The `"iceColdCoffee"` address needs ~50% more native
 asset than the `"deployer"` address because the final transaction of the
-deployment is extremely gas-intensive. The amount of eth you need can be a
+deployment is extremely gas-intensive. The amount of ETH you need can be a
 little wonky on L2s, so beware and overprovision the amount of native asset.
 
 Fifth, deploy `MultiCall`. Run [`BROADCAST=no ./sh/deploy_multicall.sh

@@ -122,6 +122,8 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
+decrypt_secrets
+
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
