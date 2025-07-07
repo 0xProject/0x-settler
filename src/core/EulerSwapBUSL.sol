@@ -172,7 +172,7 @@ library CurveLib {
     /// @param y0 (0 <= y0 <= 2^112 - 1). An amount of tokens in base units.
     /// @param cx (0 <= cx <= 1e18). A fixnum with a basis of 1e18.
     /// @return x The output reserve value corresponding to input `y`, guaranteed to satisfy `0 <= x <= x0`. (An amount of tokens in base units.)
-    /// @dev Maximum error in `x` from the smallest such value that will still pass `verify` is 1 wei.
+    /// @dev The maximum possible error (overestimate only) in `x` from the smallest such value that will still pass `verify` is 1 wei.
     function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx)
         internal
         pure
