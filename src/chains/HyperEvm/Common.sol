@@ -13,7 +13,12 @@ import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 import {IUniswapV3Callback} from "../../core/univ3forks/UniswapV3.sol";
 import {kittenSwapFactory, kittenSwapInitHash, kittenSwapForkId} from "../../core/univ3forks/KittenSwap.sol";
 import {hybraFactory, hybraInitHash, hybraForkId} from "../../core/univ3forks/Hybra.sol";
-import {hyperSwapFactory, hyperSwapInitHash, hyperSwapForkId, IHyperswapV3SwapCallback} from "../../core/univ3forks/HyperSwap.sol";
+import {
+    hyperSwapFactory,
+    hyperSwapInitHash,
+    hyperSwapForkId,
+    IHyperswapV3SwapCallback
+} from "../../core/univ3forks/HyperSwap.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
