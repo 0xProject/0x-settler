@@ -223,7 +223,7 @@ library CurveLib {
 
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
-                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 256 bits
+                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 255 bits
 
                 x = (absB + sqrt).unsafeDivUp(cx << 1); // scale: 1; units: token X; range: 112 bits
             } else {
@@ -238,7 +238,7 @@ library CurveLib {
 
                 uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
-                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 256 bits
+                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 255 bits
 
                 x = ((1e18 - cx) << 1).unsafeMulDivUpAlt(x0 * x0, absB + sqrt); // scale: 1; units: token X; range: 112 bits
                 // If `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. This
