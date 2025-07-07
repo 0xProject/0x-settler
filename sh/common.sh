@@ -40,6 +40,10 @@ if [[ $api_secrets_permissions != '-rw-------' ]] ; then
     exit 1
 fi
 
+if (( $# == 0 )) ; then
+    echo 'chain_name argument is missing' >&2
+    exit 1
+fi
 declare -r chain_name="$1"
 shift
 
