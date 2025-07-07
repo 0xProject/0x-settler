@@ -32,6 +32,9 @@ Master list of UniV3 forks:
   29. SwapX (Algebra-like)
   30. KodiakV3
   31. Bulla Exchange (Algebra-like)
+  32. KittenSwap (factory is upgradeable; pools are not)
+  33. Hybra
+  34. HyperSwap
 
 ---
 
@@ -42,6 +45,11 @@ Master list of UniV3 forks:
 * Update Scroll to the Cancun hardfork
 
 ### Non-breaking changes
+
+* Deploy Settler to HyperEVM (Hyperliquid) network
+  * Add KittenSwap UniV3 fork to HyperEVM
+  * Add Hybra UniV3 fork to HyperEVM
+  * Add HyperSwap UniV3 fork to HyperEVM
 
 ## 2025-07-02
 
