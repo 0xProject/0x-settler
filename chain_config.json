@@ -631,7 +631,7 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "gasMultiplierPercent": 300,
     "minGasPriceGwei": 2,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -647,11 +647,11 @@
       "pause": ""
     },
     "deployment": {
-      "allowanceHolder": "",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "",
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
     "blockscoutApi": "https://www.hyperscan.com/api",
-    "etherscanApi": "https://api.etherscan.io/v2/api
+    "etherscanApi": "https://api.etherscan.io/v2/api"
   }
 }
