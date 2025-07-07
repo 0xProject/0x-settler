@@ -109,6 +109,7 @@ contract CurveLibTest is Test {
 
         uint256 yCalc = CurveLib.f(x, px, py, x0, y0, cx);
         console.log("yCalc", yCalc);
+        assertLe(y0, yCalc, "out of range (violates natspec)");
 
         assertEq(yCalc, yBin, "CurveLib.f solution not exact");
 
@@ -285,6 +286,7 @@ contract CurveLibTest is Test {
 
         uint256 xCalc = CurveLib.fInverse(y, px, py, x0, y0, cx);
         console.log("xCalc", xCalc);
+        assertLe(xCalc, x0, "out of range (violates natspec)");
         // double rounding in `fInverse`, compared to the exact computation in `verify` (and
         // consequently `binSearchX`) can result in substantial amounts of error compared to
         // `xBin`. all we can do is assert that the approximate closed-form solution is greater than
