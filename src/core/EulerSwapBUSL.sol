@@ -215,7 +215,7 @@ library CurveLib {
                 //     (-b + sqrt(b^2 - 4ac)) / 2a
                 // Because `B` is negative, `absB == -B`; we can avoid negation.
 
-                // `fourAC` is actually the value `-4ac` from the "normal" conversion of the
+                // `fourAC` is actually the value $-4ac$ from the "normal" conversion of the
                 // constant function to its quadratic form. Computing it like this means we can
                 // avoid subtraction (and potential underflow)
                 uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShiftUp(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
@@ -230,7 +230,7 @@ library CurveLib {
                 // final division rounds down.
                 //     2c / (-b - sqrt(b^2 - 4ac))
 
-                // `fourAC` is actually the value `-4ac` from the "normal" conversion of the
+                // `fourAC` is actually the value $-4ac$ from the "normal" conversion of the
                 // constant function to its quadratic form. Therefore, we can avoid negation of
                 // `absB` and both subtractions
                 uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShift(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
