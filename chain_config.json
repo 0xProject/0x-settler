@@ -624,7 +624,7 @@
     },
     "etherscanApi": "https://api.berascan.com/api"
   },
-  "hyperevm": {
+  "hyperliquid": {
     "chainId": 999,
     "displayName": "HyperEvm",
     "wnative": "0x5555555555555555555555555555555555555555",
@@ -649,9 +649,9 @@
     "deployment": {
       "allowanceHolder": "",
       "deployer": "",
-      "forwardingMultiCall": ""
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
     "blockscoutApi": "https://www.hyperscan.com/api",
-    "etherscanApi": "https://api.hyperevmscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api
   }
 }
