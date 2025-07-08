@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
 
@@ -26,9 +27,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     using Ternary for bool;
 
     CrossChainReceiverFactory private immutable _cachedThis = this;
-    bytes32 private immutable _factoryWithFF = bytes32(
-        0x0000000000000000000000ff0000000000000000000000000000000000000000
-    ) | bytes32(uint256(uint160(address(this))));
+    uint168 private immutable _factoryWithFF =
+        0xff0000000000000000000000000000000000000000 | uint168(uint160(address(this)));
     bytes32 private immutable _proxyInitHash = keccak256(
         bytes.concat(
             hex"60253d8160093d39f33d3d3d3d363d3d37363d6c",
@@ -126,8 +126,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    modifier onlyProxy() {
+    function _requireProxy() private view {
         require(this != _cachedThis);
+    }
+
+    modifier onlyProxy() {
+        _requireProxy();
         _;
     }
 
@@ -139,6 +143,24 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     modifier onlyFactory() {
         require(msg.sender == address(_cachedThis));
         _;
+    }
+
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId) public view override onlyProxy returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+
+    // This function is overridden so that it is explicit that it is only meaningful on the
+    // proxy. This also makes any function that is `onlyOwner` implicitly `onlyProxy`, including
+    // `renounceOwnership` and `transferOwnership`.
+    function owner() public view override onlyProxy returns (address) {
+        return super.owner();
+    }
+
+    // Like `owner()`, function is overridden so that it is explicit that it is only meaningful on
+    // the proxy. This also makes `acceptOwnership` and `rejectOwnership` implicitly `onlyProxy`.
+    function pendingOwner() public view override onlyProxy returns (address) {
+        return super.pendingOwner();
     }
 
     /// @inheritdoc IERC1271
@@ -160,15 +182,11 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         //    The signature must be constructed exactly as described by the ERC.
         //
         // Because the ERC7739 encoding of the nested signature begins with the ECDSA `r`, it is
-        // computationally infeasible to create a signature that can be validly decoded both as an
-        // ERC7739 signature and as a Merkle proof signature (beginning with a correctly padded
-        // address). This would require either computing `k` from a chosen `r` for the ECDSA
-        // signature (violates the discrete logarithm) or controlling the upper 96 bits of `r` by
-        // choosing `k` (violates decisional Diffie-Hellman). Additionally, the second word of the
-        // ERC7739 encoding (the ECDSA `s`) would need to encode a valid calldata offset (the upper
-        // 232 bits would need to be cleared). Because this is derived from both `r` and `hash`,
-        // this further frustrates the ability of the attacker to form a combination of values that
-        // are confusable.
+        // computationally impractical (96-bit security level) to create a signature that can be
+        // validly decoded both as an ERC7739 signature and as a Merkle proof signature (beginning
+        // with a correctly padded address). This would require either computing `k` from a chosen
+        // `r` for the ECDSA signature (violates the discrete logarithm) or controlling the upper 96
+        // bits of `r` by choosing `k` (violates decisional Diffie-Hellman).
 
         // ERC7739 requires a specific response to `hash == 0x7739...7739 && signature == ""`. We
         // must return `bytes4(0x77390001)` in that case. This is the requirement of the current
@@ -215,7 +233,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                     // This assembly block simply ABIDecodes `proof` as the second element of the
                     // encoded anonymous struct `(owner, proof)`. It omits range and overflow
                     // checking.
-                    //     (, proof = abi.decode(signature, (address, bytes32[]));
+                    //     (, proof) = abi.decode(signature, (address, bytes32[]));
                     proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
@@ -228,7 +246,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
 
         // ERC7739 validation
-        return _verifyERC7739NestedTypedSignature(hash, signature, owner()).ternary(
+        return _verifyERC7739NestedTypedSignature(hash, signature, super.owner()).ternary(
             IERC1271.isValidSignature.selector, bytes4(0xffffffff)
         );
     }
@@ -277,12 +295,14 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
             // If `setOwnerNotCleanup == true`, this gets the selector for `setOwner(address)`,
             // otherwise you get the selector for `cleanup(address)`. In both cases, the selector is
-            // appended with `initialOwner`'s padding
+            // appended with `argument`'s padding.
             let selector :=
                 xor(0xfbacefce000000000000000000000000, mul(0xe803affb000000000000000000000000, setOwnerNotCleanup))
+            // If `setOwnerNotCleanup == true`, this gets `initialOwner`, otherwise you get `proxy`.
+            let argument := xor(proxy, mul(xor(proxy, initialOwner), setOwnerNotCleanup))
 
-            // set the owner, or `selfdestruct` to the owner
-            mstore(0x14, initialOwner)
+            // set the owner, or `selfdestruct`
+            mstore(0x14, argument)
             mstore(returndatasize(), selector)
             if iszero(call(gas(), proxy, callvalue(), 0x10, 0x24, codesize(), returndatasize())) {
                 let ptr := mload(0x40)
@@ -318,6 +338,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // allow `approve` to either return `true` or empty to signal success
             if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
                 mstore(0x00, 0x3e3f8f73) // selector for `ApproveFailed()`
                 revert(0x1c, 0x04)
@@ -350,7 +371,20 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     }
 
     function cleanup(address payable beneficiary) external {
-        if (msg.sender != address(_cachedThis)) {
+        if (msg.sender == address(_cachedThis)) {
+            if (address(this).balance != 0) {
+                IWrappedNative wnative = _WNATIVE;
+                assembly ("memory-safe") {
+                    if iszero(
+                        call(gas(), wnative, selfbalance(), codesize(), returndatasize(), codesize(), returndatasize())
+                    ) {
+                        let ptr := mload(0x40)
+                        returndatacopy(ptr, 0x00, returndatasize())
+                        revert(ptr, returndatasize())
+                    }
+                }
+            }
+        } else {
             if (_msgSender() != owner()) {
                 _permissionDenied();
             }
@@ -395,7 +429,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
 
     function _verifyDeploymentRootHash(bytes32 root, address originalOwner) internal view returns (bool result) {
         bytes32 initHash = _proxyInitHash;
-        bytes32 factoryWithFF = _factoryWithFF;
+        uint168 factoryWithFF = _factoryWithFF;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -522,5 +556,17 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    receive() external payable onlyProxy {}
+    receive() external payable onlyProxy {
+        if (msg.sender != address(_WNATIVE)) {
+            IWrappedNative wnative = _WNATIVE;
+            assembly ("memory-safe") {
+                if iszero(call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize()))
+                {
+                    let ptr := mload(0x40)
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
+                }
+            }
+        }
+    }
 }

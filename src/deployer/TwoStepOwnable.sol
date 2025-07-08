@@ -5,7 +5,7 @@ import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {AbstractContext} from "../Context.sol";
 import {IOwnable} from "./IOwnable.sol";
 
-abstract contract AbstractOwnable is IOwnable {
+abstract contract AbstractOwnable is IOwnable, AbstractContext {
     // This looks stupid (and it is), but this is required due to the glaring
     // deficiencies in Solidity's inheritance system.
 
@@ -28,16 +28,24 @@ abstract contract AbstractOwnable is IOwnable {
         }
     }
 
+    function _zeroAddress() internal pure {
+        assembly ("memory-safe") {
+            mstore(0x00, 0xd92e233d) // selector for `ZeroAddress()`
+            revert(0x1c, 0x04)
+        }
+    }
+
     constructor() {
         assert(type(IOwnable).interfaceId == 0x7f5828d0);
         assert(type(IERC165).interfaceId == 0x01ffc9a7);
     }
 
+    /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IERC165).interfaceId || interfaceId == type(IOwnable).interfaceId;
     }
 
-    /// This modifier is not virtual on purpose; override _requireOwner instead.
+    /// This modifier is not virtual on purpose; override `_requireOwner` instead.
     modifier onlyOwner() {
         _requireOwner();
         _;
@@ -84,7 +92,7 @@ abstract contract OwnableStorage is OwnableStorageBase {
     }
 }
 
-abstract contract OwnableBase is AbstractContext, AbstractOwnable {
+abstract contract OwnableBase is AbstractOwnable {
     function renounceOwnership() public virtual returns (bool);
 }
 
@@ -94,12 +102,12 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
     }
 
     function _setOwner(address newOwner) internal virtual override {
-        emit OwnershipTransferred(owner(), newOwner);
+        emit OwnershipTransferred(_ownerImpl(), newOwner);
         _set(_ownerSlot(), newOwner);
     }
 
     function _requireOwner() internal view override {
-        if (_msgSender() != owner()) {
+        if (owner() != _msgSender()) {
             _permissionDenied();
         }
     }
@@ -111,7 +119,7 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
 
     function transferOwnership(address newOwner) public virtual override onlyOwner returns (bool) {
         if (newOwner == address(0)) {
-            revert ZeroAddress();
+            _zeroAddress();
         }
         _setOwner(newOwner);
         return true;
@@ -123,11 +131,17 @@ abstract contract Ownable is OwnableStorage, OwnableImpl {}
 abstract contract AbstractTwoStepOwnable is AbstractOwnable {
     function _requirePendingOwner() internal view virtual;
 
-    function pendingOwner() public view virtual returns (address);
+    /// This function should be overridden exactly once. This provides the base
+    /// implementation. Mixin classes may modify `pendingOwner`.
+    function _pendingOwnerImpl() internal view virtual returns (address);
+
+    function pendingOwner() public view virtual returns (address) {
+        return _pendingOwnerImpl();
+    }
 
     function _setPendingOwner(address) internal virtual;
 
-    /// This modifier is not virtual on purpose; override _requirePendingOwner
+    /// This modifier is not virtual on purpose; override `_requirePendingOwner`
     /// instead.
     modifier onlyPendingOwner() {
         _requirePendingOwner();
@@ -158,7 +172,7 @@ abstract contract TwoStepOwnableStorage is TwoStepOwnableStorageBase {
 abstract contract TwoStepOwnableBase is OwnableBase, AbstractTwoStepOwnable {}
 
 abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnableBase {
-    function pendingOwner() public view override returns (address) {
+    function _pendingOwnerImpl() internal view override returns (address) {
         return _get(_pendingOwnerSlot());
     }
 
@@ -177,14 +191,14 @@ abstract contract TwoStepOwnableImpl is TwoStepOwnableStorageBase, TwoStepOwnabl
 
     function transferOwnership(address newOwner) public virtual override onlyOwner returns (bool) {
         if (newOwner == address(0)) {
-            revert ZeroAddress();
+            _zeroAddress();
         }
         _setPendingOwner(newOwner);
         return true;
     }
 
     function _requirePendingOwner() internal view override {
-        if (_msgSender() != pendingOwner()) {
+        if (pendingOwner() != _msgSender()) {
             _permissionDenied();
         }
     }
