@@ -35,14 +35,14 @@ library CurveLib {
 
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
-    /// @param newReserve0 An amount of vault0.asset() tokens in that token's base unit. No constraint on range.
-    /// @param newReserve1 An amount of vault1.asset() tokens in that token's base unit. No constraint on range.
-    /// @param equilibriumReserve0 An amount of vault0.asset() tokens in that token's base unit. No constraint on range.
-    /// @param equilibriumReserve1 An amount of vault1.asset() tokens in that token's base unit. No constraint on range.
-    /// @param priceX (1 <= priceX <= 1e25). The price of vault0.asset(). A fixnum with a basis of 1e18.
-    /// @param priceY (1 <= priceY <= 1e25). The price of vault1.asset(). A fixnum with a basis of 1e18.
-    /// @param concentrationX (0 <= concentrationX <= 1e18). The liquidity concentration of vault0.asset() on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
-    /// @param concentrationY (0 <= concentrationY <= 1e18). The liquidity concentration of vault1.asset() on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
+    /// @param newReserve0 An amount of `vault0.asset()` tokens in that token's base unit. No constraint on range.
+    /// @param newReserve1 An amount of `vault1.asset()` tokens in that token's base unit. No constraint on range.
+    /// @param equilibriumReserve0 An amount of `vault0.asset()` tokens in that token's base unit. No constraint on range.
+    /// @param equilibriumReserve1 An amount of `vault1.asset()` tokens in that token's base unit. No constraint on range.
+    /// @param priceX (1 <= priceX <= 1e25). The equilibrium price of `vault0.asset()`. A fixnum with a basis of 1e18.
+    /// @param priceY (1 <= priceY <= 1e25). The equilibrium price of `vault1.asset()`. A fixnum with a basis of 1e18.
+    /// @param concentrationX (0 <= concentrationX <= 1e18). The liquidity concentration of `vault0.asset()` on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
+    /// @param concentrationY (0 <= concentrationY <= 1e18). The liquidity concentration of `vault1.asset()` on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
     function verify(
         uint256 newReserve0,
         uint256 newReserve1,
@@ -65,8 +65,8 @@ library CurveLib {
 
         bool maybe;
         unchecked {
-            if ((x == 0).and(cx == 1e18)) {
-                maybe = y - y0 >= (x0 * px).unsafeDivUp(py);
+            if (cx == 1e18) {
+                maybe = y - y0 >= ((x0 - x) * px).unsafeDivUp(py);
             } else {
                 (uint256 a_lo, uint256 a_hi) = (y - y0).fullMul(1e18 * x * py);
                 (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(cx * x + (1e18 - cx) * x0);
@@ -113,11 +113,11 @@ library CurveLib {
     /// @param cx (0 <= cx <= 1e18). A fixnum with a basis of 1e18.
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y`. (An amount of tokens in base units.)
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
-        if ((x == 0).and(cx == 1e18)) {
+        if (cx == 1e18) {
             unchecked {
-                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x0` into `y`
+                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x` into `y`
                 // using `px` and `py`
-                uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
+                uint256 v = ((x0 - x) * px).unsafeDivUp(py); // scale: 1; units: token Y
                 return y0 + v;
             }
         } else {
@@ -148,10 +148,10 @@ library CurveLib {
         returns (uint256)
     {
         unchecked {
-            if ((x == 0).and(cx == 1e18)) {
-                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x0` into `y`
+            if (cx == 1e18) {
+                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x` into `y`
                 // using `px` and `py`
-                uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
+                uint256 v = ((x0 - x) * px).unsafeDivUp(py); // scale: 1; units: token Y
                 return y0 + v;
             } else {
                 (uint256 a, uint256 b, uint256 d) = _setupF(x, px, py, x0, cx);
