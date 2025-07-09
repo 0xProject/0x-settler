@@ -175,10 +175,6 @@ declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 
-declare signing_hash
-signing_hash="$(eip712_hash "$swapOwner_call" 0 "$safe_address")"
-declare -r signing_hash
-
 declare packed_signatures
 packed_signatures="$(retrieve_signatures replace_signer "$swapOwner_call" 0 "$safe_address")"
 declare -r packed_signatures

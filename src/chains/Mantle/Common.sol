@@ -9,7 +9,7 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MantleFactory,
@@ -62,7 +62,7 @@ abstract contract MantleMixin is FreeMemory, SettlerBase, DodoV1, DodoV2 {
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 }

@@ -23,29 +23,32 @@ function retrieve_signatures {
     fi
     declare -r _retrieve_signatures_to
 
-    declare signing_hash
-    signing_hash="$(eip712_hash "$_retrieve_signatures_call" $_retrieve_signatures_operation "$_retrieve_signatures_to")"
-    declare -r signing_hash
+    declare _retrieve_signatures_signing_hash
+    _retrieve_signatures_signing_hash="$(eip712_hash "$_retrieve_signatures_call" $_retrieve_signatures_operation "$_retrieve_signatures_to")"
+    declare -r _retrieve_signatures_signing_hash
 
     declare -a _retrieve_signatures_result
-    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+    if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
         set +f
         declare confirmation
         for confirmation in "$project_root"/"$_retrieve_signatures_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
             signatures+=("$(<"$confirmation")")
+            if (( ${#signatures[@]} == 2 )) ; then
+                break
+            fi
         done
         set -f
 
-        if (( ${#signatures[@]} != 2 )) ; then
+        if (( ${#signatures[@]} < 2 )) ; then
             echo 'Bad number of signatures' >&2
             return 1
         fi
     else
         declare signatures_json
-        signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$signing_hash"'/confirmations/?executed=false' -X GET)"
+        signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$_retrieve_signatures_signing_hash"'/confirmations/?executed=false' -X GET)"
         declare -r signatures_json
 
-        if (( $(jq -Mr .count <<<"$signatures_json") != 2 )) ; then
+        if (( $(jq -Mr .count <<<"$signatures_json") < 2 )) ; then
             echo 'Bad number of signatures' >&2
             return 1
         fi

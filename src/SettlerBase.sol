@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "./interfaces/ISettlerBase.sol";
 
 import {uint512} from "./utils/512Math.sol";
 
@@ -18,7 +19,7 @@ import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {TooMuchSlippage} from "./core/SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
 
 /// @dev This library's ABIDeocding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
@@ -38,22 +39,22 @@ library CalldataDecoder {
                     data.offset,
                     // We allow the indirection/offset to `calls[i]` to be negative
                     calldataload(
-                        add(shl(5, i), data.offset) // can't overflow; we assume `i` is in-bounds
+                        add(shl(0x05, i), data.offset) // can't overflow; we assume `i` is in-bounds
                     )
                 )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
-            args.offset := add(args.offset, 0x20)
+            args.offset := add(0x20, args.offset)
 
             // slice off the first 4 bytes of `args` as the selector
             selector := shr(0xe0, calldataload(args.offset))
             args.length := sub(args.length, 0x04)
-            args.offset := add(args.offset, 0x04)
+            args.offset := add(0x04, args.offset)
         }
     }
 }
 
-abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
+abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
 
@@ -77,12 +78,6 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         return n.div(d);
     }
 
-    struct AllowedSlippage {
-        address recipient;
-        IERC20 buyToken;
-        uint256 minAmountOut;
-    }
-
     function _mandatorySlippageCheck() internal pure virtual returns (bool) {
         return false;
     }
@@ -93,7 +88,7 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         // ISettlerActions.BASIC could interact with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        (address recipient, IERC20 buyToken, uint256 minAmountOut) =
+        (address payable recipient, IERC20 buyToken, uint256 minAmountOut) =
             (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
         if (_mandatorySlippageCheck()) {
             require(minAmountOut != 0);
@@ -103,19 +98,23 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         if (buyToken == ETH_ADDRESS) {
             uint256 amountOut = address(this).balance;
             if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
             }
-            payable(recipient).safeTransferETH(amountOut);
+            recipient.safeTransferETH(amountOut);
         } else {
             uint256 amountOut = buyToken.fastBalanceOf(address(this));
             if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
+                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
             }
             buyToken.safeTransfer(recipient, amountOut);
         }
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
+        //// NOTICE: This function has been largely copy/paste'd into
+        //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
+        //// need to make sure that corresponding changes are made to that function.
+
         if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
@@ -148,12 +147,13 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
             sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
+            (address payable recipient, IERC20 token, uint256 expectedAmount) =
+                abi.decode(data, (address, IERC20, uint256));
             if (token == ETH_ADDRESS) {
                 uint256 balance = address(this).balance;
                 if (balance > expectedAmount) {
                     unchecked {
-                        payable(recipient).safeTransferETH(balance - expectedAmount);
+                        recipient.safeTransferETH(balance - expectedAmount);
                     }
                 }
             } else {

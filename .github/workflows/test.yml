@@ -32,17 +32,31 @@ jobs:
         run: forge test --skip 'src/*' --mp test/SafeGuard.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+
+      - name: Build MultiCall
+        run: forge build -- src/multicall/MultiCall.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 1000000
+
+      - name: Run the MultiCall tests
+        run: forge test --skip 'src/*' --mc MultiCall
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
       - name: Build UniswapV4
         run: forge build -- lib/v4-core/src/PoolManager.sol
 
-      - name: Build all other contracts
-        run: forge build --skip UniswapV4UnitTest.t.sol --skip SafeGuard.sol
+      - name: Build contracts
+        run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip SafeGuard.sol --skip 'test/*'
 
-      - name: Build UniswapV4 unit test
-        run: forge build --skip SafeGuard.sol
+      - name: Build UniswapV4 tests
+        run: forge build --skip MultiCall.sol --skip SafeGuard.sol --skip 'test/*'
 
-      - name: Run tests
-        run: forge test --skip 'src/*'
+      - name: Run all the other tests
+        run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --nmc MultiCall
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {Revert} from "./Revert.sol";
+import {IMultiCall} from "../interfaces/IMultiCall.sol";
 
 library UnsafeArray {
     function unsafeGet(bytes[] calldata datas, uint256 i) internal pure returns (bytes calldata data) {
@@ -38,10 +39,6 @@ library UnsafeArray {
             }
         }
     }
-}
-
-interface IMultiCall {
-    function multicall(bytes[] calldata datas) external;
 }
 
 abstract contract MultiCallBase is IMultiCall {

@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
@@ -15,7 +16,6 @@ import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "src/Settler.sol";
-import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
@@ -65,8 +65,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    SettlerBase.AllowedSlippage({
-                        recipient: address(0),
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)),
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
@@ -111,8 +111,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    SettlerBase.AllowedSlippage({
-                        recipient: address(0),
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)),
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
@@ -157,8 +157,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    SettlerBase.AllowedSlippage({
-                        recipient: address(0),
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)),
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
@@ -170,7 +170,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_rfq_VIP() public {
+    function testAllowanceHolder_rfq_VIP() public skipIf(true) { // action `RFQ_VIP` is disabled
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =
@@ -212,8 +212,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    SettlerBase.AllowedSlippage({
-                        recipient: address(0),
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)),
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
@@ -278,8 +278,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    SettlerBase.AllowedSlippage({
-                        recipient: address(0),
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)),
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
@@ -327,8 +327,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(
                 _settler.execute,
                 (
-                    SettlerBase.AllowedSlippage({
-                        recipient: address(0),
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)),
                         buyToken: IERC20(address(0)),
                         minAmountOut: 0 ether
                     }),
@@ -345,7 +345,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory call = abi.encodeCall(
             settler.execute,
             (
-                SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+                ISettlerBase.AllowedSlippage({
+                    recipient: payable(address(0)),
+                    buyToken: IERC20(address(0)),
+                    minAmountOut: 0 ether
+                }),
                 actions,
                 bytes32(0)
             )

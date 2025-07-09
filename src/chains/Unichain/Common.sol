@@ -6,11 +6,12 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
+import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3UnichainFactory,
@@ -24,7 +25,7 @@ import {UNICHAIN_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4 {
+abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4, EulerSwap {
     constructor() {
         assert(block.chainid == 130 || block.chainid == 31337);
     }
@@ -51,6 +52,17 @@ abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4 {
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IEulerSwap pool,
+                bool zeroForOne,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         } else {
             return false;
         }
@@ -68,11 +80,15 @@ abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4 {
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return UNICHAIN_POOL_MANAGER;
+    }
+
+    function _EVC() internal pure override returns (IEVC) {
+        return IEVC(0x2A1176964F5D7caE5406B627Bf6166664FE83c60);
     }
 }

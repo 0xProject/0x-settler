@@ -57,7 +57,7 @@ function sign_call {
             <<<"$_sign_call_struct_json"
         )"
         declare -r typedDataRPC
-        _sign_call_result="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
+        _sign_call_result="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data '@-' <<<"$typedDataRPC")"
         if [[ $_sign_call_result = *error* ]] ; then
             echo "$_sign_call_result" >&2
             return 1
@@ -105,7 +105,7 @@ function save_signature {
     fi
     declare -r _save_signature_to
 
-    if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
+    if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
         declare signature_file
         signature_file="$project_root"/"$_save_signature_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_$(nonce).txt
         echo "$_save_signature_signature" >"$signature_file"
@@ -128,7 +128,7 @@ function save_signature {
             }
             '                                            \
             --arg to "$_save_signature_to"               \
-            --arg data "$_save_signature_call"           \
+            --slurpfile data <(jq -R . <<<"$_save_signature_call") \
             --arg operation $_save_signature_operation   \
             --arg nonce $(nonce)                         \
             --arg signing_hash "$signing_hash"           \
@@ -139,7 +139,7 @@ function save_signature {
         )"
 
         # call the API
-        curl --fail "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+        curl --fail "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data '@-' <<<"$safe_multisig_transaction"
 
         echo 'Signature submitted' >&2
     fi

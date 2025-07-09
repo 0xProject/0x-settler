@@ -39,11 +39,91 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Update Scroll to the Cancun hardfork
+
+### Non-breaking changes
+
+## 2025-07-02
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Remove Safe{Wallet} API configuration from Blast
+* Configure Safe{Wallet} API on Berachain
+* Add EulerSwap action `EULERSWAP`
+  * Add `EULERSWAP` action to Mainnet
+  * Add `EULERSWAP` action to Base
+  * Add `EULERSWAP` action to Bnb
+  * Add `EULERSWAP` action to Sonic
+  * Add `EULERSWAP` action to Avalanche
+  * Add `EULERSWAP` action to Unichain
+  * Add `EULERSWAP` action to Berachain
+
+## 2025-06-16
+
+### Breaking changes
+
+* `METATXN_RFQ_VIP` action is removed from all chains
+
+### Non-breaking changes
+
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Optimism
+* Add support for Ekubo forwarding extensions by setting the top bit of `bps`
+
+## 2025-04-25
+
+### Breaking changes
+
+* `RFQ_VIP` action is removed from all chains
+* `CURVE_TRICRYPTO_VIP` and `METATXN_CURVE_TRICRYPTO_VIP` actions are removed
+  from Mainnet (they remain available on Arbitrum)
+* `VELODROME` action is removed from Mainnet (it remains as default on all other
+  chains)
+* The Ekubo actions (`EKUBO`, `EKUBO_VIP`, and `METATXN_EKUBO_VIP`) `fills` no
+  longer has a `skipAhead` argument. Each fill is 32 bytes shorter. The field is
+  now hardcoded to zero.
+
+### Non-breaking changes
+
+* Replace `rebateClaimer()(address)` address (previously the `Deployer` owner
+  multisig; varies by chain) with a constant EOA owned by ZeroEx Inc
+* Add actions for Ekubo
+  * `EKUBO`, `EKUBO_VIP`, and `METATXN_EKUBO_VIP`
+  * See comments in [Ekubo.sol](src/core/Ekubo.sol) regarding how to encode
+    `fills`
+* Fix a bug in the BalancerV3 action resulting in incorrect decoding of callback
+  returndata
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Avalanche
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Gnosis
+* Add actions for PancakeSwap Infinity
+  * `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and `METATXN_PANCAKE_INFINITY_VIP`
+  * See comments in [PancakeInfinity.sol](src/core/PancakeInfinity.sol)
+    regarding how to encode `fills`. While there are many similarities with
+    UniswapV4 and BalancerV3, additional complexity is added because there are 2
+    different default/built-in CFAMM schemes in PancakeSwap Infinity.
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Bnb chain
+
+## 2025-03-11
+
+### Breaking changes
+
 ### Non-breaking changes
 
 * Create new Settler version for intent-based settlement -- the taker only signs
   the slippage, not the actions
   * This is now `tokenId` 4
+
+## 2025-02-20
+
+### Breaking changes
+
+### Non-breaking changes
+
 * Add UniswapV3 UniV3 fork to Monad Testnet
 
 ## 2025-02-12

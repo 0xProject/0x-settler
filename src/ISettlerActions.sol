@@ -104,6 +104,36 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
+    function PANCAKE_INFINITY(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+    function PANCAKE_INFINITY_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+    function METATXN_PANCAKE_INFINITY_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
+
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
@@ -196,10 +226,51 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function POSITIVE_SLIPPAGE(address recipient, address token, uint256 expectedAmount) external;
+    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount) external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
+
+    function EKUBO(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+
+    function EKUBO_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+
+    function METATXN_EKUBO_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
+
+    function EULERSWAP(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) external;
 }

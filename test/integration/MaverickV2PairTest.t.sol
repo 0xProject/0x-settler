@@ -3,12 +3,12 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {Shim} from "./SettlerBasePairTest.t.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 import {Settler} from "src/Settler.sol";
-import {SettlerBase} from "src/SettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
@@ -62,8 +62,11 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
                 (FROM, address(fromToken()), 10_000, maverickV2Pool(), maverickV2TokenAIn(), 0)
             )
         );
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
@@ -88,8 +91,11 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
                 ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, 0)
             )
         );
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
@@ -116,8 +122,11 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
                 ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, 0)
             )
         );
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
@@ -148,8 +157,11 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
                 ISettlerActions.METATXN_MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, 0)
             )
         );
-        SettlerBase.AllowedSlippage memory allowedSlippage =
-            SettlerBase.AllowedSlippage({recipient: address(0), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
         for (uint256 i; i < actionHashes.length; i++) {

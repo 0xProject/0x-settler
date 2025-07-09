@@ -2,9 +2,9 @@
 pragma solidity ^0.8.25;
 
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
-import {IOwnable} from "./TwoStepOwnable.sol";
-import {IERC1967Proxy} from "../proxy/ERC1967UUPSUpgradeable.sol";
-import {IMultiCall} from "../utils/MultiCall.sol";
+import {IOwnable} from "./IOwnable.sol";
+import {IERC1967Proxy} from "../interfaces/IERC1967Proxy.sol";
+import {IMultiCall} from "../interfaces/IMultiCall.sol";
 import {Feature} from "./Feature.sol";
 import {Nonce} from "./Nonce.sol";
 
