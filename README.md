@@ -1242,7 +1242,7 @@ swap executes. Unlike in Permit2 flows, it is possible to make multiple
 optimized transfers of the same ephemeral allowance without reauthorizing.
 
 Highlighted in orange is the standard token transfer operations. Note: these are
-not the most effiecient swaps available, just enough to demonstrate the point.
+not the most efficient swaps available, just enough to demonstrate the point.
 
 `transferFrom` transfers the tokens on demand in the middle of the swap
 
