@@ -126,11 +126,19 @@ your integration.
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche, Unichain, Berachain, Scroll)
+  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
   hardfork (Linea)
+
+### ERC2771 forwarding MultiCall address
+
+The ERC2771 forwarding `MultiCall` is deployed to
+`0x00000000000000CF9E3c5A26621af382fA17f24f` across all chains. You can hardcode
+this address in your integration. I have no idea why you would want to do that,
+but I guess it's a thing that you can do. The ERC2771 forwarding MultiCall is
+exclusively used by 0x's solvers for the `SettlerIntent` flavor of 0x Settler.
 
 ### Permit2 address
 
@@ -1367,7 +1375,9 @@ Zeroth, verify the configuration for your chain in
 of `AllowanceHolder` addresses at the top of this file.
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
-this, give up. Also populate `api_secrets.json` by copying
+this, give up. Install [`scrypt`](https://github.com/Tarsnap/scrypt) and use it
+to encrypt `secrets.json` to `secrets.json.scrypt`. Also populate
+`api_secrets.json` by copying
 [`api_secrets.json.template`](api_secrets.json.template) and adding your own
 block explorer API key and RPC.
 
@@ -1439,7 +1449,7 @@ addresses (there are two: `iceColdCoffee` and `deployer`) listed in
 how much isn't obvious to you, you can run the main deployment script with
 `BROADCAST=no` to simulate. The `"iceColdCoffee"` address needs ~50% more native
 asset than the `"deployer"` address because the final transaction of the
-deployment is extremely gas-intensive. The amount of eth you need can be a
+deployment is extremely gas-intensive. The amount of ETH you need can be a
 little wonky on L2s, so beware and overprovision the amount of native asset.
 
 Fifth, deploy `MultiCall`. Run [`BROADCAST=no ./sh/deploy_multicall.sh

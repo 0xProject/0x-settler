@@ -68,7 +68,19 @@ deploy_intent_calldata="$(cast calldata "$deploy_sig" 4 "$intent_initcode")"
 declare -r deploy_intent_calldata
 
 declare next_intent_settler_address
-next_intent_settler_address="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'next(uint128)(address)' 4)"
+if [[ -z "${deployer_address-}" ]] ; then
+    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
+        echo 'NO NEW LONDON CHAINS!!!' >&2
+        exit 1
+    fi
+    next_intent_settler_address="$(cast keccak "$(cast concat-hex 0xff 0x00000000000004533Fe15556B1E086BB1A72cEae "$(cast to-uint256 "$(bc <<<'obase=16;4*2^128+'"$chainid"'*2^64+1')")" 0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f)")"
+    next_intent_settler_address="${next_intent_settler_address:26:40}"
+    next_intent_settler_address="$(cast to-check-sum-address "$next_intent_settler_address")"
+    next_intent_settler_address="$(cast compute-address --nonce 1 "$next_intent_settler_address")"
+    next_intent_settler_address="${next_intent_settler_address##* }"
+else
+    next_intent_settler_address="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'next(uint128)(address)' 4)"
+fi
 declare -r next_intent_settler_address
 
 declare -a solvers

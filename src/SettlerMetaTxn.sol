@@ -98,7 +98,6 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
                 data,
                 (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
             );
-
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
         } */ else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (

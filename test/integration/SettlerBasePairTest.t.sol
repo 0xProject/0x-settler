@@ -77,7 +77,10 @@ abstract contract SettlerBasePairTest is BasePairTest {
         return _getDefaultFromPermit2(amount());
     }
 
-    function _getDefaultFromPermit2(uint256 amount_) internal returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
+    function _getDefaultFromPermit2(uint256 amount_)
+        internal
+        returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
+    {
         return _getDefaultFromPermit2(fromToken(), amount_);
     }
 
