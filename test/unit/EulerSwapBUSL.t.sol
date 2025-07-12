@@ -28,6 +28,51 @@ contract CurveLibTest is Test {
         console.log("yCalc", yCalc);
     }
 
+    function test_validation() public view {
+        uint112 equilibriumReserve0 = 0x0000000000000000000000000000000000000000000000807101361354552724;
+        uint112 equilibriumReserve1 = 0x0000000000000000000000000000000000000000000000dad81da87296f77c31;
+        uint256 priceX = 0x00000000000000000000000000000000000000000000000010bf9f38b14a3e00;
+        uint256 priceY = 0x0000000000000000000000000000000000000000000000000de0b6b3a7640000;
+        uint256 concentrationX = 0x0000000000000000000000000000000000000000000000000de0893a1f26e000;
+        uint256 concentrationY = 0x0000000000000000000000000000000000000000000000000de0893a1f26e000;
+        uint256 fee = 0x00000000000000000000000000000000000000000000000000005af3107a4000;
+        uint256 reserve0 = 1056676627945319924227;
+        uint256 reserve1 = 5621243280384200185656;
+
+        bool zeroForOne = true; // this is backwards of what it was in the test; see commented-out `referenceAmountOut`
+        uint256 amountIn = 10000000000000000;
+        amountIn -= amountIn * fee / 1e18;
+        uint256 referenceAmountOut = 12069806184391508;
+        //uint256 referenceAmountOut = 8283480201573472;
+
+        uint256 amountOut;
+        if (zeroForOne) {
+            // swap X in and Y out
+            uint256 xNew = reserve0 + amountIn;
+            uint256 yNew = xNew <= equilibriumReserve0
+                // remain on f()
+                ? CurveLib.saturatingF(xNew, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX)
+                // move to g()
+                : CurveLib.fInverse(xNew, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
+            if (yNew == 0) {
+                yNew++;
+            }
+            amountOut = reserve1 - yNew;
+        } else {
+            uint256 yNew = reserve1 + amountIn;
+            uint256 xNew = yNew <= equilibriumReserve1
+                // remain on g()
+                ? CurveLib.saturatingF(yNew, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY)
+                // move to f()
+                : CurveLib.fInverse(yNew, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX);
+            if (xNew == 0) {
+                xNew++;
+            }
+            amountOut = reserve0 - xNew;
+        }
+        assertEq(amountOut, referenceAmountOut);
+    }
+
     function test_extremeF0(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) public view {
         uint256 x = 0;
         x0 = bound(x0, 0, type(uint112).max);
