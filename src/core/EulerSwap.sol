@@ -21,6 +21,21 @@ interface IEVC {
     /// @param operator The address of the operator that is being checked.
     /// @return authorized A boolean value that indicates whether the operator is authorized for the account.
     function isAccountOperatorAuthorized(address account, address operator) external view returns (bool authorized);
+
+    /// @notice Returns an array of collaterals enabled for an account.
+    /// @dev A collateral is a vault for which an account's balances are under the control of the currently enabled
+    /// controller vault.
+    /// @param account The address of the account whose collaterals are being queried.
+    /// @return An array of addresses that are enabled collaterals for the account.
+    function getCollaterals(address account) external view returns (address[] memory);
+
+    /// @notice Returns an array of enabled controllers for an account.
+    /// @dev A controller is a vault that has been chosen for an account to have special control over the account's
+    /// balances in enabled collaterals vaults. A user can have multiple controllers during a call execution, but at
+    /// most one can be selected when the account status check is performed.
+    /// @param account The address of the account whose controllers are being queried.
+    /// @return An array of addresses that are the enabled controllers for the account.
+    function getControllers(address account) external view returns (address[] memory);
 }
 
 library FastEvc {
@@ -45,6 +60,24 @@ library FastEvc {
     }
 }
 
+interface IOracle {
+    /// @notice Two-sided price: How much quote token you would get/spend for selling/buying inAmount of base token.
+    /// @param inAmount The amount of `base` to convert.
+    /// @param base The token that is being priced.
+    /// @param quote The token that is the unit of account.
+    /// @return bidOutAmount The amount of `quote` you would get for selling `inAmount` of `base`.
+    /// @return askOutAmount The amount of `quote` you would spend for buying `inAmount` of `base`.
+    /// @dev `base` and `quote` can be either underlying assets or they can be themselves EVaults,
+    ///      in which case `inAmount` is interpreted as an amount of shares and the corresponding
+    ///      amount of the underlying is resolved recursively.
+    function getQuotes(uint256 inAmount, IERC20 base, IERC20 quote)
+        external
+        view
+        returns (uint256 bidOutAmount, uint256 askOutAmount);
+    // for computing liability value, use `askOutAmount`
+    // for computing collateral value, use `bidOutAmount`
+}
+
 interface IEVault is IERC4626 {
     /// @notice Sum of all outstanding debts, in underlying units (increases as interest is accrued)
     /// @return The total borrows in asset units
@@ -67,7 +100,23 @@ interface IEVault is IERC4626 {
     /// @notice Returns an address of the sidecar DToken
     /// @return The address of the DToken
     function dToken() external view returns (IERC20);
+
+    /// @notice Retrieves a reference asset used for liquidity calculations
+    /// @return The address of the reference asset
+    function unitOfAccount() external view returns (IERC20);
+
+    /// @notice Retrieves the borrow LTV of the collateral, which is used to determine if the account is healthy during
+    /// account status checks.
+    /// @param collateral The address of the collateral to query
+    /// @return Borrowing LTV in 1e4 scale
+    function LTVBorrow(IEVault collateral) external view returns (uint16);
+
+    /// @notice Retrieves the address of the oracle contract
+    /// @return The address of the oracle
+    function oracle() external view returns (IOracle);
 }
+
+IERC20 constant UNIT_OF_ACCOUNT_USD = IERC20(0x0000000000000000000000000000000000000348);
 
 library FastEvault {
     function fastAsset(IERC4626 vault) internal view returns (IERC20 asset) {
