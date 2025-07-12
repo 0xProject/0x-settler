@@ -63,6 +63,10 @@ interface IEVault is IERC4626 {
     /// @return supplyCap The supply cap in AmountCap format
     /// @return borrowCap The borrow cap in AmountCap format
     function caps() external view returns (uint16 supplyCap, uint16 borrowCap);
+
+    /// @notice Returns an address of the sidecar DToken
+    /// @return The address of the DToken
+    function dToken() external view returns (IERC20);
 }
 
 library FastEvault {
