@@ -439,12 +439,22 @@ abstract contract EulerSwap is SettlerAbstract {
             sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
         }
 
+        // solve the constant function
         uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
+
+        // check slippage before swapping to save some sad-path gas
         if (amountOut < amountOutMin) {
             _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
         }
 
-        pool.fastSwap(zeroForOne, amountOut, recipient);
+        // Because the reference implementation of `verify` for the EulerSwap trading function is
+        // non-monotonic, it may be possible to have an `amountOut` of one, even if `sellAmount` is
+        // zero. Because this is likely triggered by a failure of the `isAccountOperatorAuthorized`
+        // check, we skip calling `swap` because it's probably going to revert. If you set
+        // `amountOutMin` to one and this catches you off guard, I'm sorry, but that was dumb.
+        if (amountOut > 1) {
+            pool.fastSwap(zeroForOne, amountOut, recipient);
+        }
     }
 
     function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
