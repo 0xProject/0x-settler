@@ -11,7 +11,7 @@ import {Settler} from "src/Settler.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IEVC} from "src/core/EulerSwap.sol";
+import {IEVC, IEulerSwap} from "src/core/EulerSwap.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
@@ -44,6 +44,14 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
     function _setEulerSwapLabels() private setEulerSwapBlock {
         vm.label(address(EVC), "EVC");
         vm.label(eulerSwapPool(), string.concat("EulerSwap ", testName(), " pool"));
+        IEulerSwap.Params memory params = IEulerSwap(eulerSwapPool()).getParams();
+        vm.label(params.eulerAccount, "Euler Account");
+        string memory vault0UnderlyingSymbol = IERC20(params.vault0.asset()).symbol();
+        string memory vault1UnderlyingSymbol = IERC20(params.vault1.asset()).symbol();
+        vm.label(address(params.vault0), string.concat("Euler Vault ", vault0UnderlyingSymbol));
+        vm.label(address(params.vault1), string.concat("Euler Vault ", vault1UnderlyingSymbol));
+        vm.label(address(params.vault0.dToken()), string.concat("Euler dToken ", vault0UnderlyingSymbol));
+        vm.label(address(params.vault1.dToken()), string.concat("Euler dToken ", vault1UnderlyingSymbol));
     }
 
     function setUp() public virtual override {
