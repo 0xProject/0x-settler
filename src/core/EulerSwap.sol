@@ -585,7 +585,7 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @return The actual numerical cap value (type(uint112).max if uncapped)
     /// @custom:security Uses unchecked math for gas optimization as calculations cannot overflow:
     ///                  maximum possible value 10^(2^6-1) * (2^10-1) ≈ 1.023e+66 < 2^256
-    function decodeCap(uint256 amountCap) private pure returns (uint256) {
+    function decodeCap(uint256 amountCap) internal pure returns (uint256) {
         unchecked {
             // Cannot overflow because this is less than 2**256:
             //   10**(2**6 - 1) * (2**10 - 1) = 1.023e+66
