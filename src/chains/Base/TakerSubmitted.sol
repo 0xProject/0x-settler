@@ -80,7 +80,7 @@ contract BaseSettler is Settler, BaseMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BaseMixin)
+        override(Settler, BaseMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
