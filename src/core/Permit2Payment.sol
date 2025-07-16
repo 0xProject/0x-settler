@@ -48,31 +48,21 @@ library TransientStorage {
         uint32 selector,
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal {
-        address currentSigner;
         assembly ("memory-safe") {
-            currentSigner := tload(_PAYER_SLOT)
-        }
-        if (operator == currentSigner) {
-            assembly ("memory-safe") {
+            if shl(0x60, xor(tload(_PAYER_SLOT), operator)) {
                 mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
                 revert(0x1c, 0x04)
             }
-        }
-        uint256 callbackInt;
-        assembly ("memory-safe") {
-            callbackInt := tload(_OPERATOR_SLOT)
-        }
-        if (callbackInt != 0) {
-            // It should be impossible to reach this error because the first thing the fallback does
-            // is clear the operator. It's also not possible to reenter the entrypoint function
-            // because `_PAYER_SLOT` is an implicit reentrancy guard.
-            assembly ("memory-safe") {
+            let slotValue := tload(_OPERATOR_SLOT)
+            if slotValue {
+                // It should be impossible to reach this error because the first thing the fallback
+                // does is clear the operator. It's also not possible to reenter the entrypoint
+                // function because `_PAYER_SLOT` is an implicit reentrancy guard.
                 mstore(0x00, 0xab7646c4) // selector for `ReentrantCallback(uint256)`
-                mstore(0x20, callbackInt)
+                mstore(0x20, slotValue)
                 revert(0x1c, 0x24)
             }
-        }
-        assembly ("memory-safe") {
+
             tstore(
                 _OPERATOR_SLOT,
                 or(
@@ -84,14 +74,11 @@ library TransientStorage {
     }
 
     function checkSpentOperatorAndCallback() internal view {
-        uint256 callbackInt;
         assembly ("memory-safe") {
-            callbackInt := tload(_OPERATOR_SLOT)
-        }
-        if (callbackInt != 0) {
-            assembly ("memory-safe") {
+            let slotValue := tload(_OPERATOR_SLOT)
+            if slotValue {
                 mstore(0x00, 0xd66fcc38) // selector for `CallbackNotSpent(uint256)`
-                mstore(0x20, callbackInt)
+                mstore(0x20, slotValue)
                 revert(0x1c, 0x24)
             }
         }
@@ -102,42 +89,36 @@ library TransientStorage {
         returns (function (bytes calldata) internal returns (bytes memory) callback)
     {
         assembly ("memory-safe") {
-            let slot := tload(_OPERATOR_SLOT)
-            if or(shr(0xe0, xor(calldataload(0), slot)), shl(0x60, xor(caller(), slot))) { revert(0x00, 0x00) }
-            callback := and(0xffff, shr(0xa0, slot))
+            let slotValue := tload(_OPERATOR_SLOT)
+            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) { revert(0x00, 0x00) }
+            callback := and(0xffff, shr(0xa0, slotValue))
             tstore(_OPERATOR_SLOT, 0x00)
         }
     }
 
     // `newWitness` must not be `bytes32(0)`. This is not checked.
     function setWitness(bytes32 newWitness) internal {
-        bytes32 currentWitness;
         assembly ("memory-safe") {
-            currentWitness := tload(_WITNESS_SLOT)
-        }
-        if (currentWitness != bytes32(0)) {
-            // It should be impossible to reach this error because the first thing a metatransaction
-            // does on entry is to spend the `witness` (either directly or via a callback)
-            assembly ("memory-safe") {
+            let slotValue := tload(_WITNESS_SLOT)
+            if slotValue {
+                // It should be impossible to reach this error because the first thing a
+                // metatransaction does on entry is to spend the `witness` (either directly or via a
+                // callback)
                 mstore(0x00, 0x9936cbab) // selector for `ReentrantMetatransaction(bytes32)`
-                mstore(0x20, currentWitness)
+                mstore(0x20, slotValue)
                 revert(0x1c, 0x24)
             }
-        }
-        assembly ("memory-safe") {
+
             tstore(_WITNESS_SLOT, newWitness)
         }
     }
 
     function checkSpentWitness() internal view {
-        bytes32 currentWitness;
         assembly ("memory-safe") {
-            currentWitness := tload(_WITNESS_SLOT)
-        }
-        if (currentWitness != bytes32(0)) {
-            assembly ("memory-safe") {
+            let slotValue := tload(_WITNESS_SLOT)
+            if slotValue {
                 mstore(0x00, 0xe25527c2) // selector for `WitnessNotSpent(bytes32)`
-                mstore(0x20, currentWitness)
+                mstore(0x20, slotValue)
                 revert(0x1c, 0x24)
             }
         }
@@ -157,18 +138,14 @@ library TransientStorage {
                 revert(0x1c, 0x04)
             }
         }
-        address oldPayer;
         assembly ("memory-safe") {
-            oldPayer := tload(_PAYER_SLOT)
-        }
-        if (oldPayer != address(0)) {
-            assembly ("memory-safe") {
-                mstore(0x14, oldPayer)
+            let slotValue := tload(_PAYER_SLOT)
+            if shl(0x60, slotValue) {
+                mstore(0x14, slotValue)
                 mstore(0x00, 0x7407c0f8000000000000000000000000) // selector for `ReentrantPayer(address)` with `oldPayer`'s padding
                 revert(0x10, 0x24)
             }
-        }
-        assembly ("memory-safe") {
+
             tstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
         }
     }
@@ -180,17 +157,12 @@ library TransientStorage {
     }
 
     function clearPayer(address expectedOldPayer) internal {
-        address oldPayer;
         assembly ("memory-safe") {
-            oldPayer := tload(_PAYER_SLOT)
-        }
-        if (oldPayer != expectedOldPayer) {
-            assembly ("memory-safe") {
+            if shl(0x60, xor(tload(_PAYER_SLOT), expectedOldPayer)) {
                 mstore(0x00, 0x5149e795) // selector for `PayerSpent()`
                 revert(0x1c, 0x04)
             }
-        }
-        assembly ("memory-safe") {
+
             tstore(_PAYER_SLOT, 0x00)
         }
     }
