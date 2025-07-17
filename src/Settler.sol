@@ -12,7 +12,7 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {revertActionInvalid} from "./core/SettlerErrors.sol";
+import {revertActionInvalid, SignatureExpired, MsgValueMismatch} from "./core/SettlerErrors.sol";
 
 // ugh; solidity inheritance
 import {SettlerAbstract} from "./SettlerAbstract.sol";
@@ -37,13 +37,21 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == uint32(ISettlerActions.CHECK_DEADLINE.selector)) {
-            uint256 deadline = abi.decode(data, (uint256));
+        } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
+            (uint256 deadline, uint256 msgValue) = abi.decode(data, (uint256, uint256));
             if (block.timestamp > deadline) {
                 assembly ("memory-safe") {
                     mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
                     mstore(0x20, deadline)
                     revert(0x1c, 0x24)
+                }
+            }
+            if (msg.value > msgValue) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x4a094431) // selector for `MsgValueMismatch(uint256,uint256)`
+                    mstore(0x20, msgValue)
+                    mstore(0x40, callvalue())
+                    revert(0x1c, 0x44)
                 }
             }
         } else {

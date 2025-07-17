@@ -73,6 +73,9 @@ function revertUnknownForkId(uint8 forkId) pure {
 /// @notice Thrown when an AllowanceHolder transfer's permit is past its deadline
 error SignatureExpired(uint256 deadline);
 
+/// @notice Thrown when selling the native asset, but `msg.value` exceeds the value from the generated quote
+error MsgValueMismatch(uint256 expected, uint256 actual);
+
 /// @notice An internal error that should never be thrown. Thrown when a callback reenters the
 ///         entrypoint and attempts to clobber the existing callback.
 error ReentrantCallback(uint256 callbackInt);

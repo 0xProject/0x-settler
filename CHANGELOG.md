@@ -48,7 +48,7 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Add `CHECK_DEADLINE` to taker-submitted Settlers on all chains to correctly
+* Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
   handle the selling of the chain-native asset
 
 ## 2025-07-07
