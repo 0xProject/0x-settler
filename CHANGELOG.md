@@ -46,6 +46,11 @@ Master list of UniV3 forks:
 * In metatransactions and intents, it is now an error for `_operator()` (the gas
   payer/solver/relayer) to be `msgSender` (the taker)
 
+### Non-breaking changes
+
+* Add `CHECK_DEADLINE` to taker-submitted Settlers on all chains to correctly
+  handle the selling of the chain-native asset
+
 ## 2025-07-07
 
 ### Breaking changes
