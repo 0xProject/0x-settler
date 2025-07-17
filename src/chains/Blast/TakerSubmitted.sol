@@ -49,7 +49,7 @@ contract BlastSettler is Settler, BlastMixin {
     // Solidity inheritance is stupid
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BlastMixin)
+        override(Settler, BlastMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

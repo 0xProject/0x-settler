@@ -34,7 +34,7 @@ contract MantleSettler is Settler, MantleMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, MantleMixin)
+        override(Settler, MantleMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

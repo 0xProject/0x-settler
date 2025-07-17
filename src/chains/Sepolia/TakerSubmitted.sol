@@ -65,7 +65,7 @@ contract SepoliaSettler is Settler, SepoliaMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, SepoliaMixin)
+        override(Settler, SepoliaMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

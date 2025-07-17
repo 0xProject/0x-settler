@@ -69,7 +69,7 @@ contract OptimismSettler is Settler, OptimismMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, OptimismMixin)
+        override(Settler, OptimismMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

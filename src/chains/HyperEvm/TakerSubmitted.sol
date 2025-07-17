@@ -39,7 +39,7 @@ contract HyperEvmSettler is Settler, HyperEvmMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, HyperEvmMixin)
+        override(Settler, HyperEvmMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
