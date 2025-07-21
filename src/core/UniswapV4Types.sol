@@ -103,7 +103,7 @@ library UnsafePoolManager {
         // value-bearing call to `unsafeSettle` instead of using `IERC20.safeTransfer`
         assembly ("memory-safe") {
             mstore(0x14, token)
-            mstore(0x00, 0xa5841194000000000000000000000000) // selector for `sync(address)`
+            mstore(0x00, 0xa5841194000000000000000000000000) // selector for `sync(address)` with `token`'s padding
             if iszero(call(gas(), poolManager, 0x00, 0x10, 0x24, 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
