@@ -490,7 +490,6 @@ abstract contract EulerSwap is SettlerAbstract {
     using FastEvc for IEVC;
     using FastEvault for IEVault;
     using FastEulerSwap for IEulerSwap;
-    using FastOracle for IOracle;
 
     function _EVC() internal view virtual returns (IEVC);
 
@@ -560,7 +559,7 @@ abstract contract EulerSwap is SettlerAbstract {
     }
 
     function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
-        private
+        internal
         pure
         returns (uint256)
     {
@@ -606,7 +605,7 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
     function calcLimits(IEulerSwap pool, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
-        private
+        internal
         view
         returns (uint256 inLimit, uint256 outLimit)
     {
@@ -694,6 +693,17 @@ abstract contract EulerSwap is SettlerAbstract {
             return (amountCap == 0).ternary(type(uint112).max, 10 ** (amountCap & 63) * (amountCap >> 6) / 100);
         }
     }
+}
+
+abstract contract EulerSwapExtended is EulerSwap {
+    using Ternary for bool;
+    using SafeTransferLib for IEVault;
+    using ParamsLib for ParamsLib.Params;
+    using ParamsLib for IEulerSwap;
+    using FastEvc for IEVC;
+    using FastEvault for IEVault;
+    using FastEulerSwap for IEulerSwap;
+    using FastOracle for IOracle;
 
     function checkEulerSwapSolvencyAfterSwap(IEulerSwap pool, bool zeroForOne, uint256 amount) external view returns (uint256) {
         ParamsLib.Params p = pool.fastGetParams();
@@ -776,6 +786,8 @@ abstract contract EulerSwap is SettlerAbstract {
                     soldCollateral = amountOut;
                 }
             }
+
+            debt;
 
             // check sellVault debt
             if(debtVault == sellVault) {
