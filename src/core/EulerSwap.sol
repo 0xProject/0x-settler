@@ -698,38 +698,42 @@ abstract contract EulerSwap is SettlerAbstract {
     function checkEulerSwapSolvencyAfterSwap(IEulerSwap pool, bool zeroForOne, uint256 amount) external view returns (uint256) {
         ParamsLib.Params p = pool.fastGetParams();
 
-        // Check it is not over limit
-        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        uint256 amountOut;
+        // pre-swap checks
         {
-            (uint256 inLimit,) = calcLimits(pool, zeroForOne, p, reserve0, reserve1);
+            // Check it is not over limit
+            (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+            {
+                (uint256 inLimit,) = calcLimits(pool, zeroForOne, p, reserve0, reserve1);
 
-            if(amount > inLimit) return 0;
-        }
-
-        // Check reserves after the swap
-        uint256 amountOut = findCurvePoint(amount, zeroForOne, p, reserve0, reserve1);
-        {
-            uint256 newReserve0 = reserve0;
-            uint256 newReserve1 = reserve1;
-
-            if(zeroForOne) {
-                newReserve0 += amount;
-                newReserve1 -= amountOut;
-            } else {
-                newReserve0 -= amountOut;
-                newReserve1 += amount;
+                if(amount > inLimit) return 0;
             }
 
-            if(!CurveLib.verify(
-                newReserve0, 
-                newReserve1, 
-                p.equilibriumReserve0(), 
-                p.equilibriumReserve1(), 
-                p.priceX(), p.priceY(), 
-                p.concentrationX(), 
-                p.concentrationY()
-            )) {
-                return 0;
+            // Check reserves after the swap
+            amountOut = findCurvePoint(amount, zeroForOne, p, reserve0, reserve1);
+            {
+                uint256 newReserve0 = reserve0;
+                uint256 newReserve1 = reserve1;
+
+                if(zeroForOne) {
+                    newReserve0 += amount;
+                    newReserve1 -= amountOut;
+                } else {
+                    newReserve0 -= amountOut;
+                    newReserve1 += amount;
+                }
+
+                if(!CurveLib.verify(
+                    newReserve0, 
+                    newReserve1, 
+                    p.equilibriumReserve0(), 
+                    p.equilibriumReserve1(), 
+                    p.priceX(), p.priceY(), 
+                    p.concentrationX(), 
+                    p.concentrationY()
+                )) {
+                    return 0;
+                }
             }
         }
 
@@ -765,7 +769,7 @@ abstract contract EulerSwap is SettlerAbstract {
             {
                 uint256 collateralBalance = buyVault.fastBalanceOf(account);
                 if(collateralBalance < amountOut) {
-                    debt = amountOut - collateralBalance;
+                    newDebt = amountOut - collateralBalance;
                     soldCollateral = collateralBalance;
                 }
                 else {
@@ -779,25 +783,31 @@ abstract contract EulerSwap is SettlerAbstract {
                 uint256 prevDebt = sellVault.fastDebtOf(account);
                 if(amount < prevDebt) {
                     // collateral in buyVault should be able to cover the amountOut
+                    // to ensure there is only one controller at the end
                     if(newDebt != 0) return 0;
-
                     debt = prevDebt - amount;
                 }
                 else {
                     newCollateral = amount - prevDebt;
-                    debtVault = buyVault;
-                    debt = newDebt;
+                    // debt was repaid, no controller needed unless there is new debt
+                    debtVault = IEVault(address(0));
                 }
             } else {
                 newCollateral = amount;
             }
 
-            // if there is new debt in buyVault, check controllers
-            // needs to be buyVault to ensure there is only one controller at the end
-            if(newDebt != 0 && debtVault != buyVault) {
-                return 0;
+            if(newDebt != 0) {
+                if(address(debtVault) == address(0)) {
+                    debtVault = buyVault;
+                }
+                else {
+                    // if there is new debt in buyVault, check controllers
+                    // needs to be buyVault to ensure there is only one controller at the end
+                    if(debtVault != buyVault) return 0;
+                }
+                debt = newDebt;
             }
-
+        
             // check for solvency if there is any debt
             if(debt != 0) {
                 IOracle oracle = debtVault.fastOracle();
