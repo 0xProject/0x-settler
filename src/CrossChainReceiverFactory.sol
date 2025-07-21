@@ -272,7 +272,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         verifyingContract = address(this);
     }
 
-    function deploy(bytes32 root, address initialOwner, bool setOwnerNotCleanup)
+    function deploy(bytes32 root, bool setOwnerNotCleanup, address initialOwner)
         external
         noDelegateCall
         returns (CrossChainReceiverFactory proxy)
