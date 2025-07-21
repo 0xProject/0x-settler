@@ -705,153 +705,112 @@ abstract contract EulerSwapExtended is EulerSwap {
     using FastEulerSwap for IEulerSwap;
     using FastOracle for IOracle;
 
-    function checkEulerSwapSolvencyAfterSwap(IEulerSwap pool, bool zeroForOne, uint256 amount) external view returns (uint256) {
-        ParamsLib.Params p = pool.fastGetParams();
+    function checkSolvency(
+        address account,
+        address vault0,
+        address vault1,
+        bool zeroForOne,
+        uint256 amountIn, 
+        uint256 amountOut
+    ) external view returns (bool) {
+        address[] memory collaterals;
+        IEVault debtVault;
+        uint256 debt;
 
-        uint256 amountOut;
-        // pre-swap checks
         {
-            // Check it is not over limit
-            (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
-            {
-                (uint256 inLimit,) = calcLimits(pool, zeroForOne, p, reserve0, reserve1);
+            IEVC evc = _EVC();
+            collaterals = evc.fastGetCollaterals(account);
+            address[] memory controllers = evc.fastGetControllers(account);
 
-                if(amount > inLimit) return 0;
-            }
-
-            // Check reserves after the swap
-            amountOut = findCurvePoint(amount, zeroForOne, p, reserve0, reserve1);
-            {
-                uint256 newReserve0 = reserve0;
-                uint256 newReserve1 = reserve1;
-
-                if(zeroForOne) {
-                    newReserve0 += amount;
-                    newReserve1 -= amountOut;
-                } else {
-                    newReserve0 -= amountOut;
-                    newReserve1 += amount;
-                }
-
-                if(!CurveLib.verify(
-                    newReserve0, 
-                    newReserve1, 
-                    p.equilibriumReserve0(), 
-                    p.equilibriumReserve1(), 
-                    p.priceX(), p.priceY(), 
-                    p.concentrationX(), 
-                    p.concentrationY()
-                )) {
-                    return 0;
-                }
+            if(controllers.length > 1) return false;
+            if(controllers.length == 1) {
+                debtVault = IEVault(controllers[0]);
+                debt = debtVault.fastDebtOf(account);
             }
         }
 
-        // Check solvency
+        IEVault sellVault;
+        IEVault buyVault;
         {
-            address account = p.eulerAccount();
-            address[] memory collaterals;
-            IEVault debtVault;
-
-            {
-                IEVC evc = _EVC();
-                collaterals = evc.fastGetCollaterals(account);
-                address[] memory controllers = evc.fastGetControllers(account);
-
-                if(controllers.length > 1) return 0;
-                if(controllers.length == 1) debtVault = IEVault(controllers[0]);
-            }
-
-            IEVault sellVault;
-            IEVault buyVault;
-            {
-                (address sellVault_, address buyVault_) = zeroForOne.maybeSwap(address(p.vault1()), address(p.vault0()));
-                sellVault = IEVault(sellVault_);
-                buyVault = IEVault(buyVault_);
-            }
-            
-            uint256 debt;
-            uint256 newDebt;
-            uint256 soldCollateral;
-            uint256 newCollateral;
-
-            // compute new debt in buyVault
-            {
-                uint256 collateralBalance = buyVault.fastBalanceOf(account);
-                if(collateralBalance < amountOut) {
-                    newDebt = amountOut - collateralBalance;
-                    soldCollateral = collateralBalance;
-                }
-                else {
-                    soldCollateral = amountOut;
-                }
-            }
-
-            debt;
-
-            // check sellVault debt
-            if(debtVault == sellVault) {
-                // debt repayment
-                uint256 prevDebt = sellVault.fastDebtOf(account);
-                if(amount < prevDebt) {
-                    // collateral in buyVault should be able to cover the amountOut
-                    // to ensure there is only one controller at the end
-                    if(newDebt != 0) return 0;
-                    debt = prevDebt - amount;
-                }
-                else {
-                    newCollateral = amount - prevDebt;
-                    // debt was repaid, no controller needed unless there is new debt
-                    debtVault = IEVault(address(0));
-                }
-            } else {
-                newCollateral = amount;
-            }
-
-            if(newDebt != 0) {
-                if(address(debtVault) == address(0)) {
-                    debtVault = buyVault;
-                }
-                else {
-                    // if there is new debt in buyVault, check controllers
-                    // needs to be buyVault to ensure there is only one controller at the end
-                    if(debtVault != buyVault) return 0;
-                }
-                debt = newDebt;
-            }
+            (address sellVault_, address buyVault_) = zeroForOne.maybeSwap(vault1, vault0);
+            sellVault = IEVault(sellVault_);
+            buyVault = IEVault(buyVault_);
+        }
         
-            // check for solvency if there is any debt
-            if(debt != 0) {
-                IOracle oracle = debtVault.fastOracle();
-                IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
+        uint256 newDebt;
+        uint256 soldCollateral;
+        uint256 newCollateral;
 
-                (, debt) = oracle.fastGetQuote(debt, debtVault.fastAsset(), unitOfAccount);   
-                // adjust precision to avoid divisions when adjusting LTVBorrow bps of collateral.
-                // All amounts in EulerSwap are lower than uint112 so there should not be overflow errors.
-                debt *= 1e4;
-                if(soldCollateral > 0) {
-                    // adjust inequality to avoid substraction
-                    // collateral + newCollateral - soldCollateral >= debt
-                    // is changed to 
-                    // collateral + newCollateral >= debt + soldCollateral
-                    debt += (soldCollateral * debtVault.fastLTVBorrow(buyVault));
-                }
-                uint256 collateral;
-                if(newCollateral != 0) {
-                    collateral = (newCollateral * debtVault.fastLTVBorrow(sellVault));
-                }
-                for(uint256 i = 0; i < collaterals.length; i++) {
-                    IEVault collateralVault = IEVault(collaterals[i]);
-                    (uint256 value,) = oracle.fastGetQuote(collateralVault.fastBalanceOf(account), collateralVault.fastAsset(), unitOfAccount);   
+        // compute new debt in buyVault
+        {
+            uint256 collateralBalance = buyVault.fastBalanceOf(account);
+            if(collateralBalance < amountOut) {
+                newDebt = amountOut - collateralBalance;
+                soldCollateral = collateralBalance;
+            }
+            else {
+                soldCollateral = amountOut;
+            }
+        }
 
-                    collateral += (value * debtVault.fastLTVBorrow(collateralVault));
-                    if(collateral >= debt) {
-                        return amountOut;
-                    }
+        // check sellVault debt
+        if(debtVault == sellVault) {
+            // debt repayment
+            if(amountIn < debt) {
+                // collateral in buyVault must be able to cover the amountOut
+                // to ensure there is only one controller at the end
+                if(newDebt != 0) return false;
+                debt -= amountIn;
+            }
+            else {
+                newCollateral = amountIn - debt;
+                debt = 0; // debt was repaid
+            }
+        } else {
+            newCollateral = amountIn;
+        }
+
+        // if there is new debt in buyVault, check that the controller is buyVault
+        // or debt was repaid to ensure there is only one controller at the end
+        if(newDebt != 0) {
+            if(debt != 0 && debtVault != buyVault) return false;
+            if(address(debtVault) == address(0)) debtVault = buyVault;
+            debt += newDebt;
+        }
+    
+        // check for solvency if there is any debt
+        if(debt != 0) {
+            IOracle oracle = debtVault.fastOracle();
+            IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
+
+            (, debt) = oracle.fastGetQuote(debt, debtVault.fastAsset(), unitOfAccount);   
+            // adjust precision to avoid divisions when adjusting LTVBorrow bps of collateral.
+            // All amounts in EulerSwap are lower than uint112 so there should not be overflow errors.
+            debt *= 1e4;
+            if(soldCollateral != 0) {
+                // adjust inequality to avoid substraction
+                // collateral + newCollateral - soldCollateral >= debt
+                // is changed to 
+                // collateral + newCollateral >= debt + soldCollateral
+                (uint256 value,) = oracle.fastGetQuote(soldCollateral, buyVault.fastAsset(), unitOfAccount);
+                debt += (value * debtVault.fastLTVBorrow(buyVault));
+            }
+            uint256 collateral;
+            if(newCollateral != 0) {
+                (uint256 value,) = oracle.fastGetQuote(newCollateral, sellVault.fastAsset(), unitOfAccount);
+                collateral = (value * debtVault.fastLTVBorrow(sellVault));
+            }
+            for(uint256 i = 0; i < collaterals.length; i++) {
+                IEVault collateralVault = IEVault(collaterals[i]);
+                (uint256 value,) = oracle.fastGetQuote(collateralVault.fastBalanceOf(account), collateralVault.fastAsset(), unitOfAccount);   
+
+                collateral += (value * debtVault.fastLTVBorrow(collateralVault));
+                if(collateral >= debt) {
+                    return true;
                 }
             }
         }
 
-        return 0;
+        return false;
     }
 }
