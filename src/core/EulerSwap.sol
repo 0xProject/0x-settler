@@ -478,85 +478,15 @@ library ParamsLib {
     }
 }
 
-abstract contract EulerSwap is SettlerAbstract {
-    using FastLogic for bool;
-    using Ternary for bool;
+library EulerSwapLib {
     using UnsafeMath for uint256;
     using Math for uint256;
-    using SafeTransferLib for IERC20;
+    using Ternary for bool;
     using SafeTransferLib for IEVault;
     using ParamsLib for ParamsLib.Params;
-    using ParamsLib for IEulerSwap;
     using FastEvc for IEVC;
     using FastEvault for IEVault;
-    using FastEulerSwap for IEulerSwap;
-
-    function _EVC() internal view virtual returns (IEVC);
-
-    function _revertTooMuchSlippage(
-        bool zeroForOne,
-        ParamsLib.Params p,
-        uint256 expectedBuyAmount,
-        uint256 actualBuyAmount
-    ) private view {
-        revertTooMuchSlippage(
-            IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
-            expectedBuyAmount,
-            actualBuyAmount
-        );
-    }
-
-    function sellToEulerSwap(
-        address recipient,
-        IERC20 sellToken,
-        uint256 bps,
-        IEulerSwap pool,
-        bool zeroForOne,
-        uint256 amountOutMin
-    ) internal {
-        // Doing this first violates the general rule that we ought to interact with the token
-        // before checking the state of the pool. However, this is safe because Euler doesn't admit
-        // badly-behaved tokens, and a token must be available on Euler before it can be added to
-        // EulerSwap.
-        ParamsLib.Params p = pool.fastGetParams();
-        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
-        (uint256 inLimit,) = calcLimits(pool, zeroForOne, p, reserve0, reserve1);
-
-        uint256 sellAmount;
-        if (bps != 0) {
-            unchecked {
-                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
-            }
-            // TODO: Comment for what happens with excess here.
-            // 1. Excess is absorbed by other sources
-            // 2. Ultimatelly donated as fee, which might result in a slippage revert? Double check.
-            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
-            sellToken.safeTransfer(address(pool), sellAmount);
-        }
-        if (sellAmount == 0) {
-            sellAmount = sellToken.fastBalanceOf(address(pool));
-            // If the sell amount is over the limit, the excess is donated. Obviously, this may
-            // result in a slippage revert.
-            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
-        }
-
-        // solve the constant function
-        uint256 amountOut = findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
-
-        // check slippage before swapping to save some sad-path gas
-        if (amountOut < amountOutMin) {
-            _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
-        }
-
-        // Because the reference implementation of `verify` for the EulerSwap trading function is
-        // non-monotonic, it may be possible to have an `amountOut` of one, even if `sellAmount` is
-        // zero. Because this is likely triggered by a failure of the `isAccountOperatorAuthorized`
-        // check, we skip calling `swap` because it's probably going to revert. If you set
-        // `amountOutMin` to one and this catches you off guard, I'm sorry, but that was dumb.
-        if (amountOut > 1) {
-            pool.fastSwap(zeroForOne, amountOut, recipient);
-        }
-    }
+    using FastOracle for IOracle;
 
     function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
         internal
@@ -604,7 +534,7 @@ abstract contract EulerSwap is SettlerAbstract {
     /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
-    function calcLimits(IEulerSwap pool, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
+    function calcLimits(IEVC evc, IEulerSwap pool, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
         internal
         view
         returns (uint256 inLimit, uint256 outLimit)
@@ -621,7 +551,7 @@ abstract contract EulerSwap is SettlerAbstract {
         // Supply caps on input
         unchecked {
             inLimit = sellVault.fastDebtOf(ownerAccount) + sellVault.fastMaxDeposit(ownerAccount);
-            inLimit = _EVC().fastIsAccountOperatorAuthorized(ownerAccount, address(pool)).orZero(inLimit);
+            inLimit = evc.fastIsAccountOperatorAuthorized(ownerAccount, address(pool)).orZero(inLimit);
         }
 
         // Remaining reserves of output
@@ -693,17 +623,6 @@ abstract contract EulerSwap is SettlerAbstract {
             return (amountCap == 0).ternary(type(uint112).max, 10 ** (amountCap & 63) * (amountCap >> 6) / 100);
         }
     }
-}
-
-library EulerSwapSolvency {
-    using Ternary for bool;
-    using SafeTransferLib for IEVault;
-    using ParamsLib for ParamsLib.Params;
-    using ParamsLib for IEulerSwap;
-    using FastEvc for IEVC;
-    using FastEvault for IEVault;
-    using FastEulerSwap for IEulerSwap;
-    using FastOracle for IOracle;
 
     function checkSolvency(
         IEVC evc,
@@ -811,5 +730,81 @@ library EulerSwapSolvency {
         }
 
         return false;
+    }
+}
+
+abstract contract EulerSwap is SettlerAbstract {
+    using Ternary for bool;
+    using SafeTransferLib for IERC20;
+    using ParamsLib for ParamsLib.Params;
+    using ParamsLib for IEulerSwap;
+    using FastEvault for IEVault;
+    using FastEulerSwap for IEulerSwap;
+
+    function _EVC() internal view virtual returns (IEVC);
+
+    function _revertTooMuchSlippage(
+        bool zeroForOne,
+        ParamsLib.Params p,
+        uint256 expectedBuyAmount,
+        uint256 actualBuyAmount
+    ) private view {
+        revertTooMuchSlippage(
+            IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
+            expectedBuyAmount,
+            actualBuyAmount
+        );
+    }
+
+    function sellToEulerSwap(
+        address recipient,
+        IERC20 sellToken,
+        uint256 bps,
+        IEulerSwap pool,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) internal {
+        // Doing this first violates the general rule that we ought to interact with the token
+        // before checking the state of the pool. However, this is safe because Euler doesn't admit
+        // badly-behaved tokens, and a token must be available on Euler before it can be added to
+        // EulerSwap.
+        ParamsLib.Params p = pool.fastGetParams();
+        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        (uint256 inLimit,) = EulerSwapLib.calcLimits(_EVC(), pool, zeroForOne, p, reserve0, reserve1);
+
+        uint256 sellAmount;
+        if (bps != 0) {
+            unchecked {
+                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+            }
+            // TODO: Comment for what happens with excess here.
+            // 1. Excess is absorbed by other sources
+            // 2. Ultimatelly donated as fee, which might result in a slippage revert? Double check.
+            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
+            sellToken.safeTransfer(address(pool), sellAmount);
+        }
+        if (sellAmount == 0) {
+            sellAmount = sellToken.fastBalanceOf(address(pool));
+            // If the sell amount is over the limit, the excess is donated. Obviously, this may
+            // result in a slippage revert.
+            sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
+        }
+
+        // solve the constant function
+        uint256 amountOut = EulerSwapLib.findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
+
+        // check slippage before swapping to save some sad-path gas
+        if (amountOut < amountOutMin) {
+            _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
+        }
+
+        // Because the reference implementation of `verify` for the EulerSwap trading function is
+        // non-monotonic, it may be possible to have an `amountOut` of one, even if `sellAmount` is
+        // zero. Because this is likely triggered by a failure of the `isAccountOperatorAuthorized`
+        // check, we skip calling `swap` because it's probably going to revert. If you set
+        // `amountOutMin` to one and this catches you off guard, I'm sorry, but that was dumb.
+        if (amountOut > 1) {
+            pool.fastSwap(zeroForOne, amountOut, recipient);
+        }
     }
 }
