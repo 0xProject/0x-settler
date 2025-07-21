@@ -695,7 +695,7 @@ abstract contract EulerSwap is SettlerAbstract {
     }
 }
 
-abstract contract EulerSwapExtended is EulerSwap {
+library EulerSwapSolvency {
     using Ternary for bool;
     using SafeTransferLib for IEVault;
     using ParamsLib for ParamsLib.Params;
@@ -706,20 +706,19 @@ abstract contract EulerSwapExtended is EulerSwap {
     using FastOracle for IOracle;
 
     function checkSolvency(
+        IEVC evc,
         address account,
         address vault0,
         address vault1,
         bool zeroForOne,
         uint256 amountIn, 
         uint256 amountOut
-    ) external view returns (bool) {
-        address[] memory collaterals;
+    ) internal view returns (bool) {
+        address[] memory collaterals = evc.fastGetCollaterals(account);
         IEVault debtVault;
         uint256 debt;
 
         {
-            IEVC evc = _EVC();
-            collaterals = evc.fastGetCollaterals(account);
             address[] memory controllers = evc.fastGetControllers(account);
 
             if(controllers.length > 1) return false;
