@@ -701,30 +701,22 @@ library EulerSwapLib {
             IOracle oracle = debtVault.fastOracle();
             IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
 
-            // adjust precision to avoid divisions when adjusting LTVBorrow bps of collateral.
-            // All amounts in EulerSwap are lower than uint112 so there should not be overflow errors.
-            debt *= 1e4;
+            (, debt) = oracle.fastGetQuote(debt, debtVault.fastAsset(), unitOfAccount);
+            debt *= debtVault.fastLTVBorrow(debtVault);
             if(soldCollateral != 0) {
                 // adjust inequality to avoid substraction
                 // collateral + newCollateral - soldCollateral >= debt
                 // is changed to 
                 // collateral + newCollateral >= debt + soldCollateral
-                if(buyVault == debtVault) {
-                    debt += soldCollateral * 1e4;
-                } else {
-                    (uint256 value,) = oracle.fastGetQuote(soldCollateral, buyVault.fastAsset(), unitOfAccount);
-                    debt += (value * debtVault.fastLTVBorrow(buyVault));
-                }
+                (uint256 value,) = oracle.fastGetQuote(soldCollateral, buyVault.fastAsset(), unitOfAccount);
+                debt += (value * debtVault.fastLTVBorrow(buyVault));
             }
             uint256 collateral;
             if(newCollateral != 0) {
-                if(sellVault == debtVault) {
-                    collateral = newCollateral * 1e4;
-                } else {
-                    (uint256 value,) = oracle.fastGetQuote(newCollateral, sellVault.fastAsset(), unitOfAccount);
-                    collateral = (value * debtVault.fastLTVBorrow(sellVault));
-                }
+                (uint256 value,) = oracle.fastGetQuote(newCollateral, sellVault.fastAsset(), unitOfAccount);
+                collateral = (value * debtVault.fastLTVBorrow(sellVault));
             }
+
             for(uint256 i = 0; i < collaterals.length; i++) {
                 IEVault collateralVault = IEVault(collaterals[i]);
                 (uint256 value,) = oracle.fastGetQuote(collateralVault.fastBalanceOf(account), collateralVault.fastAsset(), unitOfAccount);   

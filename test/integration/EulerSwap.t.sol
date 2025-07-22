@@ -277,7 +277,9 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
 
             collateral += (value * debtVault.fastLTVBorrow(collateralVault));
         }
-        uint256 amountOut = (collateral - debtVault.fastDebtOf(eulerAccount) * 1e4) / 1e4;
+        (, uint256 debt) = oracle.fastGetQuote(debtVault.fastDebtOf(eulerAccount), debtVault.fastAsset(), unitOfAccount);
+        debt *= debtVault.fastLTVBorrow(debtVault);
+        uint256 amountOut = (collateral - debt) / 1e4;
 
         assertFalse(
             EulerSwapLib.checkSolvency(
@@ -287,7 +289,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
                 address(params.vault1()), 
                 true, 
                 0, 
-                amountOut + 1
+                amountOut + 1e4
             ),
             "Account should be insolvent"
         );
