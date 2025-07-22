@@ -826,9 +826,12 @@ abstract contract EulerSwap is SettlerAbstract {
             unchecked {
                 sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
             }
-            // TODO: Comment for what happens with excess here.
+            // If the sell amount is over the limit:
             // 1. Excess is absorbed by other sources
-            // 2. Ultimatelly donated as fee, which might result in a slippage revert? Double check.
+            // 2. Donated as fee, which might result in a slippage revert
+            // 3. Left in settler if there is no slippage collection action 
+            // or it is not absorbed. This might result in slippage revert and,
+            // if not, assets will be compromissed and tentatively taken away.
             sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
             sellToken.safeTransfer(address(pool), sellAmount);
         }
