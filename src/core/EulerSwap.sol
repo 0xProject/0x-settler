@@ -742,12 +742,8 @@ library EulerSwapLib {
                     }
                 }
                 if (collateralAmount != 0) {
-                    (uint256 value,) = oracle.fastGetQuotes(
-                        collateralAmount,
-                        collateralVault.fastAsset(),
-                        unitOfAccount
-                    );
-
+                    (uint256 value,) =
+                        oracle.fastGetQuotes(collateralAmount, collateralVault.fastAsset(), unitOfAccount);
                     collateral += (value * debtVault.fastLTVBorrow(collateralVault));
                     if (collateral >= debt) {
                         return true;
