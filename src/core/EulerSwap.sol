@@ -63,7 +63,7 @@ library FastEvc {
     function fastGetCollaterals(IEVC evc, address account) internal view returns (address[] memory collaterals) {
         assembly ("memory-safe") {
             mstore(0x14, account)
-            mstore(0x00, 0xa4d25d1e000000000000000000000000) // selector for `getCollaterals(address)` with `evc`'s padding
+            mstore(0x00, 0xa4d25d1e000000000000000000000000) // selector for `getCollaterals(address)` with `account`'s padding
 
             if iszero(staticcall(gas(), evc, 0x10, 0x24, 0x00, 0x00)) {
                 let ptr := mload(0x40)
@@ -81,7 +81,7 @@ library FastEvc {
     function fastGetControllers(IEVC evc, address account) internal view returns (address[] memory controllers) {
         assembly ("memory-safe") {
             mstore(0x14, account)
-            mstore(0x00, 0xfd6046d7000000000000000000000000) // selector for `getControllers(address)` with `evc`'s padding
+            mstore(0x00, 0xfd6046d7000000000000000000000000) // selector for `getControllers(address)` with `account`'s padding
 
             if iszero(staticcall(gas(), evc, 0x10, 0x24, 0x00, 0x00)) {
                 let ptr := mload(0x40)
@@ -116,21 +116,30 @@ interface IOracle {
 }
 
 library FastOracle {
-    function fastGetQuote(IOracle oracle, uint256 inAmount, IERC20 base, IERC20 quote) internal view returns (uint256 bidOutAmount, uint256 askOutAmount) {
+    function fastGetQuotes(IOracle oracle, uint256 inAmount, IERC20 base, IERC20 quote)
+        internal
+        view
+        returns (uint256 bidOutAmount, uint256 askOutAmount)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(ptr, 0x0579e61f) // selector for `getQuotes(uint256,address,address)`
-            mstore(add(0x20, ptr), inAmount)
-            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, base))
-            mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, quote))
-            if iszero(staticcall(gas(), oracle, add(0x1c, ptr), 0x64, 0x00, 0x40)) {
+            mstore(0x00, 0x0579e61f) // selector for `getQuotes(uint256,address,address)`
+            mstore(0x20, inAmount)
+            mstore(0x40, and(0xffffffffffffffffffffffffffffffffffffffff, base))
+            mstore(0x60, and(0xffffffffffffffffffffffffffffffffffffffff, quote))
+            if iszero(staticcall(gas(), oracle, 0x1c, 0x64, 0x00, 0x40)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            if gt(0x40, returndatasize()) { revert(0x00, 0x00) }
             bidOutAmount := mload(0x00)
             askOutAmount := mload(0x20)
+
+            // restore clobbered memory
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
         }
     }
 }
@@ -534,11 +543,14 @@ library EulerSwapLib {
     /// @param zeroForOne Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return inLimit Maximum amount of input token that can be deposited
     /// @return outLimit Maximum amount of output token that can be withdrawn
-    function calcLimits(IEVC evc, IEulerSwap pool, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
-        internal
-        view
-        returns (uint256 inLimit, uint256 outLimit)
-    {
+    function calcLimits(
+        IEVC evc,
+        IEulerSwap pool,
+        bool zeroForOne,
+        ParamsLib.Params p,
+        uint256 reserve0,
+        uint256 reserve1
+    ) internal view returns (uint256 inLimit, uint256 outLimit) {
         IEVault sellVault;
         IEVault buyVault;
         {
@@ -630,7 +642,7 @@ library EulerSwapLib {
         address vault0,
         address vault1,
         bool zeroForOne,
-        uint256 amountIn, 
+        uint256 amountIn,
         uint256 amountOut
     ) internal view returns (bool) {
         address[] memory collaterals = evc.fastGetCollaterals(account);
@@ -640,9 +652,11 @@ library EulerSwapLib {
         {
             address[] memory controllers = evc.fastGetControllers(account);
 
-            if(controllers.length > 1) return false;
-            if(controllers.length == 1) {
-                debtVault = IEVault(controllers[0]);
+            if (controllers.length > 1) return false;
+            if (controllers.length == 1) {
+                assembly ("memory-safe") {
+                    debtVault := mload(add(0x20, controllers))
+                }
                 debt = debtVault.fastDebtOf(account);
             }
         }
@@ -654,81 +668,101 @@ library EulerSwapLib {
             sellVault = IEVault(sellVault_);
             buyVault = IEVault(buyVault_);
         }
-        
+
         uint256 newDebt;
         uint256 soldCollateral;
         uint256 newCollateral;
 
         // compute new debt in buyVault
         {
-            uint256 collateralBalance = buyVault.fastBalanceOf(account);
-            if(collateralBalance < amountOut) {
-                newDebt = amountOut - collateralBalance;
+            uint256 collateralBalance = buyVault.fastConvertToAssets(buyVault.fastBalanceOf(account));
+            if (collateralBalance < amountOut) {
+                unchecked {
+                    newDebt = amountOut - collateralBalance;
+                }
                 soldCollateral = collateralBalance;
-            }
-            else {
+            } else {
                 soldCollateral = amountOut;
             }
         }
 
         // check sellVault debt
-        if(debtVault == sellVault) {
+        if (debtVault == sellVault) {
             // debt repayment
-            if(amountIn < debt) {
+            if (amountIn < debt) {
                 // collateral in buyVault must be able to cover the amountOut
                 // to ensure there is only one controller at the end
-                if(newDebt != 0) return false;
-                debt -= amountIn;
-            }
-            else {
-                newCollateral = amountIn - debt;
+                if (newDebt != 0) return false;
+                unchecked {
+                    debt -= amountIn;
+                }
+            } else {
+                unchecked {
+                    newCollateral = amountIn - debt;
+                }
                 debt = 0; // debt was repaid
             }
         } else {
             newCollateral = amountIn;
         }
 
-        // if there is new debt in buyVault, check that the controller is buyVault
-        // or debt was repaid to ensure there is only one controller at the end
-        if(newDebt != 0) {
-            if(debt != 0 && debtVault != buyVault) return false;
-            if(address(debtVault) == address(0)) debtVault = buyVault;
+        if (newDebt != 0) {
+            // There is new debt in buyVault. Then debtVault needs to be buyVault.
+            if (debtVault != buyVault) {
+                // If it is not and there is outstanding debt, then there is a second controller
+                // which is not allowed.
+                if (debt != 0) return false;
+                debtVault = buyVault;
+            }
             debt += newDebt;
         }
-    
+
         // check for solvency if there is any debt
-        if(debt != 0) {
+        if (debt != 0) {
             IOracle oracle = debtVault.fastOracle();
             IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
 
-            (, debt) = oracle.fastGetQuote(debt, debtVault.fastAsset(), unitOfAccount);
-            debt *= debtVault.fastLTVBorrow(debtVault);
-            if(soldCollateral != 0) {
-                // adjust inequality to avoid substraction
-                // collateral + newCollateral - soldCollateral >= debt
-                // is changed to 
-                // collateral + newCollateral >= debt + soldCollateral
-                (uint256 value,) = oracle.fastGetQuote(soldCollateral, buyVault.fastAsset(), unitOfAccount);
-                debt += (value * debtVault.fastLTVBorrow(buyVault));
-            }
+            (, debt) = oracle.fastGetQuotes(debt, debtVault.fastAsset(), unitOfAccount);
+            // multiply by 1e4 to avoid divisions when adjusting LTVBorrow bps of collaterals.
+            // All amounts in EulerSwap are lower than uint112 so there should not be overflow errors.
+            debt *= 1e4;
             uint256 collateral;
-            if(newCollateral != 0) {
-                (uint256 value,) = oracle.fastGetQuote(newCollateral, sellVault.fastAsset(), unitOfAccount);
-                collateral = (value * debtVault.fastLTVBorrow(sellVault));
-            }
+            for (uint256 i = 1; i <= collaterals.length; i++) {
+                IEVault collateralVault;
+                assembly ("memory-safe") {
+                    collateralVault := mload(add(mul(0x20, i), collaterals))
+                }
+                uint256 collateralAmount = collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(account));
+                if (collateralVault == sellVault) {
+                    collateralAmount += newCollateral;
+                    newCollateral = 0;
+                } else if (collateralVault == buyVault) {
+                    unchecked {
+                        collateralAmount -= soldCollateral;
+                    }
+                }
+                if (collateralAmount != 0) {
+                    (uint256 value,) = oracle.fastGetQuotes(
+                        collateralAmount,
+                        collateralVault.fastAsset(),
+                        unitOfAccount
+                    );
 
-            for(uint256 i = 0; i < collaterals.length; i++) {
-                IEVault collateralVault = IEVault(collaterals[i]);
-                (uint256 value,) = oracle.fastGetQuote(collateralVault.fastBalanceOf(account), collateralVault.fastAsset(), unitOfAccount);   
-
-                collateral += (value * debtVault.fastLTVBorrow(collateralVault));
-                if(collateral >= debt) {
-                    return true;
+                    collateral += (value * debtVault.fastLTVBorrow(collateralVault));
+                    if (collateral >= debt) {
+                        return true;
+                    }
                 }
             }
+            if (newCollateral != 0) {
+                // Sell vault was not in the collaterals
+                (uint256 value,) = oracle.fastGetQuotes(newCollateral, sellVault.fastAsset(), unitOfAccount);
+                collateral += (value * debtVault.fastLTVBorrow(sellVault));
+            }
+            return (collateral >= debt);
         }
 
-        return false;
+        return true;
     }
 }
 
