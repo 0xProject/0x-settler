@@ -181,4 +181,64 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
             "Account is insolvent after swap"
         );
     }
+
+    function testSolvencyCheckReverse() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        IEulerSwap pool = IEulerSwap(eulerSwapPool());
+        ParamsLib.Params params = pool.fastGetParams();
+
+        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        uint256 amountOut = EulerSwapLib.findCurvePoint(eulerSwapAmount(), false, params, reserve0, reserve1);
+        assertTrue(
+            EulerSwapLib.checkSolvency(
+                EVC, 
+                address(params.eulerAccount()), 
+                address(params.vault0()), 
+                address(params.vault1()), 
+                false, 
+                eulerSwapAmount(), 
+                amountOut
+            ),
+            "Account is insolvent after swap"
+        );
+    }
+
+    function testSolvencyCheckAtPoolLimit() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        IEulerSwap pool = IEulerSwap(eulerSwapPool());
+        ParamsLib.Params params = pool.fastGetParams();
+
+        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        (uint256 amountIn, uint256 amountOut) = EulerSwapLib.calcLimits(EVC, pool, true, params, reserve0, reserve1);
+        assertTrue(
+            EulerSwapLib.checkSolvency(
+                EVC, 
+                address(params.eulerAccount()), 
+                address(params.vault0()), 
+                address(params.vault1()), 
+                true, 
+                amountIn, 
+                amountOut
+            ),
+            "Account is insolvent after swapping at pool limit"
+        );
+    }
+
+    function testSolvencyCheckAtPoolLimitReverse() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        IEulerSwap pool = IEulerSwap(eulerSwapPool());
+        ParamsLib.Params params = pool.fastGetParams();
+
+        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        (uint256 amountIn, uint256 amountOut) = EulerSwapLib.calcLimits(EVC, pool, false, params, reserve0, reserve1);
+        assertTrue(
+            EulerSwapLib.checkSolvency(
+                EVC, 
+                address(params.eulerAccount()), 
+                address(params.vault0()), 
+                address(params.vault1()), 
+                false, 
+                amountIn, 
+                amountOut
+            ),
+            "Account is insolvent after swapping at pool limit"
+        );
+    }
 }
