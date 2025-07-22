@@ -691,8 +691,18 @@ library EulerSwapLib {
             // debt repayment
             if (amountIn < debt) {
                 // collateral in buyVault must be able to cover the amountOut
-                // to ensure there is only one controller at the end
-                if (newDebt != 0) return false;
+                // to ensure there is only one controller at the end.
+                if (newDebt != 0) {
+                    // One way this can be possible is:
+                    // 1. TokenA and TokenB are the tokens in the pool with respectively VaultA and VaultB
+                    // 2. Pool is collateralized by TokenC (which might be one of the tokens in the pool)
+                    // 3. After some trading there is debt in TokenA and credit in TokenB, which means that
+                    // VaultA is controller and VaultB is an enabled collateral.
+                    // 4. The pool owner withdraws some of the credit in TokenB
+                    // 5. Then if the pools gets back to equilibrium there is going to be debt in both
+                    // TokenA and TokenB, meaning that there are going to be two controllers at the end.
+                    return false;
+                }
                 unchecked {
                     debt -= amountIn;
                 }
@@ -711,7 +721,17 @@ library EulerSwapLib {
             if (debtVault != buyVault) {
                 // If it is not and there is outstanding debt, then there is a second controller
                 // which is not allowed.
-                if (debt != 0) return false;
+                if (debt != 0) {
+                    // One way this can be possible is:
+                    // 1. TokenA and TokenB are the tokens in the pool with respectively VaultA and VaultB
+                    // 2. Pool is collateralized with both TokenA and TokenB
+                    // 3. The pool owner borrows some TokenC which generates debt and makes VaultC 
+                    // the controller in the pool
+                    // 4. After some trading collateral in TokenA is fully withdrawn
+                    // 5. Any subsequent trade to buy TokenA will generate debt and make
+                    // VaultA a second controller.
+                    return false;
+                }
                 debtVault = buyVault;
             }
             debt += newDebt;
