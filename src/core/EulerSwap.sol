@@ -65,15 +65,15 @@ library FastEvc {
             mstore(0x14, account)
             mstore(0x00, 0xa4d25d1e000000000000000000000000) // selector for `getCollaterals(address)` with `evc`'s padding
 
-            if iszero(staticcall(gas(), evc, 0x00, 0x24, 0x00, 0x00)) {
+            if iszero(staticcall(gas(), evc, 0x10, 0x24, 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
 
-            let size := returndatasize()
+            let size := sub(returndatasize(), 0x20)
             collaterals := mload(0x40)
-            returndatacopy(collaterals, 0x00, size)
+            returndatacopy(collaterals, 0x20, size)
             mstore(0x40, add(collaterals, size))
         }
     }
@@ -83,15 +83,15 @@ library FastEvc {
             mstore(0x14, account)
             mstore(0x00, 0xfd6046d7000000000000000000000000) // selector for `getControllers(address)` with `evc`'s padding
 
-            if iszero(staticcall(gas(), evc, 0x00, 0x24, 0x00, 0x00)) {
+            if iszero(staticcall(gas(), evc, 0x10, 0x24, 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
 
-            let size := returndatasize()
+            let size := sub(returndatasize(), 0x20)
             controllers := mload(0x40)
-            returndatacopy(controllers, 0x00, size)
+            returndatacopy(controllers, 0x20, size)
             mstore(0x40, add(controllers, size))
         }
     }
@@ -120,11 +120,11 @@ library FastOracle {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(ptr, 0x0902f1ac) // selector for `getQuotes(uint256,address,address)`
+            mstore(ptr, 0x0579e61f) // selector for `getQuotes(uint256,address,address)`
             mstore(add(0x20, ptr), inAmount)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, base))
             mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, quote))
-            if iszero(staticcall(gas(), oracle, 0x1c, 0x64, 0x00, 0x40)) {
+            if iszero(staticcall(gas(), oracle, add(0x1c, ptr), 0x64, 0x00, 0x40)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
@@ -701,7 +701,6 @@ library EulerSwapLib {
             IOracle oracle = debtVault.fastOracle();
             IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
 
-            (, debt) = oracle.fastGetQuote(debt, debtVault.fastAsset(), unitOfAccount);   
             // adjust precision to avoid divisions when adjusting LTVBorrow bps of collateral.
             // All amounts in EulerSwap are lower than uint112 so there should not be overflow errors.
             debt *= 1e4;

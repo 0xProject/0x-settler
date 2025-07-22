@@ -11,7 +11,7 @@ import {Settler} from "src/Settler.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IEVC, IEulerSwap} from "src/core/EulerSwap.sol";
+import {IEVC, IEulerSwap, EulerSwapLib, ParamsLib, FastEulerSwap} from "src/core/EulerSwap.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
@@ -19,6 +19,9 @@ IEVC constant EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
 abstract contract EulerSwapTest is AllowanceHolderPairTest {
     using SafeTransferLib for IERC20;
+    using ParamsLib for IEulerSwap;
+    using ParamsLib for ParamsLib.Params;
+    using FastEulerSwap for IEulerSwap;
 
     function eulerSwapPool() internal view virtual returns (address) {
         return address(0);
@@ -157,5 +160,25 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + eulerSwapAmount(), beforeBalanceFrom);
+    }
+
+    function testSolvencyCheck() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        IEulerSwap pool = IEulerSwap(eulerSwapPool());
+        ParamsLib.Params params = pool.fastGetParams();
+
+        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        uint256 amountOut = EulerSwapLib.findCurvePoint(eulerSwapAmount(), true, params, reserve0, reserve1);
+        assertTrue(
+            EulerSwapLib.checkSolvency(
+                EVC, 
+                address(params.eulerAccount()), 
+                address(params.vault0()), 
+                address(params.vault1()), 
+                true, 
+                eulerSwapAmount(), 
+                amountOut
+            ),
+            "Account is insolvent after swap"
+        );
     }
 }
