@@ -33,4 +33,10 @@ interface IBridgeSettlerActions {
 
     /// @dev Bridge native through Across
     function BRIDGE_NATIVE_TO_ACROSS(address spoke, bytes calldata depositData) external;
+
+    /// @dev Bridge ERC20 through StargateV2
+    function BRIDGE_ERC20_TO_STARGATE_V2(address token, address pool, bytes calldata sendData) external;
+
+    /// @dev Bridge native through StargateV2
+    function BRIDGE_NATIVE_TO_STARGATE_V2(address pool, uint256 destinationGas, bytes calldata sendData) external;
 }
