@@ -49,6 +49,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     function fromToken() internal view virtual returns (IERC20);
     function toToken() internal view virtual returns (IERC20);
     function amount() internal view virtual returns (uint256);
+
     function slippageLimit() internal view virtual returns (uint256) {
         return 0;
     }
@@ -56,6 +57,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     function setUp() public virtual {
         vm.createSelectFork(testChainId(), testBlockNumber());
         vm.label(address(this), "FoundryTest");
+        vm.label(address(PERMIT2), "Permit2");
         vm.label(FROM, "FROM");
         vm.label(MAKER, "MAKER");
         vm.label(BURN_ADDRESS, "BURN");

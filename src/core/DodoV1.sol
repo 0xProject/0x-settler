@@ -47,8 +47,9 @@ library FastDodoV1 {
             mstore(add(0x80, ptr), 0x00)
 
             if iszero(call(gas(), dodo, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
             if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
 

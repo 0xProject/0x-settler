@@ -15,7 +15,7 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
         super.setUp();
         vm.label(spokePool, "SpokePool");
     }
-    
+
     function testBridgeNative() public {
         uint256 amount = 1000;
 
@@ -23,7 +23,8 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
 
         bytes[] memory bridgeActions = new bytes[](1);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS, (
+            IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS,
+            (
                 spokePool,
                 abi.encode(
                     makeAddr("depositor"),
@@ -43,21 +44,24 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
         );
 
         uint256 balanceBefore = WETH.balanceOf(spokePool);
-        vm.expectCall(spokePool, abi.encodeWithSelector(
-            0x7b939232,
-            makeAddr("depositor"),
-            makeAddr("recipient"),
-            address(WETH), // input token
-            address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48), // output token (USDC)
-            1000, // updated amountIn
-            2000, // updated amountOut (rate is 1:2)
-            8453, // Base chain id
-            address(0), // exclusiveRelayer
-            block.timestamp, // quoteTimestamp
-            block.timestamp + 1, // fillDeadline
-            0, // exclusivityParameter
-            "message" // message
-        ));
+        vm.expectCall(
+            spokePool,
+            abi.encodeWithSelector(
+                0x7b939232,
+                makeAddr("depositor"),
+                makeAddr("recipient"),
+                address(WETH), // input token
+                address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48), // output token (USDC)
+                1000, // updated amountIn
+                2000, // updated amountOut (rate is 1:2)
+                8453, // Base chain id
+                address(0), // exclusiveRelayer
+                block.timestamp, // quoteTimestamp
+                block.timestamp + 1, // fillDeadline
+                0, // exclusivityParameter
+                "message" // message
+            )
+        );
         bridgeSettler.execute{value: amount}(bridgeActions, bytes32(0));
         uint256 balanceAfter = WETH.balanceOf(spokePool);
 
@@ -68,19 +72,17 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
         uint256 amount = 2000;
 
         deal(address(this), amount);
-        (bool success, ) = address(WETH).call{value: amount}(abi.encodeWithSignature("deposit()"));
+        (bool success,) = address(WETH).call{value: amount}(abi.encodeWithSignature("deposit()"));
         assertTrue(success, "Deposit failed");
         WETH.approve(address(ALLOWANCE_HOLDER), amount);
 
         bytes[] memory bridgeActions = new bytes[](2);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM, (
+            IBridgeSettlerActions.TRANSFER_FROM,
+            (
                 address(bridgeSettler),
                 ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({
-                        token: address(WETH),
-                        amount: amount
-                    }),
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(WETH), amount: amount}),
                     nonce: 0,
                     deadline: block.timestamp
                 }),
@@ -88,7 +90,8 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
             )
         );
         bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS, (
+            IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS,
+            (
                 spokePool,
                 abi.encode(
                     makeAddr("depositor"),
@@ -106,23 +109,26 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
                 )
             )
         );
- 
+
         uint256 balanceBefore = WETH.balanceOf(spokePool);
-        vm.expectCall(spokePool, abi.encodeWithSelector(
-            0x7b939232,
-            makeAddr("depositor"),
-            makeAddr("recipient"),
-            address(WETH), // input token
-            address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48), // output token (USDC)
-            2000, // updated amountIn
-            2000, // updated amountOut
-            8453, // Base chain id
-            address(0), // exclusiveRelayer
-            block.timestamp, // quoteTimestamp
-            block.timestamp + 1, // fillDeadline
-            0, // exclusivityParameter
-            "message" // message
-        ));
+        vm.expectCall(
+            spokePool,
+            abi.encodeWithSelector(
+                0x7b939232,
+                makeAddr("depositor"),
+                makeAddr("recipient"),
+                address(WETH), // input token
+                address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48), // output token (USDC)
+                2000, // updated amountIn
+                2000, // updated amountOut
+                8453, // Base chain id
+                address(0), // exclusiveRelayer
+                block.timestamp, // quoteTimestamp
+                block.timestamp + 1, // fillDeadline
+                0, // exclusivityParameter
+                "message" // message
+            )
+        );
         ALLOWANCE_HOLDER.exec(
             address(bridgeSettler),
             address(WETH),
