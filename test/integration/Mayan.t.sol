@@ -27,7 +27,7 @@ contract MayanTest is BridgeSettlerIntegrationTest {
         // writes to `mapping(address => bool) public mayanProtocols` at slot 3
         vm.store(address(forwarder), keccak256(abi.encode(mayanProtocol, uint256(3))), bytes32(uint256(1)));
     }
-    
+
     function testBridgeNative() public {
         uint256 amount = 1000;
         bytes32 someExtraBytes = keccak256("someExtraBytesForNativeTransfer");
@@ -36,17 +36,18 @@ contract MayanTest is BridgeSettlerIntegrationTest {
 
         bytes[] memory bridgeActions = new bytes[](1);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN, (
+            IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN,
+            (
                 forwarder,
                 mayanProtocol,
-                abi.encodeCall(
-                    MayanProtocolDummy.mayanNativeReceiver,
-                    (address(token), 0, someExtraBytes)
-                )
+                abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (address(token), 0, someExtraBytes))
             )
         );
 
-        vm.expectCall(mayanProtocol, abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (address(token), amount, someExtraBytes)));
+        vm.expectCall(
+            mayanProtocol,
+            abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (address(token), amount, someExtraBytes))
+        );
         bridgeSettler.execute{value: amount}(bridgeActions, bytes32(0));
 
         assertEq(mayanProtocol.balance, amount, "Assets were not received");
@@ -61,13 +62,11 @@ contract MayanTest is BridgeSettlerIntegrationTest {
 
         bytes[] memory bridgeActions = new bytes[](2);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM, (
+            IBridgeSettlerActions.TRANSFER_FROM,
+            (
                 address(bridgeSettler),
                 ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({
-                        token: address(token),
-                        amount: amount
-                    }),
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(token), amount: amount}),
                     nonce: 0,
                     deadline: block.timestamp
                 }),
@@ -75,18 +74,19 @@ contract MayanTest is BridgeSettlerIntegrationTest {
             )
         );
         bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN, (
+            IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN,
+            (
                 address(token),
                 forwarder,
                 mayanProtocol,
-                abi.encodeCall(
-                    MayanProtocolDummy.mayanERC20Receiver,
-                    (address(token), 0, someExtraBytes)
-                )
+                abi.encodeCall(MayanProtocolDummy.mayanERC20Receiver, (address(token), 0, someExtraBytes))
             )
         );
 
-        vm.expectCall(address(mayanProtocol), abi.encodeCall(MayanProtocolDummy.mayanERC20Receiver, (address(token), amount, someExtraBytes)));
+        vm.expectCall(
+            address(mayanProtocol),
+            abi.encodeCall(MayanProtocolDummy.mayanERC20Receiver, (address(token), amount, someExtraBytes))
+        );
         ALLOWANCE_HOLDER.exec(
             address(bridgeSettler),
             address(token),

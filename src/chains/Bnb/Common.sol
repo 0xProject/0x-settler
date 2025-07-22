@@ -10,6 +10,7 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
@@ -36,7 +37,16 @@ import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2, UniswapV4, PancakeInfinity {
+abstract contract BnbMixin is
+    FreeMemory,
+    SettlerBase,
+    MaverickV2,
+    DodoV1,
+    DodoV2,
+    UniswapV4,
+    PancakeInfinity,
+    EulerSwap
+{
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
     }
@@ -63,6 +73,11 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -128,5 +143,9 @@ abstract contract BnbMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return BNB_POOL_MANAGER;
+    }
+
+    function _EVC() internal pure override returns (IEVC) {
+        return IEVC(0xb2E5a73CeE08593d1a076a2AE7A6e02925a640ea);
     }
 }

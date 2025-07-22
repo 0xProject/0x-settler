@@ -12,7 +12,7 @@ abstract contract BridgeSettlerIntegrationTest is BridgeSettlerTestBase, Mainnet
     function testBlockNumber() internal pure virtual override returns (uint256) {
         return 22719835;
     }
-    
+
     function setUp() public virtual override {
         // deploy BridgeSettler
         super.setUp();

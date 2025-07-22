@@ -21,7 +21,7 @@ contract Relay {
             mstore(ptr, 0xa9059cbb000000000000000000000000) // selector for `transfer(address,uint256)` with `to`'s padding
 
             // Similar to SafeTransferLib.safeTransfer
-            if iszero(call(gas(), token, 0x00, add(0x10, ptr), 0x64, 0x00, 0x20)) { 
+            if iszero(call(gas(), token, 0x00, add(0x10, ptr), 0x64, 0x00, 0x20)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())

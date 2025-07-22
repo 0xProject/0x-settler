@@ -7,12 +7,14 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 contract Mayan {
     using SafeTransferLib for IERC20;
 
-    function bridgeERC20ToMayan(IERC20 token, address forwarder, address mayanProtocol, bytes memory protocolData) internal {
+    function bridgeERC20ToMayan(IERC20 token, address forwarder, address mayanProtocol, bytes memory protocolData)
+        internal
+    {
         uint256 amount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(forwarder, amount);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            
+
             let size := mload(protocolData)
             mcopy(add(0x134, ptr), protocolData, add(0x20, size))
             mstore(add(0x114, ptr), 0x120)
@@ -25,7 +27,7 @@ contract Mayan {
             mstore(add(0x34, ptr), amount)
             mstore(add(0x14, ptr), token)
             // selector for `forwardERC20(address,uint256,(uint256,uint256,uint8,bytes32,bytes32),address,bytes)` with `token` padding
-            mstore(ptr, 0xe4269fc4000000000000000000000000) 
+            mstore(ptr, 0xe4269fc4000000000000000000000000)
 
             // modify copied amount in protocolData
             // protocolData is (4 bytes selector, 32 bytes token, 32 bytes amount, ...anything else)
@@ -40,7 +42,7 @@ contract Mayan {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-        }   
+        }
     }
 
     function bridgeNativeToMayan(address forwarder, address mayanProtocol, bytes memory protocolData) internal {

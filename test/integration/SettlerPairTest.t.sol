@@ -310,7 +310,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV2_multihop_single_chain() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH)  {
+    function testSettler_uniswapV2_multihop_single_chain()
+        public
+        skipIf(uniswapV2Pool() == address(0))
+        skipIf(toToken() != WETH)
+    {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);

@@ -18,7 +18,6 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {Panic} from "./utils/Panic.sol";
 import {AddressDerivation} from "./utils/AddressDerivation.sol";
 
-
 type Address is uint256;
 
 /**
