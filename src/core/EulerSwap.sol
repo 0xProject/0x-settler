@@ -709,13 +709,21 @@ library EulerSwapLib {
                 // collateral + newCollateral - soldCollateral >= debt
                 // is changed to 
                 // collateral + newCollateral >= debt + soldCollateral
-                (uint256 value,) = oracle.fastGetQuote(soldCollateral, buyVault.fastAsset(), unitOfAccount);
-                debt += (value * debtVault.fastLTVBorrow(buyVault));
+                if(buyVault == debtVault) {
+                    debt += soldCollateral * 1e4;
+                } else {
+                    (uint256 value,) = oracle.fastGetQuote(soldCollateral, buyVault.fastAsset(), unitOfAccount);
+                    debt += (value * debtVault.fastLTVBorrow(buyVault));
+                }
             }
             uint256 collateral;
             if(newCollateral != 0) {
-                (uint256 value,) = oracle.fastGetQuote(newCollateral, sellVault.fastAsset(), unitOfAccount);
-                collateral = (value * debtVault.fastLTVBorrow(sellVault));
+                if(sellVault == debtVault) {
+                    collateral = newCollateral * 1e4;
+                } else {
+                    (uint256 value,) = oracle.fastGetQuote(newCollateral, sellVault.fastAsset(), unitOfAccount);
+                    collateral = (value * debtVault.fastLTVBorrow(sellVault));
+                }
             }
             for(uint256 i = 0; i < collaterals.length; i++) {
                 IEVault collateralVault = IEVault(collaterals[i]);
