@@ -11,7 +11,18 @@ import {Settler} from "src/Settler.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IEVC, IEulerSwap, EulerSwapLib, ParamsLib, FastEulerSwap} from "src/core/EulerSwap.sol";
+import {
+    IEVC, 
+    IEulerSwap, 
+    EulerSwapLib, 
+    ParamsLib, 
+    FastEulerSwap, 
+    FastEvc, 
+    IEVault, 
+    FastEvault,
+    IOracle, 
+    FastOracle
+} from "src/core/EulerSwap.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
@@ -19,9 +30,13 @@ IEVC constant EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
 
 abstract contract EulerSwapTest is AllowanceHolderPairTest {
     using SafeTransferLib for IERC20;
+    using SafeTransferLib for IEVault;
     using ParamsLib for IEulerSwap;
     using ParamsLib for ParamsLib.Params;
     using FastEulerSwap for IEulerSwap;
+    using FastEvc for IEVC;
+    using FastEvault for IEVault;
+    using FastOracle for IOracle;
 
     function eulerSwapPool() internal view virtual returns (address) {
         return address(0);
@@ -239,6 +254,42 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
                 amountOut
             ),
             "Account is insolvent after swapping at pool limit"
+        );
+    }
+
+    function testSolvencyCheckFailsIfCollateralIsNotEnough() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        IEulerSwap pool = IEulerSwap(eulerSwapPool());
+        ParamsLib.Params params = pool.fastGetParams();
+        address eulerAccount = address(params.eulerAccount());
+
+        address[] memory collaterals = EVC.fastGetCollaterals(eulerAccount);
+        address[] memory controllers = EVC.fastGetControllers(eulerAccount);
+        assertEq(controllers.length, 1, "Multiple debt vaults");
+        assertEq(controllers[0], address(params.vault1()), "Debt vault is not vault1");
+
+        IEVault debtVault = IEVault(controllers[0]);
+        IOracle oracle = debtVault.fastOracle();
+        IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
+        uint256 collateral;
+        for(uint256 i = 0; i < collaterals.length; i++) {
+            IEVault collateralVault = IEVault(collaterals[i]);
+            (uint256 value,) = oracle.fastGetQuote(collateralVault.fastBalanceOf(eulerAccount), collateralVault.fastAsset(), unitOfAccount);   
+
+            collateral += (value * debtVault.fastLTVBorrow(collateralVault));
+        }
+        uint256 amountOut = (collateral - debtVault.fastDebtOf(eulerAccount) * 1e4) / 1e4;
+
+        assertFalse(
+            EulerSwapLib.checkSolvency(
+                EVC, 
+                address(params.eulerAccount()), 
+                address(params.vault0()), 
+                address(params.vault1()), 
+                true, 
+                0, 
+                amountOut + 1
+            ),
+            "Account should be insolvent"
         );
     }
 }
