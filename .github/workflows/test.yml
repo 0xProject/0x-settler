@@ -37,6 +37,7 @@ jobs:
         env:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 1000000
+          FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Build CrossChainReceiverFactory
         run: forge build -- src/CrossChainReceiverFactory.sol
