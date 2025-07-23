@@ -8,7 +8,7 @@ import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 
 contract MayanProtocolDummy {
-    function mayanNativeReceiver(address, uint256, bytes32) external payable {}
+    function mayanNativeReceiver(bytes32) external payable {}
 
     function mayanERC20Receiver(address token, uint256 amount, bytes32) external {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
@@ -39,17 +39,12 @@ contract MayanTest is BridgeSettlerIntegrationTest {
             IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN,
             (
                 forwarder,
-                mayanProtocol,
-                abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (address(token), 0, someExtraBytes))
+                abi.encode(mayanProtocol, abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (someExtraBytes)))
             )
         );
 
-        vm.expectCall(
-            mayanProtocol,
-            abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (address(token), amount, someExtraBytes))
-        );
+        vm.expectCall(mayanProtocol, amount, abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (someExtraBytes)));
         bridgeSettler.execute{value: amount}(bridgeActions, bytes32(0));
-
         assertEq(mayanProtocol.balance, amount, "Assets were not received");
     }
 
@@ -76,10 +71,11 @@ contract MayanTest is BridgeSettlerIntegrationTest {
         bridgeActions[1] = abi.encodeCall(
             IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN,
             (
-                address(token),
                 forwarder,
-                mayanProtocol,
-                abi.encodeCall(MayanProtocolDummy.mayanERC20Receiver, (address(token), 0, someExtraBytes))
+                abi.encode(
+                    mayanProtocol,
+                    abi.encodeCall(MayanProtocolDummy.mayanERC20Receiver, (address(token), 0, someExtraBytes))
+                )
             )
         );
 
@@ -94,7 +90,6 @@ contract MayanTest is BridgeSettlerIntegrationTest {
             payable(address(bridgeSettler)),
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
-
         assertEq(token.balanceOf(mayanProtocol), amount, "Assets were not received");
     }
 }
