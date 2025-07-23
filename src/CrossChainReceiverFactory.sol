@@ -5,9 +5,10 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
+import {IOwnable} from "./deployer/IOwnable.sol";
 
 import {ICrossChainReceiverFactory} from "./interfaces/ICrossChainReceiverFactory.sol";
-import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
+import {AbstractOwnable, TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
@@ -147,14 +148,14 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     }
 
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) public view override onlyProxy returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(IERC165, AbstractOwnable) onlyProxy returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
     // This function is overridden so that it is explicit that it is only meaningful on the
     // proxy. This also makes any function that is `onlyOwner` implicitly `onlyProxy`, including
     // `renounceOwnership` and `transferOwnership`.
-    function owner() public view override onlyProxy returns (address) {
+    function owner() public view override(IOwnable, AbstractOwnable) onlyProxy returns (address) {
         return super.owner();
     }
 
