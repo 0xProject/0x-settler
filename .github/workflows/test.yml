@@ -48,14 +48,13 @@ jobs:
           FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run MultiCall tests
-        run: forge test --skip 'src/*' --mp test/MultiCall.t.sol
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --mp test/MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
-          FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run tests that depend on MultiCall
-        run: forge test --skip 'src/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --mp test/unit/CrossChainReceiverFactory.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
