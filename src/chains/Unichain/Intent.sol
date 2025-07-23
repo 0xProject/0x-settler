@@ -83,7 +83,7 @@ contract UnichainSettlerIntent is SettlerIntent, UnichainSettlerMetaTxn {
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
-        return super._permitToSellAmount(permit);
+        return super._permitToSellAmountCalldata(permit);
     }
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
