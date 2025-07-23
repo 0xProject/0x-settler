@@ -148,7 +148,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     }
 
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) public view override(IERC165, AbstractOwnable) onlyProxy returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(IERC165, AbstractOwnable)
+        onlyProxy
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
 
