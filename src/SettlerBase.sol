@@ -20,6 +20,7 @@ import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
+import {console} from "@forge-std/console.sol";
 
 /// @dev This library's ABIDecoding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
@@ -68,6 +69,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
     constructor(bytes20 gitCommit) {
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
+            console.logBytes32(bytes32(block.chainid));
             assert(IERC721Owner(DEPLOYER).ownerOf(_tokenId()) == address(this));
         } else {
             assert(gitCommit == bytes20(0));
