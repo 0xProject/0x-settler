@@ -189,7 +189,7 @@
     "etherscanApi": "https://api.arbiscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
-  "bnb": {
+  "bsc": {
     "chainId": 56,
     "displayName": "Bnb",
     "isShanghai": true,
@@ -268,7 +268,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-blast.safe.global/api"
+      "apiUrl": "NOT SUPPORTED"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -316,7 +316,7 @@
     "chainId": 534352,
     "displayName": "Scroll",
     "isShanghai": true,
-    "isCancun": false,
+    "isCancun": true,
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 120,
     "minGasPriceGwei": 1,
@@ -336,7 +336,7 @@
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
     "etherscanApi": "https://api.scrollscan.com/api",
@@ -431,7 +431,7 @@
     },
     "etherscanApi": "https://api.taikoscan.io/api"
   },
-  "worldchain": {
+  "world": {
     "chainId": 480,
     "displayName": "WorldChain",
     "isShanghai": true,
@@ -461,7 +461,7 @@
     "etherscanApi": "https://api.worldscan.org/api",
     "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
   },
-  "gnosis": {
+  "xdai": {
     "chainId": 100,
     "displayName": "Gnosis",
     "isShanghai": true,
@@ -549,7 +549,7 @@
     },
     "blockscoutApi": "https://explorer.inkonchain.com/api"
   },
-  "monad_testnet": {
+  "monad-testnet": {
     "chainId": 10143,
     "displayName": "MonadTestnet",
     "isShanghai": true,
@@ -624,7 +624,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://safe-transaction-berachain.safe.global/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -637,5 +637,35 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
     "etherscanApi": "https://api.berascan.com/api"
+  },
+  "hyperliquid": {
+    "chainId": 999,
+    "displayName": "HyperEvm",
+    "wnative": "0x5555555555555555555555555555555555555555",
+    "isShanghai": true,
+    "isCancun": true,
+    "extraFlags": "",
+    "gasMultiplierPercent": 300,
+    "minGasPriceGwei": 2,
+    "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+    },
+    "blockscoutApi": "https://www.hyperscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api"
   }
 }

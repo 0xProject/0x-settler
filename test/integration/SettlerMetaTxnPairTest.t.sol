@@ -184,7 +184,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_metaTxn_rfq() public {
+    function testSettler_metaTxn_rfq() public skipIf(true) { // action `METATXN_RFQ_VIP` is disabled
         ISignatureTransfer.PermitTransferFrom memory makerPermit =
             defaultERC20PermitTransfer(address(toToken()), amount(), PERMIT2_MAKER_NONCE);
         ISignatureTransfer.PermitTransferFrom memory takerPermit =

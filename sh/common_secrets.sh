@@ -3,26 +3,46 @@ if ! hash sha256sum &>/dev/null ; then
     exit 1
 fi
 
-if [ ! -f "$project_root"/secrets.json ] ; then
-    echo 'secrets.json is missing' >&2
+if ! hash scrypt &>/dev/null ; then
+    echo 'scrypt is not installed' >&2
+    exit 1
+fi
+
+if [ ! -f "$project_root"/secrets.json.scrypt ] ; then
+    echo 'secrets.json.scrypt is missing' >&2
     exit 1
 fi
 
 declare secrets_permissions
-secrets_permissions="$(ls -l "$project_root"/secrets.json)"
+secrets_permissions="$(ls -l "$project_root"/secrets.json.scrypt)"
 secrets_permissions="${secrets_permissions::10}"
 declare -r secrets_permissions
 if [[ $secrets_permissions != '-rw-------' ]] ; then
-    echo 'secrets.json permissions too lax' >&2
-    echo 'run: chmod 600 secrets.json' >&2
+    echo 'secrets.json.scrypt permissions too lax' >&2
+    echo 'run: chmod 600 secrets.json.scrypt' >&2
     exit 1
 fi
 
-if ! sha256sum -c <<<'aecc29dbca963a4397effa7e019a754aa2108c0b80f8cd67db7ee8e2b3c76c2b  secrets.json' >/dev/null ; then
-    echo 'Secrets are wrong' >&2
+if [ -f "$project_root"/secrets.json ] ; then
+    echo 'secrets.json exists, remove it - will use secrets.json.scrypt only' >&2
     exit 1
 fi
+
+declare secrets
+
+function decrypt_secrets {
+    secrets="$(scrypt dec -f "$project_root"/secrets.json.scrypt)"
+
+    if [[ "$(sha256sum <<<"$secrets")" != '22ee172d78023ae1bd0f6009d7f2facebbb86ecbc2469908e28314d6436c83fc  -' ]] ; then
+        echo "Decrypted secrets.json hash verification failed" >&2
+        exit 1
+    fi
+}
 
 function get_secret {
-    jq -Mr ."$1"."$2" < "$project_root"/secrets.json
+    if [[ -z "${secrets-}" ]]; then
+        echo 'You forgot to run `decrypt_secrets` before accessing secrets' >&2
+        exit 1
+    fi
+    jq -Mr ."$1"."$2" <<<"$secrets"
 }
