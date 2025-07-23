@@ -67,13 +67,14 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
     // `sh/deploy_new_chain.sh` and 'sh/common_deploy_settler.sh' to set
     // `constructor_args`.
     constructor(bytes20 gitCommit) {
+        console.log("SettlerBase");
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
-            console.logBytes32(bytes32(block.chainid));
             assert(IERC721Owner(DEPLOYER).ownerOf(_tokenId()) == address(this));
         } else {
             assert(gitCommit == bytes20(0));
         }
+        console.log("SettlerBase done");
     }
 
     function _div512to256(uint512 n, uint512 d) internal view virtual override returns (uint256) {

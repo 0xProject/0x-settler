@@ -52,9 +52,6 @@ contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
         // Mock DAI and USDC for MainnetSettler to be usable
         vm.etch(address(DAI), address(token).code);
         vm.etch(address(USDC), address(token).code);
-        console.logBytes32(bytes32(block.chainid));
-        console.log(block.chainid);
-        console.log(vm.toString(block.chainid));
         settler = new MainnetSettler(bytes20(0));
     }
 }

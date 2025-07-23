@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {uint512} from "./utils/512Math.sol";
+import {console} from "@forge-std/console.sol";
 
 abstract contract SettlerAbstract is Permit2PaymentAbstract {
     // Permit2 Witness for meta transactions
@@ -19,8 +20,10 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
     IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     constructor() {
+        console.log("SettlerAbstract");
         assert(SLIPPAGE_AND_ACTIONS_TYPEHASH == keccak256(bytes(SLIPPAGE_AND_ACTIONS_TYPE)));
         assert(SLIPPAGE_TYPEHASH == keccak256(bytes(SLIPPAGE_TYPE)));
+        console.log("SettlerAbstract done");
     }
 
     function _hasMetaTxn() internal pure virtual returns (bool);

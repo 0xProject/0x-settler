@@ -26,6 +26,7 @@ import {Revert} from "../utils/Revert.sol";
 
 import {AbstractContext, Context} from "../Context.sol";
 import {AllowanceHolderContext, ALLOWANCE_HOLDER} from "../allowanceholder/AllowanceHolderContext.sol";
+import {console} from "@forge-std/console.sol";
 
 library TransientStorage {
     // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint96).max)
@@ -369,7 +370,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     using SafeTransferLib for IERC20;
 
     constructor() {
+        console.log("Permit2PaymentTakerSubmitted");
         assert(!_hasMetaTxn());
+        console.log("Permit2PaymentTakerSubmitted done");
     }
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
