@@ -23,13 +23,13 @@ jobs:
         run: git submodule update --recursive --init
 
       - name: Build contracts
-        run: forge build --skip MultiCall.sol --skip UniswapV4UnitTest.t.sol --skip 'test/*'
+        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
 
       - name: Build UniswapV4 tests
-        run: forge build --skip MultiCall.sol --skip 'test/*'
+        run: forge build -- test/unit/core/UniswapV4UnitTest.t.sol
 
       - name: Build UniswapV4
-        run: forge build --skip MultiCall.sol -- lib/v4-core/src/PoolManager.sol
+        run: forge build -- lib/v4-core/src/PoolManager.sol
 
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
@@ -42,18 +42,21 @@ jobs:
         env:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 1000000
+          FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run MultiCall tests
         run: forge test --skip 'src/*' --mp test/MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+          FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run tests that depend on MultiCall
         run: forge test --skip 'src/*' --mp test/unit/CrossChainReceiverFactory.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+          FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run all the other tests
         run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --nmp test/unit/CrossChainReceiverFactory.t.sol --nmc MultiCall

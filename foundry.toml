@@ -7,6 +7,7 @@ auto_detect_remappings = false
 cbor_metadata = false
 sparse_mode = false
 
+solc_version = "0.8.25"
 optimizer = true
 via_ir = true
 optimizer_runs = 2_000

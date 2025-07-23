@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.25;
 
 interface IERC5267 {
     /// @notice Returns the un-hashed fields that comprise the EIP-712 domain.
