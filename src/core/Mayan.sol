@@ -12,7 +12,7 @@ contract Mayan {
         assembly ("memory-safe") {
             // protocolData is abi.encode(mayanProtocol, protocolData)
             // and protocolData is (4 bytes selector, 32 bytes token, 32 bytes amount, ...anything else)
-            // then, token is at 0x84 
+            // then, token is at 0x84
             token := mload(add(0x84, protocolAndData))
         }
 
@@ -20,11 +20,11 @@ contract Mayan {
         token.safeApproveIfBelow(forwarder, amount);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            
+
             let size := mload(protocolAndData)
             mstore(add(0x14, ptr), token)
             // selector for `forwardERC20(address,uint256,(uint256,uint256,uint8,bytes32,bytes32),address,bytes)` with `token` padding
-            mstore(ptr, 0xe4269fc4000000000000000000000000) 
+            mstore(ptr, 0xe4269fc4000000000000000000000000)
             mstore(add(0x34, ptr), amount)
             // permit data is not going to be used as we are approving forwarder.
             // As it is not used, then we can send anything we have in memory
@@ -37,7 +37,7 @@ contract Mayan {
             // modify copied amount in protocolData which starts at 0x134
             // then, amountIn is at 0x178 after skipping size (0x20), selector (0x04) and token (0x20)
             mstore(add(0x178, ptr), amount)
-            
+
             // `forwarder` is user provided and we don't check if it is a restricted target before calling it.
             // It is fine to do so as this block only calls `forwardERC20` so there is no arbitrary
             // execution and this selector doesn't collide with current restricted targets (AllowanceHolder & Permit2).

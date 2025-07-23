@@ -9,11 +9,7 @@ import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 
 interface IStargateV2 {
     event OFTSent(
-        bytes32 indexed guid,
-        uint32 dstEid,
-        address indexed fromAddress,
-        uint256 amountSentLD,
-        uint256 amountReceivedLD
+        bytes32 indexed guid, uint32 dstEid, address indexed fromAddress, uint256 amountSentLD, uint256 amountReceivedLD
     );
 
     struct SendParam {
@@ -48,9 +44,10 @@ interface IStargateV2 {
 
     function sendToken(SendParam memory SendParam, MessagingFee memory messagingFee, address refundAddress) external;
 
-    function quoteOFT(
-        SendParam calldata _sendParam
-    ) external view returns (OFTLimit memory, OFTFeeDetail[] memory oftFeeDetails, OFTReceipt memory);
+    function quoteOFT(SendParam calldata _sendParam)
+        external
+        view
+        returns (OFTLimit memory, OFTFeeDetail[] memory oftFeeDetails, OFTReceipt memory);
 
     function quoteSend(SendParam calldata _sendParam, bool _payInLzToken) external view returns (MessagingFee memory);
 }
@@ -60,11 +57,10 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
 
     receive() external payable {}
 
-    function _prepareSendToken(uint256 amount) internal returns (
-        IStargateV2.SendParam memory sendParam, 
-        IStargateV2.MessagingFee memory messagingFee, 
-        uint256 fee
-    ) {
+    function _prepareSendToken(uint256 amount)
+        internal
+        returns (IStargateV2.SendParam memory sendParam, IStargateV2.MessagingFee memory messagingFee, uint256 fee)
+    {
         sendParam = IStargateV2.SendParam({
             dstEid: uint32(30110), // BASE
             to: bytes32(uint256(uint160(makeAddr("recipient")))),
@@ -88,32 +84,22 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         uint256 amount = 1 ether;
         uint256 extraGas = 10;
 
-        (
-            IStargateV2.SendParam memory sendParam,
-            IStargateV2.MessagingFee memory messagingFee, 
-            uint256 fee
-        ) = _prepareSendToken(amount);
+        (IStargateV2.SendParam memory sendParam, IStargateV2.MessagingFee memory messagingFee, uint256 fee) =
+            _prepareSendToken(amount);
 
         sendParam.amountLD = 0; // send 0 to let settler inject the value
         bytes[] memory bridgeActions = new bytes[](1);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_NATIVE_TO_STARGATE_V2, (
-                pool,
-                extraGas,
-                abi.encode(
-                    sendParam,
-                    messagingFee,
-                    address(this)
-                )
-            )
+            IBridgeSettlerActions.BRIDGE_NATIVE_TO_STARGATE_V2,
+            (pool, extraGas, abi.encode(sendParam, messagingFee, address(this)))
         );
         sendParam.amountLD = amount;
 
         deal(address(this), amount + extraGas + fee);
         uint256 balanceBefore = address(pool).balance;
         vm.expectCall(
-            pool, 
-            amount + extraGas + fee, 
+            pool,
+            amount + extraGas + fee,
             abi.encodeCall(IStargateV2.sendToken, (sendParam, messagingFee, address(this)))
         );
         bridgeSettler.execute{value: amount + extraGas + fee}(bridgeActions, bytes32(0));
@@ -132,21 +118,16 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         deal(address(token), address(this), amount);
         token.approve(address(ALLOWANCE_HOLDER), amount);
 
-        (
-            IStargateV2.SendParam memory sendParam,
-            IStargateV2.MessagingFee memory messagingFee, 
-            uint256 fee
-        ) = _prepareSendToken(amount);
+        (IStargateV2.SendParam memory sendParam, IStargateV2.MessagingFee memory messagingFee, uint256 fee) =
+            _prepareSendToken(amount);
 
         bytes[] memory bridgeActions = new bytes[](2);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM, (
+            IBridgeSettlerActions.TRANSFER_FROM,
+            (
                 address(bridgeSettler),
                 ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({
-                        token: address(token),
-                        amount: amount
-                    }),
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(token), amount: amount}),
                     nonce: 0,
                     deadline: block.timestamp
                 }),
@@ -155,25 +136,14 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         );
         sendParam.amountLD = 0; // send 0 to let settler inject the value
         bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_STARGATE_V2, (
-                address(token),
-                pool,
-                abi.encode(
-                    sendParam,
-                    messagingFee,
-                    address(this)
-                )
-            )
+            IBridgeSettlerActions.BRIDGE_ERC20_TO_STARGATE_V2,
+            (address(token), pool, abi.encode(sendParam, messagingFee, address(this)))
         );
         sendParam.amountLD = amount;
 
         deal(address(this), fee);
         uint256 balanceBefore = token.balanceOf(pool);
-        vm.expectCall(
-            pool, 
-            fee, 
-            abi.encodeCall(IStargateV2.sendToken, (sendParam, messagingFee, address(this)))
-        );
+        vm.expectCall(pool, fee, abi.encodeCall(IStargateV2.sendToken, (sendParam, messagingFee, address(this))));
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
             address(token),

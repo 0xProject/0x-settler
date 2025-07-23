@@ -39,13 +39,7 @@ contract MayanTest is BridgeSettlerIntegrationTest {
             IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN,
             (
                 forwarder,
-                abi.encode(
-                    mayanProtocol,
-                    abi.encodeCall(
-                        MayanProtocolDummy.mayanNativeReceiver,
-                        (someExtraBytes)
-                    )
-                )
+                abi.encode(mayanProtocol, abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (someExtraBytes)))
             )
         );
 
@@ -75,14 +69,12 @@ contract MayanTest is BridgeSettlerIntegrationTest {
             )
         );
         bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN, (
+            IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN,
+            (
                 forwarder,
                 abi.encode(
                     mayanProtocol,
-                    abi.encodeCall(
-                        MayanProtocolDummy.mayanERC20Receiver,
-                        (address(token), 0, someExtraBytes)
-                    )
+                    abi.encodeCall(MayanProtocolDummy.mayanERC20Receiver, (address(token), 0, someExtraBytes))
                 )
             )
         );
