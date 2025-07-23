@@ -37,7 +37,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             hex"5af43d3d93803e602357fd5bf3"
         )
     );
-    string public override constant name = "ZeroExCrossChainReceiver";
+    string public constant override name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;

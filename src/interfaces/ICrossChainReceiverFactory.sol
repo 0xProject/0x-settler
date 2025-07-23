@@ -10,7 +10,9 @@ interface ICrossChainReceiverFactory is IERC1271, IERC5267, IOwnable {
     function name() external view returns (string memory);
 
     /// Only available on the factory
-    function deploy(bytes32 root, bool setOwnerNotCleanup, address initialOwner) external returns (ICrossChainReceiverFactory);
+    function deploy(bytes32 root, bool setOwnerNotCleanup, address initialOwner)
+        external
+        returns (ICrossChainReceiverFactory);
 
     /// Only available on proxies
     function setOwner(address owner) external;
