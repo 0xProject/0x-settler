@@ -23,7 +23,7 @@ jobs:
         run: git submodule update --recursive --init
 
       - name: Run EulerSwap math tests
-        run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
+        run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.28
 
@@ -53,13 +53,13 @@ jobs:
           FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run MultiCall tests
-        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/0.8.28/*' --mp test/0.8.25/MultiCall.t.sol
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
       - name: Run CrossChainReceiverFactory tests
-        run: forge test --skip 'src/*' --skip 'test/0.8.28/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+        run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/unit/CrossChainReceiverFactory.t.sol
 
       - name: Run all the other tests
         run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol
