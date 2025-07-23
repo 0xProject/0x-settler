@@ -9,7 +9,7 @@ import {Create3} from "src/utils/Create3.sol";
 import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 
-import {MainnetDefaultFork} from "../integration/BaseForkTest.t.sol";
+import {MainnetDefaultFork} from "../../integration/BaseForkTest.t.sol";
 
 import "@forge-std/Test.sol";
 
