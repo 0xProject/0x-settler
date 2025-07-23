@@ -22,6 +22,11 @@ jobs:
       - name: Install dependencies
         run: git submodule update --recursive --init
 
+      - name: Run EulerSwap math tests
+        run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.28
+
       - name: Build contracts
         run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
 
@@ -55,11 +60,6 @@ jobs:
 
       - name: Run CrossChainReceiverFactory tests
         run: forge test --skip 'src/*' --skip 'test/0.8.28/*' --mp test/unit/CrossChainReceiverFactory.t.sol
-
-      - name: Run EulerSwap math tests
-        run: forge test --skip 'src/*' --skip 'script/*' --skip CrossChainReceiverFactory.t.sol --mp test/0.8.28/EulerSwapBUSL.t.sol
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run all the other tests
         run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol
