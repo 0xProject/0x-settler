@@ -44,7 +44,7 @@ jobs:
         run: forge build --skip MultiCall.sol --skip 'test/*'
 
       - name: Run all the other tests
-        run: forge test --skip 'src/*' --nmc MultiCall
+        run: forge test -vvv --skip 'src/*' --nmc MultiCall
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
