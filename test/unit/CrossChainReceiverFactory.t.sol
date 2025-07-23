@@ -65,7 +65,7 @@ contract CrossChainReceiverFactoryTest is Test {
         returns (CrossChainReceiverFactory proxy, address owner)
     {
         owner = vm.addr(privateKey);
-        proxy = factory.deploy(root, owner, setOwner);
+        proxy = factory.deploy(root, setOwner, owner);
         vm.label(address(proxy), "Proxy");
     }
 
