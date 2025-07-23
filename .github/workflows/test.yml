@@ -30,6 +30,7 @@ jobs:
 
       - name: Build UniswapV4
         run: forge build -- lib/v4-core/src/PoolManager.sol
+          FOUNDRY_SOLC_VERSION: 0.8.26
 
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
