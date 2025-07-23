@@ -554,6 +554,14 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     constructor() {
         assert(_hasMetaTxn());
+        assert(
+            keccak256(bytes(Permit2PaymentMetaTxn._witnessTypeSuffix()))
+                == keccak256(
+                    abi.encodePacked(
+                        "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
+                    )
+                )
+        );
     }
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
@@ -577,11 +585,8 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     }
 
     function _witnessTypeSuffix() internal pure virtual returns (string memory) {
-        return string(
-            abi.encodePacked(
-                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
-            )
-        );
+        return
+        "SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)";
     }
 
     function _transferFrom(
@@ -637,8 +642,16 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
+    constructor() {
+        assert(
+            keccak256(bytes(Permit2PaymentIntent._witnessTypeSuffix()))
+                == keccak256(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE))
+        );
+    }
+
     function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
-        return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
+        return
+        "Slippage slippage)Slippage(address recipient,address buyToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
     }
 
     bytes32 private constant _BRIDGE_WALLET_CODEHASH =
@@ -663,7 +676,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), super._permitToSellAmountCalldata(permit));
+        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
     }
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
@@ -673,6 +686,6 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), super._permitToSellAmount(permit));
+        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
     }
 }
