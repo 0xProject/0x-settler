@@ -151,13 +151,26 @@ contract USDCWETHTest is
         return fromToken() < toToken();
     }
 
+    function ekuboBlockNumber() internal pure override returns (uint256) {
+        return 22682485;
+    }
+
     function ekuboPoolConfig() internal pure override returns (bytes32) {
         // Key for ETH_USDC pool (not WETH)
         return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7000003e8);
     }
 
-    function ekuboFills() internal view virtual override returns (bytes memory) {
+    function ekuboExtensionConfig() internal pure override returns (bytes32) {
+        // Key for ETH_USDC pool (not WETH)
+        return bytes32(0x553a2efc570c9e104942cec6ac1c18118e54c09100068db8bac710cb000000c8);
+    }
+
+    function ekuboFills() internal pure virtual override returns (bytes memory) {
         return abi.encodePacked(uint16(10_000), bytes1(0x01), _eth, ekuboPoolConfig());
+    }
+
+    function ekuboExtensionFills() internal pure override returns (bytes memory) {
+        return abi.encodePacked(uint16(42768), bytes1(0x01), _eth, ekuboExtensionConfig());
     }
 
     function recipient() internal view virtual override returns (address) {

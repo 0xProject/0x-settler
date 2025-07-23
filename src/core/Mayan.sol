@@ -15,6 +15,7 @@ contract Mayan {
             // then, token is at 0x84 
             token := mload(add(0x84, protocolAndData))
         }
+
         uint256 amount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(forwarder, amount);
         assembly ("memory-safe") {
@@ -45,7 +46,7 @@ contract Mayan {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-        }   
+        }
     }
 
     function bridgeNativeToMayan(address forwarder, bytes memory protocolAndData) internal {

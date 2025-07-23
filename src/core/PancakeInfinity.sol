@@ -232,7 +232,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
         assert(block.chainid == 56 || block.chainid == 31337);
     }
 
@@ -288,9 +288,6 @@ abstract contract PancakeInfinity is SettlerAbstract {
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         bytes memory data = Encoder.encode(
             uint32(IPancakeInfinityVault.lock.selector),
             recipient,

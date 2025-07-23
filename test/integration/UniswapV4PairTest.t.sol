@@ -11,7 +11,13 @@ import {Settler} from "src/Settler.sol";
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
-import {UNIVERSAL_ROUTER, CONTRACT_BALANCE, RECIPIENT_TAKER, encodePermit2Permit, encodeV4Swap} from "src/vendor/IUniswapUniversalRouter.sol";
+import {
+    UNIVERSAL_ROUTER,
+    CONTRACT_BALANCE,
+    RECIPIENT_TAKER,
+    encodePermit2Permit,
+    encodeV4Swap
+} from "src/vendor/IUniswapUniversalRouter.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
@@ -135,7 +141,9 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
             ""
         );
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV4_VIP, (FROM, false, hashMul, hashMod, fills, permit, sig, slippageLimit()))
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV4_VIP, (FROM, false, hashMul, hashMod, fills, permit, sig, slippageLimit())
+            )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),

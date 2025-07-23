@@ -15,12 +15,7 @@ contract RelayTest is BridgeSettlerUnitTest, Utils {
         bytes32 requestId = keccak256("requestId - native transfer");
 
         bytes[] memory bridgeActions = new bytes[](1);
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY, (
-                to,
-                requestId
-            )
-        );
+        bridgeActions[0] = abi.encodeCall(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY, (to, requestId));
 
         deal(address(this), 1000);
 
@@ -39,26 +34,18 @@ contract RelayTest is BridgeSettlerUnitTest, Utils {
 
         bytes[] memory bridgeActions = new bytes[](2);
         bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM, (
+            IBridgeSettlerActions.TRANSFER_FROM,
+            (
                 address(bridgeSettler),
                 ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({
-                        token: address(token),
-                        amount: amount
-                    }),
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(token), amount: amount}),
                     nonce: 0,
                     deadline: block.timestamp
                 }),
                 bytes("")
             )
         );
-        bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY, (
-                address(token),
-                to,
-                requestId
-            )
-        );
+        bridgeActions[1] = abi.encodeCall(IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY, (address(token), to, requestId));
 
         deal(address(token), address(this), amount);
         token.approve(address(ALLOWANCE_HOLDER), amount);

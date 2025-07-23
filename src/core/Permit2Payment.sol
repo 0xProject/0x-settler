@@ -28,12 +28,12 @@ import {AbstractContext, Context} from "../Context.sol";
 import {AllowanceHolderContext, ALLOWANCE_HOLDER} from "../allowanceholder/AllowanceHolderContext.sol";
 
 library TransientStorage {
-    // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint128).max)
-    bytes32 private constant _OPERATOR_SLOT = 0x0000000000000000000000000000000007f49fa1cdccd5c65a7d4860ce3abbe9;
-    // bytes32((uint256(keccak256("witness slot")) - 1) & type(uint128).max)
-    bytes32 private constant _WITNESS_SLOT = 0x00000000000000000000000000000000e44a235ac7aebfbc05485e093720deaa;
-    // bytes32((uint256(keccak256("payer slot")) - 1) & type(uint128).max)
-    bytes32 private constant _PAYER_SLOT = 0x00000000000000000000000000000000c824a45acd1e9517bb0cb8d0d5cde893;
+    // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint96).max)
+    bytes32 private constant _OPERATOR_SLOT = 0x0000000000000000000000000000000000000000cdccd5c65a7d4860ce3abbe9;
+    // bytes32((uint256(keccak256("witness slot")) - 1) & type(uint96).max)
+    bytes32 private constant _WITNESS_SLOT = 0x0000000000000000000000000000000000000000c7aebfbc05485e093720deaa;
+    // bytes32((uint256(keccak256("payer slot")) - 1) & type(uint96).max)
+    bytes32 private constant _PAYER_SLOT = 0x0000000000000000000000000000000000000000cd1e9517bb0cb8d0d5cde893;
 
     // We assume (and our CI enforces) that internal function pointers cannot be
     // greater than 2 bytes. On chains not supporting the ViaIR pipeline, not
@@ -334,8 +334,9 @@ abstract contract Permit2Payment is Permit2PaymentBase {
                     0x00
                 )
             ) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
         }
     }
@@ -468,8 +469,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
                 // We don't need to check that Permit2 has code, and it always signals failure by
                 // reverting.
                 if iszero(call(gas(), __PERMIT2, 0x00, add(0x1c, ptr), add(0x124, sigLength), 0x00, 0x00)) {
-                    returndatacopy(ptr, 0x00, returndatasize())
-                    revert(ptr, returndatasize())
+                    let ptr_ := mload(0x40)
+                    returndatacopy(ptr_, 0x00, returndatasize())
+                    revert(ptr_, returndatasize())
                 }
             }
         }
@@ -502,8 +504,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             // value because `AllowanceHolder` always either reverts or returns `true`. We also
             // don't need to check that it has code.
             if iszero(call(gas(), _ALLOWANCE_HOLDER, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x00)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
         }
     }
