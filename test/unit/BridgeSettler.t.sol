@@ -16,6 +16,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Utils} from "./Utils.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {IERC721View} from "src/deployer/IDeployer.sol";
+import {console} from "@forge-std/console.sol";
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}
@@ -51,6 +52,9 @@ contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
         // Mock DAI and USDC for MainnetSettler to be usable
         vm.etch(address(DAI), address(token).code);
         vm.etch(address(USDC), address(token).code);
+        console.logBytes32(bytes32(block.chainid));
+        console.log(block.chainid);
+        console.log(vm.toString(block.chainid));
         settler = new MainnetSettler(bytes20(0));
     }
 }
