@@ -111,6 +111,34 @@ interface IMaverickV2Pool {
     function getState() external view returns (State memory);
 }
 
+library FastMaverickV2Pool {
+    function fastTokenA(IMaverickV2Pool pool) internal view returns (IERC20 token) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x0fc63d10) // selector for `tokenA()`
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            token := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
+        }
+    }
+
+    function fastTokenB(IMaverickV2Pool pool) internal view returns (IERC20 token) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x5f64b55b) // selector for `tokenB()`
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            token := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
+        }
+    }
+}
+
 interface IMaverickV2SwapCallback {
     function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 amountOut, bytes calldata data)
         external;
@@ -119,6 +147,7 @@ interface IMaverickV2SwapCallback {
 abstract contract MaverickV2 is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
+    using FastMaverickV2Pool for IMaverickV2Pool;
 
     function _encodeSwapCallback(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         internal
@@ -171,7 +200,7 @@ abstract contract MaverickV2 is SettlerAbstract {
             (uint256, uint256)
         );
         if (buyAmount < minBuyAmount) {
-            IERC20 buyToken = tokenAIn ? IMaverickV2Pool(pool).tokenB() : IMaverickV2Pool(pool).tokenA();
+            IERC20 buyToken = tokenAIn ? IMaverickV2Pool(pool).fastTokenB() : IMaverickV2Pool(pool).fastTokenA();
             revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
         }
     }
