@@ -48,7 +48,7 @@ abstract contract Basic is SettlerAbstract {
             // TODO: check for zero `bps`
             if (offset != 0) revert InvalidOffset();
         } else {
-            // We treat `sellToken.fastBalanceOf(address(this)) > type(uint240).max` as a GIGO error
+            // We treat `bps > BASIS` as a GIGO error
             uint256 amount = sellToken.fastBalanceOf(address(this)).unsafeMulDiv(bps, BASIS);
 
             if ((offset += 32) > data.length) {
