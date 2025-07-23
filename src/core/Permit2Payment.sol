@@ -644,6 +644,18 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     bytes32 private constant _BRIDGE_WALLET_CODEHASH =
         0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff; // TODO
 
+    function _toCanonicalSellAmount(IERC20 token, uint256 sellAmount) private view returns (uint256) {
+        unchecked {
+            if (~sellAmount < BASIS) {
+                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                    sellAmount = BASIS - ~sellAmount;
+                    sellAmount = token.fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                }
+            }
+        }
+        return sellAmount;
+    }
+
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
@@ -651,15 +663,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = super._permitToSellAmountCalldata(permit);
-        unchecked {
-            if (~sellAmount < BASIS) {
-                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
-                    sellAmount = BASIS - ~sellAmount;
-                    sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
-                }
-            }
-        }
+        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), super._permitToSellAmountCalldata(permit));
     }
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
@@ -669,14 +673,6 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = super._permitToSellAmount(permit);
-        unchecked {
-            if (~sellAmount < BASIS) {
-                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
-                    sellAmount = BASIS - ~sellAmount;
-                    sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
-                }
-            }
-        }
+        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), super._permitToSellAmount(permit));
     }
 }
