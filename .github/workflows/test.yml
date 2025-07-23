@@ -53,15 +53,16 @@ jobs:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
-      - name: Run tests that depend on MultiCall
-        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+      - name: Run CrossChainReceiverFactory tests
+        run: forge test --skip 'src/*' --skip EulerSwapBUSL.t.sol -- test/unit/CrossChainReceiverFactory.t.sol
+
+      - name: Run EulerSwap math tests
+        run: forge test --skip 'src/*' --skip CrossChainReceiverFactory.t.sol --mp test/unit/EulerSwapBUSL.t.sol
         env:
-          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
-          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
           FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Run all the other tests
-        run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --nmp test/unit/CrossChainReceiverFactory.t.sol --nmc MultiCall
+        run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip test/unit/EulerSwapBUSL.t.sol --skip test/unit/CrossChainReceiverFactory.t.sol --nmc MultiCall
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}

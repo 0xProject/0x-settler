@@ -6,6 +6,7 @@ import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
 
+import {ICrossChainReceiverFactory} from "./interfaces/ICrossChainReceiverFactory.sol";
 import {TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
 import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
@@ -22,7 +23,7 @@ interface IWrappedNative is IERC20 {
     receive() external payable;
 }
 
-contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoStepOwnable {
+contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallContext, TwoStepOwnable {
     using FastLogic for bool;
     using Ternary for bool;
 
@@ -36,7 +37,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
             hex"5af43d3d93803e602357fd5bf3"
         )
     );
-    string public constant name = "ZeroExCrossChainReceiver";
+    string public override constant name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
@@ -255,6 +256,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
     function eip712Domain()
         external
         view
+        override
         onlyProxy
         returns (
             bytes1 fields,
@@ -272,10 +274,12 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         verifyingContract = address(this);
     }
 
+    /// @inheritdoc ICrossChainReceiverFactory
     function deploy(bytes32 root, bool setOwnerNotCleanup, address initialOwner)
         external
+        override
         noDelegateCall
-        returns (CrossChainReceiverFactory proxy)
+        returns (ICrossChainReceiverFactory proxy)
     {
         assembly ("memory-safe") {
             // derive the deployment salt from the owner
@@ -312,11 +316,13 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    function setOwner(address owner) external onlyFactory {
+    /// @inheritdoc ICrossChainReceiverFactory
+    function setOwner(address owner) external override onlyFactory {
         _setOwner(owner);
     }
 
-    function approvePermit2(IERC20 token, uint256 amount) external onlyProxy returns (bool) {
+    /// @inheritdoc ICrossChainReceiverFactory
+    function approvePermit2(IERC20 token, uint256 amount) external override onlyProxy returns (bool) {
         if (token == _NATIVE) {
             token = _WNATIVE;
             assembly ("memory-safe") {
@@ -349,8 +355,10 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
+    /// @inheritdoc ICrossChainReceiverFactory
     function call(address payable target, uint256 value, bytes calldata data)
         external
+        override
         onlyOwner
         returns (bytes memory)
     {
@@ -370,7 +378,8 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    function cleanup(address payable beneficiary) external {
+    /// @inheritdoc ICrossChainReceiverFactory
+    function cleanup(address payable beneficiary) external override {
         if (msg.sender == address(_cachedThis)) {
             if (address(this).balance != 0) {
                 IWrappedNative wnative = _WNATIVE;
@@ -556,7 +565,7 @@ contract CrossChainReceiverFactory is IERC1271, IERC5267, MultiCallContext, TwoS
         }
     }
 
-    receive() external payable onlyProxy {
+    receive() external payable override onlyProxy {
         if (msg.sender != address(_WNATIVE)) {
             IWrappedNative wnative = _WNATIVE;
             assembly ("memory-safe") {

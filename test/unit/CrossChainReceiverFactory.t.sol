@@ -7,10 +7,10 @@ import {IMultiCall, MULTICALL_ADDRESS} from "src/multicall/MultiCallContext.sol"
 
 import {Test} from "@forge-std/Test.sol";
 import {MockERC20} from "@forge-std/mocks/MockERC20.sol";
-import {CrossChainReceiverFactory} from "src/CrossChainReceiverFactory.sol";
+import {ICrossChainReceiverFactory} from "src/interfaces/ICrossChainReceiverFactory.sol";
 
 contract CrossChainReceiverFactoryTest is Test {
-    CrossChainReceiverFactory internal constant factory = CrossChainReceiverFactory(payable(address(0xf4c70)));
+    ICrossChainReceiverFactory internal constant factory = ICrossChainReceiverFactory(payable(address(0xf4c70)));
 
     IERC20 internal constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
@@ -62,7 +62,7 @@ contract CrossChainReceiverFactoryTest is Test {
 
     function _deployProxyToRoot(bytes32 root, uint256 privateKey, bool setOwner)
         internal
-        returns (CrossChainReceiverFactory proxy, address owner)
+        returns (ICrossChainReceiverFactory proxy, address owner)
     {
         owner = vm.addr(privateKey);
         proxy = factory.deploy(root, setOwner, owner);
@@ -71,23 +71,23 @@ contract CrossChainReceiverFactoryTest is Test {
 
     function _deployProxy(bytes32 action, uint256 privateKey, bool setOwner)
         internal
-        returns (CrossChainReceiverFactory, address)
+        returns (ICrossChainReceiverFactory, address)
     {
         bytes32 root = keccak256(abi.encode(action, block.chainid));
         return _deployProxyToRoot(root, privateKey, setOwner);
     }
 
-    function _deployProxy(bytes32 action, uint256 privateKey) internal returns (CrossChainReceiverFactory, address) {
+    function _deployProxy(bytes32 action, uint256 privateKey) internal returns (ICrossChainReceiverFactory, address) {
         return _deployProxy(action, privateKey, true);
     }
 
-    function _deployProxy(bytes32 action) internal returns (CrossChainReceiverFactory, address) {
+    function _deployProxy(bytes32 action) internal returns (ICrossChainReceiverFactory, address) {
         return _deployProxy(action, uint256(keccak256(abi.encode("owner"))));
     }
 
     function testProxyBytecode() public {
         bytes32 action = keccak256(abi.encode("action"));
-        (CrossChainReceiverFactory proxy, address owner) = _deployProxy(action);
+        (ICrossChainReceiverFactory proxy, address owner) = _deployProxy(action);
 
         assertEq(
             address(proxy).code,
@@ -99,7 +99,7 @@ contract CrossChainReceiverFactoryTest is Test {
 
     function testSingleAction() public {
         bytes32 action = keccak256(abi.encode("action"));
-        (CrossChainReceiverFactory proxy, address owner) = _deployProxy(action);
+        (ICrossChainReceiverFactory proxy, address owner) = _deployProxy(action);
 
         bytes32[] memory proof = new bytes32[](0);
         assertEq(proxy.isValidSignature(action, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e));
@@ -120,7 +120,7 @@ contract CrossChainReceiverFactoryTest is Test {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = leaf1;
 
-        (CrossChainReceiverFactory proxy, address owner) =
+        (ICrossChainReceiverFactory proxy, address owner) =
             _deployProxyToRoot(root, uint256(keccak256(abi.encode("owner"))), false);
         assertEq(
             proxy.isValidSignature(action2, abi.encode(owner, proof, bytes(""))), bytes4(0x1626ba7e), "Action2 failed"
@@ -139,7 +139,7 @@ contract CrossChainReceiverFactoryTest is Test {
     }
 
     function testOwner() public {
-        (CrossChainReceiverFactory proxy, address owner) = _deployProxy(keccak256(abi.encode("action")));
+        (ICrossChainReceiverFactory proxy, address owner) = _deployProxy(keccak256(abi.encode("action")));
 
         vm.prank(owner);
         assertEq(proxy.owner(), owner, "Owner not set");
@@ -148,7 +148,7 @@ contract CrossChainReceiverFactoryTest is Test {
     function testWrap() public {
         uint256 signerKey = uint256(keccak256(abi.encode("signer")));
         bytes32 root = keccak256(abi.encode("root"));
-        (CrossChainReceiverFactory proxy,) = _deployProxy(root, signerKey, false);
+        (ICrossChainReceiverFactory proxy,) = _deployProxy(root, signerKey, false);
 
         vm.deal(address(proxy), 1 ether);
         assertEq(address(proxy).balance, 1 ether);
@@ -166,7 +166,7 @@ contract CrossChainReceiverFactoryTest is Test {
 
     function testNestedEIP712Signature() public {
         uint256 ownerKey = uint256(keccak256(abi.encode("owner")));
-        (CrossChainReceiverFactory proxy,) = _deployProxy(keccak256(abi.encode("action")), ownerKey);
+        (ICrossChainReceiverFactory proxy,) = _deployProxy(keccak256(abi.encode("action")), ownerKey);
 
         bytes32 testDomainSeparator = keccak256(
             abi.encode(
