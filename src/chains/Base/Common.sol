@@ -49,7 +49,16 @@ import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract BaseMixin is FreeMemory, SettlerBase, MaverickV2, DodoV2, UniswapV4, BalancerV3, PancakeInfinity, EulerSwap {
+abstract contract BaseMixin is
+    FreeMemory,
+    SettlerBase,
+    MaverickV2,
+    DodoV2,
+    UniswapV4,
+    BalancerV3,
+    PancakeInfinity,
+    EulerSwap
+{
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
