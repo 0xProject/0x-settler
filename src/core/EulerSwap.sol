@@ -525,7 +525,6 @@ function __EVaultIterator_ne(EVaultIterator a, EVaultIterator b) pure returns (b
 
 using {__EVaultIterator_eq as ==, __EVaultIterator_ne as !=} for EVaultIterator global;
 
-
 library EulerSwapLib {
     using UnsafeMath for uint256;
     using Math for uint256;
@@ -813,7 +812,9 @@ library EulerSwapLib {
             // because debt must be representable as a `uint112`.
             debt *= 1e4;
             uint256 collateral; // the sum of all LTV-adjusted, unit-of-account valued collaterals
-            for ((EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end()); i != end; i = i.next()) {
+            for (
+                (EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end()); i != end; i = i.next()
+            ) {
                 IEVault collateralVault = collaterals.get(i);
                 uint256 collateralAmount = collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(account));
                 if (collateralVault == sellVault) {
