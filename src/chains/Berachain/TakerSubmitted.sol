@@ -39,7 +39,7 @@ contract BerachainSettler is Settler, BerachainMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BerachainMixin)
+        override(Settler, BerachainMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

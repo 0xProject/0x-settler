@@ -54,7 +54,7 @@ contract PolygonSettler is Settler, PolygonMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, PolygonMixin)
+        override(Settler, PolygonMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

@@ -80,7 +80,7 @@ contract BnbSettler is Settler, BnbMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BnbMixin)
+        override(Settler, BnbMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
