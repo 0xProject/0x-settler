@@ -126,23 +126,16 @@ safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
-. "$project_root"/sh/common_safe_owner.sh
-. "$project_root"/sh/common_wallet_type.sh
-. "$project_root"/sh/common_deploy_settler.sh
+. "$project_root"/sh/common_deploy_bridge_settler.sh
 
-while (( ${#deploy_calldatas[@]} >= 3 )) ; do
-    declare -i operation="${deploy_calldatas[0]}"
-    declare deploy_calldata="${deploy_calldatas[1]}"
-    declare target="${deploy_calldatas[2]}"
-    deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
+declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
 
-    declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation "$target")"
+echo 'Verifying bridge settler...' >&2
 
-    declare signature
-    signature="$(sign_call "$struct_json")"
+declare bridge_settler
+bridge_settler="$(cast call --rpc-url "$rpc_url" "$deployer_address" "$erc721_ownerof_sig" 5)"
+declare -r bridge_settler
 
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation "$target"
+verify_contract "$constructor_args" "$bridge_settler" "$flat_bridge_settler_source":"$chain_display_name"BridgeSettler
 
-    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
-done
+echo 'Verified bridge Settler. All done!' >&2
