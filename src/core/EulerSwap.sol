@@ -27,7 +27,7 @@ interface IEVC {
     /// controller vault.
     /// @param account The address of the account whose collaterals are being queried.
     /// @return An array of addresses that are enabled collaterals for the account.
-    function getCollaterals(address account) external view returns (address[] memory);
+    function getCollaterals(address account) external view returns (IEVault[] memory);
 
     /// @notice Returns an array of enabled controllers for an account.
     /// @dev A controller is a vault that has been chosen for an account to have special control over the account's
@@ -35,7 +35,7 @@ interface IEVC {
     /// most one can be selected when the account status check is performed.
     /// @param account The address of the account whose controllers are being queried.
     /// @return An array of addresses that are the enabled controllers for the account.
-    function getControllers(address account) external view returns (address[] memory);
+    function getControllers(address account) external view returns (IEVault[] memory);
 }
 
 library FastEvc {
@@ -60,7 +60,7 @@ library FastEvc {
         }
     }
 
-    function fastGetCollaterals(IEVC evc, address account) internal view returns (address[] memory collaterals) {
+    function fastGetCollaterals(IEVC evc, address account) internal view returns (IEVault[] memory collaterals) {
         assembly ("memory-safe") {
             mstore(0x14, account)
             mstore(0x00, 0xa4d25d1e000000000000000000000000) // selector for `getCollaterals(address)` with `account`'s padding
@@ -78,7 +78,7 @@ library FastEvc {
         }
     }
 
-    function fastGetControllers(IEVC evc, address account) internal view returns (address[] memory controllers) {
+    function fastGetControllers(IEVC evc, address account) internal view returns (IEVault[] memory controllers) {
         assembly ("memory-safe") {
             mstore(0x14, account)
             mstore(0x00, 0xfd6046d7000000000000000000000000) // selector for `getControllers(address)` with `account`'s padding
@@ -487,6 +487,45 @@ library ParamsLib {
     }
 }
 
+type EVaultIterator is uint256;
+
+library LibEVaultArray {
+    function iter(IEVault[] memory a) internal pure returns (EVaultIterator i) {
+        assembly ("memory-safe") {
+            i := add(0x20, a)
+        }
+    }
+
+    function end(IEVault[] memory a) internal pure returns (EVaultIterator i) {
+        assembly ("memory-safe") {
+            i := add(0x20, add(shl(0x05, mload(a)), a))
+        }
+    }
+
+    function next(EVaultIterator i) internal pure returns (EVaultIterator) {
+        unchecked {
+            return EVaultIterator.wrap(32 + EVaultIterator.unwrap(i));
+        }
+    }
+
+    function get(IEVault[] memory, EVaultIterator i) internal pure returns (IEVault r) {
+        assembly ("memory-safe") {
+            r := mload(i)
+        }
+    }
+}
+
+function __EVaultIterator_eq(EVaultIterator a, EVaultIterator b) pure returns (bool) {
+    return EVaultIterator.unwrap(a) == EVaultIterator.unwrap(b);
+}
+
+function __EVaultIterator_ne(EVaultIterator a, EVaultIterator b) pure returns (bool) {
+    return EVaultIterator.unwrap(a) != EVaultIterator.unwrap(b);
+}
+
+using {__EVaultIterator_eq as ==, __EVaultIterator_ne as !=} for EVaultIterator global;
+
+
 library EulerSwapLib {
     using UnsafeMath for uint256;
     using Math for uint256;
@@ -496,6 +535,8 @@ library EulerSwapLib {
     using FastEvc for IEVC;
     using FastEvault for IEVault;
     using FastOracle for IOracle;
+    using LibEVaultArray for IEVault[];
+    using LibEVaultArray for EVaultIterator;
 
     function findCurvePoint(uint256 amount, bool zeroForOne, ParamsLib.Params p, uint256 reserve0, uint256 reserve1)
         internal
@@ -645,18 +686,21 @@ library EulerSwapLib {
         uint256 amountIn,
         uint256 amountOut
     ) internal view returns (bool) {
-        address[] memory collaterals = evc.fastGetCollaterals(account);
+        IEVault[] memory collaterals = evc.fastGetCollaterals(account);
+        // The EVC enforces that there can be at most 1 controller for an Euler
+        // account. Consequently, there is only 1 vault in which the account can incur debt. If
+        // there is no controller (i.e. no debt) then `debtVault` will be zero.
         IEVault debtVault;
+        // `debt` is the outstanding debt owed by the Euler account to `debtVault`. If
+        // `debtVault.asset()` is the sell token and `amountIn > debt`, then `debt` will be zero.
         uint256 debt;
 
         {
-            address[] memory controllers = evc.fastGetControllers(account);
+            IEVault[] memory controllers = evc.fastGetControllers(account);
 
             if (controllers.length > 1) return false;
             if (controllers.length == 1) {
-                assembly ("memory-safe") {
-                    debtVault := mload(add(0x20, controllers))
-                }
+                debtVault = controllers.get(controllers.iter());
                 debt = debtVault.fastDebtOf(account);
             }
         }
@@ -669,11 +713,20 @@ library EulerSwapLib {
             buyVault = IEVault(buyVault_);
         }
 
+        // `newDebt` is new, underlying-denominated debt in the buy token incurred after the
+        // swap. It is zero if the swap only results in repaying debt (increasing the health
+        // factor).
         uint256 newDebt;
+        // `soldCollateral` is the new, underlying-denominated amount of collateral in the buy token
+        // that is removed from the account and given to the user. If the buy amount exceeds the
+        // amount of buy-token collateral available, then the value is `amountOut`.
         uint256 soldCollateral;
+        // `newCollateral` is the new, underlying-denominated amount of sell token collateral in the
+        // account after the swap. If `amountIn` is less than the current sell token debt, then
+        // `newCollateral` is zero.
         uint256 newCollateral;
 
-        // compute new debt in buyVault
+        // Compute the effect of sending `amountOut` of the buy token to the taker.
         {
             uint256 collateralBalance = buyVault.fastConvertToAssets(buyVault.fastBalanceOf(account));
             if (collateralBalance < amountOut) {
@@ -686,50 +739,61 @@ library EulerSwapLib {
             }
         }
 
-        // check sellVault debt
+        // Compute the effect of receiving `amountIn` of the sell token from the taker.
         if (debtVault == sellVault) {
-            // debt repayment
+            // We are repaying debt; we have to check whether this will cause us to disable
+            // `sellVault` as the controller.
             if (amountIn < debt) {
-                // collateral in buyVault must be able to cover the amountOut
-                // to ensure there is only one controller at the end.
+                // We are doing a partial repayment of the debt. We have to check for the edge case
+                // where we could end up with 2 controllers (forbidden by the EVC).
                 if (newDebt != 0) {
-                    // One way this can be possible is:
-                    // 1. TokenA and TokenB are the tokens in the pool with respectively VaultA and VaultB
-                    // 2. Pool is collateralized by TokenC (which might be one of the tokens in the pool)
-                    // 3. After some trading there is debt in TokenA and credit in TokenB, which means that
-                    // VaultA is controller and VaultB is an enabled collateral.
-                    // 4. The pool owner withdraws some of the credit in TokenB
-                    // 5. Then if the pools gets back to equilibrium there is going to be debt in both
-                    // TokenA and TokenB, meaning that there are going to be two controllers at the end.
+                    // We would end up with 2 controllers. Here's a hypothetical scenario: assume
+                    // that `tokenA` and `tokenB` are the underlying tokens in the pool with vault
+                    // `vaultA` and `vaultB`, respectively. Further assume that the Euler account is
+                    // collateralized by `tokenC` (which might be one of `tokenA` or `tokenB`, but
+                    // it doesn't matter). After some trading, there is debt in `tokenA` and credit
+                    // in `tokenB` (i.e. `tokenA` is the buy token and `tokenB` is the sell token),
+                    // which means that `vaultA` is the controller and `vaultB` is an enabled
+                    // collateral. The owner of the Euler account where the pool is an operator
+                    // withdraws some of the credit in `tokenB`. When the pool returns to
+                    // equilibrium (i.e. `reserve0 == equilibriumReserve0 && reserve1 ==
+                    // equilibriumReserve1`), there will be debt in both `tokenA` and `tokenB`. This
+                    // would require both `vaultA` and `vaultB` to be controllers, which is
+                    // forbidden.
                     return false;
-                }
-                unchecked {
-                    debt -= amountIn;
                 }
             } else {
                 unchecked {
                     newCollateral = amountIn - debt;
                 }
-                debt = 0; // debt was repaid
             }
+            debt = debt.saturatingSub(amountIn);
         } else {
             newCollateral = amountIn;
         }
 
         if (newDebt != 0) {
-            // There is new debt in buyVault. Then debtVault needs to be buyVault.
+            // If we have incurred debt in `buyVault`, then `buyVault` must already be
+            // `debtVault`. If this were not the case, then the EVC would revert because we were
+            // trying to release the lock while there are 2 controllers.
             if (debtVault != buyVault) {
+                // It is allowed to incur debt in a different vault iff all outstanding debt would
+                // be repaid. The pool will automatically disable the controller of the Euler
+                // account when the debt is repaid.
+
                 // If it is not and there is outstanding debt, then there is a second controller
                 // which is not allowed.
                 if (debt != 0) {
-                    // One way this can be possible is:
-                    // 1. TokenA and TokenB are the tokens in the pool with respectively VaultA and VaultB
-                    // 2. Pool is collateralized with both TokenA and TokenB
-                    // 3. The pool owner borrows some TokenC which generates debt and makes VaultC 
-                    // the controller in the pool
-                    // 4. After some trading collateral in TokenA is fully withdrawn
-                    // 5. Any subsequent trade to buy TokenA will generate debt and make
-                    // VaultA a second controller.
+                    // The outstanding debt was not entirely repaid. This would create 2
+                    // controllers, which the EVC enforces as invalid. Here's a hypothetical
+                    // scenario: assume that `tokenA` and `tokenB` are the underlying tokens in the
+                    // pool with vault `vaultA` and `vaultB`, respectively. Assume that the Euler
+                    // account has no debt in either `vaultA` or `vaultB`. The owner of the Euler
+                    // account borrows `tokenC` from `vaultC` that is neither `vaultA` nor
+                    // `vaultB`. This creates debt and enables `vaultC` as the controller of the
+                    // account. After some trading against the pool, the Euler account incurs a debt
+                    // in `tokenA` turning `vaultA` on as a controller. This is invalid because both
+                    // `vaultA` and `vaultC` would be controllers of the account.
                     return false;
                 }
                 debtVault = buyVault;
@@ -737,21 +801,20 @@ library EulerSwapLib {
             debt += newDebt;
         }
 
-        // check for solvency if there is any debt
+        // We now know the post-swap state of the pool. Adjust collateral for LTV and convert both
+        // collateral and debt into the unit of account for solvency.
         if (debt != 0) {
             IOracle oracle = debtVault.fastOracle();
             IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
 
             (, debt) = oracle.fastGetQuotes(debt, debtVault.fastAsset(), unitOfAccount);
-            // multiply by 1e4 to avoid divisions when adjusting LTVBorrow bps of collaterals.
-            // All amounts in EulerSwap are lower than uint112 so there should not be overflow errors.
+            // Debt is not LTV adjusted. LTV is in basis points. By multiplying the debt bt 10_000,
+            // we can avoid rounding error in the solvency calculation. Overflow is not possible
+            // because debt must be representable as a `uint112`.
             debt *= 1e4;
-            uint256 collateral;
-            for (uint256 i = 1; i <= collaterals.length; i++) {
-                IEVault collateralVault;
-                assembly ("memory-safe") {
-                    collateralVault := mload(add(mul(0x20, i), collaterals))
-                }
+            uint256 collateral; // the sum of all LTV-adjusted, unit-of-account valued collaterals
+            for ((EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end()); i != end; i = i.next()) {
+                IEVault collateralVault = collaterals.get(i);
                 uint256 collateralAmount = collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(account));
                 if (collateralVault == sellVault) {
                     collateralAmount += newCollateral;
@@ -775,10 +838,10 @@ library EulerSwapLib {
                 (uint256 value,) = oracle.fastGetQuotes(newCollateral, sellVault.fastAsset(), unitOfAccount);
                 collateral += (value * debtVault.fastLTVBorrow(sellVault));
             }
-            return (collateral >= debt);
+            return collateral >= debt;
+        } else {
+            return true;
         }
-
-        return true;
     }
 }
 
@@ -826,12 +889,9 @@ abstract contract EulerSwap is SettlerAbstract {
             unchecked {
                 sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
             }
-            // If the sell amount is over the limit:
-            // 1. Excess is absorbed by other sources
-            // 2. Donated as fee, which might result in a slippage revert
-            // 3. Left in settler if there is no slippage collection action 
-            // or it is not absorbed. This might result in slippage revert and,
-            // if not, assets will be compromissed and tentatively taken away.
+            // If the sell amount is over the limit, any excess will be retained by Settler and sold
+            // to subsequent liquidities in the actions list. If `pool` is the last liquidity, this
+            // will almost certainly result in a slippage revert.
             sellAmount = (sellAmount > inLimit).ternary(inLimit, sellAmount);
             sellToken.safeTransfer(address(pool), sellAmount);
         }
