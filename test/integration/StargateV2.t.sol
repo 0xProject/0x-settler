@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
+import {ArbitrumBridgeSettler} from "src/chains/Arbitrum/BridgeSettler.sol";
 
 interface IStargateV2 {
     event OFTSent(
@@ -56,6 +57,10 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
     address pool;
 
     receive() external payable {}
+
+    function testBridgeSettler() internal override {
+        bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
+    }
 
     function _prepareSendToken(uint256 amount)
         internal
