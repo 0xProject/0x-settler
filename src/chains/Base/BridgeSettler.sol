@@ -5,8 +5,9 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
+import {Mayan} from "../../core/Mayan.sol";
 
-contract BaseBridgeSettler is BridgeSettler, Across {
+contract BaseBridgeSettler is BridgeSettler, Across, Mayan {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
@@ -24,6 +25,12 @@ contract BaseBridgeSettler is BridgeSettler, Across {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS.selector)) {
             (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
             bridgeNativeToAcross(spoke, depositData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN.selector)) {
+            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
+            bridgeERC20ToMayan(forwarder, protocolAndData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
+            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
+            bridgeNativeToMayan(forwarder, protocolAndData);
         } else {
             return false;
         }
