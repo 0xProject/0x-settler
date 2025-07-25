@@ -697,7 +697,11 @@ library EulerSwapLib {
         {
             IEVault[] memory controllers = evc.fastGetControllers(account);
 
-            if (controllers.length > 1) return false;
+            if (controllers.length > 1) {
+                // Not possible unless we're already inside a EVC batch with deferred checks. An
+                // account that already has its checks deferred cannot be swapped against.
+                return false;
+            }
             if (controllers.length == 1) {
                 debtVault = controllers.get(controllers.iter());
                 debt = debtVault.fastDebtOf(account);
@@ -797,7 +801,9 @@ library EulerSwapLib {
                 }
                 debtVault = buyVault;
             }
-            debt += newDebt;
+            unchecked {
+                debt += newDebt;
+            }
         }
 
         // We now know the post-swap state of the pool. Adjust collateral for LTV and convert both
@@ -807,10 +813,12 @@ library EulerSwapLib {
             IERC20 unitOfAccount = debtVault.fastUnitOfAccount();
 
             (, debt) = oracle.fastGetQuotes(debt, debtVault.fastAsset(), unitOfAccount);
-            // Debt is not LTV adjusted. LTV is in basis points. By multiplying the debt bt 10_000,
+            // Debt is not LTV adjusted. LTV is in basis points. By multiplying the debt by 10_000,
             // we can avoid rounding error in the solvency calculation. Overflow is not possible
             // because debt must be representable as a `uint112`.
-            debt *= 1e4;
+            unchecked {
+                debt *= 1e4;
+            }
             uint256 collateral; // the sum of all LTV-adjusted, unit-of-account valued collaterals
             for (
                 (EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end()); i != end; i = i.next()
