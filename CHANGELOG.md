@@ -40,6 +40,8 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Update Scroll to the Cancun hardfork
+* Improve gas efficiency and accuracy of `EULERSWAP` action
+* Add solvency check for EulerSwap (does not execute on-chain)
 
 ### Non-breaking changes
 
