@@ -266,10 +266,10 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         ParamsLib.Params params = pool.fastGetParams();
         address eulerAccount = address(params.eulerAccount());
 
-        address[] memory collaterals = EVC.fastGetCollaterals(eulerAccount);
-        address[] memory controllers = EVC.fastGetControllers(eulerAccount);
+        IEVault[] memory collaterals = EVC.fastGetCollaterals(eulerAccount);
+        IEVault[] memory controllers = EVC.fastGetControllers(eulerAccount);
         assertEq(controllers.length, 1, "Multiple debt vaults");
-        assertEq(controllers[0], address(params.vault1()), "Debt vault is not vault1");
+        assertEq(address(controllers[0]), address(params.vault1()), "Debt vault is not vault1");
 
         IEVault debtVault = IEVault(controllers[0]);
         IOracle oracle = debtVault.fastOracle();
