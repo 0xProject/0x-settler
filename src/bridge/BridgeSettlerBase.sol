@@ -13,11 +13,8 @@ import {IDeployer} from "../deployer/IDeployer.sol";
 import {FastDeployer} from "../deployer/FastDeployer.sol";
 import {Basic} from "../core/Basic.sol";
 import {Relay} from "../core/Relay.sol";
-import {Mayan} from "../core/Mayan.sol";
-import {Across} from "../core/Across.sol";
-import {StargateV2} from "../core/StargateV2.sol";
 
-abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across, StargateV2 {
+abstract contract BridgeSettlerBase is Basic, Relay {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -89,24 +86,6 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across, StargateV2 {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY.selector)) {
             (address to, bytes32 requestId) = abi.decode(data, (address, bytes32));
             bridgeNativeToRelay(to, requestId);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN.selector)) {
-            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
-            bridgeERC20ToMayan(forwarder, protocolAndData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
-            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
-            bridgeNativeToMayan(forwarder, protocolAndData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS.selector)) {
-            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
-            bridgeERC20ToAcross(spoke, depositData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS.selector)) {
-            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
-            bridgeNativeToAcross(spoke, depositData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_STARGATE_V2.selector)) {
-            (IERC20 token, address pool, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
-            bridgeERC20ToStargateV2(token, pool, sendData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_STARGATE_V2.selector)) {
-            (address pool, uint256 destinationGas, bytes memory sendData) = abi.decode(data, (address, uint256, bytes));
-            bridgeNativeToStargateV2(pool, destinationGas, sendData);
         } else {
             return false;
         }
