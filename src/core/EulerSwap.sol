@@ -826,7 +826,9 @@ library EulerSwapLib {
                 IEVault collateralVault = collaterals.get(i);
                 uint256 collateralAmount = collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(account));
                 if (collateralVault == sellVault) {
-                    collateralAmount += newCollateral;
+                    unchecked {
+                        collateralAmount += newCollateral;
+                    }
                     newCollateral = 0;
                 } else if (collateralVault == buyVault) {
                     unchecked {
@@ -845,9 +847,12 @@ library EulerSwapLib {
                 }
             }
             if (newCollateral != 0) {
-                // Sell vault was not in the collaterals
+                // Sell vault was not in the collaterals. The pool enables the collateral for the
+                // account before releasing the EVC.
                 (uint256 value,) = oracle.fastGetQuotes(newCollateral, sellVault.fastAsset(), unitOfAccount);
-                collateral += (value * debtVault.fastLTVBorrow(sellVault));
+                unchecked {
+                    collateral += (value * debtVault.fastLTVBorrow(sellVault));
+                }
             }
             return collateral >= debt;
         } else {
