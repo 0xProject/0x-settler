@@ -542,31 +542,28 @@ library EulerSwapLib {
         pure
         returns (uint256)
     {
-        uint256 px = p.priceX();
-        uint256 py = p.priceY();
-        uint256 x0 = p.equilibriumReserve0();
-        uint256 y0 = p.equilibriumReserve1();
-
         unchecked {
             uint256 amountWithFee = amount - (amount * p.fee() / 1e18);
             if (zeroForOne) {
                 // swap X in and Y out
                 uint256 xNew = reserve0 + amountWithFee;
+                uint256 x0 = p.equilibriumReserve0();
                 uint256 yNew = xNew <= x0
                     // remain on f()
-                    ? CurveLib.saturatingF(xNew, px, py, x0, y0, p.concentrationX())
+                    ? CurveLib.saturatingF(xNew, p.priceX(), p.priceY(), x0, p.equilibriumReserve1(), p.concentrationX())
                     // move to g()
-                    : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
+                    : CurveLib.fInverse(xNew, p.priceY(), p.priceX(), p.equilibriumReserve1(), x0, p.concentrationY());
                 yNew = yNew.unsafeInc(yNew == 0);
                 return reserve1.saturatingSub(yNew);
             } else {
                 // swap Y in and X out
                 uint256 yNew = reserve1 + amountWithFee;
+                uint256 y0 = p.equilibriumReserve1();
                 uint256 xNew = yNew <= y0
                     // remain on g()
-                    ? CurveLib.saturatingF(yNew, py, px, y0, x0, p.concentrationY())
+                    ? CurveLib.saturatingF(yNew, p.priceY(), p.priceX(), y0, p.equilibriumReserve0(), p.concentrationY())
                     // move to f()
-                    : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
+                    : CurveLib.fInverse(yNew, p.priceX(), p.priceY(), p.equilibriumReserve0(), y0, p.concentrationX());
                 xNew = xNew.unsafeInc(xNew == 0);
                 return reserve0.saturatingSub(xNew);
             }
@@ -625,31 +622,26 @@ library EulerSwapLib {
         }
 
         uint256 inLimitFromOutLimit;
-        {
-            uint256 px = p.priceX();
-            uint256 py = p.priceY();
-            uint256 x0 = p.equilibriumReserve0();
+        if (zeroForOne) {
+            // swap Y out and X in
+            uint256 yNew = reserve1.saturatingSub(outLimit);
             uint256 y0 = p.equilibriumReserve1();
-
-            if (zeroForOne) {
-                // swap Y out and X in
-                uint256 yNew = reserve1.saturatingSub(outLimit);
-                uint256 xNew = yNew <= y0
-                    // remain on g()
-                    ? CurveLib.saturatingF(yNew, py, px, y0, x0, p.concentrationY())
-                    // move to f()
-                    : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
-                inLimitFromOutLimit = xNew.saturatingSub(reserve0);
-            } else {
-                // swap X out and Y in
-                uint256 xNew = reserve0.saturatingSub(outLimit);
-                uint256 yNew = xNew <= x0
-                    // remain on f()
-                    ? CurveLib.saturatingF(xNew, px, py, x0, y0, p.concentrationX())
-                    // move to g()
-                    : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
-                inLimitFromOutLimit = yNew.saturatingSub(reserve1);
-            }
+            uint256 xNew = yNew <= y0
+                // remain on g()
+                ? CurveLib.saturatingF(yNew, p.priceY(), p.priceX(), y0, p.equilibriumReserve0(), p.concentrationY())
+                // move to f()
+                : CurveLib.fInverse(yNew, p.priceX(), p.priceY(), p.equilibriumReserve0(), y0, p.concentrationX());
+            inLimitFromOutLimit = xNew.saturatingSub(reserve0);
+        } else {
+            // swap X out and Y in
+            uint256 xNew = reserve0.saturatingSub(outLimit);
+            uint256 x0 = p.equilibriumReserve0();
+            uint256 yNew = xNew <= x0
+                // remain on f()
+                ? CurveLib.saturatingF(xNew, p.priceX(), p.priceY(), x0, p.equilibriumReserve1(), p.concentrationX())
+                // move to g()
+                : CurveLib.fInverse(xNew, p.priceY(), p.priceX(), p.equilibriumReserve1(), x0, p.concentrationY());
+            inLimitFromOutLimit = yNew.saturatingSub(reserve1);
         }
 
         unchecked {
