@@ -668,16 +668,12 @@ library EulerSwapLib {
         }
     }
 
-    function checkSolvency(
-        IEVC evc,
-        address account,
-        address vault0,
-        address vault1,
-        bool zeroForOne,
-        uint256 amountIn,
-        uint256 amountOut
-    ) internal view returns (bool) {
-        IEVault[] memory collaterals = evc.fastGetCollaterals(account);
+    function checkSolvency(IEVC evc, ParamsLib.Params p, bool zeroForOne, uint256 amountIn, uint256 amountOut)
+        internal
+        view
+        returns (bool)
+    {
+        IEVault[] memory collaterals = evc.fastGetCollaterals(p.eulerAccount());
         // The EVC enforces that there can be at most 1 controller for an Euler
         // account. Consequently, there is only 1 vault in which the account can incur debt. If
         // there is no controller (i.e. no debt) then `debtVault` will be zero.
@@ -687,7 +683,7 @@ library EulerSwapLib {
         uint256 debt;
 
         {
-            IEVault[] memory controllers = evc.fastGetControllers(account);
+            IEVault[] memory controllers = evc.fastGetControllers(p.eulerAccount());
 
             if (controllers.length > 1) {
                 // Not possible unless we're already inside a EVC batch with deferred checks. An
@@ -696,16 +692,16 @@ library EulerSwapLib {
             }
             if (controllers.length == 1) {
                 debtVault = controllers.get(controllers.iter());
-                debt = debtVault.fastDebtOf(account);
+                debt = debtVault.fastDebtOf(p.eulerAccount());
             }
         }
 
         IEVault sellVault;
         IEVault buyVault;
         {
-            (address sellVault_, address buyVault_) = zeroForOne.maybeSwap(vault1, vault0);
-            sellVault = IEVault(sellVault_);
-            buyVault = IEVault(buyVault_);
+            (IERC20 sellVault_, IERC20 buyVault_) = zeroForOne.maybeSwap(p.vault1(), p.vault0());
+            sellVault = IEVault(address(sellVault_));
+            buyVault = IEVault(address(buyVault_));
         }
 
         // `newDebt` is new, underlying-denominated debt in the buy token incurred after the
@@ -723,7 +719,7 @@ library EulerSwapLib {
 
         // Compute the effect of sending `amountOut` of the buy token to the taker.
         {
-            uint256 collateralBalance = buyVault.fastConvertToAssets(buyVault.fastBalanceOf(account));
+            uint256 collateralBalance = buyVault.fastConvertToAssets(buyVault.fastBalanceOf(p.eulerAccount()));
             if (collateralBalance < amountOut) {
                 unchecked {
                     newDebt = amountOut - collateralBalance;
@@ -816,7 +812,8 @@ library EulerSwapLib {
                 (EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end()); i != end; i = i.next()
             ) {
                 IEVault collateralVault = collaterals.get(i);
-                uint256 collateralAmount = collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(account));
+                uint256 collateralAmount =
+                    collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(p.eulerAccount()));
                 if (collateralVault == sellVault) {
                     unchecked {
                         collateralAmount += newCollateral;
