@@ -23,7 +23,7 @@ contract StargateV2 {
         _bridgeToStargateV2(amount, pool, sendData);
     }
 
-    function _bridgeToStargateV2(uint256 updatedInputAmount, address pool, bytes memory sendData) internal { 
+    function _bridgeToStargateV2(uint256 updatedInputAmount, address pool, bytes memory sendData) internal {
         assembly ("memory-safe") {
             mstore(add(0xe0, sendData), updatedInputAmount)
 
