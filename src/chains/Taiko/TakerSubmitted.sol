@@ -39,7 +39,7 @@ contract TaikoSettler is Settler, TaikoMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, TaikoMixin)
+        override(Settler, TaikoMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
