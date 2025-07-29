@@ -9,6 +9,13 @@ error InvalidOffset();
 /// @notice Thrown when a validating a target contract to avoid certain types of targets
 error ConfusedDeputy();
 
+function revertConfusedDeputy() pure {
+    assembly ("memory-safe") {
+        mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+        revert(0x1c, 0x04)
+    }
+}
+
 /// @notice Thrown when a target contract is invalid given the context
 error InvalidTarget();
 
@@ -65,6 +72,9 @@ function revertUnknownForkId(uint8 forkId) pure {
 
 /// @notice Thrown when an AllowanceHolder transfer's permit is past its deadline
 error SignatureExpired(uint256 deadline);
+
+/// @notice Thrown when selling the native asset, but `msg.value` exceeds the value from the generated quote
+error MsgValueMismatch(uint256 expected, uint256 actual);
 
 /// @notice An internal error that should never be thrown. Thrown when a callback reenters the
 ///         entrypoint and attempts to clobber the existing callback.

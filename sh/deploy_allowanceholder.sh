@@ -122,6 +122,8 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
+decrypt_secrets
+
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -140,11 +142,15 @@ export FOUNDRY_OPTIMIZER_RUNS=1000000
 forge clean
 forge build src/allowanceholder/AllowanceHolder.sol
 
+declare allowanceholder_initcode
+allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolder.sol/AllowanceHolder.json)"
+declare -r allowanceholder_initcode
+
 declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 declare -i gas_limit
-gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$(forge inspect src/allowanceholder/AllowanceHolder.sol:AllowanceHolder bytecode)")"
+gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 declare -r -i gas_limit
 

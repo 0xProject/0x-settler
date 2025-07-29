@@ -132,6 +132,8 @@ fi
 . "$project_root"/sh/common_secrets.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
+decrypt_secrets
+
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
 declare -r module_deployer
@@ -158,6 +160,10 @@ declare metatransaction_description
 metatransaction_description="$(jq -MRs < "$project_root"/sh/initial_description_metatx.md)"
 metatransaction_description="${metatransaction_description:1:$((${#metatransaction_description} - 2))}"
 declare -r metatransaction_description
+declare intents_description
+intents_description="$(jq -MRs < "$project_root"/sh/initial_description_intent.md)"
+intents_description="${intents_description:1:$((${#intents_description} - 2))}"
+declare -r intents_description
 
 # safe constants
 declare safe_factory
@@ -281,12 +287,12 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,uint128,string,string,string,bytes)' \
+    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,string,string,string,string,bytes,address[])' \
     $(get_config extraFlags)                             \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
-    2 3 "$taker_submitted_description" "$metatransaction_description" \
-    "$chain_display_name" "$constructor_args"
+    2 3 4 "$taker_submitted_description" "$metatransaction_description" "$intents_description" \
+    "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2

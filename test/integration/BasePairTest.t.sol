@@ -49,6 +49,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     function fromToken() internal view virtual returns (IERC20);
     function toToken() internal view virtual returns (IERC20);
     function amount() internal view virtual returns (uint256);
+
     function slippageLimit() internal view virtual returns (uint256) {
         return 0;
     }

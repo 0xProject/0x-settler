@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {
     CallbackNotSpent,
-    ConfusedDeputy,
+    revertConfusedDeputy,
     ForwarderNotAllowed,
     InvalidSignatureLen,
     PayerSpent,
@@ -133,10 +133,7 @@ library TransientStorage {
 
     function setPayer(address payer) internal {
         if (payer == address(0)) {
-            assembly ("memory-safe") {
-                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
-                revert(0x1c, 0x04)
-            }
+            revertConfusedDeputy();
         }
         assembly ("memory-safe") {
             let slotValue := tload(_PAYER_SLOT)
@@ -569,10 +566,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     ) internal override {
         bytes32 witness = TransientStorage.getAndClearWitness();
         if (witness == bytes32(0)) {
-            assembly ("memory-safe") {
-                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
-                revert(0x1c, 0x04)
-            }
+            revertConfusedDeputy();
         }
         _transferFromIKnowWhatImDoing(
             permit, transferDetails, _msgSender(), witness, _witnessTypeSuffix(), sig, isForwarded
@@ -580,10 +574,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     }
 
     function _allowanceHolderTransferFrom(address, address, address, uint256) internal pure override {
-        assembly ("memory-safe") {
-            mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
-            revert(0x1c, 0x04)
-        }
+        revertConfusedDeputy();
     }
 
     modifier takerSubmitted() override {
@@ -597,6 +588,9 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
                 mstore(0x00, 0x1c500e5c) // selector for `ForwarderNotAllowed()`
                 revert(0x1c, 0x04)
             }
+        }
+        if (_operator() == msgSender) {
+            revertConfusedDeputy();
         }
         TransientStorage.setWitness(witness);
         TransientStorage.setPayer(msgSender);
