@@ -46,6 +46,8 @@ Master list of UniV3 forks:
 * In metatransactions and intents, it is now an error for `_operator()` (the gas
   payer/solver/relayer) to be `msgSender` (the taker)
 * Remove `LimitOrderFeeCollector`
+* Improve gas efficiency and accuracy of `EULERSWAP` action
+* Add solvency check for EulerSwap (does not execute on-chain)
 
 ### Non-breaking changes
 
