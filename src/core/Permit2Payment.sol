@@ -49,7 +49,7 @@ library TransientStorage {
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal {
         assembly ("memory-safe") {
-            if shl(0x60, xor(tload(_PAYER_SLOT), operator)) {
+            if iszero(shl(0x60, xor(tload(_PAYER_SLOT), operator))) {
                 mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
                 revert(0x1c, 0x04)
             }
