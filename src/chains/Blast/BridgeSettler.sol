@@ -6,10 +6,18 @@ import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 
+import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
+import {IOwnable} from "../../deployer/IOwnable.sol";
+import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
+
 contract BlastBridgeSettler is BridgeSettler, Across {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
-        assert(block.chainid == 81457 || block.chainid == 31337);
-        // TODO: Check if BLAST configs are needed here
+        if (block.chainid != 31337) {
+            assert(block.chainid == 81457);
+            BLAST.configure(BlastYieldMode.AUTOMATIC, BlastGasMode.CLAIMABLE, IOwnable(DEPLOYER).owner());
+            BLAST_USDB.configure(BlastYieldMode.VOID);
+            BLAST_WETH.configure(BlastYieldMode.VOID);
+        }
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)

@@ -6,10 +6,13 @@ import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 
+import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
+import {MODE_SFS} from "./IModeSFS.sol";
+
 contract ModeBridgeSettler is BridgeSettler, Across {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 34443 || block.chainid == 31337);
-        // TODO: Check if MODE configs are needed here
+        MODE_SFS.assign(MODE_SFS.getTokenId(DEPLOYER));
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
