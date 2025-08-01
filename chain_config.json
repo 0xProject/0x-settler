@@ -638,8 +638,8 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
     "blockscoutApi": "https://www.hyperscan.com/api",
-    "etherscanApi": "https://api.etherscan.io/v2/api"
-  }
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=999"
+  },
   "katana": {
     "chainId": 747474,
     "displayName": "Katana",
@@ -667,7 +667,7 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
-    "etherscanApi": "https://api.etherscan.io/v2/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=747474",
     "blockscoutApi": "https://explorer.katanarpc.com/api"
   }
 }
