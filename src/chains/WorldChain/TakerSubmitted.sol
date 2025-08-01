@@ -54,7 +54,7 @@ contract WorldChainSettler is Settler, WorldChainMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, WorldChainMixin)
+        override(Settler, WorldChainMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

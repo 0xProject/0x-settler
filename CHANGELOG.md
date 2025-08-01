@@ -45,6 +45,20 @@ Master list of UniV3 forks:
 * Update Scroll to the Cancun hardfork
 * In metatransactions and intents, it is now an error for `_operator()` (the gas
   payer/solver/relayer) to be `msgSender` (the taker)
+* Remove `LimitOrderFeeCollector`
+
+### Non-breaking changes
+
+* Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
+  handle the selling of the chain-native asset
+
+## 2025-08-01
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy a stripped-down suite of Settlers to Katana network
 
 ## 2025-07-07
 
@@ -56,6 +70,8 @@ Master list of UniV3 forks:
   * Add KittenSwap UniV3 fork to HyperEVM
   * Add Hybra UniV3 fork to HyperEVM
   * Add HyperSwap UniV3 fork to HyperEVM
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
 
 ## 2025-07-02
 

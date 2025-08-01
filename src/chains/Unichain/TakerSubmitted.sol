@@ -54,7 +54,7 @@ contract UnichainSettler is Settler, UnichainMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, UnichainMixin)
+        override(Settler, UnichainMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

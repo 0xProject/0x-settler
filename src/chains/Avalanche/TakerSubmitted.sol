@@ -69,7 +69,7 @@ contract AvalancheSettler is Settler, AvalancheMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, AvalancheMixin)
+        override(Settler, AvalancheMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
