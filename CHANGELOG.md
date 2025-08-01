@@ -52,6 +52,14 @@ Master list of UniV3 forks:
 * Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
   handle the selling of the chain-native asset
 
+## 2025-08-01
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy a stripped-down suite of Settlers to Katana network
+
 ## 2025-07-07
 
 ### Breaking changes
