@@ -7,6 +7,7 @@ auto_detect_remappings = false
 cbor_metadata = false
 sparse_mode = false
 
+solc_version = "0.8.25"
 optimizer = true
 via_ir = true
 optimizer_runs = 2_000
@@ -22,7 +23,7 @@ constantOptimizer = true
 yul = true
 
 [profile.integration]
-no_match_path = 'toml has no null value 😡'
+no_match_path = 'test/unit/*'
 match_path = "test/integration/*"
 fail_on_revert = false
 

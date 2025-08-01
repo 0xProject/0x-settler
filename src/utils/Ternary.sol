@@ -20,6 +20,12 @@ library Ternary {
         }
     }
 
+    function ternary(bool c, bytes4 x, bytes4 y) internal pure returns (bytes4 r) {
+        assembly ("memory-safe") {
+            r := xor(y, mul(xor(x, y), c))
+        }
+    }
+
     function ternary(bool c, address x, address y) internal pure returns (address r) {
         assembly ("memory-safe") {
             r := xor(y, mul(xor(x, y), c))
