@@ -32,6 +32,7 @@ library SafeConfig {
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
+                || block.chainid == 747474 // katana
         ) {
             return false;
         }
@@ -63,6 +64,7 @@ library SafeConfig {
                 || block.chainid == 81457 // blast
                 || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
+                || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
