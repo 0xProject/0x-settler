@@ -643,6 +643,7 @@
   "katana": {
     "chainId": 747474,
     "displayName": "Katana",
+    "wnative": "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62",
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "--legacy",
