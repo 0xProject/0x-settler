@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {AbstractContext} from "../Context.sol";
-import {IOwnable} from "./IOwnable.sol";
+import {IOwnable} from "../interfaces/IOwnable.sol";
 
 abstract contract AbstractOwnable is IOwnable, AbstractContext {
     // This looks stupid (and it is), but this is required due to the glaring

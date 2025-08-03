@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
-import {IOwnable} from "./deployer/IOwnable.sol";
+import {IOwnable} from "./interfaces/IOwnable.sol";
 
 import {ICrossChainReceiverFactory} from "./interfaces/ICrossChainReceiverFactory.sol";
 import {AbstractOwnable, TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";

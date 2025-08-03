@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC1271} from "./IERC1271.sol";
 import {IERC5267} from "./IERC5267.sol";
-import {IOwnable} from "../deployer/IOwnable.sol";
+import {IOwnable} from "./IOwnable.sol";
 
 interface ICrossChainReceiverFactory is IERC1271, IERC5267, IOwnable {
     function name() external view returns (string memory);
