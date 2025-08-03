@@ -8,7 +8,7 @@ import {IERC5267} from "./interfaces/IERC5267.sol";
 import {IOwnable} from "./interfaces/IOwnable.sol";
 
 import {ICrossChainReceiverFactory} from "./interfaces/ICrossChainReceiverFactory.sol";
-import {AbstractOwnable, TwoStepOwnable} from "./deployer/TwoStepOwnable.sol";
+import {AbstractOwnable, TwoStepOwnable} from "./utils/TwoStepOwnable.sol";
 import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";

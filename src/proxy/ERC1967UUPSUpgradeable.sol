@@ -7,7 +7,7 @@ import {
     OwnableStorageBase,
     TwoStepOwnableImpl,
     TwoStepOwnableStorageBase
-} from "../deployer/TwoStepOwnable.sol";
+} from "../utils/TwoStepOwnable.sol";
 
 import {IERC1967Proxy} from "../interfaces/IERC1967Proxy.sol";
 

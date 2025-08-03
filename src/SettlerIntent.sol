@@ -16,7 +16,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {DEPLOYER} from "./deployer/DeployerAddress.sol";
 import {IDeployer} from "./deployer/IDeployer.sol";
 import {Feature} from "./deployer/Feature.sol";
-import {IOwnable} from "./deployer/IOwnable.sol";
+import {IOwnable} from "./interfaces/IOwnable.sol";
 
 // DANGER: do not reorder the inheritance list here. You will get shocking and incorrect results
 // inside `MultiCallContext` if `super._msgSender` is `Permit2PaymentMetaTxn._msgSender`.
