@@ -51,6 +51,8 @@ Master list of UniV3 forks:
 
 * Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
   handle the selling of the chain-native asset
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
 
 ## 2025-08-01
 
@@ -70,8 +72,6 @@ Master list of UniV3 forks:
   * Add KittenSwap UniV3 fork to HyperEVM
   * Add Hybra UniV3 fork to HyperEVM
   * Add HyperSwap UniV3 fork to HyperEVM
-* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
-  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
 
 ## 2025-07-02
 
