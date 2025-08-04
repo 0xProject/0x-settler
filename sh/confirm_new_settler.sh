@@ -121,9 +121,6 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-declare -r target_contract="$1"
-shift
-
 declare safe_address
 safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
@@ -131,7 +128,7 @@ declare -r safe_address
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_safe_owner.sh
 . "$project_root"/sh/common_wallet_type.sh
-. "$project_root"/sh/common_deploy_"$target_contract".sh
+. "$project_root"/sh/common_deploy_settler.sh
 
 while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare -i operation="${deploy_calldatas[0]}"
@@ -145,7 +142,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare signature
     signature="$(sign_call "$struct_json")"
 
-    save_signature "$target_contract"_confirmation "$deploy_calldata" "$signature" $operation "$target"
+    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation "$target"
 
     SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
 done

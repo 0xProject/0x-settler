@@ -121,9 +121,6 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-declare -r target_contract="$1"
-shift
-
 declare safe_address
 safe_address="$(get_config governance.deploymentSafe)"
 declare -r safe_address
@@ -142,7 +139,7 @@ if [[ $wallet_type != 'frame' ]] ; then
 fi
 
 . "$project_root"/sh/common_safe_deployer.sh
-. "$project_root"/sh/common_deploy_"$target_contract".sh
+. "$project_root"/sh/common_deploy_settler.sh
 
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
@@ -167,7 +164,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
 
     declare packed_signatures
-    packed_signatures="$(retrieve_signatures "$target_contract"_confirmation "$deploy_calldata" $operation "$target")"
+    packed_signatures="$(retrieve_signatures settler_confirmation "$deploy_calldata" $operation "$target")"
     packed_signatures="${packed_signatures:2}"
     declare packed_signatures_length="${#packed_signatures}"
     packed_signatures_length=$(( packed_signatures_length / 2 ))
@@ -299,4 +296,4 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
 done
 
-echo 'Contracts deployed. Run `sh/verify_'$target_contract'.sh '"$chain_name"'` to verify on Etherscan.' >&2
+echo 'Contracts deployed. Run `sh/verify_settler.sh '"$chain_name"'` to verify on Etherscan.' >&2
