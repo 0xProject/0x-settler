@@ -132,12 +132,6 @@ IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD7011
 declare -r signer
 
 . "$project_root"/sh/common_wallet_type.sh
-
-if [[ $wallet_type != 'frame' ]] ; then
-    echo 'This script only works with Frame.sh wallets due to the overly long calldata' >&2
-    exit 1
-fi
-
 . "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_deploy_bridge_settler.sh
 
@@ -165,132 +159,23 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
 
     declare packed_signatures
     packed_signatures="$(retrieve_signatures bridge_settler_confirmation "$deploy_calldata" $operation "$target")"
-    packed_signatures="${packed_signatures:2}"
-    declare packed_signatures_length="${#packed_signatures}"
-    packed_signatures_length=$(( packed_signatures_length / 2 ))
-    packed_signatures_length="$(cast to-uint256 $packed_signatures_length)"
-    packed_signatures_length="${packed_signatures_length:2}"
+    
+    # configure gas limit
+    declare -a args=(
+        "$safe_address" "$execTransaction_sig"
+        # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        "$target" 0 "$deploy_calldata" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    )
 
-    # pad the deployment call
-    deploy_calldata="${deploy_calldata:2}"
-    declare deploy_calldata_length="${#deploy_calldata}"
-    declare -i deploy_calldata_padding_length=$((deploy_calldata_length % 64))
-    if (( deploy_calldata_padding_length )) ; then
-        deploy_calldata_padding_length=$((64 - deploy_calldata_padding_length))
-        deploy_calldata="$deploy_calldata""$(seq 1 $deploy_calldata_padding_length | xargs printf '0%.0s')"
-    fi
-    deploy_calldata_length=$(( deploy_calldata_length / 2 ))
-    deploy_calldata_length="$(cast to-uint256 $deploy_calldata_length)"
-    deploy_calldata_length="${deploy_calldata_length:2}"
-
-    ## assemble the call to `execTransaction`
-    # we have to do it this awkward way instead of using `cast calldata` because
-    # `$deploy_calldata` is longer than allowed for a command-line argument
-    declare packed_calldata
-    packed_calldata="$(cast concat-hex "$execTransaction_selector" "$(cast to-uint256 "$target")" "$(cast to-uint256 0)" "$(cast to-uint256 320)" "$(cast to-uint256 $operation)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 $((320 + 32 + ${#deploy_calldata} / 2)))")""$deploy_calldata_length""$deploy_calldata""$packed_signatures_length""$packed_signatures"
-
-    ## set gas limit and add multiplier/headroom (again mostly for Arbitrum)
+    # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
     declare -i gas_limit
-    # again, we have to do this in an awkward fashion to avoid the command-line
-    # argument length limit
-    gas_limit="$(
-        jq -Mc \
-        '
-        {
-            "id": 1,
-            "jsonrpc": "2.0",
-            "method": "eth_estimateGas",
-            "params": [
-                {
-                    "from": $from,
-                    "to": $to,
-                    "gasPrice": $gasprice,
-                    "value": "0x0",
-                    "data": $data[0]
-                }
-            ]
-        }
-        '                                                   \
-        --arg from "$signer"                                \
-        --arg to "$safe_address"                            \
-        --arg gasprice "0x$(bc <<<'obase=16;'"$gas_price")" \
-        --slurpfile data <(jq -R . <<<"$packed_calldata")   \
-        <<<'{}'                                             \
-        |                                                   \
-        curl --fail -s -X POST                              \
-        -H 'Accept: application/json'                       \
-        -H 'Content-Type: application/json'                 \
-        --url "$rpc_url"                                    \
-        --data '@-'                                         \
-        |                                                   \
-        jq -rM '.result'
-    )"
+    gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
     gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 
-    # switch the wallet to the correct chain
-    jq -Mc \
-    '
-    {
-        "id": 1,
-        "jsonrpc": "2.0",
-        "method": "wallet_switchEthereumChain",
-        "params": [
-            {
-                "chainId": $chainid,
-            }
-        ]
-    }
-    '                                                \
-    --arg chainid "0x$(bc <<<'obase=16;'"$chainid")" \
-    <<<'{}'                                          \
-    |                                                \
-    curl --fail -s -X POST                           \
-    --url 'http://127.0.0.1:1248/'                   \
-    --data '@-'                                      \
-    &>/dev/null
-
-    # submit the transaction
-    declare txid
-    txid=$(
-        jq -Mc \
-        '
-        {
-            "id": 1,
-            "jsonrpc": "2.0",
-            "method": "eth_sendTransaction",
-            "params": [
-                {
-                    "from": $from,
-                    "to": $to,
-                    "gas": $gaslimit,
-                    "gasPrice": $gasprice,
-                    "value": "0x0",
-                    "data": $data[0]
-                }
-            ]
-        }
-        '                                                   \
-        --arg from "$signer"                                \
-        --arg to "$safe_address"                            \
-        --arg gaslimit "0x$(bc <<<'obase=16;'"$gas_limit")" \
-        --arg gasprice "0x$(bc <<<'obase=16;'"$gas_price")" \
-        --slurpfile data <(jq -R . <<<"$packed_calldata")   \
-        <<<'{}'                                             \
-        |                                                   \
-        curl --fail -s -X POST                              \
-        --url 'http://127.0.0.1:1248/'                      \
-        --data '@-'                                         \
-        |                                                   \
-        jq -rM .result
-    )
-    if [[ $txid == [Nn][Uu][Ll][Ll] ]] ; then
-        echo 'Transaction submission failed' >&2
-        exit 1
-    fi
-
-    if [[ $(cast receipt --rpc-url "$rpc_url" --confirmations 10 "$txid" status) != '1 (success)' ]] ; then
-        echo 'Transaction '"$txid"' failed' >&2
-        exit 1
+    if [[ $wallet_type = 'frame' ]] ; then
+        cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
+    else
+        cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
     fi
 
     SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
