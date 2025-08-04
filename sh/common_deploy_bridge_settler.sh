@@ -33,4 +33,3 @@ declare -a deploy_calldatas
 deploy_calldatas=(
     0 "$deploy_bridge_settler_calldata" "$deployer_address"
 )
-
