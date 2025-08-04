@@ -14,11 +14,11 @@ deployment, call `function ownerOf(uint256 tokenId) external view returns (addre
 with the `tokenId` set to the number of the feature that you wish to query. For
 taker-submitted flows, the feature number is probably 2 unless something major
 changed and nobody updated this document. For gasless/metatransaction flows, the
-feature number is probably 3. For intents, the feature number is probably 4. A
-reverting response indicates that `Settler` is paused and you should not
-interact. Do not hardcode any `Settler` address in your
-integration. _**ALWAYS**_ query the deployer/registry for the address of the
-most recent `Settler` contract before building or signing a transaction,
+feature number is probably 3. For intents, the feature number is probably 4. For
+bridge settler, the feature number is probably 5. A reverting response indicates
+that `Settler` is paused and you should not interact. Do not hardcode any `Settler`
+address in your integration. _**ALWAYS**_ query the deployer/registry for the address
+of the most recent `Settler` contract before building or signing a transaction,
 metatransaction, or order.
 
 ### 0x API dwell time
