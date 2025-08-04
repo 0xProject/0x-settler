@@ -9,14 +9,14 @@ import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
 
 abstract contract BridgeSettlerIntegrationTest is BridgeSettlerTestBase, MainnetDefaultFork {
-    function testBlockNumber() internal pure virtual override returns (uint256) {
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
         return 22719835;
     }
 
     function setUp() public virtual override {
         // deploy BridgeSettler
         super.setUp();
-        vm.createSelectFork(testChainId(), testBlockNumber());
+        vm.createSelectFork(_testChainId(), _testBlockNumber());
         settler = ISettlerTakerSubmitted(IDeployer(DEPLOYER).ownerOf(2));
         vm.label(address(settler), "Settler");
     }

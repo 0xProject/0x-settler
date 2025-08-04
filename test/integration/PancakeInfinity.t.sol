@@ -46,11 +46,11 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         return address(0);
     }
 
-    function testBlockNumber() internal pure virtual override returns (uint256) {
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
         return 48420182;
     }
 
-    function testChainId() internal pure virtual override returns (string memory) {
+    function _testChainId() internal pure virtual override returns (string memory) {
         return "bnb";
     }
 
@@ -306,7 +306,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
 }
 
 contract USDTCAKETest is PancakeInfinityTest {
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "USDT-CAKE";
     }
 
@@ -328,7 +328,7 @@ contract USDTCAKETest is PancakeInfinityTest {
 }
 
 contract USDTWBNBTest is PancakeInfinityTest {
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "USDT-WBNB";
     }
 

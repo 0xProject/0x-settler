@@ -305,7 +305,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         skipIf(toToken() != WETH)
     {
         vm.makePersistent(address(settlerMetaTxn));
-        vm.createSelectFork(testChainId(), MainnetDefaultFork.testBlockNumber());
+        vm.createSelectFork(_testChainId(), MainnetDefaultFork._testBlockNumber());
         deal(address(fromToken()), FROM, amount());
         vm.prank(FROM);
         require(fromToken().approve(address(PERMIT2), type(uint256).max));

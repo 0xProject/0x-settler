@@ -27,8 +27,10 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract ModeMixin is FreeMemory, SettlerBase {
     constructor() {
-        assert(block.chainid == 34443 || block.chainid == 31337);
-        MODE_SFS.assign(MODE_SFS.getTokenId(DEPLOYER));
+        if (block.chainid != 31337) {
+            assert(block.chainid == 34443);
+            MODE_SFS.assign(MODE_SFS.getTokenId(DEPLOYER));
+        }
     }
 
     function _isRestrictedTarget(address target)

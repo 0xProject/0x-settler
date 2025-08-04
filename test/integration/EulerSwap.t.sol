@@ -43,7 +43,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
 
     function _setEulerSwapLabels() private setEulerSwapBlock {
         vm.label(address(EVC), "EVC");
-        vm.label(eulerSwapPool(), string.concat("EulerSwap ", testName(), " pool"));
+        vm.label(eulerSwapPool(), string.concat("EulerSwap ", _testName(), " pool"));
     }
 
     function setUp() public virtual override {

@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
+import {ArbitrumBridgeSettler} from "src/chains/Arbitrum/BridgeSettler.sol";
 
 contract MayanProtocolDummy {
     function mayanNativeReceiver(bytes32) external payable {}
@@ -18,6 +19,10 @@ contract MayanProtocolDummy {
 contract MayanTest is BridgeSettlerIntegrationTest {
     address forwarder = 0x337685fdaB40D39bd02028545a4FfA7D287cC3E2;
     address mayanProtocol;
+
+    function _testBridgeSettler() internal override {
+        bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
+    }
 
     function setUp() public override {
         super.setUp();
