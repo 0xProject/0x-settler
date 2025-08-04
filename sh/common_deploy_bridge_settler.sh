@@ -29,9 +29,8 @@ declare deploy_bridge_settler_calldata
 deploy_bridge_settler_calldata="$(cast calldata "$deploy_sig" 5 "$bridge_settler_initcode")"
 declare -r deploy_bridge_settler_calldata
 
-if [[ -n "${deployer_address-}" ]] ; then
-    declare -a deploy_calldatas
-    deploy_calldatas=(
-        0 "$deploy_bridge_settler_calldata" "$deployer_address"
-    )
-fi
+declare -a deploy_calldatas
+deploy_calldatas=(
+    0 "$deploy_bridge_settler_calldata" "$deployer_address"
+)
+
