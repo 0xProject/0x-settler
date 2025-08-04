@@ -58,12 +58,17 @@ function get_config {
 
 if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
     if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
-        echo 'Chains without the Shanghai hardfork (PUSH0) are not supported' >&2
+        echo 'You are on the wrong branch (switch to `dcmt/london`)' >&2
         exit 1
     fi
 
     if [[ $(get_config isCancun) != [Tt]rue ]] ; then
-        echo 'You are on the wrong branch' >&2
+        echo 'You are on the wrong branch (switch to `dcmt/shanghai`)' >&2
+        exit 1
+    fi
+
+    if [[ $(get_config isOsaka) != [Tt]rue ]] ; then
+        echo 'You are on the wrong branch (switch to `dcmt/cancun`)' >&2
         exit 1
     fi
 fi
