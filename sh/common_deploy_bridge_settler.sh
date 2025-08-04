@@ -31,43 +31,7 @@ declare -r deploy_bridge_settler_calldata
 
 if [[ -n "${deployer_address-}" ]] ; then
     declare -a deploy_calldatas
-    if (( chainid == 534352 )) ; then
-        deploy_calldatas=(
-            0 "$deploy_bridge_settler_calldata" "$deployer_address"
-            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
-        )
-    else
-        deploy_calldatas+=(
-            "$(
-                cast concat-hex                                                   \
-                0x00                                                              \
-                "$deployer_address"                                               \
-                "$(cast to-uint256 0)"                                            \
-                "$(cast to-uint256 $(( (${#deploy_bridge_settler_calldata} - 2) / 2 )) )"  \
-                "$deploy_bridge_settler_calldata"
-            )"
-        )
-       
-        declare multicall_args
-        multicall_args="$(cast concat-hex "${deploy_calldatas[@]}")"
-        multicall_args="${multicall_args:2}"
-
-        declare multicall_args_length="${#multicall_args}"
-
-        declare -i padding_length=$((multicall_args_length % 64))
-        if (( padding_length )) ; then
-            padding_length=$((64 - padding_length))
-            multicall_args="$multicall_args""$(seq 1 $padding_length | xargs printf '0%.0s')"
-        fi
-
-        multicall_args_length=$(( multicall_args_length / 2 ))
-        multicall_args_length="$(cast to-uint256 $multicall_args_length)"
-        multicall_args_length="${multicall_args_length:2}"
-
-        multicall_args="$multisend_selector"'0000000000000000000000000000000000000000000000000000000000000020'"$multicall_args_length""$multicall_args"
-
-        deploy_calldatas=(
-            1 "$multicall_args" "$multicall_address"
-        )
-    fi
+    deploy_calldatas=(
+        0 "$deploy_bridge_settler_calldata" "$deployer_address"
+    )
 fi
