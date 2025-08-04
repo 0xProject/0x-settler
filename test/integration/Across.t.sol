@@ -12,7 +12,7 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
     address spokePool = 0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5;
     IERC20 WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    function testBridgeSettler() internal override {
+    function _testBridgeSettler() internal override {
         bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
     }
 

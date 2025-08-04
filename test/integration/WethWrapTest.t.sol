@@ -30,7 +30,7 @@ contract WethWrapTest is BasePairTest {
         return IERC20(address(_weth));
     }
 
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "WETHwrap";
     }
 

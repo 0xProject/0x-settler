@@ -19,12 +19,12 @@ contract DeployerTest is Test, MainnetDefaultFork {
     Deployer public deployer;
     address public auth = address(0xc0de60d);
 
-    function testBlockNumber() internal pure override returns (uint256) {
+    function _testBlockNumber() internal pure override returns (uint256) {
         return 19921675;
     }
 
     function setUp() public {
-        vm.createSelectFork(testChainId(), testBlockNumber());
+        vm.createSelectFork(_testChainId(), _testBlockNumber());
 
         deployer = Deployer(DEPLOYER);
         vm.label(address(deployer), "Deployer (proxy)");

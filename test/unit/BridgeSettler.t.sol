@@ -36,12 +36,12 @@ contract BridgeSettlerTestBase is Test {
     IERC20 token;
     BridgeDummy bridgeDummy;
 
-    function testBridgeSettler() internal virtual {
+    function _testBridgeSettler() internal virtual {
         bridgeSettler = new BridgeSettlerDummy(bytes20(0));
     }
 
     function setUp() public virtual {
-        testBridgeSettler();
+        _testBridgeSettler();
         bridgeDummy = new BridgeDummy();
         token = deployMockERC20("Test Token", "TT", 18);
     }

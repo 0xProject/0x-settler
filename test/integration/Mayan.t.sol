@@ -20,7 +20,7 @@ contract MayanTest is BridgeSettlerIntegrationTest {
     address forwarder = 0x337685fdaB40D39bd02028545a4FfA7D287cC3E2;
     address mayanProtocol;
 
-    function testBridgeSettler() internal override {
+    function _testBridgeSettler() internal override {
         bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
     }
 

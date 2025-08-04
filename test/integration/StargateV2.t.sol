@@ -58,7 +58,7 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
 
     receive() external payable {}
 
-    function testBridgeSettler() internal override {
+    function _testBridgeSettler() internal override {
         bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
     }
 

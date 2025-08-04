@@ -31,7 +31,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         safeApproveIfBelow(fromToken(), FROM, address(UNISWAP_ROUTER), amount());
     }
 
-    function testBlockNumber() internal pure virtual override returns (uint256) {
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
         return 22333955;
     }
 
