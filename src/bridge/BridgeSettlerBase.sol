@@ -29,7 +29,6 @@ abstract contract BridgeSettlerBase is Basic, Relay, Mayan, Across, StargateV2 {
     IDeployer internal constant _DEPLOYER = IDeployer(DEPLOYER);
     uint128 internal constant _SETTLER_TAKER_SUBMITTED_TOKENID = 2;
 
-    // TODO: Create script to deploy Bridge settler
     constructor(bytes20 gitCommit) {
         if (block.chainid != 31337) {
             emit GitCommit(gitCommit);
