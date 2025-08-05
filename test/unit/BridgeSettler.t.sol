@@ -43,7 +43,7 @@ contract BridgeSettlerTestBase is Test {
     function setUp() public virtual {
         _testBridgeSettler();
         bridgeDummy = new BridgeDummy();
-        token = deployMockERC20("Test Token", "TT", 18);
+        token = new MockERC20("Test Token", "TT", 18);
     }
 }
 
