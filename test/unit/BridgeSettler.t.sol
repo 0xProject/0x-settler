@@ -16,7 +16,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Utils} from "./Utils.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {IERC721View} from "src/deployer/IDeployer.sol";
-import {MockERC20} from "@forge-std/mocks/MockERC20.sol";
+import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}
