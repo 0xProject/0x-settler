@@ -25,6 +25,7 @@ node_modules
 
 # secrets
 /secrets.json
+/secrets.json.scrypt
 /api_secrets.json
 
 # user-specific local configuration

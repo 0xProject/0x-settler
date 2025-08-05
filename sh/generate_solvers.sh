@@ -128,6 +128,8 @@ echo '' >&2
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
+decrypt_secrets
+
 declare -i num_production_addresses
 num_production_addresses="$(get_secret intentWorkers limit.production)"
 declare -r -i num_production_addresses
