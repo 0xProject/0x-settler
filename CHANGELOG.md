@@ -46,13 +46,23 @@ Master list of UniV3 forks:
 * In metatransactions and intents, it is now an error for `_operator()` (the gas
   payer/solver/relayer) to be `msgSender` (the taker)
 * Remove `LimitOrderFeeCollector`
-* Improve gas efficiency and accuracy of `EULERSWAP` action
-* Add solvency check for EulerSwap (does not execute on-chain)
 
 ### Non-breaking changes
 
 * Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
   handle the selling of the chain-native asset
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
+* Improve gas efficiency and accuracy of `EULERSWAP` action
+* Add solvency check for EulerSwap (does not execute on-chain)
+
+## 2025-08-01
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy a stripped-down suite of Settlers to Katana network
 
 ## 2025-07-07
 
@@ -64,8 +74,6 @@ Master list of UniV3 forks:
   * Add KittenSwap UniV3 fork to HyperEVM
   * Add Hybra UniV3 fork to HyperEVM
   * Add HyperSwap UniV3 fork to HyperEVM
-* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
-  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
 
 ## 2025-07-02
 
