@@ -53,6 +53,8 @@ Master list of UniV3 forks:
   handle the selling of the chain-native asset
 * Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
   and `METATXN_PANCAKE_INFINITY_VIP`) on Base
+* Improve gas efficiency and accuracy of `EULERSWAP` action
+* Add solvency check for EulerSwap (does not execute on-chain)
 
 ## 2025-08-01
 
