@@ -35,14 +35,14 @@ library CurveLib {
 
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
-    /// @param newReserve0 An amount of vault0.asset() tokens in that token's base unit. No constraint on range.
-    /// @param newReserve1 An amount of vault1.asset() tokens in that token's base unit. No constraint on range.
-    /// @param equilibriumReserve0 An amount of vault0.asset() tokens in that token's base unit. No constraint on range.
-    /// @param equilibriumReserve1 An amount of vault1.asset() tokens in that token's base unit. No constraint on range.
-    /// @param priceX (1 <= priceX <= 1e25). The price of vault0.asset(). A fixnum with a basis of 1e18.
-    /// @param priceY (1 <= priceY <= 1e25). The price of vault1.asset(). A fixnum with a basis of 1e18.
-    /// @param concentrationX (0 <= concentrationX <= 1e18). The liquidity concentration of vault0.asset() on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
-    /// @param concentrationY (0 <= concentrationY <= 1e18). The liquidity concentration of vault1.asset() on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
+    /// @param newReserve0 An amount of `vault0.asset()` tokens in that token's base unit. No constraint on range.
+    /// @param newReserve1 An amount of `vault1.asset()` tokens in that token's base unit. No constraint on range.
+    /// @param equilibriumReserve0 (0 <= equilibriumReserve0 <= 2^112 - 1). An amount of `vault0.asset()` tokens in that token's base unit.
+    /// @param equilibriumReserve1 (0 <= equilibriumReserve1 <= 2^112 - 1). An amount of `vault1.asset()` tokens in that token's base unit.
+    /// @param priceX (1 <= priceX <= 1e25). The equilibrium price of `vault0.asset()`. A fixnum with a basis of 1e18.
+    /// @param priceY (1 <= priceY <= 1e25). The equilibrium price of `vault1.asset()`. A fixnum with a basis of 1e18.
+    /// @param concentrationX (0 <= concentrationX <= 1e18). The liquidity concentration of `vault0.asset()` on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
+    /// @param concentrationY (0 <= concentrationY <= 1e18). The liquidity concentration of `vault1.asset()` on the side of the curve where it is in deficit. A fixnum with a basis of 1e18.
     function verify(
         uint256 newReserve0,
         uint256 newReserve1,
@@ -65,8 +65,8 @@ library CurveLib {
 
         bool maybe;
         unchecked {
-            if ((x == 0).and(cx == 1e18)) {
-                maybe = y - y0 >= (x0 * px).unsafeDivUp(py);
+            if (cx == 1e18) {
+                maybe = y - y0 >= ((x0 - x) * px).unsafeDivUp(py);
             } else {
                 (uint256 a_lo, uint256 a_hi) = (y - y0).fullMul(1e18 * x * py);
                 (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(cx * x + (1e18 - cx) * x0);
@@ -113,11 +113,11 @@ library CurveLib {
     /// @param cx (0 <= cx <= 1e18). A fixnum with a basis of 1e18.
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y`. (An amount of tokens in base units.)
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) internal pure returns (uint256) {
-        if ((x == 0).and(cx == 1e18)) {
+        if (cx == 1e18) {
             unchecked {
-                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x0` into `y`
+                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x` into `y`
                 // using `px` and `py`
-                uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
+                uint256 v = ((x0 - x) * px).unsafeDivUp(py); // scale: 1; units: token Y
                 return y0 + v;
             }
         } else {
@@ -148,10 +148,10 @@ library CurveLib {
         returns (uint256)
     {
         unchecked {
-            if ((x == 0).and(cx == 1e18)) {
-                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x0` into `y`
+            if (cx == 1e18) {
+                // `cx == 1e18` indicates that this is a constant-sum curve. Convert `x` into `y`
                 // using `px` and `py`
-                uint256 v = (x0 * px).unsafeDivUp(py); // scale: 1; units: token Y
+                uint256 v = ((x0 - x) * px).unsafeDivUp(py); // scale: 1; units: token Y
                 return y0 + v;
             } else {
                 (uint256 a, uint256 b, uint256 d) = _setupF(x, px, py, x0, cx);
@@ -205,12 +205,14 @@ library CurveLib {
             uint256 shift;
             {
                 uint256 shiftSquaredB = absB.bitLength().saturatingSub(127);
-                uint256 shiftFourAc = (x0 * 5e17).bitLength().saturatingSub(126);
+                // 3814697265625 is 5e17 with all the trailing zero bits removed to make the
+                // constant smaller. The argument of `saturatingSub` is reduced to compensate
+                uint256 shiftFourAc = (x0 * 3814697265625).bitLength().saturatingSub(109);
                 shift = (shiftSquaredB < shiftFourAc).ternary(shiftFourAc, shiftSquaredB);
             }
             uint256 twoShift = shift << 1;
 
-            uint256 x;
+            uint256 x; // scale: 1; units: token X; range: 113 bits
             if (sign) {
                 // `B` is negative; use the regular quadratic formula; everything rounds up.
                 //     (-b + sqrt(b^2 - 4ac)) / 2a
@@ -222,10 +224,10 @@ library CurveLib {
                 uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShiftUp(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
 
                 uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
-                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
-                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 255 bits
+                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 172 bits
 
-                x = (absB + sqrt).unsafeDivUp(cx << 1); // scale: 1; units: token X; range: 112 bits
+                x = (absB + sqrt).unsafeDivUp(cx << 1);
             } else {
                 // `B` is nonnegative; use the "citardauq" quadratic formula; everything except the
                 // final division rounds down.
@@ -240,9 +242,9 @@ library CurveLib {
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
                 uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 255 bits
 
-                x = ((1e18 - cx) << 1).unsafeMulDivUpAlt(x0 * x0, absB + sqrt); // scale: 1; units: token X; range: 112 bits
                 // If `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. This
                 // just so happens to be the correct answer
+                x = ((1e18 - cx) << 1).unsafeMulDivUpAlt(x0 * x0, absB + sqrt);
             }
 
             // Handle any rounding error that could produce a value out of the bounds established by
