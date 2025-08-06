@@ -121,7 +121,10 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" 0x4e59b44847b379578588920cA78FbF26c0B4956C)") != 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989 ]] ; then
+declare -r toehold=0x4e59b44847b379578588920cA78FbF26c0B4956C
+declare -r toehold_codehash=0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989
+
+if [[ "$(cast keccak "$(cast code --rpc-url "$rpc_url" "$toehold")")" != $toehold_codehash ]] ; then
     echo 'The Arachnid deterministic deployment proxy does not exist or is corrupt' >&2
     exit 1
 fi
@@ -152,7 +155,6 @@ export FOUNDRY_SOLC_VERSION=0.8.28
 forge clean
 forge build src/CrossChainReceiverFactory.sol
 
-declare -r toehold=0x4e59b44847b379578588920cA78FbF26c0B4956C
 declare -r shim_initcode=0x326df01b1d1c8eef6c6cf71a0b658fbc1815601657fe5b7f60143603803560601c6df01b1d1c8eef6c6cf71a0b658fbc14336ccf9e3c5a263d527f621af382fa17f24f1416602e57fe5b3d54604b57583d55803d3d373d34f03d8159526d6045573dfd5b5260203df35b30ff60901b5952604e3df3
 declare -r crosschainfactory_salt=0x0000000000000000000000000000000000000009435af220071616d150499b5f
 
