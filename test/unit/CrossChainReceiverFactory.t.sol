@@ -9,9 +9,10 @@ import {Test} from "@forge-std/Test.sol";
 import {ICrossChainReceiverFactory} from "src/interfaces/ICrossChainReceiverFactory.sol";
 
 contract CrossChainReceiverFactoryTest is Test {
-    ICrossChainReceiverFactory internal constant factory = ICrossChainReceiverFactory(payable(address(0xf4c70)));
+    ICrossChainReceiverFactory internal constant factory = ICrossChainReceiverFactory(payable(0x00000000000000304861c3aDfb80dd5ebeC96325));
 
     IERC20 internal constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    bytes32 internal constant salt = 0x0000000000000000000000000000000000000009435af220071616d150499b5f;
 
     function setUp() public {
         vm.etch(
@@ -55,7 +56,10 @@ contract CrossChainReceiverFactoryTest is Test {
         require(wnativeStorage.code.length != 0);
 
         vm.deal(address(this), 2 wei);
-        deployCodeTo("CrossChainReceiverFactory.sol", new bytes(0), 2 wei, address(factory));
+        (bool success, bytes memory returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call{value: 2 wei}(bytes.concat(salt, vm.getCode, "CrossChainReceiverFactory.sol"));
+        require(success);
+        require(returndata.length == 20);
+        require(address(uint160(bytes20(returndata))) == address(factory));
         vm.label(address(factory), "CrossChainReceiverFactory");
     }
 
