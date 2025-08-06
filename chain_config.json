@@ -284,7 +284,7 @@
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
-    "minGasPriceGwei": 2,
+    "minGasPriceGwei": 1,
     "wnative": "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",

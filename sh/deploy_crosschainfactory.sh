@@ -206,7 +206,7 @@ wnative="$(get_config wnative)"
 declare -r wnative
 
 declare wnative_storage_initcode
-wnative_storage_initcode="$(cast concat-hex 0x7f30ff00000000000000000000 "$wnative" 0x5f52595ff3)"
+wnative_storage_initcode="$(cast concat-hex 0x7f30ff00000000000000000000 "$wnative" 0x600052596000f3)"
 declare -r wnative_storage_initcode
 
 declare -a deploy_calldatas=()
