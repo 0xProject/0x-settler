@@ -24,7 +24,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api-sepolia.etherscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -54,7 +55,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.etherscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -84,7 +86,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.polygonscan.com/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -114,7 +117,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.basescan.org/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -144,7 +148,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api-optimistic.etherscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -174,7 +179,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.arbiscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -204,7 +210,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.bscscan.com/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -234,7 +241,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.snowtrace.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -264,7 +272,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.blastscan.io/api"
   },
@@ -293,7 +302,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x000000000000175a8b9bC6d539B3708EEd92EA6c",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.lineascan.build/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -323,7 +333,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.scrollscan.com/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -353,7 +364,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.mantlescan.xyz/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -383,7 +395,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "blockscoutApi": "https://explorer.mode.network/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -413,7 +426,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.taikoscan.io/api"
   },
@@ -442,7 +456,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.worldscan.org/api",
     "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
@@ -472,7 +487,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.gnosisscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -502,7 +518,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.sonicscan.org/api"
   },
@@ -531,7 +548,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "blockscoutApi": "https://explorer.inkonchain.com/api"
   },
@@ -560,7 +578,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
     "blockscoutApi": "https://api.socialscan.io/monad-testnet/v1/explorer/command_api/contract"
@@ -590,7 +609,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.uniscan.xyz/api",
     "blockscoutApi": "https://unichain.blockscout.com/api"
@@ -620,7 +640,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.berascan.com/api"
   },
@@ -649,7 +670,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "blockscoutApi": "https://www.hyperscan.com/api",
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=999"
@@ -679,7 +701,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=747474",
     "blockscoutApi": "https://explorer.katanarpc.com/api"
