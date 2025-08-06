@@ -630,7 +630,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     }
 
     bytes32 private constant _BRIDGE_WALLET_CODEHASH =
-        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff; // TODO
+        0xe98f46388916ca2f096ea767dc04dddb45d2ca2c2f44e7bcc529d6aded9c11f0;
 
     function _toCanonicalSellAmount(IERC20 token, uint256 sellAmount) private view returns (uint256) {
         unchecked {
