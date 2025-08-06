@@ -235,8 +235,6 @@ done
 deploy_calldata="$(cast calldata "$forwarding_multicall_sig" "$deploy_calldata"']' 0)"
 declare -r deploy_calldata
 
-set -x
-
 declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
@@ -254,7 +252,6 @@ declare -r -i gas_limit
 
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    exit 1
     maybe_broadcast+=(send --chain $chainid --private-key)
     maybe_broadcast+=("$(get_secret wrappedNativeStorage key)")
 else
@@ -267,7 +264,7 @@ cast "${maybe_broadcast[@]}" --from "$signer" --value 2wei --rpc-url "$rpc_url" 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60
 
-    verify_contract 0x 0x00000000000000304861c3aDfb80dd5ebeC96325 src/CrossChainReceiverFactory.sol
+    verify_contract 0x 0x00000000000000304861c3aDfb80dd5ebeC96325 src/CrossChainReceiverFactory.sol:CrossChainReceiverFactory
 
     echo 'Deployment is complete' >&2
     echo 'Add the following to your chain_config.json' >&2
