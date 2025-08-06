@@ -247,8 +247,10 @@ else
     gas_limit=16777215
 fi
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-if (( gas_limit > 16777215 )) ; then
-    gas_limit=16777215
+if (( chainid != 5000 )) ; then
+    if (( gas_limit > 16777215 )) ; then
+        gas_limit=16777215
+    fi
 fi
 declare -r -i gas_limit
 
