@@ -19,6 +19,7 @@ import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -338,6 +339,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
+    using FastLogic for bool;
 
     constructor() {
         assert(!_hasMetaTxn());
@@ -374,7 +376,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     }
 
     function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
-        return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
+        return (target == address(_ALLOWANCE_HOLDER)).or(super._isRestrictedTarget(target));
     }
 
     function _transferFrom(
