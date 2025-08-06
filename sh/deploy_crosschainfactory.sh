@@ -247,6 +247,7 @@ else
     gas_limit=16777215
 fi
 gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+# Mantle has some real funky gas rules
 if (( chainid != 5000 )) ; then
     if (( gas_limit > 16777215 )) ; then
         gas_limit=16777215
