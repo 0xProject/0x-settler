@@ -90,7 +90,9 @@ library TransientStorage {
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
-            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) { revert(0x00, 0x00) }
+            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) {
+                revert(0x00, 0x00)
+            }
             callback := and(0xffff, shr(0xa0, slotValue))
             tstore(_OPERATOR_SLOT, 0x00)
         }
