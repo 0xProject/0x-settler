@@ -57,6 +57,7 @@ contract CrossChainReceiverFactoryTest is Test {
         require(wnativeStorage.code.length != 0);
 
         vm.deal(address(this), 2 wei);
+        vm.chainId(1);
         (success, returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call{value: 2 wei}(
             bytes.concat(salt, vm.getCode("CrossChainReceiverFactory.sol"))
         );
