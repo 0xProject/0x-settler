@@ -140,6 +140,14 @@ this address in your integration. I have no idea why you would want to do that,
 but I guess it's a thing that you can do. The ERC2771 forwarding MultiCall is
 exclusively used by 0x's solvers for the `SettlerIntent` flavor of 0x Settler.
 
+### `CrossChainReceiverFactory` address
+
+`CrossChainReceiverFactory` is deployed to
+`0x00000000000000304861c3aDfb80dd5ebeC96325` across all chains. You can hardcode
+this address in your integration. This contract is used to deploy counterfactual
+(submarine) addresses to faciliate swapping and other actions on foreign chains
+after bridging.
+
 ### Permit2 address
 
 Permit2 is deployed to `0x000000000022D473030F116dDEE9F6B43aC78BA3` across all
