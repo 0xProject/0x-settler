@@ -1460,7 +1460,17 @@ deterministic deployment
 proxy](https://github.com/Arachnid/deterministic-deployment-proxy). If you mess
 it up, make sure you learn from your mistakes for the next step.
 
-Sixth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Sixth, deploy `CrossChainReceiverFactory`. Send 2 wei of value to the wnative
+storage setter address (`0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc` unless
+something has gone very wrong). Run the deployment script in simulation mode
+[`BROADCAST=no ./sh/deploy_crosschainfactory.sh
+<CHAIN_NAME>`](sh/deploy_crosschainfactory.sh). Then fully fund the wnative
+storage setter address (it takes about 1.4Mgas; give yourself some buffer and
+adjust for the prevailing gas price) and re-run with `BROADCAST=yes`. It's
+annoying if you mess this one up, but it is (probably) recoverable because the
+vanity comes from the Arachnid deployer rather than from the EVM itself.
+
+Seventh, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
 `AllowanceHolder` (and vice versa). Run [`BROADCAST=no
 ./sh/deploy_allowanceholder.sh
@@ -1468,13 +1478,13 @@ Cancun-supporting chain, you don't need to fund the deployer for the old
 actually do the deployment. Don't mess this one up. You will burn the vanity
 address.
 
-Seventh, check that the Safe deployment on the new chain is complete. You can
+Eighth, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
 completes without reverting, you don't need to do anything. If the Safe
 deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 <CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
 
-Eighth, make _damn_ sure that you've got the correct configuration in
+Ninth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
 <CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
