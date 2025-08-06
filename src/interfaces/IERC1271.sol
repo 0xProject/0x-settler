@@ -10,7 +10,7 @@ interface IERC1271 {
     * MUST return the bytes4 magic value 0x1626ba7e when function passes.
     * MUST NOT modify state (using STATICCALL for solc < 0.5, view modifier for solc > 0.5)
     * MUST allow external calls
-    */ 
+    */
     function isValidSignature(
         bytes32 hash,
         bytes memory signature
