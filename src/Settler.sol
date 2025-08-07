@@ -13,6 +13,7 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertActionInvalid, SignatureExpired, MsgValueMismatch} from "./core/SettlerErrors.sol";
+import {CalldataBytesIterator, LibCalldataBytesIterator} from "./utils/Iterators.sol";
 
 // ugh; solidity inheritance
 import {SettlerAbstract} from "./SettlerAbstract.sol";
@@ -20,6 +21,8 @@ import {SettlerAbstract} from "./SettlerAbstract.sol";
 abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
+    using LibCalldataBytesIterator for bytes[];
+    using LibCalldataBytesIterator for CalldataBytesIterator;
 
     function _tokenId() internal pure override returns (uint256) {
         return 2;
@@ -115,10 +118,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         returns (bool)
     {
         if (actions.length != 0) {
-            uint256 it;
-            assembly ("memory-safe") {
-                it := actions.offset
-            }
+            CalldataBytesIterator it = actions.iter();
             {
                 (uint256 action, bytes calldata data) = actions.decodeCall(it);
                 if (!_dispatchVIP(action, data)) {
@@ -127,8 +127,8 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
                     }
                 }
             }
-            it = it.unsafeAdd(32);
-            for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
+            it = it.next();
+            for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.next())) {
                 (uint256 action, bytes calldata data) = actions.decodeCall(it);
                 if (!_dispatch(i, action, data)) {
                     revertActionInvalid(i, action, data);

@@ -12,10 +12,13 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertActionInvalid} from "./core/SettlerErrors.sol";
+import {CalldataBytesIterator, LibCalldataBytesIterator} from "./utils/Iterators.sol";
 
 abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
+    using LibCalldataBytesIterator for bytes[];
+    using LibCalldataBytesIterator for CalldataBytesIterator;
 
     function _tokenId() internal pure virtual override returns (uint256) {
         return 3;
@@ -119,10 +122,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         returns (bool)
     {
         require(actions.length != 0);
-        uint256 it;
-        assembly ("memory-safe") {
-            it := actions.offset
-        }
+        CalldataBytesIterator it = actions.iter();
         {
             (uint256 action, bytes calldata data) = actions.decodeCall(it);
 
@@ -133,8 +133,8 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
                 revertActionInvalid(0, action, data);
             }
         }
-        it = it.unsafeAdd(32);
-        for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
+        it = it.next();
+        for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.next())) {
             (uint256 action, bytes calldata data) = actions.decodeCall(it);
             if (!_dispatch(i, action, data)) {
                 revertActionInvalid(i, action, data);
