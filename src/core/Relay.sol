@@ -15,13 +15,14 @@ contract Relay {
         uint256 amount = token.fastBalanceOf(address(this));
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(add(ptr, 0x54), requestId)
-            mstore(add(ptr, 0x34), amount)
-            mstore(add(ptr, 0x14), to)
-            mstore(ptr, 0xa9059cbb000000000000000000000000) // selector for `transfer(address,uint256)` with `to`'s padding
+            
+            mstore(0x54, requestId)
+            mstore(0x34, amount)
+            mstore(0x14, to)
+            mstore(0x00, 0xa9059cbb000000000000000000000000) // selector for `transfer(address,uint256)` with `to`'s padding
 
             // Similar to SafeTransferLib.safeTransfer
-            if iszero(call(gas(), token, 0x00, add(0x10, ptr), 0x64, 0x00, 0x20)) {
+            if iszero(call(gas(), token, 0x00, 0x10, 0x64, 0x00, 0x20)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
@@ -32,6 +33,10 @@ contract Relay {
                 mstore(0x00, 0x90b8ec18) // Selector for `TransferFailed()`
                 revert(0x1c, 0x04)
             }
+
+            // restore clobbered memory
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
         }
     }
 
