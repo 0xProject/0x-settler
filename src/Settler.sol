@@ -125,7 +125,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
                     if (!_dispatch(0, action, data)) {
                         revertActionInvalid(0, action, data);
                     }
-            }
+                }
             }
             it = it.unsafeAdd(32);
             for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
