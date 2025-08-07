@@ -135,10 +135,11 @@ library TransientStorage {
     }
 
     function setPayer(address payer) internal {
-        if (payer == address(0)) {
-            revertConfusedDeputy();
-        }
         assembly ("memory-safe") {
+            if iszero(shl(0x60, payer)) {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
             let slotValue := tload(_PAYER_SLOT)
             if shl(0x60, slotValue) {
                 mstore(0x14, slotValue)
