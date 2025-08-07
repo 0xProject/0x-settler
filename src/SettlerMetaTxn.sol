@@ -119,8 +119,12 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         returns (bool)
     {
         require(actions.length != 0);
+        uint256 it;
+        assembly ("memory-safe") {
+            it := actions.offset
+        }
         {
-            (uint256 action, bytes calldata data) = actions.decodeCall(0);
+            (uint256 action, bytes calldata data) = actions.decodeCall(it);
 
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
@@ -129,9 +133,9 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
                 revertActionInvalid(0, action, data);
             }
         }
-
-        for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            (uint256 action, bytes calldata data) = actions.decodeCall(i);
+        it = it.unsafeAdd(32);
+        for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
+            (uint256 action, bytes calldata data) = actions.decodeCall(it);
             if (!_dispatch(i, action, data)) {
                 revertActionInvalid(i, action, data);
             }

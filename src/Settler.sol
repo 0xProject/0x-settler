@@ -115,18 +115,24 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         returns (bool)
     {
         if (actions.length != 0) {
-            (uint256 action, bytes calldata data) = actions.decodeCall(0);
-            if (!_dispatchVIP(action, data)) {
-                if (!_dispatch(0, action, data)) {
-                    revertActionInvalid(0, action, data);
-                }
+            uint256 it;
+            assembly ("memory-safe") {
+                it := actions.offset
             }
-        }
-
-        for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            (uint256 action, bytes calldata data) = actions.decodeCall(i);
-            if (!_dispatch(i, action, data)) {
-                revertActionInvalid(i, action, data);
+            {
+                (uint256 action, bytes calldata data) = actions.decodeCall(it);
+                if (!_dispatchVIP(action, data)) {
+                    if (!_dispatch(0, action, data)) {
+                        revertActionInvalid(0, action, data);
+                    }
+            }
+            }
+            it = it.unsafeAdd(32);
+            for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
+                (uint256 action, bytes calldata data) = actions.decodeCall(it);
+                if (!_dispatch(i, action, data)) {
+                    revertActionInvalid(i, action, data);
+                }
             }
         }
 
