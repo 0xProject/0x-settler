@@ -68,6 +68,20 @@ library FastPSM {
             daiInWad := mload(0x00)
         }
     }
+
+    function fastTout(IPSM psm) internal view returns (uint256 tout) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0xfae036d5) // selector for `tout()`
+
+            if iszero(staticcall(gas(), psm, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
+            tout := mload(0x00)
+        }
+    }
 }
 
 // Maker units https://github.com/makerdao/dss/blob/master/DEVELOPING.md
@@ -108,7 +122,7 @@ abstract contract MakerPSM is SettlerAbstract {
         }
         if (buyGem) {
             unchecked {
-                uint256 feeDivisor = LitePSM.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
+                uint256 feeDivisor = LitePSM.fastTout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
                 // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
                 buyAmount = (sellAmount * USDC_basis).unsafeDiv(feeDivisor);
                 if (buyAmount < amountOutMin) {
