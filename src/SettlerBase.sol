@@ -93,17 +93,14 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
             return;
         }
-        if (buyToken == ETH_ADDRESS) {
-            uint256 amountOut = address(this).balance;
-            if (amountOut < minAmountOut) {
-                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
+        bool isETH = (buyToken == ETH_ADDRESS);
+        uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
+        if (amountOut < minAmountOut) {
+            revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
+        }
+        if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
-            uint256 amountOut = buyToken.fastBalanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
             buyToken.safeTransfer(recipient, amountOut);
         }
     }
