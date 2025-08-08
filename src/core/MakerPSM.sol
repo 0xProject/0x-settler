@@ -6,6 +6,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {Ternary} from "../utils/Ternary.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
@@ -81,6 +82,7 @@ abstract contract MakerPSM is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastPSM for IPSM;
+    using Ternary for bool;
 
     uint256 private constant USDC_basis = 1_000_000;
 
@@ -96,31 +98,31 @@ abstract contract MakerPSM is SettlerAbstract {
         internal
         returns (uint256 buyAmount)
     {
+        (IERC20 sellToken, IERC20 buyToken) = buyGem.maybeSwap(USDC, DAI);
+        uint256 sellAmount;
+        unchecked {
+            // phantom overflow can't happen here because:
+            // 1. DAI has decimals = 18 (sellToken is DAI)
+            // 2. PSM prohibits gemToken with decimals > 18 (sellToken is USDC)
+            sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+        }
         if (buyGem) {
             unchecked {
-                // phantom overflow can't happen here because DAI has decimals = 18
-                uint256 sellAmount = (DAI.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
-
                 uint256 feeDivisor = LitePSM.tout() + WAD; // eg. 1.001 * 10 ** 18 with 0.1% fee [tout is in wad];
                 // overflow can't happen at all because DAI is reasonable and PSM prohibits gemToken with decimals > 18
                 buyAmount = (sellAmount * USDC_basis).unsafeDiv(feeDivisor);
                 if (buyAmount < amountOutMin) {
-                    revertTooMuchSlippage(USDC, amountOutMin, buyAmount);
+                    revertTooMuchSlippage(buyToken, amountOutMin, buyAmount);
                 }
 
                 // DAI.safeApproveIfBelow(address(LitePSM), sellAmount);
                 LitePSM.fastBuyGem(recipient, buyAmount);
             }
         } else {
-            // phantom overflow can't happen here because PSM prohibits gemToken with decimals > 18
-            uint256 sellAmount;
-            unchecked {
-                sellAmount = (USDC.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
-            }
             // USDC.safeApproveIfBelow(LitePSM.gemJoin(), sellAmount);
             buyAmount = LitePSM.fastSellGem(recipient, sellAmount);
             if (buyAmount < amountOutMin) {
-                revertTooMuchSlippage(DAI, amountOutMin, buyAmount);
+                revertTooMuchSlippage(buyToken, amountOutMin, buyAmount);
             }
         }
     }
