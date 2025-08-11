@@ -4,19 +4,21 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
+import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BridgeSettler, BridgeSettlerBase} from "src/bridge/BridgeSettler.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
-import {DAI, USDC} from "src/core/MakerPSM.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Utils} from "./Utils.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {IERC721View} from "src/deployer/IDeployer.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
+
+IERC20 constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}

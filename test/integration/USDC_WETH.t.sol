@@ -7,7 +7,6 @@ import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
-import {UniswapV4PairTest} from "./UniswapV4PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {MaverickV2PairTest} from "./MaverickV2PairTest.t.sol";
@@ -28,7 +27,6 @@ contract USDCWETHTest is
     ZeroExPairTest,
     UniswapV2PairTest,
     UniswapV3PairTest,
-    UniswapV4PairTest,
     CurveTricryptoPairTest,
     DodoV1PairTest,
     MaverickV2PairTest,

@@ -147,8 +147,12 @@ library FastMaverickV2Pool {
         bool exactOutput,
         int256 tickLimit,
         bytes memory swapCallbackData
-    ) internal pure returns (bytes memory data) {
+    ) internal view returns (bytes memory data) {
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             data := mload(0x40)
 
             let swapCallbackDataLength := mload(swapCallbackData)

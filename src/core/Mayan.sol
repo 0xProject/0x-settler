@@ -19,6 +19,10 @@ contract Mayan {
         uint256 amount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(forwarder, amount);
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             let ptr := mload(0x40)
 
             let size := mload(protocolAndData)

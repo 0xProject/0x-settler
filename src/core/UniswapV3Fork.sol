@@ -144,6 +144,10 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             uint256 freeMemPtr;
             bytes memory data;
             assembly ("memory-safe") {
+                function mcopy(dst, src, len) {
+                    if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+                }
+
                 freeMemPtr := mload(0x40)
                 data := freeMemPtr
 

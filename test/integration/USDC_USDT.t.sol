@@ -9,13 +9,22 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+import {EulerSwapTest} from "./EulerSwap.t.sol";
 
 // Solidity inheritance is stupid
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest {
-    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest, SettlerMetaTxnPairTest, EulerSwapTest {
+    function setUp() public override(SettlerPairTest, SettlerMetaTxnPairTest, EulerSwapTest) {
         super.setUp();
+    }
+
+    function eulerSwapPool() internal pure override returns (address) {
+        return 0x47bF727906669E8d06993e8D252912B4B90C28a8;
+    }
+
+    function eulerSwapBlock() internal pure override returns (uint256) {
+        return 22727039;
     }
 
     function _testName() internal pure override returns (string memory) {
@@ -41,7 +50,7 @@ contract USDCUSDTTest is SettlerPairTest {
     function uniswapV3Path()
         internal
         pure
-        override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest, AllowanceHolderPairTest)
+        override(SettlerPairTest, SettlerMetaTxnPairTest, AllowanceHolderPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint8(0), uint24(100), toToken());
