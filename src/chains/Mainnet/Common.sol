@@ -9,6 +9,7 @@ import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
 // import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
+import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -46,7 +47,8 @@ abstract contract MainnetMixin is
     MaverickV2,
     //CurveTricrypto,
     DodoV1,
-    DodoV2
+    DodoV2,
+    EulerSwap
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
@@ -55,7 +57,7 @@ abstract contract MainnetMixin is
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase)
@@ -94,25 +96,27 @@ abstract contract MainnetMixin is
         } /* `VELODROME` is removed */
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
-            if (token == ETH_ADDRESS) {
-                uint256 balance = address(this).balance;
-                if (balance > expectedAmount) {
-                    unchecked {
-                        payable(recipient).safeTransferETH(balance - expectedAmount);
-                    }
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                unchecked {
+                    balance -= expectedAmount;
                 }
-            } else {
-                uint256 balance = token.fastBalanceOf(address(this));
-                if (balance > expectedAmount) {
-                    unchecked {
-                        token.safeTransfer(recipient, balance - expectedAmount);
-                    }
+                if (isETH) {
+                    payable(recipient).safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
                 }
             }
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             revert("unimplemented");
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
@@ -176,4 +180,8 @@ abstract contract MainnetMixin is
         return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
     */
+
+    function _EVC() internal pure override returns (IEVC) {
+        return IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
+    }
 }

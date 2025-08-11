@@ -14,29 +14,31 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Install Node.js 18.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 18.x
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-59f354c179f4e7f6d7292acb3d068815c79286d1
+          version: v1.3.0
 
       - name: Install dependencies
         run: git submodule update --recursive --init
 
+      - name: Install node dependencies
+        run: npm install
+
       - name: Check contract sizes
-        run: forge build --sizes --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol
+        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
 
       - name: Run tests
-        run: forge test --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip 'src/*'
+        run: forge test --skip 'src/*' --skip 'test/0.8.28/*'
         env:
           FOUNDRY_PROFILE: integration
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
-      - name: Install Node.js 18.x
-        uses: actions/setup-node@v1
-        with:
-          node-version: 18.x
-      - name: Install node dependencies
-        run: npm install
       - name: Gas comparison
         run: npm run compare_gas

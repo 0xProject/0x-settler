@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+IAllowanceHolder constant ALLOWANCE_HOLDER = IAllowanceHolder(0x0000000000005E88410CcDFaDe4a5EfaE4b49562);
+
 interface IAllowanceHolder {
     /// @notice Executes against `target` with the `data` payload. Prior to execution, token permits
     ///         are temporarily stored for the duration of the transaction. These permits can be

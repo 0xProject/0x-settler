@@ -16,14 +16,12 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {DEPLOYER} from "./deployer/DeployerAddress.sol";
 import {IDeployer} from "./deployer/IDeployer.sol";
 import {Feature} from "./deployer/Feature.sol";
-import {IOwnable} from "./deployer/IOwnable.sol";
+import {IOwnable} from "./interfaces/IOwnable.sol";
 
 // DANGER: do not reorder the inheritance list here. You will get shocking and incorrect results
 // inside `MultiCallContext` if `super._msgSender` is `Permit2PaymentMetaTxn._msgSender`.
 abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, SettlerMetaTxn {
-    bytes32 private constant _SOLVER_LIST_BASE_SLOT = 0x00000000000000000000000000000000e4441b0608054751d605e5c08a2210bf; // uint128(uint256(keccak256("SettlerIntentSolverList")) - 1)
-    bytes32 private constant _SOLVER_LIST_START_SLOT =
-        0x165458a486c543a8294bbc8a8476cd9020f962f9e80991591ef8c2860c5c5490; // keccak256(abi.encode(_SENTINEL_SOLVER, _SOLVER_LIST_BASE_SLOT))
+    bytes32 private constant _SOLVER_LIST_BASE_SLOT = 0x000000000000000000000000000000000000000008054751d605e5c08a2210bf; // uint96(uint256(keccak256("SettlerIntentSolverList")) - 1)
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
     /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant
@@ -37,11 +35,9 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     }
 
     address private constant _SENTINEL_SOLVER = 0x0000000000000000000000000000000000000001;
-    address private constant _ADDRESS_MASK = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
 
     constructor() {
-        assert(_SOLVER_LIST_BASE_SLOT == bytes32(uint256(uint128(uint256(keccak256("SettlerIntentSolverList")) - 1))));
-        assert(_SOLVER_LIST_START_SLOT == keccak256(abi.encode(_SENTINEL_SOLVER, _SOLVER_LIST_BASE_SLOT)));
+        assert(_SOLVER_LIST_BASE_SLOT == bytes32(uint256(uint96(uint256(keccak256("SettlerIntentSolverList")) - 1))));
         _$()[_SENTINEL_SOLVER] = _SENTINEL_SOLVER;
     }
 
@@ -53,7 +49,6 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         */
         address deployer_ = DEPLOYER;
         uint256 tokenId_ = _tokenId();
-        uint40 expiry;
         assembly ("memory-safe") {
             // We lay out the calldata in memory in the first 2 slots. The first slot is the
             // selector, but aligned incorrectly (this significantly saves on contract size). The
@@ -76,21 +71,22 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // Load the return values that were automatically written into the first 2 slots of
             // memory.
             owner_ := mload(0x00)
-            expiry := mload(0x20)
+            let expiry := mload(0x20)
 
-            // If there are any dirty bits in the return values, revert with an empty reason.
-            if or(shr(0xa0, owner_), shr(0x28, expiry)) { revert(0x00, 0x00) }
+            // If there are any dirty bits in the return values, revert with an empty
+            // reason. Likewise, if `expiry` has elapsed, there is no owner; revert with an empty
+            // reason.
+            if or(gt(timestamp(), expiry), or(shr(0xa0, owner_), shr(0x28, expiry))) { revert(0x00, 0x00) }
         }
-
-        // Check that the owner actually exists, that is that their authority hasn't expired.
-        require(block.timestamp <= expiry);
     }
 
     modifier onlyOwner() {
         // Check that the caller (in this case `_operator()`, because we aren't using the special
         // transient-storage taker logic) is the owner.
-        if (_operator() != owner()) {
-            assembly ("memory-safe") {
+        address operator = _operator();
+        address owner_ = owner();
+        assembly ("memory-safe") {
+            if shl(0x60, xor(operator, owner_)) {
                 mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
                 revert(0x1c, 0x04)
             }
@@ -99,8 +95,11 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     }
 
     modifier onlySolver() {
-        if (_$()[_operator()] == address(0)) {
-            assembly ("memory-safe") {
+        address operator = _operator();
+        assembly ("memory-safe") {
+            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
+            mstore(0x20, _SOLVER_LIST_BASE_SLOT)
+            if iszero(shl(0x60, sload(keccak256(0x00, 0x40)))) {
                 mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
                 revert(0x1c, 0x04)
             }
@@ -131,8 +130,8 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         */
         assembly ("memory-safe") {
             // Clean dirty bits.
-            prev := and(_ADDRESS_MASK, prev)
-            solver := and(_ADDRESS_MASK, solver)
+            prev := shr(0x60, shl(0x60, prev))
+            solver := shr(0x60, shl(0x60, solver))
 
             // A solver of zero is special-cased. It is forbidden to set it because that would
             // corrupt the list.
@@ -142,7 +141,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             mstore(0x00, solver)
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
             let solverSlot := keccak256(0x00, 0x40)
-            let solverSlotValue := and(_ADDRESS_MASK, sload(solverSlot))
+            let solverSlotValue := shr(0x60, shl(0x60, sload(solverSlot)))
 
             // If the slot contains zero, `addNotRemove` must be true (we are adding a new
             // solver). Likewise if the slot contains nonzero, `addNotRemove` must be false (we are
@@ -162,9 +161,8 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // Check that the value for `prev` matches the value for `solver`. If we are adding a
             // new solver, then `prev` must be the last element of the list (it points at
             // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
-            // `solver.
-            fail :=
-                or(xor(and(_ADDRESS_MASK, sload(prevSlot)), expectedPrevSlotValue), fail)
+            // `solver`.
+            fail := or(shl(0x60, xor(sload(prevSlot), expectedPrevSlotValue)), fail)
 
             // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
             // `$[solver]` or it points `$[prev]` at `solver` and points `$[solver]` at
@@ -208,10 +206,11 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
                 let i := start
                 for {
                     mstore(0x20, _SOLVER_LIST_BASE_SLOT)
-                    let x := and(_ADDRESS_MASK, sload(_SOLVER_LIST_START_SLOT))
+                    mstore(0x00, _SENTINEL_SOLVER)
+                    let x := shr(0x60, shl(0x60, sload(keccak256(0x00, 0x40))))
                 } xor(_SENTINEL_SOLVER, x) {
                     i := add(0x20, i)
-                    x := and(_ADDRESS_MASK, sload(keccak256(0x00, 0x40)))
+                    x := shr(0x60, shl(0x60, sload(keccak256(0x00, 0x40))))
                 } {
                     mstore(i, x)
                     mstore(0x00, x)
@@ -256,16 +255,6 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return _executeMetaTxn(slippage, actions, sig);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
-        internal
-        pure
-        virtual
-        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn)
-        returns (uint256 sellAmount)
-    {
-        sellAmount = permit.permitted.amount;
-    }
-
     function _isForwarded() internal view virtual override(AbstractContext, Context, MultiCallContext) returns (bool) {
         return Context._isForwarded(); // false
     }
@@ -299,5 +288,25 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         returns (string memory)
     {
         return super._witnessTypeSuffix();
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        virtual
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, Permit2PaymentIntent)
+        returns (uint256)
+    {
+        return super._permitToSellAmountCalldata(permit);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, Permit2PaymentIntent)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
     }
 }

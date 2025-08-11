@@ -14,7 +14,7 @@ import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract DodoV2PairTest is BasePairTest {
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "USDT-DAI";
     }
 

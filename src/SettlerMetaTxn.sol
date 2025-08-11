@@ -79,7 +79,11 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             // We simultaneously transfer-in the taker's tokens and authenticate the
             // metatransaction.
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
+        } /*
+        // METATXN_RFQ_VIP is temporarily removed because Solver has no support
+        // for it. When support for METATXN_RFQ_VIP is reenabled, the test
+        // testSettler_metaTxn_rfq should be reenabled
+        else if (action == uint32(ISettlerActions.METATXN_RFQ_VIP.selector)) {
             // An optimized path involving a maker/taker in a single trade
             // The RFQ order is signed by both maker and taker, validation is
             // performed inside the RfqOrderSettlement so there is no need to
@@ -94,9 +98,8 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
                 data,
                 (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
             );
-
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
-        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
+        } */ else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
                 bytes memory path,
@@ -116,8 +119,12 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         returns (bool)
     {
         require(actions.length != 0);
+        uint256 it;
+        assembly ("memory-safe") {
+            it := actions.offset
+        }
         {
-            (uint256 action, bytes calldata data) = actions.decodeCall(0);
+            (uint256 action, bytes calldata data) = actions.decodeCall(it);
 
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
@@ -126,9 +133,9 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
                 revertActionInvalid(0, action, data);
             }
         }
-
-        for (uint256 i = 1; i < actions.length; i = i.unsafeInc()) {
-            (uint256 action, bytes calldata data) = actions.decodeCall(i);
+        it = it.unsafeAdd(32);
+        for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
+            (uint256 action, bytes calldata data) = actions.decodeCall(it);
             if (!_dispatch(i, action, data)) {
                 revertActionInvalid(i, action, data);
             }

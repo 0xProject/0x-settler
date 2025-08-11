@@ -32,10 +32,81 @@ Master list of UniV3 forks:
   29. SwapX (Algebra-like)
   30. KodiakV3
   31. Bulla Exchange (Algebra-like)
+  32. KittenSwap (factory is upgradeable; pools are not)
+  33. Hybra
+  34. HyperSwap
 
 ---
 
 ## [Unreleased]
+
+### Breaking changes
+
+* Update Scroll to the Cancun hardfork
+* In metatransactions and intents, it is now an error for `_operator()` (the gas
+  payer/solver/relayer) to be `msgSender` (the taker)
+* Remove `LimitOrderFeeCollector`
+
+### Non-breaking changes
+
+* Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
+  handle the selling of the chain-native asset
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
+* Improve gas efficiency and accuracy of `EULERSWAP` action
+* Add solvency check for EulerSwap (does not execute on-chain)
+* Add `CrossChainReceiverFactory`, a minimal proxy factory inspired by submarine
+  transactions for "automatically" swapping any tokens received
+
+## 2025-08-01
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy a stripped-down suite of Settlers to Katana network
+
+## 2025-07-07
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to HyperEVM (Hyperliquid) network
+  * Add KittenSwap UniV3 fork to HyperEVM
+  * Add Hybra UniV3 fork to HyperEVM
+  * Add HyperSwap UniV3 fork to HyperEVM
+
+## 2025-07-02
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Remove Safe{Wallet} API configuration from Blast
+* Configure Safe{Wallet} API on Berachain
+* Add EulerSwap action `EULERSWAP`
+  * Add `EULERSWAP` action to Mainnet
+  * Add `EULERSWAP` action to Base
+  * Add `EULERSWAP` action to Bnb
+  * Add `EULERSWAP` action to Sonic
+  * Add `EULERSWAP` action to Avalanche
+  * Add `EULERSWAP` action to Unichain
+  * Add `EULERSWAP` action to Berachain
+
+## 2025-06-16
+
+### Breaking changes
+
+* `METATXN_RFQ_VIP` action is removed from all chains
+
+### Non-breaking changes
+
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Optimism
+* Add support for Ekubo forwarding extensions by setting the top bit of `bps`
+
+## 2025-04-25
 
 ### Breaking changes
 

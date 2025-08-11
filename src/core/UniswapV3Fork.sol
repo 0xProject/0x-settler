@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -33,6 +34,7 @@ interface IUniswapV3Pool {
 }
 
 abstract contract UniswapV3Fork is SettlerAbstract {
+    using Ternary for bool;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
@@ -49,12 +51,6 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x48;
     uint256 private constant PERMIT_DATA_SIZE = 0x60;
     uint256 private constant ISFORWARDED_DATA_SIZE = 0x01;
-    /// @dev Minimum tick price sqrt ratio.
-    uint160 private constant MIN_PRICE_SQRT_RATIO = 4295128739;
-    /// @dev Minimum tick price sqrt ratio.
-    uint160 private constant MAX_PRICE_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
-    /// @dev Mask of lower 20 bytes.
-    uint256 private constant ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
 
@@ -142,58 +138,49 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 _updateSwapCallbackData(swapCallbackData, sellToken, payer);
             }
 
-            int256 amount0;
-            int256 amount1;
-            if (isPathMultiHop) {
-                uint256 freeMemPtr;
-                assembly ("memory-safe") {
-                    freeMemPtr := mload(0x40)
-                }
-                (amount0, amount1) = abi.decode(
-                    _setOperatorAndCall(
-                        address(pool),
-                        abi.encodeCall(
-                            pool.swap,
-                            (
-                                // Intermediate tokens go to this contract.
-                                address(this),
-                                zeroForOne,
-                                int256(sellAmount),
-                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                                swapCallbackData
-                            )
-                        ),
-                        callbackSelector,
-                        _uniV3ForkCallback
-                    ),
-                    (int256, int256)
-                );
-                assembly ("memory-safe") {
-                    mstore(0x40, freeMemPtr)
-                }
-            } else {
-                (amount0, amount1) = abi.decode(
-                    _setOperatorAndCall(
-                        address(pool),
-                        abi.encodeCall(
-                            pool.swap,
-                            (
-                                recipient,
-                                zeroForOne,
-                                int256(sellAmount),
-                                zeroForOne ? MIN_PRICE_SQRT_RATIO + 1 : MAX_PRICE_SQRT_RATIO - 1,
-                                swapCallbackData
-                            )
-                        ),
-                        callbackSelector,
-                        _uniV3ForkCallback
-                    ),
-                    (int256, int256)
-                );
+            // Intermediate tokens go to this contract. Final tokens go to `recipient`.
+            address to = isPathMultiHop.ternary(address(this), recipient);
+
+            uint256 freeMemPtr;
+            bytes memory data;
+            assembly ("memory-safe") {
+                freeMemPtr := mload(0x40)
+                data := freeMemPtr
+
+                // encode the call to pool.swap
+                let callbackLen := mload(swapCallbackData)
+                mcopy(add(0xc4, data), swapCallbackData, add(0x20, callbackLen))
+                mstore(add(0xa4, data), 0xa0)
+                mstore(
+                    add(0x84, data),
+                    xor(
+                        4295128740,
+                        mul(xor(1461446703485210103287273052203988822378723970341, 4295128740), iszero(zeroForOne))
+                    )
+                )
+                mstore(add(0x64, data), sellAmount)
+                mstore(add(0x44, data), zeroForOne)
+                mstore(add(0x24, data), to)
+                mstore(add(0x10, data), 0x128acb08000000000000000000000000) // selector for `swap(address,bool,int256,uint160,bytes)` with `to`'s padding
+
+                // set data.length
+                mstore(data, add(0xc4, callbackLen))
+
+                // advance the free memory pointer (we'll put it back later)
+                mstore(0x40, add(add(0xe4, callbackLen), data))
+            }
+
+            (int256 amount0, int256 amount1) = abi.decode(
+                _setOperatorAndCall(address(pool), data, callbackSelector, _uniV3ForkCallback), (int256, int256)
+            );
+
+            assembly ("memory-safe") {
+                // release the memory that we allocated above
+                mstore(0x40, freeMemPtr)
             }
 
             {
-                int256 _buyAmount = (zeroForOne ? amount1 : amount0).unsafeNeg();
+                int256 _buyAmount = zeroForOne.ternary(amount1, amount0).unsafeNeg();
                 if (_buyAmount < 0) {
                     Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                 }
@@ -300,13 +287,12 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         // )))
         bytes32 salt;
         assembly ("memory-safe") {
-            token0 := and(ADDRESS_MASK, token0)
-            token1 := and(ADDRESS_MASK, token1)
             poolId := and(UINT24_MASK, poolId)
             let ptr := mload(0x40)
-            mstore(0x00, token0)
-            mstore(0x20, token1)
             mstore(0x40, poolId)
+            mstore(0x20, token1)
+            mstore(0x00, 0x00)
+            mstore(0x0c, shl(0x60, token0))
             salt := keccak256(0x00, sub(0x60, shl(0x05, iszero(poolId))))
             mstore(0x40, ptr)
         }
@@ -346,7 +332,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             // ensures that `data` was passed unmodified from `_updateSwapCallbackData`. Therefore,
             // it is at least 40 bytes long.
         }
-        uint256 sellAmount = amount0Delta > 0 ? uint256(amount0Delta) : uint256(amount1Delta);
+        uint256 sellAmount = (amount0Delta > 0).ternary(uint256(amount0Delta), uint256(amount1Delta));
         _pay(payer, sellAmount, data);
     }
 

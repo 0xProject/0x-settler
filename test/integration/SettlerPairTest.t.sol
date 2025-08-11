@@ -141,8 +141,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, sig, 0))
         );
-        ISettlerBase.AllowedSlippage memory slippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether});
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
 
         Settler _settler = settler;
         vm.startPrank(FROM);
@@ -162,7 +165,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_multiplex2");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
@@ -179,7 +186,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
@@ -260,7 +271,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV3_sellToken_fee_full_custody");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
@@ -284,14 +299,22 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
         snapEnd();
     }
 
-    function testSettler_uniswapV2_multihop_single_chain() public skipIf(uniswapV2Pool() == address(0)) {
+    function testSettler_uniswapV2_multihop_single_chain()
+        public
+        skipIf(uniswapV2Pool() == address(0))
+        skipIf(toToken() != WETH)
+    {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
@@ -317,7 +340,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2_multihop_single_chain");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
@@ -346,14 +373,18 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2_single_chain");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
         snapEnd();
     }
 
-    function testSettler_uniswapV2_multihop() public skipIf(uniswapV2Pool() == address(0)) {
+    function testSettler_uniswapV2_multihop() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH) {
         IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
 
@@ -377,7 +408,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_uniswapV2_multihop");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );
@@ -466,7 +501,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         fromToken().safeTransfer(address(_settler), amount());
 
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
             actions,
             bytes32(0)
         );

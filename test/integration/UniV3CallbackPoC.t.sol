@@ -72,7 +72,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
     uint256 bobPk;
 
     function setUp() public {
-        vm.createSelectFork(testChainId(), testBlockNumber());
+        vm.createSelectFork(_testChainId(), _testBlockNumber());
 
         address alice_;
         (alice_, alicePk) = makeAddrAndKey("Alice");

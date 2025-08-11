@@ -10,11 +10,10 @@ library UnsafeMath {
         }
     }
 
-    function unsafeInc(uint256 x, bool b) internal pure returns (uint256) {
+    function unsafeInc(uint256 x, bool b) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            x := add(x, b)
+            r := add(x, b)
         }
-        return x;
     }
 
     function unsafeInc(int256 x) internal pure returns (int256) {
@@ -29,6 +28,12 @@ library UnsafeMath {
         }
     }
 
+    function unsafeDec(uint256 x, bool b) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sub(x, b)
+        }
+    }
+
     function unsafeDec(int256 x) internal pure returns (int256) {
         unchecked {
             return x - 1;
@@ -38,6 +43,12 @@ library UnsafeMath {
     function unsafeNeg(int256 x) internal pure returns (int256) {
         unchecked {
             return -x;
+        }
+    }
+
+    function unsafeAbs(int256 x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mul(or(0x01, sar(0xff, x)), x)
         }
     }
 
@@ -82,6 +93,19 @@ library UnsafeMath {
             r := add(gt(mod(n, d), 0x00), div(n, d))
         }
     }
+
+    /// rounds away from zero
+    function unsafeDivUp(int256 n, int256 d) internal pure returns (int256 r) {
+        assembly ("memory-safe") {
+            r := add(mul(lt(0x00, smod(n, d)), or(0x01, sar(0xff, xor(n, d)))), sdiv(n, d))
+        }
+    }
+
+    function unsafeAdd(uint256 a, uint256 b) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := add(a, b)
+        }
+    }
 }
 
 library Math {
@@ -100,6 +124,33 @@ library Math {
         }
         if (r > x) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+    }
+
+    function toInt(bool c) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := c
+        }
+    }
+
+    function saturatingAdd(uint256 x, uint256 y) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := add(x, y)
+            r := or(r, sub(0x00, lt(r, y)))
+        }
+    }
+
+    function saturatingSub(uint256 x, uint256 y) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := mul(gt(x, y), sub(x, y))
+        }
+    }
+
+    function absDiff(uint256 x, uint256 y) internal pure returns (uint256 r, bool sign) {
+        assembly ("memory-safe") {
+            sign := lt(x, y)
+            let m := sub(0x00, sign)
+            r := sub(xor(sub(x, y), m), m)
         }
     }
 }

@@ -12,6 +12,8 @@ import {Permit2Signature} from "../utils/Permit2Signature.sol";
 import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
+import {UNIVERSAL_ROUTER} from "src/vendor/IUniswapUniversalRouter.sol";
+
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDefaultFork {
     using SafeTransferLib for IERC20;
 
@@ -20,15 +22,20 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     uint256 internal constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
     address payable internal MAKER = payable(vm.addr(MAKER_PRIVATE_KEY));
 
+    uint48 internal constant PERMIT2_FROM_NONCE = 1;
+
     address internal constant BURN_ADDRESS = 0x2222222222222222222222222222222222222222;
 
     ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     address internal constant ZERO_EX_ADDRESS = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
+    IERC20 internal constant ETH = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    IERC20 internal constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+
     bytes32 internal immutable permit2Domain;
 
     constructor() {
-        vm.createSelectFork(testChainId(), testBlockNumber());
+        vm.createSelectFork(_testChainId(), _testBlockNumber());
         permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
         if (address(fromToken()).code.length > 0) {
             vm.label(address(fromToken()), fromToken().symbol());
@@ -38,14 +45,19 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
         }
     }
 
-    function testName() internal view virtual returns (string memory);
+    function _testName() internal view virtual returns (string memory);
     function fromToken() internal view virtual returns (IERC20);
     function toToken() internal view virtual returns (IERC20);
     function amount() internal view virtual returns (uint256);
 
+    function slippageLimit() internal view virtual returns (uint256) {
+        return 0;
+    }
+
     function setUp() public virtual {
-        vm.createSelectFork(testChainId(), testBlockNumber());
+        vm.createSelectFork(_testChainId(), _testBlockNumber());
         vm.label(address(this), "FoundryTest");
+        vm.label(address(PERMIT2), "Permit2");
         vm.label(FROM, "FROM");
         vm.label(MAKER, "MAKER");
         vm.label(BURN_ADDRESS, "BURN");
@@ -64,7 +76,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     }
 
     function snapStartName(string memory name) internal {
-        snapStart(string.concat(name, "_", testName()));
+        snapStart(string.concat(name, "_", _testName()));
     }
 
     /// @dev Manually store a non-zero value as a nonce for Permit2
@@ -80,6 +92,15 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
         bytes32 beforeValue = vm.load(address(PERMIT2), slotId);
         if (uint256(beforeValue) == 0) {
             vm.store(address(PERMIT2), slotId, bytes32(uint256(1)));
+        }
+
+        // For AllowanceTransfer, we also warm the nonce for `fromToken()`
+        slotId = keccak256(
+            abi.encode(UNIVERSAL_ROUTER, keccak256(abi.encode(fromToken(), keccak256(abi.encode(FROM, uint256(1))))))
+        );
+        beforeValue = vm.load(address(PERMIT2), slotId);
+        if (uint256(beforeValue) == 0) {
+            vm.store(address(PERMIT2), slotId, bytes32(uint256(1 << 208)));
         }
     }
 

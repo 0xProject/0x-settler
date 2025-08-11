@@ -13,13 +13,17 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 // Solidity inheritance is stupid
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, SettlerMetaTxnPairTest, AllowanceHolderPairTest {
-    function setUp() public override(AllowanceHolderPairTest, SettlerPairTest, SettlerMetaTxnPairTest) {
+contract USDCUSDTTest is SettlerPairTest {
+    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTest) {
         super.setUp();
     }
 
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "USDC-USDT";
+    }
+
+    function reverseTestName() internal pure override returns (string memory) {
+        return "USDT-USDC";
     }
 
     function fromToken() internal pure override returns (IERC20) {
@@ -34,7 +38,12 @@ contract USDCUSDTTest is SettlerPairTest, SettlerMetaTxnPairTest, AllowanceHolde
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override(AllowanceHolderPairTest, SettlerPairTest, SettlerMetaTxnPairTest) returns (bytes memory) {
+    function uniswapV3Path()
+        internal
+        pure
+        override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest, AllowanceHolderPairTest)
+        returns (bytes memory)
+    {
         return abi.encodePacked(fromToken(), uint8(0), uint24(100), toToken());
     }
 

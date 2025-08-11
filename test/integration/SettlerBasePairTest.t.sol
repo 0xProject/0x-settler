@@ -31,8 +31,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
 
-    uint256 internal PERMIT2_FROM_NONCE = 1;
-    uint256 internal PERMIT2_MAKER_NONCE = 1;
+    uint256 internal constant PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
     IAllowanceHolder internal allowanceHolder;
@@ -46,9 +45,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
         bytes memory initCode = settlerInitCode();
         assembly ("memory-safe") {
             r := create(0x00, add(0x20, initCode), mload(initCode))
-            if iszero(r) {
-                revert(0x00, 0x00)
-            }
+            if iszero(r) { revert(0x00, 0x00) }
         }
     }
 
@@ -59,6 +56,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
         settler = _deploySettler();
+        vm.label(address(settler), "Settler");
         vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
         vm.label(address(allowanceHolder), "AllowanceHolder");
         vm.chainId(forkChainId);
@@ -76,8 +74,22 @@ abstract contract SettlerBasePairTest is BasePairTest {
     }
 
     function _getDefaultFromPermit2() internal returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
+        return _getDefaultFromPermit2(amount());
+    }
+
+    function _getDefaultFromPermit2(uint256 amount_)
+        internal
+        returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
+    {
+        return _getDefaultFromPermit2(fromToken(), amount_);
+    }
+
+    function _getDefaultFromPermit2(IERC20 token, uint256 amount_)
+        internal
+        returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
+    {
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+            defaultERC20PermitTransfer(address(token), amount_, PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
         return (permit, sig);
     }
