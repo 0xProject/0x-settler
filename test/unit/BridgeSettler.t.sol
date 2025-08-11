@@ -42,6 +42,7 @@ contract BridgeSettlerTestBase is Test {
 
     function setUp() public virtual {
         _testBridgeSettler();
+        vm.label(address(bridgeSettler), "BridgeSettler");
         bridgeDummy = new BridgeDummy();
         token = IERC20(address(new MockERC20("Test Token", "TT", 18)));
     }
