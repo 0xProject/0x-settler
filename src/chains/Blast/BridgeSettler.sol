@@ -7,7 +7,7 @@ import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 
 import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
-import {IOwnable} from "../../deployer/IOwnable.sol";
+import {IOwnable} from "../../interfaces/IOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
 
 contract BlastBridgeSettler is BridgeSettler, Across {
