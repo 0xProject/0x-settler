@@ -122,6 +122,8 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
+decrypt_secrets
+
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -140,21 +142,26 @@ export FOUNDRY_OPTIMIZER_RUNS=1000000
 forge clean
 forge build src/allowanceholder/AllowanceHolderOld.sol
 
+declare allowanceholder_initcode
+allowanceholder_initcode="$(forge inspect src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder bytecode)"
+declare -r allowanceholder_initcode
+
 declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
-declare -i gas_limit
-gas_limit="$(cast estimate --from "$(get_secret allowanceHolderLondon deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$(forge inspect src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder bytecode)")"
-gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-declare -r -i gas_limit
 
+declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
+    gas_limit="$(cast estimate --from "$(get_secret allowanceHolderLondon deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
+    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
     maybe_broadcast+=(--broadcast)
 else
     maybe_broadcast+=(-vvvv)
+    gas_limit=16777215
 fi
 declare -r -a maybe_broadcast
+declare -r -i gas_limit
 
 forge create "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolderLondon deployer)" --private-key "$(get_secret allowanceHolderLondon key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 

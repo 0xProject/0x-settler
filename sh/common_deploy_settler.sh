@@ -68,7 +68,19 @@ deploy_intent_calldata="$(cast calldata "$deploy_sig" 4 "$intent_initcode")"
 declare -r deploy_intent_calldata
 
 declare next_intent_settler_address
-next_intent_settler_address="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'next(uint128)(address)' 4)"
+if [[ -z "${deployer_address-}" ]] ; then
+    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
+        echo 'NO NEW LONDON CHAINS!!!' >&2
+        exit 1
+    fi
+    next_intent_settler_address="$(cast keccak "$(cast concat-hex 0xff 0x00000000000004533Fe15556B1E086BB1A72cEae "$(cast to-uint256 "$(bc <<<'obase=16;4*2^128+'"$chainid"'*2^64+1')")" 0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f)")"
+    next_intent_settler_address="${next_intent_settler_address:26:40}"
+    next_intent_settler_address="$(cast to-check-sum-address "$next_intent_settler_address")"
+    next_intent_settler_address="$(cast compute-address --nonce 1 "$next_intent_settler_address")"
+    next_intent_settler_address="${next_intent_settler_address##* }"
+else
+    next_intent_settler_address="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'next(uint128)(address)' 4)"
+fi
 declare -r next_intent_settler_address
 
 declare -a solvers
@@ -151,8 +163,26 @@ if [[ -n "${deployer_address-}" ]] ; then
                 )"
             )
         done
+        declare multicall_args
+        multicall_args="$(cast concat-hex "${deploy_calldatas[@]}")"
+        multicall_args="${multicall_args:2}"
+
+        declare multicall_args_length="${#multicall_args}"
+
+        declare -i padding_length=$((multicall_args_length % 64))
+        if (( padding_length )) ; then
+            padding_length=$((64 - padding_length))
+            multicall_args="$multicall_args""$(seq 1 $padding_length | xargs printf '0%.0s')"
+        fi
+
+        multicall_args_length=$(( multicall_args_length / 2 ))
+        multicall_args_length="$(cast to-uint256 $multicall_args_length)"
+        multicall_args_length="${multicall_args_length:2}"
+
+        multicall_args="$multisend_selector"'0000000000000000000000000000000000000000000000000000000000000020'"$multicall_args_length""$multicall_args"
+
         deploy_calldatas=(
-            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
+            1 "$multicall_args" "$multicall_address"
         )
     fi
 fi

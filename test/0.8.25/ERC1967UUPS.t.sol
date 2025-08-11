@@ -6,8 +6,8 @@ import "@forge-std/Test.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {ERC1967UUPSUpgradeable, IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
-import {IOwnable} from "src/deployer/IOwnable.sol";
-import {AbstractOwnable, Ownable} from "src/deployer/TwoStepOwnable.sol";
+import {IOwnable} from "src/interfaces/IOwnable.sol";
+import {AbstractOwnable, Ownable} from "src/utils/TwoStepOwnable.sol";
 import {Context} from "src/Context.sol";
 
 interface IMock is IOwnable, IERC1967Proxy {}

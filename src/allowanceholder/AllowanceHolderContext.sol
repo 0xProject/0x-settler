@@ -2,17 +2,15 @@
 pragma solidity ^0.8.25;
 
 import {Context} from "../Context.sol";
-import {IAllowanceHolder} from "./IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "./IAllowanceHolder.sol";
 
 abstract contract AllowanceHolderContext is Context {
-    IAllowanceHolder internal constant _ALLOWANCE_HOLDER = IAllowanceHolder(0x000000000000175a8b9bC6d539B3708EEd92EA6c);
-
     function _isForwarded() internal view virtual override returns (bool) {
-        return super._isForwarded() || super._msgSender() == address(_ALLOWANCE_HOLDER);
+        return super._isForwarded() || super._msgSender() == address(ALLOWANCE_HOLDER);
     }
 
     function _msgData() internal view virtual override returns (bytes calldata) {
-        if (super._msgSender() == address(_ALLOWANCE_HOLDER)) {
+        if (super._msgSender() == address(ALLOWANCE_HOLDER)) {
             return msg.data[:msg.data.length - 20];
         } else {
             return msg.data;
@@ -21,7 +19,7 @@ abstract contract AllowanceHolderContext is Context {
 
     function _msgSender() internal view virtual override returns (address sender) {
         sender = super._msgSender();
-        if (sender == address(_ALLOWANCE_HOLDER)) {
+        if (sender == address(ALLOWANCE_HOLDER)) {
             // ERC-2771 like usage where the _trusted_ `AllowanceHolder` has appended the appropriate
             // msg.sender to the msg data
             bytes calldata data = super._msgData();

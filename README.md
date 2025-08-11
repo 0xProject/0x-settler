@@ -14,11 +14,11 @@ deployment, call `function ownerOf(uint256 tokenId) external view returns (addre
 with the `tokenId` set to the number of the feature that you wish to query. For
 taker-submitted flows, the feature number is probably 2 unless something major
 changed and nobody updated this document. For gasless/metatransaction flows, the
-feature number is probably 3. For intents, the feature number is probably 4. A
-reverting response indicates that `Settler` is paused and you should not
-interact. Do not hardcode any `Settler` address in your
-integration. _**ALWAYS**_ query the deployer/registry for the address of the
-most recent `Settler` contract before building or signing a transaction,
+feature number is probably 3. For intents, the feature number is probably 4. For
+bridge settler, the feature number is probably 5. A reverting response indicates
+that `Settler` is paused and you should not interact. Do not hardcode any `Settler`
+address in your integration. _**ALWAYS**_ query the deployer/registry for the address
+of the most recent `Settler` contract before building or signing a transaction,
 metatransaction, or order.
 
 ### 0x API dwell time
@@ -126,11 +126,27 @@ your integration.
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche, Unichain, Berachain)
+  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Scroll, Mantle, Taiko)
+  hardfork (Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
   hardfork (Linea)
+
+### ERC2771 forwarding MultiCall address
+
+The ERC2771 forwarding `MultiCall` is deployed to
+`0x00000000000000CF9E3c5A26621af382fA17f24f` across all chains. You can hardcode
+this address in your integration. I have no idea why you would want to do that,
+but I guess it's a thing that you can do. The ERC2771 forwarding MultiCall is
+exclusively used by 0x's solvers for the `SettlerIntent` flavor of 0x Settler.
+
+### `CrossChainReceiverFactory` address
+
+`CrossChainReceiverFactory` is deployed to
+`0x00000000000000304861c3aDfb80dd5ebeC96325` across all chains. You can hardcode
+this address in your integration. This contract is used to deploy counterfactual
+(submarine) addresses to faciliate swapping and other actions on foreign chains
+after bridging.
 
 ### Permit2 address
 
@@ -585,6 +601,9 @@ comparison.
 | AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 184760 | 60.55% |
 | UniswapRouter V3    | Uniswap V3 | USDT/WETH | 111258 | -3.32% |
 |                     |            |           |        |        |
+| Settler VIP (warm)  | Uniswap V3 | WETH/USDC | 198008 | NaN%   |
+| UniswapRouter V3    | Uniswap V3 | WETH/USDC | 140238 | NaN%   |
+|                     |            |           |        |        |
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
@@ -599,6 +618,8 @@ comparison.
 | 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 230280 | 0.00%   |
 | Settler              | Uniswap V3 | USDT/WETH | 202033 | -12.27% |
 | AllowanceHolder      | Uniswap V3 | USDT/WETH | 214959 | -6.65%  |
+|                      |            |           |        |         |
+| Settler              | Uniswap V3 | WETH/USDC | 223765 | NaN%    |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %      |
@@ -630,6 +651,39 @@ comparison.
 | Settler         | 0x V4   | USDT/WETH | 215504 | 140.49% |
 | AllowanceHolder | Settler | USDT/WETH | 146301 | 63.26%  |
 |                 |         |           |        |         |
+| Settler         | 0x V4   | WETH/USDC | 238128 | NaN%    |
+|                 |         |           |        |         |
+
+| UniversalRouter | DEX       | Pair      | Gas    | %       |
+| --------------- | --------- | --------- | ------ | ------- |
+| UniversalRouter | UniswapV2 | USDC/WETH | 181534 | 0.00%   |
+| Settler         | UniswapV2 | USDC/WETH | 196498 | 8.24%   |
+| UniversalRouter | UniswapV3 | USDC/WETH | 177828 | -2.04%  |
+| Settler         | UniswapV3 | USDC/WETH | 220178 | 21.29%  |
+| UniversalRouter | UniswapV4 | USDC/WETH | 142771 | -21.35% |
+| Settler         | UniswapV4 | USDC/WETH | 135179 | -25.54% |
+|                 |           |           |        |         |
+| UniversalRouter | UniswapV2 | DAI/WETH  | 164029 | 0.00%   |
+| Settler         | UniswapV2 | DAI/WETH  | 178993 | 9.12%   |
+| UniversalRouter | UniswapV3 | DAI/WETH  | 168492 | 2.72%   |
+| Settler         | UniswapV3 | DAI/WETH  | 210849 | 28.54%  |
+| UniversalRouter | UniswapV4 | DAI/WETH  | 125438 | -23.53% |
+| Settler         | UniswapV4 | DAI/WETH  | 117846 | -28.16% |
+|                 |           |           |        |         |
+| UniversalRouter | UniswapV2 | USDT/WETH | 176025 | 0.00%   |
+| Settler         | UniswapV2 | USDT/WETH | 190963 | 8.49%   |
+| UniversalRouter | UniswapV3 | USDT/WETH | 180115 | 2.32%   |
+| Settler         | UniswapV3 | USDT/WETH | 222405 | 26.35%  |
+| UniversalRouter | UniswapV4 | USDT/WETH | 137168 | -22.07% |
+| Settler         | UniswapV4 | USDT/WETH | 129576 | -26.39% |
+|                 |           |           |        |         |
+| UniversalRouter | UniswapV2 | WETH/USDC | 167078 | 0.00%   |
+| Settler         | UniswapV2 | WETH/USDC | 183577 | 9.88%   |
+| UniversalRouter | UniswapV3 | WETH/USDC | 169758 | 1.60%   |
+| Settler         | UniswapV3 | WETH/USDC | 214530 | 28.40%  |
+| UniversalRouter | UniswapV4 | WETH/USDC | 131921 | -21.04% |
+| Settler         | UniswapV4 | WETH/USDC | 128786 | -22.92% |
+|                 |           |           |        |         |
 
 | Curve             | DEX                   | Pair      | Gas    | %       |
 | ----------------- | --------------------- | --------- | ------ | ------- |
@@ -697,6 +751,7 @@ comparison.
 | no fee                          | RFQ | USDT/WETH | 146301 | 0.00%  |
 | proportional fee                | RFQ | USDT/WETH | 192671 | 31.69% |
 | fixed fee                       | RFQ | USDT/WETH | 160610 | 9.78%  |
+|                                 |     |           |        |        |
 |                                 |     |           |        |        |
 
 [//]: # "END TABLES"
@@ -1186,7 +1241,7 @@ swap executes. Unlike in Permit2 flows, it is possible to make multiple
 optimized transfers of the same ephemeral allowance without reauthorizing.
 
 Highlighted in orange is the standard token transfer operations. Note: these are
-not the most effiecient swaps available, just enough to demonstrate the point.
+not the most efficient swaps available, just enough to demonstrate the point.
 
 `transferFrom` transfers the tokens on demand in the middle of the swap
 
@@ -1319,7 +1374,9 @@ Zeroth, verify the configuration for your chain in
 of `AllowanceHolder` addresses at the top of this file.
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
-this, give up. Also populate `api_secrets.json` by copying
+this, give up. Install [`scrypt`](https://github.com/Tarsnap/scrypt) and use it
+to encrypt `secrets.json` to `secrets.json.scrypt`. Also populate
+`api_secrets.json` by copying
 [`api_secrets.json.template`](api_secrets.json.template) and adding your own
 block explorer API key and RPC.
 
@@ -1391,7 +1448,7 @@ addresses (there are two: `iceColdCoffee` and `deployer`) listed in
 how much isn't obvious to you, you can run the main deployment script with
 `BROADCAST=no` to simulate. The `"iceColdCoffee"` address needs ~50% more native
 asset than the `"deployer"` address because the final transaction of the
-deployment is extremely gas-intensive. The amount of eth you need can be a
+deployment is extremely gas-intensive. The amount of ETH you need can be a
 little wonky on L2s, so beware and overprovision the amount of native asset.
 
 Fifth, deploy `MultiCall`. Run [`BROADCAST=no ./sh/deploy_multicall.sh
@@ -1402,7 +1459,17 @@ deterministic deployment
 proxy](https://github.com/Arachnid/deterministic-deployment-proxy). If you mess
 it up, make sure you learn from your mistakes for the next step.
 
-Sixth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Sixth, deploy `CrossChainReceiverFactory`. Send 2 wei of value to the wnative
+storage setter address (`0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc` unless
+something has gone very wrong). Run the deployment script in simulation mode
+[`BROADCAST=no ./sh/deploy_crosschainfactory.sh
+<CHAIN_NAME>`](sh/deploy_crosschainfactory.sh). Then fully fund the wnative
+storage setter address (it takes about 1.4Mgas; give yourself some buffer and
+adjust for the prevailing gas price) and re-run with `BROADCAST=yes`. It's
+annoying if you mess this one up, but it is (probably) recoverable because the
+vanity comes from the Arachnid deployer rather than from the EVM itself.
+
+Seventh, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
 `AllowanceHolder` (and vice versa). Run [`BROADCAST=no
 ./sh/deploy_allowanceholder.sh
@@ -1410,13 +1477,13 @@ Cancun-supporting chain, you don't need to fund the deployer for the old
 actually do the deployment. Don't mess this one up. You will burn the vanity
 address.
 
-Seventh, check that the Safe deployment on the new chain is complete. You can
+Eighth, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
 completes without reverting, you don't need to do anything. If the Safe
 deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 <CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
 
-Eighth, make _damn_ sure that you've got the correct configuration in
+Ninth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
 <CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a

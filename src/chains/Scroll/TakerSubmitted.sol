@@ -51,7 +51,7 @@ contract ScrollSettler is Settler, ScrollMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, ScrollMixin)
+        override(Settler, ScrollMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

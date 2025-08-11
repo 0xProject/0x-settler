@@ -57,7 +57,7 @@ function sign_call {
             <<<"$_sign_call_struct_json"
         )"
         declare -r typedDataRPC
-        _sign_call_result="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data "$typedDataRPC")"
+        _sign_call_result="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data '@-' <<<"$typedDataRPC")"
         if [[ $_sign_call_result = *error* ]] ; then
             echo "$_sign_call_result" >&2
             return 1
@@ -128,7 +128,7 @@ function save_signature {
             }
             '                                            \
             --arg to "$_save_signature_to"               \
-            --arg data "$_save_signature_call"           \
+            --slurpfile data <(jq -R . <<<"$_save_signature_call") \
             --arg operation $_save_signature_operation   \
             --arg nonce $(nonce)                         \
             --arg signing_hash "$signing_hash"           \
@@ -139,7 +139,7 @@ function save_signature {
         )"
 
         # call the API
-        curl --fail "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data "$safe_multisig_transaction"
+        curl --fail "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data '@-' <<<"$safe_multisig_transaction"
 
         echo 'Signature submitted' >&2
     fi

@@ -86,7 +86,7 @@ library SafeTransferLib {
             // Calldata starts at offset 16 and is 68 bytes long (2 * 32 + 4).
             // If there is returndata (optional) we copy the first 32 bytes into the first slot of memory.
             if iszero(call(gas(), token, 0x00, 0x10, 0x44, 0x00, 0x20)) {
-                let ptr := and(0xffffffffffffffffffffffff, mload(0x40))
+                let ptr := and(0xffffff, mload(0x40))
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -113,7 +113,7 @@ library SafeTransferLib {
             // Calldata starts at offset 16 and is 68 bytes long (2 * 32 + 4).
             // If there is returndata (optional) we copy the first 32 bytes into the first slot of memory.
             if iszero(call(gas(), token, 0x00, 0x10, 0x44, 0x00, 0x20)) {
-                let ptr := and(0xffffffffffffffffffffffff, mload(0x40))
+                let ptr := and(0xffffff, mload(0x40))
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
