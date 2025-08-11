@@ -35,7 +35,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     bytes32 internal immutable permit2Domain;
 
     constructor() {
-        vm.createSelectFork(testChainId(), testBlockNumber());
+        vm.createSelectFork(_testChainId(), _testBlockNumber());
         permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
         if (address(fromToken()).code.length > 0) {
             vm.label(address(fromToken()), fromToken().symbol());
@@ -45,7 +45,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
         }
     }
 
-    function testName() internal view virtual returns (string memory);
+    function _testName() internal view virtual returns (string memory);
     function fromToken() internal view virtual returns (IERC20);
     function toToken() internal view virtual returns (IERC20);
     function amount() internal view virtual returns (uint256);
@@ -55,7 +55,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     }
 
     function setUp() public virtual {
-        vm.createSelectFork(testChainId(), testBlockNumber());
+        vm.createSelectFork(_testChainId(), _testBlockNumber());
         vm.label(address(this), "FoundryTest");
         vm.label(address(PERMIT2), "Permit2");
         vm.label(FROM, "FROM");
@@ -76,7 +76,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     }
 
     function snapStartName(string memory name) internal {
-        snapStart(string.concat(name, "_", testName()));
+        snapStart(string.concat(name, "_", _testName()));
     }
 
     /// @dev Manually store a non-zero value as a nonce for Permit2

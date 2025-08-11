@@ -17,7 +17,7 @@ contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest
         super.setUp();
     }
 
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "WETH-USDC";
     }
 
@@ -56,13 +56,13 @@ contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest
         returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {}
 
-    function testBlockNumber()
+    function _testBlockNumber()
         internal
         pure
         virtual
         override(MainnetDefaultFork, UniswapV3PairTest)
         returns (uint256)
     {
-        return super.testBlockNumber();
+        return super._testBlockNumber();
     }
 }

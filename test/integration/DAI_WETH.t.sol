@@ -41,7 +41,7 @@ contract DAIWETHTest is
         super.setUp();
     }
 
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "DAI-WETH";
     }
 
@@ -61,14 +61,14 @@ contract DAIWETHTest is
         return 0.5 ether;
     }
 
-    function testBlockNumber()
+    function _testBlockNumber()
         internal
         pure
         virtual
         override(MainnetDefaultFork, UniswapV3PairTest)
         returns (uint256)
     {
-        return super.testBlockNumber();
+        return super._testBlockNumber();
     }
 
     function uniswapV3Path()

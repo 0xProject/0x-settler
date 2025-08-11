@@ -89,7 +89,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         return IPSM(0xf6e72Db5454dd049d0788e411b06CfAF16853042);
     }
 
-    function testName() internal pure virtual override returns (string memory) {
+    function _testName() internal pure virtual override returns (string memory) {
         return "USDC-DAI";
     }
 
@@ -201,7 +201,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 }
 
 contract MakerPsmLiteTestBuyGem is MakerPsmLiteTest {
-    function testName() internal pure virtual override returns (string memory) {
+    function _testName() internal pure virtual override returns (string memory) {
         return "DAI-USDC";
     }
 
