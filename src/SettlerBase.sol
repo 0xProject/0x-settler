@@ -38,9 +38,7 @@ library CalldataDecoder {
                 add(
                     data.offset,
                     // We allow the indirection/offset to `calls[i]` to be negative
-                    calldataload(
-                        add(shl(0x05, i), data.offset) // can't overflow; we assume `i` is in-bounds
-                    )
+                    calldataload(i)
                 )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
@@ -95,17 +93,14 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
             return;
         }
-        if (buyToken == ETH_ADDRESS) {
-            uint256 amountOut = address(this).balance;
-            if (amountOut < minAmountOut) {
-                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
+        bool isETH = (buyToken == ETH_ADDRESS);
+        uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
+        if (amountOut < minAmountOut) {
+            revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
+        }
+        if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
-            uint256 amountOut = buyToken.fastBalanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
             buyToken.safeTransfer(recipient, amountOut);
         }
     }
@@ -149,19 +144,16 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount) =
                 abi.decode(data, (address, IERC20, uint256));
-            if (token == ETH_ADDRESS) {
-                uint256 balance = address(this).balance;
-                if (balance > expectedAmount) {
-                    unchecked {
-                        recipient.safeTransferETH(balance - expectedAmount);
-                    }
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                unchecked {
+                    balance -= expectedAmount;
                 }
-            } else {
-                uint256 balance = token.fastBalanceOf(address(this));
-                if (balance > expectedAmount) {
-                    unchecked {
-                        token.safeTransfer(recipient, balance - expectedAmount);
-                    }
+                if (isETH) {
+                    recipient.safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
                 }
             }
         } else {

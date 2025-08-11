@@ -194,8 +194,9 @@ library UnsafeVault {
             // `params` in memory to account for the prepending of the selector (4 bytes) and the
             // indirection offset (32 bytes)
             if iszero(call(gas(), vault, 0x00, add(0x1c, clobberedPtr0), add(0x24, len), 0x00, 0x60)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
             amountIn := mload(0x20)
             amountOut := mload(0x40)

@@ -178,8 +178,9 @@ library UnsafePancakeInfinityPoolManager {
             mstore(add(0x160, ptr), hookData.length)
             calldatacopy(add(0x180, ptr), hookData.offset, hookData.length)
             if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), add(0x164, hookData.length), 0x00, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
             r := mload(0x00)
         }
@@ -207,8 +208,9 @@ library UnsafePancakeInfinityBinPoolManager {
             mstore(add(0x140, ptr), hookData.length)
             calldatacopy(add(0x160, ptr), hookData.offset, hookData.length)
             if iszero(call(gas(), poolManager, 0x00, add(0x1c, ptr), add(0x164, hookData.length), 0x00, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
             r := mload(0x00)
         }

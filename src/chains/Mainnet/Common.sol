@@ -107,19 +107,16 @@ abstract contract MainnetMixin is
         } /* `VELODROME` is removed */
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
-            if (token == ETH_ADDRESS) {
-                uint256 balance = address(this).balance;
-                if (balance > expectedAmount) {
-                    unchecked {
-                        payable(recipient).safeTransferETH(balance - expectedAmount);
-                    }
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                unchecked {
+                    balance -= expectedAmount;
                 }
-            } else {
-                uint256 balance = token.fastBalanceOf(address(this));
-                if (balance > expectedAmount) {
-                    unchecked {
-                        token.safeTransfer(recipient, balance - expectedAmount);
-                    }
+                if (isETH) {
+                    payable(recipient).safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
                 }
             }
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {

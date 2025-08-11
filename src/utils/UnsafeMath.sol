@@ -100,6 +100,12 @@ library UnsafeMath {
             r := add(mul(lt(0x00, smod(n, d)), or(0x01, sar(0xff, xor(n, d)))), sdiv(n, d))
         }
     }
+
+    function unsafeAdd(uint256 a, uint256 b) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := add(a, b)
+        }
+    }
 }
 
 library Math {

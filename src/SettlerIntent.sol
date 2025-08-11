@@ -16,7 +16,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {DEPLOYER} from "./deployer/DeployerAddress.sol";
 import {IDeployer} from "./deployer/IDeployer.sol";
 import {Feature} from "./deployer/Feature.sol";
-import {IOwnable} from "./deployer/IOwnable.sol";
+import {IOwnable} from "./interfaces/IOwnable.sol";
 
 // DANGER: do not reorder the inheritance list here. You will get shocking and incorrect results
 // inside `MultiCallContext` if `super._msgSender` is `Permit2PaymentMetaTxn._msgSender`.
@@ -161,7 +161,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // Check that the value for `prev` matches the value for `solver`. If we are adding a
             // new solver, then `prev` must be the last element of the list (it points at
             // `_SENTINEL_SOLVER`). If we are removing an existing solver, then `prev` must point at
-            // `solver.
+            // `solver`.
             fail := or(shl(0x60, xor(sload(prevSlot), expectedPrevSlotValue)), fail)
 
             // Update the linked list. This either points `$[prev]` at `$[solver]` and zeroes
@@ -255,16 +255,6 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return _executeMetaTxn(slippage, actions, sig);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
-        internal
-        pure
-        virtual
-        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn)
-        returns (uint256 sellAmount)
-    {
-        sellAmount = permit.permitted.amount;
-    }
-
     function _isForwarded() internal view virtual override(AbstractContext, Context, MultiCallContext) returns (bool) {
         return Context._isForwarded(); // false
     }
@@ -298,5 +288,25 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         returns (string memory)
     {
         return super._witnessTypeSuffix();
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        virtual
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, Permit2PaymentIntent)
+        returns (uint256)
+    {
+        return super._permitToSellAmountCalldata(permit);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, Permit2PaymentIntent)
+        returns (uint256)
+    {
+        return super._permitToSellAmount(permit);
     }
 }

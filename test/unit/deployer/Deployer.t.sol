@@ -9,7 +9,7 @@ import {Create3} from "src/utils/Create3.sol";
 import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 
-import {MainnetDefaultFork} from "../integration/BaseForkTest.t.sol";
+import {MainnetDefaultFork} from "../../integration/BaseForkTest.t.sol";
 
 import "@forge-std/Test.sol";
 
@@ -296,7 +296,7 @@ contract DeployerTest is Test, MainnetDefaultFork {
         assertEq(ipfsUriHash, keccak256(bytes(deployer.tokenURI(testTokenId))));
     }
 
-    function testFailDoubleRemove() public {
+    function testDoubleRemove() public {
         deployer.setDescription(testFeature, "nothing to see here");
         deployer.authorize(testFeature, address(this), uint40(block.timestamp + 1 days));
         deployer.deploy(testFeature, type(Dummy).creationCode);
@@ -321,22 +321,21 @@ contract DeployerTest is Test, MainnetDefaultFork {
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IDeployer.Removed(testFeature, Nonce.wrap(3), instance3);
         deployer.remove(testFeature, Nonce.wrap(3));
+        assertEq(deployer.ownerOf(testTokenId), instance1);
 
-        // This should revert
-        vm.expectEmit(true, true, true, false, address(deployer));
-        emit IERC721View.Transfer(instance2, address(0), testTokenId);
+        // `remove` is idempotent
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IDeployer.Removed(testFeature, Nonce.wrap(2), instance2);
         deployer.remove(testFeature, Nonce.wrap(2));
-
-        // This should not revert
-        vm.expectRevert(abi.encodeWithSignature("NoToken(uint256)", testTokenId));
-        deployer.ownerOf(testTokenId);
+        assertEq(deployer.ownerOf(testTokenId), instance1);
 
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IERC721View.Transfer(instance1, address(0), testTokenId);
         vm.expectEmit(true, true, true, false, address(deployer));
         emit IDeployer.Removed(testFeature, Nonce.wrap(1), instance1);
         deployer.remove(testFeature, Nonce.wrap(1));
+
+        vm.expectRevert(abi.encodeWithSignature("ERC721NonexistentToken(uint256)", testTokenId));
+        deployer.ownerOf(testTokenId);
     }
 }
