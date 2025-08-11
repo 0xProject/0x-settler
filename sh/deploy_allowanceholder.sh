@@ -149,18 +149,19 @@ declare -r allowanceholder_initcode
 declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
-declare -i gas_limit
-gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
-gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-declare -r -i gas_limit
 
+declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
+    gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
+    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
     maybe_broadcast+=(--broadcast)
 else
     maybe_broadcast+=(-vvvv)
+    gas_limit=16777215
 fi
 declare -r -a maybe_broadcast
+declare -r -i gas_limit
 
 forge create "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --private-key "$(get_secret allowanceHolder key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
 
