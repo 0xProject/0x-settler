@@ -6,17 +6,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IAllowanceTransfer} from "@permit2/interfaces/IAllowanceTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
-import {
-    UNIVERSAL_ROUTER,
-    CONTRACT_BALANCE,
-    ALREADY_PAID,
-    RECIPIENT_ROUTER,
-    RECIPIENT_TAKER,
-    encodePermit2Permit,
-    encodeV2Swap,
-    encodeWrapEth,
-    encodeUnwrapWeth
-} from "src/vendor/IUniswapUniversalRouter.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
@@ -24,53 +13,6 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 
 abstract contract UniswapV2PairTest is SettlerPairTest {
-    function testUniswapV2UniversalRouterToNative()
-        public
-        skipIf(uniswapV2Pool() == address(0))
-        skipIf(toToken() != WETH)
-    {
-        bytes memory commands = new bytes(3);
-        bytes[] memory inputs = new bytes[](3);
-
-        IAllowanceTransfer.PermitSingle memory permit =
-            defaultERC20PermitSingle(address(fromToken()), PERMIT2_FROM_NONCE);
-        bytes memory signature =
-            getPermitSingleSignature(permit, address(UNIVERSAL_ROUTER), FROM_PRIVATE_KEY, permit2Domain);
-
-        (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
-        (commands[1], inputs[1]) = encodeV2Swap(RECIPIENT_ROUTER, amount(), 0 wei, fromToken(), toToken(), true);
-        (commands[2], inputs[2]) = encodeUnwrapWeth(RECIPIENT_TAKER, slippageLimit());
-
-        (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
-        require(success);
-
-        vm.startPrank(FROM, FROM);
-        snapStartName("universalRouter_uniswapV2");
-        UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
-        snapEnd();
-        vm.stopPrank();
-    }
-
-    function testUniswapV2UniversalRouterFromNative()
-        public
-        skipIf(uniswapV2Pool() == address(0))
-        skipIf(fromToken() != WETH)
-    {
-        bytes memory commands = new bytes(2);
-        bytes[] memory inputs = new bytes[](2);
-
-        (commands[0], inputs[0]) = encodeWrapEth(address(uniswapV2Pool()), CONTRACT_BALANCE);
-        (commands[1], inputs[1]) =
-            encodeV2Swap(RECIPIENT_TAKER, ALREADY_PAID, slippageLimit(), fromToken(), toToken(), false);
-
-        vm.deal(FROM, amount());
-        vm.startPrank(FROM, FROM);
-        snapStartName("universalRouter_uniswapV2");
-        UNIVERSAL_ROUTER.execute{value: amount()}(commands, inputs, block.timestamp);
-        snapEnd();
-        vm.stopPrank();
-    }
-
     function testSettler_uniswapV2_toNative() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 

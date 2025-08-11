@@ -54,8 +54,9 @@ contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
     function setUp() public override {
         super.setUp();
 
-        AllowanceHolder ah = new AllowanceHolder();
-        vm.etch(address(ALLOWANCE_HOLDER), address(ah).code);
+        vm.etch(address(ALLOWANCE_HOLDER), address(new AllowanceHolder()).code);
+        vm.makePersistent(address(ALLOWANCE_HOLDER));
+
         // Mock DAI and USDC for MainnetSettler to be usable
         deployCodeTo("MockERC20", abi.encode("DAI", "DAI", 18), address(DAI));
         deployCodeTo("MockERC20", abi.encode("USDC", "USDC", 6), address(USDC));
