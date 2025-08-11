@@ -19,6 +19,7 @@ import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -90,7 +91,9 @@ library TransientStorage {
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
-            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) { revert(0x00, 0x00) }
+            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) {
+                revert(0x00, 0x00)
+            }
             callback := and(0xffff, shr(0xa0, slotValue))
             tstore(_OPERATOR_SLOT, 0x00)
         }
@@ -132,10 +135,11 @@ library TransientStorage {
     }
 
     function setPayer(address payer) internal {
-        if (payer == address(0)) {
-            revertConfusedDeputy();
-        }
         assembly ("memory-safe") {
+            if iszero(shl(0x60, payer)) {
+                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
+            }
             let slotValue := tload(_PAYER_SLOT)
             if shl(0x60, slotValue) {
                 mstore(0x14, slotValue)
@@ -336,6 +340,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
     using FullMath for uint256;
     using SafeTransferLib for IERC20;
+    using FastLogic for bool;
 
     constructor() {
         assert(!_hasMetaTxn());
@@ -348,11 +353,11 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        if (sellAmount > type(uint256).max - BASIS) {
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                sellAmount = BASIS - ~sellAmount;
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 
@@ -363,16 +368,16 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        if (sellAmount > type(uint256).max - BASIS) {
-            unchecked {
-                sellAmount -= type(uint256).max - BASIS;
+        unchecked {
+            if (~sellAmount < BASIS) {
+                sellAmount = BASIS - ~sellAmount;
+                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
             }
-            sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).mulDiv(sellAmount, BASIS);
         }
     }
 
     function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
-        return target == address(_ALLOWANCE_HOLDER) || super._isRestrictedTarget(target);
+        return (target == address(_ALLOWANCE_HOLDER)).or(super._isRestrictedTarget(target));
     }
 
     function _transferFrom(
@@ -392,7 +397,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             if (block.timestamp > permit.deadline) {
                 assembly ("memory-safe") {
                     mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
-                    mstore(0x20, mload(add(0x40, permit)))
+                    mstore(0x20, mload(add(0x60, permit)))
                     revert(0x1c, 0x24)
                 }
             }
@@ -529,11 +534,20 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     constructor() {
         assert(_hasMetaTxn());
+        assert(
+            keccak256(bytes(Permit2PaymentMetaTxn._witnessTypeSuffix()))
+                == keccak256(
+                    abi.encodePacked(
+                        "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
+                    )
+                )
+        );
     }
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
-        pure
+        view
+        virtual
         override
         returns (uint256)
     {
@@ -542,7 +556,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        pure
+        view
         virtual
         override
         returns (uint256)
@@ -551,11 +565,8 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     }
 
     function _witnessTypeSuffix() internal pure virtual returns (string memory) {
-        return string(
-            abi.encodePacked(
-                "SlippageAndActions slippageAndActions)", SLIPPAGE_AND_ACTIONS_TYPE, TOKEN_PERMISSIONS_TYPE
-            )
-        );
+        return
+        "SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)";
     }
 
     function _transferFrom(
@@ -608,7 +619,53 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 }
 
 abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
+    using FullMath for uint256;
+    using SafeTransferLib for IERC20;
+
+    constructor() {
+        assert(
+            keccak256(bytes(Permit2PaymentIntent._witnessTypeSuffix()))
+                == keccak256(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE))
+        );
+    }
+
     function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
-        return string(abi.encodePacked("Slippage slippage)", SLIPPAGE_TYPE, TOKEN_PERMISSIONS_TYPE));
+        return
+        "Slippage slippage)Slippage(address recipient,address buyToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
+    }
+
+    bytes32 private constant _BRIDGE_WALLET_CODEHASH =
+        0xe98f46388916ca2f096ea767dc04dddb45d2ca2c2f44e7bcc529d6aded9c11f0;
+
+    function _toCanonicalSellAmount(IERC20 token, uint256 sellAmount) private view returns (uint256) {
+        unchecked {
+            if (~sellAmount < BASIS) {
+                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
+                    sellAmount = BASIS - ~sellAmount;
+                    sellAmount = token.fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                }
+            }
+        }
+        return sellAmount;
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 sellAmount)
+    {
+        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
     }
 }

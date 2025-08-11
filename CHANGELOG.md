@@ -55,6 +55,8 @@ Master list of UniV3 forks:
   and `METATXN_PANCAKE_INFINITY_VIP`) on Base
 * Improve gas efficiency and accuracy of `EULERSWAP` action
 * Add solvency check for EulerSwap (does not execute on-chain)
+* Add `CrossChainReceiverFactory`, a minimal proxy factory inspired by submarine
+  transactions for "automatically" swapping any tokens received
 
 ## 2025-08-01
 
