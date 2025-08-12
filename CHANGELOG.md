@@ -43,6 +43,11 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Update Scroll to the Cancun hardfork
+
+## 2025-08-11
+
+### Breaking changes
+
 * In metatransactions and intents, it is now an error for `_operator()` (the gas
   payer/solver/relayer) to be `msgSender` (the taker)
 * Remove `LimitOrderFeeCollector`

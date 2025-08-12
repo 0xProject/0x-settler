@@ -190,7 +190,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     packed_calldata="$(cast concat-hex "$execTransaction_selector" "$(cast to-uint256 "$target")" "$(cast to-uint256 0)" "$(cast to-uint256 320)" "$(cast to-uint256 $operation)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 $((320 + 32 + ${#deploy_calldata} / 2)))")""$deploy_calldata_length""$deploy_calldata""$packed_signatures_length""$packed_signatures"
 
     ## set gas limit and add multiplier/headroom (again mostly for Arbitrum)
-    declare -i gas_limit
+    declare gas_limit
     # again, we have to do this in an awkward fashion to avoid the command-line
     # argument length limit
     gas_limit="$(
@@ -205,6 +205,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
                     "from": $from,
                     "to": $to,
                     "gasPrice": $gasprice,
+                    "chainId": $chainId,
                     "value": "0x0",
                     "data": $data[0]
                 }
@@ -214,6 +215,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
         --arg from "$signer"                                \
         --arg to "$safe_address"                            \
         --arg gasprice "0x$(bc <<<'obase=16;'"$gas_price")" \
+        --arg chainId "0x$(bc <<<'obase=16;'"$chainid")"    \
         --slurpfile data <(jq -R . <<<"$packed_calldata")   \
         <<<'{}'                                             \
         |                                                   \
@@ -222,9 +224,8 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
         -H 'Content-Type: application/json'                 \
         --url "$rpc_url"                                    \
         --data '@-'                                         \
-        |                                                   \
-        jq -rM '.result'
     )"
+    gas_limit="$(jq -rM '.result' <<<"$gas_limit")"
     gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
 
     # switch the wallet to the correct chain

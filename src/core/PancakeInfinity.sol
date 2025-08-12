@@ -235,7 +235,6 @@ abstract contract PancakeInfinity is SettlerAbstract {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
         assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-        assert(block.chainid == 56 || block.chainid == 31337);
     }
 
     //// How to generate `fills` for Pancake Infinity:
