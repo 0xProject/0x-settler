@@ -11,7 +11,7 @@ contract LayerZeroOFT {
         uint256 updatedInputAmount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(oft, updatedInputAmount);
 
-         assembly ("memory-safe") {
+        assembly ("memory-safe") {
             mstore(add(0xe0, sendData), updatedInputAmount)
 
             let len := mload(sendData)

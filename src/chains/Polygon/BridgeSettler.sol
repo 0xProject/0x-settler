@@ -9,7 +9,7 @@ import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
 
-contract PolygonBridgeSettler is BridgeSettler, Across, Mayan, StargateV2    {
+contract PolygonBridgeSettler is BridgeSettler, Across, Mayan, StargateV2 {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 137 || block.chainid == 31337);
     }
