@@ -3,11 +3,9 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 
 contract LayerZeroOFT {
     using SafeTransferLib for IERC20;
-    using FullMath for uint256;
 
     function bridgeLayerZeroOFT(IERC20 token, address oft, bytes memory sendData) internal {
         uint256 updatedInputAmount = token.fastBalanceOf(address(this));
