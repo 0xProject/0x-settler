@@ -44,4 +44,9 @@ contract BaseBridgeSettler is BridgeSettler, Across, Mayan, StargateV2 {
         }
         return true;
     }
+
+    function msgSender() external view returns (address result) {
+        result = _msgSender();
+        require(result != address(0));
+    }
 }
