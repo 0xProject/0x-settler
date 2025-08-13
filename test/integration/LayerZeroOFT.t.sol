@@ -80,7 +80,7 @@ contract LayerZeroOFTTest is BridgeSettlerIntegrationTest {
             minAmountLD: amount,
             extraOptions: bytes(""),
             composeMsg: bytes(""),
-            oftCmd: bytes("") // TAXI mode
+            oftCmd: bytes("")
         });
 
         (,, IOFT.OFTReceipt memory receipt) = IOFT(oft).quoteOFT(sendParam);
