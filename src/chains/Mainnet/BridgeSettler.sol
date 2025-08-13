@@ -8,9 +8,8 @@ import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
-import {LayerZeroOFT} from "../../core/LayerZeroOFT.sol";
 
-contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, LayerZeroOFT {
+contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2 {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -40,9 +39,6 @@ contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, Layer
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_STARGATE_V2.selector)) {
             (address pool, uint256 destinationGas, bytes memory sendData) = abi.decode(data, (address, uint256, bytes));
             bridgeNativeToStargateV2(pool, destinationGas, sendData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_LAYER_ZERO_OFT.selector)) {
-            (IERC20 token, address oft, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
-            bridgeLayerZeroOFT(token, oft, sendData);
         } else {
             return false;
         }
