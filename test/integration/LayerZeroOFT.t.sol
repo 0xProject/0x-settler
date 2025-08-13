@@ -62,10 +62,6 @@ contract LayerZeroOFTTest is BridgeSettlerIntegrationTest {
 
     receive() external payable {}
 
-    function _testBridgeSettler() internal override {
-        bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
-    }
-
     function testBridgeERC20() public {
         uint256 amount = 10000000;
         // USDT
