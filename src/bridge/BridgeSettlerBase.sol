@@ -13,8 +13,9 @@ import {IDeployer} from "../deployer/IDeployer.sol";
 import {FastDeployer} from "../deployer/FastDeployer.sol";
 import {Basic} from "../core/Basic.sol";
 import {Relay} from "../core/Relay.sol";
+import {LayerZeroOFT} from "../core/LayerZeroOFT.sol";
 
-abstract contract BridgeSettlerBase is Basic, Relay {
+abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -85,6 +86,9 @@ abstract contract BridgeSettlerBase is Basic, Relay {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY.selector)) {
             (address to, bytes32 requestId) = abi.decode(data, (address, bytes32));
             bridgeNativeToRelay(to, requestId);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_LAYER_ZERO_OFT.selector)) {
+            (IERC20 token, address oft, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
+            bridgeLayerZeroOFT(token, oft, sendData);
         } else {
             return false;
         }
