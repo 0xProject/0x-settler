@@ -119,12 +119,16 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         return _amountOut;
     }
 
+    function _sky() internal virtual pure returns (bool) {
+        return false;
+    }
+
     function testSettler_makerPsmLite() public skipIf(address(makerPsm()) == address(0)) setMakerPsmLiteBlockNumber {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut()))
+            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), _sky()))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -157,7 +161,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut()))
+            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), _sky()))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),

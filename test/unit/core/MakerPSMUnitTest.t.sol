@@ -140,11 +140,15 @@ contract MakerPSMDummy is MakerPSM {
     }
 
     function sellToPool(address recipient, uint256 bps) public {
-        super.sellToMakerPsm(recipient, bps, false, 0);
+        super.sellToMakerPsm(recipient, bps, false, 0, _sky());
     }
 
     function buyFromPool(address recipient, uint256 bps) public {
-        super.sellToMakerPsm(recipient, bps, true, 0);
+        super.sellToMakerPsm(recipient, bps, true, 0, _sky());
+    }
+
+    function _sky() internal virtual pure returns (bool) {
+        return false;
     }
 }
 
