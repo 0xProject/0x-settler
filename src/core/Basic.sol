@@ -23,6 +23,23 @@ abstract contract Basic is SettlerAbstract {
         if (_isRestrictedTarget(pool)) {
             revertConfusedDeputy();
         }
+        {
+            // This check is NOT an exhaustive check. There are many tokens that have alternative
+            // allowance-spending methods, including (also nonexhaustively) DAI's `pull`, ERC677 and
+            // ERC1363's `transferFromAndCall`, ERC777's `operatorSend`, and LZ OFT's `sendFrom` and
+            // `sendAndCall`. We specifically blacklist ERC20's `transferFrom` because it is
+            // universally implemented. This check is comparatively cheap and covers many cases that
+            // could result in loss of funds. Fundamentally, though, for correct operation, it is
+            // forbidden to set allowances on this contract. The fact that this does not cover all
+            // cases IS NOT A BUG.
+            uint256 selector;
+            assembly ("memory-safe") {
+                selector := mul(lt(0x00, mload(data)), and(0xffffffff, mload(add(0x04, data))))
+            }
+            if (selector == uint32(IERC20.transferFrom.selector)) {
+                revertConfusedDeputy();
+            }
+        }
 
         bool success;
         bytes memory returnData;
