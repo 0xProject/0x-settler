@@ -117,6 +117,8 @@ abstract contract MakerPSM is SettlerAbstract {
         internal
         returns (uint256 buyAmount)
     {
+        // If `psm/gem` is not `SkyPSM/USDS` or `LitePSM/DAI`, this interaction will likely fail
+        // as those pairs are the ones with configured approvals in the constructor.
         (IERC20 sellToken, IERC20 buyToken) = buyGem.maybeSwap(USDC, gem);
         uint256 sellAmount;
         unchecked {
@@ -134,11 +136,11 @@ abstract contract MakerPSM is SettlerAbstract {
                     revertTooMuchSlippage(buyToken, amountOutMin, buyAmount);
                 }
 
-                // gem.safeApproveIfBelow(address(psm), sellAmount); // Done in the constructor
+                // gem.safeApproveIfBelow(address(psm), sellAmount);
                 psm.fastBuyGem(recipient, buyAmount);
             }
         } else {
-            // USDC.safeApproveIfBelow(psm.gemJoin(), sellAmount); // Done in the constructor
+            // USDC.safeApproveIfBelow(psm.gemJoin(), sellAmount);
             buyAmount = psm.fastSellGem(recipient, sellAmount);
             if (buyAmount < amountOutMin) {
                 revertTooMuchSlippage(buyToken, amountOutMin, buyAmount);
