@@ -113,27 +113,11 @@ abstract contract MakerPSM is SettlerAbstract {
         USDC.safeApprove(address(SkyPSM), type(uint256).max);
     }
 
-    function sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, bool sky)
+    function sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 gem)
         internal
         returns (uint256 buyAmount)
     {
-        IPSM psm;
-        IERC20 asset;
-        if (sky) {
-            psm = SkyPSM;
-            asset = USDS;
-        } else {
-            psm = LitePSM;
-            asset = DAI;
-        }
-        return _sellToMakerPsm(recipient, bps, buyGem, amountOutMin, psm, asset);
-    }
-
-    function _sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 asset)
-        private
-        returns (uint256 buyAmount)
-    {
-        (IERC20 sellToken, IERC20 buyToken) = buyGem.maybeSwap(USDC, asset);
+        (IERC20 sellToken, IERC20 buyToken) = buyGem.maybeSwap(USDC, gem);
         uint256 sellAmount;
         unchecked {
             // phantom overflow can't happen here because:
@@ -150,7 +134,7 @@ abstract contract MakerPSM is SettlerAbstract {
                     revertTooMuchSlippage(buyToken, amountOutMin, buyAmount);
                 }
 
-                // asset.safeApproveIfBelow(address(psm), sellAmount); // Done in the constructor
+                // gem.safeApproveIfBelow(address(psm), sellAmount); // Done in the constructor
                 psm.fastBuyGem(recipient, buyAmount);
             }
         } else {

@@ -13,10 +13,12 @@ import {Test} from "@forge-std/Test.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 contract MakerPSMDummy is MakerPSM {
-    bool sky;
+    IPSM psm;
+    IERC20 gem;
 
-    constructor(bool _sky) {
-        sky = _sky;
+    constructor(IPSM _psm, IERC20 _gem) {
+        psm = _psm;
+        gem = _gem;
     }
 
     function _msgSender() internal pure override returns (address) {
@@ -146,18 +148,16 @@ contract MakerPSMDummy is MakerPSM {
     }
 
     function sellToPool(address recipient, uint256 bps) public {
-        super.sellToMakerPsm(recipient, bps, false, 0, sky);
+        super.sellToMakerPsm(recipient, bps, false, 0, psm, gem);
     }
 
     function buyFromPool(address recipient, uint256 bps) public {
-        super.sellToMakerPsm(recipient, bps, true, 0, sky);
+        super.sellToMakerPsm(recipient, bps, true, 0, psm, gem);
     }
 }
 
 contract MakerPSMUnitTest is Utils, Test {
     MakerPSMDummy psm;
-    address PSM;
-    address ASSET;
     address POOL = _createNamedRejectionDummy("POOL");
     address RECIPIENT = _createNamedRejectionDummy("RECIPIENT");
     address LITE_PSM = _etchNamedRejectionDummy("LitePSM", 0xf6e72Db5454dd049d0788e411b06CfAF16853042);
@@ -165,10 +165,8 @@ contract MakerPSMUnitTest is Utils, Test {
     address DAI = _etchNamedRejectionDummy("DAI", 0x6B175474E89094C44Da98b954EedeAC495271d0F);
     address USDC = _etchNamedRejectionDummy("USDC", 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     address USDS = _etchNamedRejectionDummy("USDS", 0xdC035D45d973E3EC169d2276DDab16f1e407384F);
-
-    function _sky() internal virtual pure returns (bool) {
-        return false;
-    }
+    address PSM = LITE_PSM;
+    address GEM = DAI;
 
     function setUp() public virtual {
         _mockExpectCall(
@@ -184,14 +182,7 @@ contract MakerPSMUnitTest is Utils, Test {
             address(USDC), abi.encodeWithSelector(IERC20.approve.selector, SKY_PSM, type(uint256).max), abi.encode(true)
         );
         _mockExpectCall(address(USDC), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
-        psm = new MakerPSMDummy(_sky());
-        if (_sky()) {
-            PSM = SKY_PSM;
-            ASSET = USDS;
-        } else {
-            PSM = LITE_PSM;
-            ASSET = DAI;
-        }
+        psm = new MakerPSMDummy(IPSM(PSM), IERC20(GEM));
     }
 
     function testMakerPSMBuy() public {
@@ -199,9 +190,9 @@ contract MakerPSMUnitTest is Utils, Test {
         uint256 amount = 99999;
 
         _mockExpectCall(
-            ASSET, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount * 1 ether / 1e6)
+            GEM, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount * 1 ether / 1e6)
         );
-        //_mockExpectCall(ASSET, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
+        //_mockExpectCall(GEM, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
         //_mockExpectCall(USDC, abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.buyGem.selector, RECIPIENT, 99998), abi.encode(amount));
@@ -223,7 +214,9 @@ contract MakerPSMUnitTest is Utils, Test {
 }
 
 contract MakerSkyPSMUnitTest is MakerPSMUnitTest {
-    function _sky() internal pure override returns (bool) {
-        return true;
+    function setUp() public override {
+        PSM = SKY_PSM;
+        GEM = USDS;
+        super.setUp();
     }
 }

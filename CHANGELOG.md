@@ -67,8 +67,8 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Added an argument to Settler `MAKERPSM` to indicate if it should interact with
-  `LitePSM/DAI` or `SkyPSM/USDS`
+* Added `psm` and `asset` as arguments to Settler `MAKERPSM` action to allow
+  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 
 ### Non-breaking changes
 
