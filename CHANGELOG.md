@@ -66,7 +66,7 @@ Master list of UniV3 forks:
 * Add solvency check for EulerSwap (does not execute on-chain)
 * Add `CrossChainReceiverFactory`, a minimal proxy factory inspired by submarine
   transactions for "automatically" swapping any tokens received
-* Add `BridgeSettler` to all supported chains
+* Add `BridgeSettler` to all supported chains except `MonadTestnet`
   * `BridgeSettler` is the settlement contracts for cross-chain operations
     and is heavily implemented following `Settler` design.
   * `BridgeSettlerBase` implements actions for:
