@@ -44,6 +44,10 @@ Master list of UniV3 forks:
 
 * Update Scroll to the Cancun hardfork
 
+### Non-breaking changes
+
+* Add new `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to `BridgeSettlerBase`.
+
 ## 2025-08-11
 
 ### Breaking changes
@@ -62,6 +66,20 @@ Master list of UniV3 forks:
 * Add solvency check for EulerSwap (does not execute on-chain)
 * Add `CrossChainReceiverFactory`, a minimal proxy factory inspired by submarine
   transactions for "automatically" swapping any tokens received
+* Add `BridgeSettler` to all supported chains except `MonadTestnet`
+  * `BridgeSettler` is the settlement contracts for cross-chain operations
+    and is heavily implemented following `Settler` design.
+  * `BridgeSettlerBase` implements actions for:
+    * `BASIC`, same as `Settler`
+    * `SETTLER_SWAP`, to execute swaps on `Settler`
+    * Relay bridge integration (`BRIDGE_ERC20_TO_RELAY`, `BRIDGE_NATIVE_TO_RELAY`)
+    * Those are available in the `BridgeSettler` of every chain
+  * Other actions added that are not supported in every chain:
+    * Mayan bridge integration (`BRIDGE_ERC20_TO_MAYAN`, `BRIDGE_NATIVE_TO_MAYAN`)
+    * Across bridge integration 
+      (`BRIDGE_ERC20_TO_ACROSS`, `BRIDGE_NATIVE_TO_ACROSS`)
+    * StargateV2 bridge integration 
+      (`BRIDGE_ERC20_TO_STARGATE_V2`, `BRIDGE_NATIVE_TO_STARGATE_V2`)
 
 ## 2025-08-01
 
