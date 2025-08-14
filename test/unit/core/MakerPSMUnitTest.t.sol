@@ -173,7 +173,9 @@ contract MakerPSMUnitTest is Utils, Test {
             address(DAI), abi.encodeWithSelector(IERC20.approve.selector, LITE_PSM, type(uint256).max), abi.encode(true)
         );
         _mockExpectCall(
-            address(USDC), abi.encodeWithSelector(IERC20.approve.selector, LITE_PSM, type(uint256).max), abi.encode(true)
+            address(USDC),
+            abi.encodeWithSelector(IERC20.approve.selector, LITE_PSM, type(uint256).max),
+            abi.encode(true)
         );
         _mockExpectCall(
             address(USDS), abi.encodeWithSelector(IERC20.approve.selector, SKY_PSM, type(uint256).max), abi.encode(true)

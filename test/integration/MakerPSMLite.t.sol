@@ -128,7 +128,10 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai())))
+            abi.encodeCall(
+                ISettlerActions.MAKERPSM,
+                (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
+            )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -161,7 +164,10 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai())))
+            abi.encodeCall(
+                ISettlerActions.MAKERPSM,
+                (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
+            )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -231,7 +237,7 @@ contract MakerSkyPSMTest is MakerPsmLiteTest {
         return IPSM(0xA188EEC8F81263234dA3622A406892F3D630f98c);
     }
 
-    function _testName() internal virtual pure override returns (string memory) {
+    function _testName() internal pure virtual override returns (string memory) {
         return "USDC-USDS";
     }
 
