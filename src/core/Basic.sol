@@ -31,8 +31,12 @@ abstract contract Basic is SettlerAbstract {
             // cases IS NOT A BUG.
             assembly ("memory-safe") {
                 // `0x23b872dd` is the selector for `transferFrom(address,address,uint256)`
+                // `transferFrom` requires a calldata length of 0x64 bytes, not 0x44, but some (old)
+                // ERC20s don't check `CALLDATASIZE` and implicitly pad `amount` with
+                // zeroes. Therefore if `data` is 0x45 bytes or longer, it could result in loss of
+                // funds.
                 condition :=
-                    or(iszero(shl(0xe0, xor(0x23b872dd, mul(lt(0x03, mload(data)), mload(add(0x04, data)))))), condition)
+                    or(iszero(shl(0xe0, xor(0x23b872dd, mul(lt(0x44, mload(data)), mload(add(0x04, data)))))), condition)
             }
             if (condition) {
                 revertConfusedDeputy();
