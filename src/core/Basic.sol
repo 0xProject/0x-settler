@@ -31,7 +31,8 @@ abstract contract Basic is SettlerAbstract {
             // cases IS NOT A BUG.
             assembly ("memory-safe") {
                 // `0x23b872dd` is the selector for `transferFrom(address,address,uint256)`
-                condition := or(iszero(shl(0xe0, xor(0x23b872dd, mload(add(0x04, data))))), condition)
+                condition :=
+                    or(iszero(shl(0xe0, xor(0x23b872dd, mul(lt(0x03, mload(data)), mload(add(0x04, data)))))), condition)
             }
             if (condition) {
                 revertConfusedDeputy();
