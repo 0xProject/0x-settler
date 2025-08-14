@@ -67,6 +67,9 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Added an argument to Settler `MAKERPSM` to indicate if it should interact with
+  `LitePSM/DAI` or `SkyPSM/USDS`
+
 ### Non-breaking changes
 
 * Deploy a stripped-down suite of Settlers to Katana network
