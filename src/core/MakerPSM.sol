@@ -106,8 +106,11 @@ abstract contract MakerPSM is SettlerAbstract {
         assert(block.chainid == 1 || block.chainid == 31337);
         assert(USDC_basis == 10 ** USDC.decimals());
         DAI.safeApprove(address(LitePSM), type(uint256).max);
+        USDS.safeApprove(address(SkyPSM), type(uint256).max);
         // LitePSM is its own join
         USDC.safeApprove(address(LitePSM), type(uint256).max);
+        // SkyPSM is its own join
+        USDC.safeApprove(address(SkyPSM), type(uint256).max);
     }
 
     function sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, bool sky)
