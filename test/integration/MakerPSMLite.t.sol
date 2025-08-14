@@ -93,7 +93,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         return "USDC-DAI";
     }
 
-    function gem() internal pure virtual returns (IERC20) {
+    function dai() internal pure virtual returns (IERC20) {
         return DAI;
     }
 
@@ -102,7 +102,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     }
 
     function toToken() internal pure virtual override returns (IERC20) {
-        return gem();
+        return dai();
     }
 
     function amount() internal pure virtual override returns (uint256) {
@@ -110,7 +110,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     }
 
     function makerPsmBuyGem() internal view returns (bool) {
-        return fromToken() == gem();
+        return fromToken() == dai();
     }
 
     function uniswapV3Path() internal override returns (bytes memory) {
@@ -128,7 +128,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(gem())))
+            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai())))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -161,7 +161,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(gem())))
+            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai())))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -223,7 +223,7 @@ contract MakerPsmLiteTestBuyGem is MakerPsmLiteTest {
 }
 
 contract MakerSkyPSMTest is MakerPsmLiteTest {
-    function gem() internal pure override returns (IERC20) {
+    function dai() internal pure override returns (IERC20) {
         return USDS;
     }
 

@@ -43,6 +43,8 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Update Scroll to the Cancun hardfork
+* Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
+  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 
 ## 2025-08-11
 
@@ -66,9 +68,6 @@ Master list of UniV3 forks:
 ## 2025-08-01
 
 ### Breaking changes
-
-* Added `psm` and `asset` as arguments to Settler `MAKERPSM` action to allow
-  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 
 ### Non-breaking changes
 
