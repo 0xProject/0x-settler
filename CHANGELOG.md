@@ -43,6 +43,8 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Update Scroll to the Cancun hardfork
+* Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
+  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 
 ### Non-breaking changes
 
@@ -76,9 +78,9 @@ Master list of UniV3 forks:
     * Those are available in the `BridgeSettler` of every chain
   * Other actions added that are not supported in every chain:
     * Mayan bridge integration (`BRIDGE_ERC20_TO_MAYAN`, `BRIDGE_NATIVE_TO_MAYAN`)
-    * Across bridge integration 
+    * Across bridge integration
       (`BRIDGE_ERC20_TO_ACROSS`, `BRIDGE_NATIVE_TO_ACROSS`)
-    * StargateV2 bridge integration 
+    * StargateV2 bridge integration
       (`BRIDGE_ERC20_TO_STARGATE_V2`, `BRIDGE_NATIVE_TO_STARGATE_V2`)
 
 ## 2025-08-01
