@@ -77,8 +77,8 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
             sellerToken: address(fromToken),
             buyerToken: address(toToken),
             sellerTokenAmount: amount(),
-            buyerTokenAmount: amount(), // 1:1 rate :-)
-            amountOutMinimum: amount(),
+            buyerTokenAmount: amount(),
+            amountOutMinimum: 0, 
             deadlineTimestamp: block.timestamp,
             nonce: uint256(keccak256("test-nonce")),
             decayStartTime: block.timestamp,
@@ -96,17 +96,23 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
     }
 
     function testSellToNativeV2() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
-        _sellToNativeV2(fromToken(), toToken(), "allowanceHolder_nativeV2");
+        _sellToNativeV2(fromToken(), toToken(), amount(), "allowanceHolder_nativeV2");
+        assertEq(toToken().balanceOf(recipient), amount(), "Assets not received");
     }
 
     function testSellToNativeV2Reverse() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
-        _sellToNativeV2(toToken(), fromToken(), "allowanceHolder_nativeV2_reverse");
+        _sellToNativeV2(toToken(), fromToken(), amount(), "allowanceHolder_nativeV2_reverse");
+        assertEq(fromToken().balanceOf(recipient), amount(), "Assets not received");
     }
 
-    function _sellToNativeV2(IERC20 fromToken, IERC20 toToken, string memory name_)
+    function testSellToNativeV2OverrideQuoteAmount() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
+        uint256 amount_ = amount() - amount() / 20; // 5% deviation (deviation is allowed below 10%)
+        _sellToNativeV2(fromToken(), toToken(), amount_, "allowanceHolder_nativeV2_override_amount");
+        assertEq(toToken().balanceOf(recipient), amount_, "Assets not received");
+    }
+
+    function _sellToNativeV2(IERC20 fromToken, IERC20 toToken, uint256 amount_, string memory name_)
         internal
-        skipIf(nativeV2Pool() == address(0))
-        setNativeV2Block
     {
         INativeV2Router.RFQTQuote memory quote = _prepareQuote(fromToken, toToken);
 
@@ -207,7 +213,7 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
                 ISettlerActions.TRANSFER_FROM,
                 (
                     address(settler),
-                    defaultERC20PermitTransfer(address(fromToken), amount(), 0 /* nonce */ ),
+                    defaultERC20PermitTransfer(address(fromToken), amount_, 0 /* nonce */ ),
                     new bytes(0) /* sig (empty) */
                 )
             ),
@@ -217,8 +223,8 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
             )
         );
 
-        deal(address(fromToken), address(this), amount());
-        fromToken.safeApprove(address(allowanceHolder), amount());
+        deal(address(fromToken), address(this), amount_);
+        fromToken.safeApprove(address(allowanceHolder), amount_);
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
