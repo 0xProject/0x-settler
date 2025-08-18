@@ -102,7 +102,7 @@ unset -v setsolver_calldata
 
 if [[ -n "${deployer_address-}" ]] ; then
     declare -a deploy_calldatas
-    if (( chainid == 534352 )) ; then
+    if (( chainid == 1 )) || (( chainid == 10 )) || (( chainid == 56 )) || (( chainid == 8453 )) || (( chainid == 42161 )) || (( chainid == 43114 )) || (( chainid == 534352 )) ; then
         declare setsolver_calldata
         for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
             deploy_calldatas+=(

@@ -160,8 +160,8 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "--legacy",
-    "gasMultiplierPercent": 500,
-    "minGasPriceGwei": 10,
+    "gasMultiplierPercent": 300,
+    "minGasPriceGwei": 1,
     "wnative": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",

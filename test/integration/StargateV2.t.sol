@@ -67,7 +67,7 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         returns (IStargateV2.SendParam memory sendParam, IStargateV2.MessagingFee memory messagingFee, uint256 fee)
     {
         sendParam = IStargateV2.SendParam({
-            dstEid: uint32(30110), // BASE
+            dstEid: uint32(30110), // ARBITRUM
             to: bytes32(uint256(uint160(makeAddr("recipient")))),
             amountLD: amount,
             minAmountLD: amount,
