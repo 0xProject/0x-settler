@@ -17,6 +17,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+import {NativeV2Test} from "./NativeV2.t.sol";
 
 contract USDTWETHTest is
     AllowanceHolderPairTest,
@@ -28,7 +29,8 @@ contract USDTWETHTest is
     UniswapV3PairTest,
     UniswapV4PairTest,
     CurveTricryptoPairTest,
-    ZeroExPairTest
+    ZeroExPairTest,
+    NativeV2Test
 {
     function setUp()
         public
@@ -40,7 +42,8 @@ contract USDTWETHTest is
             SettlerMetaTxnPairTest,
             TokenTransferTest,
             UniswapV3PairTest,
-            ZeroExPairTest
+            ZeroExPairTest,
+            NativeV2Test
         )
     {
         super.setUp();
@@ -120,5 +123,9 @@ contract USDTWETHTest is
 
     function uniswapV2Pool() internal pure override(SettlerPairTest, AllowanceHolderPairTest) returns (address) {
         return 0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852;
+    }
+
+    function nativeV2Pool() internal pure override(NativeV2Test) returns (address) {
+        return 0x9aF2F3c0cD35283e13f7087e2b34b1444b57A44C;
     }
 }
