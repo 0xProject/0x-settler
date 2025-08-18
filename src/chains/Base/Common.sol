@@ -11,6 +11,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {NativeV2} from "../../core/NativeV2.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -57,7 +58,8 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    EulerSwap
+    EulerSwap,
+    NativeV2
 {
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
@@ -132,6 +134,10 @@ abstract contract BaseMixin is
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.NATIVEV2.selector)) {
+            (address router, uint256 bps, bytes memory tradeData) = abi.decode(data, (address, uint256, bytes));
+
+            sellToNativeV2(router, bps, tradeData);
         } else {
             return false;
         }

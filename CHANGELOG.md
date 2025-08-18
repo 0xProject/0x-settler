@@ -48,6 +48,12 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add Native V2 action `NATIVEV2`
+  * Add `NATIVEV2` to Mainnet
+  * Add `NATIVEV2` to Bnb
+  * Add `NATIVEV2` to Arbitrum
+  * Add `NATIVEV2` to Base
+
 ## 2025-08-18
 
 ### Breaking changes

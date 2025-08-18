@@ -11,6 +11,7 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
+import {NativeV2} from "../../core/NativeV2.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
@@ -45,7 +46,8 @@ abstract contract BnbMixin is
     DodoV2,
     UniswapV4,
     PancakeInfinity,
-    EulerSwap
+    EulerSwap,
+    NativeV2
 {
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
@@ -112,6 +114,10 @@ abstract contract BnbMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.NATIVEV2.selector)) {
+            (address router, uint256 bps, bytes memory tradeData) = abi.decode(data, (address, uint256, bytes));
+
+            sellToNativeV2(router, bps, tradeData);
         } else {
             return false;
         }

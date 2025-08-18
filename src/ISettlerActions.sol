@@ -276,4 +276,6 @@ interface ISettlerActions {
         bool zeroForOne,
         uint256 amountOutMin
     ) external;
+
+    function NATIVEV2(address router, uint256 bps, bytes memory tradeData) external;
 }
