@@ -37,6 +37,7 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
     address recipient;
 
     function nativeV2Pool() internal virtual returns (address);
+    function weth() internal virtual returns (IERC20);
 
     function nativeV2BlockNumber() internal virtual returns (uint256) {
         return 23151204;
@@ -77,8 +78,8 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
             sellerToken: address(fromToken),
             buyerToken: address(toToken),
             sellerTokenAmount: amount(),
-            buyerTokenAmount: amount(),
-            amountOutMinimum: 0, 
+            buyerTokenAmount: amount(), // 1:1 rate for simplicity
+            amountOutMinimum: 0,
             deadlineTimestamp: block.timestamp,
             nonce: uint256(keccak256("test-nonce")),
             decayStartTime: block.timestamp,
@@ -96,24 +97,27 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
     }
 
     function testSellToNativeV2() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
-        _sellToNativeV2(fromToken(), toToken(), amount(), "allowanceHolder_nativeV2");
+        _sellToNativeV2WithAllowanceHolder(fromToken(), toToken(), amount(), "allowanceHolder_nativeV2");
         assertEq(toToken().balanceOf(recipient), amount(), "Assets not received");
     }
 
     function testSellToNativeV2Reverse() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
-        _sellToNativeV2(toToken(), fromToken(), amount(), "allowanceHolder_nativeV2_reverse");
+        _sellToNativeV2WithAllowanceHolder(toToken(), fromToken(), amount(), "allowanceHolder_nativeV2_reverse");
         assertEq(fromToken().balanceOf(recipient), amount(), "Assets not received");
     }
 
     function testSellToNativeV2OverrideQuoteAmount() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
         uint256 amount_ = amount() - amount() / 20; // 5% deviation (deviation is allowed below 10%)
-        _sellToNativeV2(fromToken(), toToken(), amount_, "allowanceHolder_nativeV2_override_amount");
+        _sellToNativeV2WithAllowanceHolder(fromToken(), toToken(), amount_, "allowanceHolder_nativeV2_override_amount");
         assertEq(toToken().balanceOf(recipient), amount_, "Assets not received");
     }
 
-    function _sellToNativeV2(IERC20 fromToken, IERC20 toToken, uint256 amount_, string memory name_)
-        internal
-    {
+    function testSellEthToNativeV2() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
+        _sellToNativeV2WithSettler(IERC20(address(0)), fromToken(), amount(), "settler_nativeV2_eth");
+        assertEq(fromToken().balanceOf(recipient), amount(), "Assets not received");
+    }
+
+    function _sellToNativeV2(IERC20 fromToken, IERC20 toToken, uint256 amount_) internal returns (bytes[] memory) {
         INativeV2Router.RFQTQuote memory quote = _prepareQuote(fromToken, toToken);
 
         // Register signer for router
@@ -144,8 +148,8 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
                             ORDER_SIGNATURE_HASH,
                             quote.nonce,
                             quote.signer,
-                            quote.buyerToken,
-                            quote.sellerToken,
+                            quote.buyerToken == address(0) ? address(weth()) : quote.buyerToken,
+                            quote.sellerToken == address(0) ? address(weth()) : quote.sellerToken,
                             quote.buyerTokenAmount,
                             quote.sellerTokenAmount,
                             quote.deadlineTimestamp,
@@ -207,7 +211,7 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
         quote.widgetFeeSignature = abi.encodePacked(r, s, v);
 
         // Prepare Settler actions
-        bytes[] memory actions = ActionDataBuilder.build(
+        return ActionDataBuilder.build(
             // Perform a transfer into Settler via AllowanceHolder
             abi.encodeCall(
                 ISettlerActions.TRANSFER_FROM,
@@ -222,6 +226,12 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
                 ISettlerActions.NATIVEV2, (address(router), 10_000, abi.encode(quote, uint256(0), uint256(0)))
             )
         );
+    }
+
+    function _sellToNativeV2WithAllowanceHolder(IERC20 fromToken, IERC20 toToken, uint256 amount_, string memory name_)
+        internal
+    {
+        bytes[] memory actions = _sellToNativeV2(fromToken, toToken, amount_);
 
         deal(address(fromToken), address(this), amount_);
         fromToken.safeApprove(address(allowanceHolder), amount_);
@@ -234,9 +244,9 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
             address(_settler),
             address(fromToken),
             amount(),
-            payable(address(settler)),
+            payable(address(_settler)),
             abi.encodeCall(
-                settler.execute,
+                _settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)),
@@ -247,6 +257,31 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
                     bytes32(0)
                 )
             )
+        );
+        snapEnd();
+    }
+
+    function _sellToNativeV2WithSettler(IERC20 fromToken, IERC20 toToken, uint256 amount_, string memory name_)
+        internal
+    {
+        assertEq(address(fromToken), address(0), "fromToken expected to be ETH");
+        // use only the NATIVEV2 action
+        bytes[] memory actions = ActionDataBuilder.build(_sellToNativeV2(fromToken, toToken, amount_)[1]);
+
+        deal(address(this), amount_);
+        deal(address(settler), 0); // for some reason settler has 1 wei
+
+        Settler _settler = settler;
+
+        snapStartName(name_);
+        _settler.execute{value: amount_}(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
+            actions,
+            bytes32(0)
         );
         snapEnd();
     }

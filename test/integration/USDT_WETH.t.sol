@@ -128,4 +128,8 @@ contract USDTWETHTest is
     function nativeV2Pool() internal pure override(NativeV2Test) returns (address) {
         return 0x9aF2F3c0cD35283e13f7087e2b34b1444b57A44C;
     }
+
+    function weth() internal pure override(NativeV2Test) returns (IERC20) {
+        return toToken();
+    }
 }
