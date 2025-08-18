@@ -48,7 +48,23 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Add new `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to `BridgeSettlerBase`.
+## 2025-08-18
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add new LayerZero action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to `BridgeSettlerBase`
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mainnet
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Base
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Arbitrum
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Avalanche
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Bnb
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Gnosis
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mantle
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Optimism
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Polygon
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Sonic
 
 ## 2025-08-11
 
