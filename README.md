@@ -202,12 +202,18 @@ import { createPublicClient, http, parseAbi } from 'viem';
     }
 
     // output:
-    // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-    // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-    // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-    // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-    // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-    // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+    // previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+    // current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+    // next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+    // previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+    // current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+    // next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+    // previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+    // current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+    // next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+    // previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+    // current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+    // next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 })();
 ```
 
@@ -256,12 +262,18 @@ const {ethers} = require("ethers");
   }
 
   // output:
-  // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-  // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-  // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-  // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-  // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-  // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+  // previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+  // current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+  // next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+  // previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+  // current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+  // next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+  // previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+  // current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+  // next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+  // previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+  // current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+  // next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 })();
 ```
 
@@ -386,12 +398,18 @@ async fn main() -> Result<()> {
     }
 
     // output:
-    // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-    // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-    // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-    // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-    // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-    // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+    // previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+    // current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+    // next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+    // previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+    // current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+    // next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+    // previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+    // current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+    // next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+    // previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+    // current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+    // next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 
     Ok(())
 }
@@ -461,12 +479,18 @@ for token_id, token_description in token_descriptions.items():
         )
 
 # output:
-# previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-# current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-# next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-# previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-# current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-# next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+# previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+# current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+# next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+# previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+# current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+# next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+# previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+# current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+# next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+# previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+# current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+# next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 ```
 
 </details>
@@ -514,12 +538,18 @@ for token_id in "${!token_descriptions[@]}" ; do
 done
 
 # output:
-# previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-# current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-# next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
-# previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-# current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-# next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
+# previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+# current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+# next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
+# previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+# current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+# next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+# previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+# current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+# next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+# previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+# current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+# next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
 ```
 
 </details>
