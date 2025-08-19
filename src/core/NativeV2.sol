@@ -98,7 +98,7 @@ abstract contract NativeV2 is SettlerAbstract {
             // `tradeRFQT` doesn't clash with any relevant function of restricted targets so we can skip checking `router`
             if iszero(call(gas(), router, mul(isEth, sellAmount), add(0x1c, tradeData), length, 0x00, 0x00)) {
                 let ptr := mload(0x40)
-                returndatacopy(ptr, 0, returndatasize())
+                returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
             // retored clobbered memory
