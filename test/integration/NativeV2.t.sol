@@ -3,18 +3,21 @@ pragma solidity ^0.8.25;
 
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IERC5267} from "src/interfaces/IERC5267.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {Settler} from "src/Settler.sol";
+import {SettlerMetaTxn} from "src/SettlerMetaTxn.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {NativeV2, INativeV2Router} from "src/core/NativeV2.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
-import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
-abstract contract NativeV2Test is AllowanceHolderPairTest {
+
+abstract contract NativeV2Test is SettlerMetaTxnPairTest {
     using SafeTransferLib for IERC20;
 
     bytes32 constant EIP712_DOMAIN_TYPE_HASH =
@@ -101,6 +104,7 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
         assertEq(toToken().balanceOf(recipient), amount(), "Assets not received");
     }
 
+
     function testSellToNativeV2Reverse() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
         _sellToNativeV2WithAllowanceHolder(toToken(), fromToken(), amount(), "allowanceHolder_nativeV2_reverse");
         assertEq(fromToken().balanceOf(recipient), amount(), "Assets not received");
@@ -113,8 +117,13 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
     }
 
     function testSellEthToNativeV2() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
-        _sellToNativeV2WithSettler(IERC20(address(0)), fromToken(), amount(), "settler_nativeV2_eth");
+        _sellToNativeV2WithSettler(IERC20(address(0)), fromToken(), amount(), "settler_nativeV2");
         assertEq(fromToken().balanceOf(recipient), amount(), "Assets not received");
+    }
+
+    function testSellToNativeV2MetaTxn() public skipIf(nativeV2Pool() == address(0)) setNativeV2Block {
+        _sellToNativeV2WithSettlerMetaTxn(fromToken(), toToken(), amount(), "metaTxn_nativeV2");
+        assertEq(toToken().balanceOf(recipient), amount(), "Assets not received");
     }
 
     function _sellToNativeV2(IERC20 fromToken, IERC20 toToken, uint256 amount_) internal returns (bytes[] memory) {
@@ -284,5 +293,62 @@ abstract contract NativeV2Test is AllowanceHolderPairTest {
             bytes32(0)
         );
         snapEnd();
+    }
+
+    function _sellToNativeV2WithSettlerMetaTxn(IERC20 fromToken, IERC20 toToken, uint256 amount_, string memory name_)
+        internal
+    {
+        bytes[] memory actions = _sellToNativeV2(fromToken, toToken, amount_);
+
+        // override permit data
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken), amount_, uint256(keccak256("permit-nonce")));
+        actions[0] = abi.encodeCall(
+            ISettlerActions.METATXN_TRANSFER_FROM,
+            (address(settlerMetaTxn), permit)
+        );
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0 ether
+        });
+
+        bytes32[] memory actionHashes = new bytes32[](actions.length);
+        for (uint256 i; i < actionHashes.length; i++) {
+            actionHashes[i] = keccak256(actions[i]);
+        }
+        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
+        bytes32 witness = keccak256(
+            abi.encode(
+                SLIPPAGE_AND_ACTIONS_TYPEHASH,
+                allowedSlippage.recipient,
+                allowedSlippage.buyToken,
+                allowedSlippage.minAmountOut,
+                actionsHash
+            )
+        );
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
+        );
+
+        SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
+        vm.etch(FROM, bytes(""));
+
+        vm.startPrank(address(this), address(this));
+        snapStartName(name_);
+        _settlerMetaTxn.executeMetaTxn(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)),
+                buyToken: IERC20(address(0)),
+                minAmountOut: 0 ether
+            }),
+            actions,
+            bytes32(0),
+            FROM,
+            sig
+        );
+        snapEnd();
+        vm.stopPrank();
     }
 }
