@@ -163,7 +163,9 @@ library UnsafePancakeInfinityPoolManager {
     function unsafeSwap(
         IPancakeInfinityCLPoolManager poolManager,
         PoolKey memory key,
-        IPancakeInfinityCLPoolManager.SwapParams memory params,
+        bool zeroForOne,
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96,
         bytes calldata hookData
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
@@ -173,7 +175,9 @@ library UnsafePancakeInfinityPoolManager {
             token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
             mstore(add(0x20, ptr), token0)
             mcopy(add(0x40, ptr), add(0x20, key), 0xA0)
-            mcopy(add(0xe0, ptr), params, 0x60)
+            mstore(add(0xe0, ptr), zeroForOne)
+            mstore(add(0x100, ptr), amountSpecified)
+            mstore(add(0x120, ptr), sqrtPriceLimitX96)
             mstore(add(0x140, ptr), 0x140)
             mstore(add(0x160, ptr), hookData.length)
             calldatacopy(add(0x180, ptr), hookData.offset, hookData.length)
@@ -509,15 +513,13 @@ abstract contract PancakeInfinity is SettlerAbstract {
 
                     delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(
                         poolKey,
-                        IPancakeInfinityCLPoolManager.SwapParams({
-                            zeroForOne: zeroForOne,
-                            amountSpecified: amountSpecified,
-                            sqrtPriceLimitX96: uint160(
-                                zeroForOne.ternary(
-                                    uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341)
-                                )
+                        zeroForOne,
+                        amountSpecified,
+                        uint160(
+                            zeroForOne.ternary(
+                                uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341)
                             )
-                        }),
+                        ),
                         hookData
                     );
                 } else if (uint256(poolManagerId) == 1) {
