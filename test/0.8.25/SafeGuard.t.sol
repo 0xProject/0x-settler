@@ -197,13 +197,10 @@ contract TestSafeGuard is Test {
 
         // Heck yeah, bubble sort
         {
-            Vm.Wallet memory tmp;
             for (uint256 i = 1; i < owners.length; i++) {
                 for (uint256 j = i; j > 0; j--) {
                     if (owners[j - 1].addr > owners[j].addr) {
-                        tmp = owners[j - 1];
-                        owners[j - 1] = owners[j];
-                        owners[j] = tmp;
+                        (owners[j - 1], owners[j]) =  (owners[j], owners[j - 1]);
                     }
                 }
             }
