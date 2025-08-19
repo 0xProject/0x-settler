@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
-import {IPSM, WAD, DAI} from "src/core/MakerPSM.sol";
+import {IPSM, WAD, DAI, USDS} from "src/core/MakerPSM.sol";
 
 import {Shim} from "./SettlerBasePairTest.t.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
@@ -57,9 +57,9 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             }
 
             if (makerPsmBuyGem()) {
-                _amountOut = amount() * 10 ** toToken().decimals() / WAD;
+                _amountOut = (amount() * 10 ** toToken().decimals()) / WAD;
             } else {
-                _amountOut = amount() * WAD / 10 ** fromToken().decimals();
+                _amountOut = (amount() * WAD) / 10 ** fromToken().decimals();
             }
 
             vm.makePersistent(address(PERMIT2));
@@ -89,8 +89,12 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         return IPSM(0xf6e72Db5454dd049d0788e411b06CfAF16853042);
     }
 
-    function testName() internal pure virtual override returns (string memory) {
+    function _testName() internal pure virtual override returns (string memory) {
         return "USDC-DAI";
+    }
+
+    function dai() internal pure virtual returns (IERC20) {
+        return DAI;
     }
 
     function fromToken() internal pure virtual override returns (IERC20) {
@@ -98,7 +102,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     }
 
     function toToken() internal pure virtual override returns (IERC20) {
-        return DAI;
+        return dai();
     }
 
     function amount() internal pure virtual override returns (uint256) {
@@ -106,7 +110,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     }
 
     function makerPsmBuyGem() internal view returns (bool) {
-        return fromToken() == DAI;
+        return fromToken() == dai();
     }
 
     function uniswapV3Path() internal override returns (bytes memory) {
@@ -124,7 +128,10 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut()))
+            abi.encodeCall(
+                ISettlerActions.MAKERPSM,
+                (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
+            )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -157,7 +164,10 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
-            abi.encodeCall(ISettlerActions.MAKERPSM, (FROM, 10_000, makerPsmBuyGem(), amountOut()))
+            abi.encodeCall(
+                ISettlerActions.MAKERPSM,
+                (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
+            )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -201,8 +211,48 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 }
 
 contract MakerPsmLiteTestBuyGem is MakerPsmLiteTest {
-    function testName() internal pure virtual override returns (string memory) {
+    function _testName() internal pure virtual override returns (string memory) {
         return "DAI-USDC";
+    }
+
+    function fromToken() internal pure override returns (IERC20) {
+        return super.toToken();
+    }
+
+    function toToken() internal pure override returns (IERC20) {
+        return super.fromToken();
+    }
+
+    function amount() internal pure override returns (uint256) {
+        return 1000 * WAD;
+    }
+}
+
+contract MakerSkyPSMTest is MakerPsmLiteTest {
+    function dai() internal pure override returns (IERC20) {
+        return USDS;
+    }
+
+    function makerPsm() internal pure override returns (IPSM) {
+        return IPSM(0xA188EEC8F81263234dA3622A406892F3D630f98c);
+    }
+
+    function _testName() internal pure virtual override returns (string memory) {
+        return "USDC-USDS";
+    }
+
+    function makerPsmLiteBlockNumber() internal pure override returns (uint256) {
+        return 21668728;
+    }
+
+    function _testBlockNumber() internal pure override returns (uint256) {
+        return 21668728;
+    }
+}
+
+contract MakerSkyPsmLiteTestBuyGem is MakerSkyPSMTest {
+    function _testName() internal pure virtual override returns (string memory) {
+        return "USDS-USDC";
     }
 
     function fromToken() internal pure override returns (IERC20) {

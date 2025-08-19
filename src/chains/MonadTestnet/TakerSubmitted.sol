@@ -39,7 +39,7 @@ contract MonadTestnetSettler is Settler, MonadTestnetMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, MonadTestnetMixin)
+        override(Settler, MonadTestnetMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

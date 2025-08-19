@@ -8,6 +8,9 @@ interface ISettlerActions {
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
 
+    // @dev msgValue is interpreted as an upper bound on the expected msg.value, not as an exact specification
+    function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
+
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
     function METATXN_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit) external;
 
@@ -154,7 +157,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) external;
+    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, address psm, address dai) external;
 
     function CURVE_TRICRYPTO_VIP(
         address recipient,

@@ -54,7 +54,7 @@ contract InkSettler is Settler, InkMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, InkMixin)
+        override(Settler, InkMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

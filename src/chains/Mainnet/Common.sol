@@ -107,19 +107,16 @@ abstract contract MainnetMixin is
         } /* `VELODROME` is removed */
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
-            if (token == ETH_ADDRESS) {
-                uint256 balance = address(this).balance;
-                if (balance > expectedAmount) {
-                    unchecked {
-                        payable(recipient).safeTransferETH(balance - expectedAmount);
-                    }
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                unchecked {
+                    balance -= expectedAmount;
                 }
-            } else {
-                uint256 balance = token.fastBalanceOf(address(this));
-                if (balance > expectedAmount) {
-                    unchecked {
-                        token.safeTransfer(recipient, balance - expectedAmount);
-                    }
+                if (isETH) {
+                    payable(recipient).safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
                 }
             }
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
@@ -136,19 +133,13 @@ abstract contract MainnetMixin is
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
-            (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) =
-                abi.decode(data, (address, uint256, bool, uint256));
+            (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai) =
+                abi.decode(data, (address, uint256, bool, uint256, IPSM, IERC20));
 
-            sellToMakerPsm(recipient, bps, buyGem, amountOutMin);
+            sellToMakerPsm(recipient, bps, buyGem, amountOutMin, psm, dai);
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 bps,
-                IEulerSwap pool,
-                bool zeroForOne,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {

@@ -17,7 +17,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-59f354c179f4e7f6d7292acb3d068815c79286d1
+          version: v1.3.0
 
       - name: Install dependencies
         run: git submodule update --recursive --init
@@ -29,22 +29,49 @@ jobs:
           FOUNDRY_OPTIMIZER_RUNS: 200
 
       - name: Run SafeGuard tests
-        run: forge test --skip 'src/*' --mp test/SafeGuard.t.sol
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/SafeGuard.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+
+      - name: Run EulerSwap math tests
+        run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.28
+
+      - name: Build contracts
+        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
+
+      - name: Build UniswapV4 tests
+        run: forge build -- test/unit/core/UniswapV4UnitTest.t.sol
+
+      - name: Build UniswapV4
+        run: forge build -- lib/v4-core/src/PoolManager.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.26
 
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
         env:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 1000000
+          FOUNDRY_SOLC_VERSION: 0.8.28
 
-      - name: Run the MultiCall tests
-        run: forge test --skip 'src/*' --mc MultiCall
+      - name: Build CrossChainReceiverFactory
+        run: forge build -- src/CrossChainReceiverFactory.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 1000000
+          FOUNDRY_SOLC_VERSION: 0.8.28
+
+      - name: Run MultiCall tests
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+
+      - name: Run CrossChainReceiverFactory tests
+        run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/unit/deployer/*' --mp test/unit/CrossChainReceiverFactory.t.sol
 
       - name: Build UniswapV4
         run: forge build -- lib/v4-core/src/PoolManager.sol
@@ -56,7 +83,7 @@ jobs:
         run: forge build --skip MultiCall.sol --skip SafeGuard.sol --skip 'test/*'
 
       - name: Run all the other tests
-        run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --nmc MultiCall
+        run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}

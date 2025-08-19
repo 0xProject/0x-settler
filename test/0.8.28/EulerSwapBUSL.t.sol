@@ -28,9 +28,54 @@ contract CurveLibTest is Test {
         console.log("yCalc", yCalc);
     }
 
+    function test_validation() public view {
+        uint112 equilibriumReserve0 = 0x0000000000000000000000000000000000000000000000807101361354552724;
+        uint112 equilibriumReserve1 = 0x0000000000000000000000000000000000000000000000dad81da87296f77c31;
+        uint256 priceX = 0x00000000000000000000000000000000000000000000000010bf9f38b14a3e00;
+        uint256 priceY = 0x0000000000000000000000000000000000000000000000000de0b6b3a7640000;
+        uint256 concentrationX = 0x0000000000000000000000000000000000000000000000000de0893a1f26e000;
+        uint256 concentrationY = 0x0000000000000000000000000000000000000000000000000de0893a1f26e000;
+        uint256 fee = 0x00000000000000000000000000000000000000000000000000005af3107a4000;
+        uint256 reserve0 = 1056676627945319924227;
+        uint256 reserve1 = 5621243280384200185656;
+
+        bool zeroForOne = true; // this is backwards of what it was in the test; see commented-out `referenceAmountOut`
+        uint256 amountIn = 10000000000000000;
+        amountIn -= amountIn * fee / 1e18;
+        uint256 referenceAmountOut = 12069806184391508;
+        //uint256 referenceAmountOut = 8283480201573472;
+
+        uint256 amountOut;
+        if (zeroForOne) {
+            // swap X in and Y out
+            uint256 xNew = reserve0 + amountIn;
+            uint256 yNew = xNew <= equilibriumReserve0
+                // remain on f()
+                ? CurveLib.saturatingF(xNew, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX)
+                // move to g()
+                : CurveLib.fInverse(xNew, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
+            if (yNew == 0) {
+                yNew++;
+            }
+            amountOut = reserve1 - yNew;
+        } else {
+            uint256 yNew = reserve1 + amountIn;
+            uint256 xNew = yNew <= equilibriumReserve1
+                // remain on g()
+                ? CurveLib.saturatingF(yNew, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY)
+                // move to f()
+                : CurveLib.fInverse(yNew, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX);
+            if (xNew == 0) {
+                xNew++;
+            }
+            amountOut = reserve0 - xNew;
+        }
+        assertEq(amountOut, referenceAmountOut);
+    }
+
     function test_extremeF0(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) public view {
         uint256 x = 0;
-        x0 = bound(x0, 0, 1e28);
+        x0 = bound(x0, 0, type(uint112).max);
         cx = bound(cx, 0, 1e18 - 1);
 
         try this.f(x, px, py, x0, y0, cx) returns (uint256) {
@@ -48,7 +93,6 @@ contract CurveLibTest is Test {
         assertEq(CurveLib.f(x, px, py, x0, y0, cx), CurveLib.saturatingF(x, px, py, x0, y0, cx));
     }
 
-
     function test_fuzzF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
         public
         pure
@@ -59,14 +103,14 @@ contract CurveLibTest is Test {
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         if (cy == 1e18) {
-            y0 = bound(y0, 0, 1e28);
+            y0 = bound(y0, 0, type(uint112).max);
         } else {
-            y0 = bound(y0, 1, 1e28);
+            y0 = bound(y0, 1, type(uint112).max);
         }
         console.log("px", px);
         console.log("py", py);
@@ -109,6 +153,7 @@ contract CurveLibTest is Test {
 
         uint256 yCalc = CurveLib.f(x, px, py, x0, y0, cx);
         console.log("yCalc", yCalc);
+        assertLe(y0, yCalc, "out of range (violates natspec)");
 
         assertEq(yCalc, yBin, "CurveLib.f solution not exact");
 
@@ -132,9 +177,9 @@ contract CurveLibTest is Test {
         py = bound(py, 1, 1e25);
         cx = bound(cx, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         console.log("px", px);
         console.log("py", py);
@@ -234,14 +279,14 @@ contract CurveLibTest is Test {
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         if (cy == 1e18) {
-            y0 = bound(y0, 0, 1e28);
+            y0 = bound(y0, 0, type(uint112).max);
         } else {
-            y0 = bound(y0, 1, 1e28);
+            y0 = bound(y0, 1, type(uint112).max);
         }
         console.log("px", px);
         console.log("py", py);
@@ -285,14 +330,15 @@ contract CurveLibTest is Test {
 
         uint256 xCalc = CurveLib.fInverse(y, px, py, x0, y0, cx);
         console.log("xCalc", xCalc);
+        assertLe(xCalc, x0, "out of range (violates natspec)");
         // double rounding in `fInverse`, compared to the exact computation in `verify` (and
         // consequently `binSearchX`) can result in substantial amounts of error compared to
         // `xBin`. all we can do is assert that the approximate closed-form solution is greater than
         // (valid) the exact solution
         assertGe(xCalc, xBin);
-        // the computation of `xCalc` involves two divisions with rounding. because we multiply in
-        // between, the rounding error may be substantial.
-        assertLe(xCalc - xBin, 17, "x margin of error"); // TODO: tighten
+        // the computation of `xCalc` involves four lossy operations with rounding. because we
+        // multiply in between, the rounding error may be substantial.
+        assertLe(xCalc - xBin, 1, "x margin of error");
 
         assertTrue(CurveLib.verify(xBin, y, x0, y0, px, py, cx, cy), "binary search verification failed");
         if (xBin != 0) {
@@ -336,7 +382,7 @@ contract CurveLibTest is Test {
                 // the reference implementation of `fInverse` does not correctly handle `cx == 0`
                 uint256 xRef = CurveLibReference.fInverse(y, px, py, x0, y0, cx);
                 console.log("xRef ", xRef);
-                assertLe(xCalc, xRef + 11); // TODO: tighten
+                assertLe(xCalc, xRef + 1, "x reference margin of error");
             }
 
             // the reference implementation of `verify` does not handle zero as an input correctly
@@ -423,14 +469,14 @@ contract CurveLibTest is Test {
         cx = bound(cx, 0, 1e18);
         cy = bound(cy, 0, 1e18);
         if (cx == 1e18) {
-            x0 = bound(x0, 0, 1e28);
+            x0 = bound(x0, 0, type(uint112).max);
         } else {
-            x0 = bound(x0, 1, 1e28);
+            x0 = bound(x0, 1, type(uint112).max);
         }
         if (cy == 1e18) {
-            y0 = bound(y0, 0, 1e28);
+            y0 = bound(y0, 0, type(uint112).max);
         } else {
-            y0 = bound(y0, 1, 1e28);
+            y0 = bound(y0, 1, type(uint112).max);
         }
 
         uint256 y = CurveLib.f(x0, px, py, x0, y0, cx);

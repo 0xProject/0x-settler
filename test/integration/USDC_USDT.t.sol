@@ -42,7 +42,7 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTe
         return 22727039;
     }
 
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "USDC-USDT";
     }
 

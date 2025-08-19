@@ -53,14 +53,8 @@ abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4, EulerSwap
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 bps,
-                IEulerSwap pool,
-                bool zeroForOne,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         } else {

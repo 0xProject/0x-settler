@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
-import {InvalidOffset, ConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
+import {InvalidOffset, revertConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -21,10 +21,7 @@ abstract contract Basic is SettlerAbstract {
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
     function basicSellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) internal {
         if (_isRestrictedTarget(pool)) {
-            assembly ("memory-safe") {
-                mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
-                revert(0x1c, 0x04)
-            }
+            revertConfusedDeputy();
         }
 
         bool success;
@@ -51,7 +48,9 @@ abstract contract Basic is SettlerAbstract {
             // TODO: check for zero `bps`
             if (offset != 0) revert InvalidOffset();
         } else {
-            uint256 amount = sellToken.fastBalanceOf(address(this)).mulDiv(bps, BASIS);
+            // We treat `bps > BASIS` as a GIGO error
+            uint256 amount = sellToken.fastBalanceOf(address(this)).unsafeMulDiv(bps, BASIS);
+
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }

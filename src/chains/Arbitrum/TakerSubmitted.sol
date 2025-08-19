@@ -90,7 +90,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, ArbitrumMixin)
+        override(Settler, ArbitrumMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

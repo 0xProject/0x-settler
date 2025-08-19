@@ -32,6 +32,9 @@ Master list of UniV3 forks:
   29. SwapX (Algebra-like)
   30. KodiakV3
   31. Bulla Exchange (Algebra-like)
+  32. KittenSwap (factory is upgradeable; pools are not)
+  33. Hybra
+  34. HyperSwap
 
 ---
 
@@ -40,8 +43,80 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Update Scroll to the Cancun hardfork
+* Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
+  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 
 ### Non-breaking changes
+
+## 2025-08-18
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add new LayerZero action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to `BridgeSettlerBase`
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mainnet
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Base
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Arbitrum
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Avalanche
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Bnb
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Gnosis
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mantle
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Optimism
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Polygon
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Sonic
+
+## 2025-08-11
+
+### Breaking changes
+
+* In metatransactions and intents, it is now an error for `_operator()` (the gas
+  payer/solver/relayer) to be `msgSender` (the taker)
+* Remove `LimitOrderFeeCollector`
+
+### Non-breaking changes
+
+* Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
+  handle the selling of the chain-native asset
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
+* Improve gas efficiency and accuracy of `EULERSWAP` action
+* Add solvency check for EulerSwap (does not execute on-chain)
+* Add `CrossChainReceiverFactory`, a minimal proxy factory inspired by submarine
+  transactions for "automatically" swapping any tokens received
+* Add `BridgeSettler` to all supported chains except `MonadTestnet`
+  * `BridgeSettler` is the settlement contracts for cross-chain operations
+    and is heavily implemented following `Settler` design.
+  * `BridgeSettlerBase` implements actions for:
+    * `BASIC`, same as `Settler`
+    * `SETTLER_SWAP`, to execute swaps on `Settler`
+    * Relay bridge integration (`BRIDGE_ERC20_TO_RELAY`, `BRIDGE_NATIVE_TO_RELAY`)
+    * Those are available in the `BridgeSettler` of every chain
+  * Other actions added that are not supported in every chain:
+    * Mayan bridge integration (`BRIDGE_ERC20_TO_MAYAN`, `BRIDGE_NATIVE_TO_MAYAN`)
+    * Across bridge integration
+      (`BRIDGE_ERC20_TO_ACROSS`, `BRIDGE_NATIVE_TO_ACROSS`)
+    * StargateV2 bridge integration
+      (`BRIDGE_ERC20_TO_STARGATE_V2`, `BRIDGE_NATIVE_TO_STARGATE_V2`)
+
+## 2025-08-01
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy a stripped-down suite of Settlers to Katana network
+
+## 2025-07-07
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to HyperEVM (Hyperliquid) network
+  * Add KittenSwap UniV3 fork to HyperEVM
+  * Add Hybra UniV3 fork to HyperEVM
+  * Add HyperSwap UniV3 fork to HyperEVM
 
 ## 2025-07-02
 

@@ -17,8 +17,17 @@ library Clz {
             // most-significant bits into an index. We then index the lookup
             // table (bytewise) by the deBruijn symbol to obtain the bitwise
             // inverse of its logarithm.
-            r := add(xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff)), iszero(x))
+            r :=
+                add(
+                    xor(
+                        r,
+                        byte(
+                            and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                            0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff
+                        )
+                    ),
+                    iszero(x)
+                )
         }
     }
 

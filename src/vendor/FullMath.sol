@@ -44,7 +44,7 @@ library FullMath {
     /// @return prod1 Most significant 256 bits of the product
     /// @return remainder Remainder of full-precision division
     function _mulDivSetup(uint256 a, uint256 b, uint256 denominator)
-        internal
+        private
         pure
         returns (uint256 prod0, uint256 prod1, uint256 remainder)
     {
@@ -60,7 +60,7 @@ library FullMath {
     /// @return The 256-bit result
     /// @dev Overflow and division by zero aren't checked and are GIGO errors
     function _mulDivInvert(uint256 prod0, uint256 prod1, uint256 denominator, uint256 remainder)
-        internal
+        private
         pure
         returns (uint256)
     {

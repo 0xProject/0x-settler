@@ -7,6 +7,7 @@
     "extraFlags": "",
     "gasMultiplierPercent": 130,
     "minGasPriceGwei": 10,
+    "wnative": "0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -23,7 +24,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api-sepolia.etherscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -48,14 +50,13 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "limitOrderHook": "0xA33b6C189d6bf5b4B144851D0F2BEB04300da6dd",
-      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.etherscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -80,14 +81,13 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "limitOrderHook": "0x40cC3Df2E28e4f133167cf2f6840fBB981473294",
-      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.polygonscan.com/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -112,14 +112,13 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "limitOrderHook": "0x8Ce89e7fd07836bE0B2A3BAE3F36546543D3a8EE",
-      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.basescan.org/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -144,14 +143,13 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "limitOrderHook": "0x8Ce89e7fd07836bE0B2A3BAE3F36546543D3a8EE",
-      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api-optimistic.etherscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -162,8 +160,8 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "--legacy",
-    "gasMultiplierPercent": 500,
-    "minGasPriceGwei": 10,
+    "gasMultiplierPercent": 300,
+    "minGasPriceGwei": 1,
     "wnative": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -176,19 +174,18 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "limitOrderHook": "0x900087Be6473237D67390257b0Eb0efEBbB4e711",
-      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.arbiscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
-  "bnb": {
+  "bsc": {
     "chainId": 56,
     "displayName": "Bnb",
     "isShanghai": true,
@@ -208,14 +205,13 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "limitOrderHook": "0x142B3C27e85136c140393E810BF9B4864C63Bfe0",
-      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.bscscan.com/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -240,14 +236,13 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "limitOrderHook": "0x26E461749FAC9a421B1527DCfe7683A24bfF97C4",
-      "feeCollector": "0x9b858Be6E3047D88820f439B240deaC2418a2551"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.snowtrace.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -260,6 +255,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x4300000000000000000000000000000000000004",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -276,7 +272,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.blastscan.io/api"
   },
@@ -287,7 +284,8 @@
     "isCancun": false,
     "extraFlags": "",
     "gasMultiplierPercent": 200,
-    "minGasPriceGwei": 2,
+    "minGasPriceGwei": 1,
+    "wnative": "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -304,7 +302,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x000000000000175a8b9bC6d539B3708EEd92EA6c",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.lineascan.build/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -317,6 +316,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 120,
     "minGasPriceGwei": 1,
+    "wnative": "0x5300000000000000000000000000000000000004",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -333,7 +333,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.scrollscan.com/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -346,6 +347,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -362,7 +364,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.mantlescan.xyz/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -375,6 +378,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -391,7 +395,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "blockscoutApi": "https://explorer.mode.network/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -404,6 +409,7 @@
     "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0xA51894664A773981C6C112C43ce576f315d5b1B6",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -420,11 +426,12 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000005E88410CcDFaDe4a5EfaE4b49562",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.taikoscan.io/api"
   },
-  "worldchain": {
+  "world": {
     "chainId": 480,
     "displayName": "WorldChain",
     "isShanghai": true,
@@ -432,6 +439,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -448,12 +456,13 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.worldscan.org/api",
     "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
   },
-  "gnosis": {
+  "xdai": {
     "chainId": 100,
     "displayName": "Gnosis",
     "isShanghai": true,
@@ -461,6 +470,7 @@
     "extraFlags": "",
     "gasMultiplierPercent": 140,
     "minGasPriceGwei": 2,
+    "wnative": "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -477,7 +487,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.gnosisscan.io/api",
     "sourcifyApi": "https://sourcify.dev/server/"
@@ -490,6 +501,7 @@
     "extraFlags": "",
     "gasMultiplierPercent": 150,
     "minGasPriceGwei": 2,
+    "wnative": "0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38",
     "safe": {
       "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
@@ -506,7 +518,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.sonicscan.org/api"
   },
@@ -518,6 +531,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -534,11 +548,12 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "blockscoutApi": "https://explorer.inkonchain.com/api"
   },
-  "monad_testnet": {
+  "monad-testnet": {
     "chainId": 10143,
     "displayName": "MonadTestnet",
     "isShanghai": true,
@@ -546,6 +561,7 @@
     "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 50,
+    "wnative": "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701",
     "safe": {
       "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
@@ -562,7 +578,8 @@
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
     "blockscoutApi": "https://api.socialscan.io/monad-testnet/v1/explorer/command_api/contract"
@@ -575,6 +592,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
@@ -591,7 +609,8 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.uniscan.xyz/api",
     "blockscoutApi": "https://unichain.blockscout.com/api"
@@ -604,6 +623,7 @@
     "extraFlags": "--legacy",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
+    "wnative": "0x6969696969696969696969696969696969696969",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
@@ -620,8 +640,71 @@
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
     "etherscanApi": "https://api.berascan.com/api"
+  },
+  "hyperliquid": {
+    "chainId": 999,
+    "displayName": "HyperEvm",
+    "wnative": "0x5555555555555555555555555555555555555555",
+    "isShanghai": true,
+    "isCancun": true,
+    "extraFlags": "",
+    "gasMultiplierPercent": 300,
+    "minGasPriceGwei": 2,
+    "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
+    },
+    "blockscoutApi": "https://www.hyperscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=999"
+  },
+  "katana": {
+    "chainId": 747474,
+    "displayName": "Katana",
+    "wnative": "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62",
+    "isShanghai": true,
+    "isCancun": true,
+    "extraFlags": "--legacy",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "https://safe-transaction-katana.safe.global/api"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
+    },
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=747474",
+    "blockscoutApi": "https://explorer.katanarpc.com/api"
   }
 }
