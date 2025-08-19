@@ -173,6 +173,7 @@ import { createPublicClient, http, parseAbi } from 'viem';
         2: "taker submitted",
         3: "metatransaction",
         4: "intents",
+        5: "bridge",
     };
 
     const deployerAbi = parseAbi([
@@ -232,6 +233,7 @@ const {ethers} = require("ethers");
     2: "taker submitted",
     3: "metatransaction",
     4: "intents",
+    5: "bridge",
   };
 
   const deployerAbi = [
@@ -325,7 +327,8 @@ async fn main() -> Result<()> {
     let token_descriptions = HashMap::from([
         (2, "taker submitted"),
         (3, "metatransaction"),
-        (4, "intents")
+        (4, "intents"),
+        (5, "bridge")
     ]);
 
     for token_id in token_ids.iter() {
@@ -410,6 +413,7 @@ token_descriptions = {
     2: "taker submitted",
     3: "metatransaction",
     4: "intents",
+    5: "intents",
 }
 
 deployer_abi = [
@@ -473,7 +477,7 @@ for token_id, token_description in token_descriptions.items():
 <summary>Click to see Bash (cast) example of getting Settler addresses</summary>
 
 ```Bash
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -Eeufo pipefail -o posix
 
@@ -488,6 +492,7 @@ declare -A token_descriptions
 token_descriptions[2]='taker submitted'
 token_descriptions[3]='metatransaction'
 token_descriptions[4]='intents'
+token_descriptions[5]='bridge'
 declare -r -A token_descriptions
 
 declare -r -a function_signatures=('prev(uint128)(address)' 'ownerOf(uint256)(address)' 'next(uint128)(address)')
@@ -1325,10 +1330,11 @@ from this document.
 ![Click on "Connect to Web3"](img/pause6.png?raw=true)
 
 9. Enter the "feature" number in the text box. This is probably 2 for
-   taker-submitted, 3 for gasless/metatransaction, or 4 for intents, unless
-   something major has changed and nobody bothered to update this document.
+   taker-submitted, 3 for gasless/metatransaction, 4 for intents, or 5 for
+   bridge settler, unless something major has changed and nobody bothered 
+   to update this document.
 
-![Enter the "feature" number (2, 3, or 4) in the text box](img/pause7.png?raw=true)
+![Enter the "feature" number (2, 3, 4, or 5) in the text box](img/pause7.png?raw=true)
 
 10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
 
