@@ -39,17 +39,6 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.28
 
-      - name: Build contracts
-        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
-
-      - name: Build UniswapV4 tests
-        run: forge build -- test/unit/core/UniswapV4UnitTest.t.sol
-
-      - name: Build UniswapV4
-        run: forge build -- lib/v4-core/src/PoolManager.sol
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.26
-
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
         env:
@@ -74,10 +63,15 @@ jobs:
         run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/unit/deployer/*' --mp test/unit/CrossChainReceiverFactory.t.sol
 
       - name: Build contracts
-        run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip SafeGuard.sol --skip 'test/*'
+        run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip 'test/*'
 
       - name: Build UniswapV4 tests
-        run: forge build --skip MultiCall.sol --skip SafeGuard.sol --skip 'test/*'
+        run: forge build --skip MultiCall.sol --skip SafeGuard.sol --skip 'test/*' -- test/unit/core/UniswapV4UnitTest.t.sol
+
+      - name: Build UniswapV4
+        run: forge build -- lib/v4-core/src/PoolManager.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.26
 
       - name: Run all the other tests
         run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol
