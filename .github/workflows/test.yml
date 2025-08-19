@@ -73,9 +73,6 @@ jobs:
       - name: Run CrossChainReceiverFactory tests
         run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/unit/deployer/*' --mp test/unit/CrossChainReceiverFactory.t.sol
 
-      - name: Build UniswapV4
-        run: forge build -- lib/v4-core/src/PoolManager.sol
-
       - name: Build contracts
         run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip SafeGuard.sol --skip 'test/*'
 
