@@ -231,7 +231,13 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
     bytes32 private constant _SINGLETON_INITHASH = 0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
-    address private immutable _SINGLETON;
+    address private immutable _SINGLETON = address(
+        uint160(
+            uint256(
+                keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), _SINGLETON_INITHASH))
+            )
+        )
+    );
     address private constant _CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
 
@@ -243,13 +249,6 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         safe = safe_;
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
         assert(msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
-        _SINGLETON = address(
-            uint160(
-                uint256(
-                    keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), _SINGLETON_INITHASH))
-                )
-            )
-        );
 
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
         // deployed, with the exception of the installation and subsequent concealment of a
