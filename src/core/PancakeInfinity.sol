@@ -517,13 +517,13 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         )
                     );
 
-                    delta = CL_MANAGER.unsafeSwap(poolKey, swapParams, hookData);
+                    delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(poolKey, swapParams, hookData);
                 } else if (uint256(poolManagerId) == 1) {
                     poolKey.poolManager = BIN_MANAGER;
                     if (amountSpecified >> 127 != amountSpecified >> 128) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    delta = BIN_MANAGER.unsafeSwap(poolKey, zeroForOne, int128(amountSpecified), hookData);
+                    delta = IPancakeInfinityBinPoolManager(address(poolKey.poolManager)).unsafeSwap(poolKey, zeroForOne, int128(amountSpecified), hookData);
                 } else {
                     assembly ("memory-safe") {
                         mstore(0x00, 0x0a9a7da6) // selector for `UnknownPoolManagerId(uint8)`
