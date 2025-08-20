@@ -726,7 +726,7 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
             // in bizarre and outrageous circumstances.
             ISafeMinimal safe_ = safe;
             return msg.sender == address(safe_) && uint32(interfaceID) == uint32(type(IGuard).interfaceId)
-                && _checkAfterExecutionReturnBool(safe);
+                && _checkAfterExecutionReturnBool(safe_);
         }
     }
 }
