@@ -1367,12 +1367,9 @@ possible to do similar simulations with Foundry, but the UX is much worse.
 Now that the contract is deployed on-chain you need to run
 [`./sh/verify_settler.sh <CHAIN_NAME>`](sh/verify_settler.sh). This will
 (attempt to) verify Settler on both the Etherscan for the chain and
-[Sourcify](https://sourcify.dev/). If this fails, it's probably because
-[Foundry's source verification is
-flaky](https://github.com/foundry-rs/foundry/issues/8470). Try deploying the
-contracts in the normal way (without going through the 2 signer ceremony above)
-to a testnet and verifying them there to make sure this doesn't
-happen.
+[Sourcify](https://sourcify.dev/). If this fails, try deploying the contracts in
+the normal way (without going through the 2 signer ceremony above) to a testnet
+and verifying them there to make sure this doesn't happen.
 
 ## How to deploy to a new chain
 
