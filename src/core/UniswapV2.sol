@@ -65,6 +65,7 @@ abstract contract UniswapV2 is SettlerAbstract {
         }
         assembly ("memory-safe") {
             pool := and(0xffffffffffffffffffffffffffffffffffffffff, pool)
+            let ptr := mload(0x40)
 
             // transfer sellAmount (a non zero amount) of sellToken to the pool
             if sellAmount {
@@ -115,7 +116,6 @@ abstract contract UniswapV2 is SettlerAbstract {
             // compute buyAmount based on sellAmount and reserves
             let sellAmountWithFee := mul(sellAmount, sub(10000, feeBps))
             buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 10000)))
-            let ptr := mload(0x40)
             // set up swap call selector and empty callback data
             mstore(ptr, UNI_PAIR_SWAP_SELECTOR)
             mstore(add(ptr, 0x80), 0x80) // offset to length of data
