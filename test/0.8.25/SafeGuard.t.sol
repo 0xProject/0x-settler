@@ -15,6 +15,8 @@ interface ISafeSetup {
     function getOwners() external view returns (address[] memory);
 
     function setGuard(address guard) external;
+
+    function setFallbackHandler(address handler) external;
 }
 
 enum Operation {
@@ -49,6 +51,13 @@ interface ISafe {
     function isOwner(address) external view returns (bool);
 
     function enableModule(address) external;
+
+    function masterCopy() external view returns (address);
+}
+
+interface ISafeOnePointFour {
+    // `txHash` argument is indexed in 1.4
+    event ExecutionSuccess(bytes32 indexed txHash, uint256 payment);
 }
 
 interface IGuard {
@@ -145,11 +154,21 @@ interface IMulticall {
     function multiSend(bytes memory transactions) external payable;
 }
 
+contract MigrationDummy {
+    address private singleton;
+
+    function migrate(address newSingleton, address newFallbackHandler) external {
+        singleton = newSingleton;
+        ISafeSetup(address(this)).setFallbackHandler(newFallbackHandler);
+    }
+}
+
 contract TestSafeGuard is Test {
     using ItoA for uint256;
 
     address internal constant factory = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
     ISafe internal constant safe = ISafe(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
+    address internal constant onePointThreeSingleton = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
     IZeroExSettlerDeployerSafeGuard internal guard;
     uint256 internal pokeCounter;
 
@@ -158,7 +177,7 @@ contract TestSafeGuard is Test {
     function setUp() public {
         ISafeSetup _safe = ISafeSetup(address(safe));
 
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 21015655);
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 23183520);
         vm.label(address(this), "FoundryTest");
 
         string memory mnemonic = "test test test test test test test test test test test junk";
@@ -178,7 +197,7 @@ contract TestSafeGuard is Test {
         vm.stopPrank();
 
         bytes memory creationCode = bytes.concat(
-            vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuard"),
+            vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointThree"),
             abi.encode(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51)
         );
         guard = IZeroExSettlerDeployerSafeGuard(
@@ -304,6 +323,7 @@ contract TestSafeGuard is Test {
     }
 
     function testHappyPath() public {
+        address singleton = safe.masterCopy();
         (
             address to,
             uint256 value,
@@ -322,7 +342,11 @@ contract TestSafeGuard is Test {
         vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
 
         vm.expectEmit(true, true, true, true, address(safe));
-        emit ISafe.ExecutionSuccess(txHash, 0);
+        if (singleton == onePointThreeSingleton) {
+            emit ISafe.ExecutionSuccess(txHash, 0);
+        } else {
+            emit ISafeOnePointFour.ExecutionSuccess(txHash, 0);
+        }
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
@@ -407,9 +431,9 @@ contract TestSafeGuard is Test {
     function testCancelNoApprove() external {
         (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
 
-        bytes32 resignTxHash = guard.resignTxHash(owners[4].addr);
+        bytes32 resignTxHash = guard.resignTxHash(owners[3].addr);
 
-        vm.prank(owners[4].addr);
+        vm.prank(owners[3].addr);
         vm.expectRevert(
             abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, resignTxHash)
         );
@@ -444,21 +468,21 @@ contract TestSafeGuard is Test {
 
         bytes32 unlockTxHash = guard.unlockTxHash();
 
-        vm.startPrank(owners[4].addr);
+        vm.startPrank(owners[3].addr);
 
         vm.expectEmit(true, true, true, true, address(safe));
-        emit ISafe.ApproveHash(unlockTxHash, owners[4].addr);
+        emit ISafe.ApproveHash(unlockTxHash, owners[3].addr);
         safe.approveHash(unlockTxHash);
 
         vm.expectEmit(true, true, true, true, address(guard));
-        emit IZeroExSettlerDeployerSafeGuard.LockDown(owners[4].addr, unlockTxHash);
+        emit IZeroExSettlerDeployerSafeGuard.LockDown(owners[3].addr, unlockTxHash);
         guard.lockDown();
 
         vm.stopPrank();
 
         vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
 
-        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.LockedDown.selector, owners[4].addr));
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.LockedDown.selector, owners[3].addr));
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
@@ -467,7 +491,7 @@ contract TestSafeGuard is Test {
     function testLockDownNoUnlock() external {
         bytes32 unlockTxHash = guard.unlockTxHash();
 
-        vm.prank(owners[4].addr);
+        vm.prank(owners[3].addr);
 
         vm.expectRevert(
             abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, unlockTxHash)
@@ -478,7 +502,7 @@ contract TestSafeGuard is Test {
     function testLockDownNoCancel() external {
         (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
 
-        address owner = owners[4].addr;
+        address owner = owners[3].addr;
 
         bytes32 resignTxHash = guard.resignTxHash(owner);
         bytes32 unlockTxHash = guard.unlockTxHash();
@@ -502,7 +526,7 @@ contract TestSafeGuard is Test {
     function testLockDownWithCancel() external {
         (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
 
-        address owner = owners[4].addr;
+        address owner = owners[3].addr;
 
         bytes32 resignTxHash = guard.resignTxHash(owner);
         bytes32 unlockTxHash = guard.unlockTxHash();
@@ -525,7 +549,7 @@ contract TestSafeGuard is Test {
     function testResign() external {
         (,,,,,,,,,, bytes32 txHash,) = _enqueuePoke();
 
-        address owner = owners[4].addr;
+        address owner = owners[3].addr;
 
         bytes32 resignTxHash = guard.resignTxHash(owner);
 
@@ -534,7 +558,7 @@ contract TestSafeGuard is Test {
         guard.cancel(txHash);
         vm.stopPrank();
 
-        address prevOwner = owners[2].addr;
+        address prevOwner = owners[1].addr;
 
         bytes memory data = abi.encodeWithSignature("removeOwner(address,address,uint256)", prevOwner, owner, 2);
         txHash = keccak256(
@@ -697,7 +721,7 @@ contract TestSafeGuard is Test {
                 _signSafeEncoded(owners[1], unlockTxHash),
                 _signSafeEncoded(owners[2], unlockTxHash),
                 _signSafeEncoded(owners[3], unlockTxHash),
-                uint256(uint160(owners[4].addr)),
+                uint256(uint160(owners[3].addr)),
                 bytes32(0),
                 uint8(1)
             );
@@ -770,8 +794,7 @@ contract TestSafeGuard is Test {
         bytes memory unlockSignatures = abi.encodePacked(
             _signSafeEncoded(owners[1], unlockTxHash),
             _signSafeEncoded(owners[2], unlockTxHash),
-            _signSafeEncoded(owners[3], unlockTxHash),
-            uint256(uint160(owners[4].addr)),
+            uint256(uint160(owners[3].addr)),
             bytes32(0),
             uint8(1)
         );
@@ -914,5 +937,110 @@ contract TestSafeGuard is Test {
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
+    }
+
+    function testOnePointFour() external {
+        // uninstall the 1.3 guard
+        vm.store(address(safe), 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8, bytes32(0));
+
+        // migrate to 1.4.1
+        address onePointFourSingleton = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
+        address onePointFourFallback = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+
+        MigrationDummy migration = new MigrationDummy();
+
+        bytes memory data = abi.encodeCall(migration.migrate, (onePointFourSingleton, onePointFourFallback));
+        bytes32 txHash = keccak256(
+            bytes.concat(
+                hex"1901",
+                keccak256(
+                    abi.encode(
+                        keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, safe
+                    )
+                ),
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                        ),
+                        address(migration),
+                        0 wei,
+                        keccak256(data),
+                        Operation.DelegateCall,
+                        0,
+                        0,
+                        0 gwei,
+                        address(0),
+                        payable(address(0)),
+                        safe.nonce()
+                    )
+                )
+            )
+        );
+        bytes memory signatures =
+            abi.encodePacked(_signSafeEncoded(owners[0], txHash), _signSafeEncoded(owners[1], txHash));
+
+        safe.execTransaction(
+            address(migration),
+            0 wei,
+            data,
+            Operation.DelegateCall,
+            0,
+            0,
+            0 gwei,
+            address(0),
+            payable(address(0)),
+            signatures
+        );
+
+        // check that we successfully migrated to 1.4.1
+        assertEq(safe.masterCopy(), onePointFourSingleton);
+
+        // the 1.4.1 guard has to be deployed *before* being enabled
+        bytes memory creationCode = bytes.concat(
+            vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne"), abi.encode(address(safe))
+        );
+        guard = IZeroExSettlerDeployerSafeGuard(
+            AddressDerivation.deriveDeterministicContract(factory, bytes32(0), keccak256(creationCode))
+        );
+        (bool success, bytes memory returndata) = factory.call(bytes.concat(bytes32(0), creationCode));
+        assertTrue(success);
+        assertEq(address(uint160(bytes20(returndata))), address(guard));
+
+        data = abi.encodeCall(ISafeSetup.setGuard, (address(guard)));
+        txHash = keccak256(
+            bytes.concat(
+                hex"1901",
+                keccak256(
+                    abi.encode(
+                        keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, safe
+                    )
+                ),
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                        ),
+                        address(safe),
+                        0 wei,
+                        keccak256(data),
+                        Operation.Call,
+                        0,
+                        0,
+                        0 gwei,
+                        address(0),
+                        payable(address(0)),
+                        safe.nonce()
+                    )
+                )
+            )
+        );
+        signatures = abi.encodePacked(_signSafeEncoded(owners[0], txHash), _signSafeEncoded(owners[1], txHash));
+
+        safe.execTransaction(
+            address(safe), 0 wei, data, Operation.Call, 0, 0, 0 gwei, address(0), payable(address(0)), signatures
+        );
+
+        testHappyPath();
     }
 }
