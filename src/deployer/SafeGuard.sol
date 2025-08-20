@@ -187,7 +187,7 @@ contract EvmVersionDummy {
     }
 }
 
-contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
+abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     using SafeLib for ISafeMinimal;
 
     event TimelockUpdated(uint256 oldDelay, uint256 newDelay);
