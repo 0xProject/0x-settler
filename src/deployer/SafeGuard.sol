@@ -242,13 +242,25 @@ contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     address private constant _CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
 
+    bytes32 private constant _SAFE_PROXY_1_1_CODEHASH =
+        0xaea7d4252f6245f301e540cfbee27d3a88de543af8e49c5c62405d5499fab7e5;
+    bytes32 private constant _SAFE_PROXY_1_3_CODEHASH =
+        0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
+    bytes32 private constant _SAFE_PROXY_1_4_CODEHASH =
+        0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
+
     // This is the correct hash only if this contract has been compiled for the London hardfork
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
     constructor(ISafeMinimal safe_, bytes32 singletonInithash) {
-        safe = safe_;
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
+        safe = safe_;
+        bytes32 safeCodeHash = address(safe).codehash;
+        assert(
+            safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+                || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH
+        );
         assert(msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
         _SINGLETON = address(
             uint160(
