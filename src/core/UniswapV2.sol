@@ -73,7 +73,7 @@ abstract contract UniswapV2 is SettlerAbstract {
                 mstore(0x20, pool)
                 mstore(0x40, sellAmount)
                 // ...||ERC20_TRANSFER_SELECTOR|pool|sellAmount|
-                if iszero(call(gas(), sellToken, 0, 0x1c, 0x44, 0x00, 0x20)) { bubbleRevert() }
+                if iszero(call(gas(), sellToken, 0, 0x1c, 0x44, 0x00, 0x20)) { bubbleRevert(ptr) }
                 if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(0x00), 1)))) {
                     revert(0, 0)
                 }
@@ -84,7 +84,7 @@ abstract contract UniswapV2 is SettlerAbstract {
             let buyReserve
             mstore(0x00, UNI_PAIR_RESERVES_SELECTOR)
             // ||UNI_PAIR_RESERVES_SELECTOR|
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) { bubbleRevert() }
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) { bubbleRevert(ptr) }
             if lt(returndatasize(), 0x40) { revert(0, 0) }
             {
                 let r := shl(5, zeroForOne)
@@ -100,7 +100,7 @@ abstract contract UniswapV2 is SettlerAbstract {
                 mstore(0x00, ERC20_BALANCEOF_SELECTOR)
                 mstore(0x20, pool)
                 // ||ERC20_BALANCEOF_SELECTOR|pool|
-                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x00, 0x20)) { bubbleRevert() }
+                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x00, 0x20)) { bubbleRevert(ptr) }
                 if lt(returndatasize(), 0x20) { revert(0, 0) }
                 let bal := mload(0x00)
 
@@ -134,11 +134,10 @@ abstract contract UniswapV2 is SettlerAbstract {
             // ...||UNI_PAIR_SWAP_SELECTOR|amount0Out|amount1Out|recipient|data|
 
             // perform swap at the pool sending bought tokens to the recipient
-            if iszero(call(gas(), pool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert() }
+            if iszero(call(gas(), pool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert(ptr) }
 
             // revert with the return data from the most recent call
-            function bubbleRevert() {
-                let p := mload(0x40)
+            function bubbleRevert(p) {
                 returndatacopy(p, 0, returndatasize())
                 revert(p, returndatasize())
             }
