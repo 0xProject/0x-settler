@@ -52,6 +52,8 @@ interface ISafe {
 
     function enableModule(address) external;
 
+    function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
+
     function masterCopy() external view returns (address);
 }
 
@@ -324,6 +326,10 @@ contract TestSafeGuard is Test {
 
     function testHappyPath() public {
         address singleton = safe.masterCopy();
+        assertEq(
+            abi.decode(safe.getStorageAt(uint256(keccak256("guard_manager.guard.address")), 1), (address)),
+            address(guard)
+        );
         (
             address to,
             uint256 value,
@@ -341,6 +347,26 @@ contract TestSafeGuard is Test {
 
         vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
 
+        vm.expectCall(
+            address(guard),
+            abi.encodeCall(
+                guard.checkTransaction,
+                (
+                    to,
+                    value,
+                    data,
+                    operation,
+                    safeTxGas,
+                    baseGas,
+                    gasPrice,
+                    gasToken,
+                    refundReceiver,
+                    signatures,
+                    address(this)
+                )
+            )
+        );
+        vm.expectCall(address(guard), abi.encodeCall(guard.checkAfterExecution, (txHash, true)));
         vm.expectEmit(true, true, true, true, address(safe));
         if (singleton == onePointThreeSingleton) {
             emit ISafe.ExecutionSuccess(txHash, 0);
@@ -1007,6 +1033,7 @@ contract TestSafeGuard is Test {
         assertTrue(success);
         assertEq(address(uint160(bytes20(returndata))), address(guard));
 
+        // install the guard
         data = abi.encodeCall(ISafeSetup.setGuard, (address(guard)));
         txHash = keccak256(
             bytes.concat(
