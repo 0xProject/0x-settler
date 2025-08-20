@@ -717,9 +717,9 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
         } else if (uint32(interfaceID) == 0xffffffff) {
             return false;
         } else {
-            // These checks ensure that the Safe (with the exception of clandestine modules) is in a
+            // These checks ensure that the Safe (with the exception of clandestine Modules) is in a
             // sane configuration at the time that the Guard is installed. Obviously because the
-            // Guard's `checkAfterExecution is not run during the installation, it's still possible
+            // Guard's `checkAfterExecution` is not run during the installation, it's still possible
             // to misconfigure the Safe or conceal a Module after the Guard's installation (e.g. via
             // delegate'd MultiCall). However, presuming the Safe owners don't do that, at the
             // conclusion of the installation of the Guard, the behavior ought to remain sane, even
