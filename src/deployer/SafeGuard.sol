@@ -3,13 +3,15 @@ pragma solidity =0.8.25;
 
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 
-// This enum is derived from the code deployed to 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// This enum is derived from the code deployed to 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA (1.3.0)
+// or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
 enum Operation {
     Call,
     DelegateCall
 }
 
 // This interface is excerpted from the contract at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
 interface ISafeMinimal {
     function checkNSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures, uint256 requiredSignatures)
         external
@@ -34,14 +36,17 @@ interface ISafeMinimal {
         view
         returns (address[] memory array, address next);
 
-    // This function is not part of the interface at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
-    // . It's part of the implicit interface on the proxy contract(s) created by the factory at
-    // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc .
+    // This function is not part of the interface at
+    // 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA/0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 . It's
+    // part of the implicit interface on the proxy contract(s) created by the factory at
+    // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc (1.3.0) or
+    // 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67 (1.4.1) .
     function masterCopy() external view returns (address);
 }
 
 // This library is a reimplementation of the functionality of the functions by the same name in
-// 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762
+// (1.4.1)
 library SafeLib {
     function encodeTransactionData(
         ISafeMinimal safe,
@@ -153,6 +158,7 @@ library SafeLib {
 }
 
 // This interface is excerpted from `GuardManager.sol` in 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
 interface IGuard {
     function checkTransaction(
         address to,
