@@ -679,9 +679,10 @@ contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 }
 
 contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSafeGuardBase {
-    constructor(ISafeMinimal safe_)
-        ZeroExSettlerDeployerSafeGuardBase(safe_, 0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438)
-    {
+    bytes32 private constant _SAFE_SINGLETON_1_3_INITHASH =
+        0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
+
+    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_3_INITHASH) {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
         // deployed, with the exception of the installation and subsequent concealment of a
         // malicious Safe module. The author knows of no way to enforce that the Guard is installed
@@ -699,9 +700,10 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
 }
 
 contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSettlerDeployerSafeGuardBase {
-    constructor(ISafeMinimal safe_)
-        ZeroExSettlerDeployerSafeGuardBase(safe_, 0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd)
-    {
+    bytes32 private constant _SAFE_SINGLETON_1_4_INITHASH =
+        0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd;
+
+    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_4_INITHASH) {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
         // in the Safe. However, because the Safe does an ERC165 check during the Guard enabling
         // process, we are able to perform a nearly atomic check. See the logic and comment in
