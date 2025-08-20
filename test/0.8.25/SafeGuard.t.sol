@@ -967,7 +967,7 @@ contract TestSafeGuard is Test {
 
     function testOnePointFour() external {
         // uninstall the 1.3 guard
-        vm.store(address(safe), 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8, bytes32(0));
+        vm.store(address(safe), keccak256("guard_manager.guard.address"), bytes32(0));
 
         // migrate to 1.4.1
         address onePointFourSingleton = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
