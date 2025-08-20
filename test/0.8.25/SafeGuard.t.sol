@@ -841,7 +841,7 @@ contract TestSafeGuard is Test {
 
         // This just validates that the signatures as encoded are otherwise
         // valid in the absence of the guard's checks
-        vm.store(address(safe), 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8, bytes32(0));
+        vm.store(address(safe), keccak256("guard_manager.guard.address"), bytes32(0));
         vm.expectEmit(true, true, true, true, address(safe));
         emit ISafe.ExecutionSuccess(unlockTxHash, 0);
         safe.execTransaction(
