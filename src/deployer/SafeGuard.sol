@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-// This enum is derived from the code deployed to 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+import {IERC165} from "@forge-std/interfaces/IERC165.sol";
+
+// This enum is derived from the code deployed to 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA (1.3.0)
+// or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
 enum Operation {
     Call,
     DelegateCall
 }
 
 // This interface is excerpted from the contract at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
 interface ISafeMinimal {
     function checkNSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures, uint256 requiredSignatures)
         external
@@ -32,14 +36,18 @@ interface ISafeMinimal {
         view
         returns (address[] memory array, address next);
 
-    // This function is not part of the interface at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
-    // . It's part of the implicit interface on the proxy contract(s) created by the factory at
-    // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc .
+    // This function is not part of the interface at
+    // 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA/0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 . It's
+    // part of the implicit interface on the proxy contract(s) created by the factory at
+    // 0x76E2cFc1F5Fa8F6a5b3fC4c8F4788F0116861F9B (1.1.1),
+    // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc (1.3.0), or
+    // 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67 (1.4.1) .
     function masterCopy() external view returns (address);
 }
 
 // This library is a reimplementation of the functionality of the functions by the same name in
-// 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762
+// (1.4.1)
 library SafeLib {
     function encodeTransactionData(
         ISafeMinimal safe,
@@ -151,6 +159,7 @@ library SafeLib {
 }
 
 // This interface is excerpted from `GuardManager.sol` in 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
 interface IGuard {
     function checkTransaction(
         address to,
@@ -178,7 +187,7 @@ contract EvmVersionDummy {
     }
 }
 
-contract ZeroExSettlerDeployerSafeGuard is IGuard {
+abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     using SafeLib for ISafeMinimal;
 
     event TimelockUpdated(uint256 oldDelay, uint256 newDelay);
@@ -230,36 +239,37 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
     uint256 internal constant _MINIMUM_OWNERS = 3;
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
-    bytes32 private constant _SINGLETON_INITHASH = 0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
-    address private immutable _SINGLETON = address(
-        uint160(
-            uint256(
-                keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), _SINGLETON_INITHASH))
-            )
-        )
-    );
+    address private immutable _SINGLETON;
     address private constant _CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+
+    bytes32 private constant _SAFE_PROXY_1_1_CODEHASH =
+        0xaea7d4252f6245f301e540cfbee27d3a88de543af8e49c5c62405d5499fab7e5;
+    bytes32 private constant _SAFE_PROXY_1_3_CODEHASH =
+        0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
+    bytes32 private constant _SAFE_PROXY_1_4_CODEHASH =
+        0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
 
     // This is the correct hash only if this contract has been compiled for the London hardfork
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
-    constructor(ISafeMinimal safe_) {
-        safe = safe_;
+    constructor(ISafeMinimal safe_, bytes32 singletonInithash) {
         assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
+        safe = safe_;
+        bytes32 safeCodeHash = address(safe).codehash;
+        assert(
+            safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+                || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH
+        );
         assert(msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
-
-        // These checks ensure that the Guard is safely installed in the Safe at the time it is
-        // deployed, with the exception of the installation and subsequent concealment of a
-        // malicious Safe module. The author knows of no way to enforce that the Guard is installed
-        // atomic with its deployment. This introduces a TOCTOU vulnerability. Therefore, extensive
-        // simulation and excessive caution are imperative in this process. If the Guard is
-        // installed in a Safe where these checks fail, the Safe is bricked. Once the Guard is
-        // successfully deployed, the behavior ought to be sane, even in bizarre and outrageous
-        // circumstances.
-        _checkAfterExecution(safe);
-        assert(!_guardRemoved);
+        _SINGLETON = address(
+            uint160(
+                uint256(
+                    keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), singletonInithash))
+                )
+            )
+        );
     }
 
     function setDelay(uint24 newDelay) external onlySafe {
@@ -445,9 +455,24 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
         _checkAfterExecution(_safe);
+        _maybeSetGuardRemoved(_safe);
     }
 
-    function _checkAfterExecution(ISafeMinimal _safe) private {
+    function _checkAfterExecutionReturnBool(ISafeMinimal _safe) internal view returns (bool result) {
+        result = true;
+
+        // See comments in `_checkAfterExecution` for an explanation of all these conditions
+        result = result && _safe.masterCopy() == _SINGLETON;
+        if (result) {
+            (address[] memory modules,) = _safe.getModulesPaginated(address(1), 1);
+            result = modules.length == 0;
+        }
+        result = result && !_safe.isOwner(address(this));
+        result = result && _safe.ownerCount() >= _MINIMUM_OWNERS;
+        result = result && _safe.getThreshold() >= _MINIMUM_THRESHOLD;
+    }
+
+    function _checkAfterExecution(ISafeMinimal _safe) private view {
         // The knowledge that the immutable `safe` address is computed using the `CREATE2` pattern
         // from trusted initcode (and a factory likewise deployed by trusted initcode) gives us a
         // pretty strong toehold of trust. We do not need to recheck this, ever. Furthermore,
@@ -496,14 +521,20 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
                 revert ThresholdTooLow(threshold);
             }
         }
+    }
 
+    function _removeSelf() internal {
+        _guardRemoved = true;
+    }
+
+    function _maybeSetGuardRemoved(ISafeMinimal _safe) internal {
         // We do not revert if `_safe.getGuard()` returns a value other than `address(this)`. This
         // allows uninstallation of the guard (through the timelock, obviously) to later permit
         // upgrades to other singleton implementation contracts. However, we do set the
         // `_guardRemoved` flag, which disables all Guard functionality (failing open). It is not
         // possible to un-set `_guardRemoved` once set.
         if (_safe.getGuard() != address(this)) {
-            _guardRemoved = true;
+            _removeSelf();
         }
     }
 
@@ -644,5 +675,58 @@ contract ZeroExSettlerDeployerSafeGuard is IGuard {
         _requireLockedDown();
         delete lockedDownBy;
         emit Unlocked();
+    }
+}
+
+contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSafeGuardBase {
+    bytes32 private constant _SAFE_SINGLETON_1_3_INITHASH =
+        0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
+
+    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_3_INITHASH) {
+        // These checks ensure that the Guard is safely installed in the Safe at the time it is
+        // deployed, with the exception of the installation and subsequent concealment of a
+        // malicious Safe module. The author knows of no way to enforce that the Guard is installed
+        // atomic with its deployment. This introduces a TOCTOU vulnerability. Therefore, extensive
+        // simulation and excessive caution are imperative in this process. If the Guard is
+        // installed in a Safe where these checks fail, the Guard silently disables itself in order
+        // to avoid a bricked Safe. Once the Guard is successfully deployed, the behavior ought to
+        // be sane, even in bizarre and outrageous circumstances.
+        if (!_checkAfterExecutionReturnBool(safe_)) {
+            _removeSelf();
+        } else {
+            _maybeSetGuardRemoved(safe_);
+        }
+    }
+}
+
+contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSettlerDeployerSafeGuardBase {
+    bytes32 private constant _SAFE_SINGLETON_1_4_INITHASH =
+        0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd;
+
+    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_4_INITHASH) {
+        // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
+        // in the Safe. However, because the Safe does an ERC165 check during the Guard enabling
+        // process, we are able to perform a nearly atomic check. See the logic and comment in
+        // `supportsInterface` below.
+    }
+
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceID) external view override returns (bool) {
+        if (uint32(interfaceID) == uint32(type(IERC165).interfaceId)) {
+            return true;
+        } else if (uint32(interfaceID) == 0xffffffff) {
+            return false;
+        } else {
+            // These checks ensure that the Safe (with the exception of clandestine Modules) is in a
+            // sane configuration at the time that the Guard is installed. Obviously because the
+            // Guard's `checkAfterExecution` is not run during the installation, it's still possible
+            // to misconfigure the Safe or conceal a Module after the Guard's installation (e.g. via
+            // delegate'd MultiCall). However, presuming the Safe owners don't do that, at the
+            // conclusion of the installation of the Guard, the behavior ought to remain sane, even
+            // in bizarre and outrageous circumstances.
+            ISafeMinimal safe_ = safe;
+            return msg.sender == address(safe_) && uint32(interfaceID) == uint32(type(IGuard).interfaceId)
+                && _checkAfterExecutionReturnBool(safe_);
+        }
     }
 }
