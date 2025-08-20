@@ -39,7 +39,8 @@ interface ISafeMinimal {
     // This function is not part of the interface at
     // 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA/0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 . It's
     // part of the implicit interface on the proxy contract(s) created by the factory at
-    // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc (1.3.0) or
+    // 0x76E2cFc1F5Fa8F6a5b3fC4c8F4788F0116861F9B (1.1.1),
+    // 0xc22834581ebc8527d974f8a1c97e1bea4ef910bc (1.3.0), or
     // 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67 (1.4.1) .
     function masterCopy() external view returns (address);
 }
