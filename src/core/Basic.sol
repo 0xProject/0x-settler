@@ -22,13 +22,13 @@ abstract contract Basic is SettlerAbstract {
         {
             bool condition = _isRestrictedTarget(pool);
             // This check is NOT an exhaustive check. There are many tokens that have alternative
-            // allowance-spending methods, including (also nonexhaustively) DAI's `pull`, ERC677 and
-            // ERC1363's `transferFromAndCall`, ERC777's `operatorSend`, and LZ OFT's `sendFrom` and
-            // `sendAndCall`. We specifically blacklist ERC20's `transferFrom` because it is
-            // universally implemented. This check is comparatively cheap and covers many cases that
-            // could result in loss of funds. Fundamentally, though, for correct operation, it is
-            // forbidden to set allowances on this contract. The fact that this does not cover all
-            // cases IS NOT A BUG.
+            // allowance-spending methods, including (also nonexhaustively) DAI's `pull`/`move`,
+            // ERC677 and ERC1363's `transferFromAndCall`, ERC777's `operatorSend`, and LZ OFT's
+            // `sendFrom`/`sendAndCall`. We specifically blacklist ERC20's `transferFrom` because it
+            // is universally implemented. This check is comparatively cheap and covers many cases
+            // that could result in loss of funds. Fundamentally, though, for correct operation, it
+            // is forbidden to set allowances on this contract. The fact that this does not cover
+            // all cases IS NOT A BUG.
             assembly ("memory-safe") {
                 // `0x23b872dd` is the selector for `transferFrom(address,address,uint256)`
                 // `transferFrom` requires a calldata length of 0x64 bytes, not 0x44, but some (old)
