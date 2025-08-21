@@ -203,4 +203,14 @@ contract BasicUnitTest is Utils, Test {
         vm.expectRevert();
         basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, POOL, offset, data);
     }
+
+    function testBasicTransferFrom() public {
+        uint256 bps = 10_000; // doesn't matter
+        uint256 offset = 0; // doesn't matter
+        bytes memory data =
+            bytes.concat(IERC20.transferFrom.selector, abi.encode(address(0xdead), address(0xbeef)), bytes1(0x00));
+
+        vm.expectRevert(abi.encodeWithSignature("ConfusedDeputy()"));
+        basic.sellToPool(IERC20(address(0xc0ffeebabe)), bps, POOL, offset, data);
+    }
 }
