@@ -60,8 +60,9 @@ contract DeBridgeTest is BridgeSettlerIntegrationTest {
 
         bytes[] memory bridgeActions = new bytes[](1);
         // amount set to zero, to make sure BridgeSettler overrides it
-        bridgeActions[0] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, removeSelector(deBridgecall(address(0), amount))));
+        bridgeActions[0] = abi.encodeCall(
+            IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, removeSelector(deBridgecall(address(0), amount)))
+        );
 
         uint256 balanceBefore = address(DLN_SOURCE).balance;
         vm.expectCall(address(DLN_SOURCE), amount + globalFee, deBridgecall(address(0), amount));
@@ -91,8 +92,9 @@ contract DeBridgeTest is BridgeSettlerIntegrationTest {
                 bytes("")
             )
         );
-        bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, removeSelector(deBridgecall(address(USDC), 0))));
+        bridgeActions[1] = abi.encodeCall(
+            IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, removeSelector(deBridgecall(address(USDC), 0)))
+        );
 
         uint256 usdcBalanceBefore = USDC.balanceOf(address(DLN_SOURCE));
         uint256 ethBalanceBefore = address(DLN_SOURCE).balance;
