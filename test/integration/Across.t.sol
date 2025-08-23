@@ -6,15 +6,10 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
-import {ArbitrumBridgeSettler} from "src/chains/Arbitrum/BridgeSettler.sol";
 
 contract AcrossTest is BridgeSettlerIntegrationTest {
     address spokePool = 0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5;
     IERC20 WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-
-    function _testBridgeSettler() internal override {
-        bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
-    }
 
     function setUp() public override {
         super.setUp();

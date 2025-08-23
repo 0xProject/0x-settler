@@ -48,6 +48,12 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* TODO: 
+  * Add `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` for remaining supported chains not yet deployed
+  * Add chains to `BRIDGE_TO_DEBRIDGE` once deployed
+
+* Added new DeBridge action `BRIDGE_TO_DEBRIDGE`
+
 ## 2025-08-18
 
 ### Breaking changes
