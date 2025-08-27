@@ -77,7 +77,7 @@ contract DeBridge {
     }
 
     function _bridgeNativeToDeBridge(IDlnSource source, uint256 value, uint256 amount, bytes memory createOrderData)
-        internal
+        private
     {
         assembly ("memory-safe") {
             // override giveAmount
