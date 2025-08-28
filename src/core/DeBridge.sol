@@ -67,16 +67,16 @@ contract DeBridge {
         // Store the constant into source to read it only once
         IDlnSource source = DLN_SOURCE;
         if (address(inputToken) == address(0)) {
-            _bridgeNativeToDeBridge(source, value, value - globalFee, createOrderData);
+            _bridgeToDeBridge(source, value, value - globalFee, createOrderData);
         } else {
             uint256 amount = inputToken.fastBalanceOf(address(this));
             inputToken.safeApproveIfBelow(address(source), amount);
 
-            _bridgeNativeToDeBridge(source, value, amount, createOrderData);
+            _bridgeToDeBridge(source, value, amount, createOrderData);
         }
     }
 
-    function _bridgeNativeToDeBridge(IDlnSource source, uint256 value, uint256 amount, bytes memory createOrderData)
+    function _bridgeToDeBridge(IDlnSource source, uint256 value, uint256 amount, bytes memory createOrderData)
         private
     {
         assembly ("memory-safe") {
