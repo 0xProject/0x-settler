@@ -45,6 +45,8 @@ Master list of UniV3 forks:
 * Update Scroll to the Cancun hardfork
 * Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
   interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
+* `POSITIVE_SLIPPAGE` takes a `maxBps` argument to cap the amount of slippage
+  taken as a proportion of the buy amount
 
 ### Non-breaking changes
 

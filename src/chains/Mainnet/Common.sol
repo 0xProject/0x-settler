@@ -18,6 +18,7 @@ import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {Ternary} from "../../utils/Ternary.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -63,6 +64,7 @@ abstract contract MainnetMixin is
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using Ternary for bool;
 
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
@@ -106,15 +108,19 @@ abstract contract MainnetMixin is
             basicSellToPool(sellToken, bps, pool, offset, _data);
         } /* `VELODROME` is removed */
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
+                abi.decode(data, (address, IERC20, uint256, uint256));
             bool isETH = (token == ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
+                uint256 cap;
                 unchecked {
+                    cap = balance * maxBps / BASIS;
                     balance -= expectedAmount;
                 }
+                balance = (balance > cap).ternary(cap, balance);
                 if (isETH) {
-                    payable(recipient).safeTransferETH(balance);
+                    recipient.safeTransferETH(balance);
                 } else {
                     token.safeTransfer(recipient, balance);
                 }
