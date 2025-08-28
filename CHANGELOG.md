@@ -48,6 +48,36 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` for remaining supported chains:
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Berachain
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Blast
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to HyperEvm
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Ink
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Katana
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Linea
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mode
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Scroll
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Sepolia
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Taiko
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Unichain
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to WorldChain
+* Add new DeBridge action `BRIDGE_TO_DEBRIDGE` to supported chains:
+  * Add action `BRIDGE_TO_DEBRIDGE` to Arbitrum
+  * Add action `BRIDGE_TO_DEBRIDGE` to Avalanche
+  * Add action `BRIDGE_TO_DEBRIDGE` to Base
+  * Add action `BRIDGE_TO_DEBRIDGE` to Berachain
+  * Add action `BRIDGE_TO_DEBRIDGE` to Bnb
+  * Add action `BRIDGE_TO_DEBRIDGE` to Gnosis
+  * Add action `BRIDGE_TO_DEBRIDGE` to HyperEvm
+  * Add action `BRIDGE_TO_DEBRIDGE` to Linea
+  * Add action `BRIDGE_TO_DEBRIDGE` to Mainnet
+  * Add action `BRIDGE_TO_DEBRIDGE` to Mantle
+  * Add action `BRIDGE_TO_DEBRIDGE` to Optimism
+  * Add action `BRIDGE_TO_DEBRIDGE` to Polygon
+  * Add action `BRIDGE_TO_DEBRIDGE` to Sonic
+
+* Added new DeBridge action `BRIDGE_TO_DEBRIDGE`
+
 ## 2025-08-18
 
 ### Breaking changes
