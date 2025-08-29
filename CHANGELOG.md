@@ -43,6 +43,63 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Update Scroll to the Cancun hardfork
+* Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
+  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
+
+### Non-breaking changes
+
+* Add `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` for remaining supported chains:
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Berachain
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Blast
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to HyperEvm
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Ink
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Katana
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Linea
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mode
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Scroll
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Sepolia
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Taiko
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Unichain
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to WorldChain
+* Add new DeBridge action `BRIDGE_TO_DEBRIDGE` to supported chains:
+  * Add action `BRIDGE_TO_DEBRIDGE` to Arbitrum
+  * Add action `BRIDGE_TO_DEBRIDGE` to Avalanche
+  * Add action `BRIDGE_TO_DEBRIDGE` to Base
+  * Add action `BRIDGE_TO_DEBRIDGE` to Berachain
+  * Add action `BRIDGE_TO_DEBRIDGE` to Bnb
+  * Add action `BRIDGE_TO_DEBRIDGE` to Gnosis
+  * Add action `BRIDGE_TO_DEBRIDGE` to HyperEvm
+  * Add action `BRIDGE_TO_DEBRIDGE` to Linea
+  * Add action `BRIDGE_TO_DEBRIDGE` to Mainnet
+  * Add action `BRIDGE_TO_DEBRIDGE` to Mantle
+  * Add action `BRIDGE_TO_DEBRIDGE` to Optimism
+  * Add action `BRIDGE_TO_DEBRIDGE` to Polygon
+  * Add action `BRIDGE_TO_DEBRIDGE` to Sonic
+
+* Added new DeBridge action `BRIDGE_TO_DEBRIDGE`
+
+## 2025-08-18
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add new LayerZero action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to `BridgeSettlerBase`
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mainnet
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Base
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Arbitrum
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Avalanche
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Bnb
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Gnosis
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mantle
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Optimism
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Polygon
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Sonic
+
+## 2025-08-11
+
+### Breaking changes
+
 * In metatransactions and intents, it is now an error for `_operator()` (the gas
   payer/solver/relayer) to be `msgSender` (the taker)
 * Remove `LimitOrderFeeCollector`
@@ -57,6 +114,20 @@ Master list of UniV3 forks:
 * Add solvency check for EulerSwap (does not execute on-chain)
 * Add `CrossChainReceiverFactory`, a minimal proxy factory inspired by submarine
   transactions for "automatically" swapping any tokens received
+* Add `BridgeSettler` to all supported chains except `MonadTestnet`
+  * `BridgeSettler` is the settlement contracts for cross-chain operations
+    and is heavily implemented following `Settler` design.
+  * `BridgeSettlerBase` implements actions for:
+    * `BASIC`, same as `Settler`
+    * `SETTLER_SWAP`, to execute swaps on `Settler`
+    * Relay bridge integration (`BRIDGE_ERC20_TO_RELAY`, `BRIDGE_NATIVE_TO_RELAY`)
+    * Those are available in the `BridgeSettler` of every chain
+  * Other actions added that are not supported in every chain:
+    * Mayan bridge integration (`BRIDGE_ERC20_TO_MAYAN`, `BRIDGE_NATIVE_TO_MAYAN`)
+    * Across bridge integration
+      (`BRIDGE_ERC20_TO_ACROSS`, `BRIDGE_NATIVE_TO_ACROSS`)
+    * StargateV2 bridge integration
+      (`BRIDGE_ERC20_TO_STARGATE_V2`, `BRIDGE_NATIVE_TO_STARGATE_V2`)
 
 ## 2025-08-01
 

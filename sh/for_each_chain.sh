@@ -130,7 +130,7 @@ function get_config {
     shift
     declare -r _get_config_field="$1"
     shift
-    jq -Mr ."$_get_config_chain_name"."$_get_config_field" < "$project_root"/chain_config.json
+    jq -Mr .'"'"$_get_config_chain_name"'"'."$_get_config_field" < "$project_root"/chain_config.json
 }
 
 declare -a chains

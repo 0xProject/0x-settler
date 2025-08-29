@@ -15,7 +15,7 @@ contract Relay {
         uint256 amount = token.fastBalanceOf(address(this));
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            
+
             mstore(0x54, requestId)
             mstore(0x34, amount)
             mstore(0x14, to)
