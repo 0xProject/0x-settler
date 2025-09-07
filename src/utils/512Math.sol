@@ -577,6 +577,8 @@ library Lib512MathArithmetic {
         }
     }
 
+    // TODO: remove and replace existing division operations with the Algorithm
+    // D variants
     function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d_hi, uint256 d_lo)
         private
         view
@@ -664,25 +666,6 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y)
-        private
-        pure
-        returns (uint256 x_hi_out, uint256 x_lo_out, uint256 y_out)
-    {
-        // Factor powers of two out of `y` and apply the same shift to [x_hi
-        // x_lo]
-        (uint256 twos, uint256 twosInv) = _twos(y);
-
-        assembly ("memory-safe") {
-            // Divide `y` by the power of two
-            y_out := div(y, twos)
-
-            // Divide [x_hi x_lo] by the power of two
-            x_hi_out := div(x_hi, twos)
-            x_lo_out := or(div(x_lo, twos), mul(x_hi, twosInv))
-        }
-    }
-
     function _toOdd512(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
         private
         pure
@@ -730,25 +713,9 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _invert512(uint256 d) private pure returns (uint256 inv_hi, uint256 inv_lo) {
-        // First, we get the inverse of `d` mod 2²⁵⁶
-        inv_lo = _invert256(d);
-
-        // To extend this to the inverse mod 2⁵¹², we perform a more elaborate
-        // 7th Newton-Raphson-Hensel iteration with 512 bits of precision.
-
-        // tmp = d * inv_lo % 2**512
-        (uint256 tmp_hi, uint256 tmp_lo) = _mul(d, inv_lo);
-        // tmp = 2 - tmp % 2**512
-        (tmp_hi, tmp_lo) = _sub(0, 2, tmp_hi, tmp_lo);
-
-        assembly ("memory-safe") {
-            // inv_hi = inv_lo * tmp / 2**256 % 2**256
-            let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            inv_hi := add(mul(inv_lo, tmp_hi), sub(sub(mm, inv_lo), lt(mm, inv_lo)))
-        }
-    }
-
+    // TODO: once the existing division routines are ported over to the
+    // Algorithm D variants (avoiding the use of the `MODEXP` precompile), this
+    // function is no longer needed.
     function _invert512(uint256 d_hi, uint256 d_lo) private pure returns (uint256 inv_hi, uint256 inv_lo) {
         // First, we get the inverse of `d` mod 2²⁵⁶
         inv_lo = _invert256(d_lo);
@@ -851,22 +818,38 @@ library Lib512MathArithmetic {
             return r.from(0, x_lo.unsafeDiv(y));
         }
 
+        // The upper word of the quotient is straightforward. We can use
+        // "normal" division to obtain it. The remainder after that division
+        // must be carried forward to the later steps.
+        uint256 r_hi = x_hi.unsafeDiv(y);
+        // TODO: because the next operation we perform is a `mulmod` of `x_hi`
+        // with `y`, there's no need to reduce `x_hi` mod `y` as would be
+        // ordinarily expected.
+        x_hi = x_hi.unsafeMod(y);
+
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
         (x_hi, x_lo) = _roundDown(x_hi, x_lo, y);
 
-        // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
-        (x_hi, x_lo, y) = _toOdd512(x_hi, x_lo, y);
+        // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶ After
+        // this we can discard `x_hi` because we have already obtained the upper
+        // word.
+        (x_lo, y) = _toOdd256(x_hi, x_lo, y);
 
-        // We perform division by multiplying by the multiplicative inverse of
-        // the denominator mod 2⁵¹². Since `y` is odd, this inverse
-        // exists. Compute that inverse
-        (uint256 inv_hi, uint256 inv_lo) = _invert512(y);
+        // The lower word of the quotient is obtained from division by
+        // multiplying by the multiplicative inverse of the denominator mod
+        // 2²⁵⁶. Since `y` is odd, this inverse exists. Compute that inverse
+        y = _invert256(y);
 
-        // Because the division is now exact (we rounded `x` down to a multiple
-        // of `y`), we perform it by multiplying with the modular inverse of the
-        // denominator.
-        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, inv_hi, inv_lo);
+        uint256 r_lo;
+        unchecked {
+            // Because the division is now exact (we rounded `x` down to a
+            // multiple of the original `y`), we perform it by multiplying with
+            // the modular inverse of the denominator. This is the correct
+            // result mod 2²⁵⁶.
+            r_lo = x_lo * y;
+        }
+
         return r.from(r_hi, r_lo);
     }
 
@@ -999,9 +982,7 @@ library Lib512MathArithmetic {
             {
                 (uint256 tmp_ex, uint256 tmp_hi, uint256 tmp_lo) = _mul768(y_hi, y_lo, q);
                 bool neg = _gt(tmp_ex, tmp_hi, tmp_lo, x_ex, x_hi, x_lo);
-                assembly ("memory-safe") {
-                    q := sub(q, neg)
-                }
+                q = q.unsafeDec(neg);
             }
         } else {
             // y is 3 limbs
@@ -1069,9 +1050,7 @@ library Lib512MathArithmetic {
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q_hat);
                     bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
-                    assembly ("memory-safe") {
-                        q_hat := sub(q_hat, neg)
-                    }
+                    q_hat = q_hat.unsafeDec(neg);
                 }
 
                 q |= q_hat;
@@ -1094,9 +1073,7 @@ library Lib512MathArithmetic {
                 {
                     (uint256 tmp_hi, uint256 tmp_lo) = _mul(y_hi, y_lo, q);
                     bool neg = _gt(tmp_hi, tmp_lo, x_hi, x_lo);
-                    assembly ("memory-safe") {
-                        q := sub(q, neg)
-                    }
+                    q = q.unsafeDec(neg);
                 }
             }
         }
@@ -1178,7 +1155,7 @@ library Lib512MathArithmetic {
             // y is 4 limbs, x is 4 limbs
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
-            // y_hi >= 2**255). This is step D1 of Algorithm D Unlike the
+            // y_hi >= 2**255). This is step D1 of Algorithm D. Unlike the
             // preceeding implementation of Algorithm D, we use a binary shift
             // instead of a multiply to normalize. This performs a costly "count
             // leading zeroes" operation, but it lets us transform an
@@ -1339,8 +1316,8 @@ library Lib512MathArithmetic {
         // y_hi != 0) and that x ≥ y
 
         // The second-most-significant limb of normalized x is now zero
-        // (equivalently x_hi < 2**128), but because the entire machine is not
-        // guaranteed to be cleared, we can't optimize any further.
+        // (equivalently x_hi < 2**128), but because the entire machine word is
+        // not guaranteed to be cleared, we can't optimize any further.
 
         // [x_hi x_lo] now represents remainder × 2ˢ (the normalized remainder);
         // we shift right by `s` (un-normalize) to obtain the result.
