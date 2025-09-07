@@ -749,7 +749,7 @@ library Lib512MathArithmetic {
         // the division exact without affecting the result.
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
 
-        // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶
+        // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` because our result is only 256 bits
         (n_lo, d) = _toOdd256(n_hi, n_lo, d);
 
@@ -790,7 +790,7 @@ library Lib512MathArithmetic {
         // the division exact without affecting the result.
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
 
-        // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶
+        // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` and `d_hi` because our result is
         // only 256 bits
         (n_lo, d_lo) = _toOdd256(n_hi, n_lo, d_hi, d_lo);
@@ -820,18 +820,16 @@ library Lib512MathArithmetic {
 
         // The upper word of the quotient is straightforward. We can use
         // "normal" division to obtain it. The remainder after that division
-        // must be carried forward to the later steps.
+        // must be carried forward to the later steps, however, because the next
+        // operation we perform is a `mulmod` of `x_hi` with `y`, there's no
+        // need to reduce `x_hi` mod `y` as would be ordinarily expected.
         uint256 r_hi = x_hi.unsafeDiv(y);
-        // TODO: because the next operation we perform is a `mulmod` of `x_hi`
-        // with `y`, there's no need to reduce `x_hi` mod `y` as would be
-        // ordinarily expected.
-        x_hi = x_hi.unsafeMod(y);
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
         (x_hi, x_lo) = _roundDown(x_hi, x_lo, y);
 
-        // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶ After
+        // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶. After
         // this we can discard `x_hi` because we have already obtained the upper
         // word.
         (x_lo, y) = _toOdd256(x_hi, x_lo, y);
