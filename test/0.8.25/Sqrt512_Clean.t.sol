@@ -68,40 +68,35 @@ library Sqrt512CleanLib {
             }
             function half_up(x) -> y { y := shr(1, add(x, 1)) }
 
-            // ======================= CLZ (black-box stub) =======================
-            // Replace with your optimized CLZ: returns 0..256; clz256(0) = 256.
-            function clz256(x) -> n {
-                n := 256
-                if x {
-                    n := 0
-                    if iszero(shr(128, x)) { n := add(n, 128) x := shl(128, x) }
-                    if iszero(shr(192, x)) { n := add(n, 64)  x := shl(64, x)  }
-                    if iszero(shr(224, x)) { n := add(n, 32)  x := shl(32, x)  }
-                    if iszero(shr(240, x)) { n := add(n, 16)  x := shl(16, x)  }
-                    if iszero(shr(248, x)) { n := add(n, 8)   x := shl(8, x)   }
-                    if iszero(shr(252, x)) { n := add(n, 4)   x := shl(4, x)   }
-                    if iszero(shr(254, x)) { n := add(n, 2)   x := shl(2, x)   }
-                    if iszero(shr(255, x)) { n := add(n, 1) }
-                }
+            // ======================= clz256 (branchless; gas-optimized) =======================
+            // Returns 0..256; clz256(0)=256. No memory, no loops.
+            function clz256(x) -> r {
+                r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
+                r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
+                r := or(r, shl(5, lt(0xffffffff,           shr(r, x))))
+                r := or(r, shl(4, lt(0xffff,               shr(r, x))))
+                r := or(r, shl(3, lt(0xff,                 shr(r, x))))
+                r := add(
+                    xor(
+                        r,
+                        byte(
+                            and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                            0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff
+                        )
+                    ),
+                    iszero(x)
+                )
             }
 
             // ======================= Robust normalization: compute twoe & e =======================
-            // twoe = 2 * floor(bitlen(N)/2), e = twoe/2
+            // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
             function compute_twoe(ahi, alo) -> twoe, e {
-                let hiNZ := iszero(iszero(ahi))       // 1 if hi!=0 else 0
-                let lz_hi := clz256(ahi)              // 0..256
-                let lz_lo := clz256(alo)              // 0..256
-
-                // L_hi valid when hi!=0; L_lo valid when hi==0
-                let L_hi := sub(512, lz_hi)          // bitlen if hi!=0
-                let L_lo := sub(256, lz_lo)          // bitlen if hi==0
-
-                // Branch-light select: sel = (hi!=0 ? L_hi : L_lo)
-                let m := sub(0, hiNZ)                // 0x..ff if hi!=0 else 0
-                let sel := or(and(L_hi, m), and(L_lo, not(m)))
-
-                // twoe = sel & ~1 ;  e = twoe >> 1
-                twoe := and(sel, not(1))
+                if ahi {
+                    twoe := and(sub(512, clz256(ahi)), not(1))
+                }
+                if iszero(ahi) {
+                    twoe := and(sub(256, clz256(alo)), not(1))
+                }
                 e := shr(1, twoe)
             }
 
@@ -169,57 +164,99 @@ library Sqrt512CleanLib {
                 let pHi, pLo := mul512(M, Y)
                 let r0 := shr512To256(pHi, pLo, sub(510, e))
 
-                // ---- Fixup: up to +7 via 3-comparison binary search on Δ
-                // Δ = N - r0^2
+                // ---- Δ = N - r0^2
                 let r2hi, r2lo := square512(r0)
                 let dHi, dLo := sub512(ahi, alo, r2hi, r2lo)
 
-                // S = 2*r0 (512-bit) and 2S, 4S
+                // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
+                // S  = 2r0
                 let SLo := shl(1, r0)
                 let SHi := shr(255, r0)
-                let S2Hi, S2Lo := add512(SHi, SLo, SHi, SLo)      // 2S = 4r0
-                let S4Hi, S4Lo := add512(S2Hi, S2Lo, S2Hi, S2Lo)  // 4S = 8r0
+                // 4r0
+                let S2Lo := shl(2, r0)
+                let S2Hi := shr(254, r0)
+                // 8r0
+                let S4Lo := shl(3, r0)
+                let S4Hi := shr(253, r0)
 
-                // τ4 = 8r0 + 16  (split at 4)
-                let t4Hi, t4Lo := add512Const(S4Hi, S4Lo, 16)
+                // ======================= HYBRID FIXUP =======================
+                // Split at τ4 = 8r0 + 16 (1 jump), then finish branch-free in that half.
+
+                // τ4 = 8r0 + 16
+                let t4Lo := add(S4Lo, 16)
+                let t4Hi := add(S4Hi, lt(t4Lo, 16))
+
+                // lowerHalf = (Δ < τ4)
                 if lt512(dHi, dLo, t4Hi, t4Lo) {
-                    // Lower half: k in {0,1,2,3}
+                    // ---- k ∈ {0,1,2,3}
                     // τ2 = 4r0 + 4
-                    let t2Hi, t2Lo := add512Const(S2Hi, S2Lo, 4)
+                    let t2Lo := add(S2Lo, 4)
+                    let t2Hi := add(S2Hi, lt(t2Lo, 4))
+
+                    // Δ < τ2 ?
                     if lt512(dHi, dLo, t2Hi, t2Lo) {
-                        // k in {0,1}
-                        // τ1 = 2r0 + 1
+                        // k ∈ {0,1}.  τ1 = 2r0 + 1
                         let t1Lo := add(SLo, 1)
                         let t1Hi := add(SHi, lt(t1Lo, SLo))
+                        // Check Δ < τ1
                         if lt512(dHi, dLo, t1Hi, t1Lo) { r := r0 leave }
                         r := add(r0, 1) leave
                     }
-                    // k in {2,3}
-                    // τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
-                    let t3Hi, t3Lo := add512(S2Hi, S2Lo, SHi, SLo)    // 3S = 6r0
-                    t3Hi, t3Lo := add512Const(t3Hi, t3Lo, 9)
-                    if lt512(dHi, dLo, t3Hi, t3Lo) { r := add(r0, 2) leave }
+
+                    // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
+                    let t3Lo := add(S2Lo, SLo)
+                    let c3a := lt(t3Lo, S2Lo)
+                    let t3Hi := add(add(S2Hi, SHi), c3a)
+                    t3Lo := add(t3Lo, 9)
+                    let c3b := lt(t3Lo, 9)
+                    let t3Hi2 := add(t3Hi, c3b)
+
+                    // Check Δ < τ3
+                    if lt512(dHi, dLo, t3Hi2, t3Lo) { r := add(r0, 2) leave }
                     r := add(r0, 3) leave
                 }
-                // Upper half: k in {4,5,6,7}
+
+                // ---- k ∈ {4,5,6,7} (upper half)
                 // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
-                let t6Hi, t6Lo := add512(S4Hi, S4Lo, S2Hi, S2Lo)   // 6S = 12r0
-                t6Hi, t6Lo := add512Const(t6Hi, t6Lo, 36)
-                if lt512(dHi, dLo, t6Hi, t6Lo) {
-                    // k in {4,5}
-                    // τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
-                    let t5Hi, t5Lo := add512(S4Hi, S4Lo, SHi, SLo)  // 5S = 10r0
-                    t5Hi, t5Lo := add512Const(t5Hi, t5Lo, 25)
-                    if lt512(dHi, dLo, t5Hi, t5Lo) { r := add(r0, 4) leave }
+                let t6Lo := add(S4Lo, S2Lo)
+                let c6a := lt(t6Lo, S4Lo)
+                let t6Hi := add(add(S4Hi, S2Hi), c6a)
+                t6Lo := add(t6Lo, 36)
+                let c6b := lt(t6Lo, 36)
+                let t6Hi2 := add(t6Hi, c6b)
+
+                // Δ < τ6 ?
+                if lt512(dHi, dLo, t6Hi2, t6Lo) {
+                    // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
+                    let t5Lo := add(S4Lo, SLo)
+                    let c5a := lt(t5Lo, S4Lo)
+                    let t5Hi := add(add(S4Hi, SHi), c5a)
+                    t5Lo := add(t5Lo, 25)
+                    let c5b := lt(t5Lo, 25)
+                    let t5Hi2 := add(t5Hi, c5b)
+
+                    // Check Δ < τ5
+                    if lt512(dHi, dLo, t5Hi2, t5Lo) { r := add(r0, 4) leave }
                     r := add(r0, 5) leave
                 }
-                // k in {6,7}
-                // τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
-                let tmpHi, tmpLo := add512(S4Hi, S4Lo, S2Hi, S2Lo) // 12r0
-                let t7Hi, t7Lo := add512(tmpHi, tmpLo, SHi, SLo)   // 14r0
-                t7Hi, t7Lo := add512Const(t7Hi, t7Lo, 49)
-                if lt512(dHi, dLo, t7Hi, t7Lo) { r := add(r0, 6) leave }
-                r := add(r0, 7)
+
+                // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
+                {
+                    let t7Lo := add(S4Lo, S2Lo)
+                    let c7a := lt(t7Lo, S4Lo)
+                    // FIX: include +SHi in the high limb sum
+                    let t7Hi := add(add(add(S4Hi, S2Hi), SHi), c7a)
+                    t7Lo := add(t7Lo, SLo)
+                    let c7b := lt(t7Lo, SLo)
+                    t7Hi := add(t7Hi, c7b)
+                    t7Lo := add(t7Lo, 49)
+                    let c7c := lt(t7Lo, 49)
+                    t7Hi := add(t7Hi, c7c)
+
+                    // Check Δ < τ7
+                    if lt512(dHi, dLo, t7Hi, t7Lo) { r := add(r0, 6) leave }
+                    r := add(r0, 7)
+                }
             }
 
             // Call the function
@@ -231,6 +268,39 @@ library Sqrt512CleanLib {
 contract Sqrt512CleanTest is Test {
     using Sqrt512CleanLib for uint256;
 
+    // Test specific failing case from gas optimization (now fixed)
+    function test_GasOptFailingCase() public {
+        uint256 hi = 80904256614161075919025625882663817043659112028191499838463115877652359487913;
+        uint256 lo = 49422300655976383518971161772042036479724517635858811238160587340303074464591;
+        
+        uint256 result = Sqrt512CleanLib.sqrt512(hi, lo);
+        
+        // Check result^2
+        uint256 resultSqHi;
+        uint256 resultSqLo;
+        assembly {
+            resultSqLo := mul(result, result)
+            let mm := mulmod(result, result, not(0))
+            resultSqHi := sub(sub(mm, resultSqLo), lt(mm, resultSqLo))
+        }
+        
+        bool resultSqLteInput = resultSqHi < hi || (resultSqHi == hi && resultSqLo <= lo);
+        assertTrue(resultSqLteInput, "result^2 should be <= input");
+        
+        // Check (result+1)^2  
+        uint256 resultP1 = result + 1;
+        uint256 resultP1SqHi;
+        uint256 resultP1SqLo;
+        assembly {
+            resultP1SqLo := mul(resultP1, resultP1)
+            let mm := mulmod(resultP1, resultP1, not(0))
+            resultP1SqHi := sub(sub(mm, resultP1SqLo), lt(mm, resultP1SqLo))
+        }
+        
+        bool resultP1SqGtInput = resultP1SqHi > hi || (resultP1SqHi == hi && resultP1SqLo > lo);
+        assertTrue(resultP1SqGtInput, "(result+1)^2 should be > input");
+    }
+    
     // Test the new failing case
     function test_NewFailingCase() public {
         uint256 hi = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf;
