@@ -381,6 +381,41 @@ contract Sqrt512Test is Test {
         assertTrue(resultP1SqGtInput, "(result+1)^2 should be > input");
     }
     
+    // Test maximum result case specifically
+    function test_MaxResultCase() public pure {
+        // Test input that should yield max uint256 as result
+        uint256 hi = type(uint256).max;
+        uint256 lo = type(uint256).max;
+        uint256 result = Sqrt512Lib.sqrt512(hi, lo);
+        
+        // Result should be max uint256
+        assertEq(result, type(uint256).max, "sqrt of max 512-bit value should be max uint256");
+        
+        // Verify result^2 <= input (it will be less than input in this case)
+        uint256 resultSqHi;
+        uint256 resultSqLo;
+        assembly {
+            resultSqLo := mul(result, result)
+            let mm := mulmod(result, result, not(0))
+            resultSqHi := sub(sub(mm, resultSqLo), lt(mm, resultSqLo))
+        }
+        
+        bool resultSqLteInput = resultSqHi < hi || (resultSqHi == hi && resultSqLo <= lo);
+        assertTrue(resultSqLteInput, "max result^2 should be <= max input");
+        
+        // Also test the boundary: (2^256-1)^2
+        hi = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe;
+        lo = 1;
+        result = Sqrt512Lib.sqrt512(hi, lo);
+        assertEq(result, type(uint256).max, "sqrt of (2^256-1)^2 should be 2^256-1");
+        
+        // Test just above the boundary
+        hi = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe;
+        lo = 2;
+        result = Sqrt512Lib.sqrt512(hi, lo);
+        assertEq(result, type(uint256).max, "sqrt of value > (2^256-1)^2 should be clamped to 2^256-1");
+    }
+    
     // Test specific edge cases
     function test_EdgeCases() public pure {
         // Test the specific failing case
@@ -436,12 +471,6 @@ contract Sqrt512Test is Test {
     }
 
     function testFuzz_Sqrt512_Correctness(uint256 hi, uint256 lo) public pure {
-        // The maximum value whose sqrt fits in uint256 is (2^256 - 1)^2
-        // = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000000000000000000000000000000000000000000000000000000001
-        // Reject inputs larger than this as they would require result >= 2^256
-        vm.assume(hi < 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe || 
-                  (hi == 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe && lo <= 1));
-        
         uint256 result = Sqrt512Lib.sqrt512(hi, lo);
         
         // Verify property 1: result^2 <= input
@@ -457,8 +486,17 @@ contract Sqrt512Test is Test {
         bool resultSqLteInput = resultSqHi < hi || (resultSqHi == hi && resultSqLo <= lo);
         assertTrue(resultSqLteInput, "result^2 should be <= input");
         
-        // Verify property 2: (result+1)^2 > input (unless result is max uint256)
-        if (result < type(uint256).max) {
+        // Verify property 2: (result+1)^2 > input 
+        // For inputs where sqrt would be >= 2^256, the result should be clamped to 2^256-1
+        // In this case, we verify that result == type(uint256).max
+        if (result == type(uint256).max) {
+            // For result = 2^256-1, we expect the input to be >= (2^256-1)^2
+            // (2^256-1)^2 = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000000000000000000000000000000000000000000000000000000001
+            bool inputRequiresMaxResult = hi > 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe || 
+                                         (hi == 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe && lo >= 1);
+            assertTrue(inputRequiresMaxResult, "max result should only occur for inputs >= (2^256-1)^2");
+        } else {
+            // Normal case: verify (result+1)^2 > input
             uint256 resultP1 = result + 1;
             uint256 resultP1SqHi;
             uint256 resultP1SqLo;
