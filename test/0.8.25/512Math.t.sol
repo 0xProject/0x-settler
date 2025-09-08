@@ -218,4 +218,125 @@ contract Lib512MathTest is Test {
 
         assertTrue(r == e);
     }
+
+    // ======================= Square root tests =======================
+    
+    function test512Math_sqrtBasicCases() external pure {
+        uint512 x = alloc();
+        
+        // Test zero
+        x = x.from(0, 0);
+        assertEq(x.sqrt(), 0, "sqrt(0) should be 0");
+        
+        // Test small values
+        x = x.from(0, 1);
+        assertEq(x.sqrt(), 1, "sqrt(1) should be 1");
+        
+        x = x.from(0, 4);
+        assertEq(x.sqrt(), 2, "sqrt(4) should be 2");
+        
+        x = x.from(0, 16);
+        assertEq(x.sqrt(), 4, "sqrt(16) should be 4");
+        
+        // Test powers of 2
+        x = x.from(0, 1 << 64);
+        assertEq(x.sqrt(), 1 << 32, "sqrt(2^64) should be 2^32");
+        
+        x = x.from(0, 1 << 128);
+        assertEq(x.sqrt(), 1 << 64, "sqrt(2^128) should be 2^64");
+        
+        x = x.from(1, 0);
+        assertEq(x.sqrt(), 1 << 128, "sqrt(2^256) should be 2^128");
+        
+        x = x.from(1 << 64, 0);
+        assertEq(x.sqrt(), 1 << 160, "sqrt(2^320) should be 2^160");
+    }
+    
+    function test512Math_sqrtEdgeCases() external pure {
+        uint512 x = alloc();
+        
+        // Test maximum values
+        x = x.from(0, type(uint256).max);
+        assertEq(x.sqrt(), 0xffffffffffffffffffffffffffffffff, "sqrt(2^256-1) should be correct");
+        
+        // Test specific edge case from previous testing
+        x = x.from(1, type(uint256).max);
+        assertEq(x.sqrt(), 0x100000000000000000000000000000000, "sqrt(2^256 + 2^256-1) should be correct");
+        
+        // Test maximum result case
+        x = x.from(type(uint256).max, type(uint256).max);
+        assertEq(x.sqrt(), type(uint256).max, "sqrt of max 512-bit should be max uint256");
+        
+        // Test boundary case (2^256-1)^2
+        x = x.from(
+            0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe,
+            1
+        );
+        assertEq(x.sqrt(), type(uint256).max, "sqrt((2^256-1)^2) should be 2^256-1");
+    }
+    
+    function test512Math_sqrtSpecificFailingCases() external pure {
+        uint512 x = alloc();
+        
+        // Test case that previously failed: (519, 2055)
+        x = x.from(519, 2055);
+        uint256 result = x.sqrt();
+        
+        // Verify the result
+        (uint256 r2_hi, uint256 r2_lo) = mul512(result, result);
+        bool resultSquaredFits = (r2_hi < 519) || (r2_hi == 519 && r2_lo <= 2055);
+        assertTrue(resultSquaredFits, "result^2 should be <= input for (519, 2055)");
+        
+        if (result < type(uint256).max) {
+            uint256 resultPlus1 = result + 1;
+            (uint256 r2p1_hi, uint256 r2p1_lo) = mul512(resultPlus1, resultPlus1);
+            bool resultPlus1SquaredExceeds = (r2p1_hi > 519) || (r2p1_hi == 519 && r2p1_lo > 2055);
+            assertTrue(resultPlus1SquaredExceeds, "(result+1)^2 should be > input for (519, 2055)");
+        }
+        
+        // Test odd power cases
+        uint256[10] memory oddPowers = [
+            uint256(1), 3, 7, 15, 31, 63, 127, 255, 511, 1023
+        ];
+        
+        for (uint256 i = 0; i < oddPowers.length; i++) {
+            x = x.from(oddPowers[i], type(uint256).max);
+            result = x.sqrt();
+            
+            (r2_hi, r2_lo) = mul512(result, result);
+            bool oddPowerResultSquaredFits = (r2_hi < oddPowers[i]) || 
+                               (r2_hi == oddPowers[i] && r2_lo <= type(uint256).max);
+            assertTrue(oddPowerResultSquaredFits, "result^2 should be <= input for odd power case");
+        }
+    }
+    
+    function testFuzz512Math_sqrt(uint256 hi, uint256 lo) external pure {
+        uint512 x = alloc();
+        x = x.from(hi, lo);
+        
+        uint256 result = x.sqrt();
+        
+        // Check: result^2 <= (hi:lo)
+        (uint256 r2_hi, uint256 r2_lo) = mul512(result, result);
+        bool resultSquaredFits = (r2_hi < hi) || (r2_hi == hi && r2_lo <= lo);
+        assertTrue(resultSquaredFits, "result^2 should be <= input");
+        
+        // Check: (result+1)^2 > (hi:lo) for inputs where sqrt < 2^256
+        if (result == type(uint256).max) {
+            // For max result, verify input requires it
+            bool inputRequiresMaxResult = hi > 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe || 
+                                         (hi == 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe && lo >= 1);
+            assertTrue(inputRequiresMaxResult, "max result should only occur for inputs >= (2^256-1)^2");
+        } else {
+            uint256 resultPlus1 = result + 1;
+            (uint256 r2p1_hi, uint256 r2p1_lo) = mul512(resultPlus1, resultPlus1);
+            bool resultPlus1SquaredExceeds = (r2p1_hi > hi) || (r2p1_hi == hi && r2p1_lo > lo);
+            assertTrue(resultPlus1SquaredExceeds, "(result+1)^2 should be > input");
+        }
+    }
+    
+    // Helper function for 256x256 multiplication using SlowMath
+    function mul512(uint256 a, uint256 b) internal pure returns (uint256 hi, uint256 lo) {
+        (lo, hi) = SlowMath.fullMul(a, b);
+    }
 }
