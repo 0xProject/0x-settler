@@ -3,6 +3,7 @@ pragma solidity =0.8.25;
 
 import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
+import {Clz} from "../vendor/Clz.sol";
 
 /*
 
@@ -154,6 +155,9 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * odivAlt(uint512,uint512,uint512)
 /// * idivAlt(uint512,uint512)
 /// * irdivAlt(uint512,uint512)
+///
+/// ### Square root
+/// * sqrt(uint512) returns (uint256)
 type uint512 is bytes32;
 
 function alloc() pure returns (uint512 r) {
@@ -320,6 +324,7 @@ using {__eq as ==, __gt as >, __lt as <, __ne as !=, __ge as >=, __le as <=} for
 
 library Lib512MathArithmetic {
     using UnsafeMath for uint256;
+    using Clz for uint256;
 
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         uint256 r_hi;
@@ -333,16 +338,18 @@ library Lib512MathArithmetic {
         return r.from(r_hi, r_lo);
     }
 
-    function oadd(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        uint256 r_hi;
-        uint256 r_lo;
+    function _add(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_lo := add(x_lo, y)
             // `lt(r_lo, x_lo)` indicates overflow in the lower
             // addition. Overflow in the high limb is simply ignored
             r_hi := add(x_hi, lt(r_lo, x_lo))
         }
+    }
+
+    function oadd(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _add(x_hi, x_lo, y);
         return r.from(r_hi, r_lo);
     }
 
@@ -1430,7 +1437,7 @@ library Lib512MathArithmetic {
     /// Returns the largest uint256 r such that r² ≤ x
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 hi, uint256 lo) = x.into();
-        
+
         assembly ("memory-safe") {
             // ======================= 256x256 -> 512 (exact) =======================
             // (hi, lo) = a * b
@@ -1489,8 +1496,8 @@ library Lib512MathArithmetic {
             function mulShrUp255(a, b) -> z {
                 let rhi, rlo := mul512(a, b)
                 z := shr512To256(rhi, rlo, 255)
-                // add 1 if any of the low 255 bits of 'lo' are set (constant mask)
-                z := add(z, iszero(iszero(and(rlo, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))))
+                // add 1 if any of the low 255 bits of 'lo' are set
+                z := add(z, lt(0, shl(1, rlo)))
             }
             function half_up(xx) -> y { y := shr(1, add(xx, 1)) }
 
