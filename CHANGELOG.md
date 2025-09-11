@@ -50,6 +50,7 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Deploy Settler to Plasma chain
+  * Add UniswapV3 UniV3 fork on Plasma
 
 ## 2025-09-03
 
