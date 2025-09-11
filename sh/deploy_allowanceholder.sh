@@ -154,10 +154,27 @@ declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
-    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-    # Mantle has some real funky gas rules
+
+    # Mantle has some real funky gas rules, exclude it from this logic
     if (( chainid != 5000 )) ; then
         if (( gas_limit > 16777215 )) ; then
+            echo 'AllowanceHolder deployment gas limit exceeds the EIP-7825 limit' >&2
+            exit 1
+        fi
+    fi
+
+    # Add some buffer
+    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+    if (( chainid != 5000 )) ; then
+        if (( gas_limit > 16777215 )) ; then
+            declare gas_limit_keep_going
+            IFS='' read -p 'Gas limit with multiplier exceeds EIP-7825 limit. Cap gas limit and keep going? [y/N]: ' -e -r -i n gas_limit_keep_going
+            declare -r gas_limit_keep_going
+            if [[ "${gas_limit_keep_going:-n}" != [Yy] ]] ; then
+                echo >&2
+                echo 'Exiting as requested' >&2
+                exit 1
+            fi
             gas_limit=16777215
         fi
     fi

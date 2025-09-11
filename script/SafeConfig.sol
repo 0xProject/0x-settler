@@ -24,6 +24,7 @@ library SafeConfig {
                 || block.chainid == 999 // hyperevm
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
+                || block.chainid == 9745 // plasma
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
@@ -56,6 +57,7 @@ library SafeConfig {
                 || block.chainid == 999 // hyperevm
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
+                || block.chainid == 9745 // plasma
                 || block.chainid == 10143 // monad testnet
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum

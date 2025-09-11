@@ -130,9 +130,15 @@ fi
 
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
-. "$project_root"/sh/common_deploy_settler.sh
 
 decrypt_secrets
+
+. "$project_root"/sh/common_deploy_settler.sh
+
+declare -r bridge_settler_skip_clean=Yes
+
+. "$project_root"/sh/common_deploy_bridge_settler.sh
+
 
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
@@ -164,6 +170,10 @@ declare intents_description
 intents_description="$(jq -MRs < "$project_root"/sh/initial_description_intent.md)"
 intents_description="${intents_description:1:$((${#intents_description} - 2))}"
 declare -r intents_description
+declare bridge_description
+bridge_description="$(jq -MRs < "$project_root"/sh/initial_description_bridge_settler.md)"
+bridge_description="${bridge_description:1:$((${#bridge_description} - 2))}"
+declare -r bridge_description
 
 # safe constants
 declare safe_factory
@@ -277,8 +287,11 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --slow                                               \
     --no-storage-caching                                 \
     --skip 'Flat.sol'                                    \
+    --skip 'CrossChainReceiverFactory.sol'               \
+    --skip 'src/allowanceholder/*.sol'                   \
     --skip 'src/chains/*.sol'                            \
     --skip 'src/core/*.sol'                              \
+    --skip 'src/multicall/*.sol'                         \
     --skip 'src/utils/*.sol'                             \
     --isolate                                            \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
@@ -287,11 +300,11 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,string,string,string,string,bytes,address[])' \
+    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,bytes,address[])' \
     $(get_config extraFlags)                             \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
-    2 3 4 "$taker_submitted_description" "$metatransaction_description" "$intents_description" \
+    2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
