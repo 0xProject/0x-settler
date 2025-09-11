@@ -17,6 +17,7 @@ address constant uniswapV3SonicFactory = 0xcb2436774C3e191c85056d248EF4260ce5f27
 address constant uniswapV3InkFactory = 0x640887A9ba3A9C53Ed27D0F7e8246A4F933f3424;
 address constant uniswapV3MonadTestnetFactory = 0x961235a9020B05C44DF1026D956D1F4D78014276;
 address constant uniswapV3UnichainFactory = 0x1F98400000000000000000000000000000000003; // https://github.com/Uniswap/contracts/blob/main/deployments/130.md#fri-nov-08-2024
+address constant uniswapV3PlasmaFactory = 0xcb2436774C3e191c85056d248EF4260ce5f27A9D;
 bytes32 constant uniswapV3InitHash = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 uint8 constant uniswapV3ForkId = 0;
 
