@@ -338,26 +338,35 @@ contract DeploySafes is Script {
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
+        uint256[] memory gasSplits = new uint256[](10);
+
         vm.startBroadcast(moduleDeployerKey);
 
         // first, we deploy the module to get the correct address
+        gasSplits[0] = gasleft();
         address deployedModule = address(new ZeroExSettlerDeployerSafeModule(deploymentSafe));
         // next, we deploy the implementation we're going to need when we take ownership of the proxy
+        gasSplits[1] = gasleft();
         address deployerImpl = address(new Deployer(1));
         // now we deploy the safe that's responsible *ONLY* for deploying new instances
+        gasSplits[2] = gasleft();
         address deployedDeploymentSafe = safeFactory.createProxyWithNonce(safeSingleton, deploymentInitializer, 0);
 
+        gasSplits[3] = gasleft();
         vm.stopBroadcast();
 
         vm.startBroadcast(proxyDeployerKey);
 
         // first we deploy the proxy for the deployer to get the correct address
+        gasSplits[4] = gasleft();
         address deployedDeployerProxy =
             ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
         // then we deploy the safe that's going to own the proxy
+        gasSplits[5] = gasleft();
         address deployedUpgradeSafe = safeFactory.createProxyWithNonce(safeSingleton, upgradeInitializer, 0);
 
         // configure the deployer (accept ownership; set descriptions; authorize; set new owners)
+        gasSplits[6] = gasleft();
         ISafeExecute(upgradeSafe).execTransaction(
             safeMulticall,
             0,
@@ -371,11 +380,13 @@ contract DeploySafes is Script {
             upgradeSignature
         );
 
+        gasSplits[7] = gasleft();
         vm.stopBroadcast();
 
         vm.startBroadcast(moduleDeployerKey);
 
         // add rollback module; deploy settlers; set new owners
+        gasSplits[8] = gasleft();
         ISafeExecute(deploymentSafe).execTransaction(
             safeMulticall,
             0,
@@ -389,7 +400,15 @@ contract DeploySafes is Script {
             deploymentSignature
         );
 
+        gasSplits[9] = gasleft();
         vm.stopBroadcast();
+
+        {
+            uint256 gasPrev = gasSplits[0];
+            for (uint256 i = 1; i < gasSplits.length; i++) {
+                require(gasPrev + 15728639 > (gasPrev = gasSplits[i]), "transaction is likely to exceed EIP-7825 limit");
+            }
+        }
 
         require(deployedModule == iceColdCoffee, "deployment/prediction mismatch");
         require(deployedDeploymentSafe == deploymentSafe, "deployed safe/predicted safe mismatch");
