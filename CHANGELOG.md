@@ -42,11 +42,20 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Update Scroll to the Cancun hardfork
 * Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
   interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 * `POSITIVE_SLIPPAGE` takes a `maxBps` argument to cap the amount of slippage
   taken as a proportion of the buy amount
+
+### Non-breaking changes
+
+* Deploy Settler to Plasma chain
+
+## 2025-09-03
+
+### Breaking changes
+
+* Update Scroll to the Cancun hardfork
 
 ### Non-breaking changes
 
@@ -78,7 +87,6 @@ Master list of UniV3 forks:
   * Add action `BRIDGE_TO_DEBRIDGE` to Polygon
   * Add action `BRIDGE_TO_DEBRIDGE` to Sonic
 * Added new DeBridge action `BRIDGE_TO_DEBRIDGE`
-* Deploy Settler to Plasma chain
 
 ## 2025-08-18
 
