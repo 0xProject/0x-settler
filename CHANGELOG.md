@@ -51,6 +51,7 @@ Master list of UniV3 forks:
 
 * Deploy Settler to Plasma chain
   * Add UniswapV3 UniV3 fork on Plasma
+* Deploy Settler to Monad mainnet
 
 ## 2025-09-03
 
