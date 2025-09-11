@@ -147,6 +147,7 @@ declare -r -i gas_price
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 export FOUNDRY_EVM_VERSION=london
+export FOUNDRY_SOLC_VERSION=0.8.28
 
 forge clean
 forge build src/multicall/MultiCall.sol
