@@ -132,6 +132,10 @@ fi
 . "$project_root"/sh/common_secrets.sh
 . "$project_root"/sh/common_deploy_settler.sh
 
+declare -r bridge_settler_skip_clean=Yes
+
+. "$project_root"/sh/common_deploy_bridge_settler.sh
+
 decrypt_secrets
 
 declare module_deployer
