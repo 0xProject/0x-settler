@@ -77,8 +77,8 @@ Master list of UniV3 forks:
   * Add action `BRIDGE_TO_DEBRIDGE` to Optimism
   * Add action `BRIDGE_TO_DEBRIDGE` to Polygon
   * Add action `BRIDGE_TO_DEBRIDGE` to Sonic
-
 * Added new DeBridge action `BRIDGE_TO_DEBRIDGE`
+* Deploy Settler to Plasma chain
 
 ## 2025-08-18
 

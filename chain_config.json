@@ -713,6 +713,7 @@
     "wnative": "0x6100E367285b01F48D07953803A2d8dCA5D19873",
     "isShanghai": true,
     "isCancun": true,
+    "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 2,
     "safe": {
