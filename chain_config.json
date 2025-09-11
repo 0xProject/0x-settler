@@ -736,7 +736,7 @@
   "monad": {
     "chainId": 143,
     "displayName": "Monad",
-    "wnative": "",
+    "wnative": null,
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
@@ -754,7 +754,7 @@
     },
     "deployment": {
     },
-    "sourcifyApi": "",
-    "blockscoutApi": ""
+    "sourcifyApi": null,
+    "blockscoutApi": null
   }
 }
