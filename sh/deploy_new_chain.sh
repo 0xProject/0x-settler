@@ -130,13 +130,15 @@ fi
 
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
+
+decrypt_secrets
+
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare -r bridge_settler_skip_clean=Yes
 
 . "$project_root"/sh/common_deploy_bridge_settler.sh
 
-decrypt_secrets
 
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
@@ -285,8 +287,11 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --slow                                               \
     --no-storage-caching                                 \
     --skip 'Flat.sol'                                    \
+    --skip 'CrossChainReceiverFactory.sol'               \
+    --skip 'src/allowanceholder/*.sol'                   \
     --skip 'src/chains/*.sol'                            \
     --skip 'src/core/*.sol'                              \
+    --skip 'src/multicall/*.sol'                         \
     --skip 'src/utils/*.sol'                             \
     --isolate                                            \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
