@@ -127,6 +127,10 @@ if [[ ! -f "$project_root"/sh/initial_description_metatx.md ]] ; then
     echo 'sh/initial_description_metatx.md is missing' >&2
     exit 1
 fi
+if [[ ! -f "$project_root"/sh/initial_description_bridge_settler.md ]] ; then
+    echo 'sh/initial_description_bridge_settler.md is missing' >&2
+    exit 1
+fi
 
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
