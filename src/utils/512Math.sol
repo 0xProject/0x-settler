@@ -1424,6 +1424,7 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
+    /*
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next = floor(Y * (1.5*2²⁵⁵ - U) ) / 2²⁵⁵)
     ///     U = ceil(M * ceil(Y²/2²⁵⁵) / 2²⁵⁶) + 1
@@ -1444,6 +1445,51 @@ library Lib512MathArithmetic {
             // Y_next = ceil(Y*T/2²⁵⁵)
             (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);
             (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);
+        }
+    }
+    */
+
+    /// Under‑biased, *tight* Newton–Raphson step for inverse sqrt in Q1.255.
+    /// This computes H_up using the exact E = ceil(((M+1)*Y2_up)/2^255) without
+    /// ever forming (M+1) and without wide division. It also handles the
+    /// Y2_up = 2^256 overflow case exactly (H_up = M+1).
+    function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+        unchecked {
+            // ---------------- Y2_up = ceil(Y^2 / 2^255) ----------------
+            (uint256 y2Hi, uint256 y2Lo) = _mul(Y, Y);          // (hi, lo) = Y*Y
+            uint256 q    = (y2Hi << 1) | (y2Lo >> 255);         // floor(/ 2^255)
+            bool    rem  = (y2Lo << 1) != 0;                    // any of low 255 bits?
+            bool y2Is2p256 = (~q == 0).and(rem);                // overflow to 2^256?
+
+            uint256 H_up;
+            if (y2Is2p256) {
+                // Y2_up = 2^256  =>  E = ceil(((M+1)*2^256)/2^255) = 2*(M+1)  => H_up = ceil(E/2) = M+1
+                H_up = M + 1;
+            } else {
+                uint256 Y2_up = q.unsafeInc(rem);
+
+                // ---------------- E = ceil(((M+1) * Y2_up) / 2^255) ----------------
+                // P = M * Y2_up  (512-bit)
+                (uint256 pHi, uint256 pLo) = _mul(M, Y2_up);
+
+                // P' = P + Y2_up  (i.e., (M+1)*Y2_up), 512-bit add
+                (uint256 pHi2, uint256 pLo2) = _add(pHi, pLo, Y2_up);
+
+                // ceil divide by 2^255:  E = floor(P'/2^255) + [low 255 bits != 0]
+                uint256 E = (pHi2 << 1) | (pLo2 >> 255);
+                E = E.unsafeInc(0 < pLo2 << 1);
+
+                // ---------------- H_up = ceil(E / 2) ----------------
+                H_up = (E + 1) >> 1;
+            }
+
+            // ---------------- T = TH - H_up ;  TH = 1.5 * 2^255 (exact) ----------------
+            // 1.5 * 2^255 = 2^255 + 2^254 = 0xC000...000
+            uint256 T = 1.5*2**255 - H_up;
+
+            // ---------------- Y_next = floor( Y * T / 2^255 ) ----------------
+            (uint256 tHi, uint256 tLo) = _mul(Y, T);
+            Y_next = (tHi << 1) | (tLo >> 255);                 // floor(/ 2^255)
         }
     }
 
