@@ -1145,6 +1145,7 @@ library Lib512MathArithmetic {
     }
 
     /// 512-bit less-than comparison
+    /// Returns true if (x_hi:x_lo) < (y_hi:y_lo) when interpreted as a 512-bit unsigned integer
     function _lt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
         assembly ("memory-safe") {
             r := or(lt(x_hi, y_hi), and(eq(x_hi, y_hi), lt(x_lo, y_lo)))
@@ -1426,6 +1427,7 @@ library Lib512MathArithmetic {
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next = floor(Y * (1.5*2²⁵⁵ - U) ) / 2²⁵⁵)
     ///     U = ceil(M * ceil(Y²/2²⁵⁵) / 2²⁵⁶) + 1
+    /// This uses "under-biased" rounding to ensure convergence to the floor
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             // Y2 = ceil(Y²/2²⁵⁵)
@@ -1460,9 +1462,12 @@ library Lib512MathArithmetic {
         /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization means
         /// our mantissa is geometrically symmetric around 1, leading to 4 buckets on each side.
         unchecked {
-            // e = floor(bitlen(N)/2); branchless using ternary
+            // e = floor(bitlen(N)/2); branchless using ternary to avoid calling expensive clz() twice
+            // We select between x_hi and x_lo, then adjust the offset (256 or 512) arithmetically
             e = (256 + 256 * (x_hi != 0).toUint() - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
 
+            // Extract mantissa M by shifting x right by (2e - 255) bits
+            // This normalizes x = M * 2^(2e) where M ∈ [0.5, 2)
             uint256 twoe = e << 1;
             (, M) = _shr512(x_hi, x_lo, twoe - 255);
             M |= x_lo << 255 - twoe;
@@ -1479,7 +1484,8 @@ library Lib512MathArithmetic {
                 let lo_idx := sub(n, 0x04)
                 let hi_idx := add(0x04, shr(0x01, sub(n, 0x08)))
 
-                // branchless ternary
+                // Branchless index selection: idx = (n < 8) ? lo_idx : hi_idx
+                // Uses XOR trick: result = b ^ ((a ^ b) * condition)
                 let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
                 switch idx
@@ -1521,7 +1527,9 @@ library Lib512MathArithmetic {
         /// because the half-scale is integer.
 
         // ---- Combine to LOWER-BOUND candidate:
-        // r0 = floor( (M * Y) / 2^(510 - e) )
+        // Y approximates 1/sqrt(M) in Q1.255 format, so M*Y ≈ sqrt(M) * 2^255
+        // We shift right by (510 - e) to account for both the Q1.255 scaling and denormalization
+        // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(sqrt(x) * 2^e / 2^255)
         uint256 pHi;
         uint256 pLo;
         (pHi, pLo) = _mul(M, Y);
@@ -1529,6 +1537,8 @@ library Lib512MathArithmetic {
         (, r0) = _shr512(pHi, pLo, 510 - e);
 
         // ---- Δ = N - r0^2
+        // r0 underestimates sqrt(N), so we need to check if r0 + k is the correct answer
+        // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = N - r0^2
         uint256 r2hi;
         uint256 r2lo;
         (r2hi, r2lo) = _mul(r0, r0);
@@ -1536,19 +1546,24 @@ library Lib512MathArithmetic {
         uint256 dLo;
         (dHi, dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
 
-        // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
+        // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-bit adds)
+        // These multiples are used to compute thresholds τk = k²r0 + k²
+        // We split r0 across two 256-bit words to handle overflow from shifts
         // S = 2r0
         uint256 SLo = r0 << 1;
-        uint256 SHi = r0 >> 255;
+        uint256 SHi = r0 >> 255;  // Bits that overflow from the 1-bit left shift
         // 4r0
         uint256 S2Lo = r0 << 2;
-        uint256 S2Hi = r0 >> 254;
+        uint256 S2Hi = r0 >> 254;  // Bits that overflow from the 2-bit left shift
         // 8r0
         uint256 S4Lo = r0 << 3;
-        uint256 S4Hi = r0 >> 253;
+        uint256 S4Hi = r0 >> 253;  // Bits that overflow from the 3-bit left shift
 
         // ======================= HYBRID FIXUP =======================
-        // Split at τ4 = 8r0 + 16 (1 jump), then finish branch-free in that half.
+        // We need to find k such that (r0 + k)² ≤ N < (r0 + k + 1)²
+        // Equivalently: Δ < τ(k+1) where τk = 2kr0 + k²
+        // We use a binary search with one branch at k=4, then branchless within each half
+        // This minimizes both branching and arithmetic operations
 
         // τ4 = 8r0 + 16
         uint256 t4Lo;
@@ -1565,7 +1580,7 @@ library Lib512MathArithmetic {
             uint256 t6Hi;
             unchecked {
                 t6Lo = S4Lo + S2Lo;
-                uint256 c6a = (t6Lo < S4Lo).toUint();
+                uint256 c6a = (t6Lo < S4Lo).toUint();  // Carry bit as 0 or 1
                 t6Hi = S4Hi + S2Hi + c6a;
                 t6Lo = t6Lo + 36;
                 uint256 c6b = (t6Lo < 36).toUint();
@@ -1575,6 +1590,7 @@ library Lib512MathArithmetic {
             // Δ < τ6 ?
             if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
                 // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
+                // We build 14r0 by summing our precomputed multiples
                 uint256 t7Lo;
                 uint256 t7Hi;
                 unchecked {
