@@ -1562,11 +1562,10 @@ library Lib512MathArithmetic {
                 )
 
                 let Y
-                // ---- 8-bucket LUT by top nibble (n = (M >> 252) & 0x0f), ≤3 compares in chosen half
+                // ---- 8-bucket LUT by top nibble of M
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
                 //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
                 {
-                    // n = top nibble of M (bits 255..252) ∈ {4..15}
                     let n := shr(252, M)
 
                     // Build lower- and upper-half indices
@@ -1575,7 +1574,7 @@ library Lib512MathArithmetic {
                     let lo_idx := sub(n, 4)
                     let hi_idx  := add(4, shr(1, sub(n, 8)))
 
-                    // Branchless select: idx = lo_idx ^ (msk & (lo_idx ^ hi_idx))
+                    // branchless ternary
                     let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(3, n)))
 
                     switch idx
@@ -1593,7 +1592,7 @@ library Lib512MathArithmetic {
                 let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
                 let inc := add(1, iszero(shr(255, M)))
 
-                // Pre-flight schedule: 4 base + up to 3 gated (minimal branching)
+                // Pre-flight schedule: 4 base + up to 3 gated
                 Y := nr_step(M, Y, TH, inc)
                 Y := nr_step(M, Y, TH, inc)
                 Y := nr_step(M, Y, TH, inc)
