@@ -1526,23 +1526,20 @@ library Lib512MathArithmetic {
             /// When we combine `Y` with `M` to form our approximation of the square root, we have to
             /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
             /// because the half-scale is integer.
-
-            // ---- Combine to LOWER-BOUND candidate:
-            // Y approximates 1/sqrt(M) in Q1.255 format, so M*Y ≈ sqrt(M) * 2^255
-            // We shift right by (510 - e) to account for both the Q1.255 scaling and denormalization
-            // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(sqrt(x) * 2^e / 2^255)
+            // `Y` approximates `1/√M` in Q1.255 format, so M*Y ≈ 2²⁵⁵ * √M
+            // We shift right by `510 - e` to account for both the Q1.255 scaling and denormalization
+            // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(2ᵉ * √x  / 2²⁵⁵)
             (uint256 p_hi, uint256 p_lo) = _mul(M, Y);
             (, uint256 r0) = _shr512(p_hi, p_lo, 510 - e);
 
-            // ---- Δ = N - r0^2
-            // r0 underestimates sqrt(N), so we need to check if r0 + k is the correct answer
-            // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = N - r0^2
+            // ---- Δ = x - r0²
+            // r0 underestimates √x, so we need to check if r0 + k is the correct answer
+            // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = x - r0²
             (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
             (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2hi, r2lo);
 
-            // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-bit adds)
-            // These multiples are used to compute thresholds τk = k²r0 + k²
-            // We split r0 across two 256-bit words to handle overflow from shifts
+            // ---- Precompute 2*r0, 4*r0, 8*r0 by shifts (cheaper than 512-bit adds)
+            // These multiples are used to compute thresholds τ*k = 2*k*r0 + k²
             // S = 2*r0
             (uint256 S_hi, uint256 S_lo) = _shl256(r0, 1);
             // S2 = 4*r0
@@ -1550,57 +1547,55 @@ library Lib512MathArithmetic {
             // S4 = 8*r0
             (uint256 S4_hi, uint256 S4_lo) = _shl256(r0, 3);
 
-            // ======================= HYBRID FIXUP =======================
-            // We need to find k such that (r0 + k)² ≤ N < (r0 + k + 1)²
-            // Equivalently: Δ < τ(k+1) where τk = 2kr0 + k²
-            // We use a binary search with one branch at k=4, then branchless within each half
-            // This minimizes both branching and arithmetic operations
+            // We need to find k such that (r0 + k)² ≤ x < (r0 + k + 1)²
+            // Equivalently: Δ < τ(k+1) where τ*k = 2*k*r0 + k²
+            // We use a 2-layer binary search tree, then branchless bit hacks afterwards
 
-            // τ4 = 8r0 + 16
+            // τ4 = 8*r0 + 16
             (uint256 t4_hi, uint256 t4_lo) = _add(S4_hi, S4_lo, 16);
 
             if (!_lt(d_hi, d_lo, t4_hi, t4_lo)) {
                 // ---- k ∈ {4,5,6,7} (upper half)
-                // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
+                // τ6 = 12*r0 + 36 = (8*r0 + 4*r0) + 36
                 (uint256 t6_hi, uint256 t6_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
                 (t6_hi, t6_lo) = _add(t6_hi, t6_lo, 36);
 
                 // Δ < τ6 ?
                 if (!_lt(d_hi, d_lo, t6_hi, t6_lo)) {
-                    // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
-                    // We build 14r0 by summing our precomputed multiples
+                    // k ∈ {6,7}.  τ7 = 14*r0 + 49 = (8*r0 + 4*r0 + 2*r0) + 49
+                    // We build 14*r0 by summing our precomputed multiples
                     (uint256 t7_hi, uint256 t7_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
                     (t7_hi, t7_lo) = _add(t7_hi, t7_lo, S_hi, S_lo);
                     (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 49);
 
-                    // Check Δ < τ7
+                    // Δ < τ7 ?
                     r = (r0 + 6).unsafeInc(!_lt(d_hi, d_lo, t7_hi, t7_lo));
                 } else {
-                    // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
+                    // k ∈ {4,5}.  τ5 = 10*r0 + 25 = (8*r0 + 2*r0) + 25
                     (uint256 t5_hi, uint256 t5_lo) = _add(S4_hi, S4_lo, S_hi, S_lo);
                     (t5_hi, t5_lo) = _add(t5_hi, t5_lo, 25);
 
-                    // Check Δ < τ5
+                    // Δ < τ5 ?
                     r = (r0 + 4).unsafeInc(!_lt(d_hi, d_lo, t5_hi, t5_lo));
                 }
             } else {
                 // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
-                // τ2 = 4r0 + 4
+                // τ2 = 4*r0 + 4
                 (uint256 t2_hi, uint256 t2_lo) = _add(S2_hi, S2_lo, 4);
 
                 // Δ < τ2 ?
                 if (!_lt(d_hi, d_lo, t2_hi, t2_lo)) {
-                    // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
+                    // k ∈ {2,3}.  τ3 = 6*r0 + 9 = (4*r0 + 2*r0) + 9
                     (uint256 t3_hi, uint256 t3_lo) = _add(S2_hi, S2_lo, S_hi, S_lo);
                     (t3_hi, t3_lo) = _add(t3_hi, t3_lo, 9);
 
-                    // Check Δ < τ3
+                    // Δ < τ3 ?
                     r = (r0 + 2).unsafeInc(!_lt(d_hi, d_lo, t3_hi, t3_lo));
                 } else {
-                    // k ∈ {0,1}.  τ1 = 2r0 + 1
+                    // k ∈ {0,1}.  τ1 = 2*r0 + 1
                     (uint256 t1_hi, uint256 t1_lo) = _add(S_hi, S_lo, 1);
 
-                    // Check Δ < τ1
+                    // Δ < τ1 ?
                     r = r0.unsafeInc(!_lt(d_hi, d_lo, t1_hi, t1_lo));
                 }
             }
