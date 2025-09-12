@@ -1562,9 +1562,9 @@ library Lib512MathArithmetic {
                 uint256 t6Lo = S4Lo + S2Lo;
                 uint256 c6a = (t6Lo < S4Lo).toUint();
                 uint256 t6Hi = S4Hi + S2Hi + c6a;
-                t6Lo = t6Lo + 36;
+                t6Lo += 36;
                 uint256 c6b = (t6Lo < 36).toUint();
-                t6Hi = t6Hi + c6b;
+                t6Hi += c6b;
 
                 // Δ < τ6 ?
                 if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
@@ -1573,12 +1573,12 @@ library Lib512MathArithmetic {
                     uint256 t7Lo = S4Lo + S2Lo;
                     uint256 c7a = (t7Lo < S4Lo).toUint();
                     uint256 t7Hi = S4Hi + S2Hi + SHi + c7a;
-                    t7Lo = t7Lo + SLo;
+                    t7Lo += SLo;
                     uint256 c7b = (t7Lo < SLo).toUint();
-                    t7Hi = t7Hi + c7b;
-                    t7Lo = t7Lo + 49;
+                    t7Hi += c7b;
+                    t7Lo += 49;
                     uint256 c7c = (t7Lo < 49).toUint();
-                    t7Hi = t7Hi + c7c;
+                    t7Hi += c7c;
 
                     // Check Δ < τ7
                     if (!_lt(dHi, dLo, t7Hi, t7Lo)) {
@@ -1591,9 +1591,9 @@ library Lib512MathArithmetic {
                     uint256 t5Lo = S4Lo + SLo;
                     uint256 c5a = (t5Lo < S4Lo).toUint();
                     uint256 t5Hi = S4Hi + SHi + c5a;
-                    t5Lo = t5Lo + 25;
+                    t5Lo += 25;
                     uint256 c5b = (t5Lo < 25).toUint();
-                    t5Hi = t5Hi + c5b;
+                    t5Hi += c5b;
 
                     // Check Δ < τ5
                     if (!_lt(dHi, dLo, t5Hi, t5Lo)) {
@@ -1614,9 +1614,9 @@ library Lib512MathArithmetic {
                     uint256 t3Lo = S2Lo + SLo;
                     uint256 c3a = (t3Lo < S2Lo).toUint();
                     uint256 t3Hi = S2Hi + SHi + c3a;
-                    t3Lo = t3Lo + 9;
+                    t3Lo += 9;
                     uint256 c3b = (t3Lo < 9).toUint();
-                    t3Hi = t3Hi + c3b;
+                    t3Hi += c3b;
 
                     // Check Δ < τ3
                     if (!_lt(dHi, dLo, t3Hi, t3Lo)) {
