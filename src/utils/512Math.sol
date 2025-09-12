@@ -1464,11 +1464,6 @@ library Lib512MathArithmetic {
                 res := or(a, b)
             }
 
-            // r = low256( (hi:lo) << k ), 0 <= k <= 255  (>=256 => 0 by EVM semantics)
-            function shl512To256(ahi, alo, k) -> res {
-                res := shl(k, alo)
-            }
-
             // ======================= 512-bit add/sub/compare (branch-light) =======================
             function add512(ahi, alo, bhi, blo) -> rhi, rlo {
                 rlo := add(alo, blo)
@@ -1499,7 +1494,6 @@ library Lib512MathArithmetic {
                 // add 1 if any of the low 255 bits of 'lo' are set
                 z := add(z, lt(0, shl(1, rlo)))
             }
-            function half_up(xx) -> y { y := shr(1, add(xx, 1)) }
 
             // ======================= clz256 (branchless; gas-optimized) =======================
             // Returns 0..256; clz256(0)=256. No memory, no loops.
@@ -1528,34 +1522,31 @@ library Lib512MathArithmetic {
                 let Y2_up  := mulShrUp255(Y, Y)          // ceil(Y^2 / 2^255)
                 let MY2_up := mulShrUp255(M, Y2_up)      // ceil(M * Y2_up / 2^255)
                 let U := add(MY2_up, inc)                // inc ∈ {1,2}
-                let H_up := half_up(U)                   // ceil(U/2)
+                let H_up := shr(1, add(U, 1))            // ceil(U/2)
                 let T_down := sub(TH, H_up)              // 1.5*2^255 - ceil(..)
                 Yn := mulShrDown255(Y, T_down)
             }
 
             // ======================= Main: exact floor sqrt for 512-bit input =======================
             // Returns floor( sqrt( (hi<<256) | lo ) )
-            function isqrt512(ahi, alo) -> res {
-                // Zero shortcut
-                if iszero(or(ahi, alo)) { res := 0 leave }
-
+            for {} true {} {
                 // ---- normalization: N = m * 2^(2e), m in [1/2, 2)
                 // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
                 let twoe
-                switch ahi
+                switch hi
                 case 0 {
-                    twoe := and(sub(256, clz256(alo)), not(1))
+                    twoe := and(sub(256, clz256(lo)), not(1))
                 }
                 default {
-                    twoe := and(sub(512, clz256(ahi)), not(1))
+                    twoe := and(sub(512, clz256(hi)), not(1))
                 }
                 let e := shr(1, twoe)
 
                 // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
                 // Branch-light: only one of these contributes (other path shifts by >=256 -> 0)
                 let M := or(
-                    shl512To256(ahi, alo, sub(255, twoe)),   // active when twoe <= 255
-                    shr512To256(ahi, alo, sub(twoe, 255))    // active when twoe >= 255
+                    shl(sub(255, twoe), lo),
+                    shr512To256(hi, lo, sub(twoe, 255))    // active when twoe >= 255
                 )
 
                 let Y
@@ -1606,7 +1597,7 @@ library Lib512MathArithmetic {
 
                 // ---- Δ = N - r0^2
                 let r2hi, r2lo := square512(r0)
-                let dHi, dLo := sub512(ahi, alo, r2hi, r2lo)
+                let dHi, dLo := sub512(hi, lo, r2hi, r2lo)
 
                 // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
                 // S  = 2r0
@@ -1639,8 +1630,8 @@ library Lib512MathArithmetic {
                         let t1Lo := add(SLo, 1)
                         let t1Hi := add(SHi, lt(t1Lo, SLo))
                         // Check Δ < τ1
-                        if lt512(dHi, dLo, t1Hi, t1Lo) { res := r0 leave }
-                        res := add(r0, 1) leave
+                        if lt512(dHi, dLo, t1Hi, t1Lo) { r := r0 break }
+                        r := add(r0, 1) break
                     }
 
                     // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
@@ -1652,8 +1643,8 @@ library Lib512MathArithmetic {
                     let t3Hi2 := add(t3Hi, c3b)
 
                     // Check Δ < τ3
-                    if lt512(dHi, dLo, t3Hi2, t3Lo) { res := add(r0, 2) leave }
-                    res := add(r0, 3) leave
+                    if lt512(dHi, dLo, t3Hi2, t3Lo) { r := add(r0, 2) break }
+                    r := add(r0, 3) break
                 }
 
                 // ---- k ∈ {4,5,6,7} (upper half)
@@ -1676,8 +1667,8 @@ library Lib512MathArithmetic {
                     let t5Hi2 := add(t5Hi, c5b)
 
                     // Check Δ < τ5
-                    if lt512(dHi, dLo, t5Hi2, t5Lo) { res := add(r0, 4) leave }
-                    res := add(r0, 5) leave
+                    if lt512(dHi, dLo, t5Hi2, t5Lo) { r := add(r0, 4) break }
+                    r := add(r0, 5) break
                 }
 
                 // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
@@ -1694,13 +1685,10 @@ library Lib512MathArithmetic {
                     t7Hi := add(t7Hi, c7c)
 
                     // Check Δ < τ7
-                    if lt512(dHi, dLo, t7Hi, t7Lo) { res := add(r0, 6) leave }
-                    res := add(r0, 7)
+                    if lt512(dHi, dLo, t7Hi, t7Lo) { r := add(r0, 6) break }
+                    r := add(r0, 7) break
                 }
             }
-
-            // Call the function
-            r := isqrt512(hi, lo)
         }
     }
 }
