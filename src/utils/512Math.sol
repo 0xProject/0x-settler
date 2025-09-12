@@ -1413,8 +1413,8 @@ library Lib512MathArithmetic {
     }
 
     /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next = floor( Y * (1.5 - U) ) / 2²⁵⁵ )
-    ///     U = ceil((M * ceil(Y²/2²⁵⁵) + 2) / 2²⁵⁶) // TODO: misleading notation
+    ///     Y_next = floor(Y * (1.5*2²⁵⁵ - U) ) / 2²⁵⁵)
+    ///     U = ceil(M * ceil(Y²/2²⁵⁵) / 2²⁵⁶) + 1
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             // Y2 = ceil(Y²/2²⁵⁵)
@@ -1422,6 +1422,7 @@ library Lib512MathArithmetic {
             (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);
             Y2 = Y2.unsafeInc(0 < Y2_lo << 1);
 
+            // MY2 = ceil(M*Y2/2²⁵⁶)
             (uint256 MY2, uint256 MY2_carry) = _mul(M, Y2);
             MY2 = MY2.unsafeInc(0 < MY2_carry);
 
@@ -1436,12 +1437,17 @@ library Lib512MathArithmetic {
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
+        /// First, we normalize `x` by separating it into a mantissa and exponent. We use
+        /// even-exponent normalization.
+        // `e` is half the exponent of `x`
         uint256 e;
-        // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
+        // `M` is the mantissa of `x`; M ∈ [½, 2)
         uint256 M;
-        // Y approximates the inverse square root of M as a Q1.255
+        // `Y` approximates the inverse square root of integer `M` as a Q1.255
         uint256 Y;
 
+        /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization means
+        /// our mantissa is geometrically symmetric around 1, leading to 4 buckets on each side.
         unchecked {
             // e = floor(bitlen(N)/2); one branch is cheaper than two CLZs.
             e = (x_hi == 0 ? 256 - x_lo.clz() : 512 - x_hi.clz()) >> 1; // TODO: use `ternary` here on `x_lo`/`x_hi`
@@ -1457,7 +1463,7 @@ library Lib512MathArithmetic {
                 let n := shr(0xfc, M)
 
                 // Build lower- and upper-half indices
-                // lower half (n ∈ 4..7):  idx = n - 4  ∈ {0..3}
+                // lower half (n ∈ 4..7):  idx = n - 4 ∈ {0..3}
                 // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
                 let lo_idx := sub(n, 0x04)
                 let hi_idx  := add(0x04, shr(0x01, sub(n, 0x08)))
@@ -1492,6 +1498,9 @@ library Lib512MathArithmetic {
             }
         }
 
+        /// When we combine `Y` with `M` to form our approximation of the square root, we have to
+        /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
+        /// because the half-scale is integer.
         assembly ("memory-safe") {
             // (hi, lo) = a * b
             function mul512(a, b) -> rhi, rlo {
