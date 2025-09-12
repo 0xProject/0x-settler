@@ -219,7 +219,7 @@ contract Lib512MathTest is Test {
         assertTrue(r == e);
     }
 
-    function test512Math_sqrt(uint256 x_hi, uint256 x_lo) external pure {
+    function test512Math_sqrt(uint256 x_hi, uint256 x_lo) public pure {
         uint512 x = alloc().from(x_hi, x_lo);
         uint256 r = x.sqrt();
 
@@ -237,5 +237,18 @@ contract Lib512MathTest is Test {
             (r2_lo, r2_hi) = SlowMath.fullMul(r, r);
             assertTrue((r2_hi > x_hi) || (r2_hi == x_hi && r2_lo > x_lo), "sqrt too low");
         }
+    }
+
+    function test512Math_sqrt_historicFailure01() external pure {
+        test512Math_sqrt(
+            114805576419587020236757229903001819680135317278270614039818801407925860184587, 154395211239568
+        );
+    }
+
+    function test512Math_sqrt_historicFailure02() external pure {
+        test512Math_sqrt(
+            111622007524949111044014908009097472374689074738034287125887346957447537418677,
+            1234515505982255149698729514620346575
+        );
     }
 }

@@ -1462,9 +1462,8 @@ library Lib512MathArithmetic {
         /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization means
         /// our mantissa is geometrically symmetric around 1, leading to 4 buckets on each side.
         unchecked {
-            // e = floor(bitlen(N)/2); branchless using ternary to avoid calling expensive clz() twice
-            // We select between x_hi and x_lo, then adjust the offset (256 or 512) arithmetically
-            e = (256 + 256 * (x_hi != 0).toUint() - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
+            // e = floor(bitlen(N)/2)
+            e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
 
             // Extract mantissa M by shifting x right by (2e - 255) bits
             // This normalizes x = M * 2^(2e) where M ∈ [0.5, 2)
@@ -1489,20 +1488,13 @@ library Lib512MathArithmetic {
                 let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
                 switch idx
-                case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 }
-                    // 5/8
-                case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 }
-                    // 3/4
-                case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 }
-                    // 7/8
-                case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 }
-                    // 1
-                case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b }
-                    // 5/4
-                case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 }
-                    // 3/2
-                case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 }
-                    // 7/4
+                case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
+                case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
+                case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
+                case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
+                case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
+                case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
+                case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
                 default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
             }
         }
@@ -1530,34 +1522,27 @@ library Lib512MathArithmetic {
         // Y approximates 1/sqrt(M) in Q1.255 format, so M*Y ≈ sqrt(M) * 2^255
         // We shift right by (510 - e) to account for both the Q1.255 scaling and denormalization
         // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(sqrt(x) * 2^e / 2^255)
-        uint256 pHi;
-        uint256 pLo;
-        (pHi, pLo) = _mul(M, Y);
-        uint256 r0;
-        (, r0) = _shr512(pHi, pLo, 510 - e);
+        (uint256 pHi, uint256 pLo) = _mul(M, Y);
+        (, uint256 r0) = _shr512(pHi, pLo, 510 - e);
 
         // ---- Δ = N - r0^2
         // r0 underestimates sqrt(N), so we need to check if r0 + k is the correct answer
         // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = N - r0^2
-        uint256 r2hi;
-        uint256 r2lo;
-        (r2hi, r2lo) = _mul(r0, r0);
-        uint256 dHi;
-        uint256 dLo;
-        (dHi, dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
+        (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
+        (uint256 dHi, uint256 dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
 
         // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-bit adds)
         // These multiples are used to compute thresholds τk = k²r0 + k²
         // We split r0 across two 256-bit words to handle overflow from shifts
-        // S = 2r0
+        // S = 2*r0
         uint256 SLo = r0 << 1;
-        uint256 SHi = r0 >> 255;  // Bits that overflow from the 1-bit left shift
-        // 4r0
+        uint256 SHi = r0 >> 255;
+        // S2 = 4*r0
         uint256 S2Lo = r0 << 2;
-        uint256 S2Hi = r0 >> 254;  // Bits that overflow from the 2-bit left shift
-        // 8r0
+        uint256 S2Hi = r0 >> 254;
+        // S4 = 8*r0
         uint256 S4Lo = r0 << 3;
-        uint256 S4Hi = r0 >> 253;  // Bits that overflow from the 3-bit left shift
+        uint256 S4Hi = r0 >> 253;
 
         // ======================= HYBRID FIXUP =======================
         // We need to find k such that (r0 + k)² ≤ N < (r0 + k + 1)²
@@ -1580,7 +1565,7 @@ library Lib512MathArithmetic {
             uint256 t6Hi;
             unchecked {
                 t6Lo = S4Lo + S2Lo;
-                uint256 c6a = (t6Lo < S4Lo).toUint();  // Carry bit as 0 or 1
+                uint256 c6a = (t6Lo < S4Lo).toUint();
                 t6Hi = S4Hi + S2Hi + c6a;
                 t6Lo = t6Lo + 36;
                 uint256 c6b = (t6Lo < 36).toUint();
