@@ -1433,22 +1433,19 @@ library Lib512MathArithmetic {
     }
 
     /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next = floor( Y * (1.5 - ceil(U/2) ) / 2²⁵⁵ )
-    ///     U = ceil(M * ceil(Y²/2²⁵⁵) /2²⁵⁵) + 1 + [m<1]
-    function _iSqrtNrStep(uint256 Y, uint256 M, uint256 inc) private pure returns (uint256 Y_next) {
+    ///     Y_next = floor( Y * (1.5 - U) ) / 2²⁵⁵ )
+    ///     U = ceil((M * ceil(Y²/2²⁵⁵) + 2) / 2²⁵⁶) // TODO: misleading notation
+    function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             // Y2 = ceil(Y²/2²⁵⁵)
             (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);
             (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);
             Y2 = Y2.unsafeInc(0 < Y2_lo << 1);
 
-            // MY2 = ceil(M*Y2/2²⁵⁵)
-            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);
-            (, uint256 MY2) = _shr256(MY2_hi, MY2_lo, 255);
-            MY2 = MY2.unsafeInc(0 < MY2_lo << 1);
+            (uint256 MY2, uint256 MY2_carry) = _mul(M, Y2);
+            MY2 = MY2.unsafeInc(0 < MY2_carry);
 
-            // inc = 2 + [m<1] avoids overflow and rounds `U` up
-            uint256 T = 1.5*2**255 - (MY2 + inc >> 1);
+            uint256 T = (1.5*2**255 - 1) - MY2;
 
             // Y_next = ceil(Y*T/2²⁵⁵)
             (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);
@@ -1501,17 +1498,17 @@ library Lib512MathArithmetic {
         }
 
         // Perform 7 under-biased Newton-Raphson iterations
+        // 7 is enough iterations for full convergence within Q1.255
         {
-            uint256 inc = uint256(2).unsafeInc(M >> 255 == 0);
-            Y = _iSqrtNrStep(Y, M, inc);
-            Y = _iSqrtNrStep(Y, M, inc);
-            Y = _iSqrtNrStep(Y, M, inc);
-            Y = _iSqrtNrStep(Y, M, inc);
-            Y = _iSqrtNrStep(Y, M, inc);
-            Y = _iSqrtNrStep(Y, M, inc);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
             if (e > 173) {
                 // If `e` is small, we can skip the last iteration. This branch is net gas-optimizing
-                Y = _iSqrtNrStep(Y, M, inc);
+                Y = _iSqrtNrStep(Y, M);
             }
         }
 
