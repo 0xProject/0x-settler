@@ -1533,15 +1533,13 @@ library Lib512MathArithmetic {
                 e := shr(1, twoe)
             }
 
-            // ======================= Under-biased rsqrt step (robust; no (M+1) overflow) =======================
+            // ======================= Robust under-biased rsqrt step =======================
             // Yn = floor( Y * (1.5 - ceil(0.5 * U) ) / 2^255 ),
-            // U >= m*y^2*2^255 is built as ceil(M*Y2_up/2^255) + ceil(Y2_up/2^255), avoiding (M+1).
-            function rsqrt_step_under(M, Y, TH) -> Yn {
+            // U := ceil(M*Y2_up/2^255) + inc, inc = 1 + [m<1], avoids (M+1) overflow.
+            function rsqrt_step_under(M, Y, TH, inc) -> Yn {
                 let Y2_up  := mulShrUp255(Y, Y)          // ceil(Y^2 / 2^255)
                 let MY2_up := mulShrUp255(M, Y2_up)      // ceil(M * Y2_up / 2^255)
-                // inc = ceil(Y2_up / 2^255) = 1 + (Y2_up > 2^255)
-                let inc := add(1, gt(Y2_up, shl(255, 1)))
-                let U := add(MY2_up, inc)
+                let U := add(MY2_up, inc)                // inc ∈ {1,2}
                 let H_up := half_up(U)                   // ceil(U/2)
                 let T_down := sub(TH, H_up)              // 1.5*2^255 - ceil(..)
                 Yn := mulShrDown255(Y, T_down)
@@ -1563,9 +1561,10 @@ library Lib512MathArithmetic {
                     shr512To256(ahi, alo, sub(twoe, 255))    // active when twoe >= 255
                 )
 
+                let Y
+                /*
                 // ---- 6-entry LUT seed: idx = floor(m*4) + 1 = (M >> 253) + 1  in {3..8}
                 let idx := add(shr(253, M), 1)
-                let Y
                 switch idx
                 case 3 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 }
                 case 4 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 }
@@ -1573,22 +1572,70 @@ library Lib512MathArithmetic {
                 case 6 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 }
                 case 7 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 }
                 default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // idx == 8
+                */
 
-                // ---- 8 under-biased Newton steps (Q1.255)
-                let TH := add(shl(255, 1), shl(254, 1))  // 1.5 * 2^255
-                // Pre-flight schedule: 5 base + up to 3 gated (minimal branching)
-                Y := rsqrt_step_under(M, Y, TH)
-                Y := rsqrt_step_under(M, Y, TH)
-                Y := rsqrt_step_under(M, Y, TH)
-                Y := rsqrt_step_under(M, Y, TH)
-                Y := rsqrt_step_under(M, Y, TH)
-                if gt(e, 58) {
-                    Y := rsqrt_step_under(M, Y, TH)
-                    if gt(e, 118) {
-                        Y := rsqrt_step_under(M, Y, TH)
-                        if gt(e, 236) {
-                            Y := rsqrt_step_under(M, Y, TH)
+                // ---- 8-bucket LUT by top nibble (n = (M >> 252) & 0x0f), ≤3 compares in chosen half
+                // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
+                //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
+                {
+                    let n := shr(252, M)
+                    if iszero(shr(255, M)) {
+                        // lower half: thresholds on nibble 0x05,0x06,0x07
+                        if lt(n, 0x05) {
+                            Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99  // 5/8
                         }
+                        if and(iszero(lt(n, 0x05)), lt(n, 0x06)) {
+                            Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6  // 3/4
+                        }
+                        if and(iszero(lt(n, 0x06)), lt(n, 0x07)) {
+                            Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66  // 7/8
+                        }
+                        if iszero(or(lt(n, 0x05), or(lt(n, 0x06), lt(n, 0x07)))) {
+                            Y := 0x8000000000000000000000000000000000000000000000000000000000000000  // 1
+                        }
+                    }
+                    if shr(255, M) {
+                        // upper half: thresholds on nibble 0x0a,0x0c,0x0e
+                        if lt(n, 0x0a) {
+                            Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b  // 5/4
+                        }
+                        if and(iszero(lt(n, 0x0a)), lt(n, 0x0c)) {
+                            Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128  // 3/2
+                        }
+                        if and(iszero(lt(n, 0x0c)), lt(n, 0x0e)) {
+                            Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73  // 7/4
+                        }
+                        if iszero(or(lt(n, 0x0a), or(lt(n, 0x0c), lt(n, 0x0e)))) {
+                            Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a  // 2
+                        }
+                    }
+                }
+
+                // ---- 7/8 under-biased Newton steps (Q1.255)
+                let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
+                let inc := add(1, iszero(shr(255, M)))
+
+                // Pre-flight schedule: 5 base + up to 3 gated (minimal branching)
+                Y := rsqrt_step_under(M, Y, TH, inc)
+                Y := rsqrt_step_under(M, Y, TH, inc)
+                Y := rsqrt_step_under(M, Y, TH, inc)
+                Y := rsqrt_step_under(M, Y, TH, inc)
+                Y := rsqrt_step_under(M, Y, TH, inc)
+                /*
+                if gt(e, 62) {
+                    Y := rsqrt_step_under(M, Y, TH, inc)
+                    if gt(e, 122) {
+                        Y := rsqrt_step_under(M, Y, TH, inc)
+                        if gt(e, 241) {
+                            Y := rsqrt_step_under(M, Y, TH, inc)
+                        }
+                    }
+                }
+                */
+                if gt(e, 87) {
+                    Y := rsqrt_step_under(M, Y, TH, inc)
+                    if gt(e, 173) {
+                        Y := rsqrt_step_under(M, Y, TH, inc)
                     }
                 }
 
