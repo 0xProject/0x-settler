@@ -1133,14 +1133,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _shl(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
-        assembly ("memory-safe") {
-            r_hi := or(shl(s, x_hi), shr(sub(0x100, s), x_lo))
-            r_lo := shl(s, x_lo)
-        }
-    }
-
-    function _shl768(uint256 x_hi, uint256 x_lo, uint256 s)
+    function _shl256(uint256 x_hi, uint256 x_lo, uint256 s)
         private
         pure
         returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
@@ -1153,10 +1146,17 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _shr(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _shr256(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_hi := shr(s, x_hi)
             r_lo := or(shl(sub(0x100, s), x_hi), shr(s, x_lo))
+        }
+    }
+
+    function _shr512(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        (r_hi, r_lo) = _shr256(x_hi, x_lo, s);
+        unchecked {
+            r_lo |= x_hi >> s - 256;
         }
     }
 
@@ -1189,8 +1189,8 @@ library Lib512MathArithmetic {
             // (y_hi >> 128 >= 1 << 127) without overflowing.
             s = _clzUpper(y_hi);
             uint256 x_ex;
-            (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
-            (y_hi, y_lo) = _shl(y_hi, y_lo, s);
+            (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
 
             // `n_approx` is the 2 most-significant limbs of x, after
             // normalization
@@ -1234,7 +1234,7 @@ library Lib512MathArithmetic {
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
             // See above comment about the use of a shift instead of division.
             s = _clzLower(y_hi);
-            (y_hi, y_lo) = _shl(y_hi, y_lo, s);
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
             // `y_next` is the second-most-significant, nonzero, normalized limb
             // of y
             uint256 y_next = y_lo >> 128; // TODO: this can probably be optimized (combined with `_shl`)
@@ -1248,7 +1248,7 @@ library Lib512MathArithmetic {
 
                 // Finish normalizing (step D1)
                 uint256 x_ex;
-                (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
+                (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl768`)
                 // As before, `q_hat` is the most significant limb of the
@@ -1314,7 +1314,7 @@ library Lib512MathArithmetic {
                 // x is 3 limbs
 
                 // Finish normalizing (step D1)
-                (x_hi, x_lo) = _shl(x_hi, x_lo, s);
+                (, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 // `q_hat` is the most significant (and only) limb of the
                 // quotient and too high by at most 3 (step D3)
@@ -1346,7 +1346,7 @@ library Lib512MathArithmetic {
 
         // [x_hi x_lo] now represents remainder × 2ˢ (the normalized remainder);
         // we shift right by `s` (un-normalize) to obtain the result.
-        return _shr(x_hi, x_lo, s);
+        return _shr256(x_hi, x_lo, s);
     }
 
     function odivAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
@@ -1440,32 +1440,19 @@ library Lib512MathArithmetic {
         uint256 e;
         // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
         uint256 M;
-        // Y approximates the inverse square root of M
+        // Y approximates the inverse square root of M as a Q1.255
         uint256 Y;
 
-        {
+        unchecked {
             // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
             uint256 twoe = hi == 0 ? 256 - _clzFull(lo) : 512 - _clzFull(hi); // TODO: use `ternary` here on `lo`/`hi`
             twoe &= 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe;
             e = twoe >> 1;
 
+            (, M) = _shr512(hi, lo, twoe - 255);
+            M |= lo << 255 - twoe;
+
             assembly ("memory-safe") {
-                // r = low256( (hi:lo) >> k ), 0 <= k <= 512
-                function shr512To256(ahi, alo, k) -> res {
-                    // For k >= 256: SHR returns 0, SHL(sub(256,k),..) returns 0; only b is live.
-                    // For k < 256: b is 0 (shift >= 256), only a is live.
-                    let a := or(shr(k, alo), shl(sub(256, k), ahi))
-                    let b := shr(sub(k, 256), ahi)
-                    res := or(a, b)
-                }
-
-                // ---- normalization: M = m * 2^(2e), m in [1/2, 2)
-                // Branch-light: only one of these contributes (other path shifts by >=256 -> 0)
-                M := or(
-                    shl(sub(255, twoe), lo),
-                    shr512To256(hi, lo, sub(twoe, 255))    // active when twoe >= 255
-                )
-
                 // ---- 8-bucket LUT by top nibble of M
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
                 //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
