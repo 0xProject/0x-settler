@@ -1562,18 +1562,6 @@ library Lib512MathArithmetic {
                 )
 
                 let Y
-                /*
-                // ---- 6-entry LUT seed: idx = floor(m*4) + 1 = (M >> 253) + 1  in {3..8}
-                let idx := add(shr(253, M), 1)
-                switch idx
-                case 3 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 }
-                case 4 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 }
-                case 5 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b }
-                case 6 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 }
-                case 7 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 }
-                default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // idx == 8
-                */
-
                 // ---- 8-bucket LUT by top nibble (n = (M >> 252) & 0x0f), ≤3 compares in chosen half
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
                 //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
@@ -1601,7 +1589,7 @@ library Lib512MathArithmetic {
                     default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
                 }
 
-                // ---- 7/8 under-biased Newton steps (Q1.255)
+                // ---- 7 under-biased Newton steps (Q1.255)
                 let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
                 let inc := add(1, iszero(shr(255, M)))
 
@@ -1611,17 +1599,6 @@ library Lib512MathArithmetic {
                 Y := rsqrt_step_under(M, Y, TH, inc)
                 Y := rsqrt_step_under(M, Y, TH, inc)
                 Y := rsqrt_step_under(M, Y, TH, inc)
-                /*
-                if gt(e, 62) {
-                    Y := rsqrt_step_under(M, Y, TH, inc)
-                    if gt(e, 122) {
-                        Y := rsqrt_step_under(M, Y, TH, inc)
-                        if gt(e, 241) {
-                            Y := rsqrt_step_under(M, Y, TH, inc)
-                        }
-                    }
-                }
-                */
                 if gt(e, 87) {
                     Y := rsqrt_step_under(M, Y, TH, inc)
                     if gt(e, 173) {
