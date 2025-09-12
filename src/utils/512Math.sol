@@ -1533,10 +1533,10 @@ library Lib512MathArithmetic {
                 e := shr(1, twoe)
             }
 
-            // ======================= Robust under-biased rsqrt step =======================
+            // ======================= under-biased rsqrt Newton-Raphson step =======================
             // Yn = floor( Y * (1.5 - ceil(0.5 * U) ) / 2^255 ),
             // U := ceil(M*Y2_up/2^255) + inc, inc = 1 + [m<1], avoids (M+1) overflow.
-            function rsqrt_step_under(M, Y, TH, inc) -> Yn {
+            function nr_step(M, Y, TH, inc) -> Yn {
                 let Y2_up  := mulShrUp255(Y, Y)          // ceil(Y^2 / 2^255)
                 let MY2_up := mulShrUp255(M, Y2_up)      // ceil(M * Y2_up / 2^255)
                 let U := add(MY2_up, inc)                // inc ∈ {1,2}
@@ -1593,16 +1593,16 @@ library Lib512MathArithmetic {
                 let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
                 let inc := add(1, iszero(shr(255, M)))
 
-                // Pre-flight schedule: 5 base + up to 3 gated (minimal branching)
-                Y := rsqrt_step_under(M, Y, TH, inc)
-                Y := rsqrt_step_under(M, Y, TH, inc)
-                Y := rsqrt_step_under(M, Y, TH, inc)
-                Y := rsqrt_step_under(M, Y, TH, inc)
-                Y := rsqrt_step_under(M, Y, TH, inc)
+                // Pre-flight schedule: 4 base + up to 3 gated (minimal branching)
+                Y := nr_step(M, Y, TH, inc)
+                Y := nr_step(M, Y, TH, inc)
+                Y := nr_step(M, Y, TH, inc)
+                Y := nr_step(M, Y, TH, inc)
+                Y := nr_step(M, Y, TH, inc)
                 if gt(e, 87) {
-                    Y := rsqrt_step_under(M, Y, TH, inc)
+                    Y := nr_step(M, Y, TH, inc)
                     if gt(e, 173) {
-                        Y := rsqrt_step_under(M, Y, TH, inc)
+                        Y := nr_step(M, Y, TH, inc)
                     }
                 }
 
