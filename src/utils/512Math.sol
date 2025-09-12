@@ -1457,7 +1457,7 @@ library Lib512MathArithmetic {
         unchecked {
             // ---------------- Y2_up = ceil(Y^2 / 2^255) ----------------
             (uint256 y2Hi, uint256 y2Lo) = _mul(Y, Y);          // (hi, lo) = Y*Y
-            uint256 q    = (y2Hi << 1) | (y2Lo >> 255);         // floor(/ 2^255)
+            (, uint256 q) = _shr256(y2Hi, y2Lo, 255);           // floor(/ 2^255)
             bool    rem  = (y2Lo << 1) != 0;                    // any of low 255 bits?
             bool y2Is2p256 = (~q == 0).and(rem);                // overflow to 2^256?
 
@@ -1476,7 +1476,7 @@ library Lib512MathArithmetic {
                 (uint256 pHi2, uint256 pLo2) = _add(pHi, pLo, Y2_up);
 
                 // ceil divide by 2^255:  E = floor(P'/2^255) + [low 255 bits != 0]
-                uint256 E = (pHi2 << 1) | (pLo2 >> 255);
+                (, uint256 E) = _shr256(pHi2, pLo2, 255);
                 E = E.unsafeInc(0 < pLo2 << 1);
 
                 // ---------------- H_up = ceil(E / 2) ----------------
@@ -1484,12 +1484,11 @@ library Lib512MathArithmetic {
             }
 
             // ---------------- T = TH - H_up ;  TH = 1.5 * 2^255 (exact) ----------------
-            // 1.5 * 2^255 = 2^255 + 2^254 = 0xC000...000
             uint256 T = 1.5*2**255 - H_up;
 
             // ---------------- Y_next = floor( Y * T / 2^255 ) ----------------
             (uint256 tHi, uint256 tLo) = _mul(Y, T);
-            Y_next = (tHi << 1) | (tLo >> 255);                 // floor(/ 2^255)
+            (, Y_next) = _shr256(tHi, tLo, 255);                // floor(/ 2^255)
         }
     }
 
