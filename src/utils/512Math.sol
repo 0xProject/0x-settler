@@ -1426,7 +1426,7 @@ library Lib512MathArithmetic {
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next = floor(Y * (1.5*2²⁵⁵ - U) ) / 2²⁵⁵)
     ///     U = ceil((M + 1) * ceil(Y²/2²⁵⁵) / 2²⁵⁶)
-    /// This uses "under-biased" rounding to ensure convergence to the floor
+    /// Consistently rounding `Y_next` down ensures that we converge on the lower bound for `Y`.
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             // Y2 = ceil(Y^2 / 2²⁵⁵)
