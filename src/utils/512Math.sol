@@ -1459,7 +1459,7 @@ library Lib512MathArithmetic {
 
             // `e` is half the exponent of `x`
             // e = floor(bitlength(x)/2)
-            uint256 e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
+            uint256 e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi != 0).ternary(x_hi, x_lo).clz()) >> 1;
 
             // Extract mantissa M by shifting x right by (2e - 255) bits
             uint256 twoe = e << 1;
