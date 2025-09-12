@@ -1645,8 +1645,8 @@ library Lib512MathArithmetic {
 
                         // Check Δ < τ7
                         switch lt512(dHi, dLo, t7Hi, t7Lo)
-                        case 0 { r := add(r0, 7) break }
-                        default { r := add(r0, 6) break }
+                        case 0 { r := add(r0, 7) }
+                        default { r := add(r0, 6) }
                     }
                     default {
                         // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
@@ -1659,8 +1659,8 @@ library Lib512MathArithmetic {
 
                         // Check Δ < τ5
                         switch lt512(dHi, dLo, t5Hi2, t5Lo)
-                        case 0 { r := add(r0, 5) break }
-                        default { r := add(r0, 4) break }
+                        case 0 { r := add(r0, 5) }
+                        default { r := add(r0, 4) }
                     }
                 }
                 default {
@@ -1682,8 +1682,8 @@ library Lib512MathArithmetic {
 
                         // Check Δ < τ3
                         switch lt512(dHi, dLo, t3Hi2, t3Lo)
-                        case 0 { r := add(r0, 3) break }
-                        default { r := add(r0, 2) break }
+                        case 0 { r := add(r0, 3) }
+                        default { r := add(r0, 2) }
                     }
                     default {
                         // k ∈ {0,1}.  τ1 = 2r0 + 1
@@ -1691,10 +1691,11 @@ library Lib512MathArithmetic {
                         let t1Hi := add(SHi, lt(t1Lo, SLo))
                         // Check Δ < τ1
                         switch lt512(dHi, dLo, t1Hi, t1Lo)
-                        case 0 { r := add(r0, 1) break }
-                        default { r := r0 break }
+                        case 0 { r := add(r0, 1) }
+                        default { r := r0 }
                     }
                 }
+                break
             }
         }
     }
