@@ -1462,7 +1462,6 @@ library Lib512MathArithmetic {
             uint256 e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
 
             // Extract mantissa M by shifting x right by (2e - 255) bits
-            // This normalizes x = M * 2^(2e) where M ∈ [0.5, 2)
             uint256 twoe = e << 1;
             // `M` is the mantissa of `x`; M ∈ [½, 2)
             (, uint256 M) = _shr512(x_hi, x_lo, twoe - 255);
@@ -1488,6 +1487,7 @@ library Lib512MathArithmetic {
                 // branchless index selection
                 let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
+                // TODO: this needs to be an ACTUAL lookup table, not a glorified long if/else. needs a clever trick
                 switch idx
                 case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
                 case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
