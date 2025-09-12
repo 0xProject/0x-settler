@@ -1454,27 +1454,26 @@ library Lib512MathArithmetic {
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
-        /// First, we normalize `x` by separating it into a mantissa and exponent. We use
-        /// even-exponent normalization.
-        // `e` is half the exponent of `x`
-        uint256 e;
-        // `M` is the mantissa of `x`; M ∈ [½, 2)
-        uint256 M;
-        // `Y` approximates the inverse square root of integer `M` as a Q1.255
-        uint256 Y;
-
-        /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization means
-        /// our mantissa is geometrically symmetric around 1, leading to 4 buckets on each side.
         unchecked {
-            // e = floor(bitlen(N)/2)
-            e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
+            /// First, we normalize `x` by separating it into a mantissa and exponent. We use
+            /// even-exponent normalization.
+
+            // `e` is half the exponent of `x`
+            // e = floor(bitlength(x)/2)
+            uint256 e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
 
             // Extract mantissa M by shifting x right by (2e - 255) bits
             // This normalizes x = M * 2^(2e) where M ∈ [0.5, 2)
             uint256 twoe = e << 1;
-            (, M) = _shr512(x_hi, x_lo, twoe - 255);
+            // `M` is the mantissa of `x`; M ∈ [½, 2)
+            (, uint256 M) = _shr512(x_hi, x_lo, twoe - 255);
             M |= x_lo << 255 - twoe;
 
+            /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization
+            /// means our mantissa is geometrically symmetric around 1, leading to 4 buckets on each
+            /// side.
+            // `Y` approximates the inverse square root of integer `M` as a Q1.255
+            uint256 Y;
             assembly ("memory-safe") {
                 // ---- 8-bucket LUT by top nibble of M
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
@@ -1501,169 +1500,141 @@ library Lib512MathArithmetic {
                 case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
                 default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
             }
-        }
 
-        // Perform 7 under-biased Newton-Raphson iterations
-        // 7 is enough iterations for full convergence within Q1.255
-        {
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            if (e > 173) {
-                // If `e` is small, we can skip the last iteration. This branch is net gas-optimizing
+            // Perform 7 under-biased Newton-Raphson iterations
+            // 7 is enough iterations for full convergence within Q1.255
+            {
                 Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                if (e > 173) {
+                    // If `e` is small, we can skip the last iteration. This branch is net gas-optimizing
+                    Y = _iSqrtNrStep(Y, M);
+                }
             }
-        }
 
-        /// When we combine `Y` with `M` to form our approximation of the square root, we have to
-        /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
-        /// because the half-scale is integer.
+            /// When we combine `Y` with `M` to form our approximation of the square root, we have to
+            /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
+            /// because the half-scale is integer.
 
-        // ---- Combine to LOWER-BOUND candidate:
-        // Y approximates 1/sqrt(M) in Q1.255 format, so M*Y ≈ sqrt(M) * 2^255
-        // We shift right by (510 - e) to account for both the Q1.255 scaling and denormalization
-        // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(sqrt(x) * 2^e / 2^255)
-        (uint256 pHi, uint256 pLo) = _mul(M, Y);
-        (, uint256 r0) = _shr512(pHi, pLo, 510 - e);
+            // ---- Combine to LOWER-BOUND candidate:
+            // Y approximates 1/sqrt(M) in Q1.255 format, so M*Y ≈ sqrt(M) * 2^255
+            // We shift right by (510 - e) to account for both the Q1.255 scaling and denormalization
+            // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(sqrt(x) * 2^e / 2^255)
+            (uint256 pHi, uint256 pLo) = _mul(M, Y);
+            (, uint256 r0) = _shr512(pHi, pLo, 510 - e);
 
-        // ---- Δ = N - r0^2
-        // r0 underestimates sqrt(N), so we need to check if r0 + k is the correct answer
-        // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = N - r0^2
-        (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
-        (uint256 dHi, uint256 dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
+            // ---- Δ = N - r0^2
+            // r0 underestimates sqrt(N), so we need to check if r0 + k is the correct answer
+            // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = N - r0^2
+            (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
+            (uint256 dHi, uint256 dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
 
-        // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-bit adds)
-        // These multiples are used to compute thresholds τk = k²r0 + k²
-        // We split r0 across two 256-bit words to handle overflow from shifts
-        // S = 2*r0
-        uint256 SLo = r0 << 1;
-        uint256 SHi = r0 >> 255;
-        // S2 = 4*r0
-        uint256 S2Lo = r0 << 2;
-        uint256 S2Hi = r0 >> 254;
-        // S4 = 8*r0
-        uint256 S4Lo = r0 << 3;
-        uint256 S4Hi = r0 >> 253;
+            // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-bit adds)
+            // These multiples are used to compute thresholds τk = k²r0 + k²
+            // We split r0 across two 256-bit words to handle overflow from shifts
+            // S = 2*r0
+            uint256 SLo = r0 << 1;
+            uint256 SHi = r0 >> 255;
+            // S2 = 4*r0
+            uint256 S2Lo = r0 << 2;
+            uint256 S2Hi = r0 >> 254;
+            // S4 = 8*r0
+            uint256 S4Lo = r0 << 3;
+            uint256 S4Hi = r0 >> 253;
 
-        // ======================= HYBRID FIXUP =======================
-        // We need to find k such that (r0 + k)² ≤ N < (r0 + k + 1)²
-        // Equivalently: Δ < τ(k+1) where τk = 2kr0 + k²
-        // We use a binary search with one branch at k=4, then branchless within each half
-        // This minimizes both branching and arithmetic operations
+            // ======================= HYBRID FIXUP =======================
+            // We need to find k such that (r0 + k)² ≤ N < (r0 + k + 1)²
+            // Equivalently: Δ < τ(k+1) where τk = 2kr0 + k²
+            // We use a binary search with one branch at k=4, then branchless within each half
+            // This minimizes both branching and arithmetic operations
 
-        // τ4 = 8r0 + 16
-        uint256 t4Lo;
-        uint256 t4Hi;
-        unchecked {
-            t4Lo = S4Lo + 16;
-            t4Hi = S4Hi + (t4Lo < 16).toUint();
-        }
+            // τ4 = 8r0 + 16
+            uint256 t4Lo = S4Lo + 16;
+            uint256 t4Hi = S4Hi + (t4Lo < 16).toUint();
 
-        if (!_lt(dHi, dLo, t4Hi, t4Lo)) {
-            // ---- k ∈ {4,5,6,7} (upper half)
-            // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
-            uint256 t6Lo;
-            uint256 t6Hi;
-            unchecked {
-                t6Lo = S4Lo + S2Lo;
+            if (!_lt(dHi, dLo, t4Hi, t4Lo)) {
+                // ---- k ∈ {4,5,6,7} (upper half)
+                // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
+                uint256 t6Lo = S4Lo + S2Lo;
                 uint256 c6a = (t6Lo < S4Lo).toUint();
-                t6Hi = S4Hi + S2Hi + c6a;
+                uint256 t6Hi = S4Hi + S2Hi + c6a;
                 t6Lo = t6Lo + 36;
                 uint256 c6b = (t6Lo < 36).toUint();
                 t6Hi = t6Hi + c6b;
-            }
 
-            // Δ < τ6 ?
-            if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
-                // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
-                // We build 14r0 by summing our precomputed multiples
-                uint256 t7Lo;
-                uint256 t7Hi;
-                unchecked {
-                    t7Lo = S4Lo + S2Lo;
+                // Δ < τ6 ?
+                if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
+                    // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
+                    // We build 14r0 by summing our precomputed multiples
+                    uint256 t7Lo = S4Lo + S2Lo;
                     uint256 c7a = (t7Lo < S4Lo).toUint();
-                    t7Hi = S4Hi + S2Hi + SHi + c7a;
+                    uint256 t7Hi = S4Hi + S2Hi + SHi + c7a;
                     t7Lo = t7Lo + SLo;
                     uint256 c7b = (t7Lo < SLo).toUint();
                     t7Hi = t7Hi + c7b;
                     t7Lo = t7Lo + 49;
                     uint256 c7c = (t7Lo < 49).toUint();
                     t7Hi = t7Hi + c7c;
-                }
 
-                // Check Δ < τ7
-                if (!_lt(dHi, dLo, t7Hi, t7Lo)) {
-                    r = r0 + 7;
+                    // Check Δ < τ7
+                    if (!_lt(dHi, dLo, t7Hi, t7Lo)) {
+                        r = r0 + 7;
+                    } else {
+                        r = r0 + 6;
+                    }
                 } else {
-                    r = r0 + 6;
-                }
-            } else {
-                // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
-                uint256 t5Lo;
-                uint256 t5Hi;
-                unchecked {
-                    t5Lo = S4Lo + SLo;
+                    // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
+                    uint256 t5Lo = S4Lo + SLo;
                     uint256 c5a = (t5Lo < S4Lo).toUint();
-                    t5Hi = S4Hi + SHi + c5a;
+                    uint256 t5Hi = S4Hi + SHi + c5a;
                     t5Lo = t5Lo + 25;
                     uint256 c5b = (t5Lo < 25).toUint();
                     t5Hi = t5Hi + c5b;
-                }
 
-                // Check Δ < τ5
-                if (!_lt(dHi, dLo, t5Hi, t5Lo)) {
-                    r = r0 + 5;
-                } else {
-                    r = r0 + 4;
+                    // Check Δ < τ5
+                    if (!_lt(dHi, dLo, t5Hi, t5Lo)) {
+                        r = r0 + 5;
+                    } else {
+                        r = r0 + 4;
+                    }
                 }
-            }
-        } else {
-            // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
-            // τ2 = 4r0 + 4
-            uint256 t2Lo;
-            uint256 t2Hi;
-            unchecked {
-                t2Lo = S2Lo + 4;
-                t2Hi = S2Hi + (t2Lo < 4).toUint();
-            }
+            } else {
+                // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
+                // τ2 = 4r0 + 4
+                uint256 t2Lo = S2Lo + 4;
+                uint256 t2Hi = S2Hi + (t2Lo < 4).toUint();
 
-            // Δ < τ2 ?
-            if (!_lt(dHi, dLo, t2Hi, t2Lo)) {
-                // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
-                uint256 t3Lo;
-                uint256 t3Hi;
-                unchecked {
-                    t3Lo = S2Lo + SLo;
+                // Δ < τ2 ?
+                if (!_lt(dHi, dLo, t2Hi, t2Lo)) {
+                    // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
+                    uint256 t3Lo = S2Lo + SLo;
                     uint256 c3a = (t3Lo < S2Lo).toUint();
-                    t3Hi = S2Hi + SHi + c3a;
+                    uint256 t3Hi = S2Hi + SHi + c3a;
                     t3Lo = t3Lo + 9;
                     uint256 c3b = (t3Lo < 9).toUint();
                     t3Hi = t3Hi + c3b;
-                }
 
-                // Check Δ < τ3
-                if (!_lt(dHi, dLo, t3Hi, t3Lo)) {
-                    r = r0 + 3;
+                    // Check Δ < τ3
+                    if (!_lt(dHi, dLo, t3Hi, t3Lo)) {
+                        r = r0 + 3;
+                    } else {
+                        r = r0 + 2;
+                    }
                 } else {
-                    r = r0 + 2;
-                }
-            } else {
-                // k ∈ {0,1}.  τ1 = 2r0 + 1
-                uint256 t1Lo;
-                uint256 t1Hi;
-                unchecked {
-                    t1Lo = SLo + 1;
-                    t1Hi = SHi + (t1Lo < SLo).toUint();
-                }
+                    // k ∈ {0,1}.  τ1 = 2r0 + 1
+                    uint256 t1Lo = SLo + 1;
+                    uint256 t1Hi = SHi + (t1Lo < SLo).toUint();
 
-                // Check Δ < τ1
-                if (!_lt(dHi, dLo, t1Hi, t1Lo)) {
-                    r = r0 + 1;
-                } else {
-                    r = r0;
+                    // Check Δ < τ1
+                    if (!_lt(dHi, dLo, t1Hi, t1Lo)) {
+                        r = r0 + 1;
+                    } else {
+                        r = r0;
+                    }
                 }
             }
         }
