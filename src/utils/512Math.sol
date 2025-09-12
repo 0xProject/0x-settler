@@ -1578,37 +1578,27 @@ library Lib512MathArithmetic {
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
                 //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
                 {
+                    // n = top nibble of M (bits 255..252) ∈ {4..15}
                     let n := shr(252, M)
-                    if iszero(shr(255, M)) {
-                        // lower half: thresholds on nibble 0x05,0x06,0x07
-                        if lt(n, 0x05) {
-                            Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99  // 5/8
-                        }
-                        if and(iszero(lt(n, 0x05)), lt(n, 0x06)) {
-                            Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6  // 3/4
-                        }
-                        if and(iszero(lt(n, 0x06)), lt(n, 0x07)) {
-                            Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66  // 7/8
-                        }
-                        if iszero(or(lt(n, 0x05), or(lt(n, 0x06), lt(n, 0x07)))) {
-                            Y := 0x8000000000000000000000000000000000000000000000000000000000000000  // 1
-                        }
-                    }
-                    if shr(255, M) {
-                        // upper half: thresholds on nibble 0x0a,0x0c,0x0e
-                        if lt(n, 0x0a) {
-                            Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b  // 5/4
-                        }
-                        if and(iszero(lt(n, 0x0a)), lt(n, 0x0c)) {
-                            Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128  // 3/2
-                        }
-                        if and(iszero(lt(n, 0x0c)), lt(n, 0x0e)) {
-                            Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73  // 7/4
-                        }
-                        if iszero(or(lt(n, 0x0a), or(lt(n, 0x0c), lt(n, 0x0e)))) {
-                            Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a  // 2
-                        }
-                    }
+
+                    // Build lower- and upper-half indices
+                    // lower half (n ∈ 4..7):  idx = n - 4  ∈ {0..3}
+                    // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
+                    let lo_idx := sub(n, 4)
+                    let hi_idx  := add(4, shr(1, sub(n, 8)))
+
+                    // Branchless select: idx = lo_idx ^ (msk & (lo_idx ^ hi_idx))
+                    let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(3, n)))
+
+                    switch idx
+                    case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
+                    case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
+                    case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
+                    case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
+                    case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
+                    case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
+                    case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
+                    default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
                 }
 
                 // ---- 7/8 under-biased Newton steps (Q1.255)
