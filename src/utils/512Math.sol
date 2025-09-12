@@ -1438,64 +1438,11 @@ library Lib512MathArithmetic {
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 hi, uint256 lo) = x.into();
 
+        uint256 e;
+        // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
+        uint256 M;
+        uint256 Y;
         assembly ("memory-safe") {
-            // ======================= 256x256 -> 512 (exact) =======================
-            // (hi, lo) = a * b
-            function mul512(a, b) -> rhi, rlo {
-                rlo := mul(a, b)
-                let mm := mulmod(a, b, not(0))
-                rhi := sub(sub(mm, rlo), lt(mm, rlo))   // hi = mm - lo - (mm<lo)
-            }
-
-            // (hi, lo) = x^2
-            function square512(xx) -> rhi, rlo {
-                rlo := mul(xx, xx)
-                let mm := mulmod(xx, xx, not(0))
-                rhi := sub(sub(mm, rlo), lt(mm, rlo))
-            }
-
-            // ======================= 512 -> 256 shifts (branch-light) =======================
-            // r = low256( (hi:lo) >> k ), 0 <= k <= 512
-            function shr512To256(ahi, alo, k) -> res {
-                // For k >= 256: SHR returns 0, SHL(sub(256,k),..) returns 0; only b is live.
-                // For k < 256: b is 0 (shift >= 256), only a is live.
-                let a := or(shr(k, alo), shl(sub(256, k), ahi))
-                let b := shr(sub(k, 256), ahi)
-                res := or(a, b)
-            }
-
-            // ======================= 512-bit add/sub/compare (branch-light) =======================
-            function add512(ahi, alo, bhi, blo) -> rhi, rlo {
-                rlo := add(alo, blo)
-                rhi := add(add(ahi, bhi), lt(rlo, alo))   // carry
-            }
-            function add512Const(ahi, alo, c) -> rhi, rlo {
-                rlo := add(alo, c)
-                rhi := add(ahi, lt(rlo, c))               // carry
-            }
-            function sub512(ahi, alo, bhi, blo) -> rhi, rlo {
-                rlo := sub(alo, blo)
-                rhi := sub(sub(ahi, bhi), lt(alo, blo))   // borrow
-            }
-            function lt512(ahi, alo, bhi, blo) -> res {
-                res := or(lt(ahi, bhi), and(eq(ahi, bhi), lt(alo, blo)))
-            }
-
-            // ======================= Q1.255 multiplies (directed rounding) =======================
-            // floor((a*b) / 2^255)
-            function mulShrDown255(a, b) -> z {
-                let rhi, rlo := mul512(a, b)
-                z := shr512To256(rhi, rlo, 255)
-            }
-            // ceil((a*b) / 2^255)
-            function mulShrUp255(a, b) -> z {
-                let rhi, rlo := mul512(a, b)
-                z := shr512To256(rhi, rlo, 255)
-                // add 1 if any of the low 255 bits of 'lo' are set
-                z := add(z, lt(0, shl(1, rlo)))
-            }
-
-            // ======================= clz256 (branchless; gas-optimized) =======================
             // Returns 0..256; clz256(0)=256. No memory, no loops.
             function clz256(xx) -> rr {
                 rr := shl(7, lt(0xffffffffffffffffffffffffffffffff, xx))
@@ -1515,59 +1462,95 @@ library Lib512MathArithmetic {
                 )
             }
 
-            // ======================= under-biased rsqrt Newton-Raphson step =======================
-            // Yn = floor( Y * (1.5 - ceil(0.5 * U) ) / 2^255 ),
-            // U := ceil(M*Y2_up/2^255) + inc, inc = 1 + [m<1], avoids (M+1) overflow.
-            function nr_step(M, Y, TH, inc) -> Yn {
-                let Y2_up  := mulShrUp255(Y, Y)          // ceil(Y^2 / 2^255)
-                let MY2_up := mulShrUp255(M, Y2_up)      // ceil(M * Y2_up / 2^255)
-                let U := add(MY2_up, inc)                // inc ∈ {1,2}
-                let H_up := shr(1, add(U, 1))            // ceil(U/2)
-                let T_down := sub(TH, H_up)              // 1.5*2^255 - ceil(..)
-                Yn := mulShrDown255(Y, T_down)
+            // r = low256( (hi:lo) >> k ), 0 <= k <= 512
+            function shr512To256(ahi, alo, k) -> res {
+                // For k >= 256: SHR returns 0, SHL(sub(256,k),..) returns 0; only b is live.
+                // For k < 256: b is 0 (shift >= 256), only a is live.
+                let a := or(shr(k, alo), shl(sub(256, k), ahi))
+                let b := shr(sub(k, 256), ahi)
+                res := or(a, b)
             }
 
-            // ======================= Main: exact floor sqrt for 512-bit input =======================
-            // ---- normalization: N = m * 2^(2e), m in [1/2, 2)
             // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
             let twoe
             switch hi
             case 0 { twoe := and(sub(256, clz256(lo)), not(1)) }
             default { twoe := and(sub(512, clz256(hi)), not(1)) }
-            let e := shr(1, twoe)
+            e := shr(1, twoe)
 
-            // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
+            // ---- normalization: M = m * 2^(2e), m in [1/2, 2)
             // Branch-light: only one of these contributes (other path shifts by >=256 -> 0)
-            let M := or(
+            M := or(
                 shl(sub(255, twoe), lo),
                 shr512To256(hi, lo, sub(twoe, 255))    // active when twoe >= 255
             )
 
-            let Y
             // ---- 8-bucket LUT by top nibble of M
             // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
             //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
-            {
-                let n := shr(252, M)
+            let n := shr(252, M)
 
-                // Build lower- and upper-half indices
-                // lower half (n ∈ 4..7):  idx = n - 4  ∈ {0..3}
-                // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
-                let lo_idx := sub(n, 4)
-                let hi_idx  := add(4, shr(1, sub(n, 8)))
+            // Build lower- and upper-half indices
+            // lower half (n ∈ 4..7):  idx = n - 4  ∈ {0..3}
+            // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
+            let lo_idx := sub(n, 4)
+            let hi_idx  := add(4, shr(1, sub(n, 8)))
 
-                // branchless ternary
-                let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(3, n)))
+            // branchless ternary
+            let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(3, n)))
 
-                switch idx
-                case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
-                case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
-                case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
-                case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
-                case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
-                case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
-                case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
-                default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
+            switch idx
+            case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
+            case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
+            case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
+            case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
+            case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
+            case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
+            case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
+            default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
+        }
+
+        assembly ("memory-safe") {
+            // (hi, lo) = a * b
+            function mul512(a, b) -> rhi, rlo {
+                rlo := mul(a, b)
+                let mm := mulmod(a, b, not(0))
+                rhi := sub(sub(mm, rlo), lt(mm, rlo))   // hi = mm - lo - (mm<lo)
+            }
+
+            // r = low256( (hi:lo) >> k ), 0 <= k <= 512
+            function shr512To256(ahi, alo, k) -> res {
+                // For k >= 256: SHR returns 0, SHL(sub(256,k),..) returns 0; only b is live.
+                // For k < 256: b is 0 (shift >= 256), only a is live.
+                let a := or(shr(k, alo), shl(sub(256, k), ahi))
+                let b := shr(sub(k, 256), ahi)
+                res := or(a, b)
+            }
+
+            // ======================= Q1.255 multiplies (directed rounding) =======================
+            // floor((a*b) / 2^255)
+            function mulShrDown255(a, b) -> z {
+                let rhi, rlo := mul512(a, b)
+                z := shr512To256(rhi, rlo, 255)
+            }
+            // ceil((a*b) / 2^255)
+            function mulShrUp255(a, b) -> z {
+                let rhi, rlo := mul512(a, b)
+                z := shr512To256(rhi, rlo, 255)
+                // add 1 if any of the low 255 bits of 'lo' are set
+                z := add(z, lt(0, shl(1, rlo)))
+            }
+
+            // ======================= under-biased rsqrt Newton-Raphson step =======================
+            // Yo = floor( Yi * (1.5 - ceil(0.5 * U) ) / 2^255 ),
+            // U := ceil(Mi*Yi2_up/2^255) + inc, inc = 1 + [m<1], avoids (Mi+1) overflow.
+            function nr_step(Mi, Yi, TH, inc) -> Yo {
+                let Yi2_up  := mulShrUp255(Yi, Yi)       // ceil(Yi^2 / 2^255)
+                let MiYi2_up := mulShrUp255(Mi, Yi2_up)  // ceil(Mi * Yi2_up / 2^255)
+                let U := add(MiYi2_up, inc)              // inc ∈ {1,2}
+                let H_up := shr(1, add(U, 1))            // ceil(U/2)
+                let T_down := sub(TH, H_up)              // 1.5*2^255 - ceil(..)
+                Yo := mulShrDown255(Yi, T_down)
             }
 
             // ---- 7 under-biased Newton steps (Q1.255)
@@ -1583,6 +1566,32 @@ library Lib512MathArithmetic {
             if gt(e, 173) {
                 Y := nr_step(M, Y, TH, inc)
             }
+        }
+
+        assembly ("memory-safe") {
+            // (hi, lo) = a * b
+            function mul512(a, b) -> rhi, rlo {
+                rlo := mul(a, b)
+                let mm := mulmod(a, b, not(0))
+                rhi := sub(sub(mm, rlo), lt(mm, rlo))   // hi = mm - lo - (mm<lo)
+            }
+
+            // r = low256( (hi:lo) >> k ), 0 <= k <= 512
+            function shr512To256(ahi, alo, k) -> res {
+                // For k >= 256: SHR returns 0, SHL(sub(256,k),..) returns 0; only b is live.
+                // For k < 256: b is 0 (shift >= 256), only a is live.
+                let a := or(shr(k, alo), shl(sub(256, k), ahi))
+                let b := shr(sub(k, 256), ahi)
+                res := or(a, b)
+            }
+
+            function sub512(ahi, alo, bhi, blo) -> rhi, rlo {
+                rlo := sub(alo, blo)
+                rhi := sub(sub(ahi, bhi), lt(alo, blo))   // borrow
+            }
+            function lt512(ahi, alo, bhi, blo) -> res {
+                res := or(lt(ahi, bhi), and(eq(ahi, bhi), lt(alo, blo)))
+            }
 
             // ---- Combine to LOWER-BOUND candidate:
             // r0 = floor( (M * Y) / 2^(510 - e) )
@@ -1590,7 +1599,7 @@ library Lib512MathArithmetic {
             let r0 := shr512To256(pHi, pLo, sub(510, e))
 
             // ---- Δ = N - r0^2
-            let r2hi, r2lo := square512(r0)
+            let r2hi, r2lo := mul512(r0, r0)
             let dHi, dLo := sub512(hi, lo, r2hi, r2lo)
 
             // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
