@@ -251,4 +251,11 @@ contract Lib512MathTest is Test {
             1234515505982255149698729514620346575
         );
     }
+
+    function test512Math_sqrt_historicFailure03() external pure {
+        test512Math_sqrt(
+            0xfdd1a74de33135e737432b6ce327f31ace09b8be4d708a8fb483fad552fc320b,
+            0xc624b66cc0138b8fabc209247f72d758e1cf3343756d543badbf24212bed8c16
+        );
+    }
 }

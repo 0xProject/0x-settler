@@ -1457,31 +1457,22 @@ library Lib512MathArithmetic {
         unchecked {
             // ---------------- Y2_up = ceil(Y^2 / 2^255) ----------------
             (uint256 y2Hi, uint256 y2Lo) = _mul(Y, Y);          // (hi, lo) = Y*Y
-            (, uint256 q) = _shr256(y2Hi, y2Lo, 255);           // floor(/ 2^255)
-            bool    rem  = (y2Lo << 1) != 0;                    // any of low 255 bits?
-            bool y2Is2p256 = (~q == 0).and(rem);                // overflow to 2^256?
+            (, uint256 Y2) = _shr256(y2Hi, y2Lo, 255);          // floor(/ 2^255)
+            uint256 Y2_up = Y2.unsafeInc(0 < y2Lo << 1);        // ceil
 
-            uint256 H_up;
-            if (y2Is2p256) {
-                // Y2_up = 2^256  =>  E = ceil(((M+1)*2^256)/2^255) = 2*(M+1)  => H_up = ceil(E/2) = M+1
-                H_up = M + 1;
-            } else {
-                uint256 Y2_up = q.unsafeInc(rem);
+            // ---------------- E = ceil(((M+1) * Y2_up) / 2^255) ----------------
+            // P = M * Y2_up  (512-bit)
+            (uint256 pHi, uint256 pLo) = _mul(M, Y2_up);
 
-                // ---------------- E = ceil(((M+1) * Y2_up) / 2^255) ----------------
-                // P = M * Y2_up  (512-bit)
-                (uint256 pHi, uint256 pLo) = _mul(M, Y2_up);
+            // P' = P + Y2_up  (i.e., (M+1)*Y2_up), 512-bit add
+            (uint256 pHi2, uint256 pLo2) = _add(pHi, pLo, Y2_up);
 
-                // P' = P + Y2_up  (i.e., (M+1)*Y2_up), 512-bit add
-                (uint256 pHi2, uint256 pLo2) = _add(pHi, pLo, Y2_up);
+            // ceil divide by 2^255:  E = floor(P'/2^255) + [low 255 bits != 0]
+            (, uint256 E) = _shr256(pHi2, pLo2, 255);
+            E = E.unsafeInc(0 < pLo2 << 1);
 
-                // ceil divide by 2^255:  E = floor(P'/2^255) + [low 255 bits != 0]
-                (, uint256 E) = _shr256(pHi2, pLo2, 255);
-                E = E.unsafeInc(0 < pLo2 << 1);
-
-                // ---------------- H_up = ceil(E / 2) ----------------
-                H_up = (E + 1) >> 1;
-            }
+            // ---------------- H_up = ceil(E / 2) ----------------
+            uint256 H_up = (E + 1) >> 1;
 
             // ---------------- T = TH - H_up ;  TH = 1.5 * 2^255 (exact) ----------------
             uint256 T = 1.5*2**255 - H_up;
