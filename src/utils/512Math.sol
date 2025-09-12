@@ -1524,27 +1524,27 @@ library Lib512MathArithmetic {
             // Y approximates 1/sqrt(M) in Q1.255 format, so M*Y ≈ sqrt(M) * 2^255
             // We shift right by (510 - e) to account for both the Q1.255 scaling and denormalization
             // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(sqrt(x) * 2^e / 2^255)
-            (uint256 pHi, uint256 pLo) = _mul(M, Y);
-            (, uint256 r0) = _shr512(pHi, pLo, 510 - e);
+            (uint256 p_hi, uint256 p_lo) = _mul(M, Y);
+            (, uint256 r0) = _shr512(p_hi, p_lo, 510 - e);
 
             // ---- Δ = N - r0^2
             // r0 underestimates sqrt(N), so we need to check if r0 + k is the correct answer
             // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = N - r0^2
             (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
-            (uint256 dHi, uint256 dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
+            (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2hi, r2lo);
 
             // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-bit adds)
             // These multiples are used to compute thresholds τk = k²r0 + k²
             // We split r0 across two 256-bit words to handle overflow from shifts
             // S = 2*r0
-            uint256 SLo = r0 << 1;
-            uint256 SHi = r0 >> 255;
+            uint256 S_lo = r0 << 1;
+            uint256 S_hi = r0 >> 255;
             // S2 = 4*r0
-            uint256 S2Lo = r0 << 2;
-            uint256 S2Hi = r0 >> 254;
+            uint256 S2_lo = r0 << 2;
+            uint256 S2_hi = r0 >> 254;
             // S4 = 8*r0
-            uint256 S4Lo = r0 << 3;
-            uint256 S4Hi = r0 >> 253;
+            uint256 S4_lo = r0 << 3;
+            uint256 S4_hi = r0 >> 253;
 
             // ======================= HYBRID FIXUP =======================
             // We need to find k such that (r0 + k)² ≤ N < (r0 + k + 1)²
@@ -1553,52 +1553,52 @@ library Lib512MathArithmetic {
             // This minimizes both branching and arithmetic operations
 
             // τ4 = 8r0 + 16
-            uint256 t4Lo = S4Lo + 16;
-            uint256 t4Hi = S4Hi + (t4Lo < 16).toUint();
+            uint256 t4_lo = S4_lo + 16;
+            uint256 t4_hi = S4_hi + (t4_lo < 16).toUint();
 
-            if (!_lt(dHi, dLo, t4Hi, t4Lo)) {
+            if (!_lt(d_hi, d_lo, t4_hi, t4_lo)) {
                 // ---- k ∈ {4,5,6,7} (upper half)
                 // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
-                (uint256 t6Hi, uint256 t6Lo) = _add(S4Hi, S4Lo, S2Hi, S2Lo);
-                (t6Hi, t6Lo) = _add(t6Hi, t6Lo, 36);
+                (uint256 t6_hi, uint256 t6_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
+                (t6_hi, t6_lo) = _add(t6_hi, t6_lo, 36);
 
                 // Δ < τ6 ?
-                if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
+                if (!_lt(d_hi, d_lo, t6_hi, t6_lo)) {
                     // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
                     // We build 14r0 by summing our precomputed multiples
-                    (uint256 t7Hi, uint256 t7Lo) = _add(S4Hi, S4Lo, S2Hi, S2Lo);
-                    (t7Hi, t7Lo) = _add(t7Hi, t7Lo, SHi, SLo);
-                    (t7Hi, t7Lo) = _add(t7Hi, t7Lo, 49);
+                    (uint256 t7_hi, uint256 t7_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
+                    (t7_hi, t7_lo) = _add(t7_hi, t7_lo, S_hi, S_lo);
+                    (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 49);
 
                     // Check Δ < τ7
-                    r = (r0 + 6).unsafeInc(!_lt(dHi, dLo, t7Hi, t7Lo));
+                    r = (r0 + 6).unsafeInc(!_lt(d_hi, d_lo, t7_hi, t7_lo));
                 } else {
                     // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
-                    (uint256 t5Hi, uint256 t5Lo) = _add(S4Hi, S4Lo, SHi, SLo);
-                    (t5Hi, t5Lo) = _add(t5Hi, t5Lo, 25);
+                    (uint256 t5_hi, uint256 t5_lo) = _add(S4_hi, S4_lo, S_hi, S_lo);
+                    (t5_hi, t5_lo) = _add(t5_hi, t5_lo, 25);
 
                     // Check Δ < τ5
-                    r = (r0 + 4).unsafeInc(!_lt(dHi, dLo, t5Hi, t5Lo));
+                    r = (r0 + 4).unsafeInc(!_lt(d_hi, d_lo, t5_hi, t5_lo));
                 }
             } else {
                 // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
                 // τ2 = 4r0 + 4
-                (uint256 t2Hi, uint256 t2Lo) = _add(S2Hi, S2Lo, 4);
+                (uint256 t2_hi, uint256 t2_lo) = _add(S2_hi, S2_lo, 4);
 
                 // Δ < τ2 ?
-                if (!_lt(dHi, dLo, t2Hi, t2Lo)) {
+                if (!_lt(d_hi, d_lo, t2_hi, t2_lo)) {
                     // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
-                    (uint256 t3Hi, uint256 t3Lo) = _add(S2Hi, S2Lo, SHi, SLo);
-                    (t3Hi, t3Lo) = _add(t3Hi, t3Lo, 9);
+                    (uint256 t3_hi, uint256 t3_lo) = _add(S2_hi, S2_lo, S_hi, S_lo);
+                    (t3_hi, t3_lo) = _add(t3_hi, t3_lo, 9);
 
                     // Check Δ < τ3
-                    r = (r0 + 2).unsafeInc(!_lt(dHi, dLo, t3Hi, t3Lo));
+                    r = (r0 + 2).unsafeInc(!_lt(d_hi, d_lo, t3_hi, t3_lo));
                 } else {
                     // k ∈ {0,1}.  τ1 = 2r0 + 1
-                    (uint256 t1Hi, uint256 t1Lo) = _add(SHi, SLo, 1);
+                    (uint256 t1_hi, uint256 t1_lo) = _add(S_hi, S_lo, 1);
 
                     // Check Δ < τ1
-                    r = r0.unsafeInc(!_lt(dHi, dLo, t1Hi, t1Lo));
+                    r = r0.unsafeInc(!_lt(d_hi, d_lo, t1_hi, t1_lo));
                 }
             }
         }
