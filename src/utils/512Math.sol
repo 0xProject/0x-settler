@@ -1559,37 +1559,23 @@ library Lib512MathArithmetic {
             if (!_lt(dHi, dLo, t4Hi, t4Lo)) {
                 // ---- k ∈ {4,5,6,7} (upper half)
                 // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
-                uint256 t6Lo = S4Lo + S2Lo;
-                uint256 c6a = (t6Lo < S4Lo).toUint();
-                uint256 t6Hi = S4Hi + S2Hi + c6a;
-                t6Lo += 36;
-                uint256 c6b = (t6Lo < 36).toUint();
-                t6Hi += c6b;
+                (uint256 t6Hi, uint256 t6Lo) = _add(S4Hi, S4Lo, S2Hi, S2Lo);
+                (t6Hi, t6Lo) = _add(t6Hi, t6Lo, 36);
 
                 // Δ < τ6 ?
                 if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
                     // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
                     // We build 14r0 by summing our precomputed multiples
-                    uint256 t7Lo = S4Lo + S2Lo;
-                    uint256 c7a = (t7Lo < S4Lo).toUint();
-                    uint256 t7Hi = S4Hi + S2Hi + SHi + c7a;
-                    t7Lo += SLo;
-                    uint256 c7b = (t7Lo < SLo).toUint();
-                    t7Hi += c7b;
-                    t7Lo += 49;
-                    uint256 c7c = (t7Lo < 49).toUint();
-                    t7Hi += c7c;
+                    (uint256 t7Hi, uint256 t7Lo) = _add(S4Hi, S4Lo, S2Hi, S2Lo);
+                    (t7Hi, t7Lo) = _add(t7Hi, t7Lo, SHi, SLo);
+                    (t7Hi, t7Lo) = _add(t7Hi, t7Lo, 49);
 
                     // Check Δ < τ7
                     r = (r0 + 6).unsafeInc(!_lt(dHi, dLo, t7Hi, t7Lo));
                 } else {
                     // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
-                    uint256 t5Lo = S4Lo + SLo;
-                    uint256 c5a = (t5Lo < S4Lo).toUint();
-                    uint256 t5Hi = S4Hi + SHi + c5a;
-                    t5Lo += 25;
-                    uint256 c5b = (t5Lo < 25).toUint();
-                    t5Hi += c5b;
+                    (uint256 t5Hi, uint256 t5Lo) = _add(S4Hi, S4Lo, SHi, SLo);
+                    (t5Hi, t5Lo) = _add(t5Hi, t5Lo, 25);
 
                     // Check Δ < τ5
                     r = (r0 + 4).unsafeInc(!_lt(dHi, dLo, t5Hi, t5Lo));
@@ -1597,25 +1583,19 @@ library Lib512MathArithmetic {
             } else {
                 // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
                 // τ2 = 4r0 + 4
-                uint256 t2Lo = S2Lo + 4;
-                uint256 t2Hi = S2Hi + (t2Lo < 4).toUint();
+                (uint256 t2Hi, uint256 t2Lo) = _add(S2Hi, S2Lo, 4);
 
                 // Δ < τ2 ?
                 if (!_lt(dHi, dLo, t2Hi, t2Lo)) {
                     // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
-                    uint256 t3Lo = S2Lo + SLo;
-                    uint256 c3a = (t3Lo < S2Lo).toUint();
-                    uint256 t3Hi = S2Hi + SHi + c3a;
-                    t3Lo += 9;
-                    uint256 c3b = (t3Lo < 9).toUint();
-                    t3Hi += c3b;
+                    (uint256 t3Hi, uint256 t3Lo) = _add(S2Hi, S2Lo, SHi, SLo);
+                    (t3Hi, t3Lo) = _add(t3Hi, t3Lo, 9);
 
                     // Check Δ < τ3
                     r = (r0 + 2).unsafeInc(!_lt(dHi, dLo, t3Hi, t3Lo));
                 } else {
                     // k ∈ {0,1}.  τ1 = 2r0 + 1
-                    uint256 t1Lo = SLo + 1;
-                    uint256 t1Hi = SHi + (t1Lo < SLo).toUint();
+                    (uint256 t1Hi, uint256 t1Lo) = _add(SHi, SLo, 1);
 
                     // Check Δ < τ1
                     r = r0.unsafeInc(!_lt(dHi, dLo, t1Hi, t1Lo));
