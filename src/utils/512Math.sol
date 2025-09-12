@@ -1151,14 +1151,6 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// 512-bit less-than comparison
-    /// Returns true if (x_hi:x_lo) < (y_hi:y_lo) when interpreted as a 512-bit unsigned integer
-    function _lt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
-        assembly ("memory-safe") {
-            r := or(lt(x_hi, y_hi), and(eq(x_hi, y_hi), lt(x_lo, y_lo)))
-        }
-    }
-
     // This function is a different modification of Knuth's Algorithm D. In this
     // case, we're only interested in the (normalized) remainder instead of the
     // quotient. We also substitute the normalization by division for
@@ -1554,14 +1546,14 @@ library Lib512MathArithmetic {
             // τ4 = 8*r0 + 16
             (uint256 t4_hi, uint256 t4_lo) = _add(S4_hi, S4_lo, 16);
 
-            if (!_lt(d_hi, d_lo, t4_hi, t4_lo)) {
+            if (!_gt(t4_hi, t4_lo, d_hi, d_lo)) {
                 // ---- k ∈ {4,5,6,7} (upper half)
                 // τ6 = 12*r0 + 36 = (8*r0 + 4*r0) + 36
                 (uint256 t6_hi, uint256 t6_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
                 (t6_hi, t6_lo) = _add(t6_hi, t6_lo, 36);
 
                 // Δ < τ6 ?
-                if (!_lt(d_hi, d_lo, t6_hi, t6_lo)) {
+                if (!_gt(t6_hi, t6_lo, d_hi, d_lo)) {
                     // k ∈ {6,7}.  τ7 = 14*r0 + 49 = (8*r0 + 4*r0 + 2*r0) + 49
                     // We build 14*r0 by summing our precomputed multiples
                     (uint256 t7_hi, uint256 t7_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
@@ -1569,14 +1561,14 @@ library Lib512MathArithmetic {
                     (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 49);
 
                     // Δ < τ7 ?
-                    r = (r0 + 6).unsafeInc(!_lt(d_hi, d_lo, t7_hi, t7_lo));
+                    r = (r0 + 6).unsafeInc(!_gt(t7_hi, t7_lo, d_hi, d_lo));
                 } else {
                     // k ∈ {4,5}.  τ5 = 10*r0 + 25 = (8*r0 + 2*r0) + 25
                     (uint256 t5_hi, uint256 t5_lo) = _add(S4_hi, S4_lo, S_hi, S_lo);
                     (t5_hi, t5_lo) = _add(t5_hi, t5_lo, 25);
 
                     // Δ < τ5 ?
-                    r = (r0 + 4).unsafeInc(!_lt(d_hi, d_lo, t5_hi, t5_lo));
+                    r = (r0 + 4).unsafeInc(!_gt(t5_hi, t5_lo, d_hi, d_lo));
                 }
             } else {
                 // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
@@ -1584,19 +1576,19 @@ library Lib512MathArithmetic {
                 (uint256 t2_hi, uint256 t2_lo) = _add(S2_hi, S2_lo, 4);
 
                 // Δ < τ2 ?
-                if (!_lt(d_hi, d_lo, t2_hi, t2_lo)) {
+                if (!_gt(t2_hi, t2_lo, d_hi, d_lo)) {
                     // k ∈ {2,3}.  τ3 = 6*r0 + 9 = (4*r0 + 2*r0) + 9
                     (uint256 t3_hi, uint256 t3_lo) = _add(S2_hi, S2_lo, S_hi, S_lo);
                     (t3_hi, t3_lo) = _add(t3_hi, t3_lo, 9);
 
                     // Δ < τ3 ?
-                    r = (r0 + 2).unsafeInc(!_lt(d_hi, d_lo, t3_hi, t3_lo));
+                    r = (r0 + 2).unsafeInc(!_gt(t3_hi, t3_lo, d_hi, d_lo));
                 } else {
                     // k ∈ {0,1}.  τ1 = 2*r0 + 1
                     (uint256 t1_hi, uint256 t1_lo) = _add(S_hi, S_lo, 1);
 
                     // Δ < τ1 ?
-                    r = r0.unsafeInc(!_lt(d_hi, d_lo, t1_hi, t1_lo));
+                    r = r0.unsafeInc(!_gt(t1_hi, t1_lo, d_hi, d_lo));
                 }
             }
         }
