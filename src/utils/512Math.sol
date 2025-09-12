@@ -1630,24 +1630,23 @@ library Lib512MathArithmetic {
 
                     // Δ < τ6 ?
                     switch lt512(dHi, dLo, t6Hi2, t6Lo)
-                        case 0 {
+                    case 0 {
                         // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
-                        {
-                            let t7Lo := add(S4Lo, S2Lo)
-                            let c7a := lt(t7Lo, S4Lo)
-                            // FIX: include +SHi in the high limb sum
-                            let t7Hi := add(add(add(S4Hi, S2Hi), SHi), c7a)
-                            t7Lo := add(t7Lo, SLo)
-                            let c7b := lt(t7Lo, SLo)
-                            t7Hi := add(t7Hi, c7b)
-                            t7Lo := add(t7Lo, 49)
-                            let c7c := lt(t7Lo, 49)
-                            t7Hi := add(t7Hi, c7c)
+                        let t7Lo := add(S4Lo, S2Lo)
+                        let c7a := lt(t7Lo, S4Lo)
+                        // FIX: include +SHi in the high limb sum
+                        let t7Hi := add(add(add(S4Hi, S2Hi), SHi), c7a)
+                        t7Lo := add(t7Lo, SLo)
+                        let c7b := lt(t7Lo, SLo)
+                        t7Hi := add(t7Hi, c7b)
+                        t7Lo := add(t7Lo, 49)
+                        let c7c := lt(t7Lo, 49)
+                        t7Hi := add(t7Hi, c7c)
 
-                            // Check Δ < τ7
-                            if lt512(dHi, dLo, t7Hi, t7Lo) { r := add(r0, 6) break }
-                            r := add(r0, 7) break
-                        }
+                        // Check Δ < τ7
+                        switch lt512(dHi, dLo, t7Hi, t7Lo)
+                        case 0 { r := add(r0, 7) break }
+                        default { r := add(r0, 6) break }
                     }
                     default {
                         // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
@@ -1659,8 +1658,9 @@ library Lib512MathArithmetic {
                         let t5Hi2 := add(t5Hi, c5b)
 
                         // Check Δ < τ5
-                        if lt512(dHi, dLo, t5Hi2, t5Lo) { r := add(r0, 4) break }
-                        r := add(r0, 5) break
+                        switch lt512(dHi, dLo, t5Hi2, t5Lo)
+                        case 0 { r := add(r0, 5) break }
+                        default { r := add(r0, 4) break }
                     }
                 }
                 default {
@@ -1681,16 +1681,18 @@ library Lib512MathArithmetic {
                         let t3Hi2 := add(t3Hi, c3b)
 
                         // Check Δ < τ3
-                        if lt512(dHi, dLo, t3Hi2, t3Lo) { r := add(r0, 2) break }
-                        r := add(r0, 3) break
+                        switch lt512(dHi, dLo, t3Hi2, t3Lo)
+                        case 0 { r := add(r0, 3) break }
+                        default { r := add(r0, 2) break }
                     }
                     default {
                         // k ∈ {0,1}.  τ1 = 2r0 + 1
                         let t1Lo := add(SLo, 1)
                         let t1Hi := add(SHi, lt(t1Lo, SLo))
                         // Check Δ < τ1
-                        if lt512(dHi, dLo, t1Hi, t1Lo) { r := r0 break }
-                        r := add(r0, 1) break
+                        switch lt512(dHi, dLo, t1Hi, t1Lo)
+                        case 0 { r := add(r0, 1) break }
+                        default { r := r0 break }
                     }
                 }
             }
