@@ -1117,6 +1117,13 @@ library Lib512MathArithmetic {
         return _clzLower(x >> 128);
     }
 
+    function _shl256(uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_hi := shr(sub(0x100, s), x_lo)
+            r_lo := shl(s, x_lo)
+        }
+    }
+
     function _shl256(uint256 x_hi, uint256 x_lo, uint256 s)
         private
         pure
@@ -1537,14 +1544,11 @@ library Lib512MathArithmetic {
             // These multiples are used to compute thresholds τk = k²r0 + k²
             // We split r0 across two 256-bit words to handle overflow from shifts
             // S = 2*r0
-            uint256 S_lo = r0 << 1;
-            uint256 S_hi = r0 >> 255;
+            (uint256 S_hi, uint256 S_lo) = _shl256(r0, 1);
             // S2 = 4*r0
-            uint256 S2_lo = r0 << 2;
-            uint256 S2_hi = r0 >> 254;
+            (uint256 S2_hi, uint256 S2_lo) = _shl256(r0, 2);
             // S4 = 8*r0
-            uint256 S4_lo = r0 << 3;
-            uint256 S4_hi = r0 >> 253;
+            (uint256 S4_hi, uint256 S4_lo) = _shl256(r0, 3);
 
             // ======================= HYBRID FIXUP =======================
             // We need to find k such that (r0 + k)² ≤ N < (r0 + k + 1)²
@@ -1553,8 +1557,7 @@ library Lib512MathArithmetic {
             // This minimizes both branching and arithmetic operations
 
             // τ4 = 8r0 + 16
-            uint256 t4_lo = S4_lo + 16;
-            uint256 t4_hi = S4_hi + (t4_lo < 16).toUint();
+            (uint256 t4_hi, uint256 t4_lo) = _add(S4_hi, S4_lo, 16);
 
             if (!_lt(d_hi, d_lo, t4_hi, t4_lo)) {
                 // ---- k ∈ {4,5,6,7} (upper half)
