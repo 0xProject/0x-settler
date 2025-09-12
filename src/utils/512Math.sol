@@ -1521,18 +1521,6 @@ library Lib512MathArithmetic {
                 )
             }
 
-            // ======================= Robust normalization: compute twoe & e =======================
-            // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
-            function compute_twoe(ahi, alo) -> twoe, e {
-                if ahi {
-                    twoe := and(sub(512, clz256(ahi)), not(1))
-                }
-                if iszero(ahi) {
-                    twoe := and(sub(256, clz256(alo)), not(1))
-                }
-                e := shr(1, twoe)
-            }
-
             // ======================= under-biased rsqrt Newton-Raphson step =======================
             // Yn = floor( Y * (1.5 - ceil(0.5 * U) ) / 2^255 ),
             // U := ceil(M*Y2_up/2^255) + inc, inc = 1 + [m<1], avoids (M+1) overflow.
@@ -1551,8 +1539,17 @@ library Lib512MathArithmetic {
                 // Zero shortcut
                 if iszero(or(ahi, alo)) { res := 0 leave }
 
-                // ---- Robust normalization: N = m * 2^(2e), m in [1/2, 2)
-                let twoe, e := compute_twoe(ahi, alo)
+                // ---- normalization: N = m * 2^(2e), m in [1/2, 2)
+                // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
+                let twoe
+                switch ahi
+                case 0 {
+                    twoe := and(sub(256, clz256(alo)), not(1))
+                }
+                default {
+                    twoe := and(sub(512, clz256(ahi)), not(1))
+                }
+                let e := shr(1, twoe)
 
                 // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
                 // Branch-light: only one of these contributes (other path shifts by >=256 -> 0)
