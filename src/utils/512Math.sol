@@ -1485,8 +1485,7 @@ library Lib512MathArithmetic {
                 let lo_idx := sub(n, 0x04)
                 let hi_idx := add(0x04, shr(0x01, sub(n, 0x08)))
 
-                // Branchless index selection: idx = (n < 8) ? lo_idx : hi_idx
-                // Uses XOR trick: result = b ^ ((a ^ b) * condition)
+                // branchless index selection
                 let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
                 switch idx
