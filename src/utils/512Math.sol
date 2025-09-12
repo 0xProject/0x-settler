@@ -4,6 +4,8 @@ pragma solidity =0.8.25;
 import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
 import {Clz} from "../vendor/Clz.sol";
+import {Ternary} from "./Ternary.sol";
+import {FastLogic} from "./FastLogic.sol";
 
 /*
 
@@ -325,6 +327,8 @@ using {__eq as ==, __gt as >, __lt as <, __ne as !=, __ge as >=, __le as <=} for
 library Lib512MathArithmetic {
     using UnsafeMath for uint256;
     using Clz for uint256;
+    using Ternary for bool;
+    using FastLogic for bool;
 
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         uint256 r_hi;
@@ -1456,8 +1460,8 @@ library Lib512MathArithmetic {
         /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization means
         /// our mantissa is geometrically symmetric around 1, leading to 4 buckets on each side.
         unchecked {
-            // e = floor(bitlen(N)/2); one branch is cheaper than two CLZs.
-            e = (x_hi == 0 ? 256 - x_lo.clz() : 512 - x_hi.clz()) >> 1; // TODO: use `ternary` here on `x_lo`/`x_hi`
+            // e = floor(bitlen(N)/2); branchless using ternary
+            e = (256 + 256 * (x_hi != 0).toUint() - (x_hi == 0).ternary(x_lo, x_hi).clz()) >> 1;
 
             uint256 twoe = e << 1;
             (, M) = _shr512(x_hi, x_lo, twoe - 255);
@@ -1544,7 +1548,7 @@ library Lib512MathArithmetic {
         uint256 t4Hi;
         unchecked {
             t4Lo = S4Lo + 16;
-            t4Hi = S4Hi + (t4Lo < 16 ? 1 : 0);
+            t4Hi = S4Hi + (t4Lo < 16).toUint();
         }
         
         if (!_lt(dHi, dLo, t4Hi, t4Lo)) {
@@ -1554,10 +1558,10 @@ library Lib512MathArithmetic {
             uint256 t6Hi;
             unchecked {
                 t6Lo = S4Lo + S2Lo;
-                uint256 c6a = t6Lo < S4Lo ? 1 : 0;
+                uint256 c6a = (t6Lo < S4Lo).toUint();
                 t6Hi = S4Hi + S2Hi + c6a;
                 t6Lo = t6Lo + 36;
-                uint256 c6b = t6Lo < 36 ? 1 : 0;
+                uint256 c6b = (t6Lo < 36).toUint();
                 t6Hi = t6Hi + c6b;
             }
             
@@ -1568,13 +1572,13 @@ library Lib512MathArithmetic {
                 uint256 t7Hi;
                 unchecked {
                     t7Lo = S4Lo + S2Lo;
-                    uint256 c7a = t7Lo < S4Lo ? 1 : 0;
+                    uint256 c7a = (t7Lo < S4Lo).toUint();
                     t7Hi = S4Hi + S2Hi + SHi + c7a;
                     t7Lo = t7Lo + SLo;
-                    uint256 c7b = t7Lo < SLo ? 1 : 0;
+                    uint256 c7b = (t7Lo < SLo).toUint();
                     t7Hi = t7Hi + c7b;
                     t7Lo = t7Lo + 49;
-                    uint256 c7c = t7Lo < 49 ? 1 : 0;
+                    uint256 c7c = (t7Lo < 49).toUint();
                     t7Hi = t7Hi + c7c;
                 }
                 
@@ -1590,10 +1594,10 @@ library Lib512MathArithmetic {
                 uint256 t5Hi;
                 unchecked {
                     t5Lo = S4Lo + SLo;
-                    uint256 c5a = t5Lo < S4Lo ? 1 : 0;
+                    uint256 c5a = (t5Lo < S4Lo).toUint();
                     t5Hi = S4Hi + SHi + c5a;
                     t5Lo = t5Lo + 25;
-                    uint256 c5b = t5Lo < 25 ? 1 : 0;
+                    uint256 c5b = (t5Lo < 25).toUint();
                     t5Hi = t5Hi + c5b;
                 }
                 
@@ -1611,7 +1615,7 @@ library Lib512MathArithmetic {
             uint256 t2Hi;
             unchecked {
                 t2Lo = S2Lo + 4;
-                t2Hi = S2Hi + (t2Lo < 4 ? 1 : 0);
+                t2Hi = S2Hi + (t2Lo < 4).toUint();
             }
             
             // Δ < τ2 ?
@@ -1621,10 +1625,10 @@ library Lib512MathArithmetic {
                 uint256 t3Hi;
                 unchecked {
                     t3Lo = S2Lo + SLo;
-                    uint256 c3a = t3Lo < S2Lo ? 1 : 0;
+                    uint256 c3a = (t3Lo < S2Lo).toUint();
                     t3Hi = S2Hi + SHi + c3a;
                     t3Lo = t3Lo + 9;
-                    uint256 c3b = t3Lo < 9 ? 1 : 0;
+                    uint256 c3b = (t3Lo < 9).toUint();
                     t3Hi = t3Hi + c3b;
                 }
                 
@@ -1640,7 +1644,7 @@ library Lib512MathArithmetic {
                 uint256 t1Hi;
                 unchecked {
                     t1Lo = SLo + 1;
-                    t1Hi = SHi + (t1Lo < SLo ? 1 : 0);
+                    t1Hi = SHi + (t1Lo < SLo).toUint();
                 }
                 
                 // Check Δ < τ1
