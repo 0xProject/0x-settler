@@ -1440,7 +1440,7 @@ library Lib512MathArithmetic {
 
             // U = ceil((M+1) * Y2 / 2²⁵⁶)
             (uint256 U_hi, uint256 U_lo) = _add(MY2_hi, MY2_lo, Y2); // (hi, lo) = (M+1) * Y2
-            uint256 U = U_hi.unsafeInc(U_lo != 0);                   // ceil(/ 2²⁵⁶)
+            uint256 U = U_hi.unsafeInc(0 < U_lo);                    // ceil(/ 2²⁵⁶)
 
             // T = 1.5*2²⁵⁵ - U
             uint256 T = 1.5*2**255 - U;
