@@ -1432,6 +1432,30 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
+    /// A single Newton-Raphson step for computing the inverse square root
+    ///     Y_next = floor( Y * (1.5 - ceil(U/2) ) / 2²⁵⁵ )
+    ///     U = ceil(M * ceil(Y²/2²⁵⁵) /2²⁵⁵) + 1 + [m<1]
+    function _iSqrtNrStep(uint256 Y, uint256 M, uint256 inc) private pure returns (uint256 Y_next) {
+        unchecked {
+            // Y2 = ceil(Y²/2²⁵⁵)
+            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);
+            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);
+            Y2 = Y2.unsafeInc(0 < Y2_lo << 1);
+
+            // MY2 = ceil(M*Y2/2²⁵⁵)
+            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);
+            (, uint256 MY2) = _shr256(MY2_hi, MY2_lo, 255);
+            MY2 = MY2.unsafeInc(0 < MY2_lo << 1);
+
+            // inc = 2 + [m<1] avoids overflow and rounds `U` up
+            uint256 T = 1.5*2**255 - (MY2 + inc >> 1);
+
+            // Y_next = ceil(Y*T/2²⁵⁵)
+            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);
+            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);
+        }
+    }
+
     /// Compute floor(sqrt(x)) for 512-bit input
     /// Returns the largest uint256 r such that r² ≤ x
     function sqrt(uint512 x) internal pure returns (uint256 r) {
@@ -1444,11 +1468,10 @@ library Lib512MathArithmetic {
         uint256 Y;
 
         unchecked {
-            // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
-            uint256 twoe = hi == 0 ? 256 - _clzFull(lo) : 512 - _clzFull(hi); // TODO: use `ternary` here on `lo`/`hi`
-            twoe &= 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe;
-            e = twoe >> 1;
+            // e = floor(bitlen(N)/2); one branch is cheaper than two CLZs.
+            e = (hi == 0 ? 256 - _clzFull(lo) : 512 - _clzFull(hi)) >> 1; // TODO: use `ternary` here on `lo`/`hi`
 
+            uint256 twoe = e << 1;
             (, M) = _shr512(hi, lo, twoe - 255);
             M |= lo << 255 - twoe;
 
@@ -1479,61 +1502,18 @@ library Lib512MathArithmetic {
             }
         }
 
-        assembly ("memory-safe") {
-            // (hi, lo) = a * b
-            function mul512(a, b) -> rhi, rlo {
-                rlo := mul(a, b)
-                let mm := mulmod(a, b, not(0))
-                rhi := sub(sub(mm, rlo), lt(mm, rlo))   // hi = mm - lo - (mm<lo)
-            }
-
-            // r = low256( (hi:lo) >> k ), 0 <= k <= 512
-            function shr512To256(ahi, alo, k) -> res {
-                // For k >= 256: SHR returns 0, SHL(sub(256,k),..) returns 0; only b is live.
-                // For k < 256: b is 0 (shift >= 256), only a is live.
-                let a := or(shr(k, alo), shl(sub(256, k), ahi))
-                let b := shr(sub(k, 256), ahi)
-                res := or(a, b)
-            }
-
-            // ======================= Q1.255 multiplies (directed rounding) =======================
-            // floor((a*b) / 2^255)
-            function mulShrDown255(a, b) -> z {
-                let rhi, rlo := mul512(a, b)
-                z := shr512To256(rhi, rlo, 255)
-            }
-            // ceil((a*b) / 2^255)
-            function mulShrUp255(a, b) -> z {
-                let rhi, rlo := mul512(a, b)
-                z := shr512To256(rhi, rlo, 255)
-                // add 1 if any of the low 255 bits of 'lo' are set
-                z := add(z, lt(0, shl(1, rlo)))
-            }
-
-            // ======================= under-biased rsqrt Newton-Raphson step =======================
-            // Yo = floor( Yi * (1.5 - ceil(0.5 * U) ) / 2^255 ),
-            // U := ceil(Mi*Yi2_up/2^255) + inc, inc = 1 + [m<1], avoids (Mi+1) overflow.
-            function nr_step(Mi, Yi, TH, inc) -> Yo {
-                let Yi2_up  := mulShrUp255(Yi, Yi)       // ceil(Yi^2 / 2^255)
-                let MiYi2_up := mulShrUp255(Mi, Yi2_up)  // ceil(Mi * Yi2_up / 2^255)
-                let U := add(MiYi2_up, inc)              // inc ∈ {1,2}
-                let H_up := shr(1, add(U, 1))            // ceil(U/2)
-                let T_down := sub(TH, H_up)              // 1.5*2^255 - ceil(..)
-                Yo := mulShrDown255(Yi, T_down)
-            }
-
-            // ---- 7 under-biased Newton steps (Q1.255)
-            let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
-            let inc := add(1, iszero(shr(255, M)))
-
-            Y := nr_step(M, Y, TH, inc)
-            Y := nr_step(M, Y, TH, inc)
-            Y := nr_step(M, Y, TH, inc)
-            Y := nr_step(M, Y, TH, inc)
-            Y := nr_step(M, Y, TH, inc)
-            Y := nr_step(M, Y, TH, inc)
-            if gt(e, 173) {
-                Y := nr_step(M, Y, TH, inc)
+        // Perform 7 under-biased Newton-Raphson iterations
+        {
+            uint256 inc = uint256(2).unsafeInc(M >> 255 == 0);
+            Y = _iSqrtNrStep(Y, M, inc);
+            Y = _iSqrtNrStep(Y, M, inc);
+            Y = _iSqrtNrStep(Y, M, inc);
+            Y = _iSqrtNrStep(Y, M, inc);
+            Y = _iSqrtNrStep(Y, M, inc);
+            Y = _iSqrtNrStep(Y, M, inc);
+            if (e > 173) {
+                // If `e` is small, we can skip the last iteration. This branch is net gas-optimizing
+                Y = _iSqrtNrStep(Y, M, inc);
             }
         }
 
