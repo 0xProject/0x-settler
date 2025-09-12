@@ -1477,7 +1477,7 @@ library Lib512MathArithmetic {
             assembly ("memory-safe") {
                 // ---- 8-bucket LUT by top nibble of M
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
-                //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
+                //          [1,5/4),   [5/4,3/2), [3/2,7/4), [7/4,2)
                 let n := shr(0xfc, M)
 
                 // Build lower- and upper-half indices
