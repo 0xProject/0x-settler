@@ -1437,7 +1437,7 @@ library Lib512MathArithmetic {
             (uint256 MY2, uint256 MY2_carry) = _mul(M, Y2);
             MY2 = MY2.unsafeInc(0 < MY2_carry);
 
-            uint256 T = (1.5*2**255 - 1) - MY2;
+            uint256 T = (1.5 * 2 ** 255 - 1) - MY2;
 
             // Y_next = ceil(Y*T/2²⁵⁵)
             (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);
@@ -1477,19 +1477,26 @@ library Lib512MathArithmetic {
                 // lower half (n ∈ 4..7):  idx = n - 4 ∈ {0..3}
                 // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
                 let lo_idx := sub(n, 0x04)
-                let hi_idx  := add(0x04, shr(0x01, sub(n, 0x08)))
+                let hi_idx := add(0x04, shr(0x01, sub(n, 0x08)))
 
                 // branchless ternary
                 let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
                 switch idx
-                case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
-                case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
-                case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
-                case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
-                case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
-                case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
-                case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
+                case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 }
+                    // 5/8
+                case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 }
+                    // 3/4
+                case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 }
+                    // 7/8
+                case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 }
+                    // 1
+                case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b }
+                    // 5/4
+                case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 }
+                    // 3/2
+                case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 }
+                    // 7/4
                 default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
             }
         }
@@ -1512,7 +1519,7 @@ library Lib512MathArithmetic {
         /// When we combine `Y` with `M` to form our approximation of the square root, we have to
         /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
         /// because the half-scale is integer.
-        
+
         // ---- Combine to LOWER-BOUND candidate:
         // r0 = floor( (M * Y) / 2^(510 - e) )
         uint256 pHi;
@@ -1520,7 +1527,7 @@ library Lib512MathArithmetic {
         (pHi, pLo) = _mul(M, Y);
         uint256 r0;
         (, r0) = _shr512(pHi, pLo, 510 - e);
-        
+
         // ---- Δ = N - r0^2
         uint256 r2hi;
         uint256 r2lo;
@@ -1528,7 +1535,7 @@ library Lib512MathArithmetic {
         uint256 dHi;
         uint256 dLo;
         (dHi, dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
-        
+
         // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
         // S = 2r0
         uint256 SLo = r0 << 1;
@@ -1539,10 +1546,10 @@ library Lib512MathArithmetic {
         // 8r0
         uint256 S4Lo = r0 << 3;
         uint256 S4Hi = r0 >> 253;
-        
+
         // ======================= HYBRID FIXUP =======================
         // Split at τ4 = 8r0 + 16 (1 jump), then finish branch-free in that half.
-        
+
         // τ4 = 8r0 + 16
         uint256 t4Lo;
         uint256 t4Hi;
@@ -1550,7 +1557,7 @@ library Lib512MathArithmetic {
             t4Lo = S4Lo + 16;
             t4Hi = S4Hi + (t4Lo < 16).toUint();
         }
-        
+
         if (!_lt(dHi, dLo, t4Hi, t4Lo)) {
             // ---- k ∈ {4,5,6,7} (upper half)
             // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
@@ -1564,7 +1571,7 @@ library Lib512MathArithmetic {
                 uint256 c6b = (t6Lo < 36).toUint();
                 t6Hi = t6Hi + c6b;
             }
-            
+
             // Δ < τ6 ?
             if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
                 // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
@@ -1581,7 +1588,7 @@ library Lib512MathArithmetic {
                     uint256 c7c = (t7Lo < 49).toUint();
                     t7Hi = t7Hi + c7c;
                 }
-                
+
                 // Check Δ < τ7
                 if (!_lt(dHi, dLo, t7Hi, t7Lo)) {
                     r = r0 + 7;
@@ -1600,7 +1607,7 @@ library Lib512MathArithmetic {
                     uint256 c5b = (t5Lo < 25).toUint();
                     t5Hi = t5Hi + c5b;
                 }
-                
+
                 // Check Δ < τ5
                 if (!_lt(dHi, dLo, t5Hi, t5Lo)) {
                     r = r0 + 5;
@@ -1617,7 +1624,7 @@ library Lib512MathArithmetic {
                 t2Lo = S2Lo + 4;
                 t2Hi = S2Hi + (t2Lo < 4).toUint();
             }
-            
+
             // Δ < τ2 ?
             if (!_lt(dHi, dLo, t2Hi, t2Lo)) {
                 // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
@@ -1631,7 +1638,7 @@ library Lib512MathArithmetic {
                     uint256 c3b = (t3Lo < 9).toUint();
                     t3Hi = t3Hi + c3b;
                 }
-                
+
                 // Check Δ < τ3
                 if (!_lt(dHi, dLo, t3Hi, t3Lo)) {
                     r = r0 + 3;
@@ -1646,7 +1653,7 @@ library Lib512MathArithmetic {
                     t1Lo = SLo + 1;
                     t1Hi = SHi + (t1Lo < SLo).toUint();
                 }
-                
+
                 // Check Δ < τ1
                 if (!_lt(dHi, dLo, t1Hi, t1Lo)) {
                     r = r0 + 1;
