@@ -1456,10 +1456,8 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// Compute floor(sqrt(x)) for 512-bit input
-    /// Returns the largest uint256 r such that r² ≤ x
     function sqrt(uint512 x) internal pure returns (uint256 r) {
-        (uint256 hi, uint256 lo) = x.into();
+        (uint256 x_hi, uint256 x_lo) = x.into();
 
         uint256 e;
         // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
@@ -1469,26 +1467,26 @@ library Lib512MathArithmetic {
 
         unchecked {
             // e = floor(bitlen(N)/2); one branch is cheaper than two CLZs.
-            e = (hi == 0 ? 256 - _clzFull(lo) : 512 - _clzFull(hi)) >> 1; // TODO: use `ternary` here on `lo`/`hi`
+            e = (x_hi == 0 ? 256 - _clzFull(x_lo) : 512 - _clzFull(x_hi)) >> 1; // TODO: use `ternary` here on `x_lo`/`x_hi`
 
             uint256 twoe = e << 1;
-            (, M) = _shr512(hi, lo, twoe - 255);
-            M |= lo << 255 - twoe;
+            (, M) = _shr512(x_hi, x_lo, twoe - 255);
+            M |= x_lo << 255 - twoe;
 
             assembly ("memory-safe") {
                 // ---- 8-bucket LUT by top nibble of M
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
                 //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
-                let n := shr(252, M)
+                let n := shr(0xfc, M)
 
                 // Build lower- and upper-half indices
                 // lower half (n ∈ 4..7):  idx = n - 4  ∈ {0..3}
                 // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
-                let lo_idx := sub(n, 4)
-                let hi_idx  := add(4, shr(1, sub(n, 8)))
+                let lo_idx := sub(n, 0x04)
+                let hi_idx  := add(0x04, shr(0x01, sub(n, 0x08)))
 
                 // branchless ternary
-                let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(3, n)))
+                let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
                 switch idx
                 case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
@@ -1549,7 +1547,7 @@ library Lib512MathArithmetic {
 
             // ---- Δ = N - r0^2
             let r2hi, r2lo := mul512(r0, r0)
-            let dHi, dLo := sub512(hi, lo, r2hi, r2lo)
+            let dHi, dLo := sub512(x_hi, x_lo, r2hi, r2lo)
 
             // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
             // S  = 2r0
