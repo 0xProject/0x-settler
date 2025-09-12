@@ -1589,17 +1589,14 @@ library Lib512MathArithmetic {
                 let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
                 let inc := add(1, iszero(shr(255, M)))
 
-                // Pre-flight schedule: 4 base + up to 3 gated
                 Y := nr_step(M, Y, TH, inc)
                 Y := nr_step(M, Y, TH, inc)
                 Y := nr_step(M, Y, TH, inc)
                 Y := nr_step(M, Y, TH, inc)
                 Y := nr_step(M, Y, TH, inc)
-                if gt(e, 87) {
+                Y := nr_step(M, Y, TH, inc)
+                if gt(e, 173) {
                     Y := nr_step(M, Y, TH, inc)
-                    if gt(e, 173) {
-                        Y := nr_step(M, Y, TH, inc)
-                    }
                 }
 
                 // ---- Combine to LOWER-BOUND candidate:
