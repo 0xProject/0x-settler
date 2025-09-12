@@ -1424,62 +1424,30 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
-    /*
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next = floor(Y * (1.5*2²⁵⁵ - U) ) / 2²⁵⁵)
-    ///     U = ceil(M * ceil(Y²/2²⁵⁵) / 2²⁵⁶) + 1
+    ///     U = ceil((M + 1) * ceil(Y²/2²⁵⁵) / 2²⁵⁶)
     /// This uses "under-biased" rounding to ensure convergence to the floor
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            // Y2 = ceil(Y²/2²⁵⁵)
-            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);
-            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);
-            Y2 = Y2.unsafeInc(0 < Y2_lo << 1);
+            // Y2 = ceil(Y^2 / 2²⁵⁵)
+            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);             // (hi, lo) = Y*Y
+            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);             // floor(/ 2²⁵⁵)
+            Y2 = Y2.unsafeInc(0 < Y2_lo << 1);                       // ceil
 
-            // MY2 = ceil(M*Y2/2²⁵⁶)
-            (uint256 MY2, uint256 MY2_carry) = _mul(M, Y2);
-            MY2 = MY2.unsafeInc(0 < MY2_carry);
+            // MY2 = M * Y2
+            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);
 
-            uint256 T = (1.5 * 2 ** 255 - 1) - MY2;
+            // U = ceil((M+1) * Y2 / 2²⁵⁶)
+            (uint256 U_hi, uint256 U_lo) = _add(MY2_hi, MY2_lo, Y2); // (hi, lo) = (M+1) * Y2
+            uint256 U = U_hi.unsafeInc(U_lo != 0);                   // ceil(/ 2²⁵⁶)
 
-            // Y_next = ceil(Y*T/2²⁵⁵)
-            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);
-            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);
-        }
-    }
-    */
+            // T = 1.5*2²⁵⁵ - U
+            uint256 T = 1.5*2**255 - U;
 
-    /// Under‑biased, *tight* Newton–Raphson step for inverse sqrt in Q1.255.
-    /// This computes H_up using the exact E = ceil(((M+1)*Y2_up)/2^255) without
-    /// ever forming (M+1) and without wide division. It also handles the
-    /// Y2_up = 2^256 overflow case exactly (H_up = M+1).
-    function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            // ---------------- Y2_up = ceil(Y^2 / 2^255) ----------------
-            (uint256 y2Hi, uint256 y2Lo) = _mul(Y, Y);          // (hi, lo) = Y*Y
-            (, uint256 Y2) = _shr256(y2Hi, y2Lo, 255);          // floor(/ 2^255)
-            uint256 Y2_up = Y2.unsafeInc(0 < y2Lo << 1);        // ceil
-
-            // ---------------- E = ceil(((M+1) * Y2_up) / 2^255) ----------------
-            // P = M * Y2_up  (512-bit)
-            (uint256 pHi, uint256 pLo) = _mul(M, Y2_up);
-
-            // P' = P + Y2_up  (i.e., (M+1)*Y2_up), 512-bit add
-            (uint256 pHi2, uint256 pLo2) = _add(pHi, pLo, Y2_up);
-
-            // ceil divide by 2^255:  E = floor(P'/2^255) + [low 255 bits != 0]
-            (, uint256 E) = _shr256(pHi2, pLo2, 255);
-            E = E.unsafeInc(0 < pLo2 << 1);
-
-            // ---------------- H_up = ceil(E / 2) ----------------
-            uint256 H_up = (E + 1) >> 1;
-
-            // ---------------- T = TH - H_up ;  TH = 1.5 * 2^255 (exact) ----------------
-            uint256 T = 1.5*2**255 - H_up;
-
-            // ---------------- Y_next = floor( Y * T / 2^255 ) ----------------
-            (uint256 tHi, uint256 tLo) = _mul(Y, T);
-            (, Y_next) = _shr256(tHi, tLo, 255);                // floor(/ 2^255)
+            // Y_next = floor(Y*T / 2²⁵⁵)
+            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);     // (hi, lo) = Y*T
+            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);         // floor(/ 2²⁵⁵)
         }
     }
 
