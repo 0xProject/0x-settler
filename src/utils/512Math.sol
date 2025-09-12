@@ -1528,174 +1528,166 @@ library Lib512MathArithmetic {
             }
 
             // ======================= Main: exact floor sqrt for 512-bit input =======================
-            // Returns floor( sqrt( (hi<<256) | lo ) )
-            for {} true {} {
-                // ---- normalization: N = m * 2^(2e), m in [1/2, 2)
-                // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
-                let twoe
-                switch hi
+            // ---- normalization: N = m * 2^(2e), m in [1/2, 2)
+            // twoe = 2*floor(bitlen(N)/2); one branch is cheaper than two CLZs.
+            let twoe
+            switch hi
+            case 0 { twoe := and(sub(256, clz256(lo)), not(1)) }
+            default { twoe := and(sub(512, clz256(hi)), not(1)) }
+            let e := shr(1, twoe)
+
+            // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
+            // Branch-light: only one of these contributes (other path shifts by >=256 -> 0)
+            let M := or(
+                shl(sub(255, twoe), lo),
+                shr512To256(hi, lo, sub(twoe, 255))    // active when twoe >= 255
+            )
+
+            let Y
+            // ---- 8-bucket LUT by top nibble of M
+            // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
+            //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
+            {
+                let n := shr(252, M)
+
+                // Build lower- and upper-half indices
+                // lower half (n ∈ 4..7):  idx = n - 4  ∈ {0..3}
+                // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
+                let lo_idx := sub(n, 4)
+                let hi_idx  := add(4, shr(1, sub(n, 8)))
+
+                // branchless ternary
+                let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(3, n)))
+
+                switch idx
+                case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
+                case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
+                case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
+                case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
+                case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
+                case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
+                case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
+                default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
+            }
+
+            // ---- 7 under-biased Newton steps (Q1.255)
+            let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
+            let inc := add(1, iszero(shr(255, M)))
+
+            Y := nr_step(M, Y, TH, inc)
+            Y := nr_step(M, Y, TH, inc)
+            Y := nr_step(M, Y, TH, inc)
+            Y := nr_step(M, Y, TH, inc)
+            Y := nr_step(M, Y, TH, inc)
+            Y := nr_step(M, Y, TH, inc)
+            if gt(e, 173) {
+                Y := nr_step(M, Y, TH, inc)
+            }
+
+            // ---- Combine to LOWER-BOUND candidate:
+            // r0 = floor( (M * Y) / 2^(510 - e) )
+            let pHi, pLo := mul512(M, Y)
+            let r0 := shr512To256(pHi, pLo, sub(510, e))
+
+            // ---- Δ = N - r0^2
+            let r2hi, r2lo := square512(r0)
+            let dHi, dLo := sub512(hi, lo, r2hi, r2lo)
+
+            // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
+            // S  = 2r0
+            let SLo := shl(1, r0)
+            let SHi := shr(255, r0)
+            // 4r0
+            let S2Lo := shl(2, r0)
+            let S2Hi := shr(254, r0)
+            // 8r0
+            let S4Lo := shl(3, r0)
+            let S4Hi := shr(253, r0)
+
+            // ======================= HYBRID FIXUP =======================
+            // Split at τ4 = 8r0 + 16 (1 jump), then finish branch-free in that half.
+
+            // τ4 = 8r0 + 16
+            let t4Lo := add(S4Lo, 16)
+            let t4Hi := add(S4Hi, lt(t4Lo, 16))
+
+            switch lt512(dHi, dLo, t4Hi, t4Lo)
+            case 0 {
+                // ---- k ∈ {4,5,6,7} (upper half)
+                // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
+                let t6Lo := add(S4Lo, S2Lo)
+                let c6a := lt(t6Lo, S4Lo)
+                let t6Hi := add(add(S4Hi, S2Hi), c6a)
+                t6Lo := add(t6Lo, 36)
+                let c6b := lt(t6Lo, 36)
+                let t6Hi2 := add(t6Hi, c6b)
+
+                // Δ < τ6 ?
+                switch lt512(dHi, dLo, t6Hi2, t6Lo)
                 case 0 {
-                    twoe := and(sub(256, clz256(lo)), not(1))
+                    // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
+                    let t7Lo := add(S4Lo, S2Lo)
+                    let c7a := lt(t7Lo, S4Lo)
+                    // FIX: include +SHi in the high limb sum
+                    let t7Hi := add(add(add(S4Hi, S2Hi), SHi), c7a)
+                    t7Lo := add(t7Lo, SLo)
+                    let c7b := lt(t7Lo, SLo)
+                    t7Hi := add(t7Hi, c7b)
+                    t7Lo := add(t7Lo, 49)
+                    let c7c := lt(t7Lo, 49)
+                    t7Hi := add(t7Hi, c7c)
+
+                    // Check Δ < τ7
+                    switch lt512(dHi, dLo, t7Hi, t7Lo)
+                    case 0 { r := add(r0, 7) }
+                    default { r := add(r0, 6) }
                 }
                 default {
-                    twoe := and(sub(512, clz256(hi)), not(1))
+                    // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
+                    let t5Lo := add(S4Lo, SLo)
+                    let c5a := lt(t5Lo, S4Lo)
+                    let t5Hi := add(add(S4Hi, SHi), c5a)
+                    t5Lo := add(t5Lo, 25)
+                    let c5b := lt(t5Lo, 25)
+                    let t5Hi2 := add(t5Hi, c5b)
+
+                    // Check Δ < τ5
+                    switch lt512(dHi, dLo, t5Hi2, t5Lo)
+                    case 0 { r := add(r0, 5) }
+                    default { r := add(r0, 4) }
                 }
-                let e := shr(1, twoe)
+            }
+            default {
+                // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
+                // τ2 = 4r0 + 4
+                let t2Lo := add(S2Lo, 4)
+                let t2Hi := add(S2Hi, lt(t2Lo, 4))
 
-                // M = floor( m * 2^255 ) = floor( N * 2^(255 - twoe) )
-                // Branch-light: only one of these contributes (other path shifts by >=256 -> 0)
-                let M := or(
-                    shl(sub(255, twoe), lo),
-                    shr512To256(hi, lo, sub(twoe, 255))    // active when twoe >= 255
-                )
-
-                let Y
-                // ---- 8-bucket LUT by top nibble of M
-                // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
-                //          [1,5/4),  [5/4,3/2),  [3/2,7/4),  [7/4,2)
-                {
-                    let n := shr(252, M)
-
-                    // Build lower- and upper-half indices
-                    // lower half (n ∈ 4..7):  idx = n - 4  ∈ {0..3}
-                    // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
-                    let lo_idx := sub(n, 4)
-                    let hi_idx  := add(4, shr(1, sub(n, 8)))
-
-                    // branchless ternary
-                    let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(3, n)))
-
-                    switch idx
-                    case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
-                    case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
-                    case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
-                    case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
-                    case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
-                    case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
-                    case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
-                    default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
-                }
-
-                // ---- 7 under-biased Newton steps (Q1.255)
-                let TH := 0xc000000000000000000000000000000000000000000000000000000000000000 // 1.5 * 2^255
-                let inc := add(1, iszero(shr(255, M)))
-
-                Y := nr_step(M, Y, TH, inc)
-                Y := nr_step(M, Y, TH, inc)
-                Y := nr_step(M, Y, TH, inc)
-                Y := nr_step(M, Y, TH, inc)
-                Y := nr_step(M, Y, TH, inc)
-                Y := nr_step(M, Y, TH, inc)
-                if gt(e, 173) {
-                    Y := nr_step(M, Y, TH, inc)
-                }
-
-                // ---- Combine to LOWER-BOUND candidate:
-                // r0 = floor( (M * Y) / 2^(510 - e) )
-                let pHi, pLo := mul512(M, Y)
-                let r0 := shr512To256(pHi, pLo, sub(510, e))
-
-                // ---- Δ = N - r0^2
-                let r2hi, r2lo := square512(r0)
-                let dHi, dLo := sub512(hi, lo, r2hi, r2lo)
-
-                // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
-                // S  = 2r0
-                let SLo := shl(1, r0)
-                let SHi := shr(255, r0)
-                // 4r0
-                let S2Lo := shl(2, r0)
-                let S2Hi := shr(254, r0)
-                // 8r0
-                let S4Lo := shl(3, r0)
-                let S4Hi := shr(253, r0)
-
-                // ======================= HYBRID FIXUP =======================
-                // Split at τ4 = 8r0 + 16 (1 jump), then finish branch-free in that half.
-
-                // τ4 = 8r0 + 16
-                let t4Lo := add(S4Lo, 16)
-                let t4Hi := add(S4Hi, lt(t4Lo, 16))
-
-                switch lt512(dHi, dLo, t4Hi, t4Lo)
+                // Δ < τ2 ?
+                switch lt512(dHi, dLo, t2Hi, t2Lo)
                 case 0 {
-                    // ---- k ∈ {4,5,6,7} (upper half)
-                    // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
-                    let t6Lo := add(S4Lo, S2Lo)
-                    let c6a := lt(t6Lo, S4Lo)
-                    let t6Hi := add(add(S4Hi, S2Hi), c6a)
-                    t6Lo := add(t6Lo, 36)
-                    let c6b := lt(t6Lo, 36)
-                    let t6Hi2 := add(t6Hi, c6b)
+                    // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
+                    let t3Lo := add(S2Lo, SLo)
+                    let c3a := lt(t3Lo, S2Lo)
+                    let t3Hi := add(add(S2Hi, SHi), c3a)
+                    t3Lo := add(t3Lo, 9)
+                    let c3b := lt(t3Lo, 9)
+                    let t3Hi2 := add(t3Hi, c3b)
 
-                    // Δ < τ6 ?
-                    switch lt512(dHi, dLo, t6Hi2, t6Lo)
-                    case 0 {
-                        // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
-                        let t7Lo := add(S4Lo, S2Lo)
-                        let c7a := lt(t7Lo, S4Lo)
-                        // FIX: include +SHi in the high limb sum
-                        let t7Hi := add(add(add(S4Hi, S2Hi), SHi), c7a)
-                        t7Lo := add(t7Lo, SLo)
-                        let c7b := lt(t7Lo, SLo)
-                        t7Hi := add(t7Hi, c7b)
-                        t7Lo := add(t7Lo, 49)
-                        let c7c := lt(t7Lo, 49)
-                        t7Hi := add(t7Hi, c7c)
-
-                        // Check Δ < τ7
-                        switch lt512(dHi, dLo, t7Hi, t7Lo)
-                        case 0 { r := add(r0, 7) }
-                        default { r := add(r0, 6) }
-                    }
-                    default {
-                        // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
-                        let t5Lo := add(S4Lo, SLo)
-                        let c5a := lt(t5Lo, S4Lo)
-                        let t5Hi := add(add(S4Hi, SHi), c5a)
-                        t5Lo := add(t5Lo, 25)
-                        let c5b := lt(t5Lo, 25)
-                        let t5Hi2 := add(t5Hi, c5b)
-
-                        // Check Δ < τ5
-                        switch lt512(dHi, dLo, t5Hi2, t5Lo)
-                        case 0 { r := add(r0, 5) }
-                        default { r := add(r0, 4) }
-                    }
+                    // Check Δ < τ3
+                    switch lt512(dHi, dLo, t3Hi2, t3Lo)
+                    case 0 { r := add(r0, 3) }
+                    default { r := add(r0, 2) }
                 }
                 default {
-                    // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
-                    // τ2 = 4r0 + 4
-                    let t2Lo := add(S2Lo, 4)
-                    let t2Hi := add(S2Hi, lt(t2Lo, 4))
-
-                    // Δ < τ2 ?
-                    switch lt512(dHi, dLo, t2Hi, t2Lo)
-                    case 0 {
-                        // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
-                        let t3Lo := add(S2Lo, SLo)
-                        let c3a := lt(t3Lo, S2Lo)
-                        let t3Hi := add(add(S2Hi, SHi), c3a)
-                        t3Lo := add(t3Lo, 9)
-                        let c3b := lt(t3Lo, 9)
-                        let t3Hi2 := add(t3Hi, c3b)
-
-                        // Check Δ < τ3
-                        switch lt512(dHi, dLo, t3Hi2, t3Lo)
-                        case 0 { r := add(r0, 3) }
-                        default { r := add(r0, 2) }
-                    }
-                    default {
-                        // k ∈ {0,1}.  τ1 = 2r0 + 1
-                        let t1Lo := add(SLo, 1)
-                        let t1Hi := add(SHi, lt(t1Lo, SLo))
-                        // Check Δ < τ1
-                        switch lt512(dHi, dLo, t1Hi, t1Lo)
-                        case 0 { r := add(r0, 1) }
-                        default { r := r0 }
-                    }
+                    // k ∈ {0,1}.  τ1 = 2r0 + 1
+                    let t1Lo := add(SLo, 1)
+                    let t1Hi := add(SHi, lt(t1Lo, SLo))
+                    // Check Δ < τ1
+                    switch lt512(dHi, dLo, t1Hi, t1Lo)
+                    case 0 { r := add(r0, 1) }
+                    default { r := r0 }
                 }
-                break
             }
         }
     }
