@@ -1113,26 +1113,6 @@ library Lib512MathArithmetic {
         return _clzLower(x >> 128);
     }
 
-    function _clzFull(uint256 x) private pure returns (uint256 r) {
-        assembly ("memory-safe") {
-            r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
-            r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
-            r := or(r, shl(5, lt(0xffffffff, shr(r, x))))
-            r := or(r, shl(4, lt(0xffff, shr(r, x))))
-            r := or(r, shl(3, lt(0xff, shr(r, x))))
-            r := add(
-                xor(
-                    r,
-                    byte(
-                        and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                        0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff
-                    )
-                ),
-                iszero(x)
-            )
-        }
-    }
-
     function _shl256(uint256 x_hi, uint256 x_lo, uint256 s)
         private
         pure
@@ -1464,7 +1444,7 @@ library Lib512MathArithmetic {
 
         unchecked {
             // e = floor(bitlen(N)/2); one branch is cheaper than two CLZs.
-            e = (x_hi == 0 ? 256 - _clzFull(x_lo) : 512 - _clzFull(x_hi)) >> 1; // TODO: use `ternary` here on `x_lo`/`x_hi`
+            e = (x_hi == 0 ? 256 - x_lo.clz() : 512 - x_hi.clz()) >> 1; // TODO: use `ternary` here on `x_lo`/`x_hi`
 
             uint256 twoe = e << 1;
             (, M) = _shr512(x_hi, x_lo, twoe - 255);
