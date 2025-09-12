@@ -1140,6 +1140,13 @@ library Lib512MathArithmetic {
         }
     }
 
+    /// 512-bit less-than comparison
+    function _lt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := or(lt(x_hi, y_hi), and(eq(x_hi, y_hi), lt(x_lo, y_lo)))
+        }
+    }
+
     // This function is a different modification of Knuth's Algorithm D. In this
     // case, we're only interested in the (normalized) remainder instead of the
     // quotient. We also substitute the normalization by division for
@@ -1501,134 +1508,146 @@ library Lib512MathArithmetic {
         /// When we combine `Y` with `M` to form our approximation of the square root, we have to
         /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
         /// because the half-scale is integer.
-        assembly ("memory-safe") {
-            // (hi, lo) = a * b
-            function mul512(a, b) -> rhi, rlo {
-                rlo := mul(a, b)
-                let mm := mulmod(a, b, not(0))
-                rhi := sub(sub(mm, rlo), lt(mm, rlo))   // hi = mm - lo - (mm<lo)
+        
+        // ---- Combine to LOWER-BOUND candidate:
+        // r0 = floor( (M * Y) / 2^(510 - e) )
+        uint256 pHi;
+        uint256 pLo;
+        (pHi, pLo) = _mul(M, Y);
+        uint256 r0;
+        (, r0) = _shr512(pHi, pLo, 510 - e);
+        
+        // ---- Δ = N - r0^2
+        uint256 r2hi;
+        uint256 r2lo;
+        (r2hi, r2lo) = _mul(r0, r0);
+        uint256 dHi;
+        uint256 dLo;
+        (dHi, dLo) = _sub(x_hi, x_lo, r2hi, r2lo);
+        
+        // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
+        // S = 2r0
+        uint256 SLo = r0 << 1;
+        uint256 SHi = r0 >> 255;
+        // 4r0
+        uint256 S2Lo = r0 << 2;
+        uint256 S2Hi = r0 >> 254;
+        // 8r0
+        uint256 S4Lo = r0 << 3;
+        uint256 S4Hi = r0 >> 253;
+        
+        // ======================= HYBRID FIXUP =======================
+        // Split at τ4 = 8r0 + 16 (1 jump), then finish branch-free in that half.
+        
+        // τ4 = 8r0 + 16
+        uint256 t4Lo;
+        uint256 t4Hi;
+        unchecked {
+            t4Lo = S4Lo + 16;
+            t4Hi = S4Hi + (t4Lo < 16 ? 1 : 0);
+        }
+        
+        if (!_lt(dHi, dLo, t4Hi, t4Lo)) {
+            // ---- k ∈ {4,5,6,7} (upper half)
+            // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
+            uint256 t6Lo;
+            uint256 t6Hi;
+            unchecked {
+                t6Lo = S4Lo + S2Lo;
+                uint256 c6a = t6Lo < S4Lo ? 1 : 0;
+                t6Hi = S4Hi + S2Hi + c6a;
+                t6Lo = t6Lo + 36;
+                uint256 c6b = t6Lo < 36 ? 1 : 0;
+                t6Hi = t6Hi + c6b;
             }
-
-            // r = low256( (hi:lo) >> k ), 0 <= k <= 512
-            function shr512To256(ahi, alo, k) -> res {
-                // For k >= 256: SHR returns 0, SHL(sub(256,k),..) returns 0; only b is live.
-                // For k < 256: b is 0 (shift >= 256), only a is live.
-                let a := or(shr(k, alo), shl(sub(256, k), ahi))
-                let b := shr(sub(k, 256), ahi)
-                res := or(a, b)
-            }
-
-            function sub512(ahi, alo, bhi, blo) -> rhi, rlo {
-                rlo := sub(alo, blo)
-                rhi := sub(sub(ahi, bhi), lt(alo, blo))   // borrow
-            }
-            function lt512(ahi, alo, bhi, blo) -> res {
-                res := or(lt(ahi, bhi), and(eq(ahi, bhi), lt(alo, blo)))
-            }
-
-            // ---- Combine to LOWER-BOUND candidate:
-            // r0 = floor( (M * Y) / 2^(510 - e) )
-            let pHi, pLo := mul512(M, Y)
-            let r0 := shr512To256(pHi, pLo, sub(510, e))
-
-            // ---- Δ = N - r0^2
-            let r2hi, r2lo := mul512(r0, r0)
-            let dHi, dLo := sub512(x_hi, x_lo, r2hi, r2lo)
-
-            // ---- Precompute 2r0, 4r0, 8r0 by shifts (cheaper than 512-adds)
-            // S  = 2r0
-            let SLo := shl(1, r0)
-            let SHi := shr(255, r0)
-            // 4r0
-            let S2Lo := shl(2, r0)
-            let S2Hi := shr(254, r0)
-            // 8r0
-            let S4Lo := shl(3, r0)
-            let S4Hi := shr(253, r0)
-
-            // ======================= HYBRID FIXUP =======================
-            // Split at τ4 = 8r0 + 16 (1 jump), then finish branch-free in that half.
-
-            // τ4 = 8r0 + 16
-            let t4Lo := add(S4Lo, 16)
-            let t4Hi := add(S4Hi, lt(t4Lo, 16))
-
-            switch lt512(dHi, dLo, t4Hi, t4Lo)
-            case 0 {
-                // ---- k ∈ {4,5,6,7} (upper half)
-                // τ6 = 12r0 + 36 = (8r0 + 4r0) + 36
-                let t6Lo := add(S4Lo, S2Lo)
-                let c6a := lt(t6Lo, S4Lo)
-                let t6Hi := add(add(S4Hi, S2Hi), c6a)
-                t6Lo := add(t6Lo, 36)
-                let c6b := lt(t6Lo, 36)
-                let t6Hi2 := add(t6Hi, c6b)
-
-                // Δ < τ6 ?
-                switch lt512(dHi, dLo, t6Hi2, t6Lo)
-                case 0 {
-                    // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
-                    let t7Lo := add(S4Lo, S2Lo)
-                    let c7a := lt(t7Lo, S4Lo)
-                    // FIX: include +SHi in the high limb sum
-                    let t7Hi := add(add(add(S4Hi, S2Hi), SHi), c7a)
-                    t7Lo := add(t7Lo, SLo)
-                    let c7b := lt(t7Lo, SLo)
-                    t7Hi := add(t7Hi, c7b)
-                    t7Lo := add(t7Lo, 49)
-                    let c7c := lt(t7Lo, 49)
-                    t7Hi := add(t7Hi, c7c)
-
-                    // Check Δ < τ7
-                    switch lt512(dHi, dLo, t7Hi, t7Lo)
-                    case 0 { r := add(r0, 7) }
-                    default { r := add(r0, 6) }
+            
+            // Δ < τ6 ?
+            if (!_lt(dHi, dLo, t6Hi, t6Lo)) {
+                // k ∈ {6,7}.  τ7 = 14r0 + 49 = (8r0 + 4r0 + 2r0) + 49
+                uint256 t7Lo;
+                uint256 t7Hi;
+                unchecked {
+                    t7Lo = S4Lo + S2Lo;
+                    uint256 c7a = t7Lo < S4Lo ? 1 : 0;
+                    t7Hi = S4Hi + S2Hi + SHi + c7a;
+                    t7Lo = t7Lo + SLo;
+                    uint256 c7b = t7Lo < SLo ? 1 : 0;
+                    t7Hi = t7Hi + c7b;
+                    t7Lo = t7Lo + 49;
+                    uint256 c7c = t7Lo < 49 ? 1 : 0;
+                    t7Hi = t7Hi + c7c;
                 }
-                default {
-                    // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
-                    let t5Lo := add(S4Lo, SLo)
-                    let c5a := lt(t5Lo, S4Lo)
-                    let t5Hi := add(add(S4Hi, SHi), c5a)
-                    t5Lo := add(t5Lo, 25)
-                    let c5b := lt(t5Lo, 25)
-                    let t5Hi2 := add(t5Hi, c5b)
-
-                    // Check Δ < τ5
-                    switch lt512(dHi, dLo, t5Hi2, t5Lo)
-                    case 0 { r := add(r0, 5) }
-                    default { r := add(r0, 4) }
+                
+                // Check Δ < τ7
+                if (!_lt(dHi, dLo, t7Hi, t7Lo)) {
+                    r = r0 + 7;
+                } else {
+                    r = r0 + 6;
+                }
+            } else {
+                // k ∈ {4,5}.  τ5 = 10r0 + 25 = (8r0 + 2r0) + 25
+                uint256 t5Lo;
+                uint256 t5Hi;
+                unchecked {
+                    t5Lo = S4Lo + SLo;
+                    uint256 c5a = t5Lo < S4Lo ? 1 : 0;
+                    t5Hi = S4Hi + SHi + c5a;
+                    t5Lo = t5Lo + 25;
+                    uint256 c5b = t5Lo < 25 ? 1 : 0;
+                    t5Hi = t5Hi + c5b;
+                }
+                
+                // Check Δ < τ5
+                if (!_lt(dHi, dLo, t5Hi, t5Lo)) {
+                    r = r0 + 5;
+                } else {
+                    r = r0 + 4;
                 }
             }
-            default {
-                // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
-                // τ2 = 4r0 + 4
-                let t2Lo := add(S2Lo, 4)
-                let t2Hi := add(S2Hi, lt(t2Lo, 4))
-
-                // Δ < τ2 ?
-                switch lt512(dHi, dLo, t2Hi, t2Lo)
-                case 0 {
-                    // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
-                    let t3Lo := add(S2Lo, SLo)
-                    let c3a := lt(t3Lo, S2Lo)
-                    let t3Hi := add(add(S2Hi, SHi), c3a)
-                    t3Lo := add(t3Lo, 9)
-                    let c3b := lt(t3Lo, 9)
-                    let t3Hi2 := add(t3Hi, c3b)
-
-                    // Check Δ < τ3
-                    switch lt512(dHi, dLo, t3Hi2, t3Lo)
-                    case 0 { r := add(r0, 3) }
-                    default { r := add(r0, 2) }
+        } else {
+            // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
+            // τ2 = 4r0 + 4
+            uint256 t2Lo;
+            uint256 t2Hi;
+            unchecked {
+                t2Lo = S2Lo + 4;
+                t2Hi = S2Hi + (t2Lo < 4 ? 1 : 0);
+            }
+            
+            // Δ < τ2 ?
+            if (!_lt(dHi, dLo, t2Hi, t2Lo)) {
+                // k ∈ {2,3}.  τ3 = 6r0 + 9 = (4r0 + 2r0) + 9
+                uint256 t3Lo;
+                uint256 t3Hi;
+                unchecked {
+                    t3Lo = S2Lo + SLo;
+                    uint256 c3a = t3Lo < S2Lo ? 1 : 0;
+                    t3Hi = S2Hi + SHi + c3a;
+                    t3Lo = t3Lo + 9;
+                    uint256 c3b = t3Lo < 9 ? 1 : 0;
+                    t3Hi = t3Hi + c3b;
                 }
-                default {
-                    // k ∈ {0,1}.  τ1 = 2r0 + 1
-                    let t1Lo := add(SLo, 1)
-                    let t1Hi := add(SHi, lt(t1Lo, SLo))
-                    // Check Δ < τ1
-                    switch lt512(dHi, dLo, t1Hi, t1Lo)
-                    case 0 { r := add(r0, 1) }
-                    default { r := r0 }
+                
+                // Check Δ < τ3
+                if (!_lt(dHi, dLo, t3Hi, t3Lo)) {
+                    r = r0 + 3;
+                } else {
+                    r = r0 + 2;
+                }
+            } else {
+                // k ∈ {0,1}.  τ1 = 2r0 + 1
+                uint256 t1Lo;
+                uint256 t1Hi;
+                unchecked {
+                    t1Lo = SLo + 1;
+                    t1Hi = SHi + (t1Lo < SLo ? 1 : 0);
+                }
+                
+                // Check Δ < τ1
+                if (!_lt(dHi, dLo, t1Hi, t1Lo)) {
+                    r = r0 + 1;
+                } else {
+                    r = r0;
                 }
             }
         }
