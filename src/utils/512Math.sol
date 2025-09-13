@@ -1480,8 +1480,8 @@ library Lib512MathArithmetic {
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
             uint256 Y;
             assembly ("memory-safe") {
-                // buckets: [1/2,5/8),  [5/8,3/4),  [3/4,7/8),  [7/8,1) and
-                //          [1,9/8),    [9/8,5/4),  [5/4,11/8), [11/8,3/2)
+                // buckets: [1/2,5/8),  [5/8,3/4),  [3/4,7/8),  [7/8,1), and
+                //          [1,9/8),    [9/8,5/4),  [5/4,11/8), [11/8,3/2),
                 //          [3/2,13/8), [13/8,7/4), [7/4,15/8), [15/8,2)
                 let i := shr(0xfc, M) // extract the top nibble of `M` to be used as a table index
                 // `i < 4` is invalid, so our lookup table only needs to handle 4 through 15. Each
@@ -1546,7 +1546,6 @@ library Lib512MathArithmetic {
                 // Δ < τ(6) ?
                 if (!_gt(t6_hi, t6_lo, d_hi, d_lo)) {
                     // k ∈ {6,7}. τ(7) = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ(6) + 2*r0) + 13
-                    // We build 14*r0 by summing our precomputed multiples
                     (uint256 t7_hi, uint256 t7_lo) = _add(t6_hi, t6_lo, S_hi, S_lo);
                     (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 13);
 
