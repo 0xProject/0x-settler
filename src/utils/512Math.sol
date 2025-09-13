@@ -1450,7 +1450,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 13/09/2025: ~3240 gas
+    // gas benchmark 13/09/2025: ~3100 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1474,24 +1474,14 @@ library Lib512MathArithmetic {
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
             uint256 Y;
             assembly ("memory-safe") {
-                // Bucket by top nibble of M
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
                 //          [1,5/4),   [5/4,3/2), [3/2,7/4), [7/4,2)
-                let n := shr(0xfc, M)
-
-                // Build lower- and upper-half indices
-                // lower half (n ∈ 4..7):  idx = n - 4 ∈ {0..3}
-                // upper half (n ∈ 8..15): idx = 4 + ((n - 8) >> 1) ∈ {4..7}
-                let lo_idx := sub(n, 0x04)
-                let hi_idx := add(0x04, shr(0x01, sub(n, 0x08)))
-
-                // branchless index selection
-                let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
-
-                // This constant is each of the 8 initial seeds (from highest index to lowest index)
-                // packed together into a single word. Each seed is 32 significant high bits followed by
-                // 224 trailing zeroes.
-                Y := shl(0xe0, shr(shl(0x05, idx), hex"5a827999_60c2479a_6882f5c0_727c9716_80000000_88d6772b_93cd3a2c_a1e89b12"))
+                let i := shr(0xfc, M) // extract the top nibble of `M` to be used as a table index
+                // `i < 4` is invalid, so our lookup table only needs to handle 4 through 15. Each
+                // entry is 2 bytes (16 bits) and the entries are ordered from highest `i` to
+                // lowest. The highest-indexed table entries are duplicated because we ignore the
+                // lowest bit of the nibble if the high bit is set.
+                Y := shl(0xf0, shr(shl(0x04, i), hex"5a82_5a82_60c2_60c2_6882_6882_727c_727c_8000_88d6_93cd_a1e8"))
             }
 
             // Perform 7 under-biased Newton-Raphson iterations
