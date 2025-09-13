@@ -1510,7 +1510,7 @@ library Lib512MathArithmetic {
             /// because the half-scale is integer.
             // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
             // We shift right by `510 - e` to account for both the Q1.255 scaling and denormalization
-            // r0 = floor( (M · Y) / 2^(510 - e) ) ≈ floor(2ᵉ · √x  / 2²⁵⁵)
+            // r0 = floor(M·Y / 2⁽⁵¹⁰ ⁻ ᵉ⁾) ≈ floor(2ᵉ · √x  / 2²⁵⁵)
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr512(r0_hi, r0_lo, 510 - e);
 
