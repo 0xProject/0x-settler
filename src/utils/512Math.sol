@@ -1516,7 +1516,7 @@ library Lib512MathArithmetic {
             (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2_hi, r2_lo);
 
             /// Precompute `2*r0`, `4*r0`, `8*r0` by shifts (cheaper than 512-bit adds)
-            // These multiples are used to compute thresholds τ·k = 2·k·r0 + k²
+            // These multiples are used to compute thresholds τ(k) = 2·k·r0 + k²
             // S = 2*r0
             (uint256 S_hi, uint256 S_lo) = _shl256(r0, 1);
             // S2 = 4*r0
@@ -1525,51 +1525,51 @@ library Lib512MathArithmetic {
             (uint256 S4_hi, uint256 S4_lo) = _shl256(r0, 3);
 
             // We need to find k such that (r0 + k)² ≤ x < (r0 + k + 1)²
-            // Equivalently: Δ < τ·(k+1) where τ·k = 2·k·r0 + k²
+            // Equivalently: Δ < τ(k+1) where τ(k) = 2·k·r0 + k²
             // We use a 2-layer binary search tree, then branchless bit hacks afterwards
 
-            // τ4 = 8*r0 + 16
+            // τ(4) = 8*r0 + 16
             (uint256 t4_hi, uint256 t4_lo) = _add(S4_hi, S4_lo, 16);
 
             if (!_gt(t4_hi, t4_lo, d_hi, d_lo)) {
                 // k ∈ {4,5,6,7} (upper half)
-                // τ6 = 12*r0 + 36 = (8*r0 + 4*r0) + 36
+                // τ(6) = 12*r0 + 36 = (8*r0 + 4*r0) + 36
                 (uint256 t6_hi, uint256 t6_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
                 (t6_hi, t6_lo) = _add(t6_hi, t6_lo, 36);
 
-                // Δ < τ6 ?
+                // Δ < τ(6) ?
                 if (!_gt(t6_hi, t6_lo, d_hi, d_lo)) {
-                    // k ∈ {6,7}. τ7 = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ6 + 2*r0) + 13
+                    // k ∈ {6,7}. τ(7) = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ(6) + 2*r0) + 13
                     // We build 14*r0 by summing our precomputed multiples
                     (uint256 t7_hi, uint256 t7_lo) = _add(t6_hi, t6_lo, S_hi, S_lo);
                     (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 13);
 
-                    // Δ < τ7 ?
+                    // Δ < τ(7) ?
                     r = (r0 + 6).unsafeInc(!_gt(t7_hi, t7_lo, d_hi, d_lo));
                 } else {
-                    // k ∈ {4,5}. τ5 = 10*r0 + 25 = (8*r0 + 2*r0) + 25
+                    // k ∈ {4,5}. τ(5) = 10*r0 + 25 = (8*r0 + 2*r0) + 25
                     (uint256 t5_hi, uint256 t5_lo) = _add(S4_hi, S4_lo, S_hi, S_lo);
                     (t5_hi, t5_lo) = _add(t5_hi, t5_lo, 25);
 
-                    // Δ < τ5 ?
+                    // Δ < τ(5) ?
                     r = (r0 + 4).unsafeInc(!_gt(t5_hi, t5_lo, d_hi, d_lo));
                 }
             } else {
                 // k ∈ {0,1,2,3} (lower half)
-                // τ2 = 4*r0 + 4
+                // τ(2) = 4*r0 + 4
                 (uint256 t2_hi, uint256 t2_lo) = _add(S2_hi, S2_lo, 4);
 
-                // Δ < τ2 ?
+                // Δ < τ(2) ?
                 if (!_gt(t2_hi, t2_lo, d_hi, d_lo)) {
-                    // k ∈ {2,3}. τ3 = 6*r0 + 9 = (4*r0 + 2*r0) + 9
+                    // k ∈ {2,3}. τ(3) = 6*r0 + 9 = (4*r0 + 2*r0) + 9
                     (uint256 t3_hi, uint256 t3_lo) = _add(S2_hi, S2_lo, S_hi, S_lo);
                     (t3_hi, t3_lo) = _add(t3_hi, t3_lo, 9);
 
-                    // Δ < τ3 ?
+                    // Δ < τ(3) ?
                     r = (r0 + 2).unsafeInc(!_gt(t3_hi, t3_lo, d_hi, d_lo));
                 } else {
-                    // k ∈ {0,1}. τ1 = 2*r0 + 1
-                    // Δ < τ1 ?
+                    // k ∈ {0,1}. τ(1) = 2*r0 + 1
+                    // Δ < τ(1) ?
                     r = r0.unsafeInc(!_gt(S_hi, S_lo + 1, d_hi, d_lo));
                 }
             }
