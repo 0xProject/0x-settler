@@ -1642,6 +1642,9 @@ struct uint512_external {
 library Lib512MathExternal {
     function from(uint512 r, uint512_external memory x) internal pure returns (uint512) {
         assembly ("memory-safe") {
+            // This *could* be done with `mcopy`, but that would mean giving up compatibility with
+            // Shanghai (or less) chains. If you care about gas efficiency, you should be using
+            // `into()` instead.
             mstore(r, mload(x))
             mstore(add(0x20, r), mload(add(0x20, x)))
         }
