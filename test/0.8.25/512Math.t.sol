@@ -219,9 +219,11 @@ contract Lib512MathTest is Test {
         assertTrue(r == e);
     }
 
-    function test512Math_sqrt(uint256 x_hi, uint256 x_lo) public pure {
+    function test512Math_sqrt(uint256 x_hi, uint256 x_lo) public {
         uint512 x = alloc().from(x_hi, x_lo);
+        vm.startSnapshotGas("sqrt512");
         uint256 r = x.sqrt();
+        vm.stopSnapshotGas();
 
         (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
         assertTrue((r2_hi < x_hi) || (r2_hi == x_hi && r2_lo <= x_lo), "sqrt too high");

@@ -1450,7 +1450,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 13/09/2025: ~3800 gas
+    // gas benchmark 13/09/2025: ~3240 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
