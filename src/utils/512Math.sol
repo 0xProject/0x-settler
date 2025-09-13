@@ -1468,9 +1468,9 @@ library Lib512MathArithmetic {
             (, uint256 M) = _shr512(x_hi, x_lo, twoe - 255);
             M |= x_lo << 255 - twoe;
 
-            /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization
-            /// means our mantissa is geometrically symmetric around 1, leading to 4 buckets on the
-            /// low side and 8 buckets on the high side.
+            /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
+            /// normalization means our mantissa is geometrically symmetric around 1, leading to 4
+            /// buckets on the low side and 8 buckets on the high side.
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
             uint256 Y;
             assembly ("memory-safe") {
