@@ -1424,13 +1424,13 @@ library Lib512MathArithmetic {
     }
 
     /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next = floor(Y * (1.5*2²⁵⁵ - U) ) / 2²⁵⁵)
-    ///     U = ceil((M + 1) * ceil(Y²/2²⁵⁵) / 2²⁵⁶)
+    ///     Y_next = floor(Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵)
+    ///     U = ceil((M + 1) · ceil(Y²/2²⁵⁵) / 2²⁵⁶)
     /// Consistently rounding `Y_next` down ensures that we converge on the lower bound for `Y`.
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             // Y2 = ceil(Y^2 / 2²⁵⁵)
-            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);             // (hi, lo) = Y*Y
+            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);             // [hi lo] = Y·Y
             (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);             // floor(/ 2²⁵⁵)
             Y2 = Y2.unsafeInc(0 < Y2_lo << 1);                       // ceil
 
@@ -1438,14 +1438,14 @@ library Lib512MathArithmetic {
             (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);
 
             // U = ceil((M+1) * Y2 / 2²⁵⁶)
-            (uint256 U_hi, uint256 U_lo) = _add(MY2_hi, MY2_lo, Y2); // (hi, lo) = (M+1) * Y2
+            (uint256 U_hi, uint256 U_lo) = _add(MY2_hi, MY2_lo, Y2); // [hi lo] = (M+1)·Y2
             uint256 U = U_hi.unsafeInc(0 < U_lo);                    // ceil(/ 2²⁵⁶)
 
             // T = 1.5*2²⁵⁵ - U
             uint256 T = 1.5*2**255 - U;
 
             // Y_next = floor(Y*T / 2²⁵⁵)
-            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);     // (hi, lo) = Y*T
+            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);     // [hi lo] = Y·T
             (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);         // floor(/ 2²⁵⁵)
         }
     }
@@ -1518,20 +1518,20 @@ library Lib512MathArithmetic {
             /// When we combine `Y` with `M` to form our approximation of the square root, we have to
             /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
             /// because the half-scale is integer.
-            // `Y` approximates `1/√M` in Q1.255 format, so M*Y ≈ 2²⁵⁵ * √M
+            // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
             // We shift right by `510 - e` to account for both the Q1.255 scaling and denormalization
-            // r0 = floor( (M * Y) / 2^(510 - e) ) = floor(2ᵉ * √x  / 2²⁵⁵)
+            // r0 = floor( (M · Y) / 2^(510 - e) ) ≈ floor(2ᵉ · √x  / 2²⁵⁵)
             (uint256 p_hi, uint256 p_lo) = _mul(M, Y);
             (, uint256 r0) = _shr512(p_hi, p_lo, 510 - e);
 
             // Δ = x - r0²
-            // r0 underestimates √x, so we need to check if r0 + k is the correct answer
+            // `r0` underestimates √x, so we need to check if `r0 + k` is the correct answer
             // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = x - r0²
             (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
             (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2hi, r2lo);
 
-            /// Precompute 2*r0, 4*r0, 8*r0 by shifts (cheaper than 512-bit adds)
-            // These multiples are used to compute thresholds τ*k = 2*k*r0 + k²
+            /// Precompute `2*r0`, `4*r0`, `8*r0` by shifts (cheaper than 512-bit adds)
+            // These multiples are used to compute thresholds τ·k = 2·k·r0 + k²
             // S = 2*r0
             (uint256 S_hi, uint256 S_lo) = _shl256(r0, 1);
             // S2 = 4*r0
@@ -1540,7 +1540,7 @@ library Lib512MathArithmetic {
             (uint256 S4_hi, uint256 S4_lo) = _shl256(r0, 3);
 
             // We need to find k such that (r0 + k)² ≤ x < (r0 + k + 1)²
-            // Equivalently: Δ < τ(k+1) where τ*k = 2*k*r0 + k²
+            // Equivalently: Δ < τ·(k+1) where τ·k = 2·k·r0 + k²
             // We use a 2-layer binary search tree, then branchless bit hacks afterwards
 
             // τ4 = 8*r0 + 16
