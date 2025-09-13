@@ -1469,19 +1469,19 @@ library Lib512MathArithmetic {
             M |= x_lo << 255 - twoe;
 
             /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization
-            /// means our mantissa is geometrically symmetric around 1, leading to 4 buckets on each
-            /// side.
+            /// means our mantissa is geometrically symmetric around 1, leading to 4 buckets on the
+            /// low side and 8 buckets on the high side.
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
             uint256 Y;
             assembly ("memory-safe") {
-                // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
-                //          [1,5/4),   [5/4,3/2), [3/2,7/4), [7/4,2)
+                // buckets: [1/2,5/8),  [5/8,3/4),  [3/4,7/8),  [7/8,1) and
+                //          [1,9/8),    [9/8,5/4),  [5/4,11/8), [11/8,3/2)
+                //          [3/2,13/8), [13/8,7/4), [7/4,15/8), [15/8,2)
                 let i := shr(0xfc, M) // extract the top nibble of `M` to be used as a table index
                 // `i < 4` is invalid, so our lookup table only needs to handle 4 through 15. Each
                 // entry is 2 bytes (16 bits) and the entries are ordered from highest `i` to
-                // lowest. The highest-indexed table entries are duplicated because we ignore the
-                // lowest bit of the nibble if the high bit is set.
-                Y := shl(0xf0, shr(shl(0x04, i), hex"5a82_5a82_60c2_60c2_6882_6882_727c_727c_8000_88d6_93cd_a1e8"))
+                // lowest.
+                Y := shl(0xf0, shr(shl(0x04, i), hex"5a82_5d7a_60c2_6469_6882_6d28_727c_78ad_8000_88d6_93cd_a1e8"))
             }
 
             // Perform 7 under-biased Newton-Raphson iterations
