@@ -1506,14 +1506,14 @@ library Lib512MathArithmetic {
             // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
             // We shift right by `510 - e` to account for both the Q1.255 scaling and denormalization
             // r0 = floor( (M · Y) / 2^(510 - e) ) ≈ floor(2ᵉ · √x  / 2²⁵⁵)
-            (uint256 p_hi, uint256 p_lo) = _mul(M, Y);
-            (, uint256 r0) = _shr512(p_hi, p_lo, 510 - e);
+            (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
+            (, uint256 r0) = _shr512(r0_hi, r0_lo, 510 - e);
 
             // Δ = x - r0²
             // `r0` underestimates √x, so we need to check if `r0 + k` is the correct answer
             // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = x - r0²
-            (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
-            (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2hi, r2lo);
+            (uint256 r2_hi, uint256 r2_lo) = _mul(r0, r0);
+            (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2_hi, r2_lo);
 
             /// Precompute `2*r0`, `4*r0`, `8*r0` by shifts (cheaper than 512-bit adds)
             // These multiples are used to compute thresholds τ·k = 2·k·r0 + k²
@@ -1539,7 +1539,7 @@ library Lib512MathArithmetic {
 
                 // Δ < τ6 ?
                 if (!_gt(t6_hi, t6_lo, d_hi, d_lo)) {
-                    // k ∈ {6,7}.  τ7 = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ6 + 2*r0) + 13
+                    // k ∈ {6,7}. τ7 = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ6 + 2*r0) + 13
                     // We build 14*r0 by summing our precomputed multiples
                     (uint256 t7_hi, uint256 t7_lo) = _add(t6_hi, t6_lo, S_hi, S_lo);
                     (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 13);
@@ -1547,7 +1547,7 @@ library Lib512MathArithmetic {
                     // Δ < τ7 ?
                     r = (r0 + 6).unsafeInc(!_gt(t7_hi, t7_lo, d_hi, d_lo));
                 } else {
-                    // k ∈ {4,5}.  τ5 = 10*r0 + 25 = (8*r0 + 2*r0) + 25
+                    // k ∈ {4,5}. τ5 = 10*r0 + 25 = (8*r0 + 2*r0) + 25
                     (uint256 t5_hi, uint256 t5_lo) = _add(S4_hi, S4_lo, S_hi, S_lo);
                     (t5_hi, t5_lo) = _add(t5_hi, t5_lo, 25);
 
@@ -1561,14 +1561,14 @@ library Lib512MathArithmetic {
 
                 // Δ < τ2 ?
                 if (!_gt(t2_hi, t2_lo, d_hi, d_lo)) {
-                    // k ∈ {2,3}.  τ3 = 6*r0 + 9 = (4*r0 + 2*r0) + 9
+                    // k ∈ {2,3}. τ3 = 6*r0 + 9 = (4*r0 + 2*r0) + 9
                     (uint256 t3_hi, uint256 t3_lo) = _add(S2_hi, S2_lo, S_hi, S_lo);
                     (t3_hi, t3_lo) = _add(t3_hi, t3_lo, 9);
 
                     // Δ < τ3 ?
                     r = (r0 + 2).unsafeInc(!_gt(t3_hi, t3_lo, d_hi, d_lo));
                 } else {
-                    // k ∈ {0,1}.  τ1 = 2*r0 + 1
+                    // k ∈ {0,1}. τ1 = 2*r0 + 1
                     // Δ < τ1 ?
                     r = r0.unsafeInc(!_gt(S_hi, S_lo + 1, d_hi, d_lo));
                 }
