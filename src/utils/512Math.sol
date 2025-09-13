@@ -1450,6 +1450,7 @@ library Lib512MathArithmetic {
         }
     }
 
+    // gas benchmark 13/09/2025: ~3800 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1473,7 +1474,7 @@ library Lib512MathArithmetic {
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
             uint256 Y;
             assembly ("memory-safe") {
-                // ---- 8-bucket LUT by top nibble of M
+                // Bucket by top nibble of M
                 // buckets: [1/2,5/8), [5/8,3/4), [3/4,7/8), [7/8,1) and
                 //          [1,5/4),   [5/4,3/2), [3/2,7/4), [7/4,2)
                 let n := shr(0xfc, M)
@@ -1523,13 +1524,13 @@ library Lib512MathArithmetic {
             (uint256 p_hi, uint256 p_lo) = _mul(M, Y);
             (, uint256 r0) = _shr512(p_hi, p_lo, 510 - e);
 
-            // ---- Δ = x - r0²
+            // Δ = x - r0²
             // r0 underestimates √x, so we need to check if r0 + k is the correct answer
             // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = x - r0²
             (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
             (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2hi, r2lo);
 
-            // ---- Precompute 2*r0, 4*r0, 8*r0 by shifts (cheaper than 512-bit adds)
+            /// Precompute 2*r0, 4*r0, 8*r0 by shifts (cheaper than 512-bit adds)
             // These multiples are used to compute thresholds τ*k = 2*k*r0 + k²
             // S = 2*r0
             (uint256 S_hi, uint256 S_lo) = _shl256(r0, 1);
@@ -1546,7 +1547,7 @@ library Lib512MathArithmetic {
             (uint256 t4_hi, uint256 t4_lo) = _add(S4_hi, S4_lo, 16);
 
             if (!_gt(t4_hi, t4_lo, d_hi, d_lo)) {
-                // ---- k ∈ {4,5,6,7} (upper half)
+                // k ∈ {4,5,6,7} (upper half)
                 // τ6 = 12*r0 + 36 = (8*r0 + 4*r0) + 36
                 (uint256 t6_hi, uint256 t6_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
                 (t6_hi, t6_lo) = _add(t6_hi, t6_lo, 36);
@@ -1570,7 +1571,7 @@ library Lib512MathArithmetic {
                     r = (r0 + 4).unsafeInc(!_gt(t5_hi, t5_lo, d_hi, d_lo));
                 }
             } else {
-                // ---- k ∈ {0,1,2,3} (lower half; Δ < τ4)
+                // k ∈ {0,1,2,3} (lower half)
                 // τ2 = 4*r0 + 4
                 (uint256 t2_hi, uint256 t2_lo) = _add(S2_hi, S2_lo, 4);
 
