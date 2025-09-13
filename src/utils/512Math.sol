@@ -1480,7 +1480,8 @@ library Lib512MathArithmetic {
                 let i := shr(0xfc, M) // extract the top nibble of `M` to be used as a table index
                 // `i < 4` is invalid, so our lookup table only needs to handle 4 through 15. Each
                 // entry is 2 bytes (16 bits) and the entries are ordered from highest `i` to
-                // lowest.
+                // lowest. Each seed is 16 significant bits on the MSB end followed by 240 padding
+                // zero bits.
                 Y := shl(0xf0, shr(shl(0x04, i), hex"5a82_5d7a_60c2_6469_6882_6d28_727c_78ad_8000_88d6_93cd_a1e8"))
             }
 
@@ -1493,7 +1494,7 @@ library Lib512MathArithmetic {
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
-                if (e > 173) {
+                if (e > 175) {
                     // If `e` is small, we can skip the last iteration. This branch is net gas-optimizing
                     Y = _iSqrtNrStep(Y, M);
                 }
