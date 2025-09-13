@@ -3,6 +3,9 @@ pragma solidity =0.8.25;
 
 import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
+import {Clz} from "../vendor/Clz.sol";
+import {Ternary} from "./Ternary.sol";
+import {FastLogic} from "./FastLogic.sol";
 
 /*
 
@@ -154,6 +157,9 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * odivAlt(uint512,uint512,uint512)
 /// * idivAlt(uint512,uint512)
 /// * irdivAlt(uint512,uint512)
+///
+/// ### Square root
+/// * sqrt(uint512) returns (uint256)
 type uint512 is bytes32;
 
 function alloc() pure returns (uint512 r) {
@@ -320,6 +326,9 @@ using {__eq as ==, __gt as >, __lt as <, __ne as !=, __ge as >=, __le as <=} for
 
 library Lib512MathArithmetic {
     using UnsafeMath for uint256;
+    using Clz for uint256;
+    using Ternary for bool;
+    using FastLogic for bool;
 
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         uint256 r_hi;
@@ -333,16 +342,18 @@ library Lib512MathArithmetic {
         return r.from(r_hi, r_lo);
     }
 
-    function oadd(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        uint256 r_hi;
-        uint256 r_lo;
+    function _add(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_lo := add(x_lo, y)
             // `lt(r_lo, x_lo)` indicates overflow in the lower
             // addition. Overflow in the high limb is simply ignored
             r_hi := add(x_hi, lt(r_lo, x_lo))
         }
+    }
+
+    function oadd(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _add(x_hi, x_lo, y);
         return r.from(r_hi, r_lo);
     }
 
@@ -1106,14 +1117,14 @@ library Lib512MathArithmetic {
         return _clzLower(x >> 128);
     }
 
-    function _shl(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _shl256(uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            r_hi := or(shl(s, x_hi), shr(sub(0x100, s), x_lo))
+            r_hi := shr(sub(0x100, s), x_lo)
             r_lo := shl(s, x_lo)
         }
     }
 
-    function _shl768(uint256 x_hi, uint256 x_lo, uint256 s)
+    function _shl256(uint256 x_hi, uint256 x_lo, uint256 s)
         private
         pure
         returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
@@ -1126,10 +1137,17 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _shr(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _shr256(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_hi := shr(s, x_hi)
             r_lo := or(shl(sub(0x100, s), x_hi), shr(s, x_lo))
+        }
+    }
+
+    function _shr512(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        (r_hi, r_lo) = _shr256(x_hi, x_lo, s);
+        unchecked {
+            r_lo |= x_hi >> s - 256;
         }
     }
 
@@ -1162,8 +1180,8 @@ library Lib512MathArithmetic {
             // (y_hi >> 128 >= 1 << 127) without overflowing.
             s = _clzUpper(y_hi);
             uint256 x_ex;
-            (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
-            (y_hi, y_lo) = _shl(y_hi, y_lo, s);
+            (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
 
             // `n_approx` is the 2 most-significant limbs of x, after
             // normalization
@@ -1207,7 +1225,7 @@ library Lib512MathArithmetic {
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
             // See above comment about the use of a shift instead of division.
             s = _clzLower(y_hi);
-            (y_hi, y_lo) = _shl(y_hi, y_lo, s);
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
             // `y_next` is the second-most-significant, nonzero, normalized limb
             // of y
             uint256 y_next = y_lo >> 128; // TODO: this can probably be optimized (combined with `_shl`)
@@ -1221,7 +1239,7 @@ library Lib512MathArithmetic {
 
                 // Finish normalizing (step D1)
                 uint256 x_ex;
-                (x_ex, x_hi, x_lo) = _shl768(x_hi, x_lo, s);
+                (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128); // TODO: this can probably be optimized (combined with `_shl768`)
                 // As before, `q_hat` is the most significant limb of the
@@ -1287,7 +1305,7 @@ library Lib512MathArithmetic {
                 // x is 3 limbs
 
                 // Finish normalizing (step D1)
-                (x_hi, x_lo) = _shl(x_hi, x_lo, s);
+                (, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 // `q_hat` is the most significant (and only) limb of the
                 // quotient and too high by at most 3 (step D3)
@@ -1319,7 +1337,7 @@ library Lib512MathArithmetic {
 
         // [x_hi x_lo] now represents remainder × 2ˢ (the normalized remainder);
         // we shift right by `s` (un-normalize) to obtain the result.
-        return _shr(x_hi, x_lo, s);
+        return _shr256(x_hi, x_lo, s);
     }
 
     function odivAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
@@ -1404,6 +1422,158 @@ library Lib512MathArithmetic {
     function irmodAlt(uint512 r, uint512 y) internal pure returns (uint512) {
         return omodAlt(r, y, r);
     }
+
+    /// A single Newton-Raphson step for computing the inverse square root
+    ///     Y_next = floor(Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵)
+    ///     U = ceil((M + 1) · ceil(Y²/2²⁵⁵) / 2²⁵⁶)
+    /// Consistently rounding `Y_next` down ensures that we converge on the lower bound for `Y`.
+    function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+        unchecked {
+            // Y2 = ceil(Y^2 / 2²⁵⁵)
+            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);             // [hi lo] = Y·Y
+            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);             // floor(/ 2²⁵⁵)
+            Y2 = Y2.unsafeInc(0 < Y2_lo << 1);                       // ceil
+
+            // MY2 = M * Y2
+            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);
+
+            // U = ceil((M+1) * Y2 / 2²⁵⁶)
+            (uint256 U_hi, uint256 U_lo) = _add(MY2_hi, MY2_lo, Y2); // [hi lo] = (M+1)·Y2
+            uint256 U = U_hi.unsafeInc(0 < U_lo);                    // ceil(/ 2²⁵⁶)
+
+            // T = 1.5*2²⁵⁵ - U
+            uint256 T = 1.5 * 2 ** 255 - U;
+
+            // Y_next = floor(Y*T / 2²⁵⁵)
+            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);     // [hi lo] = Y·T
+            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);         // floor(/ 2²⁵⁵)
+        }
+    }
+
+    // gas benchmark 13/09/2025: ~3100 gas
+    function sqrt(uint512 x) internal pure returns (uint256 r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        unchecked {
+            /// First, we normalize `x` by separating it into a mantissa and exponent. We use
+            /// even-exponent normalization.
+
+            // `e` is half the exponent of `x`
+            // e = floor(bitlength(x)/2)
+            uint256 e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi != 0).ternary(x_hi, x_lo).clz()) >> 1;
+
+            // Extract mantissa M by shifting x right by 2·e - 255 bits
+            uint256 twoe = e << 1;
+            // `M` is the mantissa of `x`; M ∈ [½, 2)
+            (, uint256 M) = _shr512(x_hi, x_lo, twoe - 255);
+            M |= x_lo << 255 - twoe;
+
+            /// Pick an initial estimate for Y using a lookup table. Even-exponent normalization
+            /// means our mantissa is geometrically symmetric around 1, leading to 4 buckets on the
+            /// low side and 8 buckets on the high side.
+            // `Y` approximates the inverse square root of integer `M` as a Q1.255
+            uint256 Y;
+            assembly ("memory-safe") {
+                // buckets: [1/2,5/8),  [5/8,3/4),  [3/4,7/8),  [7/8,1) and
+                //          [1,9/8),    [9/8,5/4),  [5/4,11/8), [11/8,3/2)
+                //          [3/2,13/8), [13/8,7/4), [7/4,15/8), [15/8,2)
+                let i := shr(0xfc, M) // extract the top nibble of `M` to be used as a table index
+                // `i < 4` is invalid, so our lookup table only needs to handle 4 through 15. Each
+                // entry is 2 bytes (16 bits) and the entries are ordered from highest `i` to
+                // lowest.
+                Y := shl(0xf0, shr(shl(0x04, i), hex"5a82_5d7a_60c2_6469_6882_6d28_727c_78ad_8000_88d6_93cd_a1e8"))
+            }
+
+            // Perform 7 under-biased Newton-Raphson iterations
+            // 7 is enough iterations for full convergence within Q1.255
+            {
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                Y = _iSqrtNrStep(Y, M);
+                if (e > 173) {
+                    // If `e` is small, we can skip the last iteration. This branch is net gas-optimizing
+                    Y = _iSqrtNrStep(Y, M);
+                }
+            }
+
+            /// When we combine `Y` with `M` to form our approximation of the square root, we have to
+            /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
+            /// because the half-scale is integer.
+            // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
+            // We shift right by `510 - e` to account for both the Q1.255 scaling and denormalization
+            // r0 = floor( (M · Y) / 2^(510 - e) ) ≈ floor(2ᵉ · √x  / 2²⁵⁵)
+            (uint256 p_hi, uint256 p_lo) = _mul(M, Y);
+            (, uint256 r0) = _shr512(p_hi, p_lo, 510 - e);
+
+            // Δ = x - r0²
+            // `r0` underestimates √x, so we need to check if `r0 + k` is the correct answer
+            // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = x - r0²
+            (uint256 r2hi, uint256 r2lo) = _mul(r0, r0);
+            (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2hi, r2lo);
+
+            /// Precompute `2*r0`, `4*r0`, `8*r0` by shifts (cheaper than 512-bit adds)
+            // These multiples are used to compute thresholds τ·k = 2·k·r0 + k²
+            // S = 2*r0
+            (uint256 S_hi, uint256 S_lo) = _shl256(r0, 1);
+            // S2 = 4*r0
+            (uint256 S2_hi, uint256 S2_lo) = _shl256(r0, 2);
+            // S4 = 8*r0
+            (uint256 S4_hi, uint256 S4_lo) = _shl256(r0, 3);
+
+            // We need to find k such that (r0 + k)² ≤ x < (r0 + k + 1)²
+            // Equivalently: Δ < τ·(k+1) where τ·k = 2·k·r0 + k²
+            // We use a 2-layer binary search tree, then branchless bit hacks afterwards
+
+            // τ4 = 8*r0 + 16
+            (uint256 t4_hi, uint256 t4_lo) = _add(S4_hi, S4_lo, 16);
+
+            if (!_gt(t4_hi, t4_lo, d_hi, d_lo)) {
+                // k ∈ {4,5,6,7} (upper half)
+                // τ6 = 12*r0 + 36 = (8*r0 + 4*r0) + 36
+                (uint256 t6_hi, uint256 t6_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
+                (t6_hi, t6_lo) = _add(t6_hi, t6_lo, 36);
+
+                // Δ < τ6 ?
+                if (!_gt(t6_hi, t6_lo, d_hi, d_lo)) {
+                    // k ∈ {6,7}.  τ7 = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ6 + 2*r0) + 13
+                    // We build 14*r0 by summing our precomputed multiples
+                    (uint256 t7_hi, uint256 t7_lo) = _add(t6_hi, t6_lo, S_hi, S_lo);
+                    (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 13);
+
+                    // Δ < τ7 ?
+                    r = (r0 + 6).unsafeInc(!_gt(t7_hi, t7_lo, d_hi, d_lo));
+                } else {
+                    // k ∈ {4,5}.  τ5 = 10*r0 + 25 = (8*r0 + 2*r0) + 25
+                    (uint256 t5_hi, uint256 t5_lo) = _add(S4_hi, S4_lo, S_hi, S_lo);
+                    (t5_hi, t5_lo) = _add(t5_hi, t5_lo, 25);
+
+                    // Δ < τ5 ?
+                    r = (r0 + 4).unsafeInc(!_gt(t5_hi, t5_lo, d_hi, d_lo));
+                }
+            } else {
+                // k ∈ {0,1,2,3} (lower half)
+                // τ2 = 4*r0 + 4
+                (uint256 t2_hi, uint256 t2_lo) = _add(S2_hi, S2_lo, 4);
+
+                // Δ < τ2 ?
+                if (!_gt(t2_hi, t2_lo, d_hi, d_lo)) {
+                    // k ∈ {2,3}.  τ3 = 6*r0 + 9 = (4*r0 + 2*r0) + 9
+                    (uint256 t3_hi, uint256 t3_lo) = _add(S2_hi, S2_lo, S_hi, S_lo);
+                    (t3_hi, t3_lo) = _add(t3_hi, t3_lo, 9);
+
+                    // Δ < τ3 ?
+                    r = (r0 + 2).unsafeInc(!_gt(t3_hi, t3_lo, d_hi, d_lo));
+                } else {
+                    // k ∈ {0,1}.  τ1 = 2*r0 + 1
+                    // Δ < τ1 ?
+                    r = r0.unsafeInc(!_gt(S_hi, S_lo + 1, d_hi, d_lo));
+                }
+            }
+        }
+    }
 }
 
 using Lib512MathArithmetic for uint512 global;
@@ -1472,6 +1642,9 @@ struct uint512_external {
 library Lib512MathExternal {
     function from(uint512 r, uint512_external memory x) internal pure returns (uint512) {
         assembly ("memory-safe") {
+            // This *could* be done with `mcopy`, but that would mean giving up compatibility with
+            // Shanghai (or less) chains. If you care about gas efficiency, you should be using
+            // `into()` instead.
             mstore(r, mload(x))
             mstore(add(0x20, r), mload(add(0x20, x)))
         }
