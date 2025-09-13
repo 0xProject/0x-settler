@@ -6,6 +6,7 @@ import {UnsafeMath} from "./UnsafeMath.sol";
 import {Clz} from "../vendor/Clz.sol";
 import {Ternary} from "./Ternary.sol";
 import {FastLogic} from "./FastLogic.sol";
+import {Sqrt} from "../vendor/Sqrt.sol";
 
 /*
 
@@ -1450,9 +1451,13 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 13/09/2025: ~3100 gas
+    // gas benchmark 13/09/2025: ~3075 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return Sqrt.sqrt(x_lo);
+        }
 
         unchecked {
             /// First, we normalize `x` by separating it into a mantissa and exponent. We use
@@ -1460,7 +1465,7 @@ library Lib512MathArithmetic {
 
             // `e` is half the exponent of `x`
             // e = floor(bitlength(x)/2)
-            uint256 e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi != 0).ternary(x_hi, x_lo).clz()) >> 1;
+            uint256 e = (512 - x_hi.clz()) >> 1;
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
             uint256 twoe = e << 1;
