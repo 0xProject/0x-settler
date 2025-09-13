@@ -1488,16 +1488,10 @@ library Lib512MathArithmetic {
                 // branchless index selection
                 let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
-                // TODO: this needs to be an ACTUAL lookup table, not a glorified long if/else. needs a clever trick
-                switch idx
-                case 0 { Y := 0xa1e89b12424876d9b744b679ebd7ff75576022564e0005ab1197680f04a16a99 } // 5/8
-                case 1 { Y := 0x93cd3a2c8198e2690c7c0f257d92be830c9d66eec69e17dd97b58cc2cf6c8cf6 } // 3/4
-                case 2 { Y := 0x88d6772b01214e4aaacbdb3b4a878420c5c99fff16522f67d002ca332aaabf66 } // 7/8
-                case 3 { Y := 0x8000000000000000000000000000000000000000000000000000000000000000 } // 1
-                case 4 { Y := 0x727c9716ffb764d594a519c0252be9ae6d00dc9194a760ed9691c407204d6c3b } // 5/4
-                case 5 { Y := 0x6882f5c030b0f7f010b306bb5e1c76d14900b826fd3c1ea0517f3098179a8128 } // 3/2
-                case 6 { Y := 0x60c2479a9fdf9a228b3c8e96d2c84dd553c7ffc87ee4c448a699ceb6a698da73 } // 7/4
-                default { Y := 0x5a827999fcef32422cbec4d9baa55f4f8eb7b05d449dd426768bd642c199cc8a } // 2
+                // This constant is each of the 8 initial seeds (from highest index to lowest index)
+                // packed together into a single word. Each seed is 32 significant bits followed by
+                // 224 trailing zeroes.
+                Y := shl(0xe0, shr(shl(0x05, idx), hex"5a827999_60c2479a_6882f5c0_727c9716_80000000_88d6772b_93cd3a2c_a1e89b12"))
             }
 
             // Perform 7 under-biased Newton-Raphson iterations
