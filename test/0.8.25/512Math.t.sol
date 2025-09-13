@@ -241,21 +241,21 @@ contract Lib512MathTest is Test {
         }
     }
 
-    function test512Math_sqrt_historicFailure01() external pure {
-        test512Math_sqrt(
+    function test512Math_sqrt_historicFailure01() external {
+        return test512Math_sqrt(
             114805576419587020236757229903001819680135317278270614039818801407925860184587, 154395211239568
         );
     }
 
-    function test512Math_sqrt_historicFailure02() external pure {
-        test512Math_sqrt(
+    function test512Math_sqrt_historicFailure02() external {
+        return test512Math_sqrt(
             111622007524949111044014908009097472374689074738034287125887346957447537418677,
             1234515505982255149698729514620346575
         );
     }
 
-    function test512Math_sqrt_historicFailure03() external pure {
-        test512Math_sqrt(
+    function test512Math_sqrt_historicFailure03() external {
+        return test512Math_sqrt(
             0xfdd1a74de33135e737432b6ce327f31ace09b8be4d708a8fb483fad552fc320b,
             0xc624b66cc0138b8fabc209247f72d758e1cf3343756d543badbf24212bed8c16
         );
