@@ -1448,7 +1448,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 13/09/2025: ~3075 gas
+    // gas benchmark 13/09/2025: ~3050 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1465,10 +1465,8 @@ library Lib512MathArithmetic {
             uint256 e = (512 - x_hi.clz()) >> 1;
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
-            uint256 twoe = e << 1;
             // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr512(x_hi, x_lo, twoe - 255);
-            M |= x_lo << 255 - twoe;
+            (, uint256 M) = _shr512(x_hi, x_lo, (e << 1) - 255);
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 4
