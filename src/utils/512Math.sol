@@ -1442,7 +1442,7 @@ library Lib512MathArithmetic {
             uint256 U = U_hi.unsafeInc(0 < U_lo);                    // ceil(/ 2²⁵⁶)
 
             // T = 1.5*2²⁵⁵ - U
-            uint256 T = 1.5*2**255 - U;
+            uint256 T = 1.5 * 2 ** 255 - U;
 
             // Y_next = floor(Y*T / 2²⁵⁵)
             (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);     // [hi lo] = Y·T
@@ -1489,7 +1489,7 @@ library Lib512MathArithmetic {
                 let idx := xor(lo_idx, mul(xor(lo_idx, hi_idx), shr(0x03, n)))
 
                 // This constant is each of the 8 initial seeds (from highest index to lowest index)
-                // packed together into a single word. Each seed is 32 significant bits followed by
+                // packed together into a single word. Each seed is 32 significant high bits followed by
                 // 224 trailing zeroes.
                 Y := shl(0xe0, shr(shl(0x05, idx), hex"5a827999_60c2479a_6882f5c0_727c9716_80000000_88d6772b_93cd3a2c_a1e89b12"))
             }
