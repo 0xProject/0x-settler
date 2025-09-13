@@ -1462,7 +1462,7 @@ library Lib512MathArithmetic {
             // e = floor(bitlength(x)/2)
             uint256 e = (256 + ((x_hi != 0).toUint() << 8) - (x_hi != 0).ternary(x_hi, x_lo).clz()) >> 1;
 
-            // Extract mantissa M by shifting x right by (2e - 255) bits
+            // Extract mantissa M by shifting x right by 2·e - 255 bits
             uint256 twoe = e << 1;
             // `M` is the mantissa of `x`; M ∈ [½, 2)
             (, uint256 M) = _shr512(x_hi, x_lo, twoe - 255);
@@ -1554,11 +1554,10 @@ library Lib512MathArithmetic {
 
                 // Δ < τ6 ?
                 if (!_gt(t6_hi, t6_lo, d_hi, d_lo)) {
-                    // k ∈ {6,7}.  τ7 = 14*r0 + 49 = (8*r0 + 4*r0 + 2*r0) + 49
+                    // k ∈ {6,7}.  τ7 = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ6 + 2*r0) + 13
                     // We build 14*r0 by summing our precomputed multiples
-                    (uint256 t7_hi, uint256 t7_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
-                    (t7_hi, t7_lo) = _add(t7_hi, t7_lo, S_hi, S_lo);
-                    (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 49);
+                    (uint256 t7_hi, uint256 t7_lo) = _add(t6_hi, t6_lo, S_hi, S_lo);
+                    (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 13);
 
                     // Δ < τ7 ?
                     r = (r0 + 6).unsafeInc(!_gt(t7_hi, t7_lo, d_hi, d_lo));
@@ -1585,10 +1584,8 @@ library Lib512MathArithmetic {
                     r = (r0 + 2).unsafeInc(!_gt(t3_hi, t3_lo, d_hi, d_lo));
                 } else {
                     // k ∈ {0,1}.  τ1 = 2*r0 + 1
-                    (uint256 t1_hi, uint256 t1_lo) = _add(S_hi, S_lo, 1);
-
                     // Δ < τ1 ?
-                    r = r0.unsafeInc(!_gt(t1_hi, t1_lo, d_hi, d_lo));
+                    r = r0.unsafeInc(!_gt(S_hi, S_lo + 1, d_hi, d_lo));
                 }
             }
         }
