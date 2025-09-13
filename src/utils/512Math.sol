@@ -330,6 +330,7 @@ library Lib512MathArithmetic {
     using Clz for uint256;
     using Ternary for bool;
     using FastLogic for bool;
+    using Sqrt for uint256;
 
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         uint256 r_hi;
@@ -1456,7 +1457,7 @@ library Lib512MathArithmetic {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
         if (x_hi == 0) {
-            return Sqrt.sqrt(x_lo);
+            return x_lo.sqrt();
         }
 
         unchecked {
