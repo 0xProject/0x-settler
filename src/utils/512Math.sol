@@ -1433,28 +1433,22 @@ library Lib512MathArithmetic {
 
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next = floor(Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵)
-    ///     U = ceil((M + 1) · ceil(Y² / 2²⁵⁵) / 2²⁵⁶)
-    /// Consistently rounding `Y_next` down ensures that we converge on the lower bound for `Y`.
+    ///     U = floor((M + 1) · floor(Y² / 2²⁵⁵) / 2²⁵⁶)
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            // Y2 = ceil(Y**2 / 2**255)
-            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);             // [hi lo] = Y·Y
-            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);             // floor(/ 2²⁵⁵)
-            Y2 = Y2.unsafeInc(0 < Y2_lo << 1);                       // ceil
+            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);         // [hi lo] = Y·Y
+            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // floor(/ 2²⁵⁵)
 
-            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);
-            // U = ceil((M+1) * Y2 / 2**256)
-            (uint256 U_hi, uint256 U_lo) = _add(MY2_hi, MY2_lo, Y2); // [hi lo] = (M+1)·Y2
-            uint256 U = U_hi.unsafeInc(0 < U_lo);                    // ceil(/ 2²⁵⁶)
+            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);      // [hi lo] = M·Y2
+            (uint256 U,) = _add(MY2_hi, MY2_lo, Y2);             // floor((M+1)·Y2 / 2²⁵⁶)
 
             uint256 T = 1.5 * 2 ** 255 - U;
-            // Y_next = floor(Y*T / 2**255)
-            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);     // [hi lo] = Y·T
-            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);         // floor(/ 2²⁵⁵)
+            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T); // [hi lo] = Y·T
+            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // floor(/ 2²⁵⁵)
         }
     }
 
-    // gas benchmark 13/09/2025: ~3050 gas
+    // gas benchmark 13/09/2025: ~2600 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
