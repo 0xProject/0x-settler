@@ -1433,16 +1433,13 @@ library Lib512MathArithmetic {
 
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next = floor(Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵)
-    ///     U = floor((M + 1) · floor(Y² / 2²⁵⁵) / 2²⁵⁶)
+    ///     U = floor(M · floor(Y² / 2²⁵⁵) / 2²⁵⁶)
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);         // [hi lo] = Y·Y
             (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // floor(/ 2²⁵⁵)
-
-            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);      // [hi lo] = M·Y2
-            (uint256 U,) = _add(MY2_hi, MY2_lo, Y2);             // floor((M+1)·Y2 / 2²⁵⁶)
-
-            uint256 T = 1.5 * 2 ** 255 - U;
+            (uint256 MY2, ) = _mul(M, Y2);                       // floor(M·Y2 / 2²⁵⁶)
+            uint256 T = 1.5 * 2 ** 255 - MY2;
             (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T); // [hi lo] = Y·T
             (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // floor(/ 2²⁵⁵)
         }
