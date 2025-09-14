@@ -1483,21 +1483,23 @@ library Lib512MathArithmetic {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
-                let i := sub(shr(0xfa, M), 0x10)
+                let i := shr(0xfa, M)
+
                 // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
                 // to select which table we index.
-                let c := div(i, 0x18)
-                i := mod(i, 0x18)
+                let c := lt(0x27, i)
 
-                // Each entry is 10 bits and the entries are ordered from highest `i` to
-                // lowest. Each seed is 10 significant bits on the MSB end followed by 246 padding
+                // Each entry is 10 bits and the entries are ordered from lowest `i` to
+                // highest. Each seed is 10 significant bits on the MSB end followed by 246 padding
                 // zero bits. The seed is the value for `Y` for the midpoint of the bucket, rounded
                 // to 10 significant bits.
-                let table_hi := 0x5ad6e5c5745dd7b5f981615886319065198671a0691a96b5b26ddbc709c7
-                let table_lo := 0x735d3765df799ed7d1fc8120c8561f8a2338fa49956639c680a42a1ad2c9
-                let table := xor(table_lo, mul(xor(table_hi, table_lo), c))
+                let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
+                let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
+                let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
+
                 // Index the table to obtain the initial seed of `Y`
-                Y := shl(0xf6, shr(mul(0x0a, i), table))
+                let shift := add(0x186, sub(mul(0xf0, c), mul(0x0a, i)))
+                Y := shl(0xf6, shr(shift, table))
             }
 
             // Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
@@ -1506,7 +1508,10 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
-            if (e > 178) {
+            if (e > 177) {
+                // For small `e` (lower values of `x`), we can skip the 5th, final N-R
+                // iteration. The correct bits that this iteration would obtain are shifted away
+                // during the denormalization step. This branch is net gas-optimizing.
                 Y = _iSqrtNrStep(Y, M);
             }
 
