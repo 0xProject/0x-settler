@@ -1505,7 +1505,12 @@ library Lib512MathArithmetic {
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
-                Y = _iSqrtNrStep(Y, M);
+                if (e > 146) {
+                    // For small `e` (lower values of `x`), we can skip the 5th, final N-R
+                    // iteration. The correct bits that this iteration would obtain are shifted away
+                    // during the denormalization step.
+                    Y = _iSqrtNrStep(Y, M);
+                }
             }
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
