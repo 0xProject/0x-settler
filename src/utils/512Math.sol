@@ -1475,31 +1475,38 @@ library Lib512MathArithmetic {
             (, uint256 M) = _shr512(x_hi, x_lo, (e << 1) - 255);
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
-            /// normalization means our mantissa is geometrically symmetric around 1, leading to 8
-            /// buckets on the low side and 16 buckets on the high side.
+            /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
+            /// buckets on the low side and 32 buckets on the high side.
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
             uint256 Y;
             assembly ("memory-safe") {
-                // Extract the 5 bits of `M` to be used as a table index
-                let i := shr(0xfb, M)
+                // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
+                // invalid (that would imply M<½), so our lookup table only needs to handle only 16
+                // through 63.
+                let i := sub(shr(0xfa, M), 0x10)
+                // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
+                // to select which table we index.
+                let c := div(i, 0x18)
+                i := mod(i, 0x18)
 
-                // `M >> 251 < 8` is invalid (that would imply M<½), so our lookup table only needs
-                // to handle only 8 through 31. Each entry is 10 bits and the entries are ordered
-                // from highest `i` to lowest. Each seed is 10 significant bits on the MSB end
-                // followed by 246 padding zero bits. The seed is the value for `Y` for the midpoint
-                // of the bucket, rounded to 10 significant bits.
-                let table := 0x5b5735e58061d8e6599e699b06e9c4741dc7a9f88221a8b64397278a62be0000
+                // Each entry is 10 bits and the entries are ordered from highest `i` to
+                // lowest. Each seed is 10 significant bits on the MSB end followed by 246 padding
+                // zero bits. The seed is the value for `Y` for the midpoint of the bucket, rounded
+                // to 10 significant bits.
+                let table_hi := 0x5ad6e5c5745dd7b5f981615886319065198671a0691a96b5b26ddbc709c7
+                let table_lo := 0x735d3765df799ed7d1fc8120c8561f8a2338fa49956639c680a42a1ad2c9
+                let table := xor(table_lo, mul(xor(table_hi, table_lo), c))
                 // Index the table to obtain the initial seed of `Y`
-                Y := shl(0xf6, shr(add(0x10, mul(0x0a, sub(i, 0x08))), table))
+                Y := shl(0xf6, shr(mul(0x0a, i), table))
             }
 
             // Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             // convergence that our final fixup step produces an exact result.
-            {
-                Y = _iSqrtNrStep(Y, M);
-                Y = _iSqrtNrStep(Y, M);
-                Y = _iSqrtNrStep(Y, M);
-                Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrStep(Y, M);
+            if (e > 178) {
                 Y = _iSqrtNrStep(Y, M);
             }
 
