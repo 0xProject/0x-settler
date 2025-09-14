@@ -160,6 +160,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * irdivAlt(uint512,uint512)
 ///
 /// ### Square root
+///
 /// * sqrt(uint512) returns (uint256)
 type uint512 is bytes32;
 
