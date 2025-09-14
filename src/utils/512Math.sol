@@ -1480,22 +1480,17 @@ library Lib512MathArithmetic {
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
             uint256 Y;
             assembly ("memory-safe") {
-                // Extract the top nibble of the fractional part of `M` to be used as a table index
-                let i := and(0x0f, shr(0xfb, M))
-                // Extract the whole part of `M` to be used to choose which table
-                let c := shr(0xff, M)
+                // Extract the 5 bits of `M` to be used as a table index
+                let i := shr(0xfb, M)
 
                 // `M >> 251 < 8` is invalid (that would imply M<½), so our lookup table only needs
-                // to handle 8 through 31. Each entry is 2 bytes (16 bits) and the entries are
-                // ordered from highest `i` to lowest. Each seed is 16 significant bits on the MSB
-                // end followed by 240 padding zero bits. The seed is the value for `Y` for the
-                // midpoint of the bucket, rounded to 16 significant bits.
-                let table_hi := hex"5b3a_5cb5_5e44_5fe8_61a2_6376_6564_6771_699e_6bf0_6e6c_7115_73f2_770a_7a64_7e0c"
-                let table_lo := hex"820c_8675_8b59_90d1_96fb_9e02_a61d_af9d"
-                // Choose which table to use based on the integer part of `M`
-                let table := xor(table_lo, mul(xor(table_hi, table_lo), c))
+                // to handle only 8 through 31. Each entry is 10 bits and the entries are ordered
+                // from highest `i` to lowest. Each seed is 10 significant bits on the MSB end
+                // followed by 246 padding zero bits. The seed is the value for `Y` for the midpoint
+                // of the bucket, rounded to 10 significant bits.
+                let table := 0x5b5735e58061d8e6599e699b06e9c4741dc7a9f88221a8b64397278a62be0000
                 // Index the table to obtain the initial seed of `Y`
-                Y := shl(0xf0, shr(shl(0x04, i), table))
+                Y := shl(0xf6, shr(add(0x10, mul(0x0a, sub(i, 0x08))), table))
             }
 
             // Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
@@ -1505,12 +1500,7 @@ library Lib512MathArithmetic {
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
-                if (e > 146) {
-                    // For small `e` (lower values of `x`), we can skip the 5th, final N-R
-                    // iteration. The correct bits that this iteration would obtain are shifted away
-                    // during the denormalization step.
-                    Y = _iSqrtNrStep(Y, M);
-                }
+                Y = _iSqrtNrStep(Y, M);
             }
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
