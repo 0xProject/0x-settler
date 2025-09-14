@@ -1438,7 +1438,7 @@ library Lib512MathArithmetic {
         unchecked {
             (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);         // [hi lo] = Y·Y
             (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // floor(/ 2²⁵⁵)
-            (uint256 MY2, ) = _mul(M, Y2);                       // floor(M·Y2 / 2²⁵⁶)
+            (uint256 MY2,) = _mul(M, Y2);                        // floor(M·Y2 / 2²⁵⁶)
             uint256 T = 1.5 * 2 ** 255 - MY2;
             (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T); // [hi lo] = Y·T
             (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // floor(/ 2²⁵⁵)
