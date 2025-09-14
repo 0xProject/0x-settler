@@ -1495,7 +1495,7 @@ library Lib512MathArithmetic {
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
                 // Index the table to obtain the initial seed of `Y`
-                let shift := add(0x186, sub(mul(0xf0, c), mul(0x0a, i)))
+                let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
                 Y := shl(0xf6, shr(shift, table))
             }
 
