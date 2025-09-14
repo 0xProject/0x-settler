@@ -1445,7 +1445,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 14/09/2025: ~2430 gas
+    // gas benchmark 14/09/2025: ~2315 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1481,7 +1481,6 @@ library Lib512MathArithmetic {
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
                 let i := shr(0xfa, M)
-
                 // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
                 // to select which table we index.
                 let c := lt(0x27, i)
