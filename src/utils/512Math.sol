@@ -1456,6 +1456,12 @@ library Lib512MathArithmetic {
             return x_lo.sqrt();
         }
 
+        /// Our general approach here is to compute the inverse of the square root of the argument
+        /// using Newton-Raphson iterations. Then we combine (multiply) this inverse square root
+        /// approximation with the argument to approximate the square root of the argument. After
+        /// that, a final fixup step is applied to get the exact result. We compute the inverse of
+        /// the square root rather than the square root directly because then our Newton-Raphson
+        /// iteration can avoid the extremely expensive 512-bit division subroutine.
         unchecked {
             /// First, we normalize `x` by separating it into a mantissa and exponent. We use
             /// even-exponent normalization.
@@ -1485,23 +1491,27 @@ library Lib512MathArithmetic {
                 Y := shl(0xf0, shr(shl(0x04, i), hex"5a82_5d7a_60c2_6469_6882_6d28_727c_78ad_8000_88d6_93cd_a1e8"))
             }
 
-            // Perform 6 under-biased Newton-Raphson iterations. 6 is enough iterations for
-            // sufficient convergence that our final fixup step produces an exact result.
+            // Perform 6 Newton-Raphson iterations. 6 is enough iterations for sufficient
+            // convergence that our final fixup step produces an exact result.
             {
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
-                Y = _iSqrtNrStep(Y, M);
+                if (e > 174) {
+                    // For small `e` (lower values of `x`), we can skip the 6th, final N-R
+                    // iteration. This branch is net gas-optimizing.
+                    Y = _iSqrtNrStep(Y, M);
+                }
             }
 
-            /// When we combine `Y` with `M` to form our approximation of the square root, we have to
-            /// un-normalize by the half-scale value. This is where even-exponent normalization comes in
-            /// because the half-scale is integer.
+            /// When we combine `Y` with `M` to form our approximation of the square root, we have
+            /// to un-normalize by the half-scale value. This is where even-exponent normalization
+            /// comes in because the half-scale is integral.
             // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
-            // We shift right by `510 - e` to account for both the Q1.255 scaling and denormalization
-            // r0 = floor(M·Y / 2⁽⁵¹⁰ ⁻ ᵉ⁾) ≈ floor(2ᵉ · √x  / 2²⁵⁵)
+            // We shift right by `510 - e` to account for both the Q1.255 scaling and
+            // denormalization r0 = floor(M·Y / 2⁽⁵¹⁰ ⁻ ᵉ⁾) ≈ floor(2ᵉ · √x / 2²⁵⁵)
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr512(r0_hi, r0_lo, 510 - e);
 
