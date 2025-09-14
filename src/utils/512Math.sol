@@ -1529,17 +1529,16 @@ library Lib512MathArithmetic {
             uint256 q_lo = _div(x_hi, x_lo, r0);
             uint256 q_hi = (r0 <= x_hi).toUint();
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
-            // `oflo` here is either 0 or 1. When `oflo == 1`, `r0 == 0`, and the correct value for
-            // `r0` is `type(uint256).max`.
-            uint256 oflo;
-            (oflo, r0) = _shr256(s_hi, s_lo, 1);
-            r0 -= oflo;
+            // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
+            // `r1` is `type(uint256).max`.
+            (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
+            r1 -= oflo;
 
             /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
             /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
-            (uint256 r2_hi, uint256 r2_lo) = _mul(r0, r0);
-            r = r0.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+            (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
+            r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
     }
 }
