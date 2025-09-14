@@ -1489,6 +1489,8 @@ library Lib512MathArithmetic {
                 // highest. Each seed is 10 significant bits on the MSB end followed by 246 padding
                 // zero bits. The seed is the value for `Y` for the midpoint of the bucket, rounded
                 // to 10 significant bits.
+                // Each seed is less than floor(2²⁵⁵·√2). This ensures overflow safety (Y² / 2²⁵⁵ <
+                // 2²⁵⁶) in the first (and subsequent) N-R step(s).
                 let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
                 let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
