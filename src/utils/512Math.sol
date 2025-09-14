@@ -1491,8 +1491,8 @@ library Lib512MathArithmetic {
                 Y := shl(0xf0, shr(shl(0x04, i), hex"5a82_5d7a_60c2_6469_6882_6d28_727c_78ad_8000_88d6_93cd_a1e8"))
             }
 
-            // Perform 7 under-biased Newton-Raphson iterations
-            // 7 is enough iterations for full convergence within Q1.255
+            // Perform 6 under-biased Newton-Raphson iterations. 6 is enough iterations for
+            // sufficient convergence that our final fixup step produces an exact result.
             {
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
@@ -1512,25 +1512,24 @@ library Lib512MathArithmetic {
             (, uint256 r0) = _shr512(r0_hi, r0_lo, 510 - e);
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
-            /// converge on the exact ⌊√x⌋.  The Babylonian step is `r = floor((r0 + x / r0) / 2)`
+            /// converge on the exact ⌊√x⌋.  The Babylonian step is `r = floor((r0 + x / r0) / 2)`.
             // Rather than use the more-expensive division routine that returns a 512-bit result,
-            // because the upper word of the quotient is highly constrainted, we can compute the
-            // quotient mod 2²⁵⁶ and recover the high word separately.
+            // because the value the upper word of the quotient can take is highly constrained, we
+            // can compute the quotient mod 2²⁵⁶ and recover the high word separately.
             uint256 q_lo = _div(x_hi, x_lo, r0);
-            // q_hi = 1 if x >= (r0 << 256)  <=>  x_hi >= r0  <=>  not((r0,0) > (x_hi,0))
-            uint256 q_hi = (!_gt(r0, 0, x_hi, 0)).toUint();
-
-            // s = r0 + q  (512-bit)  => average = floor(s / 2)
+            uint256 q_hi = (r0 <= x_hi).toUint();
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
+            // `oflo` here is either 0 or 1. When `oflo == 1`, `r0 == 0`, and the correct value for
+            // `r0` is `type(uint256).max`.
+            uint256 oflo;
+            (oflo, r0) = _shr256(s_hi, s_lo, 1);
+            r0 -= oflo;
 
-            // r1 = floor((r0 + q) / 2)
-            uint256 overflow;
-            (overflow, r0) = _shr256(s_hi, s_lo, 1);
-            r0 -= overflow;
-
-            // Clamp to floor if we overshot by 1.
-            (uint256 sq_hi, uint256 sq_lo) = _mul(r0, r0);
-            r = r0.unsafeDec(_gt(sq_hi, sq_lo, x_hi, x_lo));
+            /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
+            /// check whether we've overstepped by 1 and clamp as appropriate. ref:
+            /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
+            (uint256 r2_hi, uint256 r2_lo) = _mul(r0, r0);
+            r = r0.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
     }
 }
