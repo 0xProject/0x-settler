@@ -332,16 +332,13 @@ library Lib512MathArithmetic {
     using FastLogic for bool;
     using Sqrt for uint256;
 
-    function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
-        uint256 r_hi;
-        uint256 r_lo;
+    function _add(uint256 x, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_lo := add(x, y)
             // `lt(r_lo, x)` indicates overflow in the lower addition. We can
             // add the bool directly to the integer to perform carry
             r_hi := lt(r_lo, x)
         }
-        return r.from(r_hi, r_lo);
     }
 
     function _add(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
@@ -351,16 +348,6 @@ library Lib512MathArithmetic {
             // addition. Overflow in the high limb is simply ignored
             r_hi := add(x_hi, lt(r_lo, x_lo))
         }
-    }
-
-    function oadd(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-        (uint256 r_hi, uint256 r_lo) = _add(x_hi, x_lo, y);
-        return r.from(r_hi, r_lo);
-    }
-
-    function iadd(uint512 r, uint256 y) internal pure returns (uint512) {
-        return oadd(r, r, y);
     }
 
     function _add(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
@@ -374,6 +361,21 @@ library Lib512MathArithmetic {
             // addition. Overflow in the high limb is simply ignored.
             r_hi := add(add(x_hi, y_hi), lt(r_lo, x_lo))
         }
+    }
+
+    function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
+        (uint256 r_hi, uint256 r_lo) = _add(x, y);
+        return r.from(r_hi, r_lo);
+    }
+
+    function oadd(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _add(x_hi, x_lo, y);
+        return r.from(r_hi, r_lo);
+    }
+
+    function iadd(uint512 r, uint256 y) internal pure returns (uint512) {
+        return oadd(r, r, y);
     }
 
     function oadd(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
@@ -748,16 +750,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    function div(uint512 n, uint256 d) internal pure returns (uint256) {
-        if (d == 0) {
-            Panic.panic(Panic.DIVISION_BY_ZERO);
-        }
-
-        (uint256 n_hi, uint256 n_lo) = n.into();
-        if (n_hi == 0) {
-            return n_lo.unsafeDiv(d);
-        }
-
+    function _div(uint256 n_hi, uint256 n_lo, uint256 d) private pure returns (uint256) {
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
         (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
@@ -777,6 +770,19 @@ library Lib512MathArithmetic {
             // inverse of the denominator. This is the correct result mod 2²⁵⁶.
             return n_lo * d;
         }
+    }
+
+    function div(uint512 n, uint256 d) internal pure returns (uint256) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        (uint256 n_hi, uint256 n_lo) = n.into();
+        if (n_hi == 0) {
+            return n_lo.unsafeDiv(d);
+        }
+
+        return _div(n_hi, n_lo, d);
     }
 
     function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
@@ -1494,10 +1500,6 @@ library Lib512MathArithmetic {
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
                 Y = _iSqrtNrStep(Y, M);
-                if (e > 175) {
-                    // If `e` is small, we can skip the last iteration. This branch is net gas-optimizing
-                    Y = _iSqrtNrStep(Y, M);
-                }
             }
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have to
@@ -1509,69 +1511,26 @@ library Lib512MathArithmetic {
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr512(r0_hi, r0_lo, 510 - e);
 
-            // Δ = x - r0²
-            // `r0` underestimates √x, so we need to check if `r0 + k` is the correct answer
-            // where k ∈ {0,1,2,3,4,5,6,7}. We compute the "deficit" Δ = x - r0²
-            (uint256 r2_hi, uint256 r2_lo) = _mul(r0, r0);
-            (uint256 d_hi, uint256 d_lo) = _sub(x_hi, x_lo, r2_hi, r2_lo);
+            /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
+            /// converge on the exact ⌊√x⌋.  The Babylonian step is `r = floor((r0 + x / r0) / 2)`
+            // Rather than use the more-expensive division routine that returns a 512-bit result,
+            // because the upper word of the quotient is highly constrainted, we can compute the
+            // quotient mod 2²⁵⁶ and recover the high word separately.
+            uint256 q_lo = _div(x_hi, x_lo, r0);
+            // q_hi = 1 if x >= (r0 << 256)  <=>  x_hi >= r0  <=>  not((r0,0) > (x_hi,0))
+            uint256 q_hi = (!_gt(r0, 0, x_hi, 0)).toUint();
 
-            /// Precompute `2*r0`, `4*r0`, `8*r0` by shifts (cheaper than 512-bit adds)
-            // These multiples are used to compute thresholds τ(k) = 2·k·r0 + k²
-            // S = 2*r0
-            (uint256 S_hi, uint256 S_lo) = _shl256(r0, 1);
-            // S2 = 4*r0
-            (uint256 S2_hi, uint256 S2_lo) = _shl256(r0, 2);
-            // S4 = 8*r0
-            (uint256 S4_hi, uint256 S4_lo) = _shl256(r0, 3);
+            // s = r0 + q  (512-bit)  => average = floor(s / 2)
+            (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
 
-            // We need to find k such that (r0 + k)² ≤ x < (r0 + k + 1)²
-            // Equivalently: Δ < τ(k+1) where τ(k) = 2·k·r0 + k²
-            // We use a 2-layer binary search tree, then branchless bit hacks afterwards
+            // r1 = floor((r0 + q) / 2)
+            uint256 overflow;
+            (overflow, r0) = _shr256(s_hi, s_lo, 1);
+            r0 -= overflow;
 
-            // τ(4) = 8*r0 + 16
-            (uint256 t4_hi, uint256 t4_lo) = _add(S4_hi, S4_lo, 16);
-
-            if (!_gt(t4_hi, t4_lo, d_hi, d_lo)) {
-                // k ∈ {4,5,6,7} (upper half)
-                // τ(6) = 12*r0 + 36 = (8*r0 + 4*r0) + 36
-                (uint256 t6_hi, uint256 t6_lo) = _add(S4_hi, S4_lo, S2_hi, S2_lo);
-                (t6_hi, t6_lo) = _add(t6_hi, t6_lo, 36);
-
-                // Δ < τ(6) ?
-                if (!_gt(t6_hi, t6_lo, d_hi, d_lo)) {
-                    // k ∈ {6,7}. τ(7) = 14*r0 + 49 = ((8*r0 + 4*r0) + 2*r0) + 49 = (τ(6) + 2*r0) + 13
-                    (uint256 t7_hi, uint256 t7_lo) = _add(t6_hi, t6_lo, S_hi, S_lo);
-                    (t7_hi, t7_lo) = _add(t7_hi, t7_lo, 13);
-
-                    // Δ < τ(7) ?
-                    r = (r0 + 6).unsafeInc(!_gt(t7_hi, t7_lo, d_hi, d_lo));
-                } else {
-                    // k ∈ {4,5}. τ(5) = 10*r0 + 25 = (8*r0 + 2*r0) + 25
-                    (uint256 t5_hi, uint256 t5_lo) = _add(S4_hi, S4_lo, S_hi, S_lo);
-                    (t5_hi, t5_lo) = _add(t5_hi, t5_lo, 25);
-
-                    // Δ < τ(5) ?
-                    r = (r0 + 4).unsafeInc(!_gt(t5_hi, t5_lo, d_hi, d_lo));
-                }
-            } else {
-                // k ∈ {0,1,2,3} (lower half)
-                // τ(2) = 4*r0 + 4
-                (uint256 t2_hi, uint256 t2_lo) = _add(S2_hi, S2_lo, 4);
-
-                // Δ < τ(2) ?
-                if (!_gt(t2_hi, t2_lo, d_hi, d_lo)) {
-                    // k ∈ {2,3}. τ(3) = 6*r0 + 9 = (4*r0 + 2*r0) + 9
-                    (uint256 t3_hi, uint256 t3_lo) = _add(S2_hi, S2_lo, S_hi, S_lo);
-                    (t3_hi, t3_lo) = _add(t3_hi, t3_lo, 9);
-
-                    // Δ < τ(3) ?
-                    r = (r0 + 2).unsafeInc(!_gt(t3_hi, t3_lo, d_hi, d_lo));
-                } else {
-                    // k ∈ {0,1}. τ(1) = 2*r0 + 1
-                    // Δ < τ(1) ?
-                    r = r0.unsafeInc(!_gt(S_hi, S_lo + 1, d_hi, d_lo));
-                }
-            }
+            // Clamp to floor if we overshot by 1.
+            (uint256 sq_hi, uint256 sq_lo) = _mul(r0, r0);
+            r = r0.unsafeDec(_gt(sq_hi, sq_lo, x_hi, x_lo));
         }
     }
 }
