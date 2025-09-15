@@ -1589,16 +1589,67 @@ library Lib512MathArithmetic {
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
 
-            /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
-            /// converge on the exact ⌊√x⌋.  The Babylonian step is `r1 = floor((r0 + x / r0) / 2)`.
-            // Rather than use the more-expensive division routine that returns a 512-bit result,
-            // because the value the upper word of the quotient can take is highly constrained, we
-            // can compute the quotient mod 2²⁵⁶ and recover the high word separately.
-            uint256 q_lo = _div(x_hi, x_lo, r0);
-            uint256 q_hi = (r0 <= x_hi).toUint();
+            // --- Division-free quotient via Y: multiply–refine with correct scaling (scale = e + 255) ---
+            // We compute q = floor(x / r0) without modular inversion by reusing Y.
+            // 1) Determine whether the 257th quotient bit is set, peel it from the numerator.
+            // 2) Coarse quotient q0 = floor((x' * Y) >> (e+255)).
+            // 3) One correction: delta = floor((|x' - q0*r0| * Y) >> (e+255)).
+            // 4) Final ±1 adjust to exact floor(x' / r0).  Then your suffix does the Babylonian half-sum.
+            // 1) Top-bit of quotient and reduced numerator x' = x − q_hi·(r0 << 256)
+            uint256 q_hi = (r0 <= x_hi).toUint();          // 1 iff floor(x / r0) ≥ 2^256
+            uint256 xr_hi = x_hi - (q_hi * r0);            // safe since q_hi==1 ⇒ r0 ≤ x_hi
+            uint256 xr_lo = x_lo;
+
+            // 2) Coarse quotient: q0 ≈ floor( (x' * Y) >> (e+255) )
+            uint256 scale = e + 255;
+            (uint256 A2, uint256 A1, uint256 A0) = _mul768(xr_hi, xr_lo, Y);
+            (, , uint256 q_lo) = _shr(A2, A1, A0, scale);
+
+            // 3) Compute remainder magnitude R = |x' - q0*r0|
+            (uint256 P0_hi, uint256 P0_lo) = _mul(q_lo, r0);
+            bool P0_gt_xr = _gt(P0_hi, P0_lo, xr_hi, xr_lo); // true if q0*r0 > x'
+            uint256 R_hi; uint256 R_lo;
+            if (!P0_gt_xr) {
+                // R = x' - P0
+                R_lo = xr_lo - P0_lo;
+                uint256 b = (xr_lo < P0_lo).toUint();
+                R_hi = xr_hi - P0_hi - b;
+            } else {
+                // R = P0 - x'
+                R_lo = P0_lo - xr_lo;
+                uint256 b = (P0_lo < xr_lo).toUint();
+                R_hi = P0_hi - xr_hi - b;
+            }
+
+            // One Goldschmidt-style correction using the same scale:
+            // delta = floor( (R * Y) >> (e+255) )
+            (uint256 D2, uint256 D1, uint256 D0) = _mul768(R_hi, R_lo, Y);
+            (, , uint256 delta) = _shr(D2, D1, D0, scale);
+
+            // Apply the signed correction
+            if (!P0_gt_xr) {
+                // under-estimate → add
+                q_lo = q_lo + delta;
+            } else {
+                // over-estimate → subtract
+                q_lo = q_lo - delta;
+            }
+
+            // 4) Final ±1 adjust to exact floor(x' / r0)
+            (uint256 P1_hi, uint256 P1_lo) = _mul(q_lo, r0);
+            if (_gt(P1_hi, P1_lo, xr_hi, xr_lo)) {
+                q_lo -= 1;
+            } else {
+                // If (q_lo + 1)*r0 ≤ x', bump once
+                (uint256 S_hi, uint256 S_lo) = _add(P1_hi, P1_lo, r0); // 512 + 256 → 512
+                if (_gt(S_hi, S_lo, xr_hi, xr_lo) == false) {
+                    q_lo += 1;
+                }
+            }
+
+            // q_hi (0/1) and q_lo (256-bit) now encode floor(x / r0) exactly.
+
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
-            // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
-            // `r1` is `type(uint256).max`.
             (uint256 oflo, uint256 r2) = _shr256(s_hi, s_lo, 1);
             r2 -= oflo;
 
