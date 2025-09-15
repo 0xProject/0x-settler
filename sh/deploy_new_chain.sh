@@ -323,7 +323,7 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     verify_contract "$(cast abi-encode 'constructor(uint256)' 1)" "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
-    echo 'Run ./sh/verify_settler.sh to verify newly-deployed Settlers' >&2
+    echo 'Run ./sh/verify_settler.sh and ./sh/verify_bridge_settler.sh to verify newly-deployed Settlers' >&2
 fi
 
 echo 'Deployment is complete' >&2
