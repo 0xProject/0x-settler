@@ -1153,7 +1153,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _shr512(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _shr(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         (r_hi, r_lo) = _shr256(x_hi, x_lo, s);
         unchecked {
             r_lo |= x_hi >> s - 256;
@@ -1433,16 +1433,16 @@ library Lib512MathArithmetic {
     }
 
     /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next = floor(Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵)
-    ///     U = floor(M · floor(Y² / 2²⁵⁵) / 2²⁵⁶)
+    ///     Y_next = ⌊Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵⌋
+    ///     U = ⌊M · ⌊Y² / 2²⁵⁵⌋ / 2²⁵⁶⌋
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);         // [hi lo] = Y·Y
-            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // floor(/ 2²⁵⁵)
-            (uint256 MY2,) = _mul(M, Y2);                        // floor(M·Y2 / 2²⁵⁶)
+            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // ⌊/ 2²⁵⁵⌋
+            (uint256 MY2,) = _mul(M, Y2);                        // ⌊M·Y2 / 2²⁵⁶⌋
             uint256 T = 1.5 * 2 ** 255 - MY2;
             (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T); // [hi lo] = Y·T
-            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // floor(/ 2²⁵⁵)
+            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // ⌊/ 2²⁵⁵⌋
         }
     }
 
@@ -1465,12 +1465,12 @@ library Lib512MathArithmetic {
             /// even-exponent normalization.
 
             // `e` is half the exponent of `x`
-            // e = floor(bitlength(x)/2)
+            // e = ⌊bitlength(x)/2⌋
             uint256 e = (512 - x_hi.clz()) >> 1;
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
             // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr512(x_hi, x_lo, (e << 1) - 255);
+            (, uint256 M) = _shr(x_hi, x_lo, (e << 1) - 255);
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
@@ -1490,8 +1490,8 @@ library Lib512MathArithmetic {
                 // highest. Each seed is 10 significant bits on the MSB end followed by 246 padding
                 // zero bits. The seed is the value for `Y` for the midpoint of the bucket, rounded
                 // to 10 significant bits.
-                // Each seed is less than floor(2²⁵⁵·√2). This ensures overflow safety (Y² / 2²⁵⁵ <
-                // 2²⁵⁶) in the first (and subsequent) N-R step(s).
+                // Each seed is less than ⌊2²⁵⁵·√2⌋. This ensures overflow safety (Y² / 2²⁵⁵ < 2²⁵⁶)
+                // in the first (and subsequent) N-R step(s).
                 let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
                 let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
@@ -1519,9 +1519,9 @@ library Lib512MathArithmetic {
             /// comes in because the half-scale is integral.
             // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
-            // denormalization r0 = floor(M·Y / 2⁽⁵¹⁰ ⁻ ᵉ⁾) ≈ floor(2ᵉ · √x / 2²⁵⁵)
+            // denormalization r0 = ⌊M·Y / 2⁽⁵¹⁰ ⁻ ᵉ⁾⌋ ≈ ⌊2ᵉ · √x / 2²⁵⁵⌋
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
-            (, uint256 r0) = _shr512(r0_hi, r0_lo, 510 - e);
+            (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
             /// converge on the exact ⌊√x⌋.  The Babylonian step is `r1 = floor((r0 + x / r0) / 2)`.
