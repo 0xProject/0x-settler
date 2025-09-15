@@ -364,6 +364,27 @@ library Lib512MathArithmetic {
         }
     }
 
+    function _add(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
+    {
+        assembly ("memory-safe") {
+            r_lo := add(x_lo, y_lo)
+            let c0 := lt(r_lo, x_lo)
+
+            let sum_hi := add(x_hi, y_hi)
+            let c1 := lt(sum_hi, x_hi)
+
+            r_hi := add(sum_hi, c0)
+            let c2 := lt(r_hi, sum_hi) // carry from adding c0
+
+            // overflow beyond `r_ex` is ignored
+            r_ex := add(add(x_ex, c1), c2)
+        }
+    }
+
+
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         (uint256 r_hi, uint256 r_lo) = _add(x, y);
         return r.from(r_hi, r_lo);
@@ -1160,6 +1181,27 @@ library Lib512MathArithmetic {
         }
     }
 
+    function _shr(
+        uint256 x_ex,
+        uint256 x_hi,
+        uint256 x_lo,
+        uint256 s
+    ) private pure returns (
+        uint256 r_ex, uint256 r_hi, uint256 r_lo
+    ) {
+        // Base (s < 256) behavior via the 2-word helper; also safe for any s
+        (r_ex, r_hi) = _shr256(x_ex, x_hi, s);
+        (,     r_lo) = _shr256(x_hi, x_lo, s);
+
+        // Spillovers for s >= 256 and s >= 512; rely on EVM shifts >=256 => 0
+        unchecked {
+            r_hi |= x_ex >> (s - 256);
+            r_lo |= x_hi >> (s - 256);
+            r_lo |= x_ex >> (s - 512);
+        }
+    }
+
+
     // This function is a different modification of Knuth's Algorithm D. In this
     // case, we're only interested in the (normalized) remainder instead of the
     // quotient. We also substitute the normalization by division for
@@ -1432,6 +1474,30 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
+    // TODO: cleanup
+    function _absDiff(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo, bool sign)
+    {
+        assembly ("memory-safe") {
+            // sign = (x < y) in lexicographic (hi, lo) order
+            let eq_hi := eq(x_hi, y_hi)
+            sign := or(lt(x_hi, y_hi), and(eq_hi, lt(x_lo, y_lo)))
+
+            // m = 0x00..00 when sign==0, 0xFF..FF when sign==1
+            let m := sub(0x00, sign)
+
+            // Compute (x ^ m) - (y ^ m) with borrow from low into high.
+            let ax_lo := xor(x_lo, m)
+            let ay_lo := xor(y_lo, m)
+            r_lo := sub(ax_lo, ay_lo)
+
+            // Borrow occurred iff r_lo > ax_lo (underflow of the low subtraction)
+            r_hi := sub(sub(xor(x_hi, m), xor(y_hi, m)), gt(r_lo, ax_lo))
+        }
+    }
+
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next = ⌊Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵⌋
     ///     U = ⌊M · ⌊Y² / 2²⁵⁵⌋ / 2²⁵⁶⌋
@@ -1466,17 +1532,17 @@ library Lib512MathArithmetic {
 
             // `e` is half the exponent of `x`
             // e = ⌊bitlength(x)/2⌋
-            uint256 e = (512 - x_hi.clz()) >> 1;
+            uint256 e = (512 - x_hi.clz()) >> 1; // range: [128 256]
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
             // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr(x_hi, x_lo, (e << 1) - 255);
+            (, uint256 M) = _shr(x_hi, x_lo, (e << 1) - 255); // scale: 255 - 2e
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
-            uint256 Y;
+            uint256 Y; // scale: e + 255
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
@@ -1519,7 +1585,7 @@ library Lib512MathArithmetic {
             /// comes in because the half-scale is integral.
             // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
-            // denormalization r0 = ⌊M·Y / 2⁽⁵¹⁰ ⁻ ᵉ⁾⌋ ≈ ⌊2ᵉ · √x / 2²⁵⁵⌋
+            // denormalization r0 = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊2ᵉ · √x / 2²⁵⁵⌋
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
 
@@ -1533,14 +1599,14 @@ library Lib512MathArithmetic {
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
             // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
             // `r1` is `type(uint256).max`.
-            (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
-            r1 -= oflo;
+            (uint256 oflo, uint256 r2) = _shr256(s_hi, s_lo, 1);
+            r2 -= oflo;
 
             /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
             /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
-            (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
-            r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+            (uint256 r3_hi, uint256 r3_lo) = _mul(r2, r2);
+            r = r2.unsafeDec(_gt(r3_hi, r3_lo, x_hi, x_lo));
         }
     }
 }
