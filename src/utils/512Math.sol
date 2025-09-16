@@ -1588,7 +1588,7 @@ library Lib512MathArithmetic {
             ///     r1 = ⌊r0 + ⌊x/r0⌋/2⌋
             /// However, computing this step naïvely using `_div` ends up performing an expensive
             /// modular inversion:
-            ///     ⌊x/r0⌋ = x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
+            ///     ⌊x/r0⌋ ≡ x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
             /// which is computed using Newton-Raphson-Hensel iterations. We already have a good
             /// approximation for r0⁻¹, namely `Y`. So we refine x·Y into ⌊x/r0⌋ via a convoluted
             /// series of Goldschmidt-style corrections.
@@ -1632,9 +1632,11 @@ library Lib512MathArithmetic {
             q_lo += adjustUp + adjustDownMask;
 
             // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
-            (uint256 top, uint256 s_lo) = _add(q_top, q_lo, r0);
-            (uint256 saturate, uint256 r1) = _shr256(top, s_lo, 1);
-            r1 |= 0 - saturate;
+            (uint256 s_hi, uint256 s_lo) = _add(q_top, q_lo, r0);
+            // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
+            // `r1` is `type(uint256).max`.
+            (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
+            r1 -= oflo;
 
             /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
