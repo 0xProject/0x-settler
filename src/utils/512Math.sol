@@ -1604,11 +1604,13 @@ library Lib512MathArithmetic {
             // `xr_high` accounts for the carry after adjusting q
             uint256 xr_hi = x_hi - (q_hi * r0);
 
-            // (2) Coarse reduced quotient: q0 ≈ floor((x' · Y) >> (shift + 256))
-            (uint256 A2, uint256 A1,) = _mul768(xr_hi, x_lo, Y);
-            (, uint256 q_lo) = _shr256(A2, A1, shift); // 256-bit reduced quotient
+            // Get the low word of q
+            uint256 q_lo;
+            {
+                (uint256 xry_hi, uint256 xry_lo,) = _mul768(xr_hi, x_lo, Y);
+                (, q_lo) = _shr256(xry_hi, xry_lo, shift);
+            }
 
-            // (3) Correction of the reduced quotient (inlined former helper)
             uint256 P_hi;
             uint256 P_lo;
             {
@@ -1626,14 +1628,15 @@ library Lib512MathArithmetic {
                 (P_hi, P_lo) = _mul(q_lo, r0);
             }
 
-            // (4) Final ±1 adjust to exact floor(x' / r0) — **reduced quotient only**
             uint256 adjustDown = _gt(P_hi, P_lo, xr_hi, x_lo).toUint();
             (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
             uint256 adjustUp = (adjustDown ^ 1) & (!_gt(S_hi, S_lo, xr_hi, x_lo)).toUint();
             q_lo += adjustUp;
             q_lo -= adjustDown;
 
-            // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_hi << 256) | q_lo
+            //     q = ⌊x/r0⌋
+            // perform the remainder of the Babylonian step
+            //     r1 = ⌊(r0 + q) / 2⌋
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
             // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
             // `r1` is `type(uint256).max`.
