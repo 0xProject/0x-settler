@@ -1632,10 +1632,7 @@ library Lib512MathArithmetic {
             q_lo += adjustUp + adjustDownMask;
 
             // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
-            uint256 s_lo  = q_lo + r0;
-            uint256 carry = (s_lo < q_lo).toUint();     // 1 iff low-limb overflow
-            uint256 top   = q_top + carry;              // 0, 1, or (rarely) 2
-
+            (uint256 top, uint256 s_lo) = _add(q_top, q_lo, r0);
             uint256 r1 = (s_lo >> 1) | ((top & 1) << 255);
             uint256 saturate = 0 - (top >> 1);          // 0 or type(uint256).max
             r1 |= saturate;
