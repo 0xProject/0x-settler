@@ -1583,8 +1583,17 @@ library Lib512MathArithmetic {
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr(r0_hi, r0_lo, 254 + invE);
 
-            // --- Division-free quotient via Y: multiply–refine with correct scaling (shift = e − 1) ---
-            uint256 shift = 255 - invE;          // == e - 1
+            /// The final fixup step is to perform a Babylonian method iteration on `r0` and
+            /// `x`. The Babylonian iteration is:
+            ///     r1 = ⌊r0 + ⌊x/r0⌋/2⌋
+            /// However, computing this step naïvely using `_div` ends up performing an expensive
+            /// modular inversion:
+            ///     ⌊x/r0⌋ = x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
+            /// which is computed using Newton-Raphson-Hensel iterations. We already have a good
+            /// approximation for r0⁻¹, namely `Y`. So we refine x·Y into ⌊x/r0⌋ via a convoluted
+            /// series of Goldschmidt-style corrections.
+
+            uint256 shift = 255 - invE;
 
             // (1) Full-quotient top bit and reduced numerator x' = x − (q_top * r0 << 256)
             uint256 q_top = (r0 <= x_hi).toUint();     // 1 iff floor(x / r0) ≥ 2^256
@@ -1629,9 +1638,11 @@ library Lib512MathArithmetic {
 
             uint256 r1 = (s_lo >> 1) | ((top & 1) << 255);
             uint256 saturate = 0 - (top >> 1);          // 0 or type(uint256).max
-            r1 = (r1 & ~saturate) | saturate;
+            r1 |= saturate;
 
-            // (6) Final clamp
+            /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
+            /// check whether we've overstepped by 1 and clamp as appropriate. ref:
+            /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
             r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
