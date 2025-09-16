@@ -1658,7 +1658,11 @@ library Lib512MathArithmetic {
 
             // (6) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
             (uint256 s_hi, uint256 s_lo) = _add(q_top, q_lo, r0); // 257-bit add for q+r0
-            (, uint256 r1) = _shr256(s_hi, s_lo, 1);
+            (uint256 h, uint256 l) = _shr256(s_hi, s_lo, 1);      // 257-bit >> 1
+
+            // If h != 0, the true half-sum ≥ 2^256, which can't fit in uint256.
+            // Saturate to max; the final square-check will clamp down if needed.
+            uint256 r1 = (h == 0) ? l : type(uint256).max;
 
             // (7) Final clamp (unchanged)
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
