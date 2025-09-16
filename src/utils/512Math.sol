@@ -1610,14 +1610,14 @@ library Lib512MathArithmetic {
             {
                 (P_hi, P_lo) = _mul(q_lo, r0);
                 (uint256 R_hi, uint256 R_lo, bool under) = _absDiff(P_hi, P_lo, xr_hi, xr_lo);
-                (uint256 D2, uint256 D1,) = _mul768(R_hi, R_lo, Y);
+                (uint256 D2, uint256 D1, ) = _mul768(R_hi, R_lo, Y);
                 (, uint256 delta) = _shr256(D2, D1, shift);
                 uint256 mask;
                 assembly ("memory-safe") {
                     // mask ∈ {0, 2²⁵⁶-1}; zero when under, all-ones otherwise
-                    mask := sub(0, xor(under, 1))
+                    mask := sub(0, iszero(under))
                 }
-                q_lo += (delta ^ mask) - mask;  // add if under; subtract otherwise
+                q_lo += (delta ^ mask) + under.toUint();  // add if under; subtract otherwise
                 (P_hi, P_lo) = _mul(q_lo, r0);
             }
 
