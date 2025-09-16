@@ -1583,9 +1583,10 @@ library Lib512MathArithmetic {
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr(r0_hi, r0_lo, 254 + invE);
 
-            /// The final fixup step is to perform a Babylonian method iteration on `r0` and
-            /// `x`. The Babylonian iteration is:
-            ///     r1 = ⌊r0 + ⌊x/r0⌋/2⌋
+            /// Now for the final fixup step: `r0` is only an approximation of √x; we do a
+            /// Babylonian method iteration on `r0` and `x`. A single iteration is sufficient to
+            /// bring us exactly to either ⌊√x⌋ or ⌈√x⌉. The Babylonian iteration is:
+            ///     r1 = ⌊(r0 + ⌊x/r0⌋) / 2⌋
             /// However, computing this step naïvely using `_div` ends up performing an expensive
             /// modular inversion:
             ///     ⌊x/r0⌋ ≡ x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
@@ -1595,13 +1596,16 @@ library Lib512MathArithmetic {
 
             uint256 shift = 255 - invE;
 
-            // (1) Full-quotient top bit and reduced numerator x' = x − (q_hi * r0 << 256)
-            uint256 q_hi = (r0 <= x_hi).toUint();     // 1 iff floor(x / r0) ≥ 2^256
+            // Get q = x·Y
+            // Because the value the upper word of q, `q_hi`, can take is highly constrained, we
+            // can compute the quotient mod 2²⁵⁶, `q_lo` and recover the high word separately.
+            uint256 q_hi = (r0 <= x_hi).toUint();
+
+            // `xr_high` accounts for the carry after adjusting q
             uint256 xr_hi = x_hi - (q_hi * r0);
-            uint256 xr_lo = x_lo;
 
             // (2) Coarse reduced quotient: q0 ≈ floor((x' · Y) >> (shift + 256))
-            (uint256 A2, uint256 A1,) = _mul768(xr_hi, xr_lo, Y);
+            (uint256 A2, uint256 A1,) = _mul768(xr_hi, x_lo, Y);
             (, uint256 q_lo) = _shr256(A2, A1, shift); // 256-bit reduced quotient
 
             // (3) Correction of the reduced quotient (inlined former helper)
@@ -1609,7 +1613,7 @@ library Lib512MathArithmetic {
             uint256 P_lo;
             {
                 (P_hi, P_lo) = _mul(q_lo, r0);
-                (uint256 R_hi, uint256 R_lo, bool neg) = _absDiff(P_hi, P_lo, xr_hi, xr_lo);
+                (uint256 R_hi, uint256 R_lo, bool neg) = _absDiff(P_hi, P_lo, xr_hi, x_lo);
                 (uint256 D2, uint256 D1, ) = _mul768(R_hi, R_lo, Y);
                 (, uint256 delta) = _shr256(D2, D1, shift);
                 uint256 mask;
@@ -1623,9 +1627,9 @@ library Lib512MathArithmetic {
             }
 
             // (4) Final ±1 adjust to exact floor(x' / r0) — **reduced quotient only**
-            uint256 adjustDown = _gt(P_hi, P_lo, xr_hi, xr_lo).toUint();
+            uint256 adjustDown = _gt(P_hi, P_lo, xr_hi, x_lo).toUint();
             (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
-            uint256 adjustUp = (adjustDown ^ 1) & (!_gt(S_hi, S_lo, xr_hi, xr_lo)).toUint();
+            uint256 adjustUp = (adjustDown ^ 1) & (!_gt(S_hi, S_lo, xr_hi, x_lo)).toUint();
             q_lo += adjustUp;
             q_lo -= adjustDown;
 
