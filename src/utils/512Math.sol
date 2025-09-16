@@ -1628,8 +1628,7 @@ library Lib512MathArithmetic {
             uint256 adjustDown = _gt(P_hi, P_lo, xr_hi, xr_lo).toUint();
             (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
             uint256 adjustUp = (adjustDown ^ 1) & (!_gt(S_hi, S_lo, xr_hi, xr_lo)).toUint();
-            uint256 adjustDownMask = 0 - adjustDown;
-            q_lo += adjustUp + adjustDownMask;
+            q_lo += adjustUp - adjustDown;
 
             // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
             (uint256 s_hi, uint256 s_lo) = _add(q_top, q_lo, r0);
