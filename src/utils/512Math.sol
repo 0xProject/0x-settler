@@ -1609,10 +1609,7 @@ library Lib512MathArithmetic {
             uint256 P_lo;
             {
                 (P_hi, P_lo) = _mul(q_lo, r0);
-                bool under = !_gt(P_hi, P_lo, xr_hi, xr_lo); // P ≤ x' ?
-                (uint256 R_hi, uint256 R_lo) = under
-                    ? _sub(xr_hi, xr_lo, P_hi, P_lo)
-                    : _sub(P_hi, P_lo, xr_hi, xr_lo);
+                (uint256 R_hi, uint256 R_lo, bool under) = _absDiff(P_hi, P_lo, xr_hi, xr_lo);
                 (uint256 D2, uint256 D1,) = _mul768(R_hi, R_lo, Y);
                 (, uint256 delta) = _shr256(D2, D1, shift);
                 uint256 mask;
