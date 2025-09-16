@@ -1524,7 +1524,8 @@ library Lib512MathArithmetic {
             (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
-            /// converge on the exact ⌊√x⌋.  The Babylonian step is `r1 = floor((r0 + x / r0) / 2)`.
+            /// converge on ⌊√x⌋ or ⌈√x⌉.  The Babylonian step is:
+            ///     r1 = ⌊(r0 + ⌊x/r0⌋) / 2⌋
             // Rather than use the more-expensive division routine that returns a 512-bit result,
             // because the value the upper word of the quotient can take is highly constrained, we
             // can compute the quotient mod 2²⁵⁶ and recover the high word separately.
