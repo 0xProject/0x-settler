@@ -8,6 +8,8 @@ import {Ternary} from "./Ternary.sol";
 import {FastLogic} from "./FastLogic.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
 
+import {console} from "@forge-std/console.sol";
+
 /*
 
 WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
@@ -1512,6 +1514,41 @@ library Lib512MathArithmetic {
         }
     }
 
+    // ---- helper: one correction step (updates q_lo, q_hi in place) ----
+    function _correct_once(
+        uint256 xr_hi, uint256 xr_lo,
+        uint256 r0,
+        uint256 Y, uint256 scale,
+        uint256 q_hi, uint256 q_lo
+    ) private pure returns (uint256, uint256, uint256, uint256, bool) {
+        // P = q * r0 (257-bit q: (q_hi << 256) | q_lo)
+        (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
+        if (q_hi != 0) { (P_hi, P_lo) = _add(P_hi, P_lo, r0); }
+    
+        bool under = !_gt(P_hi, P_lo, xr_hi, xr_lo); // P ≤ x' ?
+        // R = |x' − P|
+        (uint256 R_hi, uint256 R_lo) = under
+            ? _sub(xr_hi, xr_lo, P_hi, P_lo)
+            : _sub(P_hi, P_lo, xr_hi, xr_lo);
+    
+        // Δ = floor((R * Y) >> (e+255))
+        (uint256 D2, uint256 D1, uint256 D0) = _mul768(R_hi, R_lo, Y);
+        (, , uint256 delta) = _shr(D2, D1, D0, scale);
+    
+        // q ← q ± Δ, with carry/borrow into q_hi
+        if (under) {
+            uint256 prev = q_lo;
+            q_lo = q_lo + delta;
+            if (q_lo < prev) { q_hi += 1; }     // carry out
+        } else {
+            uint256 prev = q_lo;
+            q_lo = q_lo - delta;
+            if (prev < delta) { q_hi -= 1; }    // borrow
+        }
+    
+        return (q_hi, q_lo, P_hi, P_lo, under);
+    }
+    
     // gas benchmark 14/09/2025: ~2315 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
@@ -1573,12 +1610,7 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
-            if (e > 177) {
-                // For small `e` (lower values of `x`), we can skip the 5th, final N-R
-                // iteration. The correct bits that this iteration would obtain are shifted away
-                // during the denormalization step. This branch is net gas-optimizing.
-                Y = _iSqrtNrStep(Y, M);
-            }
+            Y = _iSqrtNrStep(Y, M);
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
@@ -1590,74 +1622,56 @@ library Lib512MathArithmetic {
             (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
 
             // --- Division-free quotient via Y: multiply–refine with correct scaling (scale = e + 255) ---
-            // We compute q = floor(x / r0) without modular inversion by reusing Y.
+            uint256 scale = e + 255;
+
             // 1) Determine whether the 257th quotient bit is set, peel it from the numerator.
-            // 2) Coarse quotient q0 = floor((x' * Y) >> (e+255)).
-            // 3) One correction: delta = floor((|x' - q0*r0| * Y) >> (e+255)).
-            // 4) Final ±1 adjust to exact floor(x' / r0).  Then your suffix does the Babylonian half-sum.
-            // 1) Top-bit of quotient and reduced numerator x' = x − q_hi·(r0 << 256)
-            uint256 q_hi = (r0 <= x_hi).toUint();          // 1 iff floor(x / r0) ≥ 2^256
-            uint256 xr_hi = x_hi - (q_hi * r0);            // safe since q_hi==1 ⇒ r0 ≤ x_hi
+            uint256 q_hi = (r0 <= x_hi).toUint();      // 1 iff floor(x / r0) ≥ 2^256
+            uint256 xr_hi = x_hi - (q_hi * r0);        // x' = x − (q_hi * r0 << 256)
             uint256 xr_lo = x_lo;
 
             // 2) Coarse quotient: q0 ≈ floor( (x' * Y) >> (e+255) )
-            uint256 scale = e + 255;
             (uint256 A2, uint256 A1, uint256 A0) = _mul768(xr_hi, xr_lo, Y);
             (, , uint256 q_lo) = _shr(A2, A1, A0, scale);
 
-            // 3) Compute remainder magnitude R = |x' - q0*r0|
-            (uint256 P0_hi, uint256 P0_lo) = _mul(q_lo, r0);
-            bool P0_gt_xr = _gt(P0_hi, P0_lo, xr_hi, xr_lo); // true if q0*r0 > x'
-            uint256 R_hi; uint256 R_lo;
-            if (!P0_gt_xr) {
-                // R = x' - P0
-                R_lo = xr_lo - P0_lo;
-                uint256 b = (xr_lo < P0_lo).toUint();
-                R_hi = xr_hi - P0_hi - b;
-            } else {
-                // R = P0 - x'
-                R_lo = P0_lo - xr_lo;
-                uint256 b = (P0_lo < xr_lo).toUint();
-                R_hi = P0_hi - xr_hi - b;
+            // 3) First correction
+            (uint256 P_hi, uint256 P_lo, bool under) = (uint256(0), uint256(0), false);
+            (q_hi, q_lo, P_hi, P_lo, under) = _correct_once(xr_hi, xr_lo, r0, Y, scale, q_hi, q_lo);
+
+            // 4) Check if a second correction is needed: R1 = |x' − P1|  and  R1 ≥ r0 ?
+            (uint256 R1_hi, uint256 R1_lo) = under
+                ? _sub(xr_hi, xr_lo, P_hi, P_lo)
+                : _sub(P_hi, P_lo, xr_hi, xr_lo);
+
+            // R1 ≥ r0  iff  (R1_hi != 0) or (R1_lo ≥ r0)
+            bool need_second = (R1_hi != 0) || (R1_lo >= r0);
+
+            // 5) Optional second correction (only when still ≥1 off)
+            if (need_second) {
+                // reuse the helper; recomputes P, under internally
+                (q_hi, q_lo, P_hi, P_lo, under) = _correct_once(xr_hi, xr_lo, r0, Y, scale, q_hi, q_lo);
             }
 
-            // One Goldschmidt-style correction using the same scale:
-            // delta = floor( (R * Y) >> (e+255) )
-            (uint256 D2, uint256 D1, uint256 D0) = _mul768(R_hi, R_lo, Y);
-            (, , uint256 delta) = _shr(D2, D1, D0, scale);
-
-            // Apply the signed correction
-            if (!P0_gt_xr) {
-                // under-estimate → add
-                q_lo = q_lo + delta;
-            } else {
-                // over-estimate → subtract
-                q_lo = q_lo - delta;
-            }
-
-            // 4) Final ±1 adjust to exact floor(x' / r0)
-            (uint256 P1_hi, uint256 P1_lo) = _mul(q_lo, r0);
-            if (_gt(P1_hi, P1_lo, xr_hi, xr_lo)) {
+            // 6) Final ±1 adjust to exact floor(x' / r0)
+            if (_gt(P_hi, P_lo, xr_hi, xr_lo)) {
+                // q too big
+                if (q_lo == 0) { q_hi -= 1; }
                 q_lo -= 1;
             } else {
-                // If (q_lo + 1)*r0 ≤ x', bump once
-                (uint256 S_hi, uint256 S_lo) = _add(P1_hi, P1_lo, r0); // 512 + 256 → 512
-                if (_gt(S_hi, S_lo, xr_hi, xr_lo) == false) {
+                // if (P + r0) ≤ x'  then q++
+                (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
+                if (!_gt(S_hi, S_lo, xr_hi, xr_lo)) {
                     q_lo += 1;
+                    if (q_lo == 0) { q_hi += 1; }  // (should not cross to 1 here, but keep for completeness)
                 }
             }
 
-            // q_hi (0/1) and q_lo (256-bit) now encode floor(x / r0) exactly.
+            // 7) Half-sum r1 = floor((q + r0)/2)   (q_hi ∈ {0,1})
+            uint256 base = (q_lo >> 1) + (r0 >> 1) + ((q_lo & r0) & 1);
+            uint256 r1   = base + (q_hi << 255);   // use addition, not bitwise OR
 
-            (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
-            (uint256 oflo, uint256 r2) = _shr256(s_hi, s_lo, 1);
-            r2 -= oflo;
-
-            /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
-            /// check whether we've overstepped by 1 and clamp as appropriate. ref:
-            /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
-            (uint256 r3_hi, uint256 r3_lo) = _mul(r2, r2);
-            r = r2.unsafeDec(_gt(r3_hi, r3_lo, x_hi, x_lo));
+            // 8) Final clamp
+            (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
+            r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
     }
 }
