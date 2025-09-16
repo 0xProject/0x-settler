@@ -1470,13 +1470,13 @@ library Lib512MathArithmetic {
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
             // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr(x_hi, x_lo, (e << 1) - 255);
+            (, uint256 M) = _shr(x_hi, x_lo, (e << 1) - 255); // scale: 255 - 2*e
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
             // `Y` approximates the inverse square root of integer `M` as a Q1.255
-            uint256 Y;
+            uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
@@ -1517,9 +1517,14 @@ library Lib512MathArithmetic {
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
             /// comes in because the half-scale is integral.
-            // `Y` approximates 1/√M in Q1.255 format, so M·Y ≈ 2²⁵⁵ · √M
+
+            ///     Y ≈ 2³⁸³ / √(2·M)
+            ///     M = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
+            ///     M·Y ≈ 2³⁸³ · √(M/2)
+            ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
+            ///     r0 = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊√x⌋
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
-            // denormalization r0 = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊2ᵉ · √x / 2²⁵⁵⌋
+            // denormalization
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
             (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
 
