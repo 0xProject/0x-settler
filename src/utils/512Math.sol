@@ -1604,11 +1604,7 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
-            if (invE < 79) {
-                // Low-exponent inputs lose the lowest-order bits from this iteration in the
-                // denormalization shift, so we skip it and save gas.
-                Y = _iSqrtNrStep(Y, M);
-            }
+            Y = _iSqrtNrStep(Y, M);
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
@@ -1636,13 +1632,6 @@ library Lib512MathArithmetic {
 
             // (4) Optional second correction if still ≥ 1 off.  Keep `P` aligned to `q_lo`.
             (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
-            (uint256 R1_hi, uint256 R1_lo) = _gt(P_hi, P_lo, xr_hi, xr_lo)
-                ? _sub(P_hi, P_lo, xr_hi, xr_lo)
-                : _sub(xr_hi, xr_lo, P_hi, P_lo);
-            if ((R1_hi != 0) || (R1_lo >= r0)) {
-                q_lo = _correct_once(xr_hi, xr_lo, r0, Y, shift, q_lo);
-                (P_hi, P_lo) = _mul(q_lo, r0);
-            }
 
             // (5) Final ±1 adjust to exact floor(x' / r0) — **reduced quotient only**
             uint256 adjustDown = _gt(P_hi, P_lo, xr_hi, xr_lo).toUint();
