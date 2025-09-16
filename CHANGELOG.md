@@ -49,6 +49,17 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+## 2025-09-15
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Plasma chain
+  * Add UniswapV3 UniV3 fork on Plasma
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Plasma
+
 ## 2025-09-03
 
 ### Breaking changes
