@@ -1501,16 +1501,24 @@ library Lib512MathArithmetic {
     }
 
     /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next = ⌊Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵⌋
-    ///     U = ⌊M · ⌊Y² / 2²⁵⁵⌋ / 2²⁵⁶⌋
+    ///     Y_next = ⌊Y · ( (3<<254) - U ) / 2²⁵⁵⌋
+    ///     U = ⌊(M + 1) · ⌊Y² / 2²⁵⁵⌋ / 2²⁵⁶⌋
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);         // [hi lo] = Y·Y
-            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // ⌊/ 2²⁵⁵⌋
-            (uint256 MY2,) = _mul(M, Y2);                        // ⌊M·Y2 / 2²⁵⁶⌋
-            uint256 T = 1.5 * 2 ** 255 - MY2;
-            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T); // [hi lo] = Y·T
-            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // ⌊/ 2²⁵⁵⌋
+            // Y2 = floor(Y^2 / 2^255)
+            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);
+            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);
+
+            // U = floor((M+1) * Y2 / 2^256)  => add Y2 into the low limb of M*Y2
+            (uint256 MY2_hi, uint256 MY2_lo) = _mul(M, Y2);
+            (uint256 U, ) = _add(MY2_hi, MY2_lo, Y2);
+
+            // T = (3<<254) - U
+            uint256 T = (3 << 254) - U;
+
+            // Y_next = floor(Y*T / 2^255)
+            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T);
+            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);
         }
     }
 
