@@ -1511,38 +1511,6 @@ library Lib512MathArithmetic {
             (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // ⌊/ 2²⁵⁵⌋
         }
     }
-
-    // ---- helper: one reduced correction step (does NOT touch q_top) ----
-    function _correct_once(
-        uint256 xr_hi, uint256 xr_lo,
-        uint256 r0, uint256 Y, uint256 shift,
-        uint256 q_lo
-    ) private pure returns (uint256 /*q_lo*/) {
-        unchecked {
-            // P = q_lo * r0  (compare against reduced numerator x')
-            (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
-            bool under = !_gt(P_hi, P_lo, xr_hi, xr_lo); // P ≤ x' ?
-
-            // R = |x' − P|
-            (uint256 R_hi, uint256 R_lo) = under
-                ? _sub(xr_hi, xr_lo, P_hi, P_lo)
-                : _sub(P_hi, P_lo, xr_hi, xr_lo);
-
-            // Δ = floor((R * Y) >> (shift + 256)) with shift = e − 1
-            (uint256 D2, uint256 D1,) = _mul768(R_hi, R_lo, Y);
-            (, uint256 delta) = _shr256(D2, D1, shift);
-
-            // Apply signed correction **in the low limb only**
-            uint256 mask;
-            assembly ("memory-safe") {
-                // mask ∈ {0, 2²⁵⁶-1}; zero when `under`, all-ones otherwise
-                mask := sub(0, xor(under, 1))
-            }
-            q_lo += (delta ^ mask) - mask;  // add if under; subtract otherwise
-            return q_lo;
-        }
-    }
-
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1627,20 +1595,34 @@ library Lib512MathArithmetic {
             (uint256 A2, uint256 A1,) = _mul768(xr_hi, xr_lo, Y);
             (, uint256 q_lo) = _shr256(A2, A1, shift); // 256-bit reduced quotient
 
-            // (3) First correction
-            q_lo = _correct_once(xr_hi, xr_lo, r0, Y, shift, q_lo);
+            // (3) Correction of the reduced quotient (inlined former helper)
+            uint256 P_hi;
+            uint256 P_lo;
+            {
+                (P_hi, P_lo) = _mul(q_lo, r0);
+                bool under = !_gt(P_hi, P_lo, xr_hi, xr_lo); // P ≤ x' ?
+                (uint256 R_hi, uint256 R_lo) = under
+                    ? _sub(xr_hi, xr_lo, P_hi, P_lo)
+                    : _sub(P_hi, P_lo, xr_hi, xr_lo);
+                (uint256 D2, uint256 D1,) = _mul768(R_hi, R_lo, Y);
+                (, uint256 delta) = _shr256(D2, D1, shift);
+                uint256 mask;
+                assembly ("memory-safe") {
+                    // mask ∈ {0, 2²⁵⁶-1}; zero when under, all-ones otherwise
+                    mask := sub(0, xor(under, 1))
+                }
+                q_lo += (delta ^ mask) - mask;  // add if under; subtract otherwise
+                (P_hi, P_lo) = _mul(q_lo, r0);
+            }
 
-            // (4) Optional second correction if still ≥ 1 off.  Keep `P` aligned to `q_lo`.
-            (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
-
-            // (5) Final ±1 adjust to exact floor(x' / r0) — **reduced quotient only**
+            // (4) Final ±1 adjust to exact floor(x' / r0) — **reduced quotient only**
             uint256 adjustDown = _gt(P_hi, P_lo, xr_hi, xr_lo).toUint();
             (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
             uint256 adjustUp = (adjustDown ^ 1) & (!_gt(S_hi, S_lo, xr_hi, xr_lo)).toUint();
             uint256 adjustDownMask = 0 - adjustDown;
             q_lo += adjustUp + adjustDownMask;
 
-            // (6) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
+            // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
             uint256 s_lo  = q_lo + r0;
             uint256 carry = (s_lo < q_lo).toUint();     // 1 iff low-limb overflow
             uint256 top   = q_top + carry;              // 0, 1, or (rarely) 2
@@ -1649,7 +1631,7 @@ library Lib512MathArithmetic {
             uint256 saturate = 0 - (top >> 1);          // 0 or type(uint256).max
             r1 = (r1 & ~saturate) | saturate;
 
-            // (7) Final clamp
+            // (6) Final clamp
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
             r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
