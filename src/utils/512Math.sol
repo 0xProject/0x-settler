@@ -1544,7 +1544,6 @@ library Lib512MathArithmetic {
         return q_lo;
     }
 
-
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1657,14 +1656,23 @@ library Lib512MathArithmetic {
             }
 
             // (6) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
-            (uint256 s_hi, uint256 s_lo) = _add(q_top, q_lo, r0); // 257-bit add for q+r0
-            (uint256 h, uint256 l) = _shr256(s_hi, s_lo, 1);      // 257-bit >> 1
+            uint256 s_lo  = q_lo + r0;
+            uint256 carry = (s_lo < q_lo).toUint();     // 1 iff low-limb overflow
+            uint256 top   = q_top + carry;              // 0, 1, or (rarely) 2
 
-            // If h != 0, the true half-sum ≥ 2^256, which can't fit in uint256.
-            // Saturate to max; the final square-check will clamp down if needed.
-            uint256 r1 = (h == 0) ? l : type(uint256).max;
+            uint256 r1;
+            if (top == 0) {
+                // purely low-limb
+                r1 = (s_lo >> 1);
+            } else if (top == 1) {
+                // inject the missing 2^255 bit from the high limb
+                r1 = (s_lo >> 1) | (uint256(1) << 255);
+            } else {
+                // top == 2  ⇒ true half-sum ≥ 2^256; saturate (final clamp will adjust)
+                r1 = type(uint256).max;
+            }
 
-            // (7) Final clamp (unchanged)
+            // (7) Final clamp
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
             r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
