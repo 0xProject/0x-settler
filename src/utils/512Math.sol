@@ -1633,9 +1633,8 @@ library Lib512MathArithmetic {
 
             // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
             (uint256 top, uint256 s_lo) = _add(q_top, q_lo, r0);
-            uint256 r1 = (s_lo >> 1) | ((top & 1) << 255);
-            uint256 saturate = 0 - (top >> 1);          // 0 or type(uint256).max
-            r1 |= saturate;
+            (uint256 saturate, uint256 r1) = _shr256(top, s_lo, 1);
+            r1 |= 0 - saturate;
 
             /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
