@@ -1515,36 +1515,32 @@ library Lib512MathArithmetic {
     // ---- helper: one reduced correction step (does NOT touch q_top) ----
     function _correct_once(
         uint256 xr_hi, uint256 xr_lo,
-        uint256 r0, uint256 Y, uint256 scale,
+        uint256 r0, uint256 Y, uint256 shift,
         uint256 q_lo
     ) private pure returns (uint256 /*q_lo*/) {
-        // P = q_lo * r0  (compare against reduced numerator x')
-        (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
-        bool under = !_gt(P_hi, P_lo, xr_hi, xr_lo); // P ≤ x' ?
-
-        // R = |x' − P|
-        (uint256 R_hi, uint256 R_lo) = under
-            ? _sub(xr_hi, xr_lo, P_hi, P_lo)
-            : _sub(P_hi, P_lo, xr_hi, xr_lo);
-
-        // Δ = floor((R * Y) >> (e+255))
-        (uint256 D2, uint256 D1,) = _mul768(R_hi, R_lo, Y);
-        uint256 delta;
-        {
-            // scale = e + 255 with e ∈ [128, 256] ⇒ shift ∈ [127, 255]
-            uint256 shift = scale - 256;
-            (, delta) = _shr(D2, D1, shift);
-        }
-
-        // Apply signed correction **in the low limb only**
         unchecked {
-            if (under) {
-                q_lo += delta;                // wrap is fine; we’ll fix with ±1 adjust
-            } else {
-                q_lo -= delta;
+            // P = q_lo * r0  (compare against reduced numerator x')
+            (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
+            bool under = !_gt(P_hi, P_lo, xr_hi, xr_lo); // P ≤ x' ?
+
+            // R = |x' − P|
+            (uint256 R_hi, uint256 R_lo) = under
+                ? _sub(xr_hi, xr_lo, P_hi, P_lo)
+                : _sub(P_hi, P_lo, xr_hi, xr_lo);
+
+            // Δ = floor((R * Y) >> (shift + 256)) with shift = e − 1
+            (uint256 D2, uint256 D1,) = _mul768(R_hi, R_lo, Y);
+            (, uint256 delta) = _shr256(D2, D1, shift);
+
+            // Apply signed correction **in the low limb only**
+            uint256 mask;
+            assembly ("memory-safe") {
+                // mask ∈ {0, 2²⁵⁶-1}; zero when `under`, all-ones otherwise
+                mask := sub(0, xor(under, 1))
             }
+            q_lo += (delta ^ mask) - mask;  // add if under; subtract otherwise
+            return q_lo;
         }
-        return q_lo;
     }
 
     function sqrt(uint512 x) internal pure returns (uint256 r) {
@@ -1567,10 +1563,11 @@ library Lib512MathArithmetic {
             // `e` is half the exponent of `x`
             // e = ⌊bitlength(x)/2⌋
             uint256 e = (512 - x_hi.clz()) >> 1; // range: [128 256]
+            uint256 invE = 256 - e;              // reuse `256 - e` to avoid repeated subtracts
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
             // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr(x_hi, x_lo, (e << 1) - 255); // scale: 255 - 2e
+            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 255 - 2e
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
@@ -1607,7 +1604,11 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
+            if (invE < 79) {
+                // Low-exponent inputs lose the lowest-order bits from this iteration in the
+                // denormalization shift, so we skip it and save gas.
+                Y = _iSqrtNrStep(Y, M);
+            }
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
@@ -1616,69 +1617,48 @@ library Lib512MathArithmetic {
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
             // denormalization r0 = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊2ᵉ · √x / 2²⁵⁵⌋
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
-            (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
+            (, uint256 r0) = _shr(r0_hi, r0_lo, 254 + invE);
 
-            // --- Division-free quotient via Y: multiply–refine with correct scaling (scale = e + 255) ---
-            uint256 scale = e + 255;
+            // --- Division-free quotient via Y: multiply–refine with correct scaling (shift = e − 1) ---
+            uint256 shift = 255 - invE;          // == e - 1
 
             // (1) Full-quotient top bit and reduced numerator x' = x − (q_top * r0 << 256)
             uint256 q_top = (r0 <= x_hi).toUint();     // 1 iff floor(x / r0) ≥ 2^256
             uint256 xr_hi = x_hi - (q_top * r0);
             uint256 xr_lo = x_lo;
 
-            // (2) Coarse reduced quotient: q0 ≈ floor( (x' * Y) >> (e+255) )
+            // (2) Coarse reduced quotient: q0 ≈ floor((x' · Y) >> (shift + 256))
             (uint256 A2, uint256 A1,) = _mul768(xr_hi, xr_lo, Y);
-            uint256 q_lo;
-            {
-                // scale = e + 255 with e ∈ [128, 256] ⇒ shift ∈ [127, 255]
-                uint256 shift = scale - 256;
-                (, q_lo) = _shr(A2, A1, shift); // 256-bit reduced quotient
-            }
+            (, uint256 q_lo) = _shr256(A2, A1, shift); // 256-bit reduced quotient
 
             // (3) First correction
-            q_lo = _correct_once(xr_hi, xr_lo, r0, Y, scale, q_lo);
+            q_lo = _correct_once(xr_hi, xr_lo, r0, Y, shift, q_lo);
 
-            // (4) Optional second correction if still ≥ 1 off
-            {
-                (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
-                (uint256 R1_hi, uint256 R1_lo) = _gt(P_hi, P_lo, xr_hi, xr_lo)
-                    ? _sub(P_hi, P_lo, xr_hi, xr_lo)
-                    : _sub(xr_hi, xr_lo, P_hi, P_lo);
-                bool need_second = (R1_hi != 0) || (R1_lo >= r0);
-                if (need_second) {
-                    q_lo = _correct_once(xr_hi, xr_lo, r0, Y, scale, q_lo);
-                }
+            // (4) Optional second correction if still ≥ 1 off.  Keep `P` aligned to `q_lo`.
+            (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
+            (uint256 R1_hi, uint256 R1_lo) = _gt(P_hi, P_lo, xr_hi, xr_lo)
+                ? _sub(P_hi, P_lo, xr_hi, xr_lo)
+                : _sub(xr_hi, xr_lo, P_hi, P_lo);
+            if ((R1_hi != 0) || (R1_lo >= r0)) {
+                q_lo = _correct_once(xr_hi, xr_lo, r0, Y, shift, q_lo);
+                (P_hi, P_lo) = _mul(q_lo, r0);
             }
 
             // (5) Final ±1 adjust to exact floor(x' / r0) — **reduced quotient only**
-            {
-                (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
-                if (_gt(P_hi, P_lo, xr_hi, xr_lo)) {
-                    q_lo -= 1;
-                } else {
-                    (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
-                    if (!_gt(S_hi, S_lo, xr_hi, xr_lo)) {
-                        q_lo += 1;
-                    }
-                }
-            }
+            uint256 adjustDown = _gt(P_hi, P_lo, xr_hi, xr_lo).toUint();
+            (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
+            uint256 adjustUp = (adjustDown ^ 1) & (!_gt(S_hi, S_lo, xr_hi, xr_lo)).toUint();
+            uint256 adjustDownMask = 0 - adjustDown;
+            q_lo += adjustUp + adjustDownMask;
 
             // (6) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
             uint256 s_lo  = q_lo + r0;
             uint256 carry = (s_lo < q_lo).toUint();     // 1 iff low-limb overflow
             uint256 top   = q_top + carry;              // 0, 1, or (rarely) 2
 
-            uint256 r1;
-            if (top == 0) {
-                // purely low-limb
-                r1 = (s_lo >> 1);
-            } else if (top == 1) {
-                // inject the missing 2^255 bit from the high limb
-                r1 = (s_lo >> 1) | (uint256(1) << 255);
-            } else {
-                // top == 2  ⇒ true half-sum ≥ 2^256; saturate (final clamp will adjust)
-                r1 = type(uint256).max;
-            }
+            uint256 r1 = (s_lo >> 1) | ((top & 1) << 255);
+            uint256 saturate = 0 - (top >> 1);          // 0 or type(uint256).max
+            r1 = (r1 & ~saturate) | saturate;
 
             // (7) Final clamp
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
