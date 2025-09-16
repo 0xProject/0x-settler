@@ -1613,16 +1613,16 @@ library Lib512MathArithmetic {
             uint256 P_lo;
             {
                 (P_hi, P_lo) = _mul(q_lo, r0);
-                (uint256 R_hi, uint256 R_lo, bool neg) = _absDiff(P_hi, P_lo, xr_hi, x_lo);
+                (uint256 R_hi, uint256 R_lo, bool sign) = _absDiff(xr_hi, x_lo, P_hi, P_lo);
                 (uint256 D2, uint256 D1, ) = _mul768(R_hi, R_lo, Y);
                 (, uint256 delta) = _shr256(D2, D1, shift);
                 uint256 mask;
                 assembly ("memory-safe") {
                     // mask ∈ {0, 2²⁵⁶-1}; zero when neg, all-ones otherwise
-                    mask := sub(0, iszero(neg))
+                    mask := sub(0, sign)
                 }
                 // subtract delta from q
-                q_lo += (delta ^ mask) + neg.toUint(); // add if `neg`; subtract otherwise
+                q_lo += (delta ^ mask) + sign.toUint();
                 (P_hi, P_lo) = _mul(q_lo, r0);
             }
 
