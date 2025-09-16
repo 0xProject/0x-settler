@@ -1595,9 +1595,9 @@ library Lib512MathArithmetic {
 
             uint256 shift = 255 - invE;
 
-            // (1) Full-quotient top bit and reduced numerator x' = x − (q_top * r0 << 256)
-            uint256 q_top = (r0 <= x_hi).toUint();     // 1 iff floor(x / r0) ≥ 2^256
-            uint256 xr_hi = x_hi - (q_top * r0);
+            // (1) Full-quotient top bit and reduced numerator x' = x − (q_hi * r0 << 256)
+            uint256 q_hi = (r0 <= x_hi).toUint();     // 1 iff floor(x / r0) ≥ 2^256
+            uint256 xr_hi = x_hi - (q_hi * r0);
             uint256 xr_lo = x_lo;
 
             // (2) Coarse reduced quotient: q0 ≈ floor((x' · Y) >> (shift + 256))
@@ -1627,8 +1627,8 @@ library Lib512MathArithmetic {
             uint256 adjustUp = (adjustDown ^ 1) & (!_gt(S_hi, S_lo, xr_hi, xr_lo)).toUint();
             q_lo += adjustUp - adjustDown;
 
-            // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_top << 256) | q_lo
-            (uint256 s_hi, uint256 s_lo) = _add(q_top, q_lo, r0);
+            // (5) Half-sum r1 = floor( (q + r0) / 2 ) with q = (q_hi << 256) | q_lo
+            (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
             // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
             // `r1` is `type(uint256).max`.
             (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
