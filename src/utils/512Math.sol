@@ -364,27 +364,6 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _add(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
-        private
-        pure
-        returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
-    {
-        assembly ("memory-safe") {
-            r_lo := add(x_lo, y_lo)
-            let c0 := lt(r_lo, x_lo)
-
-            let sum_hi := add(x_hi, y_hi)
-            let c1 := lt(sum_hi, x_hi)
-
-            r_hi := add(sum_hi, c0)
-            let c2 := lt(r_hi, sum_hi) // carry from adding c0
-
-            // overflow beyond `r_ex` is ignored
-            r_ex := add(add(x_ex, c1), c2)
-        }
-    }
-
-
     function oadd(uint512 r, uint256 x, uint256 y) internal pure returns (uint512) {
         (uint256 r_hi, uint256 r_lo) = _add(x, y);
         return r.from(r_hi, r_lo);
@@ -1180,27 +1159,6 @@ library Lib512MathArithmetic {
             r_lo |= x_hi >> s - 256;
         }
     }
-
-    function _shr(
-        uint256 x_ex,
-        uint256 x_hi,
-        uint256 x_lo,
-        uint256 s
-    ) private pure returns (
-        uint256 r_ex, uint256 r_hi, uint256 r_lo
-    ) {
-        // Base (s < 256) behavior via the 2-word helper; also safe for any s
-        (r_ex, r_hi) = _shr256(x_ex, x_hi, s);
-        (,     r_lo) = _shr256(x_hi, x_lo, s);
-
-        // Spillovers for s >= 256 and s >= 512; rely on EVM shifts >=256 => 0
-        unchecked {
-            r_hi |= x_ex >> (s - 256);
-            r_lo |= x_hi >> (s - 256);
-            r_lo |= x_ex >> (s - 512);
-        }
-    }
-
 
     // This function is a different modification of Knuth's Algorithm D. In this
     // case, we're only interested in the (normalized) remainder instead of the
