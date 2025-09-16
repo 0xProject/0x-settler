@@ -1514,42 +1514,6 @@ library Lib512MathArithmetic {
         }
     }
 
-    // ---- helper: one correction step (updates q_lo, q_hi in place) ----
-    function _correct_once(
-        uint256 xr_hi, uint256 xr_lo,
-        uint256 r0,
-        uint256 Y, uint256 scale,
-        uint256 q_hi, uint256 q_lo
-    ) private pure returns (uint256, uint256, uint256, uint256, bool) {
-        // P = q * r0 (257-bit q: (q_hi << 256) | q_lo)
-        (uint256 P_hi, uint256 P_lo) = _mul(q_lo, r0);
-        if (q_hi != 0) { (P_hi, P_lo) = _add(P_hi, P_lo, r0); }
-    
-        bool under = !_gt(P_hi, P_lo, xr_hi, xr_lo); // P ≤ x' ?
-        // R = |x' − P|
-        (uint256 R_hi, uint256 R_lo) = under
-            ? _sub(xr_hi, xr_lo, P_hi, P_lo)
-            : _sub(P_hi, P_lo, xr_hi, xr_lo);
-    
-        // Δ = floor((R * Y) >> (e+255))
-        (uint256 D2, uint256 D1, uint256 D0) = _mul768(R_hi, R_lo, Y);
-        (, , uint256 delta) = _shr(D2, D1, D0, scale);
-    
-        // q ← q ± Δ, with carry/borrow into q_hi
-        if (under) {
-            uint256 prev = q_lo;
-            q_lo = q_lo + delta;
-            if (q_lo < prev) { q_hi += 1; }     // carry out
-        } else {
-            uint256 prev = q_lo;
-            q_lo = q_lo - delta;
-            if (prev < delta) { q_hi -= 1; }    // borrow
-        }
-    
-        return (q_hi, q_lo, P_hi, P_lo, under);
-    }
-    
-    // gas benchmark 14/09/2025: ~2315 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1631,45 +1595,66 @@ library Lib512MathArithmetic {
 
             // 2) Coarse quotient: q0 ≈ floor( (x' * Y) >> (e+255) )
             (uint256 A2, uint256 A1, uint256 A0) = _mul768(xr_hi, xr_lo, Y);
-            (, , uint256 q_lo) = _shr(A2, A1, A0, scale);
+            (, , uint256 q_lo) = _shr(A2, A1, A0, scale);   // keep low 256 bits of the shifted value
 
-            // 3) First correction
-            (uint256 P_hi, uint256 P_lo, bool under) = (uint256(0), uint256(0), false);
-            (q_hi, q_lo, P_hi, P_lo, under) = _correct_once(xr_hi, xr_lo, r0, Y, scale, q_hi, q_lo);
+            // 3) Remainder magnitude R = |x' − q0·r0|
+            (uint256 P0_hi, uint256 P0_lo) = _mul(q_lo, r0);     // 256×256 → 512
+            bool under = !_gt(P0_hi, P0_lo, xr_hi, xr_lo);       // P0 ≤ x' ?
+            (uint256 R_hi, uint256 R_lo) = under
+                ? _sub(xr_hi, xr_lo, P0_hi, P0_lo)
+                : _sub(P0_hi, P0_lo, xr_hi, xr_lo);
 
-            // 4) Check if a second correction is needed: R1 = |x' − P1|  and  R1 ≥ r0 ?
-            (uint256 R1_hi, uint256 R1_lo) = under
-                ? _sub(xr_hi, xr_lo, P_hi, P_lo)
-                : _sub(P_hi, P_lo, xr_hi, xr_lo);
+            // 4) One Goldschmidt-style correction Δ = floor((R * Y) >> (e+255))
+            (uint256 D2, uint256 D1, uint256 D0) = _mul768(R_hi, R_lo, Y);
+            (, , uint256 delta) = _shr(D2, D1, D0, scale);
 
-            // R1 ≥ r0  iff  (R1_hi != 0) or (R1_lo ≥ r0)
-            bool need_second = (R1_hi != 0) || (R1_lo >= r0);
-
-            // 5) Optional second correction (only when still ≥1 off)
-            if (need_second) {
-                // reuse the helper; recomputes P, under internally
-                (q_hi, q_lo, P_hi, P_lo, under) = _correct_once(xr_hi, xr_lo, r0, Y, scale, q_hi, q_lo);
+            // 5) Apply signed correction *with carry/borrow propagation into q_hi*
+            if (under) {
+                uint256 prev = q_lo;
+                q_lo = q_lo + delta;
+                if (q_lo < prev) {
+                    // carry out of low limb
+                    q_hi += 1;           // q_hi is 0 or 1 ⇒ stays in {0,1,2}, but see note below
+                }
+            } else {
+                uint256 prev = q_lo;
+                q_lo = q_lo - delta;
+                if (prev < delta) {
+                    // borrow from high limb
+                    q_hi -= 1;           // q_hi goes {1→0} or {0→underflow} if delta > q_lo
+                }
             }
+            // At this point q_hi must be 0 or 1. If it ever becomes 2 or underflows, do a cheap fold:
+            //   while (q_hi > 1) { q_hi -= 1; }   // (only possible if delta overflowed massively, which it shouldn't)
+            //   while (int256(q_hi) < 0) { q_hi = 0; } // but with unsigned logic above, q_hi underflow is prevented
 
             // 6) Final ±1 adjust to exact floor(x' / r0)
-            if (_gt(P_hi, P_lo, xr_hi, xr_lo)) {
+            (uint256 P1_hi, uint256 P1_lo) = _mul(q_lo, r0);
+            if (q_hi != 0) {
+                // add [r0, 0] to reflect the 257th bit
+                (P1_hi, P1_lo) = _add(P1_hi, P1_lo, r0);
+            }
+
+            if (_gt(P1_hi, P1_lo, xr_hi, xr_lo)) {
                 // q too big
                 if (q_lo == 0) { q_hi -= 1; }
                 q_lo -= 1;
             } else {
-                // if (P + r0) ≤ x'  then q++
-                (uint256 S_hi, uint256 S_lo) = _add(P_hi, P_lo, r0);
+                // try bumping by +1 if still ≤ x'
+                (uint256 S_hi, uint256 S_lo) = _add(P1_hi, P1_lo, r0);
                 if (!_gt(S_hi, S_lo, xr_hi, xr_lo)) {
                     q_lo += 1;
-                    if (q_lo == 0) { q_hi += 1; }  // (should not cross to 1 here, but keep for completeness)
+                    if (q_lo == 0) { q_hi += 1; }
                 }
             }
 
-            // 7) Half-sum r1 = floor((q + r0)/2)   (q_hi ∈ {0,1})
-            uint256 base = (q_lo >> 1) + (r0 >> 1) + ((q_lo & r0) & 1);
-            uint256 r1   = base + (q_hi << 255);   // use addition, not bitwise OR
+            // 7) Half-sum r1 = floor((q + r0)/2) without 512-bit shift
+            //    q = (q_hi << 256) | q_lo  with q_hi ∈ {0,1}
+            // form s = q + r0, where q = (q_hi << 256) | q_lo  with q_hi ∈ {0,1}
+            (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0); // 257-bit add
+            (, uint256 r1) = _shr256(s_hi, s_lo, 1);            // r1 = floor(s/2)
 
-            // 8) Final clamp
+            // 8) Final clamp (same as before)
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
             r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
