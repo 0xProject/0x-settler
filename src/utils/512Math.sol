@@ -8,8 +8,6 @@ import {Ternary} from "./Ternary.sol";
 import {FastLogic} from "./FastLogic.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
 
-import {console} from "@forge-std/console.sol";
-
 /*
 
 WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
@@ -1530,8 +1528,13 @@ library Lib512MathArithmetic {
             : _sub(P_hi, P_lo, xr_hi, xr_lo);
 
         // Δ = floor((R * Y) >> (e+255))
-        (uint256 D2, uint256 D1, uint256 D0) = _mul768(R_hi, R_lo, Y);
-        (, , uint256 delta) = _shr(D2, D1, D0, scale);
+        (uint256 D2, uint256 D1,) = _mul768(R_hi, R_lo, Y);
+        uint256 delta;
+        {
+            // scale = e + 255 with e ∈ [128, 256] ⇒ shift ∈ [127, 255]
+            uint256 shift = scale - 256;
+            (, delta) = _shr(D2, D1, shift);
+        }
 
         // Apply signed correction **in the low limb only**
         unchecked {
@@ -1624,8 +1627,13 @@ library Lib512MathArithmetic {
             uint256 xr_lo = x_lo;
 
             // (2) Coarse reduced quotient: q0 ≈ floor( (x' * Y) >> (e+255) )
-            (uint256 A2, uint256 A1, uint256 A0) = _mul768(xr_hi, xr_lo, Y);
-            (, , uint256 q_lo) = _shr(A2, A1, A0, scale); // 256-bit reduced quotient
+            (uint256 A2, uint256 A1,) = _mul768(xr_hi, xr_lo, Y);
+            uint256 q_lo;
+            {
+                // scale = e + 255 with e ∈ [128, 256] ⇒ shift ∈ [127, 255]
+                uint256 shift = scale - 256;
+                (, q_lo) = _shr(A2, A1, shift); // 256-bit reduced quotient
+            }
 
             // (3) First correction
             q_lo = _correct_once(xr_hi, xr_lo, r0, Y, scale, q_lo);
