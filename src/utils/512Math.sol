@@ -1467,10 +1467,11 @@ library Lib512MathArithmetic {
             // `e` is half the exponent of `x`
             // e = ⌊bitlength(x)/2⌋
             uint256 e = (512 - x_hi.clz()) >> 1;
+            uint256 invE = 256 - e; // this is used to avoid a subtraction by a constant later
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
             // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr(x_hi, x_lo, (e << 1) - 255); // scale: 255 - 2*e
+            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 255 - 2*e
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
@@ -1507,7 +1508,7 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
-            if (e > 177) {
+            if (invE < 79) {
                 // For small `e` (lower values of `x`), we can skip the 5th, final N-R
                 // iteration. The correct bits that this iteration would obtain are shifted away
                 // during the denormalization step. This branch is net gas-optimizing.
@@ -1517,7 +1518,6 @@ library Lib512MathArithmetic {
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
             /// comes in because the half-scale is integral.
-
             ///     Y   ≈ 2³⁸³ / √(2·M)
             ///     M   = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
             ///     M·Y ≈ 2³⁸³ · √(M/2)
@@ -1526,7 +1526,7 @@ library Lib512MathArithmetic {
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
             // denormalization
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
-            (, uint256 r0) = _shr(r0_hi, r0_lo, 510 - e);
+            (, uint256 r0) = _shr(r0_hi, r0_lo, 254 + invE);
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
             /// converge on ⌊√x⌋ or ⌈√x⌉.  The Babylonian step is:
