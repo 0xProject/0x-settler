@@ -1518,11 +1518,11 @@ library Lib512MathArithmetic {
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
             /// comes in because the half-scale is integral.
 
-            ///     Y ≈ 2³⁸³ / √(2·M)
-            ///     M = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
+            ///     Y   ≈ 2³⁸³ / √(2·M)
+            ///     M   = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
             ///     M·Y ≈ 2³⁸³ · √(M/2)
             ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
-            ///     r0 = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊√x⌋
+            ///     r0  = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊√x⌋
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
             // denormalization
             (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
@@ -1533,7 +1533,12 @@ library Lib512MathArithmetic {
             ///     r1 = ⌊(r0 + ⌊x/r0⌋) / 2⌋
             // Rather than use the more-expensive division routine that returns a 512-bit result,
             // because the value the upper word of the quotient can take is highly constrained, we
-            // can compute the quotient mod 2²⁵⁶ and recover the high word separately.
+            // can compute the quotient mod 2²⁵⁶ and recover the high word separately. Although
+            // `_div` does an expensive Newton-Raphson-Hensel modular inversion:
+            //     ⌊x/r0⌋ ≡ x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
+            // and we already have a pretty good estimtae for r0⁻¹, namely `Y`, refining `Y` into
+            // the appropriate inverse requires a series of 768-bit multiplications that take more
+            // gas.
             uint256 q_lo = _div(x_hi, x_lo, r0);
             uint256 q_hi = (r0 <= x_hi).toUint();
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
