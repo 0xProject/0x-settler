@@ -1465,9 +1465,9 @@ library Lib512MathArithmetic {
             /// even-exponent normalization.
 
             // `e` is half the exponent of `x`
-            // e = ⌊bitlength(x)/2⌋
-            uint256 e = (512 - x_hi.clz()) >> 1;
-            uint256 invE = 256 - e; // this is used to avoid a subtraction by a constant later
+            // e    = ⌊bitlength(x)/2⌋
+            // invE = 256 - e
+            uint256 invE = (x_hi.clz() + 1) >> 1; // range: [0 128]
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
             // `M` is the mantissa of `x`; M ∈ [½, 2)
