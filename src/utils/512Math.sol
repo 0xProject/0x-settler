@@ -1536,7 +1536,7 @@ library Lib512MathArithmetic {
             // can compute the quotient mod 2²⁵⁶ and recover the high word separately. Although
             // `_div` does an expensive Newton-Raphson-Hensel modular inversion:
             //     ⌊x/r0⌋ ≡ x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
-            // and we already have a pretty good estimtae for r0⁻¹, namely `Y`, refining `Y` into
+            // and we already have a pretty good estimate for r0⁻¹, namely `Y`, refining `Y` into
             // the appropriate inverse requires a series of 768-bit multiplications that take more
             // gas.
             uint256 q_lo = _div(x_hi, x_lo, r0);
