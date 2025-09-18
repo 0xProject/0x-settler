@@ -1451,7 +1451,7 @@ library Lib512MathArithmetic {
             uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y2 / 2²⁵⁶
             uint256 T = 3 * 2 ** 253 - MY2;
             Y_next = _inaccurateMulHi(Y, T);       // Y·T / 2²⁵⁶
-            Y_next <<= 2;                          // restore Q1.255 format
+            Y_next <<= 2;                          // restore Q1.255 format (effectively Q1.253)
         }
     }
 
@@ -1463,7 +1463,7 @@ library Lib512MathArithmetic {
             uint256 Y2 = Y * Y;                           // Y² / 2⁴⁹²
             uint256 MY2 = _inaccurateMulHi(M, Y2 << 236); // M·Y² / 2⁵¹²
             uint256 T = 3 * 2 ** 253 - MY2;
-            Y_next = _inaccurateMulHi(Y << 120, T);       // Y·T / 2³⁸³
+            Y_next = _inaccurateMulHi(Y << 120, T);       // Y·T / 2³⁸²
         }
     }
 
@@ -1471,10 +1471,10 @@ library Lib512MathArithmetic {
     /// `Y` as a Q129.127 instead of a Q1.255 as an optimization for the second iteration.
     function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁴
+            uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁶
             uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
             uint256 T = 3 * 2 ** 253 - MY2;
-            Y_next = _inaccurateMulHi(Y << 2, T);  // Y·T / 2²⁵⁶
+            Y_next = _inaccurateMulHi(Y << 2, T);  // Y·T / 2³⁸²
         }
     }
 
@@ -1482,11 +1482,11 @@ library Lib512MathArithmetic {
     /// Q129.127 instead of a Q1.255 as an optimization for the third iteration.
     function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                     // Y² / 2²⁵⁴
+            uint256 Y2 = Y * Y;                     // Y² / 2²⁵⁶
             uint256 MY2 = _inaccurateMulHi(M, Y2);  // M·Y² / 2⁵¹²
             uint256 T = 3 * 2 ** 253 - MY2;
             Y_next = _inaccurateMulHi(Y << 128, T); // Y·T / 2²⁵⁶
-            Y_next <<= 2;                           // set `Y` to Q1.255 format
+            Y_next <<= 2;                           // Y·T / 2²⁵⁴; Q1.255 format (effectively Q1.253)
         }
     }
 
