@@ -1437,16 +1437,16 @@ library Lib512MathArithmetic {
     ///     U = ⌊M · ⌊Y² / 2²⁵⁵⌋ / 2²⁵⁶⌋
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);         // [hi lo] = Y·Y
-            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // ⌊/ 2²⁵⁵⌋
+            (uint256 Y2, ) = _mul(Y, Y);         // ⌊Y·Y / 2²⁵⁶⌋
+            Y2 <<= 1;
             (uint256 MY2,) = _mul(M, Y2);                        // ⌊M·Y2 / 2²⁵⁶⌋
             uint256 T = 1.5 * 2 ** 255 - MY2;
-            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T); // [hi lo] = Y·T
-            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // ⌊/ 2²⁵⁵⌋
+            (Y_next, ) = _mul(Y, T); // [hi lo] = ⌊Y·T / 2²⁵⁶⌋
+            Y_next <<= 1;
         }
     }
 
-    // gas benchmark 14/09/2025: ~2315 gas
+    // gas benchmark 2025/09/18: ~2135 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
