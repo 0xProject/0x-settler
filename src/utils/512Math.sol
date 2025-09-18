@@ -455,7 +455,7 @@ library Lib512MathArithmetic {
 
     function _mul(uint256 x, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            let mm := mulmod(x, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(x, y, not(0x00))
             r_lo := mul(x, y)
             r_hi := sub(sub(mm, r_lo), lt(mm, r_lo))
         }
@@ -468,7 +468,7 @@ library Lib512MathArithmetic {
 
     function _mul(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            let mm := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(x_lo, y, not(0x00))
             r_lo := mul(x_lo, y)
             r_hi := add(mul(x_hi, y), sub(sub(mm, r_lo), lt(mm, r_lo)))
         }
@@ -490,7 +490,7 @@ library Lib512MathArithmetic {
         returns (uint256 r_hi, uint256 r_lo)
     {
         assembly ("memory-safe") {
-            let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(x_lo, y_lo, not(0x00))
             r_lo := mul(x_lo, y_lo)
             r_hi := add(add(mul(x_hi, y_lo), mul(x_lo, y_hi)), sub(sub(mm, r_lo), lt(mm, r_lo)))
         }
@@ -563,9 +563,9 @@ library Lib512MathArithmetic {
         returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
     {
         assembly ("memory-safe") {
-            let mm0 := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm0 := mulmod(x_lo, y, not(0x00))
             r_lo := mul(x_lo, y)
-            let mm1 := mulmod(x_hi, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm1 := mulmod(x_hi, y, not(0x00))
             let r_partial := mul(x_hi, y)
             r_ex := sub(sub(mm1, r_partial), lt(mm1, r_partial))
 
@@ -746,7 +746,7 @@ library Lib512MathArithmetic {
 
         assembly ("memory-safe") {
             // inv_hi = inv_lo * tmp / 2**256 % 2**256
-            let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(inv_lo, tmp_lo, not(0x00))
             inv_hi := add(mul(inv_lo, tmp_hi), sub(sub(mm, inv_lo), lt(mm, inv_lo)))
         }
     }
