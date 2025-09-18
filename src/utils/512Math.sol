@@ -1445,7 +1445,7 @@ library Lib512MathArithmetic {
     /// This iteration is deliberately imprecise. No matter how many times you run it, you won't
     /// converge `Y` on the closest Q1.255 to √M. However, this is acceptable because the cleanup
     /// step applied after the final call is very tolerant of error in the low bits of `Y`.
-    function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+    function _iSqrtNrFinalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = _inaccurateMulHi(Y, Y);   // Y² / 2²⁵⁶
             uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y2 / 2²⁵⁶
@@ -1455,7 +1455,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// This does the same thing as `_iSqrtNrStep`, but is adjusted for taking `Y` as a Q247.9
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q247.9
     /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q129.127
     /// as an optimization for the second iteration.
     function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
@@ -1467,8 +1467,8 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// This does the same thing as `_iSqrtNrStep`, but is adjusted for taking and returning `Y` as
-    /// a Q129.127 instead of a Q1.255 as an optimization for the second iteration.
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking and returning
+    /// `Y` as a Q129.127 instead of a Q1.255 as an optimization for the second iteration.
     function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁴
@@ -1478,8 +1478,8 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// This does the same thing as `_iSqrtNrStep`, but is adjusted for taking `Y` as a Q129.127
-    /// instead of a Q1.255 as an optimization for the third iteration.
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
+    /// Q129.127 instead of a Q1.255 as an optimization for the third iteration.
     function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                     // Y² / 2²⁵⁴
@@ -1490,7 +1490,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 2025/09/18: ~1610 gas
+    // gas benchmark 2025/09/18: ~1525 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1549,14 +1549,14 @@ library Lib512MathArithmetic {
             /// convergence that our final fixup step produces an exact result.
             Y = _iSqrtNrFirstStep(Y, M);
             Y = _iSqrtNrSecondStep(Y, M);
-            Y = _iSqrtNrThirdStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
             if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
-                // For small `e` (lower values of `x`), we can skip the 5th, final N-R
-                // iteration. The correct bits that this iteration would obtain are shifted away
-                // during the denormalization step. This branch is net gas-optimizing.
-                Y = _iSqrtNrStep(Y, M);
+                // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
+                // correct bits that this iteration would obtain are shifted away during the
+                // denormalization step. This branch is net gas-optimizing.
+                Y = _iSqrtNrSecondStep(Y, M);
             }
+            Y = _iSqrtNrThirdStep(Y, M);
+            Y = _iSqrtNrFinalStep(Y, M);
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
