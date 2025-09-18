@@ -1432,23 +1432,30 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
+    // hi ≈ x · y / 2²⁵⁶
+    function _inaccurateMulHi(uint256 x, uint256 y) private pure returns (uint256 hi) {
+        assembly ("memory-safe") {
+            hi := sub(mulmod(x, y, not(0x00)), mul(x, y))
+        }
+    }
+
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next ≈ Y · (3 - M · Y²) / 2
-    ///     Y_next = ⌊ Y · (3·2²⁵³ - ⌊⌊Y² / 2²⁵⁶⌋ · M / 2²⁵⁶⌋) / 2²⁵⁶ ⌋ · 4
+    ///     Y_next ≈ Y · (3·2²⁵³ - Y² / 2²⁵⁶ · M / 2²⁵⁶) / 2²⁵⁶ · 4
     /// This iteration is deliberately imprecise. No matter how many times you run it, you won't
     /// converge `Y` on the closest Q1.255 to √M. However, this is acceptable because the cleanup
     /// step applied after the final call is very tolerant of error in the low bits of `Y`.
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            (uint256 Y2,) = _mul(Y, Y);   // ⌊Y² / 2²⁵⁶⌋
-            (uint256 MY2,) = _mul(M, Y2); // ⌊M·Y2 / 2²⁵⁶⌋
+            uint256 Y2 = _inaccurateMulHi(Y, Y);   // Y² / 2²⁵⁶
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y2 / 2²⁵⁶
             uint256 T = 1.5 * 2 ** 254 - MY2;
-            (Y_next,) = _mul(Y, T);       // ⌊Y·T / 2²⁵⁶⌋
-            Y_next <<= 2;                 // restore Q1.255 format
+            Y_next = _inaccurateMulHi(Y, T);       // Y·T / 2²⁵⁶
+            Y_next <<= 2;                          // restore Q1.255 format
         }
     }
 
-    // gas benchmark 2025/09/18: ~2100 gas
+    // gas benchmark 2025/09/18: ~1865 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
