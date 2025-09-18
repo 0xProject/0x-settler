@@ -1547,7 +1547,7 @@ library Lib512MathArithmetic {
             // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
             // `r1` is `type(uint256).max`.
             (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
-            r1 -= oflo;
+            r1 -= oflo; // underflow is desired
 
             /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
