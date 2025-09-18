@@ -1490,7 +1490,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 2025/09/18: ~1485 gas
+    // gas benchmark 2025/09/18: ~1470 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1555,8 +1555,9 @@ library Lib512MathArithmetic {
                 // denormalization step. This branch is net gas-optimizing.
                 Y = _iSqrtNrSecondStep(Y, M);
             }
+            Y = _iSqrtNrSecondStep(Y, M);
             Y = _iSqrtNrThirdStep(Y, M);
-            Y = _iSqrtNrFinalStep(Y, M);
+            //Y = _iSqrtNrFinalStep(Y, M);
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
