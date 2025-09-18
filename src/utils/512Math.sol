@@ -1449,7 +1449,7 @@ library Lib512MathArithmetic {
         unchecked {
             uint256 Y2 = _inaccurateMulHi(Y, Y);   // Y² / 2²⁵⁶
             uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y2 / 2²⁵⁶
-            uint256 T = 1.5 * 2 ** 254 - MY2;
+            uint256 T = 3 * 2 ** 253 - MY2;
             Y_next = _inaccurateMulHi(Y, T);       // Y·T / 2²⁵⁶
             Y_next <<= 2;                          // restore Q1.255 format
         }
@@ -1517,7 +1517,7 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
-            if (invE < 79) {
+            if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
                 // For small `e` (lower values of `x`), we can skip the 5th, final N-R
                 // iteration. The correct bits that this iteration would obtain are shifted away
                 // during the denormalization step. This branch is net gas-optimizing.
