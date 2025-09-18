@@ -1467,19 +1467,30 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// This does the same thing as `_iSqrtNrStep`, but is adjusted for taking `Y` as a Q129.127
-    /// instead of a Q1.255 as an optimization for the second iteration.
+    /// This does the same thing as `_iSqrtNrStep`, but is adjusted for taking and returning `Y` as
+    /// a Q129.127 instead of a Q1.255 as an optimization for the second iteration.
     function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                           // Y² / 2²⁵⁴
-            uint256 MY2 = _inaccurateMulHi(M, Y2);        // M·Y² / 2⁵¹²
+            uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁴
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
             uint256 T = 3 * 2 ** 253 - MY2;
-            Y_next = _inaccurateMulHi(Y << 128, T);       // Y·T / 2²⁵⁶
-            Y_next <<= 2;                                 // set `Y` to Q1.255 format
+            Y_next = _inaccurateMulHi(Y << 2, T);  // Y·T / 2²⁵⁶
         }
     }
 
-    // gas benchmark 2025/09/18: ~1660 gas
+    /// This does the same thing as `_iSqrtNrStep`, but is adjusted for taking `Y` as a Q129.127
+    /// instead of a Q1.255 as an optimization for the third iteration.
+    function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+        unchecked {
+            uint256 Y2 = Y * Y;                     // Y² / 2²⁵⁴
+            uint256 MY2 = _inaccurateMulHi(M, Y2);  // M·Y² / 2⁵¹²
+            uint256 T = 3 * 2 ** 253 - MY2;
+            Y_next = _inaccurateMulHi(Y << 128, T); // Y·T / 2²⁵⁶
+            Y_next <<= 2;                           // set `Y` to Q1.255 format
+        }
+    }
+
+    // gas benchmark 2025/09/18: ~1610 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1510,8 +1521,8 @@ library Lib512MathArithmetic {
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
             // `Y` approximates the inverse square root of integer `M` as a Q1.255. As a gas
-            // optimization, on the first step, `Y` is in Q247.9 format and on the second step in
-            // Q129.127 format.
+            // optimization, on the first step, `Y` is in Q247.9 format and on the second and third
+            // step in Q129.127 format.
             uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
@@ -1538,7 +1549,7 @@ library Lib512MathArithmetic {
             /// convergence that our final fixup step produces an exact result.
             Y = _iSqrtNrFirstStep(Y, M);
             Y = _iSqrtNrSecondStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
+            Y = _iSqrtNrThirdStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
                 // For small `e` (lower values of `x`), we can skip the 5th, final N-R
