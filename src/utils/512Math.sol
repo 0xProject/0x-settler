@@ -1434,19 +1434,22 @@ library Lib512MathArithmetic {
 
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next ≈ Y · (3 - M · Y²) / 2
-    ///     Y_next = ⌊ Y · (3·2²⁵⁴ - ⌊⌊Y² / 2²⁵⁶⌋ · 2 · M / 2²⁵⁶⌋) / 2²⁵⁶ ⌋ · 2
+    ///     Y_next = ⌊ Y · (3·2²⁵³ - ⌊⌊Y² / 2²⁵⁶⌋ · M / 2²⁵⁶⌋) / 2²⁵⁶ ⌋ · 4
+    /// This iteration is deliberately imprecise. No matter how many times you run it, you won't
+    /// converge `Y` on exactly √M (at least, as close as Q1.255 can get). However, this is
+    /// acceptable because the final cleanup step applied after the final call is very tolerant of
+    /// error in the low bits of `Y`.
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            (uint256 Y2, ) = _mul(Y, Y);  // ⌊Y² / 2²⁵⁶⌋
-            Y2 <<= 1;                     // restore Q1.255 format
+            (uint256 Y2,) = _mul(Y, Y);   // ⌊Y² / 2²⁵⁶⌋
             (uint256 MY2,) = _mul(M, Y2); // ⌊M·Y2 / 2²⁵⁶⌋
-            uint256 T = 1.5 * 2 ** 255 - MY2;
-            (Y_next, ) = _mul(Y, T);      // ⌊Y·T / 2²⁵⁶⌋
-            Y_next <<= 1;                 // restore Q1.255 format
+            uint256 T = 1.5 * 2 ** 254 - MY2;
+            (Y_next,) = _mul(Y, T);       // ⌊Y·T / 2²⁵⁶⌋
+            Y_next <<= 2;                 // restore Q1.255 format
         }
     }
 
-    // gas benchmark 2025/09/18: ~2135 gas
+    // gas benchmark 2025/09/18: ~2100 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
