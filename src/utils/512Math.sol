@@ -1455,7 +1455,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 2025/09/18: ~1865 gas
+    // gas benchmark 2025/09/18: ~1730 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1533,9 +1533,9 @@ library Lib512MathArithmetic {
             ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
             ///     r0  = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊√x⌋
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
-            // denormalization
-            (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
-            (, uint256 r0) = _shr(r0_hi, r0_lo, 254 + invE);
+            // denormalization. We don't care about accuracy in the low bits of `r0`, so we can cut
+            // some corners.
+            (, uint256 r0) = _shr(_inaccurateMulHi(M, Y), 0, 254 + invE);
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
             /// converge on ⌊√x⌋ or ⌈√x⌉.  The Babylonian step is:
