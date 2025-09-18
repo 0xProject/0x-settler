@@ -1531,7 +1531,7 @@ library Lib512MathArithmetic {
             ///     M   = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
             ///     M·Y ≈ 2³⁸³ · √(M/2)
             ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
-            ///     r0  = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊√x⌋
+            ///     r0  ≈ M·Y / 2⁽⁵¹⁰⁻ᵉ⁾ ≈ ⌊√x⌋
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
             // denormalization. We don't care about accuracy in the low bits of `r0`, so we can cut
             // some corners.
