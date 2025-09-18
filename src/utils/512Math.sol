@@ -1436,9 +1436,8 @@ library Lib512MathArithmetic {
     ///     Y_next ≈ Y · (3 - M · Y²) / 2
     ///     Y_next = ⌊ Y · (3·2²⁵³ - ⌊⌊Y² / 2²⁵⁶⌋ · M / 2²⁵⁶⌋) / 2²⁵⁶ ⌋ · 4
     /// This iteration is deliberately imprecise. No matter how many times you run it, you won't
-    /// converge `Y` on exactly √M (at least, as close as Q1.255 can get). However, this is
-    /// acceptable because the final cleanup step applied after the final call is very tolerant of
-    /// error in the low bits of `Y`.
+    /// converge `Y` on the closest Q1.255 to √M. However, this is acceptable because the cleanup
+    /// step applied after the final call is very tolerant of error in the low bits of `Y`.
     function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             (uint256 Y2,) = _mul(Y, Y);   // ⌊Y² / 2²⁵⁶⌋
