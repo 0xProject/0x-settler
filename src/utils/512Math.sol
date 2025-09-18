@@ -1455,7 +1455,19 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 2025/09/18: ~1730 gas
+    /// This does the same thing as `_iSqrtNrStep`, but is adjusted for taking `Y` as a Q247.9
+    /// instead of a Q1.255 as an optimization for the first iteration.
+    function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+        unchecked {
+            uint256 Y2 = Y * Y;                           // Y² / 2⁴⁹²
+            uint256 MY2 = _inaccurateMulHi(M, Y2 << 236); // M·Y² / 2⁵¹²
+            uint256 T = 3 * 2 ** 253 - MY2;
+            Y_next = _inaccurateMulHi(Y << 246, T);       // Y·T / 2²⁵⁶
+            Y_next <<= 2;                                 // set `Y` to Q1.255 format
+        }
+    }
+
+    // gas benchmark 2025/09/18: ~1700 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1485,7 +1497,8 @@ library Lib512MathArithmetic {
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
-            // `Y` approximates the inverse square root of integer `M` as a Q1.255
+            // `Y` approximates the inverse square root of integer `M` as a Q1.255. As a gas
+            // optimization, on the first step, `Y` is in Q247.9 format
             uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
@@ -1497,10 +1510,9 @@ library Lib512MathArithmetic {
                 let c := lt(0x27, i)
 
                 // Each entry is 10 bits and the entries are ordered from lowest `i` to
-                // highest. Each seed is 10 significant bits on the MSB end followed by 246 padding
-                // zero bits. The seed is the value for `Y` for the midpoint of the bucket, rounded
+                // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
                 // to 10 significant bits.
-                // Each seed is less than ⌊2²⁵⁵·√2⌋. This ensures overflow safety (Y² / 2²⁵⁵ < 2²⁵⁶)
+                // Each seed is less than ⌊2¹⁰·√2⌋. This ensures overflow safety (Y² / 2²⁵⁵ < 2²⁵⁶)
                 // in the first (and subsequent) N-R step(s).
                 let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
                 let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
@@ -1508,12 +1520,12 @@ library Lib512MathArithmetic {
 
                 // Index the table to obtain the initial seed of `Y`
                 let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
-                Y := shl(0xf6, shr(shift, table))
+                Y := and(0x3ff, shr(shift, table))
             }
 
-            // Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
-            // convergence that our final fixup step produces an exact result.
-            Y = _iSqrtNrStep(Y, M);
+            /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
+            /// convergence that our final fixup step produces an exact result.
+            Y = _iSqrtNrFirstStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
             Y = _iSqrtNrStep(Y, M);
