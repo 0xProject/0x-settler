@@ -1461,9 +1461,9 @@ library Lib512MathArithmetic {
     function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                           // Y² / 2⁴⁹²
-            uint256 MY2 = _inaccurateMulHi(M, Y2 << 236); // M·Y² / 2⁵¹²
-            uint256 T = 3 * 2 ** 253 - MY2;
-            Y_next = _inaccurateMulHi(Y << 120, T);       // Y·T / 2³⁸²
+            uint256 MY2 = _inaccurateMulHi(M, Y2 << 100); // M·Y² / 2⁵¹²
+            uint256 T = 3 * 2 ** 117 - MY2;
+            Y_next = Y * T;                               // Y·T / 2³⁸²
         }
     }
 
@@ -1490,7 +1490,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 2025/09/18: ~1525 gas
+    // gas benchmark 2025/09/18: ~1485 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
