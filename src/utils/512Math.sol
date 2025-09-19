@@ -1442,12 +1442,16 @@ library Lib512MathArithmetic {
     /// A single Newton-Raphson step for computing the inverse square root
     ///     Y_next ≈ Y · (3 - M · Y²) / 2
     ///     Y_next ≈ Y · (3·2²⁵³ - Y² / 2²⁵⁶ · M / 2²⁵⁶) / 2²⁵⁶ · 4
+    /// Both `Y` and `M` are Q1.255 fixed-point numbers. M ∈ [½, 2); Y ≈∈ [√½, √2]
     /// This iteration is deliberately imprecise. No matter how many times you run it, you won't
     /// converge `Y` on the closest Q1.255 to √M. However, this is acceptable because the cleanup
     /// step applied after the final call is very tolerant of error in the low bits of `Y`.
     function _iSqrtNrFinalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = _inaccurateMulHi(Y, Y);   // scale: 2²⁵⁴
+            // Because `M` is Q1.255, multiplying `Y2` by `M` and taking the high word implicitly
+            // divides `MY2` by 2. We move the division by 2 inside the subtraction from 3 by
+            // adjusting the minuend.
             uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
             uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
             Y_next = _inaccurateMulHi(Y, T);       // scale: 2²⁵³
@@ -1457,7 +1461,7 @@ library Lib512MathArithmetic {
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q247.9
     /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q229.27
-    /// as an optimization for the second iteration.
+    /// as an optimization for the second iteration. `M` is still Q1.255.
     function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                    // scale: 2¹⁸
@@ -1468,7 +1472,7 @@ library Lib512MathArithmetic {
     }
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as Q229.27
-    /// from the first step and returning `Y` as a Q175.81 for the third step.
+    /// from the first step and returning `Y` as a Q175.81 for the third step. `M` is still Q1.255.
     function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
@@ -1480,7 +1484,7 @@ library Lib512MathArithmetic {
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q175.81
     /// from the second iteration and returning `Y` as a Q129.127 (instead of a Q1.255) as an
-    /// optimization for the fourth iteration.
+    /// optimization for the fourth iteration. `M` is still Q1.255.
     function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                    // scale: 2¹⁶²
@@ -1492,7 +1496,7 @@ library Lib512MathArithmetic {
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
     /// Q129.127 from the third step, instead of a Q1.255. This returns `Y` as a Q1.255 for either
-    /// the final step or the cleanup.
+    /// the final step or the cleanup. `M` is still Q1.255.
     function _iSqrtNrFourthStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
@@ -1524,19 +1528,19 @@ library Lib512MathArithmetic {
             // `e` is half the exponent of `x`
             // e    = ⌊bitlength(x)/2⌋
             // invE = 256 - e
-            uint256 invE = (x_hi.clz() + 1) >> 1; // range: [0 128]
+            uint256 invE = (x_hi.clz() + 1) >> 1; // invE ∈ [0, 128]
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
-            // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 255 - 2*e
+            // `M` is the mantissa of `x` as a Q1.255; M ∈ [½, 2)
+            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 2⁽²⁵⁵⁻²ᵉ⁾
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
-            // `Y` approximates the inverse square root of integer `M` as a Q1.255. As a gas
-            // optimization, on the first step, `Y` is in Q247.9 format and on the second and third
-            // step in Q129.127 format.
-            uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
+            // `Y` _ultimately_ approximates the inverse square root of fixnum `M` as a
+            // Q1.255. However, as a gas optimization, the number of fractional bits in `Y` rises
+            // through the steps, giving an inhomogeneous fixed-point representation.
+            uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
@@ -1553,29 +1557,37 @@ library Lib512MathArithmetic {
                 let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
-                // Index the table to obtain the initial seed of `Y`
+                // Index the table to obtain the initial seed of `Y`.
                 let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
+                // We begin the Newton-Raphson iteraitons with `Y` in Q247.9 format.
                 Y := and(0x3ff, shr(shift, table))
             }
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             /// convergence that our final fixup step produces an exact result.
+            // `Y` is Q247.9
             Y = _iSqrtNrFirstStep(Y, M);
+            // `Y` is Q229.27
             Y = _iSqrtNrSecondStep(Y, M);
+            // `Y` is Q175.81
             Y = _iSqrtNrThirdStep(Y, M);
+            // `Y` is Q129.127
             Y = _iSqrtNrFourthStep(Y, M);
+            // `Y` is Q1.255
             if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
                 Y = _iSqrtNrFinalStep(Y, M);
             }
+            // `Y` is Q1.255
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
             /// comes in because the half-scale is integral.
-            ///     Y   ≈ 2³⁸³ / √(2·M)
             ///     M   = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
+            ///     Y   ≈ 2²⁵⁵ / √(M / 2²⁵⁵)
+            ///     Y   ≈ 2³⁸³ / √(2·M)
             ///     M·Y ≈ 2³⁸³ · √(M/2)
             ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
             ///     r0  ≈ M·Y / 2⁽⁵¹⁰⁻ᵉ⁾ ≈ ⌊√x⌋
