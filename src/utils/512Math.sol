@@ -1456,7 +1456,7 @@ library Lib512MathArithmetic {
     }
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q247.9
-    /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q230.26
+    /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q229.27
     /// as an optimization for the second iteration.
     function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
@@ -1467,8 +1467,8 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as Q230.26
-    /// from the first step and returning `Y` as a QXXX.YYY for the third step.
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as Q229.27
+    /// from the first step and returning `Y` as a Q175.81 for the third step.
     function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                    // scale: 54
@@ -1478,9 +1478,9 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
-    /// QXXX.YYY and returning `Y` as a Q129.127 (instead of a Q1.255) as an optimization for the
-    /// fourth iteration.
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q175.81
+    /// from the second iteration and returning `Y` as a Q129.127 (instead of a Q1.255) as an
+    /// optimization for the fourth iteration.
     function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                    // scale: 162
@@ -1491,14 +1491,15 @@ library Lib512MathArithmetic {
     }
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
-    /// Q129.127 instead of a Q1.255 as an optimization for the fourth iteration.
+    /// Q129.127 from the third step, instead of a Q1.255. This returns `Y` as a Q1.255 for either
+    /// the final step or the cleanup.
     function _iSqrtNrFourthStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                     // scale: 254
             uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 254
             uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 254
             Y_next = _inaccurateMulHi(Y << 128, T); // scale: 253
-            Y_next <<= 2;                           // scale: 255
+            Y_next <<= 2;                           // scale: 255 (Q1.255 format; effectively Q1.253)
         }
     }
 
