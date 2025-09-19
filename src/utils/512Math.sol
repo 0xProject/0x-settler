@@ -1461,8 +1461,8 @@ library Lib512MathArithmetic {
     function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                           // Y² / 2⁴⁹²
-            uint256 MY2 = _inaccurateMulHi(M, Y2 << 100); // M·Y² / 2⁶⁴⁸
-            uint256 T = 3 * 2 ** 117 - MY2;               // scaled by 2¹¹⁷
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁶⁴⁸
+            uint256 T = 3 * 2 ** 17 - MY2;               // scaled by 2¹¹⁷
             Y_next = Y * T;                               // Y·T / 2¹²⁹
         }
     }
@@ -1473,6 +1473,18 @@ library Lib512MathArithmetic {
         unchecked {
             uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁶
             uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
+            uint256 T = 3 * 2 ** 53 - MY2;
+            Y_next = Y * T;
+            Y_next <<= 46;
+        }
+    }
+
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking and returning
+    /// `Y` as a Q129.127 instead of a Q1.255 as an optimization for the second iteration.
+    function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+        unchecked {
+            uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁶
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
             uint256 T = 3 * 2 ** 253 - MY2;
             Y_next = _inaccurateMulHi(Y << 2, T);  // Y·T / 2³⁸²
         }
@@ -1480,7 +1492,7 @@ library Lib512MathArithmetic {
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
     /// Q129.127 instead of a Q1.255 as an optimization for the third iteration.
-    function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+    function _iSqrtNrFourthStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
             uint256 Y2 = Y * Y;                     // Y² / 2²⁵⁶
             uint256 MY2 = _inaccurateMulHi(M, Y2);  // M·Y² / 2⁵¹²
@@ -1553,10 +1565,10 @@ library Lib512MathArithmetic {
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
-                Y = _iSqrtNrSecondStep(Y, M);
+                Y = _iSqrtNrThirdStep(Y, M);
             }
-            Y = _iSqrtNrSecondStep(Y, M);
             Y = _iSqrtNrThirdStep(Y, M);
+            Y = _iSqrtNrFourthStep(Y, M);
             //Y = _iSqrtNrFinalStep(Y, M);
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
