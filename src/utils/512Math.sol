@@ -1447,10 +1447,10 @@ library Lib512MathArithmetic {
     /// step applied after the final call is very tolerant of error in the low bits of `Y`.
     function _iSqrtNrFinalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = _inaccurateMulHi(Y, Y);   // scale: 254
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 254
-            uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 254
-            Y_next = _inaccurateMulHi(Y, T);       // scale: 253
+            uint256 Y2 = _inaccurateMulHi(Y, Y);   // scale: 2²⁵⁴
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
+            uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
+            Y_next = _inaccurateMulHi(Y, T);       // scale: 2²⁵³
             Y_next <<= 2;                          // restore Q1.255 format (effectively Q1.253)
         }
     }
@@ -1460,10 +1460,10 @@ library Lib512MathArithmetic {
     /// as an optimization for the second iteration.
     function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 18
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 18
-            uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 18
-            Y_next = Y * T;                        // scale: 27
+            uint256 Y2 = Y * Y;                    // scale: 2¹⁸
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁸
+            uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 2¹⁸
+            Y_next = Y * T;                        // scale: 2²⁷
         }
     }
 
@@ -1471,10 +1471,10 @@ library Lib512MathArithmetic {
     /// from the first step and returning `Y` as a Q175.81 for the third step.
     function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 54
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 54
-            uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 54
-            Y_next = Y * T;                        // scale: 81
+            uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2⁵⁴
+            uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 2⁵⁴
+            Y_next = Y * T;                        // scale: 2⁸¹
         }
     }
 
@@ -1483,10 +1483,10 @@ library Lib512MathArithmetic {
     /// optimization for the fourth iteration.
     function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 162
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 162
-            uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 162
-            Y_next = Y * T >> 116;                 // scale: 127
+            uint256 Y2 = Y * Y;                    // scale: 2¹⁶²
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁶²
+            uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 2¹⁶²
+            Y_next = Y * T >> 116;                 // scale: 2¹²⁷
         }
     }
 
@@ -1495,11 +1495,11 @@ library Lib512MathArithmetic {
     /// the final step or the cleanup.
     function _iSqrtNrFourthStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                     // scale: 254
-            uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 254
-            uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 254
-            Y_next = _inaccurateMulHi(Y << 128, T); // scale: 253
-            Y_next <<= 2;                           // scale: 255 (Q1.255 format; effectively Q1.253)
+            uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
+            uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
+            uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
+            Y_next = _inaccurateMulHi(Y << 128, T); // scale: 2²⁵³
+            Y_next <<= 2;                           // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
         }
     }
 
