@@ -1447,61 +1447,62 @@ library Lib512MathArithmetic {
     /// step applied after the final call is very tolerant of error in the low bits of `Y`.
     function _iSqrtNrFinalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = _inaccurateMulHi(Y, Y);   // Y² / 2²⁵⁶
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y2 / 2²⁵⁶
-            uint256 T = 3 * 2 ** 253 - MY2;
-            Y_next = _inaccurateMulHi(Y, T);       // Y·T / 2²⁵⁶
+            uint256 Y2 = _inaccurateMulHi(Y, Y);   // scale: 254
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 254
+            uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 254
+            Y_next = _inaccurateMulHi(Y, T);       // scale: 253
             Y_next <<= 2;                          // restore Q1.255 format (effectively Q1.253)
         }
     }
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q247.9
-    /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q129.127
+    /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q230.26
     /// as an optimization for the second iteration.
     function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                           // Y² / 2⁴⁹²
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁶⁴⁸
-            uint256 T = 3 * 2 ** 17 - MY2;               // scaled by 2¹¹⁷
-            Y_next = Y * T;                               // Y·T / 2¹²⁹
+            uint256 Y2 = Y * Y;                    // scale: 18
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 18
+            uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 18
+            Y_next = Y * T;                        // scale: 27
         }
     }
 
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking and returning
-    /// `Y` as a Q129.127 instead of a Q1.255 as an optimization for the second iteration.
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as Q230.26
+    /// from the first step and returning `Y` as a QXXX.YYY for the third step.
     function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁶
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
-            uint256 T = 3 * 2 ** 53 - MY2;
-            Y_next = Y * T;
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking and returning
-    /// `Y` as a Q129.127 instead of a Q1.255 as an optimization for the second iteration.
-    function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁶
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
-            uint256 T = 3 * 2 ** 161 - MY2;
-            Y_next = Y * T >> 116;
+            uint256 Y2 = Y * Y;                    // scale: 54
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 54
+            uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 54
+            Y_next = Y * T;                        // scale: 81
         }
     }
 
     /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
-    /// Q129.127 instead of a Q1.255 as an optimization for the third iteration.
-    function _iSqrtNrFourthStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+    /// QXXX.YYY and returning `Y` as a Q129.127 (instead of a Q1.255) as an optimization for the
+    /// fourth iteration.
+    function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
         unchecked {
-            uint256 Y2 = Y * Y;                     // Y² / 2²⁵⁶
-            uint256 MY2 = _inaccurateMulHi(M, Y2);  // M·Y² / 2⁵¹²
-            uint256 T = 3 * 2 ** 253 - MY2;
-            Y_next = _inaccurateMulHi(Y << 128, T); // Y·T / 2²⁵⁶
-            Y_next <<= 2;                           // Y·T / 2²⁵⁴; Q1.255 format (effectively Q1.253)
+            uint256 Y2 = Y * Y;                    // scale: 162
+            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 162
+            uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 162
+            Y_next = Y * T >> 116;                 // scale: 127
         }
     }
 
-    // gas benchmark 2025/09/18: ~1470 gas
+    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
+    /// Q129.127 instead of a Q1.255 as an optimization for the fourth iteration.
+    function _iSqrtNrFourthStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
+        unchecked {
+            uint256 Y2 = Y * Y;                     // scale: 254
+            uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 254
+            uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 254
+            Y_next = _inaccurateMulHi(Y << 128, T); // scale: 253
+            Y_next <<= 2;                           // scale: 255
+        }
+    }
+
+    // gas benchmark 2025/09/19: ~1430 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
