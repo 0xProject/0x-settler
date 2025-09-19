@@ -1432,7 +1432,7 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
-    // hi ≈ x · y / 2²⁵⁶
+    // hi ≈ x · y / 2²⁵⁶ (±1)
     function _inaccurateMulHi(uint256 x, uint256 y) private pure returns (uint256 hi) {
         assembly ("memory-safe") {
             hi := sub(mulmod(x, y, not(0x00)), mul(x, y))
