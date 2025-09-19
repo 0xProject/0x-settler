@@ -1475,7 +1475,6 @@ library Lib512MathArithmetic {
             uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
             uint256 T = 3 * 2 ** 53 - MY2;
             Y_next = Y * T;
-            Y_next <<= 46;
         }
     }
 
@@ -1485,8 +1484,8 @@ library Lib512MathArithmetic {
         unchecked {
             uint256 Y2 = Y * Y;                    // Y² / 2²⁵⁶
             uint256 MY2 = _inaccurateMulHi(M, Y2); // M·Y² / 2⁵¹²
-            uint256 T = 3 * 2 ** 253 - MY2;
-            Y_next = _inaccurateMulHi(Y << 2, T);  // Y·T / 2³⁸²
+            uint256 T = 3 * 2 ** 161 - MY2;
+            Y_next = Y * T >> 116;
         }
     }
 
@@ -1561,15 +1560,14 @@ library Lib512MathArithmetic {
             /// convergence that our final fixup step produces an exact result.
             Y = _iSqrtNrFirstStep(Y, M);
             Y = _iSqrtNrSecondStep(Y, M);
+            Y = _iSqrtNrThirdStep(Y, M);
+            Y = _iSqrtNrFourthStep(Y, M);
             if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
-                Y = _iSqrtNrThirdStep(Y, M);
+                Y = _iSqrtNrFinalStep(Y, M);
             }
-            Y = _iSqrtNrThirdStep(Y, M);
-            Y = _iSqrtNrFourthStep(Y, M);
-            //Y = _iSqrtNrFinalStep(Y, M);
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
