@@ -1493,6 +1493,11 @@ library Lib512MathArithmetic {
                 let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
                 // We begin the Newton-Raphson iteraitons with `Y` in Q247.9 format.
                 Y := and(0x3ff, shr(shift, table))
+
+                // The worst-case seed for `Y` occurs when `i = 16`. For quadratic convergence, we
+                // desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case) of the `i = 16`
+                // bucket, we are 0.407351 (41.3680%) from the lower bound and 0.275987 (27.1906%)
+                // from the higher bound.
             }
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
