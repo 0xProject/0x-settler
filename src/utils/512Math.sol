@@ -1485,8 +1485,8 @@ library Lib512MathArithmetic {
                 // Each entry is 10 bits and the entries are ordered from lowest `i` to
                 // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
                 // to 10 significant bits.
-                let table_hi := 0xb26b4a868f9fa6f9825391e3b8c22586e12826017e5f17a9e3771d573dc9
-                let table_lo := 0x70dbe6e5b36b9aa695a1671986519063188615815f97a5dd745c56e5ad68
+                let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
+                let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
                 // Index the table to obtain the initial seed of `Y`.
