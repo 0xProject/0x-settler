@@ -1439,86 +1439,6 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next ≈ Y · (3 - M · Y²) / 2
-    ///     Y_next ≈ Y · (3·2²⁵³ - Y² / 2²⁵⁶ · M / 2²⁵⁶) / 2²⁵⁶ · 4
-    /// Both `Y` and `M` are Q1.255 fixed-point numbers. M ∈ [½, 2); Y ≈∈ [√½, √2]
-    /// This iteration is deliberately imprecise. No matter how many times you run it, you won't
-    /// converge `Y` on the closest Q1.255 to √M. However, this is acceptable because the cleanup
-    /// step applied after the final call is very tolerant of error in the low bits of `Y`.
-
-    /*
-    function _iSqrtNrFinalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = _inaccurateMulHi(Y, Y);   // scale: 2²⁵⁴
-            // Because `M` is Q1.255, multiplying `Y2` by `M` and taking the high word implicitly
-            // divides `MY2` by 2. We move the division by 2 inside the subtraction from 3 by
-            // adjusting the minuend.
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
-            uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
-            Y_next = _inaccurateMulHi(Y, T);       // scale: 2²⁵³
-            Y_next <<= 2;                          // restore Q1.255 format (effectively Q1.253)
-        }
-    }
-    */
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q247.9
-    /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q229.27
-    /// as an optimization for the second iteration. `M` is still Q1.255.
-    function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 2¹⁸
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁸
-            uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 2¹⁸
-            Y_next = Y * T;                        // scale: 2²⁷
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as Q229.27
-    /// from the first step and returning `Y` as a Q175.81 for the third step. `M` is still Q1.255.
-    function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2⁵⁴
-            uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 2⁵⁴
-            Y_next = Y * T;                        // scale: 2⁸¹
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q175.81
-    /// from the second iteration and returning `Y` as a Q129.127 (instead of a Q1.255) as an
-    /// optimization for the fourth iteration. `M` is still Q1.255.
-    function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 2¹⁶²
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁶²
-            uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 2¹⁶²
-            Y_next = Y * T >> 116;                 // scale: 2¹²⁷
-        }
-    }
-
-    function _iSqrtNrOptionalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
-            uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
-            uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
-            Y_next = _inaccurateMulHi(Y << 2, T);   // scale: 2¹²⁷
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
-    /// Q129.127 from the third step, instead of a Q1.255. This returns `Y` as a Q1.255 for either
-    /// the final step or the cleanup. `M` is still Q1.255.
-    function _iSqrtNrFinalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
-            uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
-            uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
-            Y_next = _inaccurateMulHi(Y << 128, T); // scale: 2²⁵³
-            Y_next <<= 2;                           // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
-        }
-    }
-
     // gas benchmark 2025/09/20: ~1425 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
@@ -1551,7 +1471,7 @@ library Lib512MathArithmetic {
             /// buckets on the low side and 32 buckets on the high side.
             // `Y` _ultimately_ approximates the inverse square root of fixnum `M` as a
             // Q1.255. However, as a gas optimization, the number of fractional bits in `Y` rises
-            // through the steps, giving an inhomogeneous fixed-point representation.
+            // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
             uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
@@ -1577,21 +1497,57 @@ library Lib512MathArithmetic {
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             /// convergence that our final fixup step produces an exact result.
+            // The Newton-Raphson iteration for 1/√M is:
+            //     Y ≈ Y · (3 - M · Y²) / 2
+            // The implementation of this iteration is deliberately imprecise. No matter how many
+            // times you run it, you won't converge `Y` on the closest Q1.255 to √M. However, this
+            // is acceptable because the cleanup step applied after the final call is very tolerant
+            // of error in the low bits of `Y`.
+
+            // `M` is Q1.255
             // `Y` is Q247.9
-            Y = _iSqrtNrFirstStep(Y, M);
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2¹⁸
+                // Because `M` is Q1.255, multiplying `Y2` by `M` and taking the high word
+                // implicitly divides `MY2` by 2. We move the division by 2 inside the subtraction
+                // from 3 by adjusting the minuend.
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁸
+                uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 2¹⁸
+                Y = Y * T;                             // scale: 2²⁷
+            }
             // `Y` is Q229.27
-            Y = _iSqrtNrSecondStep(Y, M);
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2⁵⁴
+                uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 2⁵⁴
+                Y = Y * T;                             // scale: 2⁸¹
+            }
             // `Y` is Q175.81
-            Y = _iSqrtNrThirdStep(Y, M);
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2¹⁶²
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁶²
+                uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 2¹⁶²
+                Y = Y * T >> 116;                      // scale: 2¹²⁷
+            }
             // `Y` is Q129.127
             if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
-                Y = _iSqrtNrOptionalStep(Y, M);
+                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 2, T);        // scale: 2¹²⁷
+
             }
             // `Y` is Q129.127
-            Y = _iSqrtNrFinalStep(Y, M);
+            {
+                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 128, T);      // scale: 2²⁵³
+                Y <<= 2;                                // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
+            }
             // `Y` is Q1.255
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
