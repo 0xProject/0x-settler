@@ -1485,8 +1485,8 @@ library Lib512MathArithmetic {
                 // Each entry is 10 bits and the entries are ordered from lowest `i` to
                 // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
                 // to 10 significant bits.
-                let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
-                let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
+                let table_hi := 0xb26b4a868f9fa6f9825391e3b8c22586e12826017e5f17a9e3771d573dc9
+                let table_lo := 0x70dbe6e5b36b9aa695a1671986519063188615815f97a5dd745c56e5ad68
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
                 // Index the table to obtain the initial seed of `Y`.
@@ -1494,10 +1494,10 @@ library Lib512MathArithmetic {
                 // We begin the Newton-Raphson iteraitons with `Y` in Q247.9 format.
                 Y := and(0x3ff, shr(shift, table))
 
-                // The worst-case seed for `Y` occurs when `i = 16`. For quadratic convergence, we
-                // desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case) of the `i = 16`
-                // bucket, we are 0.407351 (41.3680%) from the lower bound and 0.275987 (27.1906%)
-                // from the higher bound.
+                // The worst-case seed for `Y` occurs when `i = 16`. For monotone quadratic
+                // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
+                // of the `i = 16` bucket, we are 0.407351 (41.3680%) from the lower bound and
+                // 0.275987 (27.1906%) from the higher bound.
             }
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
