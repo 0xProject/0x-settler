@@ -1513,14 +1513,14 @@ library Lib512MathArithmetic {
                 // from 3 by adjusting the minuend.
                 uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁸
                 uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 2¹⁸
-                Y = Y * T;                             // scale: 2²⁷
+                Y *= T;                                // scale: 2²⁷
             }
             // `Y` is Q229.27
             {
                 uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
                 uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2⁵⁴
                 uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 2⁵⁴
-                Y = Y * T;                             // scale: 2⁸¹
+                Y *= T;                                // scale: 2⁸¹
             }
             // `Y` is Q175.81
             {
@@ -1538,7 +1538,6 @@ library Lib512MathArithmetic {
                 uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
                 uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
                 Y = _inaccurateMulHi(Y << 2, T);        // scale: 2¹²⁷
-
             }
             // `Y` is Q129.127
             {
