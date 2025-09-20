@@ -24,7 +24,7 @@ library FullMath {
         // Remainder Theorem to reconstruct the 512 bit result. The result is stored
         // in two 256 variables such that product = prod1 * 2**256 + prod0
         assembly ("memory-safe") {
-            let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(a, b, not(0x00))
             lo := mul(a, b)
             hi := sub(sub(mm, lo), lt(mm, lo))
         }
@@ -229,7 +229,7 @@ library FullMath {
 
     function unsafeMulShift(uint256 a, uint256 b, uint256 s) internal pure returns (uint256 result) {
         assembly ("memory-safe") {
-            let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(a, b, not(0x00))
             let prod0 := mul(a, b)
             let prod1 := sub(sub(mm, prod0), lt(mm, prod0))
             result := or(shr(s, prod0), shl(sub(0x100, s), prod1))
@@ -238,7 +238,7 @@ library FullMath {
 
     function unsafeMulShiftUp(uint256 a, uint256 b, uint256 s) internal pure returns (uint256 result) {
         assembly ("memory-safe") {
-            let mm := mulmod(a, b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(a, b, not(0x00))
             let prod0 := mul(a, b)
             let prod1 := sub(sub(mm, prod0), lt(mm, prod0))
             let s_ := sub(0x100, s)

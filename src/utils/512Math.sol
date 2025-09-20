@@ -455,7 +455,7 @@ library Lib512MathArithmetic {
 
     function _mul(uint256 x, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            let mm := mulmod(x, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(x, y, not(0x00))
             r_lo := mul(x, y)
             r_hi := sub(sub(mm, r_lo), lt(mm, r_lo))
         }
@@ -468,7 +468,7 @@ library Lib512MathArithmetic {
 
     function _mul(uint256 x_hi, uint256 x_lo, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
-            let mm := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(x_lo, y, not(0x00))
             r_lo := mul(x_lo, y)
             r_hi := add(mul(x_hi, y), sub(sub(mm, r_lo), lt(mm, r_lo)))
         }
@@ -490,7 +490,7 @@ library Lib512MathArithmetic {
         returns (uint256 r_hi, uint256 r_lo)
     {
         assembly ("memory-safe") {
-            let mm := mulmod(x_lo, y_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(x_lo, y_lo, not(0x00))
             r_lo := mul(x_lo, y_lo)
             r_hi := add(add(mul(x_hi, y_lo), mul(x_lo, y_hi)), sub(sub(mm, r_lo), lt(mm, r_lo)))
         }
@@ -563,9 +563,9 @@ library Lib512MathArithmetic {
         returns (uint256 r_ex, uint256 r_hi, uint256 r_lo)
     {
         assembly ("memory-safe") {
-            let mm0 := mulmod(x_lo, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm0 := mulmod(x_lo, y, not(0x00))
             r_lo := mul(x_lo, y)
-            let mm1 := mulmod(x_hi, y, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm1 := mulmod(x_hi, y, not(0x00))
             let r_partial := mul(x_hi, y)
             r_ex := sub(sub(mm1, r_partial), lt(mm1, r_partial))
 
@@ -746,7 +746,7 @@ library Lib512MathArithmetic {
 
         assembly ("memory-safe") {
             // inv_hi = inv_lo * tmp / 2**256 % 2**256
-            let mm := mulmod(inv_lo, tmp_lo, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            let mm := mulmod(inv_lo, tmp_lo, not(0x00))
             inv_hi := add(mul(inv_lo, tmp_hi), sub(sub(mm, inv_lo), lt(mm, inv_lo)))
         }
     }
@@ -1432,21 +1432,14 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
-    /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next = ⌊Y · (1.5·2²⁵⁵ - U) ) / 2²⁵⁵⌋
-    ///     U = ⌊M · ⌊Y² / 2²⁵⁵⌋ / 2²⁵⁶⌋
-    function _iSqrtNrStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            (uint256 Y2_hi, uint256 Y2_lo) = _mul(Y, Y);         // [hi lo] = Y·Y
-            (, uint256 Y2) = _shr256(Y2_hi, Y2_lo, 255);         // ⌊/ 2²⁵⁵⌋
-            (uint256 MY2,) = _mul(M, Y2);                        // ⌊M·Y2 / 2²⁵⁶⌋
-            uint256 T = 1.5 * 2 ** 255 - MY2;
-            (uint256 Y_next_hi, uint256 Y_next_lo) = _mul(Y, T); // [hi lo] = Y·T
-            (, Y_next) = _shr256(Y_next_hi, Y_next_lo, 255);     // ⌊/ 2²⁵⁵⌋
+    // hi ≈ x · y / 2²⁵⁶ (±1)
+    function _inaccurateMulHi(uint256 x, uint256 y) private pure returns (uint256 hi) {
+        assembly ("memory-safe") {
+            hi := sub(mulmod(x, y, not(0x00)), mul(x, y))
         }
     }
 
-    // gas benchmark 14/09/2025: ~2315 gas
+    // gas benchmark 2025/09/20: ~1425 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1467,17 +1460,19 @@ library Lib512MathArithmetic {
             // `e` is half the exponent of `x`
             // e    = ⌊bitlength(x)/2⌋
             // invE = 256 - e
-            uint256 invE = (x_hi.clz() + 1) >> 1; // range: [0 128]
+            uint256 invE = (x_hi.clz() + 1) >> 1; // invE ∈ [0, 128]
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
-            // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 255 - 2*e
+            // `M` is the mantissa of `x` as a Q1.255; M ∈ [½, 2)
+            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 2⁽²⁵⁵⁻²ᵉ⁾
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
-            // `Y` approximates the inverse square root of integer `M` as a Q1.255
-            uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
+            // `Y` _ultimately_ approximates the inverse square root of fixnum `M` as a
+            // Q1.255. However, as a gas optimization, the number of fractional bits in `Y` rises
+            // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
+            uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
@@ -1488,45 +1483,90 @@ library Lib512MathArithmetic {
                 let c := lt(0x27, i)
 
                 // Each entry is 10 bits and the entries are ordered from lowest `i` to
-                // highest. Each seed is 10 significant bits on the MSB end followed by 246 padding
-                // zero bits. The seed is the value for `Y` for the midpoint of the bucket, rounded
+                // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
                 // to 10 significant bits.
-                // Each seed is less than ⌊2²⁵⁵·√2⌋. This ensures overflow safety (Y² / 2²⁵⁵ < 2²⁵⁶)
-                // in the first (and subsequent) N-R step(s).
                 let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
                 let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
-                // Index the table to obtain the initial seed of `Y`
+                // Index the table to obtain the initial seed of `Y`.
                 let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
-                Y := shl(0xf6, shr(shift, table))
+                // We begin the Newton-Raphson iteraitons with `Y` in Q247.9 format.
+                Y := and(0x3ff, shr(shift, table))
+
+                // The worst-case seed for `Y` occurs when `i = 16`. For monotone quadratic
+                // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
+                // of the `i = 16` bucket, we are 0.407351 (41.3680%) from the lower bound and
+                // 0.275987 (27.1906%) from the higher bound.
             }
 
-            // Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
-            // convergence that our final fixup step produces an exact result.
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            Y = _iSqrtNrStep(Y, M);
-            if (invE < 79) {
-                // For small `e` (lower values of `x`), we can skip the 5th, final N-R
-                // iteration. The correct bits that this iteration would obtain are shifted away
-                // during the denormalization step. This branch is net gas-optimizing.
-                Y = _iSqrtNrStep(Y, M);
+            /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
+            /// convergence that our final fixup step produces an exact result.
+            // The Newton-Raphson iteration for 1/√M is:
+            //     Y ≈ Y · (3 - M · Y²) / 2
+            // The implementation of this iteration is deliberately imprecise. No matter how many
+            // times you run it, you won't converge `Y` on the closest Q1.255 to √M. However, this
+            // is acceptable because the cleanup step applied after the final call is very tolerant
+            // of error in the low bits of `Y`.
+
+            // `M` is Q1.255
+            // `Y` is Q247.9
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2¹⁸
+                // Because `M` is Q1.255, multiplying `Y2` by `M` and taking the high word
+                // implicitly divides `MY2` by 2. We move the division by 2 inside the subtraction
+                // from 3 by adjusting the minuend.
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁸
+                uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 2¹⁸
+                Y *= T;                                // scale: 2²⁷
             }
+            // `Y` is Q229.27
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2⁵⁴
+                uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 2⁵⁴
+                Y *= T;                                // scale: 2⁸¹
+            }
+            // `Y` is Q175.81
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2¹⁶²
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁶²
+                uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 2¹⁶²
+                Y = Y * T >> 116;                      // scale: 2¹²⁷
+            }
+            // `Y` is Q129.127
+            if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
+                // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
+                // correct bits that this iteration would obtain are shifted away during the
+                // denormalization step. This branch is net gas-optimizing.
+                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 2, T);        // scale: 2¹²⁷
+            }
+            // `Y` is Q129.127
+            {
+                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 128, T);      // scale: 2²⁵³
+                Y <<= 2;                                // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
+            }
+            // `Y` is Q1.255
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
             /// comes in because the half-scale is integral.
-            ///     Y   ≈ 2³⁸³ / √(2·M)
             ///     M   = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
+            ///     Y   ≈ 2²⁵⁵ / √(M / 2²⁵⁵)
+            ///     Y   ≈ 2³⁸³ / √(2·M)
             ///     M·Y ≈ 2³⁸³ · √(M/2)
             ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
-            ///     r0  = ⌊M·Y / 2⁽⁵¹⁰⁻ᵉ⁾⌋ ≈ ⌊√x⌋
+            ///     r0  ≈ M·Y / 2⁽⁵¹⁰⁻ᵉ⁾ ≈ ⌊√x⌋
             // We shift right by `510 - e` to account for both the Q1.255 scaling and
-            // denormalization
-            (uint256 r0_hi, uint256 r0_lo) = _mul(M, Y);
-            (, uint256 r0) = _shr(r0_hi, r0_lo, 254 + invE);
+            // denormalization. We don't care about accuracy in the low bits of `r0`, so we can cut
+            // some corners.
+            (, uint256 r0) = _shr(_inaccurateMulHi(M, Y), 0, 254 + invE);
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
             /// converge on ⌊√x⌋ or ⌈√x⌉.  The Babylonian step is:
@@ -1535,7 +1575,7 @@ library Lib512MathArithmetic {
             // because the value the upper word of the quotient can take is highly constrained, we
             // can compute the quotient mod 2²⁵⁶ and recover the high word separately. Although
             // `_div` does an expensive Newton-Raphson-Hensel modular inversion:
-            //     ⌊x/r0⌋ ≡ x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
+            //     ⌊x/r0⌋ ≡ ⌊x/2ⁿ⌋·⌊r0/2ⁿ⌋⁻¹ mod 2²⁵⁶ (for r0 % 2ⁿ = 0 ∧ r % 2⁽ⁿ⁺¹⁾ = 2ⁿ)
             // and we already have a pretty good estimate for r0⁻¹, namely `Y`, refining `Y` into
             // the appropriate inverse requires a series of 768-bit multiplications that take more
             // gas.
@@ -1545,7 +1585,7 @@ library Lib512MathArithmetic {
             // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
             // `r1` is `type(uint256).max`.
             (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
-            r1 -= oflo;
+            r1 -= oflo; // underflow is desired
 
             /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
