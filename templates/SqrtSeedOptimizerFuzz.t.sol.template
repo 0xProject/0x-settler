@@ -25,9 +25,7 @@ contract SqrtSeedOptimizerFuzz is Test {
         );
 
         // Skip if transformation resulted in invalid input
-        if (x_hi == 0 && x_lo == 0) {
-            return;
-        }
+        vm.assume(x_hi != 0);
 
         // Verify the transformed input has correct invE and bucket
         (uint256 actualInvE, uint256 actualBucket) = calculateInvEAndBucket(x_hi, x_lo);
@@ -68,9 +66,6 @@ contract SqrtSeedOptimizerFuzz is Test {
         uint256 targetBucket,
         uint256 targetInvE
     ) internal pure returns (uint256 x_hi, uint256 x_lo) {
-        // For a given invE, we need clz = 2*invE - 1
-        uint256 requiredClz = (targetInvE * 2) - 1;
-
         // The mantissa extraction shift is: shift = 257 - 2*invE
         uint256 shift = 257 - (targetInvE * 2);
 
@@ -99,22 +94,7 @@ contract SqrtSeedOptimizerFuzz is Test {
             x_lo = M << shift;
         } else {
             // This shouldn't happen given our check above
-            return (0, 0);
-        }
-
-        // Verify and adjust x_hi to have exactly the required leading zeros
-        if (requiredClz < 256) {
-            uint256 firstBitPosition = 255 - requiredClz;
-
-            // Clear any bits above the first bit position
-            uint256 mask = (1 << (firstBitPosition + 1)) - 1;
-            x_hi = x_hi & mask;
-
-            // Ensure the first bit is set
-            x_hi = x_hi | (1 << firstBitPosition);
-        } else {
-            // For invE >= 128, x_hi should be 0
-            x_hi = 0;
+            revert();
         }
     }
 
