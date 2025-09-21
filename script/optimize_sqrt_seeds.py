@@ -168,7 +168,7 @@ class SeedOptimizer:
                 print(f" ERROR: {e}")
             return False
 
-    def find_working_seed_spiral(self, bucket: int, invEThreshold: int, center_seed: int, max_distance: int = 50) -> Optional[int]:
+    def find_working_seed_spiral(self, bucket: int, invEThreshold: int, center_seed: int, max_distance: int = 10) -> Optional[int]:
         """Spiral outward from center_seed to find any working seed."""
         print(f"  Spiral search from seed {center_seed} (max distance {max_distance})...")
 
@@ -222,18 +222,7 @@ class SeedOptimizer:
         print(f"  Original seed: {original_seed}, Current seed: {current_seed}")
 
         # Try spiral search from original seed first
-        working_seed = self.find_working_seed_spiral(bucket, invEThreshold, original_seed, max_distance=25)
-
-        # If original doesn't work, try current seed
-        if working_seed is None and original_seed != current_seed:
-            print(f"  Original seed region failed, trying current seed region...")
-            working_seed = self.find_working_seed_spiral(bucket, invEThreshold, current_seed, max_distance=25)
-
-        # If both fail, try broader search around middle range
-        if working_seed is None:
-            print(f"  Both seed regions failed, trying broader search...")
-            middle_seed = 500  # Middle of typical range
-            working_seed = self.find_working_seed_spiral(bucket, invEThreshold, middle_seed, max_distance=100)
+        working_seed = self.find_working_seed_spiral(bucket, invEThreshold, original_seed, max_distance=10)
 
         if working_seed is None:
             print(f"  ERROR: No working seed found for bucket {bucket}")
@@ -291,13 +280,15 @@ class SeedOptimizer:
         print(f"    Validating min seed {min_seed}...", end='', flush=True)
         if not self.test_seed(bucket, min_seed, invEThreshold, verbose=False):
             print(" FAILED validation!")
-            # Try a slightly higher seed
-            for candidate in range(min_seed + 1, min_seed + 5):
+            # Linear scan upward with full validation until finding a working seed
+            found_valid = False
+            for candidate in range(min_seed + 1, min_seed + 21):  # Try up to 20 seeds
                 if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
                     min_seed = candidate
                     print(f" Using {min_seed} instead")
+                    found_valid = True
                     break
-            else:
+            if not found_valid:
                 print(" Could not find valid min seed")
                 return None, None
         else:
@@ -306,13 +297,15 @@ class SeedOptimizer:
         print(f"    Validating max seed {max_seed}...", end='', flush=True)
         if not self.test_seed(bucket, max_seed, invEThreshold, verbose=False):
             print(" FAILED validation!")
-            # Try a slightly lower seed
-            for candidate in range(max_seed - 1, max_seed - 5, -1):
+            # Linear scan downward with full validation until finding a working seed
+            found_valid = False
+            for candidate in range(max_seed - 1, max_seed - 21, -1):  # Try up to 20 seeds
                 if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
                     max_seed = candidate
                     print(f" Using {max_seed} instead")
+                    found_valid = True
                     break
-            else:
+            if not found_valid:
                 print(" Could not find valid max seed")
                 return None, None
         else:
