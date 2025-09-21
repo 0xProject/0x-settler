@@ -4,9 +4,13 @@ Optimize sqrt lookup table seeds by empirically testing with Solidity.
 Forces invE=79 to test the most fragile case (4 Newton-Raphson iterations).
 
 Usage:
-    python3 script/optimize_sqrt_seeds.py           # Test problematic buckets only (42-46)
-    python3 script/optimize_sqrt_seeds.py --all     # Test all 48 buckets (takes 30-60 min)
-    python3 script/optimize_sqrt_seeds.py --quick   # Quick test of bucket 44 only
+    python3 script/optimize_sqrt_seeds.py --bucket N [M ...]  # Test specific bucket(s)
+    python3 script/optimize_sqrt_seeds.py                     # Test problematic buckets (42-46)
+
+Examples:
+    python3 script/optimize_sqrt_seeds.py --bucket 44         # Test bucket 44
+    python3 script/optimize_sqrt_seeds.py --bucket 42 43 44   # Test buckets 42, 43, 44
+    python3 script/optimize_sqrt_seeds.py                     # Test buckets 42-46
 
 The script will:
 1. Test each seed by generating Solidity test files and running forge test
@@ -275,40 +279,17 @@ contract TestBucket{bucket}Seed{seed} is Test {{
 
         return optimal
 
-    def optimize_all_buckets(self, test_all: bool = True):
-        """Optimize seeds for all buckets."""
+    def optimize_buckets(self, buckets: list):
+        """Optimize seeds for specified buckets."""
         optimized = {}
 
-        # Start with bucket 44 since we know it's problematic
-        problematic_buckets = [44, 43, 45, 42, 46]  # Test neighbors too
-
-        if test_all:
-            normal_buckets = [b for b in range(16, 64) if b not in problematic_buckets]
-            total_buckets = len(problematic_buckets) + len(normal_buckets)
-        else:
-            normal_buckets = []
-            total_buckets = len(problematic_buckets)
-
         print(f"\n{'='*80}")
-        print(f"OPTIMIZING {total_buckets} BUCKETS")
+        print(f"OPTIMIZING {len(buckets)} BUCKET{'S' if len(buckets) != 1 else ''}")
         print(f"{'='*80}")
 
-        print("\n[1/2] Starting with problematic buckets around bucket 44...")
-        for i, bucket in enumerate(problematic_buckets, 1):
-            print(f"\n  [{i}/{len(problematic_buckets)}] Processing bucket {bucket}")
+        for i, bucket in enumerate(buckets, 1):
+            print(f"\n  [{i}/{len(buckets)}] Processing bucket {bucket}")
             optimized[bucket] = self.optimize_bucket(bucket)
-
-        if test_all:
-            print("\n[2/2] Optimizing remaining buckets...")
-            for i, bucket in enumerate(normal_buckets, 1):
-                print(f"\n  [{i}/{len(normal_buckets)}] Processing bucket {bucket}")
-                optimized[bucket] = self.optimize_bucket(bucket)
-        else:
-            print("\n[2/2] Skipping remaining buckets (test_all=False)")
-            # Use current seeds for buckets we didn't test
-            for bucket in range(16, 64):
-                if bucket not in optimized:
-                    optimized[bucket] = CURRENT_SEEDS[bucket]
 
         return optimized
 
@@ -341,77 +322,88 @@ contract TestBucket{bucket}Seed{seed} is Test {{
         print("OPTIMIZATION RESULTS")
         print("="*80)
 
-        print("\nBucket | Original | Current | Optimized | Change from Original")
-        print("-" * 65)
+        if not optimized:
+            print("No buckets were optimized.")
+            return
 
-        for bucket in range(16, 64):
+        print("\nBucket | Original | Current | Optimized | Change from Current | Recommendation")
+        print("-" * 80)
+
+        for bucket in sorted(optimized.keys()):
             orig = ORIGINAL_SEEDS[bucket]
             curr = CURRENT_SEEDS[bucket]
             opt = optimized[bucket]
-            change = opt - orig
+            change_from_curr = opt - curr
 
-            status = ""
-            if bucket == 44:
-                status = " <-- FIXED"
-            elif change > 0:
-                status = " (increased)"
-            elif change < 0:
-                status = " (decreased)"
+            if change_from_curr != 0:
+                recommendation = f"CHANGE: {curr} → {opt}"
+            else:
+                recommendation = "OK (no change needed)"
 
-            print(f"  {bucket:2d}   |   {orig:3d}    |   {curr:3d}   |    {opt:3d}    |       {change:+3d}{status}")
+            print(f"  {bucket:2d}   |   {orig:3d}    |   {curr:3d}   |    {opt:3d}    |       {change_from_curr:+3d}        | {recommendation}")
 
-        # Generate new tables
-        table_hi, table_lo = self.generate_lookup_tables(optimized)
+        # Only generate new tables if we have all buckets
+        if len(optimized) == 48:
+            # Fill in all seeds (using current for non-optimized)
+            all_seeds = dict(CURRENT_SEEDS)
+            all_seeds.update(optimized)
 
-        print("\n" + "="*80)
-        print("NEW LOOKUP TABLES")
-        print("="*80)
-        print(f"table_hi = 0x{table_hi:064x}")
-        print(f"table_lo = 0x{table_lo:064x}")
+            table_hi, table_lo = self.generate_lookup_tables(all_seeds)
+
+            print("\n" + "="*80)
+            print("NEW LOOKUP TABLES")
+            print("="*80)
+            print(f"table_hi = 0x{table_hi:064x}")
+            print(f"table_lo = 0x{table_lo:064x}")
+        else:
+            print("\n" + "="*80)
+            print("NOTE: To generate new lookup tables, all 48 buckets must be optimized.")
+            print("Use --bucket with all bucket numbers 16-63 or test in batches.")
 
 def main():
     import sys
 
     optimizer = SeedOptimizer()
 
-    # Check command line arguments
-    test_all = "--all" in sys.argv
-    quick_test = "--quick" in sys.argv
+    # Parse command line arguments
+    if "--bucket" in sys.argv:
+        try:
+            idx = sys.argv.index("--bucket")
 
-    if quick_test:
-        print("=" * 80)
-        print("QUICK TEST: Bucket 44 Only")
-        print("=" * 80)
+            # Collect all bucket numbers after --bucket
+            buckets = []
+            for i in range(idx + 1, len(sys.argv)):
+                if sys.argv[i].startswith("--"):
+                    break
+                bucket = int(sys.argv[i])
+                if bucket < 16 or bucket > 63:
+                    print(f"Error: Bucket {bucket} is out of range. Must be between 16 and 63.")
+                    sys.exit(1)
+                buckets.append(bucket)
 
-        print("\nTesting known failing seed (430)...")
-        if optimizer.test_seed(44, 430, verbose=False):
-            print("  ✗ ERROR: Seed 430 should fail for bucket 44!")
-        else:
-            print("  ✓ Confirmed: Seed 430 fails for bucket 44")
+            if not buckets:
+                print("Error: --bucket requires at least one bucket number")
+                print("Usage: python3 script/optimize_sqrt_seeds.py --bucket N [M ...]")
+                sys.exit(1)
 
-        print("\nTesting original seed (434)...")
-        if optimizer.test_seed(44, 434, verbose=False):
-            print("  ✓ Good: Original seed 434 works for bucket 44")
-        else:
-            print("  ✗ Warning: Even original seed 434 might not be enough")
+            # Remove duplicates and sort
+            buckets = sorted(set(buckets))
 
-        print("\nOptimizing bucket 44...")
-        optimal = optimizer.optimize_bucket(44)
-        print(f"\nRecommended seed for bucket 44: {optimal}")
+        except ValueError as e:
+            print(f"Error: Invalid bucket number")
+            print("Usage: python3 script/optimize_sqrt_seeds.py --bucket N [M ...]")
+            sys.exit(1)
+
     else:
-        # Run optimization
-        print("=" * 80)
-        if test_all:
-            print("FULL OPTIMIZATION MODE (All 48 Buckets)")
-            print("This will take approximately 30-60 minutes...")
-        else:
-            print("TARGETED OPTIMIZATION MODE (Problematic Buckets Only)")
-            print("Testing buckets: 42, 43, 44, 45, 46")
-            print("Use --all flag to test all 48 buckets")
-        print("=" * 80)
+        # Default: test problematic buckets around 44
+        buckets = [42, 43, 44, 45, 46]
+        print("No --bucket specified. Testing default problematic buckets: 42, 43, 44, 45, 46")
 
-        optimized = optimizer.optimize_all_buckets(test_all=test_all)
-        optimizer.print_results(optimized)
+    # Run optimization
+    optimized = optimizer.optimize_buckets(buckets)
+
+    # Print results
+    optimizer.print_results(optimized)
 
     # Clean up
     if os.path.exists(optimizer.test_contract_path):
