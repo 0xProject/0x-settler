@@ -7,6 +7,7 @@ import {Clz} from "../vendor/Clz.sol";
 import {Ternary} from "./Ternary.sol";
 import {FastLogic} from "./FastLogic.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
+import {console} from "@forge-std/console.sol";
 
 /*
 
@@ -1503,8 +1504,13 @@ library Lib512MathArithmetic {
         }
     }
 
-    // gas benchmark 2025/09/19: ~1430 gas
+    // Wrapper for backward compatibility - use 999 as "no override" signal
     function sqrt(uint512 x) internal pure returns (uint256 r) {
+        return sqrt(x, 999, 0);
+    }
+
+    // gas benchmark 2025/09/19: ~1430 gas
+    function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
         if (x_hi == 0) {
@@ -1537,26 +1543,39 @@ library Lib512MathArithmetic {
             // optimization, on the first step, `Y` is in Q247.9 format and on the second and third
             // step in Q129.127 format.
             uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
+            uint256 i_debug;
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
                 let i := shr(0xfa, M)
-                // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
-                // to select which table we index.
-                let c := lt(0x27, i)
+                i_debug := i
+                // Check if we should override this bucket's seed
+                if eq(i, overrideBucket) {
+                    Y := overrideSeed
+                }
+                // Otherwise use the normal lookup table
+                if iszero(eq(i, overrideBucket)) {
+                    // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
+                    // to select which table we index.
+                    let c := lt(0x27, i)
 
-                // Each entry is 10 bits and the entries are ordered from lowest `i` to
-                // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
-                // to 10 significant bits.
-                let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
-                let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
-                let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
+                    // Each entry is 10 bits and the entries are ordered from lowest `i` to
+                    // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
+                    // to 10 significant bits.
+                    let table_hi := 0xb26b4a868f9fa6f9825391e3b8c22586e12826017e5f17a9e3771d573dc9
+                    let table_lo := 0x70dbe6e5b36b9aa695a1671986519063188615815f97a5dd745c56e5ad68
+                    let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
-                // Index the table to obtain the initial seed of `Y`
-                let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
-                Y := and(0x3ff, shr(shift, table))
+                    // Index the table to obtain the initial seed of `Y`
+                    let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
+                    Y := and(0x3ff, shr(shift, table))
+                }
             }
+            console.log("sqrt debug: M=", M);
+            console.log("sqrt debug: invE=", invE);
+            console.log("sqrt debug: bucket i=", i_debug);
+            console.log("sqrt debug: initial Y=", Y);
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             /// convergence that our final fixup step produces an exact result.
@@ -1564,11 +1583,13 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrSecondStep(Y, M);
             Y = _iSqrtNrThirdStep(Y, M);
             Y = _iSqrtNrFourthStep(Y, M);
+            console.log("sqrt debug: Y after 4 NR steps=", Y);
             if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
                 Y = _iSqrtNrFinalStep(Y, M);
+                console.log("sqrt debug: Y after 5th NR step=", Y);
             }
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
@@ -1607,7 +1628,15 @@ library Lib512MathArithmetic {
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
             /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
-            r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+            console.log("sqrt debug: r1=", r1);
+            console.log("sqrt debug: r1^2 hi=", r2_hi);
+            console.log("sqrt debug: r1^2 lo=", r2_lo);
+            console.log("sqrt debug: x_hi=", x_hi);
+            console.log("sqrt debug: x_lo=", x_lo);
+            bool shouldDecrement = _gt(r2_hi, r2_lo, x_hi, x_lo);
+            console.log("sqrt debug: should decrement=", shouldDecrement ? 1 : 0);
+            r = r1.unsafeDec(shouldDecrement);
+            console.log("sqrt debug: final r=", r);
         }
     }
 }
