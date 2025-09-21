@@ -15,7 +15,7 @@ contract SqrtSeedOptimizerFuzz is Test {
     uint256 constant SEED = ${SEED};
     uint256 constant INV_E_THRESHOLD = ${INV_E_THRESHOLD};
 
-    function testFuzz_sqrt_seed(uint256 x_hi_raw, uint256 x_lo_raw) external pure {
+    function testFuzz_sqrt_seed(uint256 x_hi_raw, bool x_lo_raw) external pure {
         // Transform raw inputs to force specific invE and bucket
         (uint256 x_hi, uint256 x_lo) = transformInputForBucketAndThreshold(
             x_hi_raw,
@@ -62,7 +62,7 @@ contract SqrtSeedOptimizerFuzz is Test {
 
     function transformInputForBucketAndThreshold(
         uint256 x_hi_raw,
-        uint256 x_lo_raw,
+        bool x_lo_raw,
         uint256 targetBucket,
         uint256 targetInvE
     ) internal pure returns (uint256 x_hi, uint256 x_lo) {
@@ -80,22 +80,14 @@ contract SqrtSeedOptimizerFuzz is Test {
 
         // Use the raw inputs as entropy for the lower bits of M
         // This gives us variation within the bucket
-        uint256 entropy = (x_hi_raw ^ x_lo_raw) & ((1 << 250) - 1);
+        uint256 entropy = x_hi_raw & ((1 << 250) - 1);
         M = M | entropy;
 
         // Now we need to transform M back to x
         // x = M << shift (in 512-bit arithmetic)
-        if (shift == 0) {
-            x_hi = M;
-            x_lo = 0;
-        } else if (shift < 256) {
-            // Shift left by less than 256 bits
-            x_hi = M >> (256 - shift);
-            x_lo = M << shift;
-        } else {
-            // This shouldn't happen given our check above
-            revert();
-        }
+        require(shift > 0 && shift < 256);
+        x_hi = M >> (256 - shift);
+        x_lo = (M << shift) | ((x_lo_raw ? type(uint256).max : 0) >> (256 - shift));
     }
 
     function calculateInvEAndBucket(uint256 x_hi, uint256 x_lo)
