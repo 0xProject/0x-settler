@@ -174,7 +174,7 @@ class SeedOptimizer:
 
         # Try center first
         print(f"    Testing center seed {center_seed}...", end='', flush=True)
-        if self.quick_test_seed(bucket, center_seed, invEThreshold, fuzz_runs=200):
+        if self.quick_test_seed(bucket, center_seed, invEThreshold, fuzz_runs=100):
             print(" WORKS!")
             return center_seed
         else:
@@ -195,7 +195,7 @@ class SeedOptimizer:
             # Test candidates for this distance
             for seed, offset in candidates:
                 print(f"    Testing {center_seed}{offset} = {seed}...", end='', flush=True)
-                if self.quick_test_seed(bucket, seed, invEThreshold, fuzz_runs=200):
+                if self.quick_test_seed(bucket, seed, invEThreshold, fuzz_runs=100):
                     print(" WORKS!")
                     return seed
                 else:
@@ -363,27 +363,6 @@ class SeedOptimizer:
             status = "OK" if r['min'] <= r['current'] <= r['max'] else "FAIL"
             print(f"  {bucket:3d}  | {r['min']:4d} | {r['max']:4d} | {r['max'] - r['min'] + 1:5d} | "
                   f"{r['current']:7d} | {r['original']:8d} | {status}")
-
-        print("\nRecommended Seeds (using minimum valid seed):")
-        print("{", end="")
-        for i, bucket in enumerate(range(16, 64)):
-            if i > 0:
-                print(",", end="")
-            if i % 8 == 0:
-                print("\n    ", end="")
-            else:
-                print(" ", end="")
-
-            if bucket in self.results:
-                # Use minimum seed (most conservative)
-                seed = self.results[bucket]['min']
-            else:
-                # Keep current seed if not tested
-                seed = CURRENT_SEEDS.get(bucket, 0)
-
-            print(f"{bucket}: {seed}", end="")
-        print("\n}")
-
 
 def main():
     # Parse command line arguments
