@@ -21,6 +21,7 @@ The script will:
 """
 
 import subprocess
+import random
 import re
 import os
 import json
@@ -64,11 +65,7 @@ class SeedOptimizer:
         if x_hi == 0:
             clz = 256
         else:
-            clz = 0
-            mask = 1 << 255
-            while (x_hi & mask) == 0 and clz < 256:
-                clz += 1
-                mask >>= 1
+            clz = 256 - x_hi.bit_length()
 
         invE = (clz + 1) >> 1
 
@@ -88,48 +85,6 @@ class SeedOptimizer:
         is_correct = (invE == expected_invE) and (bucket_bits == expected_bucket)
         return invE, bucket_bits, is_correct
 
-    def generate_test_input_for_invE(self, bucket: int, invEThreshold: int):
-        """Generate test input with specific invE value.
-
-        Args:
-            bucket: The bucket index to target
-            invEThreshold: The desired invE value
-
-        Returns:
-            tuple: (x_hi_hex, x_lo_hex) representing the test input
-        """
-        if invEThreshold == 79 and bucket == 44:
-            # Use the known failing case for bucket 44 with invE=79
-            return ("0x000000000000000000000000000000000000000580398dae536e7fe242efe66a",
-                    "0x0000000000000000001d9ad7c2a7ff6112e8bfd6cb5a1057f01519d7623fbd4a")
-
-        # For other cases, generate test input targeting specific invE
-        # invE = (x_hi.clz() + 1) >> 1
-        # So for target invE, we need x_hi.clz() = (invEThreshold * 2) - 1
-        leading_zeros = (invEThreshold * 2) - 1
-
-        if leading_zeros >= 256:
-            # x_hi would be 0, use x_lo instead
-            # This is a degenerate case, use simple fallback
-            return ("0x0", "0x8000000000000000000000000000000000000000000000000000000000000000")
-
-        # Set the first non-zero bit
-        bit_position = 255 - leading_zeros
-        x_hi = 1 << bit_position
-
-        # Adjust to ensure the normalized mantissa M falls in the target bucket
-        # M is extracted by shifting right by 257 - (invE << 1) bits
-        # For the normalized M to be in bucket range [bucket*2^250, (bucket+1)*2^250),
-        # we need to set appropriate bits in x_hi
-
-        # Add bucket-specific bits to ensure we land in the right bucket
-        # This is an approximation - the exact calculation is complex
-        if bit_position >= 6:
-            bucket_bits = bucket << (bit_position - 6)
-            x_hi |= bucket_bits
-
-        return (hex(x_hi), "0x0")
-
     def generate_test_contract(self, bucket: int, seed: int, invEThreshold: int = 79) -> str:
         """Generate a test contract for a specific bucket and seed.
 
@@ -147,7 +102,7 @@ class SeedOptimizer:
         test_cases = []
 
         # Generate 5 test points across the bucket range, all with invE = invEThreshold
-        for i in range(5):
+        for i in ["lo", "hi"] + ["rand"] * 20:
             x_hi, x_lo = self.generate_test_input_for_invE_and_position(bucket, invEThreshold, i)
             test_cases.append((x_hi, x_lo))
 
@@ -165,11 +120,6 @@ class SeedOptimizer:
         uint256 x_lo = {x_lo};
 
         uint512 x = alloc().from(x_hi, x_lo);
-
-        // Debug: Log the actual invE value for this input
-        // invE is calculated as (x_hi.clz() + 1) >> 1
-        // We can't easily calculate clz here, but we know our test input has invE=79
-
         uint256 r = x.sqrt({bucket}, {seed}, {invEThreshold});
 
         // Verify: r^2 <= x < (r+1)^2
@@ -180,7 +130,10 @@ class SeedOptimizer:
         require(lower_ok, "sqrt too high");
 
         // Check x < (r+1)^2
-        if (r < type(uint256).max) {{
+        if (~r == 0) {{
+            bool at_threshold = x_hi > 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe || (x_hi == 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe && x_lo != 0);
+            require(at_threshold, "sqrt too low (overflow)");
+        }} else {{
             uint256 r1 = r + 1;
             (uint256 r1_2_lo, uint256 r1_2_hi) = SlowMath.fullMul(r1, r1);
             bool upper_ok = (r1_2_hi > x_hi) || (r1_2_hi == x_hi && r1_2_lo > x_lo);
@@ -207,7 +160,7 @@ contract TestBucket{bucket}Seed{seed} is Test {{
     }}
 }}"""
 
-    def generate_test_input_for_invE_and_position(self, bucket: int, invEThreshold: int, position: int):
+    def generate_test_input_for_invE_and_position(self, bucket: int, invEThreshold: int, position: str):
         """Generate test input with specific invE value at different positions within bucket.
 
         Args:
@@ -223,21 +176,17 @@ contract TestBucket{bucket}Seed{seed} is Test {{
         M = bucket << 250
 
         # Add bits for different positions within the bucket
-        if position == 0:
+        if position == "lo":
             # Lower boundary: just the minimum for this bucket
             pass  # M is already at minimum
-        elif position == 1:
-            # Near lower boundary
-            M = M | (1 << 248)
-        elif position == 2:
-            # Middle of bucket
-            M = M | (1 << 249)
-        elif position == 3:
-            # Near upper boundary
-            M = M | (0x3 << 248)
-        else:  # position == 4
+        elif position == "hi":
             # Upper boundary: just before next bucket
             M = M | ((1 << 250) - 1)
+        else:
+            assert position == "rand"
+            # if bucket == 44 and invEThreshold == 79:
+            #     return ("0x000000000000000000000000000000000000000580398dae536e7fe242efe66a","0x0000000000000000001d9ad7c2a7ff6112e8bfd6cb5a1057f01519d7623fbd4a")
+            M = M | random.getrandbits(250)
 
         # Calculate x = M << shift_amount
         # This gives us the value that, when shifted right by shift_amount, yields M
@@ -274,6 +223,7 @@ contract TestBucket{bucket}Seed{seed} is Test {{
             "--skip", "MultiCall.t.sol",
             "--match-path", self.test_contract_path,
             "--match-test", f"test_bucket_{bucket}_seed_{seed}",
+            "--fail-fast",
             "-vv"
         ]
 
@@ -282,7 +232,7 @@ contract TestBucket{bucket}Seed{seed} is Test {{
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30,  # Increased timeout
+                timeout=60,  # Increased timeout
                 env={**os.environ, "FOUNDRY_FUZZ_RUNS": "10000"}
             )
 
