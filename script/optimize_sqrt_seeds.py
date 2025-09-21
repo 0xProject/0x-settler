@@ -1,31 +1,27 @@
 #!/usr/bin/env python3
 """
-Optimize sqrt lookup table seeds by empirically testing with Solidity.
-Forces invE=79 to test the most fragile case (4 Newton-Raphson iterations).
+Optimize sqrt lookup table seeds using Foundry's fuzzer.
 
 Usage:
-    python3 script/optimize_sqrt_seeds.py --bucket N [M ...]  # Test specific bucket(s)
-    python3 script/optimize_sqrt_seeds.py                     # Test problematic buckets (42-46)
+    python3 script/optimize_sqrt_seeds.py --bucket N [--threshold T] [--fuzz-runs R]
+    python3 script/optimize_sqrt_seeds.py                # Test problematic buckets (42-46)
 
 Examples:
-    python3 script/optimize_sqrt_seeds.py --bucket 44         # Test bucket 44
-    python3 script/optimize_sqrt_seeds.py --bucket 42 43 44   # Test buckets 42, 43, 44
-    python3 script/optimize_sqrt_seeds.py                     # Test buckets 42-46
+    python3 script/optimize_sqrt_seeds.py --bucket 44 --threshold 79 --fuzz-runs 100000
+    python3 script/optimize_sqrt_seeds.py --bucket 44    # Use defaults
+    python3 script/optimize_sqrt_seeds.py                # Test buckets 42-46
 
 The script will:
-1. Test each seed by generating Solidity test files and running forge test
-2. Find the minimum working seed for each bucket
-3. Find the maximum working seed (for understanding limits)
-4. Add a +2 safety margin for invE=79 cases
-5. Generate new lookup table values
+1. Use Foundry's fuzzer to test seeds with random x inputs
+2. Find the minimum and maximum working seeds for each bucket
+3. Report exact seed ranges without fudge factors
 """
 
 import subprocess
-import random
-import re
 import os
-import json
-from typing import Tuple, List, Optional
+import sys
+import time
+from typing import Tuple, Optional
 
 # Current seeds from the modified lookup table
 CURRENT_SEEDS = {
@@ -47,174 +43,51 @@ ORIGINAL_SEEDS = {
     56: 385, 57: 382, 58: 379, 59: 375, 60: 372, 61: 369, 62: 366, 63: 363
 }
 
+
 class SeedOptimizer:
-    def __init__(self):
-        self.test_contract_path = "test/0.8.25/SqrtSeedOptimizerDynamic.t.sol"
+    def __init__(self, fuzz_runs: int = 10000):
+        self.template_path = "templates/SqrtSeedOptimizerFuzz.t.sol.template"
+        self.test_contract_path = "test/0.8.25/SqrtSeedOptimizerGenerated.t.sol"
+        self.fuzz_runs = fuzz_runs
         self.results = {}
 
-    @staticmethod
-    def verify_invE_and_bucket(x_hi_hex: str, x_lo_hex: str, expected_invE: int, expected_bucket: int) -> tuple:
-        """Verify that a test input has the expected invE and bucket values.
-
-        Returns: (actual_invE, actual_bucket, is_correct)
-        """
-        x_hi = int(x_hi_hex, 16) if isinstance(x_hi_hex, str) else x_hi_hex
-        x_lo = int(x_lo_hex, 16) if isinstance(x_lo_hex, str) else x_lo_hex
-
-        # Calculate invE = (clz(x_hi) + 1) >> 1
-        if x_hi == 0:
-            clz = 256
-        else:
-            clz = 256 - x_hi.bit_length()
-
-        invE = (clz + 1) >> 1
-
-        # Calculate bucket from mantissa
-        # M is extracted by shifting right by 257 - (invE << 1) bits
-        shift_amount = 257 - (invE * 2)
-
-        # Combine x_hi and x_lo for full precision
-        x_full = (x_hi << 256) | x_lo
-
-        # Shift to get M
-        M = x_full >> shift_amount
-
-        # Get the bucket (top 6 bits of M)
-        bucket_bits = (M >> 250) & 0x3F
-
-        is_correct = (invE == expected_invE) and (bucket_bits == expected_bucket)
-        return invE, bucket_bits, is_correct
-
     def generate_test_contract(self, bucket: int, seed: int, invEThreshold: int = 79) -> str:
-        """Generate a test contract for a specific bucket and seed.
+        """Generate a test contract from the template with specific parameters."""
+        # Read the template
+        with open(self.template_path, 'r') as f:
+            template = f.read()
 
-        Args:
-            bucket: The bucket index to test
-            seed: The seed value to test
-            invEThreshold: The threshold for skipping the 5th N-R iteration (default=79)
-                          This is scaffolding for future optimization where we'll search
-                          for seeds that admit the lowest invE threshold.
-        """
+        # Replace placeholders
+        contract = template.replace("${BUCKET}", str(bucket))
+        contract = contract.replace("${SEED}", str(seed))
+        contract = contract.replace("${INV_E_THRESHOLD}", str(invEThreshold))
 
-        # Generate test points at the exact threshold
-        # We want the most challenging inputs that still skip the 5th iteration
-        # That's when invE = invEThreshold exactly
-        test_cases = []
+        # Also replace the contract name to avoid conflicts
+        contract = contract.replace("SqrtSeedOptimizerFuzz", f"SqrtSeedOptimizerBucket{bucket}Seed{seed}")
 
-        # Generate 5 test points across the bucket range, all with invE = invEThreshold
-        for i in ["lo", "hi"] + ["rand"] * 20:
-            x_hi, x_lo = self.generate_test_input_for_invE_and_position(bucket, invEThreshold, i)
-            test_cases.append((x_hi, x_lo))
+        return contract
 
-            # Verify the generated input
-            actual_invE, actual_bucket, _ = self.verify_invE_and_bucket(x_hi, x_lo, invEThreshold, bucket)
-            if actual_invE != invEThreshold or actual_bucket != bucket:
-                print(f"        WARNING: Generated input {i} has invE={actual_invE} (expected {invEThreshold}), bucket={actual_bucket} (expected {bucket})")
+    def quick_test_seed(self, bucket: int, seed: int, invEThreshold: int = 79, fuzz_runs: int = 100) -> bool:
+        """Quick test with fewer fuzz runs for discovery phase."""
+        return self._test_seed_impl(bucket, seed, invEThreshold, fuzz_runs, verbose=False)
 
-        # Build test functions for each case
-        test_functions = []
-        for i, (x_hi, x_lo) in enumerate(test_cases):
-            test_functions.append(f"""
-    function testCase_{i}() private pure {{
-        uint256 x_hi = {x_hi};
-        uint256 x_lo = {x_lo};
+    def test_seed(self, bucket: int, seed: int, invEThreshold: int = 79, verbose: bool = True) -> bool:
+        """Test if a seed works for a bucket using Foundry's fuzzer."""
+        return self._test_seed_impl(bucket, seed, invEThreshold, self.fuzz_runs, verbose)
 
-        uint512 x = alloc().from(x_hi, x_lo);
-        uint256 r = x.sqrt({bucket}, {seed}, {invEThreshold});
-
-        // Verify: r^2 <= x < (r+1)^2
-        (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
-
-        // Check r^2 <= x
-        bool lower_ok = (r2_hi < x_hi) || (r2_hi == x_hi && r2_lo <= x_lo);
-        require(lower_ok, "sqrt too high");
-
-        // Check x < (r+1)^2
-        if (~r == 0) {{
-            bool at_threshold = x_hi > 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe || (x_hi == 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe && x_lo != 0);
-            require(at_threshold, "sqrt too low (overflow)");
-        }} else {{
-            uint256 r1 = r + 1;
-            (uint256 r1_2_lo, uint256 r1_2_hi) = SlowMath.fullMul(r1, r1);
-            bool upper_ok = (r1_2_hi > x_hi) || (r1_2_hi == x_hi && r1_2_lo > x_lo);
-            require(upper_ok, "sqrt too low");
-        }}
-    }}""")
-
-        # Build the main test function that calls all test cases
-        all_test_calls = "\n        ".join([f"testCase_{i}();" for i in range(len(test_cases))])
-
-        return f"""// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
-
-import {{uint512, alloc}} from "src/utils/512Math.sol";
-import {{SlowMath}} from "test/0.8.25/SlowMath.sol";
-import {{Test}} from "@forge-std/Test.sol";
-
-contract TestBucket{bucket}Seed{seed} is Test {{
-{"".join(test_functions)}
-
-    function test_bucket_{bucket}_seed_{seed}() public pure {{
-        // Test all cases
-        {all_test_calls}
-    }}
-}}"""
-
-    def generate_test_input_for_invE_and_position(self, bucket: int, invEThreshold: int, position: str):
-        """Generate test input with specific invE value at different positions within bucket.
-
-        Args:
-            bucket: The bucket index to target
-            invEThreshold: The desired invE value
-            position: Position within bucket (0=low, 1=low+, 2=mid, 3=high-, 4=high)
-        """
-        # Calculate the shift amount for mantissa extraction
-        shift_amount = 257 - (invEThreshold * 2)
-
-        # We want M >> 250 = bucket, where M is the normalized mantissa
-        # Construct M with bucket in the top 6 bits
-        M = bucket << 250
-
-        # Add bits for different positions within the bucket
-        if position == "lo":
-            # Lower boundary: just the minimum for this bucket
-            pass  # M is already at minimum
-        elif position == "hi":
-            # Upper boundary: just before next bucket
-            M = M | ((1 << 250) - 1)
-        else:
-            assert position == "rand"
-            # if bucket == 44 and invEThreshold == 79:
-            #     return ("0x000000000000000000000000000000000000000580398dae536e7fe242efe66a","0x0000000000000000001d9ad7c2a7ff6112e8bfd6cb5a1057f01519d7623fbd4a")
-            M = M | random.getrandbits(250)
-
-        # Calculate x = M << shift_amount
-        # This gives us the value that, when shifted right by shift_amount, yields M
-        x_full = M << shift_amount
-
-        # Split into x_hi and x_lo (512-bit number)
-        x_hi = (x_full >> 256) & ((1 << 256) - 1)
-        x_lo = x_full & ((1 << 256) - 1)
-
-        return (hex(x_hi), hex(x_lo))
-
-    def test_seed(self, bucket: int, seed: int, verbose: bool = True, invEThreshold: int = 79) -> bool:
-        """Test if a seed works for a bucket by running Solidity tests.
-
-        Args:
-            bucket: The bucket index to test
-            seed: The seed value to test
-            verbose: Whether to print progress messages
-            invEThreshold: The threshold for skipping the 5th N-R iteration (default=79)
-        """
+    def _test_seed_impl(self, bucket: int, seed: int, invEThreshold: int, fuzz_runs: int, verbose: bool) -> bool:
+        """Internal implementation for testing seeds with configurable parameters."""
         if verbose:
-            print(f"    Testing seed {seed}...", end='', flush=True)
+            print(f"    Testing seed {seed} with {fuzz_runs} fuzz runs...", end='', flush=True)
 
-        # Write test contract
+        # Generate and write test contract
+        if verbose:
+            print(" [generating contract]", end='', flush=True)
+        contract_code = self.generate_test_contract(bucket, seed, invEThreshold)
         with open(self.test_contract_path, 'w') as f:
-            f.write(self.generate_test_contract(bucket, seed, invEThreshold))
+            f.write(contract_code)
 
-        # Run forge test
+        # Run forge test with fuzzing
         cmd = [
             "forge", "test",
             "--skip", "src/*",
@@ -222,283 +95,325 @@ contract TestBucket{bucket}Seed{seed} is Test {{
             "--skip", "CrossChainReceiverFactory.t.sol",
             "--skip", "MultiCall.t.sol",
             "--match-path", self.test_contract_path,
-            "--match-test", f"test_bucket_{bucket}_seed_{seed}",
-            "--fail-fast",
+            "--match-test", "testFuzz_sqrt_seed",
             "-vv"
         ]
+
+        if verbose:
+            print(" [running forge test]", end='', flush=True)
 
         try:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=60,  # Increased timeout
-                env={**os.environ, "FOUNDRY_FUZZ_RUNS": "10000"}
+                timeout=120,  # 2 minutes timeout
+                env={**os.environ, "FOUNDRY_FUZZ_RUNS": str(fuzz_runs)}
             )
 
-            # Check if test passed
-            passed = "Suite result: ok" in result.stdout or "1 passed" in result.stdout
+            if verbose:
+                print(" [parsing results]", end='', flush=True)
+
+            # Extract runs count if available
+            runs_count = 0
+            if "runs:" in result.stdout:
+                try:
+                    # The runs info is after "runs:" in format like "runs: 10, μ: 1234, ~: 1234)"
+                    runs_line = result.stdout.split("runs:")[1].split(")")[0]
+                    runs_count = int(runs_line.split(",")[0].strip())
+                except:
+                    runs_count = 0
+
+            # Check if test actually passed - be very specific!
+            # Look for "Suite result: ok" and NOT "Suite result: FAILED"
+            suite_ok = "Suite result: ok" in result.stdout and "Suite result: FAILED" not in result.stdout
+
+            # Additional check: if we see "failing test" it definitely failed
+            if "failing test" in result.stdout.lower():
+                suite_ok = False
+
+            # Require at least 1 successful run for a true pass
+            passed = suite_ok and runs_count > 0
 
             if verbose:
-                print(" PASS" if passed else " FAIL")
+                if suite_ok and runs_count == 0:
+                    print(f" SKIP (0 runs - no valid inputs found)")
+                    # Debug: show a snippet of the output to understand why
+                    if "--debug" in sys.argv:
+                        print(f"        DEBUG: {result.stdout[:500]}...")
+                elif passed:
+                    print(f" PASS ({runs_count} runs)")
+                else:
+                    print(" FAIL")
+                    # Show some error details for debugging
+                    if result.stderr:
+                        print(f"        STDERR: {result.stderr[:200]}...")
+                    if "FAIL" in result.stdout or "reverted" in result.stdout:
+                        # Extract failure reason
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if "reverted" in line or "Error:" in line:
+                                print(f"        {line.strip()}")
+                                break
 
-            return passed
+            # Treat 0 runs as a failure - we need actual test coverage
+            return passed and runs_count > 0
+
         except subprocess.TimeoutExpired:
             if verbose:
-                print(" TIMEOUT")
+                print(" TIMEOUT (>120s)")
             return False
         except Exception as e:
             if verbose:
                 print(f" ERROR: {e}")
             return False
 
-    def find_min_working_seed(self, bucket: int, invEThreshold: int = 79) -> Optional[int]:
-        """Find minimum seed that works for a bucket using binary search."""
-        print(f"\n  Finding minimum working seed for bucket {bucket} (invEThreshold={invEThreshold})...")
+    def find_working_seed_spiral(self, bucket: int, invEThreshold: int, center_seed: int, max_distance: int = 50) -> Optional[int]:
+        """Spiral outward from center_seed to find any working seed."""
+        print(f"  Spiral search from seed {center_seed} (max distance {max_distance})...")
 
-        current = CURRENT_SEEDS[bucket]
-        original = ORIGINAL_SEEDS[bucket]
+        # Try center first
+        print(f"    Testing center seed {center_seed}...", end='', flush=True)
+        if self.quick_test_seed(bucket, center_seed, invEThreshold, fuzz_runs=200):
+            print(" WORKS!")
+            return center_seed
+        else:
+            print(" fails")
 
-        # Start with range [current-20, original+10]
-        low = max(100, current - 20)  # Seeds shouldn't go below 100
-        high = original + 10
+        # Spiral outward
+        for distance in range(1, max_distance + 1):
+            candidates = []
 
-        print(f"    Current seed: {current}, Original: {original}")
-        print(f"    Search range: [{low}, {high}]")
+            # Add +distance if within bounds
+            if center_seed + distance <= 800:
+                candidates.append((center_seed + distance, f"+{distance}"))
 
-        # First, check if current seed works
-        if self.test_seed(bucket, current, True, invEThreshold):
-            print(f"    ✓ Current seed {current} works, searching for minimum...")
-            # Binary search to find minimum
-            result = current
-            while low < current:
-                mid = (low + current - 1) // 2
-                if self.test_seed(bucket, mid, True, invEThreshold):
-                    current = mid
-                    result = mid
+            # Add -distance if within bounds
+            if center_seed - distance >= 300:
+                candidates.append((center_seed - distance, f"-{distance}"))
+
+            # Test candidates for this distance
+            for seed, offset in candidates:
+                print(f"    Testing {center_seed}{offset} = {seed}...", end='', flush=True)
+                if self.quick_test_seed(bucket, seed, invEThreshold, fuzz_runs=200):
+                    print(" WORKS!")
+                    return seed
                 else:
-                    low = mid + 1
-            print(f"    → Minimum working seed: {result}")
-            return result
-        else:
-            print(f"    ✗ Current seed {current} FAILS! Searching upward...")
-            # Linear search upward to find first working seed
-            for test_seed in range(current + 1, high + 1):
-                if self.test_seed(bucket, test_seed, True, invEThreshold):
-                    print(f"    → Found working seed: {test_seed}")
-                    return test_seed
+                    print(" fails")
 
-            print(f"    ✗ ERROR: No working seed found up to {high}")
-            return None
+        print(f"    No working seed found within distance {max_distance} of {center_seed}")
+        return None
 
-    def find_max_useful_seed(self, bucket: int, min_seed: int, invEThreshold: int = 79) -> int:
-        """Find maximum seed that still provides benefit."""
-        print(f"  Finding maximum useful seed...")
+    def find_seed_range(self, bucket: int, invEThreshold: int = 79) -> Tuple[Optional[int], Optional[int]]:
+        """Find the minimum and maximum working seeds for a bucket."""
+        start_time = time.time()
+        print(f"\nFinding seed range for bucket {bucket} (invEThreshold={invEThreshold}):")
 
-        # Binary search to find maximum working seed
-        low = min_seed
-        high = min_seed + 20
-        result = min_seed
+        def check_timeout():
+            if time.time() - start_time > 600:  # 10 minute timeout
+                print(f"  TIMEOUT: Search for bucket {bucket} exceeded 10 minutes")
+                return True
+            return False
 
-        print(f"    Starting from minimum: {min_seed}")
-        print(f"    Testing range: [{low}, {high}]")
+        # Start from ORIGINAL seed (more likely to be good than current modified seed)
+        original_seed = ORIGINAL_SEEDS.get(bucket, 450)
+        current_seed = CURRENT_SEEDS.get(bucket, 450)
 
-        while low <= high:
-            mid = (low + high) // 2
-            if self.test_seed(bucket, mid, True, invEThreshold):
-                result = mid
-                low = mid + 1
+        print(f"  Original seed: {original_seed}, Current seed: {current_seed}")
+
+        # Try spiral search from original seed first
+        working_seed = self.find_working_seed_spiral(bucket, invEThreshold, original_seed, max_distance=25)
+
+        # If original doesn't work, try current seed
+        if working_seed is None and original_seed != current_seed:
+            print(f"  Original seed region failed, trying current seed region...")
+            working_seed = self.find_working_seed_spiral(bucket, invEThreshold, current_seed, max_distance=25)
+
+        # If both fail, try broader search around middle range
+        if working_seed is None:
+            print(f"  Both seed regions failed, trying broader search...")
+            middle_seed = 500  # Middle of typical range
+            working_seed = self.find_working_seed_spiral(bucket, invEThreshold, middle_seed, max_distance=100)
+
+        if working_seed is None:
+            print(f"  ERROR: No working seed found for bucket {bucket}")
+            return None, None
+
+        current = working_seed
+        print(f"  ✓ Found working seed: {current}")
+
+        # Phase 1: Quick discovery of boundaries with fewer fuzz runs
+        print(f"  Phase 1: Quick discovery of seed boundaries...")
+
+        # Binary search for minimum working seed (quick)
+        print(f"    Finding min seed (range {300}-{current}) with quick tests...")
+        left, right = 300, current
+        min_seed = current
+
+        while left <= right:
+            if check_timeout():
+                return None, None
+            mid = (left + right) // 2
+            print(f"      Testing [{left}, {right}] → {mid}...", end='', flush=True)
+            if self.quick_test_seed(bucket, mid, invEThreshold, fuzz_runs=100):
+                min_seed = mid
+                right = mid - 1
+                print(" works, search lower")
             else:
-                high = mid - 1
+                left = mid + 1
+                print(" fails, search higher")
 
-        print(f"    → Maximum working seed: {result}")
-        return result
+        print(f"    Quick min seed found: {min_seed}")
 
-    def optimize_bucket(self, bucket: int, invEThreshold: int = 79) -> int:
-        """Find optimal seed for a bucket."""
-        print(f"\n{'='*60}")
-        print(f"OPTIMIZING BUCKET {bucket}")
-        print(f"  Original seed: {ORIGINAL_SEEDS[bucket]}")
-        print(f"  Current seed:  {CURRENT_SEEDS[bucket]}")
+        # Binary search for maximum working seed (quick)
+        print(f"    Finding max seed (range {current}-800) with quick tests...")
+        left, right = current, 800
+        max_seed = current
 
-        # Find minimum working seed
-        min_seed = self.find_min_working_seed(bucket, invEThreshold)
-        if min_seed is None:
-            print(f"\n  ✗ ERROR: Could not find working seed! Using original.")
-            return ORIGINAL_SEEDS[bucket]  # Fallback to original
+        while left <= right:
+            if check_timeout():
+                return None, None
+            mid = (left + right) // 2
+            print(f"      Testing [{left}, {right}] → {mid}...", end='', flush=True)
+            if self.quick_test_seed(bucket, mid, invEThreshold, fuzz_runs=100):
+                max_seed = mid
+                left = mid + 1
+                print(" works, search higher")
+            else:
+                right = mid - 1
+                print(" fails, search lower")
 
-        # Find maximum useful seed
-        max_seed = self.find_max_useful_seed(bucket, min_seed, invEThreshold)
+        print(f"    Quick max seed found: {max_seed}")
 
-        # Choose optimal with safety margin
-        # For invE=79 (4 iterations), add +2 safety margin
-        optimal = min_seed + 2
+        # Phase 2: Validation with full fuzz runs
+        print(f"  Phase 2: Validating boundaries with full fuzz runs...")
 
-        # But don't exceed the maximum that works
-        optimal = min(optimal, max_seed)
-
-        print(f"\n  SUMMARY:")
-        print(f"    Min working: {min_seed}")
-        print(f"    Max working: {max_seed}")
-        print(f"    Optimal (min + 2 safety): {optimal}")
-
-        if optimal != CURRENT_SEEDS[bucket]:
-            print(f"    → CHANGE NEEDED: {CURRENT_SEEDS[bucket]} → {optimal}")
+        print(f"    Validating min seed {min_seed}...", end='', flush=True)
+        if not self.test_seed(bucket, min_seed, invEThreshold, verbose=False):
+            print(" FAILED validation!")
+            # Try a slightly higher seed
+            for candidate in range(min_seed + 1, min_seed + 5):
+                if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
+                    min_seed = candidate
+                    print(f" Using {min_seed} instead")
+                    break
+            else:
+                print(" Could not find valid min seed")
+                return None, None
         else:
-            print(f"    → Current seed is already optimal")
+            print(" validated ✓")
 
-        return optimal
+        print(f"    Validating max seed {max_seed}...", end='', flush=True)
+        if not self.test_seed(bucket, max_seed, invEThreshold, verbose=False):
+            print(" FAILED validation!")
+            # Try a slightly lower seed
+            for candidate in range(max_seed - 1, max_seed - 5, -1):
+                if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
+                    max_seed = candidate
+                    print(f" Using {max_seed} instead")
+                    break
+            else:
+                print(" Could not find valid max seed")
+                return None, None
+        else:
+            print(" validated ✓")
+
+        print(f"  ✓ Final range: min={min_seed}, max={max_seed}, span={max_seed - min_seed + 1}")
+
+        return min_seed, max_seed
 
     def optimize_buckets(self, buckets: list, invEThreshold: int = 79):
-        """Optimize seeds for specified buckets."""
-        optimized = {}
+        """Optimize seeds for multiple buckets."""
+        print(f"\nOptimizing seeds for buckets {buckets}")
+        print(f"Using invEThreshold={invEThreshold}, fuzz_runs={self.fuzz_runs}")
+        print("=" * 60)
 
-        print(f"\n{'='*80}")
-        print(f"OPTIMIZING {len(buckets)} BUCKET{'S' if len(buckets) != 1 else ''}")
-        if invEThreshold != 79:
-            print(f"Using invEThreshold={invEThreshold}")
-        print(f"{'='*80}")
+        for bucket in buckets:
+            min_seed, max_seed = self.find_seed_range(bucket, invEThreshold)
 
-        for i, bucket in enumerate(buckets, 1):
-            print(f"\n  [{i}/{len(buckets)}] Processing bucket {bucket}")
-            optimized[bucket] = self.optimize_bucket(bucket, invEThreshold)
+            if min_seed is not None and max_seed is not None:
+                self.results[bucket] = {
+                    'min': min_seed,
+                    'max': max_seed,
+                    'current': CURRENT_SEEDS.get(bucket, 0),
+                    'original': ORIGINAL_SEEDS.get(bucket, 0),
+                    'invEThreshold': invEThreshold
+                }
+                print(f"  Bucket {bucket}: min={min_seed}, max={max_seed}, range={max_seed - min_seed + 1}")
+            else:
+                print(f"  Bucket {bucket}: FAILED to find valid range")
 
-        return optimized
+        self.print_summary()
 
-    def generate_lookup_tables(self, seeds: dict) -> Tuple[int, int]:
-        """Generate table_hi and table_lo from optimized seeds."""
-        table_hi = 0
-        table_lo = 0
-
-        # Pack seeds into tables
-        # Buckets 16-39 go into table_hi
-        # Buckets 40-63 go into table_lo
-
-        for i in range(16, 40):
-            seed = seeds[i]
-            # Position in table_hi
-            shift = 390 + 10 * (0 - i)
-            table_hi |= (seed & 0x3ff) << shift
-
-        for i in range(40, 64):
-            seed = seeds[i]
-            # Position in table_lo
-            shift = 390 + 10 * (24 - i)
-            table_lo |= (seed & 0x3ff) << shift
-
-        return table_hi, table_lo
-
-    def print_results(self, optimized: dict):
-        """Print optimization results."""
-        print("\n" + "="*80)
-        print("OPTIMIZATION RESULTS")
-        print("="*80)
-
-        if not optimized:
-            print("No buckets were optimized.")
+    def print_summary(self):
+        """Print summary of results."""
+        if not self.results:
             return
 
-        print("\nBucket | Original | Current | Optimized | Change from Current | Recommendation")
-        print("-" * 80)
+        print("\n" + "=" * 60)
+        print("SUMMARY OF RESULTS")
+        print("=" * 60)
 
-        for bucket in sorted(optimized.keys()):
-            orig = ORIGINAL_SEEDS[bucket]
-            curr = CURRENT_SEEDS[bucket]
-            opt = optimized[bucket]
-            change_from_curr = opt - curr
+        print("\nSeed Ranges (exact, no fudge factor):")
+        print("Bucket | Min  | Max  | Range | Current | Original | Status")
+        print("-------|------|------|-------|---------|----------|--------")
 
-            if change_from_curr != 0:
-                recommendation = f"CHANGE: {curr} → {opt}"
+        for bucket in sorted(self.results.keys()):
+            r = self.results[bucket]
+            status = "OK" if r['min'] <= r['current'] <= r['max'] else "FAIL"
+            print(f"  {bucket:3d}  | {r['min']:4d} | {r['max']:4d} | {r['max'] - r['min'] + 1:5d} | "
+                  f"{r['current']:7d} | {r['original']:8d} | {status}")
+
+        print("\nRecommended Seeds (using minimum valid seed):")
+        print("{", end="")
+        for i, bucket in enumerate(range(16, 64)):
+            if i > 0:
+                print(",", end="")
+            if i % 8 == 0:
+                print("\n    ", end="")
             else:
-                recommendation = "OK (no change needed)"
+                print(" ", end="")
 
-            print(f"  {bucket:2d}   |   {orig:3d}    |   {curr:3d}   |    {opt:3d}    |       {change_from_curr:+3d}        | {recommendation}")
+            if bucket in self.results:
+                # Use minimum seed (most conservative)
+                seed = self.results[bucket]['min']
+            else:
+                # Keep current seed if not tested
+                seed = CURRENT_SEEDS.get(bucket, 0)
 
-        # Only generate new tables if we have all buckets
-        if len(optimized) == 48:
-            # Fill in all seeds (using current for non-optimized)
-            all_seeds = dict(CURRENT_SEEDS)
-            all_seeds.update(optimized)
+            print(f"{bucket}: {seed}", end="")
+        print("\n}")
 
-            table_hi, table_lo = self.generate_lookup_tables(all_seeds)
-
-            print("\n" + "="*80)
-            print("NEW LOOKUP TABLES")
-            print("="*80)
-            print(f"table_hi = 0x{table_hi:064x}")
-            print(f"table_lo = 0x{table_lo:064x}")
-        else:
-            print("\n" + "="*80)
-            print("NOTE: To generate new lookup tables, all 48 buckets must be optimized.")
-            print("Use --bucket with all bucket numbers 16-63 or test in batches.")
 
 def main():
-    import sys
-
-    optimizer = SeedOptimizer()
-
-    # Parse invEThreshold parameter
-    invEThreshold = 79  # Default threshold
-    if "--threshold" in sys.argv:
-        try:
-            idx = sys.argv.index("--threshold")
-            if idx + 1 >= len(sys.argv):
-                print("Error: --threshold requires a value")
-                sys.exit(1)
-            invEThreshold = int(sys.argv[idx + 1])
-            if invEThreshold < 1 or invEThreshold > 128:
-                print(f"Error: Invalid threshold {invEThreshold}. Must be between 1 and 128.")
-                sys.exit(1)
-            print(f"Using invEThreshold={invEThreshold}")
-        except ValueError:
-            print("Error: --threshold must be an integer")
-            sys.exit(1)
-
     # Parse command line arguments
+    fuzz_runs = 10000
+    invEThreshold = 79
+    buckets = []
+
+    if "--fuzz-runs" in sys.argv:
+        idx = sys.argv.index("--fuzz-runs")
+        fuzz_runs = int(sys.argv[idx + 1])
+
+    if "--threshold" in sys.argv:
+        idx = sys.argv.index("--threshold")
+        invEThreshold = int(sys.argv[idx + 1])
+
     if "--bucket" in sys.argv:
-        try:
-            idx = sys.argv.index("--bucket")
-
-            # Collect all bucket numbers after --bucket
-            buckets = []
-            for i in range(idx + 1, len(sys.argv)):
-                if sys.argv[i].startswith("--"):
-                    break
-                bucket = int(sys.argv[i])
-                if bucket < 16 or bucket > 63:
-                    print(f"Error: Bucket {bucket} is out of range. Must be between 16 and 63.")
-                    sys.exit(1)
-                buckets.append(bucket)
-
-            if not buckets:
-                print("Error: --bucket requires at least one bucket number")
-                print("Usage: python3 script/optimize_sqrt_seeds.py --bucket N [M ...]")
-                sys.exit(1)
-
-            # Remove duplicates and sort
-            buckets = sorted(set(buckets))
-
-        except ValueError as e:
-            print(f"Error: Invalid bucket number")
-            print("Usage: python3 script/optimize_sqrt_seeds.py --bucket N [M ...]")
-            sys.exit(1)
-
+        idx = sys.argv.index("--bucket")
+        # Collect all bucket numbers after --bucket until we hit another flag or end
+        for i in range(idx + 1, len(sys.argv)):
+            if sys.argv[i].startswith("--"):
+                break
+            buckets.append(int(sys.argv[i]))
     else:
-        # Default: test problematic buckets around 44
+        # Default: test problematic buckets
         buckets = [42, 43, 44, 45, 46]
-        print("No --bucket specified. Testing default problematic buckets: 42, 43, 44, 45, 46")
 
     # Run optimization
-    optimized = optimizer.optimize_buckets(buckets, invEThreshold)
+    optimizer = SeedOptimizer(fuzz_runs=fuzz_runs)
+    optimizer.optimize_buckets(buckets, invEThreshold)
 
-    # Print results
-    optimizer.print_results(optimized)
-
-    # Clean up
-    if os.path.exists(optimizer.test_contract_path):
-        os.remove(optimizer.test_contract_path)
-
-    print("\n✓ Done!")
 
 if __name__ == "__main__":
     main()
