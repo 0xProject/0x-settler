@@ -1506,11 +1506,16 @@ library Lib512MathArithmetic {
 
     // Wrapper for backward compatibility - use 999 as "no override" signal
     function sqrt(uint512 x) internal pure returns (uint256 r) {
-        return sqrt(x, 999, 0);
+        return sqrt(x, 999, 0, 79);
     }
 
     // gas benchmark 2025/09/19: ~1430 gas
     function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed) internal pure returns (uint256 r) {
+        return sqrt(x, overrideBucket, overrideSeed, 79);
+    }
+
+    // Full override version with invEThreshold parameter for testing
+    function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed, uint256 invEThreshold) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
         if (x_hi == 0) {
@@ -1584,7 +1589,7 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrThirdStep(Y, M);
             Y = _iSqrtNrFourthStep(Y, M);
             console.log("sqrt debug: Y after 4 NR steps=", Y);
-            if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
+            if (invE < invEThreshold) { // Default threshold is 79. Lower values may cause errors.
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
