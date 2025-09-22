@@ -12,11 +12,11 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
-    uniswapV3MonadFactory,
-    uniswapV3InitHash,
-    uniswapV3ForkId,
-    IUniswapV3Callback
-} from "../../core/univ3forks/UniswapV3.sol";
+    pancakeSwapV3Factory,
+    pancakeSwapV3InitHash,
+    pancakeSwapV3ForkId,
+    IPancakeSwapV3Callback
+} from "../../core/univ3forks/PancakeSwapV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -60,10 +60,10 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3 {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3MonadFactory;
-            initHash = uniswapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        if (forkId == pancakeSwapV3ForkId) {
+            factory = pancakeSwapV3MonadFactory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
