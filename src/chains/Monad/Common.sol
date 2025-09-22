@@ -61,7 +61,7 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3 {
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == pancakeSwapV3ForkId) {
-            factory = pancakeSwapV3MonadFactory;
+            factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
