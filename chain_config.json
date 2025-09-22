@@ -757,8 +757,8 @@
     "governance": {
     },
     "deployment": {
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
-    "sourcifyApi": null,
-    "blockscoutApi": null
+    "sourcifyApi": "https://sourcify-api-monad.blockvision.org"
   }
 }
