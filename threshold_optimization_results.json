@@ -164,6 +164,37 @@
         "tested_at": "2025-09-22 07:57:23"
       }
     },
+    "32": {
+      "bucket": 32,
+      "history": [
+        {
+          "fuzz_runs_used": 2000000,
+          "min_threshold": 59,
+          "min_threshold_seeds": {
+            "max": 509,
+            "min": 508,
+            "range_size": 2,
+            "recommended": 508
+          },
+          "safety_threshold": 60,
+          "safety_threshold_seeds": null,
+          "tested_at": "2025-09-22 10:29:43"
+        }
+      ],
+      "latest": {
+        "fuzz_runs_used": 2000000,
+        "min_threshold": 59,
+        "min_threshold_seeds": {
+          "max": 509,
+          "min": 508,
+          "range_size": 2,
+          "recommended": 508
+        },
+        "safety_threshold": 60,
+        "safety_threshold_seeds": null,
+        "tested_at": "2025-09-22 10:29:43"
+      }
+    },
     "33": {
       "bucket": 33,
       "history": [
@@ -661,6 +692,6 @@
     "created": "2025-09-21 14:50:44",
     "description": "Sqrt threshold optimization results",
     "format_version": "1.0",
-    "last_updated": "2025-09-22 07:57:23"
+    "last_updated": "2025-09-22 10:29:43"
   }
 }
