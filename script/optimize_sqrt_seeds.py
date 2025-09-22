@@ -281,15 +281,19 @@ class SeedOptimizer:
         if not self.test_seed(bucket, min_seed, invEThreshold, verbose=False):
             print(" FAILED validation!")
             # Linear scan upward with full validation until finding a working seed
+            print(f"    Searching upward from {min_seed} for valid min seed...")
             found_valid = False
             for candidate in range(min_seed + 1, min_seed + 21):  # Try up to 20 seeds
+                print(f"      Testing seed {candidate}...", end='', flush=True)
                 if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
                     min_seed = candidate
-                    print(f" Using {min_seed} instead")
+                    print(f" SUCCESS! Using {min_seed} as min seed")
                     found_valid = True
                     break
+                else:
+                    print(" failed")
             if not found_valid:
-                print(" Could not find valid min seed")
+                print("    Could not find valid min seed within 20 attempts")
                 return None, None
         else:
             print(" validated ✓")
@@ -298,15 +302,19 @@ class SeedOptimizer:
         if not self.test_seed(bucket, max_seed, invEThreshold, verbose=False):
             print(" FAILED validation!")
             # Linear scan downward with full validation until finding a working seed
+            print(f"    Searching downward from {max_seed} for valid max seed...")
             found_valid = False
             for candidate in range(max_seed - 1, max_seed - 21, -1):  # Try up to 20 seeds
+                print(f"      Testing seed {candidate}...", end='', flush=True)
                 if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
                     max_seed = candidate
-                    print(f" Using {max_seed} instead")
+                    print(f" SUCCESS! Using {max_seed} as max seed")
                     found_valid = True
                     break
+                else:
+                    print(" failed")
             if not found_valid:
-                print(" Could not find valid max seed")
+                print("    Could not find valid max seed within 20 attempts")
                 return None, None
         else:
             print(" validated ✓")

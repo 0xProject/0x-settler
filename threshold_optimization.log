@@ -1,0 +1,793 @@
+$ python3 script/find_minimum_threshold.py --fuzz-runs 1500000 --bucket 38 39 40 41 42 44 45 46 47 48
+Threshold optimization for buckets [38, 39, 40, 41, 42, 44, 45, 46, 47, 48]
+Using 1500000 fuzz runs per test
+Results will be saved to threshold_optimization_results.json
+
+Finding minimum invEThreshold for bucket 38:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 466-468)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 467-467)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... SUCCESS (seeds 467-467)
+      → Threshold 45 works, searching lower...
+    Testing invEThreshold 42... FAILED (no valid seeds)
+      → Threshold 42 fails, searching higher...
+    Testing invEThreshold 43... FAILED (no valid seeds)
+      → Threshold 43 fails, searching higher...
+    Testing invEThreshold 44... SUCCESS (seeds 467-467)
+      → Threshold 44 works, searching lower...
+  ✓ Minimum working threshold: 44
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 44...
+    Testing invEThreshold 44... SUCCESS (seeds 467-467)
+  Getting seed range for safety threshold 45...
+    Testing invEThreshold 45... SUCCESS (seeds 467-467)
+
+============================================================
+BUCKET 38 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 44
+  Seed range at threshold 44: [467, 467] (size: 1)
+  Recommended seed: 467 (middle of range)
+
+Safety threshold (min+1): 45
+  Seed range at threshold 45: [467, 467] (size: 1)
+  Recommended seed: 467 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 39:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 460-462)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 461-461)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... SUCCESS (seeds 461-461)
+      → Threshold 45 works, searching lower...
+    Testing invEThreshold 42... SUCCESS (seeds 461-461)
+      → Threshold 42 works, searching lower...
+    Testing invEThreshold 41... FAILED (no valid seeds)
+      → Threshold 41 fails, searching higher...
+  ✓ Minimum working threshold: 42
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 42...
+    Testing invEThreshold 42... SUCCESS (seeds 461-461)
+  Getting seed range for safety threshold 43...
+    Testing invEThreshold 43... SUCCESS (seeds 461-461)
+
+============================================================
+BUCKET 39 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 42
+  Seed range at threshold 42: [461, 461] (size: 1)
+  Recommended seed: 461 (middle of range)
+
+Safety threshold (min+1): 43
+  Seed range at threshold 43: [461, 461] (size: 1)
+  Recommended seed: 461 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 40:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... SUCCESS (seeds 455-455)
+      → Threshold 40 works, searching lower...
+    Testing invEThreshold 20... FAILED (no valid seeds)
+      → Threshold 20 fails, searching higher...
+    Testing invEThreshold 30... FAILED (no valid seeds)
+      → Threshold 30 fails, searching higher...
+    Testing invEThreshold 35... FAILED (no valid seeds)
+      → Threshold 35 fails, searching higher...
+    Testing invEThreshold 37... FAILED (no valid seeds)
+      → Threshold 37 fails, searching higher...
+    Testing invEThreshold 38... FAILED (no valid seeds)
+      → Threshold 38 fails, searching higher...
+    Testing invEThreshold 39... FAILED (no valid seeds)
+      → Threshold 39 fails, searching higher...
+  ✓ Minimum working threshold: 40
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 40...
+    Testing invEThreshold 40... SUCCESS (seeds 455-455)
+  Getting seed range for safety threshold 41...
+    Testing invEThreshold 41... SUCCESS (seeds 455-455)
+
+============================================================
+BUCKET 40 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 40
+  Seed range at threshold 40: [455, 455] (size: 1)
+  Recommended seed: 455 (middle of range)
+
+Safety threshold (min+1): 41
+  Seed range at threshold 41: [455, 455] (size: 1)
+  Recommended seed: 455 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 41:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 448-451)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 449-450)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... SUCCESS (seeds 450-450)
+      → Threshold 45 works, searching lower...
+    Testing invEThreshold 42... FAILED (no valid seeds)
+      → Threshold 42 fails, searching higher...
+    Testing invEThreshold 43... FAILED (no valid seeds)
+      → Threshold 43 fails, searching higher...
+    Testing invEThreshold 44... SUCCESS (seeds 450-450)
+      → Threshold 44 works, searching lower...
+  ✓ Minimum working threshold: 44
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 44...
+    Testing invEThreshold 44... SUCCESS (seeds 450-450)
+  Getting seed range for safety threshold 45...
+    Testing invEThreshold 45... SUCCESS (seeds 450-450)
+
+============================================================
+BUCKET 41 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 44
+  Seed range at threshold 44: [450, 450] (size: 1)
+  Recommended seed: 450 (middle of range)
+
+Safety threshold (min+1): 45
+  Seed range at threshold 45: [450, 450] (size: 1)
+  Recommended seed: 450 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 42:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 443-446)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 444-445)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... SUCCESS (seeds 444-444)
+      → Threshold 45 works, searching lower...
+    Testing invEThreshold 42... SUCCESS (seeds 444-444)
+      → Threshold 42 works, searching lower...
+    Testing invEThreshold 41... SUCCESS (seeds 444-444)
+      → Threshold 41 works, searching lower...
+  ✓ Minimum working threshold: 41
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 41...
+    Testing invEThreshold 41... SUCCESS (seeds 444-444)
+  Getting seed range for safety threshold 42...
+    Testing invEThreshold 42... SUCCESS (seeds 444-444)
+
+============================================================
+BUCKET 42 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 41
+  Seed range at threshold 41: [444, 444] (size: 1)
+  Recommended seed: 444 (middle of range)
+
+Safety threshold (min+1): 42
+  Seed range at threshold 42: [444, 444] (size: 1)
+  Recommended seed: 444 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 44:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... SUCCESS (seeds 434-434)
+      → Threshold 40 works, searching lower...
+    Testing invEThreshold 20... FAILED (no valid seeds)
+      → Threshold 20 fails, searching higher...
+    Testing invEThreshold 30... FAILED (no valid seeds)
+      → Threshold 30 fails, searching higher...
+    Testing invEThreshold 35... FAILED (no valid seeds)
+      → Threshold 35 fails, searching higher...
+    Testing invEThreshold 37... SUCCESS (seeds 434-434)
+      → Threshold 37 works, searching lower...
+    Testing invEThreshold 36... FAILED (no valid seeds)
+      → Threshold 36 fails, searching higher...
+  ✓ Minimum working threshold: 37
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 37...
+    Testing invEThreshold 37... SUCCESS (seeds 434-434)
+  Getting seed range for safety threshold 38...
+    Testing invEThreshold 38... SUCCESS (seeds 434-434)
+
+============================================================
+BUCKET 44 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 37
+  Seed range at threshold 37: [434, 434] (size: 1)
+  Recommended seed: 434 (middle of range)
+
+Safety threshold (min+1): 38
+  Seed range at threshold 38: [434, 434] (size: 1)
+  Recommended seed: 434 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 45:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... SUCCESS (seeds 429-429)
+      → Threshold 40 works, searching lower...
+    Testing invEThreshold 20... FAILED (no valid seeds)
+      → Threshold 20 fails, searching higher...
+    Testing invEThreshold 30... FAILED (no valid seeds)
+      → Threshold 30 fails, searching higher...
+    Testing invEThreshold 35... FAILED (no valid seeds)
+      → Threshold 35 fails, searching higher...
+    Testing invEThreshold 37... FAILED (no valid seeds)
+      → Threshold 37 fails, searching higher...
+    Testing invEThreshold 38... FAILED (no valid seeds)
+      → Threshold 38 fails, searching higher...
+    Testing invEThreshold 39... FAILED (no valid seeds)
+      → Threshold 39 fails, searching higher...
+  ✓ Minimum working threshold: 40
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 40...
+    Testing invEThreshold 40... SUCCESS (seeds 429-429)
+  Getting seed range for safety threshold 41...
+    Testing invEThreshold 41... SUCCESS (seeds 429-429)
+
+============================================================
+BUCKET 45 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 40
+  Seed range at threshold 40: [429, 429] (size: 1)
+  Recommended seed: 429 (middle of range)
+
+Safety threshold (min+1): 41
+  Seed range at threshold 41: [429, 429] (size: 1)
+  Recommended seed: 429 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 46:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... SUCCESS (seeds 425-425)
+      → Threshold 40 works, searching lower...
+    Testing invEThreshold 20... FAILED (no valid seeds)
+      → Threshold 20 fails, searching higher...
+    Testing invEThreshold 30... FAILED (no valid seeds)
+      → Threshold 30 fails, searching higher...
+    Testing invEThreshold 35... FAILED (no valid seeds)
+      → Threshold 35 fails, searching higher...
+    Testing invEThreshold 37... SUCCESS (seeds 425-425)
+      → Threshold 37 works, searching lower...
+    Testing invEThreshold 36... FAILED (no valid seeds)
+      → Threshold 36 fails, searching higher...
+  ✓ Minimum working threshold: 37
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 37...
+    Testing invEThreshold 37... SUCCESS (seeds 425-425)
+  Getting seed range for safety threshold 38...
+    Testing invEThreshold 38... SUCCESS (seeds 425-425)
+
+============================================================
+BUCKET 46 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 37
+  Seed range at threshold 37: [425, 425] (size: 1)
+  Recommended seed: 425 (middle of range)
+
+Safety threshold (min+1): 38
+  Seed range at threshold 38: [425, 425] (size: 1)
+  Recommended seed: 425 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 47:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... SUCCESS (seeds 420-420)
+      → Threshold 40 works, searching lower...
+    Testing invEThreshold 20... FAILED (no valid seeds)
+      → Threshold 20 fails, searching higher...
+    Testing invEThreshold 30... FAILED (no valid seeds)
+      → Threshold 30 fails, searching higher...
+    Testing invEThreshold 35... FAILED (no valid seeds)
+      → Threshold 35 fails, searching higher...
+    Testing invEThreshold 37... SUCCESS (seeds 420-420)
+      → Threshold 37 works, searching lower...
+    Testing invEThreshold 36... SUCCESS (seeds 420-420)
+      → Threshold 36 works, searching lower...
+  ✓ Minimum working threshold: 36
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 36...
+    Testing invEThreshold 36... SUCCESS (seeds 420-420)
+  Getting seed range for safety threshold 37...
+    Testing invEThreshold 37... SUCCESS (seeds 420-420)
+
+============================================================
+BUCKET 47 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 36
+  Seed range at threshold 36: [420, 420] (size: 1)
+  Recommended seed: 420 (middle of range)
+
+Safety threshold (min+1): 37
+  Seed range at threshold 37: [420, 420] (size: 1)
+  Recommended seed: 420 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 48:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... SUCCESS (seeds 416-416)
+      → Threshold 40 works, searching lower...
+    Testing invEThreshold 20... FAILED (no valid seeds)
+      → Threshold 20 fails, searching higher...
+    Testing invEThreshold 30... FAILED (no valid seeds)
+      → Threshold 30 fails, searching higher...
+    Testing invEThreshold 35... SUCCESS (seeds 416-416)
+      → Threshold 35 works, searching lower...
+    Testing invEThreshold 32... SUCCESS (seeds 416-416)
+      → Threshold 32 works, searching lower...
+    Testing invEThreshold 31... FAILED (no valid seeds)
+      → Threshold 31 fails, searching higher...
+  ✓ Minimum working threshold: 32
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 32...
+    Testing invEThreshold 32... SUCCESS (seeds 416-416)
+  Getting seed range for safety threshold 33...
+    Testing invEThreshold 33... SUCCESS (seeds 416-416)
+
+============================================================
+BUCKET 48 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 32
+  Seed range at threshold 32: [416, 416] (size: 1)
+  Recommended seed: 416 (middle of range)
+
+Safety threshold (min+1): 33
+  Seed range at threshold 33: [416, 416] (size: 1)
+  Recommended seed: 416 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+✓ Results saved to threshold_optimization_results.json
+  Total buckets in database: 11
+
+============================================================
+SUMMARY FOR ALL BUCKETS
+============================================================
+Bucket | Min Thresh | Min Seeds     | Safety Thresh | Safety Seeds
+-------|------------|---------------|---------------|-------------
+   38  |     44     | [467, 467]    |      45       | [467, 467]
+   39  |     42     | [461, 461]    |      43       | [461, 461]
+   40  |     40     | [455, 455]    |      41       | [455, 455]
+   41  |     44     | [450, 450]    |      45       | [450, 450]
+   42  |     41     | [444, 444]    |      42       | [444, 444]
+   44  |     37     | [434, 434]    |      38       | [434, 434]
+   45  |     40     | [429, 429]    |      41       | [429, 429]
+   46  |     37     | [425, 425]    |      38       | [425, 425]
+   47  |     36     | [420, 420]    |      37       | [420, 420]
+   48  |     32     | [416, 416]    |      33       | [416, 416]
+$ python3 script/find_minimum_threshold.py --fuzz-runs 1500000 --bucket 28 29 30 31 32 33 34 35 36 37
+Threshold optimization for buckets [28, 29, 30, 31, 32, 33, 34, 35, 36, 37]
+Using 1500000 fuzz runs per test
+Results will be saved to threshold_optimization_results.json
+
+Finding minimum invEThreshold for bucket 28:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 542-543)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... FAILED (no valid seeds)
+      → Threshold 50 fails, searching higher...
+    Testing invEThreshold 55... FAILED (no valid seeds)
+      → Threshold 55 fails, searching higher...
+    Testing invEThreshold 57... FAILED (no valid seeds)
+      → Threshold 57 fails, searching higher...
+    Testing invEThreshold 58... SUCCESS (seeds 543-543)
+      → Threshold 58 works, searching lower...
+  ✓ Minimum working threshold: 58
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 58...
+    Testing invEThreshold 58... SUCCESS (seeds 543-543)
+  Getting seed range for safety threshold 59...
+    Testing invEThreshold 59... SUCCESS (seeds 542-543)
+
+============================================================
+BUCKET 28 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 58
+  Seed range at threshold 58: [543, 543] (size: 1)
+  Recommended seed: 543 (middle of range)
+
+Safety threshold (min+1): 59
+  Seed range at threshold 59: [542, 543] (size: 2)
+  Recommended seed: 542 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 29:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 533-534)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... FAILED (no valid seeds)
+      → Threshold 50 fails, searching higher...
+    Testing invEThreshold 55... SUCCESS (seeds 533-533)
+      → Threshold 55 works, searching lower...
+    Testing invEThreshold 52... FAILED (no valid seeds)
+      → Threshold 52 fails, searching higher...
+    Testing invEThreshold 53... FAILED (no valid seeds)
+      → Threshold 53 fails, searching higher...
+    Testing invEThreshold 54... FAILED (no valid seeds)
+      → Threshold 54 fails, searching higher...
+  ✓ Minimum working threshold: 55
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 55...
+    Testing invEThreshold 55... SUCCESS (seeds 533-533)
+  Getting seed range for safety threshold 56...
+    Testing invEThreshold 56... SUCCESS (seeds 533-533)
+
+============================================================
+BUCKET 29 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 55
+  Seed range at threshold 55: [533, 533] (size: 1)
+  Recommended seed: 533 (middle of range)
+
+Safety threshold (min+1): 56
+  Seed range at threshold 56: [533, 533] (size: 1)
+  Recommended seed: 533 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 30:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 524-525)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... FAILED (no valid seeds)
+      → Threshold 50 fails, searching higher...
+    Testing invEThreshold 55... FAILED (no valid seeds)
+      → Threshold 55 fails, searching higher...
+    Testing invEThreshold 57... SUCCESS (seeds 525-525)
+      → Threshold 57 works, searching lower...
+    Testing invEThreshold 56... SUCCESS (seeds 524-524)
+      → Threshold 56 works, searching lower...
+  ✓ Minimum working threshold: 56
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 56...
+    Testing invEThreshold 56... SUCCESS (seeds 524-524)
+  Getting seed range for safety threshold 57...
+    Testing invEThreshold 57... SUCCESS (seeds 524-525)
+
+============================================================
+BUCKET 30 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 56
+  Seed range at threshold 56: [524, 524] (size: 1)
+  Recommended seed: 524 (middle of range)
+
+Safety threshold (min+1): 57
+  Seed range at threshold 57: [524, 525] (size: 2)
+  Recommended seed: 524 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 31:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 515-517)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 516-516)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... FAILED (no valid seeds)
+      → Threshold 45 fails, searching higher...
+    Testing invEThreshold 47... FAILED (no valid seeds)
+      → Threshold 47 fails, searching higher...
+    Testing invEThreshold 48... FAILED (no valid seeds)
+      → Threshold 48 fails, searching higher...
+    Testing invEThreshold 49... FAILED (no valid seeds)
+      → Threshold 49 fails, searching higher...
+  ✓ Minimum working threshold: 50
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 50...
+    Testing invEThreshold 50... SUCCESS (seeds 516-516)
+  Getting seed range for safety threshold 51...
+    Testing invEThreshold 51... SUCCESS (seeds 516-516)
+
+============================================================
+BUCKET 31 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 50
+  Seed range at threshold 50: [516, 516] (size: 1)
+  Recommended seed: 516 (middle of range)
+
+Safety threshold (min+1): 51
+  Seed range at threshold 51: [516, 516] (size: 1)
+  Recommended seed: 516 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 32:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 509-508)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... FAILED (no valid seeds)
+      → Threshold 50 fails, searching higher...
+    Testing invEThreshold 55... SUCCESS (seeds 508-508)
+      → Threshold 55 works, searching lower...
+    Testing invEThreshold 52... SUCCESS (seeds 508-508)
+      → Threshold 52 works, searching lower...
+    Testing invEThreshold 51... SUCCESS (seeds 508-508)
+      → Threshold 51 works, searching lower...
+  ✓ Minimum working threshold: 51
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 51...
+    Testing invEThreshold 51... SUCCESS (seeds 508-508)
+  Getting seed range for safety threshold 52...
+    Testing invEThreshold 52... FAILED (no valid seeds)
+
+============================================================
+BUCKET 32 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 51
+  Seed range at threshold 51: [508, 508] (size: 1)
+  Recommended seed: 508 (middle of range)
+
+Safety threshold (min+1): 52
+  ERROR: Could not get seed range for safety threshold!
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 33:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 500-501)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... FAILED (no valid seeds)
+      → Threshold 50 fails, searching higher...
+    Testing invEThreshold 55... SUCCESS (seeds 500-503)
+      → Threshold 55 works, searching lower...
+    Testing invEThreshold 52... FAILED (no valid seeds)
+      → Threshold 52 fails, searching higher...
+    Testing invEThreshold 53... FAILED (no valid seeds)
+      → Threshold 53 fails, searching higher...
+    Testing invEThreshold 54... SUCCESS (seeds 500-501)
+      → Threshold 54 works, searching lower...
+  ✓ Minimum working threshold: 54
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 54...
+    Testing invEThreshold 54... SUCCESS (seeds 501-501)
+  Getting seed range for safety threshold 55...
+    Testing invEThreshold 55... SUCCESS (seeds 501-501)
+
+============================================================
+BUCKET 33 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 54
+  Seed range at threshold 54: [501, 501] (size: 1)
+  Recommended seed: 501 (middle of range)
+
+Safety threshold (min+1): 55
+  Seed range at threshold 55: [501, 501] (size: 1)
+  Recommended seed: 501 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 34:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 492-493)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 493-493)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... FAILED (no valid seeds)
+      → Threshold 45 fails, searching higher...
+    Testing invEThreshold 47... SUCCESS (seeds 493-493)
+      → Threshold 47 works, searching lower...
+    Testing invEThreshold 46... FAILED (no valid seeds)
+      → Threshold 46 fails, searching higher...
+  ✓ Minimum working threshold: 47
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 47...
+    Testing invEThreshold 47... SUCCESS (seeds 493-493)
+  Getting seed range for safety threshold 48...
+    Testing invEThreshold 48... FAILED (no valid seeds)
+
+============================================================
+BUCKET 34 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 47
+  Seed range at threshold 47: [493, 493] (size: 1)
+  Recommended seed: 493 (middle of range)
+
+Safety threshold (min+1): 48
+  ERROR: Could not get seed range for safety threshold!
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 35:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 485-487)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 486-486)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... FAILED (no valid seeds)
+      → Threshold 45 fails, searching higher...
+    Testing invEThreshold 47... FAILED (no valid seeds)
+      → Threshold 47 fails, searching higher...
+    Testing invEThreshold 48... SUCCESS (seeds 486-486)
+      → Threshold 48 works, searching lower...
+  ✓ Minimum working threshold: 48
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 48...
+    Testing invEThreshold 48... FAILED (no valid seeds)
+  Getting seed range for safety threshold 49...
+    Testing invEThreshold 49... FAILED (no valid seeds)
+
+============================================================
+BUCKET 35 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 48
+  ERROR: Could not get seed range for minimum threshold!
+
+Safety threshold (min+1): 49
+  ERROR: Could not get seed range for safety threshold!
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 36:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 479-480)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 479-480)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... FAILED (no valid seeds)
+      → Threshold 45 fails, searching higher...
+    Testing invEThreshold 47... FAILED (no valid seeds)
+      → Threshold 47 fails, searching higher...
+    Testing invEThreshold 48... SUCCESS (seeds 479-479)
+      → Threshold 48 works, searching lower...
+  ✓ Minimum working threshold: 48
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 48...
+    Testing invEThreshold 48... FAILED (no valid seeds)
+  Getting seed range for safety threshold 49...
+    Testing invEThreshold 49... SUCCESS (seeds 479-479)
+
+============================================================
+BUCKET 36 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 48
+  ERROR: Could not get seed range for minimum threshold!
+
+Safety threshold (min+1): 49
+  Seed range at threshold 49: [479, 479] (size: 1)
+  Recommended seed: 479 (middle of range)
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+Finding minimum invEThreshold for bucket 37:
+  Binary search in range [1, 79] with 1500000 fuzz runs...
+    Testing invEThreshold 40... FAILED (no valid seeds)
+      → Threshold 40 fails, searching higher...
+    Testing invEThreshold 60... SUCCESS (seeds 472-473)
+      → Threshold 60 works, searching lower...
+    Testing invEThreshold 50... SUCCESS (seeds 473-473)
+      → Threshold 50 works, searching lower...
+    Testing invEThreshold 45... SUCCESS (seeds 473-473)
+      → Threshold 45 works, searching lower...
+    Testing invEThreshold 42... SUCCESS (seeds 473-473)
+      → Threshold 42 works, searching lower...
+    Testing invEThreshold 41... FAILED (no valid seeds)
+      → Threshold 41 fails, searching higher...
+  ✓ Minimum working threshold: 42
+
+Collecting seed ranges:
+  Getting seed range for minimum threshold 42...
+    Testing invEThreshold 42... FAILED (no valid seeds)
+  Getting seed range for safety threshold 43...
+    Testing invEThreshold 43... FAILED (no valid seeds)
+
+============================================================
+BUCKET 37 THRESHOLD OPTIMIZATION RESULTS
+============================================================
+Minimum working invEThreshold: 42
+  ERROR: Could not get seed range for minimum threshold!
+
+Safety threshold (min+1): 43
+  ERROR: Could not get seed range for safety threshold!
+
+Testing parameters: 1500000 fuzz runs
+
+------------------------------------------------------------
+
+✓ Results saved to threshold_optimization_results.json
+  Total buckets in database: 21
+
+============================================================
+SUMMARY FOR ALL BUCKETS
+============================================================
+Bucket | Min Thresh | Min Seeds     | Safety Thresh | Safety Seeds
+-------|------------|---------------|---------------|-------------
+   28  |     58     | [543, 543]    |      59       | [542, 543]
+   29  |     55     | [533, 533]    |      56       | [533, 533]
+   30  |     56     | [524, 524]    |      57       | [524, 525]
+   31  |     50     | [516, 516]    |      51       | [516, 516]
+   32  |     51     | [508, 508]    |      52       | FAILED
+   33  |     54     | [501, 501]    |      55       | [501, 501]
+   34  |     47     | [493, 493]    |      48       | FAILED
+   35  |     48     | FAILED        |      49       | FAILED
+   36  |     48     | FAILED        |      49       | [479, 479]
+   37  |     42     | FAILED        |      43       | FAILED

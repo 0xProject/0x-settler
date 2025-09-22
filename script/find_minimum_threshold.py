@@ -51,7 +51,7 @@ class ThresholdOptimizer:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=1800,  # 30 minute timeout (increased for 2M+ fuzz runs)
+                timeout=3600,  # 60 minute timeout (increased for 2M+ fuzz runs)
                 cwd="/home/user/Documents/0x-settler"
             )
 
@@ -77,11 +77,12 @@ class ThresholdOptimizer:
                     # Unexpected output format
                     print(" UNKNOWN (unexpected output)")
                     if "--debug" in sys.argv:
-                        print(f"        DEBUG: {output[:300]}...")
+                        print(f"        DEBUG OUTPUT (first 500 chars): {output[:500]}...")
+                        print(f"        DEBUG OUTPUT (last 500 chars): ...{output[-500:]}")
                     return False, None, None
 
         except subprocess.TimeoutExpired:
-            print(" TIMEOUT")
+            print(f" TIMEOUT (>{self.fuzz_runs/1000}k runs took >60min)")
             return False, None, None
         except Exception as e:
             print(f" ERROR: {e}")
@@ -368,7 +369,15 @@ def main():
 
     if "--bucket" in sys.argv:
         idx = sys.argv.index("--bucket")
-        buckets = [int(sys.argv[idx + 1])]
+        # Collect all bucket numbers after --bucket until we hit another flag or end
+        buckets = []
+        for i in range(idx + 1, len(sys.argv)):
+            if sys.argv[i].startswith("--"):
+                break
+            try:
+                buckets.append(int(sys.argv[i]))
+            except ValueError:
+                break
     elif "--all" in sys.argv:
         buckets = list(range(16, 64))  # All buckets
     else:
