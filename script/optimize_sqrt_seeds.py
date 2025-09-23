@@ -22,6 +22,12 @@ import os
 import sys
 import time
 from typing import Tuple, Optional
+from enum import Enum
+
+class TestResult(Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    TIMEOUT = "TIMEOUT"
 
 # Current seeds from the modified lookup table
 CURRENT_SEEDS = {
@@ -69,16 +75,20 @@ class SeedOptimizer:
 
     def quick_test_seed(self, bucket: int, seed: int, invEThreshold: int = 79, fuzz_runs: int = 100) -> bool:
         """Quick test with fewer fuzz runs for discovery phase."""
-        return self._test_seed_impl(bucket, seed, invEThreshold, fuzz_runs, verbose=False)
+        result = self._test_seed_impl(bucket, seed, invEThreshold, fuzz_runs, verbose=False)
+        return result == TestResult.PASS
 
     def test_seed(self, bucket: int, seed: int, invEThreshold: int = 79, verbose: bool = True) -> bool:
         """Test if a seed works for a bucket using Foundry's fuzzer."""
-        return self._test_seed_impl(bucket, seed, invEThreshold, self.fuzz_runs, verbose)
+        result = self._test_seed_impl(bucket, seed, invEThreshold, self.fuzz_runs, verbose)
+        return result == TestResult.PASS
 
-    def _test_seed_impl(self, bucket: int, seed: int, invEThreshold: int, fuzz_runs: int, verbose: bool) -> bool:
+    def _test_seed_impl(self, bucket: int, seed: int, invEThreshold: int, fuzz_runs: int, verbose: bool) -> TestResult:
         """Internal implementation for testing seeds with configurable parameters."""
         if verbose:
             print(f"    Testing seed {seed} with {fuzz_runs} fuzz runs...", end='', flush=True)
+
+        start_time = time.time()
 
         # Generate and write test contract
         if verbose:
@@ -102,14 +112,21 @@ class SeedOptimizer:
         if verbose:
             print(" [running forge test]", end='', flush=True)
 
+        # Scale timeout based on fuzz runs
+        # Based on empirical data: ~125s for 1M runs, ~265s for 2M runs
+        # Using 150 seconds per million runs + 60 second buffer for safety
+        timeout_seconds = max(120, int(fuzz_runs / 1000000 * 150) + 60)
+
         try:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=120,  # 2 minutes timeout
+                timeout=timeout_seconds,
                 env={**os.environ, "FOUNDRY_FUZZ_RUNS": str(fuzz_runs)}
             )
+
+            elapsed_time = time.time() - start_time
 
             if verbose:
                 print(" [parsing results]", end='', flush=True)
@@ -121,7 +138,13 @@ class SeedOptimizer:
                     # The runs info is after "runs:" in format like "runs: 10, μ: 1234, ~: 1234)"
                     runs_line = result.stdout.split("runs:")[1].split(")")[0]
                     runs_count = int(runs_line.split(",")[0].strip())
-                except:
+                except Exception as e:
+                    if "--debug" in sys.argv:
+                        print(f"\n        DEBUG: Failed to parse runs count: {e}")
+                        print(f"        DEBUG: Looking for 'runs:' in output...")
+                        for line in result.stdout.split('\n'):
+                            if 'runs:' in line:
+                                print(f"        DEBUG: Found line: {line.strip()}")
                     runs_count = 0
 
             # Check if test actually passed - be very specific!
@@ -137,36 +160,61 @@ class SeedOptimizer:
 
             if verbose:
                 if suite_ok and runs_count == 0:
-                    print(f" SKIP (0 runs - no valid inputs found)")
+                    print(f" SKIP (0 runs - no valid inputs found, {elapsed_time:.1f}s)")
                     # Debug: show a snippet of the output to understand why
                     if "--debug" in sys.argv:
                         print(f"        DEBUG: {result.stdout[:500]}...")
                 elif passed:
-                    print(f" PASS ({runs_count} runs)")
+                    print(f" PASS ({runs_count} runs, {elapsed_time:.1f}s)")
                 else:
-                    print(" FAIL")
-                    # Show some error details for debugging
+                    print(f" FAIL ({elapsed_time:.1f}s)")
+                    # Enhanced error details for debugging
+                    if "--debug" in sys.argv:
+                        print(f"        Suite OK: {suite_ok}, Runs: {runs_count}")
+                        print(f"        Timeout used: {timeout_seconds}s")
                     if result.stderr:
-                        print(f"        STDERR: {result.stderr[:200]}...")
+                        print(f"        STDERR: {result.stderr[:500]}...")
                     if "FAIL" in result.stdout or "reverted" in result.stdout:
                         # Extract failure reason
                         lines = result.stdout.split('\n')
-                        for line in lines:
-                            if "reverted" in line or "Error:" in line:
+                        for i, line in enumerate(lines):
+                            if "reverted" in line or "Error:" in line or "failing test" in line:
                                 print(f"        {line.strip()}")
+                                # Show a few lines of context
+                                if "--debug" in sys.argv and i > 0:
+                                    print(f"        Context: {lines[i-1].strip()}")
                                 break
+                    # Save full output for debugging if requested
+                    if "--save-output" in sys.argv:
+                        output_file = f"forge_output_bucket{bucket}_seed{seed}_runs{fuzz_runs}.txt"
+                        with open(output_file, 'w') as f:
+                            f.write(f"Command: {' '.join(cmd)}\n")
+                            f.write(f"Env: FOUNDRY_FUZZ_RUNS={fuzz_runs}\n")
+                            f.write(f"Exit code: {result.returncode}\n")
+                            f.write(f"Elapsed: {elapsed_time:.1f}s\n\n")
+                            f.write("STDOUT:\n")
+                            f.write(result.stdout)
+                            f.write("\n\nSTDERR:\n")
+                            f.write(result.stderr)
+                        print(f"        Full output saved to {output_file}")
 
-            # Treat 0 runs as a failure - we need actual test coverage
-            return passed and runs_count > 0
+            # Return appropriate test result
+            if passed and runs_count > 0:
+                return TestResult.PASS
+            else:
+                return TestResult.FAIL
 
         except subprocess.TimeoutExpired:
+            elapsed_time = time.time() - start_time
             if verbose:
-                print(" TIMEOUT (>120s)")
-            return False
+                print(f" TIMEOUT (>{timeout_seconds}s after {elapsed_time:.1f}s)")
+                print(f"        Fuzz runs: {fuzz_runs}, Timeout: {timeout_seconds}s")
+                print(f"        Note: Timeout is not a test failure, just insufficient time to complete")
+            return TestResult.TIMEOUT
         except Exception as e:
             if verbose:
                 print(f" ERROR: {e}")
-            return False
+            return TestResult.FAIL
 
     def find_working_seed_spiral(self, bucket: int, invEThreshold: int, center_seed: int, max_distance: int = 10) -> Optional[int]:
         """Spiral outward from center_seed to find any working seed."""
@@ -174,7 +222,7 @@ class SeedOptimizer:
 
         # Try center first
         print(f"    Testing center seed {center_seed}...", end='', flush=True)
-        if self.quick_test_seed(bucket, center_seed, invEThreshold, fuzz_runs=100):
+        if self.quick_test_seed(bucket, center_seed, invEThreshold, fuzz_runs=1000):
             print(" WORKS!")
             return center_seed
         else:
@@ -195,7 +243,7 @@ class SeedOptimizer:
             # Test candidates for this distance
             for seed, offset in candidates:
                 print(f"    Testing {center_seed}{offset} = {seed}...", end='', flush=True)
-                if self.quick_test_seed(bucket, seed, invEThreshold, fuzz_runs=100):
+                if self.quick_test_seed(bucket, seed, invEThreshold, fuzz_runs=1000):
                     print(" WORKS!")
                     return seed
                 else:
@@ -244,7 +292,7 @@ class SeedOptimizer:
                 return None, None
             mid = (left + right) // 2
             print(f"      Testing [{left}, {right}] → {mid}...", end='', flush=True)
-            if self.quick_test_seed(bucket, mid, invEThreshold, fuzz_runs=100):
+            if self.quick_test_seed(bucket, mid, invEThreshold, fuzz_runs=1000):
                 min_seed = mid
                 right = mid - 1
                 print(" works, search lower")
@@ -264,7 +312,7 @@ class SeedOptimizer:
                 return None, None
             mid = (left + right) // 2
             print(f"      Testing [{left}, {right}] → {mid}...", end='', flush=True)
-            if self.quick_test_seed(bucket, mid, invEThreshold, fuzz_runs=100):
+            if self.quick_test_seed(bucket, mid, invEThreshold, fuzz_runs=1000):
                 max_seed = mid
                 left = mid + 1
                 print(" works, search higher")
@@ -277,47 +325,61 @@ class SeedOptimizer:
         # Phase 2: Validation with full fuzz runs
         print(f"  Phase 2: Validating boundaries with full fuzz runs...")
 
-        print(f"    Validating min seed {min_seed}...", end='', flush=True)
-        if not self.test_seed(bucket, min_seed, invEThreshold, verbose=False):
-            print(" FAILED validation!")
+        print(f"    Validating min seed {min_seed}...")
+        min_result = self._test_seed_impl(bucket, min_seed, invEThreshold, self.fuzz_runs, verbose=True)
+        if min_result == TestResult.TIMEOUT:
+            print("    TIMEOUT during validation - cannot confirm seed validity")
+            print("    Consider using fewer fuzz runs or increasing timeout")
+            return None, None
+        elif min_result == TestResult.FAIL:
+            print("    FAILED validation!")
             # Linear scan upward with full validation until finding a working seed
             print(f"    Searching upward from {min_seed} for valid min seed...")
             found_valid = False
             for candidate in range(min_seed + 1, min_seed + 21):  # Try up to 20 seeds
-                print(f"      Testing seed {candidate}...", end='', flush=True)
-                if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
+                print(f"      Testing seed {candidate}...")
+                result = self._test_seed_impl(bucket, candidate, invEThreshold, self.fuzz_runs, verbose=True)
+                if result == TestResult.TIMEOUT:
+                    print("      TIMEOUT - skipping remaining validation")
+                    return None, None
+                elif result == TestResult.PASS:
                     min_seed = candidate
-                    print(f" SUCCESS! Using {min_seed} as min seed")
+                    print(f"      SUCCESS! Using {min_seed} as min seed")
                     found_valid = True
                     break
-                else:
-                    print(" failed")
             if not found_valid:
                 print("    Could not find valid min seed within 20 attempts")
                 return None, None
         else:
-            print(" validated ✓")
+            print("    Validated ✓")
 
-        print(f"    Validating max seed {max_seed}...", end='', flush=True)
-        if not self.test_seed(bucket, max_seed, invEThreshold, verbose=False):
-            print(" FAILED validation!")
+        print(f"    Validating max seed {max_seed}...")
+        max_result = self._test_seed_impl(bucket, max_seed, invEThreshold, self.fuzz_runs, verbose=True)
+        if max_result == TestResult.TIMEOUT:
+            print("    TIMEOUT during validation - cannot confirm seed validity")
+            print("    Consider using fewer fuzz runs or increasing timeout")
+            return None, None
+        elif max_result == TestResult.FAIL:
+            print("    FAILED validation!")
             # Linear scan downward with full validation until finding a working seed
             print(f"    Searching downward from {max_seed} for valid max seed...")
             found_valid = False
             for candidate in range(max_seed - 1, max_seed - 21, -1):  # Try up to 20 seeds
-                print(f"      Testing seed {candidate}...", end='', flush=True)
-                if self.test_seed(bucket, candidate, invEThreshold, verbose=False):
+                print(f"      Testing seed {candidate}...")
+                result = self._test_seed_impl(bucket, candidate, invEThreshold, self.fuzz_runs, verbose=True)
+                if result == TestResult.TIMEOUT:
+                    print("      TIMEOUT - skipping remaining validation")
+                    return None, None
+                elif result == TestResult.PASS:
                     max_seed = candidate
-                    print(f" SUCCESS! Using {max_seed} as max seed")
+                    print(f"      SUCCESS! Using {max_seed} as max seed")
                     found_valid = True
                     break
-                else:
-                    print(" failed")
             if not found_valid:
                 print("    Could not find valid max seed within 20 attempts")
                 return None, None
         else:
-            print(" validated ✓")
+            print("    Validated ✓")
 
         print(f"  ✓ Final range: min={min_seed}, max={max_seed}, span={max_seed - min_seed + 1}")
 
@@ -370,6 +432,34 @@ def main():
     fuzz_runs = 10000
     invEThreshold = 79
     buckets = []
+
+    # Special debug mode for testing a specific seed
+    if "--debug-seed" in sys.argv:
+        idx = sys.argv.index("--debug-seed")
+        debug_bucket = int(sys.argv[idx + 1])
+        debug_seed = int(sys.argv[idx + 2])
+
+        print(f"DEBUG MODE: Testing bucket {debug_bucket}, seed {debug_seed}")
+        print("=" * 60)
+
+        if "--threshold" in sys.argv:
+            idx = sys.argv.index("--threshold")
+            invEThreshold = int(sys.argv[idx + 1])
+
+        # Test with increasing fuzz runs
+        test_runs = [100, 1000, 10000, 100000, 1000000]
+        if "--fuzz-runs" in sys.argv:
+            idx = sys.argv.index("--fuzz-runs")
+            test_runs = [int(sys.argv[idx + 1])]
+
+        optimizer = SeedOptimizer(fuzz_runs=10000)
+
+        for runs in test_runs:
+            print(f"\nTesting with {runs} fuzz runs:")
+            result = optimizer._test_seed_impl(debug_bucket, debug_seed, invEThreshold, runs, verbose=True)
+            print(f"  Result: {result.value}")
+
+        return
 
     if "--fuzz-runs" in sys.argv:
         idx = sys.argv.index("--fuzz-runs")

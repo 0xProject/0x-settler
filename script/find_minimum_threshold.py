@@ -29,12 +29,12 @@ class ThresholdOptimizer:
         self.fuzz_runs = fuzz_runs
         self.script_path = "script/optimize_sqrt_seeds.py"
 
-    def test_threshold(self, threshold: int) -> Tuple[bool, Optional[int], Optional[int]]:
+    def test_threshold(self, threshold: int) -> Tuple[str, Optional[int], Optional[int]]:
         """
         Test if a threshold works by calling optimize_sqrt_seeds.py.
 
         Returns:
-            (success, min_seed, max_seed) - success=True if valid range found
+            (status, min_seed, max_seed) - status is 'SUCCESS', 'FAILED', or 'TIMEOUT'
         """
         print(f"    Testing invEThreshold {threshold}...", end='', flush=True)
 
@@ -67,26 +67,30 @@ class ThresholdOptimizer:
                 min_seed = int(match.group(1))
                 max_seed = int(match.group(2))
                 print(f" SUCCESS (seeds {min_seed}-{max_seed})")
-                return True, min_seed, max_seed
+                return "SUCCESS", min_seed, max_seed
             else:
+                # Check for timeout
+                if "TIMEOUT" in output and "cannot confirm seed validity" in output:
+                    print(" TIMEOUT (validation incomplete)")
+                    return "TIMEOUT", None, None
                 # Check if it failed explicitly
-                if f"Bucket {self.bucket}: FAILED" in output:
+                elif f"Bucket {self.bucket}: FAILED" in output:
                     print(" FAILED (no valid seeds)")
-                    return False, None, None
+                    return "FAILED", None, None
                 else:
                     # Unexpected output format
                     print(" UNKNOWN (unexpected output)")
                     if "--debug" in sys.argv:
                         print(f"        DEBUG OUTPUT (first 500 chars): {output[:500]}...")
                         print(f"        DEBUG OUTPUT (last 500 chars): ...{output[-500:]}")
-                    return False, None, None
+                    return "FAILED", None, None
 
         except subprocess.TimeoutExpired:
-            print(f" TIMEOUT (>{self.fuzz_runs/1000}k runs took >60min)")
-            return False, None, None
+            print(f" TIMEOUT (>{self.fuzz_runs/1000:.0f}k runs took >{script_timeout}s)")
+            return "TIMEOUT", None, None
         except Exception as e:
             print(f" ERROR: {e}")
-            return False, None, None
+            return "FAILED", None, None
 
     def find_minimum_threshold(self) -> int:
         """
@@ -96,20 +100,24 @@ class ThresholdOptimizer:
             The minimum threshold that produces valid seed ranges
         """
         print(f"\nFinding minimum invEThreshold for bucket {self.bucket}:")
-        print(f"  Binary search in range [1, 79] with {self.fuzz_runs} fuzz runs...")
+        print(f"  Binary search in range [40, 79] with {self.fuzz_runs} fuzz runs...")
 
-        left, right = 1, 79
+        left, right = 40, 79
         last_working = 79  # We know 79 works
 
         while left <= right:
             mid = (left + right) // 2
-            success, _, _ = self.test_threshold(mid)
+            status, _, _ = self.test_threshold(mid)
 
-            if success:
+            if status == "SUCCESS":
                 last_working = mid
                 right = mid - 1  # Try lower
                 print(f"      → Threshold {mid} works, searching lower...")
-            else:
+            elif status == "TIMEOUT":
+                print(f"      → Threshold {mid} timed out, treating as uncertain")
+                print(f"      → Skipping to higher threshold to avoid more timeouts")
+                left = mid + 1   # Try higher
+            else:  # FAILED
                 left = mid + 1   # Try higher
                 print(f"      → Threshold {mid} fails, searching higher...")
 
@@ -130,19 +138,21 @@ class ThresholdOptimizer:
 
         # Get detailed seed range for minimum threshold
         print(f"  Getting seed range for minimum threshold {min_threshold}...")
-        success_min, min_seed_min, max_seed_min = self.test_threshold(min_threshold)
+        status_min, min_seed_min, max_seed_min = self.test_threshold(min_threshold)
 
         # Get detailed seed range for minimum+1 threshold (safety margin)
         safety_threshold = min_threshold + 1
         print(f"  Getting seed range for safety threshold {safety_threshold}...")
-        success_safety, min_seed_safety, max_seed_safety = self.test_threshold(safety_threshold)
+        status_safety, min_seed_safety, max_seed_safety = self.test_threshold(safety_threshold)
 
         results = {
             'bucket': self.bucket,
             'min_threshold': min_threshold,
-            'min_threshold_seeds': (min_seed_min, max_seed_min) if success_min else None,
+            'min_threshold_status': status_min,
+            'min_threshold_seeds': (min_seed_min, max_seed_min) if status_min == "SUCCESS" else None,
             'safety_threshold': safety_threshold,
-            'safety_threshold_seeds': (min_seed_safety, max_seed_safety) if success_safety else None,
+            'safety_threshold_status': status_safety,
+            'safety_threshold_seeds': (min_seed_safety, max_seed_safety) if status_safety == "SUCCESS" else None,
             'fuzz_runs': self.fuzz_runs
         }
 
@@ -159,7 +169,11 @@ def print_results(results: Dict[str, Any]):
     print(f"{'='*60}")
 
     print(f"Minimum working invEThreshold: {min_thresh}")
-    if results['min_threshold_seeds']:
+    status = results.get('min_threshold_status', 'UNKNOWN')
+    if status == "TIMEOUT":
+        print(f"  Status: TIMEOUT - validation incomplete")
+        print(f"  Consider using fewer fuzz runs or increasing timeout")
+    elif results['min_threshold_seeds']:
         min_seed, max_seed = results['min_threshold_seeds']
         range_size = max_seed - min_seed + 1
         middle_seed = (min_seed + max_seed) // 2
@@ -169,7 +183,11 @@ def print_results(results: Dict[str, Any]):
         print(f"  ERROR: Could not get seed range for minimum threshold!")
 
     print(f"\nSafety threshold (min+1): {safety_thresh}")
-    if results['safety_threshold_seeds']:
+    status = results.get('safety_threshold_status', 'UNKNOWN')
+    if status == "TIMEOUT":
+        print(f"  Status: TIMEOUT - validation incomplete")
+        print(f"  Consider using fewer fuzz runs or increasing timeout")
+    elif results['safety_threshold_seeds']:
         min_seed, max_seed = results['safety_threshold_seeds']
         range_size = max_seed - min_seed + 1
         middle_seed = (min_seed + max_seed) // 2
@@ -213,7 +231,9 @@ def save_to_json(results_list: list, filename: str = "threshold_optimization_res
         # Prepare the new test result
         new_test_result = {
             'min_threshold': result['min_threshold'],
+            'min_threshold_status': result.get('min_threshold_status', 'UNKNOWN'),
             'safety_threshold': result['safety_threshold'],
+            'safety_threshold_status': result.get('safety_threshold_status', 'UNKNOWN'),
             'fuzz_runs_used': result['fuzz_runs'],
             'tested_at': time.strftime('%Y-%m-%d %H:%M:%S')
         }
