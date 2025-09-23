@@ -584,27 +584,47 @@
           },
           "safety_threshold_status": "SUCCESS",
           "tested_at": "2025-09-23 03:30:00"
+        },
+        {
+          "fuzz_runs_used": 2000000,
+          "min_threshold": 42,
+          "min_threshold_seeds": {
+            "min": 473,
+            "max": 473,
+            "range_size": 1,
+            "recommended": 473
+          },
+          "min_threshold_status": "SUCCESS",
+          "safety_threshold": 43,
+          "safety_threshold_seeds": {
+            "min": 473,
+            "max": 473,
+            "range_size": 1,
+            "recommended": 473
+          },
+          "safety_threshold_status": "SUCCESS",
+          "tested_at": "2025-09-23 12:10:36"
         }
       ],
       "latest": {
         "fuzz_runs_used": 2000000,
-        "min_threshold": 45,
+        "min_threshold": 42,
         "min_threshold_seeds": {
-          "max": 473,
           "min": 473,
+          "max": 473,
           "range_size": 1,
           "recommended": 473
         },
         "min_threshold_status": "SUCCESS",
-        "safety_threshold": 46,
+        "safety_threshold": 43,
         "safety_threshold_seeds": {
-          "max": 473,
           "min": 473,
+          "max": 473,
           "range_size": 1,
           "recommended": 473
         },
         "safety_threshold_status": "SUCCESS",
-        "tested_at": "2025-09-23 03:30:00"
+        "tested_at": "2025-09-23 12:10:36"
       }
     },
     "38": {
@@ -667,27 +687,47 @@
           },
           "safety_threshold_status": "SUCCESS",
           "tested_at": "2025-09-23 03:30:00"
+        },
+        {
+          "fuzz_runs_used": 2000000,
+          "min_threshold": 44,
+          "min_threshold_seeds": {
+            "min": 467,
+            "max": 467,
+            "range_size": 1,
+            "recommended": 467
+          },
+          "min_threshold_status": "SUCCESS",
+          "safety_threshold": 45,
+          "safety_threshold_seeds": {
+            "min": 467,
+            "max": 467,
+            "range_size": 1,
+            "recommended": 467
+          },
+          "safety_threshold_status": "SUCCESS",
+          "tested_at": "2025-09-23 12:10:36"
         }
       ],
       "latest": {
         "fuzz_runs_used": 2000000,
-        "min_threshold": 45,
+        "min_threshold": 44,
         "min_threshold_seeds": {
-          "max": 467,
           "min": 467,
+          "max": 467,
           "range_size": 1,
           "recommended": 467
         },
         "min_threshold_status": "SUCCESS",
-        "safety_threshold": 46,
+        "safety_threshold": 45,
         "safety_threshold_seeds": {
-          "max": 467,
           "min": 467,
+          "max": 467,
           "range_size": 1,
           "recommended": 467
         },
         "safety_threshold_status": "SUCCESS",
-        "tested_at": "2025-09-23 03:30:00"
+        "tested_at": "2025-09-23 12:10:36"
       }
     },
     "39": {
@@ -750,27 +790,47 @@
           },
           "safety_threshold_status": "SUCCESS",
           "tested_at": "2025-09-23 03:30:00"
+        },
+        {
+          "fuzz_runs_used": 2000000,
+          "min_threshold": 42,
+          "min_threshold_seeds": {
+            "min": 461,
+            "max": 461,
+            "range_size": 1,
+            "recommended": 461
+          },
+          "min_threshold_status": "SUCCESS",
+          "safety_threshold": 43,
+          "safety_threshold_seeds": {
+            "min": 461,
+            "max": 461,
+            "range_size": 1,
+            "recommended": 461
+          },
+          "safety_threshold_status": "SUCCESS",
+          "tested_at": "2025-09-23 12:10:36"
         }
       ],
       "latest": {
         "fuzz_runs_used": 2000000,
-        "min_threshold": 45,
+        "min_threshold": 42,
         "min_threshold_seeds": {
-          "max": 461,
           "min": 461,
+          "max": 461,
           "range_size": 1,
           "recommended": 461
         },
         "min_threshold_status": "SUCCESS",
-        "safety_threshold": 46,
+        "safety_threshold": 43,
         "safety_threshold_seeds": {
-          "max": 461,
           "min": 461,
+          "max": 461,
           "range_size": 1,
           "recommended": 461
         },
         "safety_threshold_status": "SUCCESS",
-        "tested_at": "2025-09-23 03:30:00"
+        "tested_at": "2025-09-23 12:10:36"
       }
     },
     "40": {
@@ -1365,6 +1425,6 @@
     "created": "2025-09-21 14:50:44",
     "description": "Sqrt threshold optimization results",
     "format_version": "1.0",
-    "last_updated": "2025-09-23 03:30:00"
+    "last_updated": "2025-09-23 12:10:36"
   }
 }
