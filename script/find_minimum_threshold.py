@@ -312,7 +312,7 @@ def load_and_print_summary(filename: str = "threshold_optimization_results.json"
         min_seeds = latest['min_threshold_seeds']
         if min_seeds:
             min_range = f"[{min_seeds['min']}, {min_seeds['max']}]"
-            min_rec = min_seeds['recommended']
+            min_rec = str(min_seeds['recommended'])
         else:
             min_range = "FAILED"
             min_rec = "N/A"
@@ -321,7 +321,7 @@ def load_and_print_summary(filename: str = "threshold_optimization_results.json"
         safety_seeds = latest['safety_threshold_seeds']
         if safety_seeds:
             safety_range = f"[{safety_seeds['min']}, {safety_seeds['max']}]"
-            safety_rec = safety_seeds['recommended']
+            safety_rec = str(safety_seeds['recommended'])
         else:
             safety_range = "FAILED"
             safety_rec = "N/A"
@@ -330,8 +330,11 @@ def load_and_print_summary(filename: str = "threshold_optimization_results.json"
         fuzz_runs = latest['fuzz_runs_used']
 
         print(f"   {bucket:2d}  |     {min_thresh:2d}     | {min_range:13s} | {min_rec:3s} |      {safety_thresh:2d}       | {safety_range:13s} | {safety_rec:3s}")
+        # Show test info for all buckets
         if history_count > 1:
             print(f"       | (tested {history_count} times, latest: {tested_at} with {fuzz_runs} runs)")
+        else:
+            print(f"       | (tested: {tested_at} with {fuzz_runs} runs)")
 
     # Print some statistics (using latest results only)
     successful_buckets = [b['latest'] for b in data['buckets'].values()
