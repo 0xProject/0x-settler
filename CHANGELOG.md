@@ -49,6 +49,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add `EULERSWAP` action to Plasma
+
 ## 2025-09-15
 
 ### Breaking changes
