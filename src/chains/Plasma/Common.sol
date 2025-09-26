@@ -22,7 +22,7 @@ import {
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3 {
+abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3, EulerSwap {
     constructor() {
         assert(block.chainid == 9745 || block.chainid == 31337);
     }
