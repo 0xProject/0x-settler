@@ -5,6 +5,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
+import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -35,6 +36,11 @@ abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3 {
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
@@ -67,5 +73,9 @@ abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3 {
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+
+    function _EVC() internal pure override returns (IEVC) {
+        return IEVC(0x7bdbd0A7114aA42CA957F292145F6a931a345583);
     }
 }
