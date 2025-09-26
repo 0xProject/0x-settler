@@ -49,6 +49,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add `NATIVE_CHECK` action to Mainnet
+
 ## 2025-09-15
 
 ### Breaking changes
