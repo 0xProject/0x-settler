@@ -1439,6 +1439,17 @@ library Lib512MathArithmetic {
         }
     }
 
+    function _invEThresholdFromBucket(uint256 bucket) private pure returns (uint256) {
+        unchecked {
+            // Derived by exhaustive search over the measured bucket thresholds:
+            // f(i) = ceil(0.01959228515625 · i² - 2.559326171875 · i + 116).
+            int256 i = int256(bucket);
+            int256 inner = (321 * i) - 0xa3cc; // 321/2¹⁴ ≈ 0.0195923, 0xa3cc/2¹⁴ ≈ 2.559326
+            int256 threshold = (i * inner) >> 14;
+            return uint256(threshold + 116);
+        }
+    }
+
     // gas benchmark 2025/09/20: ~1425 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
         (uint256 x_hi, uint256 x_lo) = x.into();
@@ -1473,7 +1484,6 @@ library Lib512MathArithmetic {
             // Q1.255. However, as a gas optimization, the number of fractional bits in `Y` rises
             // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
             uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
-            uint256 invEThreshold;
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
@@ -1492,20 +1502,16 @@ library Lib512MathArithmetic {
 
                 // Index the table to obtain the initial seed of `Y`.
                 let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
-                // We begin the Newton-Raphson iteraitons with `Y` in Q247.9 format.
+                // We begin the Newton-Raphson iterations with `Y` in Q247.9 format.
                 Y := and(0x3ff, shr(shift, table))
-
-                // Lookup the bucket-specific invE threshold with the same layout (values stored as 10-bit entries).
-                let thresh_hi := 0x13c4e1304811c4510c420f83f0f03b0ec370e0320c4340bc2e0c02a0b02a
-                let thresh_lo := 0x0a02c0a826094280942408024094240801a0841d07c17078210781c0741f
-                let thresh_table := xor(thresh_hi, mul(xor(thresh_lo, thresh_hi), c))
-                invEThreshold := and(0x3ff, shr(shift, thresh_table))
-
-                // The worst-case seed for `Y` occurs when `i = 16`. For monotone quadratic
-                // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
-                // of the `i = 16` bucket, we are 0.407351 (41.3680%) from the lower bound and
-                // 0.275987 (27.1906%) from the higher bound.
             }
+            uint256 bucket = M >> 250; // 16 ≤ bucket ≤ 63
+            uint256 invEThreshold = _invEThresholdFromBucket(bucket); // determines whether the final NR step runs
+
+            // The worst-case seed for `Y` occurs when `bucket = 16`. For monotone quadratic
+            // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
+            // of the `bucket = 16` range, we are 0.407351 (41.3680%) from the lower bound and
+            // 0.275987 (27.1906%) from the higher bound.
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             /// convergence that our final fixup step produces an exact result.
