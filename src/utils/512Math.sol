@@ -7,7 +7,6 @@ import {Clz} from "../vendor/Clz.sol";
 import {Ternary} from "./Ternary.sol";
 import {FastLogic} from "./FastLogic.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
-import {console} from "@forge-std/console.sol";
 
 /*
 
@@ -1433,80 +1432,15 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
-    // hi ≈ x · y / 2²⁵⁶
+    // hi ≈ x · y / 2²⁵⁶ (±1)
     function _inaccurateMulHi(uint256 x, uint256 y) private pure returns (uint256 hi) {
         assembly ("memory-safe") {
             hi := sub(mulmod(x, y, not(0x00)), mul(x, y))
         }
     }
 
-    /// A single Newton-Raphson step for computing the inverse square root
-    ///     Y_next ≈ Y · (3 - M · Y²) / 2
-    ///     Y_next ≈ Y · (3·2²⁵³ - Y² / 2²⁵⁶ · M / 2²⁵⁶) / 2²⁵⁶ · 4
-    /// This iteration is deliberately imprecise. No matter how many times you run it, you won't
-    /// converge `Y` on the closest Q1.255 to √M. However, this is acceptable because the cleanup
-    /// step applied after the final call is very tolerant of error in the low bits of `Y`.
-    function _iSqrtNrFinalStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = _inaccurateMulHi(Y, Y);   // scale: 2²⁵⁴
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
-            uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
-            Y_next = _inaccurateMulHi(Y, T);       // scale: 2²⁵³
-            Y_next <<= 2;                          // restore Q1.255 format (effectively Q1.253)
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q247.9
-    /// instead of a Q1.255 as an optimization for the first iteration. This returns `Y` in Q229.27
-    /// as an optimization for the second iteration.
-    function _iSqrtNrFirstStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 2¹⁸
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁸
-            uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 2¹⁸
-            Y_next = Y * T;                        // scale: 2²⁷
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as Q229.27
-    /// from the first step and returning `Y` as a Q175.81 for the third step.
-    function _iSqrtNrSecondStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2⁵⁴
-            uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 2⁵⁴
-            Y_next = Y * T;                        // scale: 2⁸¹
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a Q175.81
-    /// from the second iteration and returning `Y` as a Q129.127 (instead of a Q1.255) as an
-    /// optimization for the fourth iteration.
-    function _iSqrtNrThirdStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                    // scale: 2¹⁶²
-            uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁶²
-            uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 2¹⁶²
-            Y_next = Y * T >> 116;                 // scale: 2¹²⁷
-        }
-    }
-
-    /// This does the same thing as `_iSqrtNrFinalStep`, but is adjusted for taking `Y` as a
-    /// Q129.127 from the third step, instead of a Q1.255. This returns `Y` as a Q1.255 for either
-    /// the final step or the cleanup.
-    function _iSqrtNrFourthStep(uint256 Y, uint256 M) private pure returns (uint256 Y_next) {
-        unchecked {
-            uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
-            uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
-            uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
-            Y_next = _inaccurateMulHi(Y << 128, T); // scale: 2²⁵³
-            Y_next <<= 2;                           // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
-        }
-    }
-
     function _invEThresholdFromBucket(uint256 bucket) private pure returns (uint256) {
         unchecked {
-            // Quadratic overapproximation in Q14: (((321 * i) - 0xa3cc) * i) >> 14 + 116
             int256 i = int256(bucket);
             int256 inner = (321 * i) - 0xa3cc;
             int256 threshold = (i * inner) >> 14;
@@ -1514,22 +1448,8 @@ library Lib512MathArithmetic {
         }
     }
 
-    // Wrapper for backward compatibility - use 999 as "no override" signal
+    // gas benchmark 2025/09/20: ~1425 gas
     function sqrt(uint512 x) internal pure returns (uint256 r) {
-        return sqrt(x, 999, 0, type(uint256).max);
-    }
-
-    // gas benchmark 2025/09/19: ~1430 gas
-    function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed) internal pure returns (uint256 r) {
-        return sqrt(x, overrideBucket, overrideSeed, type(uint256).max);
-    }
-
-    // Full override version with invEThreshold parameter for testing
-    function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed, uint256 invEThresholdOverride)
-        internal
-        pure
-        returns (uint256 r)
-    {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
         if (x_hi == 0) {
@@ -1549,79 +1469,109 @@ library Lib512MathArithmetic {
             // `e` is half the exponent of `x`
             // e    = ⌊bitlength(x)/2⌋
             // invE = 256 - e
-            uint256 invE = (x_hi.clz() + 1) >> 1; // range: [0 128]
+            uint256 invE = (x_hi.clz() + 1) >> 1; // invE ∈ [0, 128]
 
             // Extract mantissa M by shifting x right by 2·e - 255 bits
-            // `M` is the mantissa of `x`; M ∈ [½, 2)
-            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 255 - 2*e
+            // `M` is the mantissa of `x` as a Q1.255; M ∈ [½, 2)
+            (, uint256 M) = _shr(x_hi, x_lo, 257 - (invE << 1)); // scale: 2⁽²⁵⁵⁻²ᵉ⁾
 
             /// Pick an initial estimate (seed) for Y using a lookup table. Even-exponent
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
-            // `Y` approximates the inverse square root of integer `M` as a Q1.255. As a gas
-            // optimization, on the first step, `Y` is in Q247.9 format and on the second and third
-            // step in Q129.127 format.
-            uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
-            uint256 bucketIndex;
+            // `Y` _ultimately_ approximates the inverse square root of fixnum `M` as a
+            // Q1.255. However, as a gas optimization, the number of fractional bits in `Y` rises
+            // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
+            uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
                 let i := shr(0xfa, M)
-                bucketIndex := i
-                // Check if we should override this bucket's seed
-                if eq(i, overrideBucket) {
-                    Y := overrideSeed
-                }
-                // Otherwise use the normal lookup table
-                if iszero(eq(i, overrideBucket)) {
-                    // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
-                    // to select which table we index.
-                    let c := lt(0x27, i)
+                // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
+                // to select which table we index.
+                let c := lt(0x27, i)
 
-                    // Each entry is 10 bits and the entries are ordered from lowest `i` to
-                    // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
-                    // to 10 significant bits.
-                    let table_hi := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
-                    let table_lo := 0xb26b4a8690a027198e559263e8ce2887a15832047f1f47b5e677dd974dcd
-                    let table := xor(table_lo, mul(xor(table_hi, table_lo), c))
+                // Each entry is 10 bits and the entries are ordered from lowest `i` to
+                // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
+                // to 10 significant bits.
+                let table_hi := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
+                let table_lo := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
+                let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
-                    // Index the table to obtain the initial seed of `Y`
-                    let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
-                    Y := and(0x3ff, shr(shift, table))
-                }
+                // Index the table to obtain the initial seed of `Y`.
+                let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
+                // We begin the Newton-Raphson iteraitons with `Y` in Q247.9 format.
+                Y := and(0x3ff, shr(shift, table))
+
+                // The worst-case seed for `Y` occurs when `i = 16`. For monotone quadratic
+                // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
+                // of the `i = 16` bucket, we are 0.407351 (41.3680%) from the lower bound and
+                // 0.275987 (27.1906%) from the higher bound.
             }
-            console.log("sqrt debug: M=", M);
-            console.log("sqrt debug: invE=", invE);
-            console.log("sqrt debug: bucket i=", bucketIndex);
-            console.log("sqrt debug: initial Y=", Y);
 
-            uint256 invEThreshold = invEThresholdOverride;
-            if (invEThreshold == type(uint256).max) {
-                invEThreshold = _invEThresholdFromBucket(bucketIndex);
-            }
-            console.log("sqrt debug: invE threshold=", invEThreshold);
+            uint256 bucket = M >> 250;
+            uint256 invEThreshold = _invEThresholdFromBucket(bucket);
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             /// convergence that our final fixup step produces an exact result.
-            Y = _iSqrtNrFirstStep(Y, M);
-            Y = _iSqrtNrSecondStep(Y, M);
-            Y = _iSqrtNrThirdStep(Y, M);
-            Y = _iSqrtNrFourthStep(Y, M);
-            console.log("sqrt debug: Y after 4 NR steps=", Y);
+            // The Newton-Raphson iteration for 1/√M is:
+            //     Y ≈ Y · (3 - M · Y²) / 2
+            // The implementation of this iteration is deliberately imprecise. No matter how many
+            // times you run it, you won't converge `Y` on the closest Q1.255 to √M. However, this
+            // is acceptable because the cleanup step applied after the final call is very tolerant
+            // of error in the low bits of `Y`.
+
+            // `M` is Q1.255
+            // `Y` is Q247.9
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2¹⁸
+                // Because `M` is Q1.255, multiplying `Y2` by `M` and taking the high word
+                // implicitly divides `MY2` by 2. We move the division by 2 inside the subtraction
+                // from 3 by adjusting the minuend.
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁸
+                uint256 T = 1.5 * 2 ** 18 - MY2;       // scale: 2¹⁸
+                Y *= T;                                // scale: 2²⁷
+            }
+            // `Y` is Q229.27
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2⁵⁴
+                uint256 T = 1.5 * 2 ** 54 - MY2;       // scale: 2⁵⁴
+                Y *= T;                                // scale: 2⁸¹
+            }
+            // `Y` is Q175.81
+            {
+                uint256 Y2 = Y * Y;                    // scale: 2¹⁶²
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2¹⁶²
+                uint256 T = 1.5 * 2 ** 162 - MY2;      // scale: 2¹⁶²
+                Y = Y * T >> 116;                      // scale: 2¹²⁷
+            }
+            // `Y` is Q129.127
             if (invE < invEThreshold) {
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
-                Y = _iSqrtNrFinalStep(Y, M);
-                console.log("sqrt debug: Y after 5th NR step=", Y);
+                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 2, T);        // scale: 2¹²⁷
             }
+            // `Y` is Q129.127
+            {
+                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 128, T);      // scale: 2²⁵³
+                Y <<= 2;                                // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
+            }
+            // `Y` is Q1.255
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
             /// comes in because the half-scale is integral.
-            ///     Y   ≈ 2³⁸³ / √(2·M)
             ///     M   = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
+            ///     Y   ≈ 2²⁵⁵ / √(M / 2²⁵⁵)
+            ///     Y   ≈ 2³⁸³ / √(2·M)
             ///     M·Y ≈ 2³⁸³ · √(M/2)
             ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
             ///     r0  ≈ M·Y / 2⁽⁵¹⁰⁻ᵉ⁾ ≈ ⌊√x⌋
@@ -1637,7 +1587,7 @@ library Lib512MathArithmetic {
             // because the value the upper word of the quotient can take is highly constrained, we
             // can compute the quotient mod 2²⁵⁶ and recover the high word separately. Although
             // `_div` does an expensive Newton-Raphson-Hensel modular inversion:
-            //     ⌊x/r0⌋ ≡ x·r0⁻¹ mod 2²⁵⁶ (for odd r0)
+            //     ⌊x/r0⌋ ≡ ⌊x/2ⁿ⌋·⌊r0/2ⁿ⌋⁻¹ mod 2²⁵⁶ (for r0 % 2ⁿ = 0 ∧ r % 2⁽ⁿ⁺¹⁾ = 2ⁿ)
             // and we already have a pretty good estimate for r0⁻¹, namely `Y`, refining `Y` into
             // the appropriate inverse requires a series of 768-bit multiplications that take more
             // gas.
@@ -1653,15 +1603,7 @@ library Lib512MathArithmetic {
             /// check whether we've overstepped by 1 and clamp as appropriate. ref:
             /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
             (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
-            console.log("sqrt debug: r1=", r1);
-            console.log("sqrt debug: r1^2 hi=", r2_hi);
-            console.log("sqrt debug: r1^2 lo=", r2_lo);
-            console.log("sqrt debug: x_hi=", x_hi);
-            console.log("sqrt debug: x_lo=", x_lo);
-            bool shouldDecrement = _gt(r2_hi, r2_lo, x_hi, x_lo);
-            console.log("sqrt debug: should decrement=", shouldDecrement ? 1 : 0);
-            r = r1.unsafeDec(shouldDecrement);
-            console.log("sqrt debug: final r=", r);
+            r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
         }
     }
 }
