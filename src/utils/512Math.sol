@@ -1472,7 +1472,7 @@ library Lib512MathArithmetic {
             // `Y` _ultimately_ approximates the inverse square root of fixnum `M` as a
             // Q3.253. However, as a gas optimization, the number of fractional bits in `Y` rises
             // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
-            uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
+            uint256 Y; // scale: 2⁽²⁵³⁺ᵉ⁾
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
@@ -1535,10 +1535,13 @@ library Lib512MathArithmetic {
                 Y = Y * T >> 116;                      // scale: 2¹²⁷
             }
             // `Y` is Q129.127
-            if (invE < 79) { // Empirically, 79 is the correct limit. 78 causes fuzzing errors.
-                // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
-                // correct bits that this iteration would obtain are shifted away during the
-                // denormalization step. This branch is net gas-optimizing.
+            if (invE < 95 - Mbucket) {
+                // Generally speaking, for relatively smaller `e` (lower values of `x`) and for
+                // relatively larger `M`, we can skip the 5th N-R iteration. The constant `95` is
+                // derived by extensive fuzzing. Attempting a higher-order approximation of the
+                // relationship between `M` and `invE` consumes, on average, more gas. The correct
+                // bits that this iteration would obtain are shifted away during the denormalization
+                // step. This branch is net gas-optimizing.
                 uint256 Y2 = Y * Y;                    // scale: 2²⁵⁴
                 uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
                 uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
