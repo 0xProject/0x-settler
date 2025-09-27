@@ -1477,10 +1477,10 @@ library Lib512MathArithmetic {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
-                let i := shr(0xfa, M)
+                let Mbucket := shr(0xfa, M)
                 // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
                 // to select which table we index.
-                let c := lt(0x27, i)
+                let c := lt(0x27, Mbucket)
 
                 // Each entry is 10 bits and the entries are ordered from lowest `i` to
                 // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
@@ -1490,13 +1490,13 @@ library Lib512MathArithmetic {
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
                 // Index the table to obtain the initial seed of `Y`.
-                let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
-                // We begin the Newton-Raphson iteraitons with `Y` in Q247.9 format.
+                let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), Mbucket)))
+                // We begin the Newton-Raphson iterations with `Y` in Q247.9 format.
                 Y := and(0x3ff, shr(shift, table))
 
-                // The worst-case seed for `Y` occurs when `i = 16`. For monotone quadratic
+                // The worst-case seed for `Y` occurs when `Mbucket = 16`. For monotone quadratic
                 // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
-                // of the `i = 16` bucket, we are 0.407351 (41.3680%) from the lower bound and
+                // of the `Mbucket = 16` range, we are 0.407351 (41.3680%) from the lower bound and
                 // 0.275987 (27.1906%) from the higher bound.
             }
 
@@ -1539,18 +1539,18 @@ library Lib512MathArithmetic {
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
-                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
-                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
-                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
-                Y = _inaccurateMulHi(Y << 2, T);        // scale: 2¹²⁷
+                uint256 Y2 = Y * Y;                    // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 2, T);       // scale: 2¹²⁷
             }
             // `Y` is Q129.127
             {
-                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
-                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
-                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
-                Y = _inaccurateMulHi(Y << 128, T);      // scale: 2²⁵³
-                Y <<= 2;                                // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
+                uint256 Y2 = Y * Y;                    // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 128, T);     // scale: 2²⁵³
+                Y <<= 2;                               // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
             }
             // `Y` is Q1.255
 
