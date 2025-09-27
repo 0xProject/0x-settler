@@ -1504,18 +1504,33 @@ library Lib512MathArithmetic {
         }
     }
 
+    function _invEThresholdFromBucket(uint256 bucket) private pure returns (uint256) {
+        unchecked {
+            // Quadratic overapproximation in Q12: ((79*i - 0x28a3) * i) / 2^12 + 116
+            uint256 bucketSquared = bucket * bucket; // ≤ 3969 for valid buckets
+            uint256 numerator = 116 << 12;           // keep constant term in Q12 to avoid underflow on subtraction
+            numerator += 0x4f * bucketSquared;       // 79 * i^2 in Q12
+            numerator -= 0x28a3 * bucket;            // subtract linear term; stays positive after previous additions
+            return numerator >> 12;
+        }
+    }
+
     // Wrapper for backward compatibility - use 999 as "no override" signal
     function sqrt(uint512 x) internal pure returns (uint256 r) {
-        return sqrt(x, 999, 0, 79);
+        return sqrt(x, 999, 0, type(uint256).max);
     }
 
     // gas benchmark 2025/09/19: ~1430 gas
     function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed) internal pure returns (uint256 r) {
-        return sqrt(x, overrideBucket, overrideSeed, 79);
+        return sqrt(x, overrideBucket, overrideSeed, type(uint256).max);
     }
 
     // Full override version with invEThreshold parameter for testing
-    function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed, uint256 invEThreshold) internal pure returns (uint256 r) {
+    function sqrt(uint512 x, uint256 overrideBucket, uint256 overrideSeed, uint256 invEThresholdOverride)
+        internal
+        pure
+        returns (uint256 r)
+    {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
         if (x_hi == 0) {
@@ -1548,13 +1563,13 @@ library Lib512MathArithmetic {
             // optimization, on the first step, `Y` is in Q247.9 format and on the second and third
             // step in Q129.127 format.
             uint256 Y; // scale: 255 + e (scale relative to M: 382.5)
-            uint256 i_debug;
+            uint256 bucketIndex;
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
                 let i := shr(0xfa, M)
-                i_debug := i
+                bucketIndex := i
                 // Check if we should override this bucket's seed
                 if eq(i, overrideBucket) {
                     Y := overrideSeed
@@ -1579,8 +1594,14 @@ library Lib512MathArithmetic {
             }
             console.log("sqrt debug: M=", M);
             console.log("sqrt debug: invE=", invE);
-            console.log("sqrt debug: bucket i=", i_debug);
+            console.log("sqrt debug: bucket i=", bucketIndex);
             console.log("sqrt debug: initial Y=", Y);
+
+            uint256 invEThreshold = invEThresholdOverride;
+            if (invEThreshold == type(uint256).max) {
+                invEThreshold = _invEThresholdFromBucket(bucketIndex);
+            }
+            console.log("sqrt debug: invE threshold=", invEThreshold);
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             /// convergence that our final fixup step produces an exact result.
@@ -1589,7 +1610,7 @@ library Lib512MathArithmetic {
             Y = _iSqrtNrThirdStep(Y, M);
             Y = _iSqrtNrFourthStep(Y, M);
             console.log("sqrt debug: Y after 4 NR steps=", Y);
-            if (invE < invEThreshold) { // Default threshold is 79. Lower values may cause errors.
+            if (invE < invEThreshold) {
                 // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
                 // correct bits that this iteration would obtain are shifted away during the
                 // denormalization step. This branch is net gas-optimizing.
