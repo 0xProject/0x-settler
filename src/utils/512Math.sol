@@ -1441,6 +1441,8 @@ library Lib512MathArithmetic {
 
     function _invEThresholdFromBucket(uint256 bucket) private pure returns (uint256) {
         unchecked {
+            // Derived by exhaustive search over the measured bucket thresholds: f(i) = ceil(0.01959228515625·i² - 2.559326171875·i + 116).
+            // The Q14 constants encode 0.01959228515625 (321 / 2¹⁴) and 2.559326171875 (41932 / 2¹⁴).
             int256 i = int256(bucket);
             int256 inner = (321 * i) - 0xa3cc;
             int256 threshold = (i * inner) >> 14;
