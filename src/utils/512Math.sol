@@ -1439,13 +1439,13 @@ library Lib512MathArithmetic {
         }
     }
 
-    function _invEThresholdFromBucket(uint256 bucket) private pure returns (uint256) {
+    function _invEThreshold(uint256 bucket) private pure returns (uint256) {
         unchecked {
             // Derived by exhaustive search over the measured bucket thresholds:
             // f(i) = ceil(0.01959228515625 · i² - 2.559326171875 · i + 116).
-            int256 i = int256(bucket);
-            int256 inner = (321 * i) - 0xa3cc; // 321/2¹⁴ ≈ 0.0195923, 0xa3cc/2¹⁴ ≈ 2.559326
-            int256 threshold = (i * inner) >> 14;
+            // underflow doesn't matter here because the result will be positive by the end.
+            uint256 inner = (321 * bucket) - 0xa3cc; // 321/2¹⁴ ≈ 0.0195923, 0xa3cc/2¹⁴ ≈ 2.559326
+            uint256 threshold = (bucket * inner) >> 14;
             return uint256(threshold + 116);
         }
     }
@@ -1484,14 +1484,15 @@ library Lib512MathArithmetic {
             // Q1.255. However, as a gas optimization, the number of fractional bits in `Y` rises
             // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
             uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
+            uint256 Mbucket;
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
-                let i := shr(0xfa, M)
+                Mbucket := shr(0xfa, M)
                 // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
                 // to select which table we index.
-                let c := lt(0x27, i)
+                let c := lt(0x27, Mbucket)
 
                 // Each entry is 10 bits and the entries are ordered from lowest `i` to
                 // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
@@ -1501,17 +1502,15 @@ library Lib512MathArithmetic {
                 let table := xor(table_hi, mul(xor(table_lo, table_hi), c))
 
                 // Index the table to obtain the initial seed of `Y`.
-                let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), i)))
+                let shift := add(0x186, mul(0x0a, sub(mul(0x18, c), Mbucket)))
                 // We begin the Newton-Raphson iterations with `Y` in Q247.9 format.
                 Y := and(0x3ff, shr(shift, table))
-            }
-            uint256 bucket = M >> 250; // 16 ≤ bucket ≤ 63
-            uint256 invEThreshold = _invEThresholdFromBucket(bucket); // determines whether the final NR step runs
 
-            // The worst-case seed for `Y` occurs when `bucket = 16`. For monotone quadratic
-            // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
-            // of the `bucket = 16` range, we are 0.407351 (41.3680%) from the lower bound and
-            // 0.275987 (27.1906%) from the higher bound.
+                // The worst-case seed for `Y` occurs when `Mbucket = 16`. For monotone quadratic
+                // convergence, we desire that 1/√3 < Y·√M < √(5/3). At the boundaries (worst case)
+                // of the `Mbucket = 16` range, we are 0.407351 (41.3680%) from the lower bound and
+                // 0.275987 (27.1906%) from the higher bound.
+            }
 
             /// Perform 5 Newton-Raphson iterations. 5 is enough iterations for sufficient
             /// convergence that our final fixup step produces an exact result.
@@ -1548,22 +1547,24 @@ library Lib512MathArithmetic {
                 Y = Y * T >> 116;                      // scale: 2¹²⁷
             }
             // `Y` is Q129.127
-            if (invE < invEThreshold) {
-                // For small `e` (lower values of `x`), we can skip the 5th N-R iteration. The
-                // correct bits that this iteration would obtain are shifted away during the
-                // denormalization step. This branch is net gas-optimizing.
-                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
-                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
-                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
-                Y = _inaccurateMulHi(Y << 2, T);        // scale: 2¹²⁷
+            if (invE < _invEThreshold(Mbucket)) {
+                // Generally speaking, for relatively smaller `e` (lower values of `x`) and for
+                // relatively larger `M`, we can skip the 5th N-R iteration. The specifics are
+                // approximated by the function `_invEThreshold`. The correct bits that this
+                // iteration would obtain are shifted away during the denormalization step. This
+                // branch is net gas-optimizing.
+                uint256 Y2 = Y * Y;                    // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 2, T);       // scale: 2¹²⁷
             }
             // `Y` is Q129.127
             {
-                uint256 Y2 = Y * Y;                     // scale: 2²⁵⁴
-                uint256 MY2 = _inaccurateMulHi(M, Y2);  // scale: 2²⁵⁴
-                uint256 T = 1.5 * 2 ** 254 - MY2;       // scale: 2²⁵⁴
-                Y = _inaccurateMulHi(Y << 128, T);      // scale: 2²⁵³
-                Y <<= 2;                                // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
+                uint256 Y2 = Y * Y;                    // scale: 2²⁵⁴
+                uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
+                uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
+                Y = _inaccurateMulHi(Y << 128, T);     // scale: 2²⁵³
+                Y <<= 2;                               // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
             }
             // `Y` is Q1.255
 
