@@ -1473,11 +1473,12 @@ library Lib512MathArithmetic {
             // Q3.253. However, as a gas optimization, the number of fractional bits in `Y` rises
             // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
             uint256 Y; // scale: 2⁽²⁵³⁺ᵉ⁾
+            uint256 Mbucket;
             assembly ("memory-safe") {
                 // Extract the upper 6 bits of `M` to be used as a table index. `M >> 250 < 16` is
                 // invalid (that would imply M<½), so our lookup table only needs to handle only 16
                 // through 63.
-                let Mbucket := shr(0xfa, M)
+                Mbucket := shr(0xfa, M)
                 // We can't fit 48 seeds into a single word, so we split the table in 2 and use `c`
                 // to select which table we index.
                 let c := lt(0x27, Mbucket)
