@@ -100,9 +100,9 @@ class ThresholdOptimizer:
             The minimum threshold that produces valid seed ranges
         """
         print(f"\nFinding minimum invEThreshold for bucket {self.bucket}:")
-        print(f"  Binary search in range [35, 79] with {self.fuzz_runs} fuzz runs...")
+        print(f"  Binary search in range [1, 79] with {self.fuzz_runs} fuzz runs...")
 
-        left, right = 35, 79
+        left, right = 1, 79
         last_working = 79  # We know 79 works
 
         while left <= right:
