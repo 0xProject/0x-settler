@@ -1506,12 +1506,12 @@ library Lib512MathArithmetic {
 
     function _invEThresholdFromBucket(uint256 bucket) private pure returns (uint256) {
         unchecked {
-            // Quadratic overapproximation in Q12: ((80*i - 0x28e7) * i) / 2^12 + 116
+            // Quadratic overapproximation in Q14: ((321*i - 0xa3cc) * i) / 2^14 + 116
             uint256 bucketSquared = bucket * bucket; // ≤ 3969 for valid buckets
-            uint256 numerator = 116 << 12;           // keep constant term in Q12 to avoid underflow on subtraction
-            numerator += 0x50 * bucketSquared;       // 80 * i^2 in Q12
-            numerator -= 0x28e7 * bucket;            // subtract linear term; stays positive after previous additions
-            return numerator >> 12;
+            uint256 numerator = 116 << 14;           // keep constant term in Q14 to avoid underflow on subtraction
+            numerator += 0x141 * bucketSquared;      // 321 * i^2 in Q14
+            numerator -= 0xa3cc * bucket;            // subtract linear term; stays positive after previous additions
+            return numerator >> 14;
         }
     }
 
