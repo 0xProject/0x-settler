@@ -1470,7 +1470,7 @@ library Lib512MathArithmetic {
             /// normalization means our mantissa is geometrically symmetric around 1, leading to 16
             /// buckets on the low side and 32 buckets on the high side.
             // `Y` _ultimately_ approximates the inverse square root of fixnum `M` as a
-            // Q1.255. However, as a gas optimization, the number of fractional bits in `Y` rises
+            // Q3.253. However, as a gas optimization, the number of fractional bits in `Y` rises
             // through the steps, giving an inhomogeneous fixed-point representation. Y ≈∈ [√½, √2]
             uint256 Y; // scale: 2⁽²⁵⁵⁺ᵉ⁾
             assembly ("memory-safe") {
@@ -1505,7 +1505,7 @@ library Lib512MathArithmetic {
             // The Newton-Raphson iteration for 1/√M is:
             //     Y ≈ Y · (3 - M · Y²) / 2
             // The implementation of this iteration is deliberately imprecise. No matter how many
-            // times you run it, you won't converge `Y` on the closest Q1.255 to √M. However, this
+            // times you run it, you won't converge `Y` on the closest Q3.253 to √M. However, this
             // is acceptable because the cleanup step applied after the final call is very tolerant
             // of error in the low bits of `Y`.
 
@@ -1550,23 +1550,22 @@ library Lib512MathArithmetic {
                 uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
                 uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
                 Y = _inaccurateMulHi(Y << 128, T);     // scale: 2²⁵³
-                Y <<= 2;                               // scale: 2²⁵⁵ (Q1.255 format; effectively Q1.253)
             }
-            // `Y` is Q1.255
+            // `Y` is Q3.253
 
             /// When we combine `Y` with `M` to form our approximation of the square root, we have
             /// to un-normalize by the half-scale value. This is where even-exponent normalization
             /// comes in because the half-scale is integral.
             ///     M   = ⌊x · 2⁽²⁵⁵⁻²ᵉ⁾⌋
-            ///     Y   ≈ 2²⁵⁵ / √(M / 2²⁵⁵)
-            ///     Y   ≈ 2³⁸³ / √(2·M)
-            ///     M·Y ≈ 2³⁸³ · √(M/2)
-            ///     M·Y ≈ 2⁽⁵¹⁰⁻ᵉ⁾ · √x
-            ///     r0  ≈ M·Y / 2⁽⁵¹⁰⁻ᵉ⁾ ≈ ⌊√x⌋
-            // We shift right by `510 - e` to account for both the Q1.255 scaling and
+            ///     Y   ≈ 2²⁵³ / √(M / 2²⁵⁵)
+            ///     Y   ≈ 2³⁸¹ / √(2·M)
+            ///     M·Y ≈ 2³⁸¹ · √(M/2)
+            ///     M·Y ≈ 2⁽⁵⁰⁸⁻ᵉ⁾ · √x
+            ///     r0  ≈ M·Y / 2⁽⁵⁰⁸⁻ᵉ⁾ ≈ ⌊√x⌋
+            // We shift right by `508 - e` to account for both the Q3.253 scaling and
             // denormalization. We don't care about accuracy in the low bits of `r0`, so we can cut
             // some corners.
-            (, uint256 r0) = _shr(_inaccurateMulHi(M, Y), 0, 254 + invE);
+            (, uint256 r0) = _shr(_inaccurateMulHi(M, Y), 0, 252 + invE);
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
             /// converge on ⌊√x⌋ or ⌈√x⌉.  The Babylonian step is:
