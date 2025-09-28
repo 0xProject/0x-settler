@@ -1149,7 +1149,8 @@ library Lib512MathArithmetic {
     function _shr256(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_hi := shr(s, x_hi)
-            r_lo := or(shl(sub(0x100, s), x_hi), shr(s, x_lo))
+            r_lo := shr(s, x_lo)
+            r_lo := or(shl(sub(0x100, s), x_hi), r_lo)
         }
     }
 
@@ -1485,7 +1486,7 @@ library Lib512MathArithmetic {
 
                 // Each entry is 10 bits and the entries are ordered from lowest `i` to highest. The
                 // seed is the value for `Y` for the midpoint of the bucket, rounded to 10
-                // significant bits. That is, Y ≈ √(2·M_mid), as a Q247.9. The 2 comes from the
+                // significant bits. That is, Y ≈ 1/√(2·M_mid), as a Q247.9. The 2 comes from the
                 // half-scale difference between Y and √M. The optimality of this choice was
                 // verified by fuzzing.
                 let table_hi := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
