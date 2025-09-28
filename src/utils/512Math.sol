@@ -1483,9 +1483,11 @@ library Lib512MathArithmetic {
                 // to select which table we index.
                 let c := lt(0x27, Mbucket)
 
-                // Each entry is 10 bits and the entries are ordered from lowest `i` to
-                // highest. The seed is the value for `Y` for the midpoint of the bucket, rounded
-                // to 10 significant bits.
+                // Each entry is 10 bits and the entries are ordered from lowest `i` to highest. The
+                // seed is the value for `Y` for the midpoint of the bucket, rounded to 10
+                // significant bits. That is, Y ≈ √(2·M_mid), as a Q247.9. The 2 comes from the
+                // half-scale difference between Y and √M. The optimality of this choice was
+                // verified by fuzzing.
                 let table_hi := 0x71dc26f1b76c9ad6a5a46819c661946418c621856057e5ed775d1715b96b
                 let table_lo := 0xb26b4a8690a027198e559263e8ce2887e15832047f1f47b5e677dd974dcd
                 let table := xor(table_lo, mul(xor(table_hi, table_lo), c))
