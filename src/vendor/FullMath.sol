@@ -128,9 +128,7 @@ library FullMath {
         // Make sure the result is less than 2**256.
         // Also prevents denominator == 0
         if (denominator <= prod1) {
-            unchecked {
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW.unsafeInc(denominator == 0));
-            }
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW.unsafeInc(denominator == 0));
         }
 
         // Handle non-overflow cases, 256 by 256 division
@@ -150,9 +148,7 @@ library FullMath {
         // Make sure the result is less than 2**256.
         // Also prevents denominator == 0
         if (denominator <= prod1) {
-            unchecked {
-                Panic.panic(Panic.ARITHMETIC_OVERFLOW.unsafeInc(denominator == 0));
-            }
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW.unsafeInc(denominator == 0));
         }
 
         // Handle non-overflow cases, 256 by 256 division

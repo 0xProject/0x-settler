@@ -18,6 +18,36 @@ import {AbstractContext} from "../../Context.sol";
 contract MainnetSettler is Settler, MainnetMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
+    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+        internal
+        override(Settler, MainnetMixin)
+        returns (bool)
+    {
+        if (super._dispatch(i, action, data)) {
+            return true;
+        } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
+            (uint256 deadline, uint256 msgValue) = abi.decode(data, (uint256, uint256));
+            if (block.timestamp > deadline) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
+                    mstore(0x20, deadline)
+                    revert(0x1c, 0x24)
+                }
+            }
+            if (msg.value > msgValue) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x4a094431) // selector for `MsgValueMismatch(uint256,uint256)`
+                    mstore(0x20, msgValue)
+                    mstore(0x40, callvalue())
+                    revert(0x1c, 0x44)
+                }
+            }
+        } else {
+            return false;
+        }
+        return true;
+    }
+
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
@@ -61,14 +91,6 @@ contract MainnetSettler is Settler, MainnetMixin {
         returns (bool)
     {
         return super._isRestrictedTarget(target);
-    }
-
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
-        internal
-        override(Settler, MainnetMixin)
-        returns (bool)
-    {
-        return super._dispatch(i, action, data);
     }
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {

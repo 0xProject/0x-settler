@@ -542,28 +542,31 @@ library EulerSwapLib {
         pure
         returns (uint256)
     {
+        uint256 px = p.priceX();
+        uint256 py = p.priceY();
+        uint256 x0 = p.equilibriumReserve0();
+        uint256 y0 = p.equilibriumReserve1();
+
         unchecked {
             uint256 amountWithFee = amount - (amount * p.fee() / 1e18);
             if (zeroForOne) {
                 // swap X in and Y out
                 uint256 xNew = reserve0 + amountWithFee;
-                uint256 x0 = p.equilibriumReserve0();
                 uint256 yNew = xNew <= x0
                     // remain on f()
-                    ? CurveLib.saturatingF(xNew, p.priceX(), p.priceY(), x0, p.equilibriumReserve1(), p.concentrationX())
+                    ? CurveLib.saturatingF(xNew, px, py, x0, y0, p.concentrationX())
                     // move to g()
-                    : CurveLib.fInverse(xNew, p.priceY(), p.priceX(), p.equilibriumReserve1(), x0, p.concentrationY());
+                    : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
                 yNew = yNew.unsafeInc(yNew == 0);
                 return reserve1.saturatingSub(yNew);
             } else {
                 // swap Y in and X out
                 uint256 yNew = reserve1 + amountWithFee;
-                uint256 y0 = p.equilibriumReserve1();
                 uint256 xNew = yNew <= y0
                     // remain on g()
-                    ? CurveLib.saturatingF(yNew, p.priceY(), p.priceX(), y0, p.equilibriumReserve0(), p.concentrationY())
+                    ? CurveLib.saturatingF(yNew, py, px, y0, x0, p.concentrationY())
                     // move to f()
-                    : CurveLib.fInverse(yNew, p.priceX(), p.priceY(), p.equilibriumReserve0(), y0, p.concentrationX());
+                    : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
                 xNew = xNew.unsafeInc(xNew == 0);
                 return reserve0.saturatingSub(xNew);
             }
@@ -622,26 +625,31 @@ library EulerSwapLib {
         }
 
         uint256 inLimitFromOutLimit;
-        if (zeroForOne) {
-            // swap Y out and X in
-            uint256 yNew = reserve1.saturatingSub(outLimit);
-            uint256 y0 = p.equilibriumReserve1();
-            uint256 xNew = yNew <= y0
-                // remain on g()
-                ? CurveLib.saturatingF(yNew, p.priceY(), p.priceX(), y0, p.equilibriumReserve0(), p.concentrationY())
-                // move to f()
-                : CurveLib.fInverse(yNew, p.priceX(), p.priceY(), p.equilibriumReserve0(), y0, p.concentrationX());
-            inLimitFromOutLimit = xNew.saturatingSub(reserve0);
-        } else {
-            // swap X out and Y in
-            uint256 xNew = reserve0.saturatingSub(outLimit);
+        {
+            uint256 px = p.priceX();
+            uint256 py = p.priceY();
             uint256 x0 = p.equilibriumReserve0();
-            uint256 yNew = xNew <= x0
-                // remain on f()
-                ? CurveLib.saturatingF(xNew, p.priceX(), p.priceY(), x0, p.equilibriumReserve1(), p.concentrationX())
-                // move to g()
-                : CurveLib.fInverse(xNew, p.priceY(), p.priceX(), p.equilibriumReserve1(), x0, p.concentrationY());
-            inLimitFromOutLimit = yNew.saturatingSub(reserve1);
+            uint256 y0 = p.equilibriumReserve1();
+
+            if (zeroForOne) {
+                // swap Y out and X in
+                uint256 yNew = reserve1.saturatingSub(outLimit);
+                uint256 xNew = yNew <= y0
+                    // remain on g()
+                    ? CurveLib.saturatingF(yNew, py, px, y0, x0, p.concentrationY())
+                    // move to f()
+                    : CurveLib.fInverse(yNew, px, py, x0, y0, p.concentrationX());
+                inLimitFromOutLimit = xNew.saturatingSub(reserve0);
+            } else {
+                // swap X out and Y in
+                uint256 xNew = reserve0.saturatingSub(outLimit);
+                uint256 yNew = xNew <= x0
+                    // remain on f()
+                    ? CurveLib.saturatingF(xNew, px, py, x0, y0, p.concentrationX())
+                    // move to g()
+                    : CurveLib.fInverse(xNew, py, px, y0, x0, p.concentrationY());
+                inLimitFromOutLimit = yNew.saturatingSub(reserve1);
+            }
         }
 
         unchecked {
@@ -668,12 +676,16 @@ library EulerSwapLib {
         }
     }
 
-    function checkSolvency(IEVC evc, ParamsLib.Params p, bool zeroForOne, uint256 amountIn, uint256 amountOut)
-        internal
-        view
-        returns (bool)
-    {
-        IEVault[] memory collaterals = evc.fastGetCollaterals(p.eulerAccount());
+    function checkSolvency(
+        IEVC evc,
+        address account,
+        address vault0,
+        address vault1,
+        bool zeroForOne,
+        uint256 amountIn,
+        uint256 amountOut
+    ) internal view returns (bool) {
+        IEVault[] memory collaterals = evc.fastGetCollaterals(account);
         // The EVC enforces that there can be at most 1 controller for an Euler
         // account. Consequently, there is only 1 vault in which the account can incur debt. If
         // there is no controller (i.e. no debt) then `debtVault` will be zero.
@@ -683,7 +695,7 @@ library EulerSwapLib {
         uint256 debt;
 
         {
-            IEVault[] memory controllers = evc.fastGetControllers(p.eulerAccount());
+            IEVault[] memory controllers = evc.fastGetControllers(account);
 
             if (controllers.length > 1) {
                 // Not possible unless we're already inside a EVC batch with deferred checks. An
@@ -692,16 +704,16 @@ library EulerSwapLib {
             }
             if (controllers.length == 1) {
                 debtVault = controllers.get(controllers.iter());
-                debt = debtVault.fastDebtOf(p.eulerAccount());
+                debt = debtVault.fastDebtOf(account);
             }
         }
 
         IEVault sellVault;
         IEVault buyVault;
         {
-            (IERC20 sellVault_, IERC20 buyVault_) = zeroForOne.maybeSwap(p.vault1(), p.vault0());
-            sellVault = IEVault(address(sellVault_));
-            buyVault = IEVault(address(buyVault_));
+            (address sellVault_, address buyVault_) = zeroForOne.maybeSwap(vault1, vault0);
+            sellVault = IEVault(sellVault_);
+            buyVault = IEVault(buyVault_);
         }
 
         // `newDebt` is new, underlying-denominated debt in the buy token incurred after the
@@ -719,7 +731,7 @@ library EulerSwapLib {
 
         // Compute the effect of sending `amountOut` of the buy token to the taker.
         {
-            uint256 collateralBalance = buyVault.fastConvertToAssets(buyVault.fastBalanceOf(p.eulerAccount()));
+            uint256 collateralBalance = buyVault.fastConvertToAssets(buyVault.fastBalanceOf(account));
             if (collateralBalance < amountOut) {
                 unchecked {
                     newDebt = amountOut - collateralBalance;
@@ -812,8 +824,7 @@ library EulerSwapLib {
                 (EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end()); i != end; i = i.next()
             ) {
                 IEVault collateralVault = collaterals.get(i);
-                uint256 collateralAmount =
-                    collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(p.eulerAccount()));
+                uint256 collateralAmount = collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(account));
                 if (collateralVault == sellVault) {
                     unchecked {
                         collateralAmount += newCollateral;
