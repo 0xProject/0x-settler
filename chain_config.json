@@ -27,7 +27,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api-sepolia.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=11155111",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mainnet": {
@@ -58,7 +58,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=1",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "polygon": {
@@ -89,7 +89,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.polygonscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=137",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "base": {
@@ -120,7 +120,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.basescan.org/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=8453",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "optimism": {
@@ -151,7 +151,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api-optimistic.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=10",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "arbitrum": {
@@ -182,7 +182,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.arbiscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=42161",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "bsc": {
@@ -213,7 +213,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.bscscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=56",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "avalanche": {
@@ -275,7 +275,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.blastscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=81457"
   },
   "linea": {
     "chainId": 59144,
@@ -305,7 +305,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.lineascan.build/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=59144",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "scroll": {
@@ -336,7 +336,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.scrollscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=534352",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mantle": {
@@ -367,7 +367,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.mantlescan.xyz/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=5000",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mode": {
@@ -429,7 +429,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.taikoscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=167000"
   },
   "world": {
     "chainId": 480,
@@ -459,7 +459,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.worldscan.org/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=480",
     "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
   },
   "xdai": {
@@ -490,7 +490,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.gnosisscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=100",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "sonic": {
@@ -521,7 +521,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.sonicscan.org/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=146"
   },
   "ink": {
     "chainId": 57073,
@@ -581,8 +581,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
-    "blockscoutApi": "https://api.socialscan.io/monad-testnet/v1/explorer/command_api/contract"
+    "sourcifyApi": "https://sourcify-api-monad.blockvision.org"
   },
   "unichain": {
     "chainId": 130,
@@ -612,7 +611,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.uniscan.xyz/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=130",
     "blockscoutApi": "https://unichain.blockscout.com/api"
   },
   "berachain": {
@@ -643,7 +642,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.berascan.com/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=80094"
   },
   "hyperliquid": {
     "chainId": 999,
