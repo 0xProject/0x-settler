@@ -126,7 +126,7 @@ your integration.
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana)
+  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
@@ -697,28 +697,28 @@ comparison.
 | UniversalRouter | UniswapV3 | USDC/WETH | 177828 | -2.04%  |
 | Settler         | UniswapV3 | USDC/WETH | 220297 | 21.35%  |
 | UniversalRouter | UniswapV4 | USDC/WETH | 142771 | -21.35% |
-| Settler         | UniswapV4 | USDC/WETH | 135179 | -25.54% |
+| Settler         | UniswapV4 | USDC/WETH | 135174 | -25.54% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | DAI/WETH  | 164029 | 0.00%   |
 | Settler         | UniswapV2 | DAI/WETH  | 179117 | 9.20%   |
 | UniversalRouter | UniswapV3 | DAI/WETH  | 168492 | 2.72%   |
 | Settler         | UniswapV3 | DAI/WETH  | 210968 | 28.62%  |
 | UniversalRouter | UniswapV4 | DAI/WETH  | 125438 | -23.53% |
-| Settler         | UniswapV4 | DAI/WETH  | 117846 | -28.16% |
+| Settler         | UniswapV4 | DAI/WETH  | 117841 | -28.16% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | USDT/WETH | 176025 | 0.00%   |
 | Settler         | UniswapV2 | USDT/WETH | 191087 | 8.56%   |
 | UniversalRouter | UniswapV3 | USDT/WETH | 180115 | 2.32%   |
 | Settler         | UniswapV3 | USDT/WETH | 222524 | 26.42%  |
 | UniversalRouter | UniswapV4 | USDT/WETH | 137168 | -22.07% |
-| Settler         | UniswapV4 | USDT/WETH | 129576 | -26.39% |
+| Settler         | UniswapV4 | USDT/WETH | 129571 | -26.39% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | WETH/USDC | 167078 | 0.00%   |
 | Settler         | UniswapV2 | WETH/USDC | 183652 | 9.92%   |
 | UniversalRouter | UniswapV3 | WETH/USDC | 169758 | 1.60%   |
 | Settler         | UniswapV3 | WETH/USDC | 214650 | 28.47%  |
 | UniversalRouter | UniswapV4 | WETH/USDC | 131921 | -21.04% |
-| Settler         | UniswapV4 | WETH/USDC | 128786 | -22.92% |
+| Settler         | UniswapV4 | WETH/USDC | 128781 | -22.92% |
 |                 |           |           |        |         |
 
 | Curve             | DEX                   | Pair      | Gas    | %       |
@@ -1403,12 +1403,9 @@ possible to do similar simulations with Foundry, but the UX is much worse.
 Now that the contract is deployed on-chain you need to run
 [`./sh/verify_settler.sh <CHAIN_NAME>`](sh/verify_settler.sh). This will
 (attempt to) verify Settler on both the Etherscan for the chain and
-[Sourcify](https://sourcify.dev/). If this fails, it's probably because
-[Foundry's source verification is
-flaky](https://github.com/foundry-rs/foundry/issues/8470). Try deploying the
-contracts in the normal way (without going through the 2 signer ceremony above)
-to a testnet and verifying them there to make sure this doesn't
-happen.
+[Sourcify](https://sourcify.dev/). If this fails, try deploying the contracts in
+the normal way (without going through the 2 signer ceremony above) to a testnet
+and verifying them there to make sure this doesn't happen.
 
 ## How to deploy to a new chain
 
