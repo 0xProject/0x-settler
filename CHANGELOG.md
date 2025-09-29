@@ -42,6 +42,12 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+### Non-breaking changes
+
+## 2025-09-29
+
+### Breaking changes
+
 * Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
   interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 * `POSITIVE_SLIPPAGE` takes a `maxBps` argument to cap the amount of slippage
