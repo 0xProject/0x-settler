@@ -49,6 +49,9 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add `NATIVE_CHECK` action to Mainnet
+* Add `EULERSWAP` action to Plasma
+
 ## 2025-09-15
 
 ### Breaking changes
