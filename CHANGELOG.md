@@ -44,6 +44,16 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+## 2025-10-02
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Sonic chain
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Sonic
+
 ## 2025-09-29
 
 ### Breaking changes
