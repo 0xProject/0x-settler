@@ -27,11 +27,12 @@ import {spookySwapFactory, spookySwapForkId} from "../../core/univ3forks/SpookyS
 import {wagmiFactory, wagmiInitHash, wagmiForkId} from "../../core/univ3forks/Wagmi.sol";
 import {swapXFactory, swapXForkId} from "../../core/univ3forks/SwapX.sol";
 import {algebraV4InitHash, IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
+import {BalancerV3} from "../../core/BalancerV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract SonicMixin is FreeMemory, SettlerBase, EulerSwap {
+abstract contract SonicMixin is FreeMemory, SettlerBase, EulerSwap, BalancerV3 {
     constructor() {
         assert(block.chainid == 146 || block.chainid == 31337);
     }
@@ -50,6 +51,19 @@ abstract contract SonicMixin is FreeMemory, SettlerBase, EulerSwap {
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else {
             return false;
         }
