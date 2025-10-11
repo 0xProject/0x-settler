@@ -100,8 +100,8 @@ contract LayerZeroOFTTest is BridgeSettlerIntegrationTest {
         );
         sendParam.amountLD = 0; // send 0 to let settler inject the value
         bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_LAYER_ZERO_OFT,
-            (address(token), oft, abi.encode(sendParam, messagingFee, address(this)))
+            IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
+            (address(token), fee, oft, abi.encode(sendParam, messagingFee, address(this)))
         );
         sendParam.amountLD = amount;
 
