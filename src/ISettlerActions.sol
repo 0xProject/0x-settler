@@ -195,6 +195,7 @@ interface ISettlerActions {
         uint256 bps,
         address pool,
         bool tokenAIn,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
@@ -206,6 +207,7 @@ interface ISettlerActions {
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
@@ -214,6 +216,7 @@ interface ISettlerActions {
         bytes32 salt,
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
 

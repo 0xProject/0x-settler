@@ -203,6 +203,7 @@ abstract contract MaverickV2 is SettlerAbstract {
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
@@ -215,7 +216,7 @@ abstract contract MaverickV2 is SettlerAbstract {
                     _permitToSellAmount(permit),
                     tokenAIn,
                     false,
-                    tokenAIn.ternary(type(int32).max, type(int32).min),
+                    tickLimit,
                     swapCallbackData
                 ),
                 uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector),
@@ -235,6 +236,7 @@ abstract contract MaverickV2 is SettlerAbstract {
         uint256 bps,
         IMaverickV2Pool pool,
         bool tokenAIn,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         uint256 sellAmount;
@@ -255,14 +257,14 @@ abstract contract MaverickV2 is SettlerAbstract {
         } else {
             sellToken.safeTransfer(address(pool), sellAmount);
         }
+        // TODO: GOLF implement fastSwap
         (, buyAmount) = pool.swap(
             recipient,
             IMaverickV2Pool.SwapParams({
                 amount: sellAmount,
                 tokenAIn: tokenAIn,
                 exactOutput: false,
-                // TODO: actually set a tick limit so that we can partial fill
-                tickLimit: tokenAIn ? type(int32).max : type(int32).min
+                tickLimit: tickLimit
             }),
             new bytes(0)
         );
