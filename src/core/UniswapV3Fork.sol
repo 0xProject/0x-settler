@@ -40,11 +40,11 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @dev Minimum size of an encoded swap path:
-    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | address(outputToken))
-    uint256 private constant SINGLE_HOP_PATH_SIZE = 0x2c;
+    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96) | address(outputToken))
+    uint256 private constant SINGLE_HOP_PATH_SIZE = 0x40;
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
-    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId))
-    uint256 private constant PATH_SKIP_HOP_SIZE = 0x18;
+    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96))
+    uint256 private constant PATH_SKIP_HOP_SIZE = 0x2c;
     /// @dev The size of the swap callback prefix data before the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x28;
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
@@ -123,9 +123,15 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
             IUniswapV3Pool pool;
+            uint160 sqrtPriceLimitX96;
             uint32 callbackSelector;
             {
-                (IERC20 token0, uint8 forkId, uint24 poolId, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
+                IERC20 token0;
+                uint8 forkId;
+                uint24 poolId;
+                IERC20 token1;
+                (token0, forkId, poolId, sqrtPriceLimitX96, token1) = _decodeFirstPoolInfoFromPath(encodedPath);
+
                 IERC20 sellToken = token0;
                 outputToken = token1;
                 if (!(zeroForOne = token0 < token1)) {
@@ -151,13 +157,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 let callbackLen := mload(swapCallbackData)
                 mcopy(add(0xc4, data), swapCallbackData, add(0x20, callbackLen))
                 mstore(add(0xa4, data), 0xa0)
-                mstore(
-                    add(0x84, data),
-                    xor(
-                        4295128740,
-                        mul(xor(1461446703485210103287273052203988822378723970341, 4295128740), iszero(zeroForOne))
-                    )
-                )
+                mstore(add(0x84, data), and(0xffffffffffffffffffffffffffffffffffffffff, sqrtPriceLimitX96))
                 mstore(add(0x64, data), sellAmount)
                 mstore(add(0x44, data), zeroForOne)
                 mstore(add(0x24, data), to)
@@ -212,17 +212,18 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     function _decodeFirstPoolInfoFromPath(bytes memory encodedPath)
         private
         pure
-        returns (IERC20 inputToken, uint8 forkId, uint24 poolId, IERC20 outputToken)
+        returns (IERC20 inputToken, uint8 forkId, uint24 poolId, uint160 sqrtPriceLimitX96, IERC20 outputToken)
     {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
         assembly ("memory-safe") {
             // Solidity cleans dirty bits automatically
-            inputToken := mload(add(encodedPath, 0x14))
-            forkId := mload(add(encodedPath, 0x15))
-            poolId := mload(add(encodedPath, 0x18))
-            outputToken := mload(add(encodedPath, SINGLE_HOP_PATH_SIZE))
+            inputToken := mload(add(0x14, encodedPath))
+            forkId := mload(add(0x15, encodedPath))
+            poolId := mload(add(0x18, encodedPath))
+            sqrtPriceLimitX96 := mload(add(0x2c, encodedPath))
+            outputToken := mload(add(SINGLE_HOP_PATH_SIZE, encodedPath))
         }
     }
 

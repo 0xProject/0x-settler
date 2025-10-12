@@ -104,11 +104,16 @@ contract UniswapV3UnitTest is Utils, Test {
     address RECIPIENT = _createNamedRejectionDummy("RECIPIENT");
 
     address POOL;
+    bytes encodedPath;
 
     constructor() {
         address token0 = TOKEN0;
         address token1 = TOKEN1;
-        (token0, token1) = token0 < token1 ? (token0, token1) : (token1, token0);
+        bool zeroForOne = token0 < token1;
+        uint160 sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+        encodedPath = abi.encodePacked(TOKEN0, uint8(0), uint24(500), sqrtPriceLimitX96, TOKEN1);
+
+        (token0, token1) = zeroForOne ? (token0, token1) : (token1, token0);
         uint24 fee = 500;
         POOL = _etchNamedRejectionDummy(
             "POOL",
@@ -154,7 +159,7 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectCall(POOL, data);
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
-        uni.sellSelf(RECIPIENT, bps, abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1), minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, encodedPath, minBuyAmount);
     }
 
     function testUniswapV3SellSlippage() public {
@@ -191,7 +196,7 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
         );
-        uni.sellSelf(RECIPIENT, bps, abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1), minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, encodedPath, minBuyAmount);
     }
 
     function testUniswapV3SellPermit2() public {
@@ -228,7 +233,7 @@ contract UniswapV3UnitTest is Utils, Test {
 
         uni.sell(
             RECIPIENT,
-            abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1),
+            encodedPath,
             permitTransfer,
             hex"deadbeef",
             minBuyAmount
@@ -266,7 +271,7 @@ contract UniswapV3UnitTest is Utils, Test {
                     uni.sell,
                     (
                         RECIPIENT,
-                        abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1),
+                        encodedPath,
                         permitTransfer,
                         hex"",
                         minBuyAmount
@@ -275,6 +280,6 @@ contract UniswapV3UnitTest is Utils, Test {
                 address(this)
             ) // Forward on true msg.sender
         );
-        // uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1), minBuyAmount, permitTransfer, hex"");
+        // uni.sell(RECIPIENT, encodedPath, minBuyAmount, permitTransfer, hex"");
     }
 }
