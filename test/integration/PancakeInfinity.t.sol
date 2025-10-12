@@ -85,7 +85,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         vm.label(address(BIN_MANAGER), "BINPoolManager");
     }
 
-    function pancakeInfinityFills(address token) internal view virtual returns (bytes memory) {
+    function pancakeInfinityFills(IERC20 fromToken, IERC20 toToken) internal view virtual returns (bytes memory) {
         bytes32 poolId_ = poolId();
         uint8 managerId = poolManagerId();
         PoolKey memory poolKey = (
@@ -94,8 +94,9 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
 
         return abi.encodePacked(
             uint16(10_000),
+            sqrtPriceLimitX96(fromToken, toToken),
             bytes1(0x01),
-            token,
+            toToken,
             poolKey.hooks,
             managerId,
             poolKey.fee,
@@ -106,7 +107,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     }
 
     function pancakeInfinityFills() internal view virtual returns (bytes memory) {
-        return pancakeInfinityFills(address(toToken()));
+        return pancakeInfinityFills(fromToken(), toToken());
     }
 
     function poolId() internal view virtual returns (bytes32) {
@@ -375,6 +376,6 @@ contract USDTWBNBTest is PancakeInfinityTest {
     }
 
     function pancakeInfinityFills() internal view virtual override returns (bytes memory) {
-        return pancakeInfinityFills(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+        return pancakeInfinityFills(fromToken(), ETH);
     }
 }
