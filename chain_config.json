@@ -50,7 +50,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -81,7 +82,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -112,7 +114,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -143,7 +146,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -174,7 +178,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -205,7 +210,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -236,7 +242,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -267,7 +274,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -297,7 +305,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c"
+      "pause": "0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -328,7 +337,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -359,7 +369,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -390,7 +401,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -421,7 +433,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -451,7 +464,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -482,7 +496,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -513,7 +528,8 @@
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
       "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -543,7 +559,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -573,7 +590,8 @@
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
       "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "NaN"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -604,7 +622,8 @@
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
       "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -635,7 +654,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -665,7 +685,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -696,7 +717,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -727,7 +749,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
