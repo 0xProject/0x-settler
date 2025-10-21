@@ -592,7 +592,7 @@
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
       "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
       "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "daoSafe": "null"
+      "daoSafe": null
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
