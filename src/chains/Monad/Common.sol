@@ -12,16 +12,28 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
+    uniswapV3MonadFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "../../core/univ3forks/UniswapV3.sol";
+
+import {
     pancakeSwapV3Factory,
     pancakeSwapV3InitHash,
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 
+import {UniswapV4} from "../../core/UniswapV4.sol";
+import {IPoolManager} from "../../core/UniswapV4Types.sol";
+
+import {MONAD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3 {
+abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4 {
     constructor() {
         assert(block.chainid == 143 || block.chainid == 31337);
     }
@@ -64,8 +76,16 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3 {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == uniswapV3ForkId) {
+            factory = uniswapV3MonadFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+
+    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
+        return MONAD_POOL_MANAGER;
     }
 }
