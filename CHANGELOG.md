@@ -35,6 +35,7 @@ Master list of UniV3 forks:
   32. KittenSwap (factory is upgradeable; pools are not)
   33. Hybra
   34. HyperSwap
+  35. Velodrome/Aerodrome Slipstream V3.1
 
 ---
 
@@ -51,6 +52,7 @@ Master list of UniV3 forks:
 
 * Add `NATIVE_CHECK` action to Mainnet
 * Add `EULERSWAP` action to Plasma
+* Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
 
 ## 2025-09-15
 
