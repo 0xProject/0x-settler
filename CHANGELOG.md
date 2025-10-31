@@ -44,6 +44,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Added UNDERPAYMENT_CHECK action to BridgeSettlerBase.
+
 ## 2025-09-29
 
 ### Breaking changes
