@@ -89,6 +89,16 @@ abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_LAYER_ZERO_OFT.selector)) {
             (IERC20 token, address oft, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
             bridgeLayerZeroOFT(token, oft, sendData);
+        } else if (action == uint32(IBridgeSettlerActions.UNDERPAYMENT_CHECK.selector)) {
+            (uint256 msgValueMin) = abi.decode(data, (uint256));
+            if (msg.value < msgValueMin) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xd17e444b) // selector for `Underpayment(uint256,uint256)`
+                    mstore(0x20, msgValueMin)
+                    mstore(0x40, callvalue())
+                    revert(0x1c, 0x44)
+                }
+            }
         } else {
             return false;
         }
