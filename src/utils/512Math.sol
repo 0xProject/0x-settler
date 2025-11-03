@@ -1581,7 +1581,7 @@ library Lib512MathArithmetic {
             // because the value the upper word of the quotient can take is highly constrained, we
             // can compute the quotient mod 2²⁵⁶ and recover the high word separately. Although
             // `_div` does an expensive Newton-Raphson-Hensel modular inversion:
-            //     ⌊x/r0⌋ ≡ ⌊x/2ⁿ⌋·⌊r0/2ⁿ⌋⁻¹ mod 2²⁵⁶ (for r0 % 2ⁿ = 0 ∧ r % 2⁽ⁿ⁺¹⁾ = 2ⁿ)
+            //     ⌊x/r0⌋ ≡ ⌊x/2ⁿ⌋·⌊r0/2ⁿ⌋⁻¹ mod 2²⁵⁶ (for r % 2⁽ⁿ⁺¹⁾ = 2ⁿ)
             // and we already have a pretty good estimate for r0⁻¹, namely `Y`, refining `Y` into
             // the appropriate inverse requires a series of 768-bit multiplications that take more
             // gas.
