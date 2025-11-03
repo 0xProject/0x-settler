@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {SonicMixin} from "./Common.sol";
+import {PlasmaMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,7 +15,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract SonicSettler is Settler, SonicMixin {
+contract PlasmaSettler is Settler, PlasmaMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -54,7 +54,7 @@ contract SonicSettler is Settler, SonicMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(Settler, SonicMixin)
+        override(Settler, PlasmaMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

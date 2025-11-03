@@ -35,6 +35,7 @@ Master list of UniV3 forks:
   32. KittenSwap (factory is upgradeable; pools are not)
   33. Hybra
   34. HyperSwap
+  35. Velodrome/Aerodrome Slipstream V3.1
 
 ---
 
@@ -42,11 +43,49 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Update Scroll to the Cancun hardfork
+### Non-breaking changes
+
+* Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+
+## 2025-10-02
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Sonic
+
+## 2025-09-29
+
+### Breaking changes
+
 * Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
   interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
 * `POSITIVE_SLIPPAGE` takes a `maxBps` argument to cap the amount of slippage
   taken as a proportion of the buy amount
+
+### Non-breaking changes
+
+* Add `NATIVE_CHECK` action to Mainnet
+* Add `EULERSWAP` action to Plasma
+
+## 2025-09-15
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Plasma chain
+  * Add UniswapV3 UniV3 fork on Plasma
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Plasma
+
+## 2025-09-03
+
+### Breaking changes
+
+* Update Scroll to the Cancun hardfork
 
 ### Non-breaking changes
 
@@ -77,7 +116,6 @@ Master list of UniV3 forks:
   * Add action `BRIDGE_TO_DEBRIDGE` to Optimism
   * Add action `BRIDGE_TO_DEBRIDGE` to Polygon
   * Add action `BRIDGE_TO_DEBRIDGE` to Sonic
-
 * Added new DeBridge action `BRIDGE_TO_DEBRIDGE`
 
 ## 2025-08-18

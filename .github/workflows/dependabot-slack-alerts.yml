@@ -17,7 +17,7 @@ jobs:
     steps:
       # Latest version available at: https://github.com/kunalnagarco/action-cve/releases
       - name: Notify Vulnerabilities
-        uses: kunalnagarco/action-cve@v1.14.3
+        uses: kunalnagarco/action-cve@v1.14.15
         with:
           severity: high,critical
           token: "${{ secrets.DEPENDABOT_GITHUB_TOKEN }}"

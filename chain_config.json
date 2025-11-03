@@ -14,7 +14,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-sepolia.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/sep/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -27,7 +27,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api-sepolia.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=11155111",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mainnet": {
@@ -45,7 +45,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-mainnet.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/eth/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -58,7 +58,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=1",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "polygon": {
@@ -76,7 +76,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-polygon.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/pol/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -89,7 +89,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.polygonscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=137",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "base": {
@@ -107,7 +107,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-base.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/base/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -120,7 +120,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.basescan.org/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=8453",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "optimism": {
@@ -138,7 +138,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-optimism.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/oeth/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -151,7 +151,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api-optimistic.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=10",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "arbitrum": {
@@ -169,7 +169,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-arbitrum.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/arb1/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -182,7 +182,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.arbiscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=42161",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "bsc": {
@@ -200,7 +200,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-bsc.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/bnb/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -213,7 +213,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.bscscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=56",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "avalanche": {
@@ -231,7 +231,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-avalanche.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/avax/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -275,7 +275,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.blastscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=81457"
   },
   "linea": {
     "chainId": 59144,
@@ -292,7 +292,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-linea.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/linea/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -305,7 +305,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.lineascan.build/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=59144",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "scroll": {
@@ -323,7 +323,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-scroll.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/scr/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -336,7 +336,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.scrollscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=534352",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mantle": {
@@ -354,7 +354,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-mantle.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/mantle/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -367,7 +367,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.mantlescan.xyz/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=5000",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mode": {
@@ -429,7 +429,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.taikoscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=167000"
   },
   "world": {
     "chainId": 480,
@@ -446,7 +446,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-worldchain.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/wc/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -459,7 +459,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.worldscan.org/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=480",
     "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
   },
   "xdai": {
@@ -477,7 +477,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-gnosis-chain.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/gno/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -490,7 +490,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.gnosisscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=100",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "sonic": {
@@ -508,7 +508,7 @@
       "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
       "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
       "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
-      "apiUrl": "https://safe-transaction-sonic.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/sonic/api"
     },
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
@@ -521,7 +521,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.sonicscan.org/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=146"
   },
   "ink": {
     "chainId": 57073,
@@ -538,7 +538,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-ink.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/ink/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -581,8 +581,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
-    "blockscoutApi": "https://api.socialscan.io/monad-testnet/v1/explorer/command_api/contract"
+    "sourcifyApi": "https://sourcify-api-monad.blockvision.org"
   },
   "unichain": {
     "chainId": 130,
@@ -599,7 +598,7 @@
       "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
       "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
       "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
-      "apiUrl": "https://safe-transaction-unichain.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/unichain/api"
     },
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
@@ -612,7 +611,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.uniscan.xyz/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=130",
     "blockscoutApi": "https://unichain.blockscout.com/api"
   },
   "berachain": {
@@ -630,7 +629,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-berachain.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/berachain/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -643,7 +642,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.berascan.com/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=80094"
   },
   "hyperliquid": {
     "chainId": 999,
@@ -691,7 +690,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://safe-transaction-katana.safe.global/api"
+      "apiUrl": "https://api.safe.global/tx-service/katana/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -713,6 +712,7 @@
     "wnative": "0x6100E367285b01F48D07953803A2d8dCA5D19873",
     "isShanghai": true,
     "isCancun": true,
+    "extraFlags": "",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 2,
     "safe": {
@@ -724,8 +724,15 @@
       "apiUrl": "NOT SUPPORTED"
     },
     "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
     "etherscanApi": "https://api.routescan.io/v2/network/mainnet/evm/9745/etherscan/api"
   }

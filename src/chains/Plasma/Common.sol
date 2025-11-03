@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {BalancerV3} from "../../core/BalancerV3.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
@@ -12,29 +13,18 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
-    uniswapV3SonicFactory,
+    uniswapV3PlasmaFactory,
     uniswapV3InitHash,
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
-import {
-    solidlyV3SonicFactory,
-    solidlyV3InitHash,
-    solidlyV3ForkId,
-    ISolidlyV3Callback
-} from "../../core/univ3forks/SolidlyV3.sol";
-import {spookySwapFactory, spookySwapForkId} from "../../core/univ3forks/SpookySwap.sol";
-import {wagmiFactory, wagmiInitHash, wagmiForkId} from "../../core/univ3forks/Wagmi.sol";
-import {swapXFactory, swapXForkId} from "../../core/univ3forks/SwapX.sol";
-import {algebraV4InitHash, IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
-import {BalancerV3} from "../../core/BalancerV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract SonicMixin is FreeMemory, SettlerBase, EulerSwap, BalancerV3 {
+abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3, EulerSwap {
     constructor() {
-        assert(block.chainid == 146 || block.chainid == 31337);
+        assert(block.chainid == 9745 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
@@ -77,31 +67,15 @@ abstract contract SonicMixin is FreeMemory, SettlerBase, EulerSwap, BalancerV3 {
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
         if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3SonicFactory;
+            factory = uniswapV3PlasmaFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == solidlyV3ForkId) {
-            factory = solidlyV3SonicFactory;
-            initHash = solidlyV3InitHash;
-            callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
-        } else if (forkId == spookySwapForkId) {
-            factory = spookySwapFactory;
-            initHash = uniswapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == wagmiForkId) {
-            factory = wagmiFactory;
-            initHash = wagmiInitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == swapXForkId) {
-            factory = swapXFactory;
-            initHash = algebraV4InitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
     }
 
     function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0x4860C903f6Ad709c3eDA46D3D502943f184D4315);
+        return IEVC(0x7bdbd0A7114aA42CA957F292145F6a931a345583);
     }
 }
