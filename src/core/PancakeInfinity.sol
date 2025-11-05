@@ -165,16 +165,13 @@ library UnsafePancakeInfinityPoolManager {
         PoolKey memory key,
         bool zeroForOne,
         int256 amountSpecified,
-        uint160 sqrtPriceLimitX96,
+        uint256 sqrtPriceLimitX96,
         bytes calldata hookData
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0xcd0cc1ce) // selector for `swap((address,address,address,address,uint24,bytes32),(bool,int256,uint160),bytes)`
-            let token0 := mload(key)
-            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xA0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), zeroForOne)
             mstore(add(0x100, ptr), amountSpecified)
             mstore(add(0x120, ptr), sqrtPriceLimitX96)
@@ -187,6 +184,22 @@ library UnsafePancakeInfinityPoolManager {
                 revert(ptr_, returndatasize())
             }
             r := mload(0x00)
+        }
+    }
+
+    function unsafeSqrtPriceX96(IPancakeInfinityCLPoolManager poolManager, PoolKey memory key) internal returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, keccak256(key, 0xc0)) // poolId
+            mstore(0x20, 0x04) // slot of pools mapping in CLPoolManager
+            mstore(0x20, keccak256(0x00, 0x40)) // slot0 of poolId in the mapping
+            mstore(0x00, 0x1e2eaeaf) // selector for `extsload(bytes32)`
+            if iszero(call(gas(), poolManager, 0x00, 0x1c, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            // lower 160 bits of the slot0 contains the sqrtPriceX96
+            r := shr(0x60, shl(0x60, mload(0x00)))
         }
     }
 }
@@ -202,10 +215,7 @@ library UnsafePancakeInfinityBinPoolManager {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x911a63b7) // selector for `swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)`
-            let token0 := mload(key)
-            token0 := mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0)
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xa0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), swapForY)
             mstore(add(0x100, ptr), signextend(0x0f, amountSpecified))
             mstore(add(0x120, ptr), 0x120)
@@ -458,6 +468,11 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
+                assembly ("memory-safe") {
+                    let currency0 := mload(poolKey)
+                    // set poolKey to address(0) if it is the native token
+                    mstore(poolKey, mul(currency0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, currency0))))
+                }
             }
 
             {
@@ -511,16 +526,32 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 if (uint256(poolManagerId) == 0) {
                     poolKey.poolManager = CL_MANAGER;
 
-                    delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(
+                    uint256 priceSqrtX96 = CL_MANAGER.unsafeSqrtPriceX96(poolKey);
+                    {
+                        // uint256 used in favor of future operations
+                        // value is uint160
+                        // Factor is:
+                        // 28011385487393067476124172288 approximately 1 / sqrt(2) in Q65.95 (95 bits)
+                        // 56022770974786143748341366784 approximately sqrt(2) in Q65.95 (96 bits)
+                        // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
+                        uint256 factor = zeroForOne.ternary(uint256(28011385487393067476124172288), uint256(56022770974786143748341366784));
+
+                        unchecked {
+                            // no overflow when multiplying as factors are 160 bits and at most 96 bits respectively
+                            // shifted right 95 bitsto keep the price as Q64.96
+                            priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
+                        }
+                        
+                        uint256 limit = zeroForOne.ternary(uint256(4295128740), uint256(1461446703485210103287273052203988822378723970341));
+                        (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
+                        priceSqrtX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));
+                    }
+
+                    delta = CL_MANAGER.unsafeSwap(
                         poolKey,
                         zeroForOne,
                         amountSpecified,
-                        // TODO: price limits
-                        uint160(
-                            zeroForOne.ternary(
-                                uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341)
-                            )
-                        ),
+                        priceSqrtX96,
                         hookData
                     );
                 } else if (uint256(poolManagerId) == 1) {
@@ -528,7 +559,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     if (amountSpecified >> 127 != amountSpecified >> 128) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    delta = IPancakeInfinityBinPoolManager(address(poolKey.poolManager)).unsafeSwap(
+                    delta = BIN_MANAGER.unsafeSwap(
                         poolKey, zeroForOne, int128(amountSpecified), hookData
                     );
                 } else {
