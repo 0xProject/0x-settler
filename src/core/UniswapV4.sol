@@ -201,6 +201,11 @@ abstract contract UniswapV4 is SettlerAbstract {
                 )
         }
         (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);
+        assembly ("memory-safe") {
+            let token0 := mload(key)
+            // set token0 to address(0) if it is the native token
+            mstore(key, mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0))))
+        }
 
         uint256 packed;
         assembly ("memory-safe") {
@@ -295,10 +300,27 @@ abstract contract UniswapV4 is SettlerAbstract {
             unchecked {
                 params.amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
-            // TODO: price limits
-            params.sqrtPriceLimitX96 = uint160(
-                (!zeroForOne).ternary(uint160(1461446703485210103287273052203988822378723970341), uint160(4295128740))
-            );
+            
+            {
+                // uint256 used in favor of future operations
+                // value is uint160
+                uint256 priceSqrtX96 = IPoolManager(msg.sender).unsafeSqrtPriceX96(key);
+                // Factor is:
+                // 28011385487393067476124172288 approximately 1 / sqrt(2) in Q65.95 (95 bits)
+                // 56022770974786143748341366784 approximately sqrt(2) in Q65.95 (96 bits)
+                // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
+                uint256 factor = zeroForOne.ternary(uint256(28011385487393067476124172288), uint256(56022770974786143748341366784));
+
+                unchecked {
+                    // no overflow when multiplying as factors are 160 bits and at most 96 bits respectively
+                    // shifted right 95 bitsto keep the price as Q64.96
+                    priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
+                }
+                
+                uint256 limit = zeroForOne.ternary(uint256(4295128740), uint256(1461446703485210103287273052203988822378723970341));
+                (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
+                params.sqrtPriceLimitX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));
+            }
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
             {

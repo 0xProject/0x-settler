@@ -121,10 +121,7 @@ library UnsafePoolManager {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0xf3cd914c) // selector for `swap((address,address,uint24,int24,address),(bool,int256,uint160),bytes)`
-            let token0 := mload(key)
-            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0x80)
+            mcopy(add(0x20, ptr), key, 0xa0)
             mcopy(add(0xc0, ptr), params, 0x60)
             mstore(add(0x120, ptr), 0x120)
             mstore(add(0x140, ptr), hookData.length)
@@ -152,6 +149,22 @@ library UnsafePoolManager {
 
     function unsafeSettle(IPoolManager poolManager) internal returns (uint256) {
         return unsafeSettle(poolManager, 0);
+    }
+
+    function unsafeSqrtPriceX96(IPoolManager poolManager, IPoolManager.PoolKey memory key) internal returns (uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, keccak256(key, 0xa0)) // poolId
+            mstore(0x20, 0x06) // slot of _pools mapping in PoolManager
+            mstore(0x20, keccak256(0x00, 0x40)) // slot0 of poolId in the mapping
+            mstore(0x00, 0x1e2eaeaf) // selector for `extsload(bytes32)`
+            if iszero(call(gas(), poolManager, 0x00, 0x1c, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            // lower 160 bits of the slot0 contains the sqrtPriceX96
+            r := shr(0x60, shl(0x60, mload(0x00)))
+        }
     }
 }
 
