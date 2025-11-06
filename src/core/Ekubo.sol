@@ -142,8 +142,11 @@ library UnsafeEkuboCore {
             }
             // The slot contains the sqrtPrice
             r := mload(0x00)
-            mask := shr(0x5e, r)
-            r := xor(r, shl(0x5e, mask))
+            // keep only two bits as upper bits contain tick and liquidity information
+            mask := and(0x03, shr(0x5e, r))
+            // there is no returndata size check because sload implementation is trusted
+            // and we always call it in the known EkuboCore contract.
+            r := and(0x3fffffffffffffffffffffff, r)
         }
     }
 }
@@ -413,6 +416,7 @@ abstract contract Ekubo is SettlerAbstract {
                     // set poolKey to address(0) if it is the native token
                     mstore(poolKey, mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0))))
                 }
+                // poolKey.token0 is not represented according to ERC-7528 to match the format expected by Ekubo
             }
 
             {
@@ -447,11 +451,11 @@ abstract contract Ekubo is SettlerAbstract {
                         priceSqrt = (priceSqrt * factor) >> 95;
 
                         // check if mask should change
-                        // 1. priceSqrt can overflow (1 << 94), in such case mask needs to increase
+                        // 1. priceSqrt can exceed (1 << 94), in such case mask needs to increase
                         //    and priceSqrt needs to be shifted right by 32 bits
                         // 2. priceSqrt can be less than (1 << 62), in such case mask needs to decrease
                         //    and priceSqrt needs to be shifted left by 32 bits
-                        if (priceSqrt > (1 << 94)) { 
+                        if (priceSqrt >> 93 > 0) { 
                             mask++;
                             priceSqrt >>= 32;
                             // If mask is over 3, priceSqrt will be clamped 
@@ -462,7 +466,9 @@ abstract contract Ekubo is SettlerAbstract {
                             // mask can only decrease if it is over 0. If it is not and priceSqrt is
                             // less than (1 << 62), then priceSqrt will be clamped later on to MIN_SQRT_RATIO
                             // as it will still be lower than (1 << 62)
-                            if (mask > 0 && priceSqrt < (1 << 62)) {
+                            // condition is (mask > 0 && priceSqrt < (1 << 62)) equivalent to 
+                            // mask * (priceSqrt >> 62) > 0. if one of the factors is zero the condition becomes false
+                            if (mask * (priceSqrt >> 61) > 0) {
                                 priceSqrt <<= 32;
                                 mask--;
                             }

@@ -163,7 +163,7 @@ library UnsafePoolManager {
                 revert(ptr, returndatasize())
             }
             // lower 160 bits of the slot contents are the sqrtPriceX96
-            r := shr(0x60, shl(0x60, mload(0x00)))
+            r := and(0xffffffffffffffffffffffffffffffffffffffff, mload(0x00))
         }
     }
 }

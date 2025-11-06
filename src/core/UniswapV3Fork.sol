@@ -176,7 +176,10 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                         returndatacopy(ptr, 0x00, returndatasize())
                         revert(ptr, returndatasize())
                     }
-                    priceSqrtX96 := mload(0x00)
+                    // No checks on returndata as UniV3 pools are generated from 
+                    // the trusted factory and initHash.
+                    // masking to discard other info in slot0
+                    priceSqrtX96 := and(0xffffffffffffffffffffffff, mload(0x00))
                 }
                 // Factor is:
                 // 28011385487393067476124172288 approximately 1 / sqrt(2) in Q65.95 (95 bits)
@@ -190,7 +193,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                     priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                 }
                 
-                uint256 limit = zeroForOne.ternary(uint256(4295128740), uint256(1461446703485210103287273052203988822378723970341));
+                uint256 limit = (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740));
                 (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
                 priceSqrtX96 = (lo > hi).ternary(limit, priceSqrtX96);
             }

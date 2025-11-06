@@ -206,6 +206,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             // set token0 to address(0) if it is the native token
             mstore(key, mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0))))
         }
+        // key.token0 is not represented according to ERC-7528 to match the format expected by Uniswap V4
 
         uint256 packed;
         assembly ("memory-safe") {
@@ -317,7 +318,7 @@ abstract contract UniswapV4 is SettlerAbstract {
                     priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                 }
                 
-                uint256 limit = zeroForOne.ternary(uint256(4295128740), uint256(1461446703485210103287273052203988822378723970341));
+                uint256 limit = (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740));
                 (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
                 params.sqrtPriceLimitX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));
             }

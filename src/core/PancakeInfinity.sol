@@ -199,7 +199,7 @@ library UnsafePancakeInfinityPoolManager {
                 revert(ptr, returndatasize())
             }
             // lower 160 bits of the slot contents are the sqrtPriceX96
-            r := shr(0x60, shl(0x60, mload(0x00)))
+            r := and(0xffffffffffffffffffffffffffffffffffffffff, mload(0x00))
         }
     }
 }
@@ -473,6 +473,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     // set poolKey to address(0) if it is the native token
                     mstore(poolKey, mul(currency0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, currency0))))
                 }
+                // poolKey.currency0 is not represented according to ERC-7528 to match the format expected by Pancake Infinity
             }
 
             {
@@ -526,7 +527,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 if (uint256(poolManagerId) == 0) {
                     poolKey.poolManager = CL_MANAGER;
 
-                    uint256 priceSqrtX96 = CL_MANAGER.unsafeSqrtPriceX96(poolKey);
+                    uint256 priceSqrtX96 = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSqrtPriceX96(poolKey);
                     {
                         // uint256 used in favor of future operations
                         // value is uint160
@@ -542,12 +543,12 @@ abstract contract PancakeInfinity is SettlerAbstract {
                             priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                         }
                         
-                        uint256 limit = zeroForOne.ternary(uint256(4295128740), uint256(1461446703485210103287273052203988822378723970341));
+                        uint256 limit = (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740));
                         (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
                         priceSqrtX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));
                     }
 
-                    delta = CL_MANAGER.unsafeSwap(
+                    delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(
                         poolKey,
                         zeroForOne,
                         amountSpecified,
@@ -559,7 +560,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                     if (amountSpecified >> 127 != amountSpecified >> 128) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    delta = BIN_MANAGER.unsafeSwap(
+                    delta = IPancakeInfinityBinPoolManager(address(poolKey.poolManager)).unsafeSwap(
                         poolKey, zeroForOne, int128(amountSpecified), hookData
                     );
                 } else {
