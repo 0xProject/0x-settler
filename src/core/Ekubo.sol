@@ -78,8 +78,6 @@ library UnsafeEkuboCore {
             mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
             let poolKeyPtr := add(0x20, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
-            let token0 := mload(poolKeyPtr)
-            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
             // ABI decoding in Ekubo will check if amount fits in int128
             mstore(add(0x80, ptr), amount)
             mstore(add(0xa0, ptr), isToken1)
@@ -112,8 +110,6 @@ library UnsafeEkuboCore {
 
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
-            let token0 := mload(poolKeyPtr)
-            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
             mstore(add(0x94, ptr), amount)
             mstore(add(0xb4, ptr), isToken1)
             mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
@@ -130,6 +126,24 @@ library UnsafeEkuboCore {
                 or(gt(0x40, returndatasize()), xor(signextend(0x0f, amount), amount)),
                 or(xor(signextend(0x0f, delta0), delta0), xor(signextend(0x0f, delta1), delta1))
             ) { revert(0x00, 0x00) }
+        }
+    }
+
+    function unsafeSqrtPrice(IEkuboCore core, PoolKey memory poolKey) internal returns (uint256 mask, uint256 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, keccak256(poolKey, 0x60)) // poolId
+            mstore(0x20, 0x02) // slot of poolState mapping in EkuboCore
+            mstore(0x20, keccak256(0x00, 0x40)) // slot of poolId in the mapping
+            mstore(0x00, 0x380eb4e0) // selector for `sload()`
+            if iszero(call(gas(), core, 0x00, 0x1c, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            // The slot contains the sqrtPrice
+            r := mload(0x00)
+            mask := shr(0x5e, r)
+            r := xor(r, shl(0x5e, mask))
         }
     }
 }
@@ -376,7 +390,7 @@ abstract contract Ekubo is SettlerAbstract {
                 amountSpecified = int256((state.sell().amount() * (bps & 0x7fff)).unsafeDiv(BASIS));
             }
 
-            bool isToken1;
+            bool isToken1; // opposite of regular zeroForOne
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell().token(), state.buy().token());
                 assembly ("memory-safe") {
@@ -394,6 +408,11 @@ abstract contract Ekubo is SettlerAbstract {
                         )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
+                assembly ("memory-safe") {
+                    let token0 := mload(poolKey)
+                    // set poolKey to address(0) if it is the native token
+                    mstore(poolKey, mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0))))
+                }
             }
 
             {
@@ -410,9 +429,51 @@ abstract contract Ekubo is SettlerAbstract {
             Decoder.overflowCheck(data);
 
             {
-                SqrtRatio sqrtRatio = SqrtRatio.wrap(
-                    uint96((!isToken1).ternary(uint256(4611797791050542631), uint256(79227682466138141934206691491)))
-                );
+                SqrtRatio sqrtRatio;
+                {
+                    // uint256 used in favor of future operations
+                    // mask is uint96 with lower 94 bits set to 0
+                    // priceSqrt is uint94
+                    (uint256 mask, uint256 priceSqrt) = IEkuboCore(msg.sender).unsafeSqrtPrice(poolKey);
+                    // Factor is:
+                    // 56022770974786143748341366784 approximately sqrt(2) in Q65.95 (96 bits)
+                    // 28011385487393067476124172288 approximately 1 / sqrt(2) in Q65.95 (95 bits)
+                    // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
+                    uint256 factor = isToken1.ternary(uint256(56022770974786143748341366784), uint256(28011385487393067476124172288));
+
+                    unchecked {
+                        // no overflow when multiplying as factors are 94 bits and at most 96 bits respectively
+                        // shifted right 95 bits to keep the price in its original representation
+                        priceSqrt = (priceSqrt * factor) >> 95;
+
+                        // check if mask should change
+                        // 1. priceSqrt can overflow (1 << 94), in such case mask needs to increase
+                        //    and priceSqrt needs to be shifted right by 32 bits
+                        // 2. priceSqrt can be less than (1 << 62), in such case mask needs to decrease
+                        //    and priceSqrt needs to be shifted left by 32 bits
+                        if (priceSqrt > (1 << 94)) { 
+                            mask++;
+                            priceSqrt >>= 32;
+                            // If mask is over 3, priceSqrt will be clamped 
+                            // later on to MAX_SQRT_RATIO as it will be greater than (1 << 96)
+                            // shift priceSqrt
+                        }
+                        else {
+                            // mask can only decrease if it is over 0. If it is not and priceSqrt is
+                            // less than (1 << 62), then priceSqrt will be clamped later on to MIN_SQRT_RATIO
+                            // as it will still be lower than (1 << 62)
+                            if (mask > 0 && priceSqrt < (1 << 62)) {
+                                priceSqrt <<= 32;
+                                mask--;
+                            }
+                        }
+                        priceSqrt |= mask << 94;
+                    }
+                    
+                    uint256 limit = isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631));
+                    (uint256 lo, uint256 hi) = isToken1.maybeSwap(limit, priceSqrt);
+                    sqrtRatio = SqrtRatio.wrap(uint96((lo > hi).ternary(limit, priceSqrt)));
+                }
                 int256 delta0;
                 int256 delta1;
                 if (bps & 0x8000 == 0) {

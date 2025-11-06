@@ -191,14 +191,14 @@ library UnsafePancakeInfinityPoolManager {
         assembly ("memory-safe") {
             mstore(0x00, keccak256(key, 0xc0)) // poolId
             mstore(0x20, 0x04) // slot of pools mapping in CLPoolManager
-            mstore(0x20, keccak256(0x00, 0x40)) // slot0 of poolId in the mapping
+            mstore(0x20, keccak256(0x00, 0x40)) // slot of poolId in the mapping
             mstore(0x00, 0x1e2eaeaf) // selector for `extsload(bytes32)`
             if iszero(call(gas(), poolManager, 0x00, 0x1c, 0x24, 0x00, 0x20)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            // lower 160 bits of the slot0 contains the sqrtPriceX96
+            // lower 160 bits of the slot contents are the sqrtPriceX96
             r := shr(0x60, shl(0x60, mload(0x00)))
         }
     }
