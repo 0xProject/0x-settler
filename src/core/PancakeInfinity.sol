@@ -150,6 +150,7 @@ library UnsafePancakeInfinityVault {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity vault is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -183,6 +184,7 @@ library UnsafePancakeInfinityPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity cl pool manager is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -198,6 +200,7 @@ library UnsafePancakeInfinityPoolManager {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity cl pool manager is trusted and not arbitrary
             // lower 160 bits of the slot contents are the sqrtPriceX96
             r := and(0xffffffffffffffffffffffffffffffffffffffff, mload(0x00))
         }
@@ -226,6 +229,7 @@ library UnsafePancakeInfinityBinPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity bin pool manager is trusted and not arbitrary
             r := mload(0x00)
         }
     }
