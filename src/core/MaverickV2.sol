@@ -8,6 +8,8 @@ import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Ternary} from "../utils/Ternary.sol";
+import {Revert} from "../utils/Revert.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
@@ -113,22 +115,14 @@ interface IMaverickV2Pool {
 }
 
 library FastMaverickV2Pool {
-    function fastTokenA(IMaverickV2Pool pool) internal view returns (IERC20 token) {
-        assembly ("memory-safe") {
-            mstore(0x00, 0x0fc63d10) // selector for `tokenA()`
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            token := mload(0x00)
-            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
-        }
-    }
+    using Ternary for bool;
+    using FastLogic for bool;
 
-    function fastTokenB(IMaverickV2Pool pool) internal view returns (IERC20 token) {
+    function fastTokenAOrB(IMaverickV2Pool pool, bool tokenAIn) internal view returns (IERC20 token) {
+        // selector for `tokenA()` or `tokenB()`
+        uint256 selector = tokenAIn.ternary(uint256(0x0fc63d10), uint256(0x5f64b55b));
         assembly ("memory-safe") {
-            mstore(0x00, 0x5f64b55b) // selector for `tokenB()`
+            mstore(0x00, selector)
             if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -144,7 +138,6 @@ library FastMaverickV2Pool {
         address recipient,
         uint256 amount,
         bool tokenAIn,
-        bool exactOutput,
         int256 tickLimit,
         bytes memory swapCallbackData
     ) internal pure returns (bytes memory data) {
@@ -156,7 +149,7 @@ library FastMaverickV2Pool {
             mcopy(add(0xe4, data), swapCallbackData, add(0x20, swapCallbackDataLength))
             mstore(add(0xc4, data), 0xc0)
             mstore(add(0xa4, data), signextend(0x03, tickLimit))
-            mstore(add(0x84, data), exactOutput)
+            mstore(add(0x84, data), 0x00) // exactOutput is false
             mstore(add(0x64, data), tokenAIn)
             mstore(add(0x44, data), amount)
             mstore(add(0x24, data), recipient)
@@ -167,17 +160,26 @@ library FastMaverickV2Pool {
         }
     }
 
-    function fastGetTick(IMaverickV2Pool pool) internal view returns (int32 r) {
+    function fastGetFromPoolState(IMaverickV2Pool pool, uint256 pos, uint256 size) internal view returns (uint256 r) {
         assembly ("memory-safe") {
+            let ptr := mload(0x40)
             mstore(0x00, 0x1865c57d) // selector for `getState()`
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, ptr, 0x120)) {
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
-            r := mload(0x00)
-            if or(gt(0x20, returndatasize()), shr(0x20, r)) { revert(0x00, 0x00) }
+            r := mload(add(pos, ptr))
+            if or(gt(0x120, returndatasize()), shr(size, r)) { revert(0x00, 0x00) }
         }
+    }
+
+    function fastGetTick(IMaverickV2Pool pool) internal view returns (int32 r) {
+        return int32(uint32(fastGetFromPoolState(pool, 160, 32)));
+    }
+
+    function fastGetReserveAOrB(IMaverickV2Pool pool, bool tokenAIn) internal view returns (uint128 r) {
+        return uint128(fastGetFromPoolState(pool, 32 * tokenAIn.toUint(), 128));
     }
 
     function fastTickSpacing(IMaverickV2Pool pool) internal view returns (uint64 r) {
@@ -204,6 +206,7 @@ abstract contract MaverickV2 is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using FastMaverickV2Pool for IMaverickV2Pool;
     using Ternary for bool;
+    using Revert for bool;
 
     function _encodeSwapCallback(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         internal
@@ -223,16 +226,27 @@ abstract contract MaverickV2 is SettlerAbstract {
         }
     }
 
-    function sellToMaverickV2VIP(
+    function _callMaverickWithCallback(address pool, bytes memory data) private returns (bytes memory) {
+        return _setOperatorAndCall(
+            pool, data, uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector), _maverickV2Callback
+        );
+    }
+
+    function _callMaverick(address pool, bytes memory data) private returns (bytes memory) {
+        (bool success, bytes memory returndata) = pool.call(data);
+        success.maybeRevert(returndata);
+        return returndata;
+    }
+
+    function _sellToMaverickV2(
+        IMaverickV2Pool pool,
         address recipient,
-        bytes32 salt,
         bool tokenAIn,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
-        IMaverickV2Pool pool = IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
+        uint256 amount,
+        uint256 minBuyAmount,
+        bytes memory swapCallbackData,
+        function (address, bytes memory) internal returns (bytes memory) executeCall
+    ) private returns (uint256 buyAmount) {
         // Price P, given the tick and tick spacing is:
         // (1) log_1.0001(P) = tick * tickSpacing
         // To find the tick with a 100% price impact it is needed to find X such that:
@@ -252,26 +266,37 @@ abstract contract MaverickV2 is SettlerAbstract {
         int256 limit = tokenAIn.ternary(type(int32).max, type(int32).min);
         (int256 lo, int256 hi) = tokenAIn.maybeSwap(limit, tick);
         tick = (lo > hi).ternary(limit, tick);
+
         (, buyAmount) = abi.decode(
-            _setOperatorAndCall(
-                address(pool),
-                pool.fastEncodeSwap(
-                    recipient,
-                    _permitToSellAmount(permit),
-                    tokenAIn,
-                    false,
-                    tick,
-                    swapCallbackData
-                ),
-                uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector),
-                _maverickV2Callback
-            ),
+            executeCall(address(pool), pool.fastEncodeSwap(recipient, amount, tokenAIn, tick, swapCallbackData)),
             (uint256, uint256)
         );
         if (buyAmount < minBuyAmount) {
-            IERC20 buyToken = tokenAIn ? pool.fastTokenB() : pool.fastTokenA();
-            revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+            revertTooMuchSlippage(pool.fastTokenAOrB(tokenAIn), minBuyAmount, buyAmount);
         }
+    }
+
+    function sellToMaverickV2VIP(
+        address recipient,
+        bytes32 salt,
+        bool tokenAIn,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 minBuyAmount
+    ) internal returns (uint256 buyAmount) {
+        bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
+        IMaverickV2Pool pool =
+            IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
+
+        return _sellToMaverickV2(
+            pool,
+            recipient,
+            tokenAIn,
+            _permitToSellAmount(permit),
+            minBuyAmount,
+            swapCallbackData,
+            _callMaverickWithCallback
+        );
     }
 
     function sellToMaverickV2(
@@ -293,27 +318,14 @@ abstract contract MaverickV2 is SettlerAbstract {
         }
         if (sellAmount == 0) {
             sellAmount = sellToken.fastBalanceOf(address(pool));
-            IMaverickV2Pool.State memory poolState = pool.getState();
             unchecked {
-                sellAmount -= tokenAIn ? poolState.reserveA : poolState.reserveB;
+                sellAmount -= pool.fastGetReserveAOrB(tokenAIn);
             }
         } else {
             sellToken.safeTransfer(address(pool), sellAmount);
         }
-        (, buyAmount) = pool.swap(
-            recipient,
-            IMaverickV2Pool.SwapParams({
-                amount: sellAmount,
-                tokenAIn: tokenAIn,
-                exactOutput: false,
-                // TODO: actually set a tick limit so that we can partial fill
-                tickLimit: tokenAIn ? type(int32).max : type(int32).min
-            }),
-            new bytes(0)
-        );
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(tokenAIn ? pool.fastTokenB() : pool.fastTokenA(), minBuyAmount, buyAmount);
-        }
+
+        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, minBuyAmount, new bytes(0), _callMaverick);
     }
 
     function _maverickV2Callback(bytes calldata data) private returns (bytes memory) {
