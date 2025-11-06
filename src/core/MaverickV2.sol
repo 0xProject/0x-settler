@@ -166,6 +166,32 @@ library FastMaverickV2Pool {
             mstore(0x40, add(0x120, add(data, swapCallbackDataLength)))
         }
     }
+
+    function fastGetTick(IMaverickV2Pool pool) internal view returns (int32 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x1865c57d) // selector for `getState()`
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0x20, r)) { revert(0x00, 0x00) }
+        }
+    }
+
+    function fastTickSpacing(IMaverickV2Pool pool) internal view returns (uint64 r) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0xd0c93a7c) // selector for `tickSpacing()`
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            r := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0x40, r)) { revert(0x00, 0x00) }
+        }
+    }
 }
 
 interface IMaverickV2SwapCallback {
@@ -206,16 +232,35 @@ abstract contract MaverickV2 is SettlerAbstract {
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData = _encodeSwapCallback(permit, sig);
-        address pool = AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash);
+        IMaverickV2Pool pool = IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
+        // Price P, given the tick and tick spacing is:
+        // (1) log_1.0001(P) = tick * tickSpacing
+        // To find the tick with a 100% price impact it is needed to find X such that:
+        // (2) log_1.0001(2 * P) = X * tickSpacing
+        // which is same as:
+        // (3) log_1.0001(2) + log_1.0001(P) = X * tickSpacing
+        // Substituting (1) into (3):
+        // (4) log_1.0001(2) + tick * tickSpacing = X * tickSpacing
+        // then it is possible to get to
+        // (5) log_1.0001(2) / tickSpacing = X - tick
+        // log_1.0001(2) is approximately 6931
+        // X - tick is the delta for 100% price impact
+        uint256 spacing = pool.fastTickSpacing();
+        // rounding up to accept at least 1 tick as MAX_TICK_SPACING is 10_000
+        int256 delta = int256((6930 + spacing) / spacing);
+        int256 tick = pool.fastGetTick() + tokenAIn.ternary(delta, -delta);
+        int256 limit = tokenAIn.ternary(type(int32).max, type(int32).min);
+        (int256 lo, int256 hi) = tokenAIn.maybeSwap(limit, tick);
+        tick = (lo > hi).ternary(limit, tick);
         (, buyAmount) = abi.decode(
             _setOperatorAndCall(
-                pool,
-                IMaverickV2Pool(pool).fastEncodeSwap(
+                address(pool),
+                pool.fastEncodeSwap(
                     recipient,
                     _permitToSellAmount(permit),
                     tokenAIn,
                     false,
-                    tokenAIn.ternary(type(int32).max, type(int32).min),
+                    tick,
                     swapCallbackData
                 ),
                 uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector),
@@ -224,7 +269,7 @@ abstract contract MaverickV2 is SettlerAbstract {
             (uint256, uint256)
         );
         if (buyAmount < minBuyAmount) {
-            IERC20 buyToken = tokenAIn ? IMaverickV2Pool(pool).fastTokenB() : IMaverickV2Pool(pool).fastTokenA();
+            IERC20 buyToken = tokenAIn ? pool.fastTokenB() : pool.fastTokenA();
             revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
         }
     }
