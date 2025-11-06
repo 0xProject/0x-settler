@@ -538,7 +538,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
 
                         unchecked {
                             // no overflow when multiplying as factors are 160 bits and at most 96 bits respectively
-                            // shifted right 95 bitsto keep the price as Q64.96
+                            // shifted right 95 bits to keep the price as Q64.96
                             priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                         }
                         
