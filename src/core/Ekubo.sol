@@ -456,24 +456,21 @@ abstract contract Ekubo is SettlerAbstract {
                         priceSqrt = (priceSqrt * factor) >> 95;
 
                         // check if mask should change
-                        // 1. priceSqrt can exceed (1 << 94), in such case mask needs to increase
+                        // 1. if priceSqrt is greater or equal to 2**94, mask needs to increase
                         //    and priceSqrt needs to be shifted right by 32 bits
-                        // 2. priceSqrt can be less than (1 << 62), in such case mask needs to decrease
+                        // 2. if priceSqrt is less than 2**62, mask needs to decrease
                         //    and priceSqrt needs to be shifted left by 32 bits
-                        if (priceSqrt >> 93 > 0) { 
-                            mask++;
+                        if ((priceSqrt >> 94) > 0) { 
                             priceSqrt >>= 32;
-                            // If mask is over 3, priceSqrt will be clamped 
-                            // later on to MAX_SQRT_RATIO as it will be greater than (1 << 96)
-                            // shift priceSqrt
+                            // If mask becomes greater than 3, priceSqrt will be clamped to MAX_SQRT_RATIO
+                            // later on as the resulting priceSqrt will be greater than 2**96
+                            mask++;
                         }
                         else {
                             // mask can only decrease if it is over 0. If it is not and priceSqrt is
-                            // less than (1 << 62), then priceSqrt will be clamped later on to MIN_SQRT_RATIO
-                            // as it will still be lower than (1 << 62)
-                            // condition is (mask > 0 && priceSqrt < (1 << 62)) equivalent to 
-                            // mask * (priceSqrt >> 62) > 0. if one of the factors is zero the condition becomes false
-                            if (mask * (priceSqrt >> 61) > 0) {
+                            // less than 2**62, then priceSqrt will be clamped later on to MIN_SQRT_RATIO
+                            // as it will still be lower than 2**62
+                            if ((mask > 0) && (priceSqrt >> 62 == 0)) {
                                 priceSqrt <<= 32;
                                 mask--;
                             }
