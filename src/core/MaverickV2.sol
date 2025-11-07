@@ -179,7 +179,7 @@ library FastMaverickV2Pool {
     }
 
     function fastGetReserveAOrB(IMaverickV2Pool pool, bool tokenAIn) internal view returns (uint128 r) {
-        return uint128(fastGetFromPoolState(pool, 32 * tokenAIn.toUint(), 128));
+        return uint128(fastGetFromPoolState(pool, tokenAIn.toUint() << 5, 128));
     }
 
     function fastTickSpacing(IMaverickV2Pool pool) internal view returns (uint64 r) {
@@ -245,7 +245,7 @@ abstract contract MaverickV2 is SettlerAbstract {
         uint256 amount,
         uint256 minBuyAmount,
         bytes memory swapCallbackData,
-        function (address, bytes memory) internal returns (bytes memory) executeCall
+        bool withCallback
     ) private returns (uint256 buyAmount) {
         // Price P, given the tick and tick spacing is:
         // (1) log_1.0001(P) = tick * tickSpacing
@@ -268,8 +268,10 @@ abstract contract MaverickV2 is SettlerAbstract {
         (int256 lo, int256 hi) = tokenAIn.maybeSwap(limit, tick);
         tick = (lo > hi).ternary(limit, tick);
 
+        bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tick, swapCallbackData);
+
         (, buyAmount) = abi.decode(
-            executeCall(address(pool), pool.fastEncodeSwap(recipient, amount, tokenAIn, tick, swapCallbackData)),
+            withCallback ? _callMaverickWithCallback(address(pool), data) : _callMaverick(address(pool), data),
             (uint256, uint256)
         );
         if (buyAmount < minBuyAmount) {
@@ -290,13 +292,7 @@ abstract contract MaverickV2 is SettlerAbstract {
             IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash));
 
         return _sellToMaverickV2(
-            pool,
-            recipient,
-            tokenAIn,
-            _permitToSellAmount(permit),
-            minBuyAmount,
-            swapCallbackData,
-            _callMaverickWithCallback
+            pool, recipient, tokenAIn, _permitToSellAmount(permit), minBuyAmount, swapCallbackData, true
         );
     }
 
@@ -326,7 +322,7 @@ abstract contract MaverickV2 is SettlerAbstract {
             sellToken.safeTransfer(address(pool), sellAmount);
         }
 
-        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, minBuyAmount, new bytes(0), _callMaverick);
+        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, minBuyAmount, new bytes(0), false);
     }
 
     function _maverickV2Callback(bytes calldata data) private returns (bytes memory) {
