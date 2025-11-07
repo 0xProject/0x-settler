@@ -178,8 +178,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                     }
                     // No checks on returndata as UniV3 pools are generated from 
                     // the trusted factory and initHash.
-                    // masking to discard other info in slot0
-                    priceSqrtX96 := and(0xffffffffffffffffffffffff, mload(0x00))
+                    priceSqrtX96 := mload(0x00)
                 }
                 // Factor is:
                 // 28011385487393067476124172288 approximately 1 / sqrt(2) in Q65.95 (95 bits)
