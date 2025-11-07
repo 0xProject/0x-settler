@@ -257,11 +257,12 @@ abstract contract MaverickV2 is SettlerAbstract {
         // (4) log_1.0001(2) + tick * tickSpacing = X * tickSpacing
         // then it is possible to get to
         // (5) log_1.0001(2) / tickSpacing = X - tick
-        // log_1.0001(2) is approximately 6931
+        // log_1.0001(2) is approximately 6931 rounding down
         // X - tick is the delta for 100% price impact
         uint256 spacing = pool.fastTickSpacing();
-        // rounding up to accept at least 1 tick as MAX_TICK_SPACING is 10_000
-        int256 delta = int256((6930 + spacing) / spacing);
+        // everything is rounded down to ensure that the selected tick
+        // has at most 100% price impact
+        int256 delta = int256(6931 / spacing);
         int256 tick = pool.fastGetTick() + tokenAIn.ternary(delta, -delta);
         int256 limit = tokenAIn.ternary(type(int32).max, type(int32).min);
         (int256 lo, int256 hi) = tokenAIn.maybeSwap(limit, tick);

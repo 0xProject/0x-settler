@@ -167,6 +167,8 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             // Intermediate tokens go to this contract. Final tokens go to `recipient`.
             address to = isPathMultiHop.ternary(address(this), recipient);
 
+            // priceSqrtX96 is uint160
+            // uint256 used in favor of future operations that will overflow uint160
             uint256 priceSqrtX96;
             {
                 assembly ("memory-safe") {
@@ -181,10 +183,16 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                     priceSqrtX96 := mload(0x00)
                 }
                 // Factor is:
-                // 28011385487393067476124172288 approximately 1 / sqrt(2) in Q65.95 (95 bits)
-                // 56022770974786143748341366784 approximately sqrt(2) in Q65.95 (96 bits)
+                // 1. 28011385487393069959365969113 approximately floor(sqrt(2**188)) (95 bits)
+                //    which is equivalent to 1 / sqrt(2) in Q65.95
+                //    2**95 / sqrt(2) = sqrt(2) * (2**94) = sqrt(2**188)
+                //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**188
+                // 2. 56022770974786139918731938227 approximately floor(sqrt(2**191)) (96 bits)
+                //    which is equivalent to sqrt(2) in Q65.95
+                //    sqrt(2) * (2**95) = sqrt(2**191)
+                //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**191
                 // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
-                uint256 factor = zeroForOne.ternary(uint256(28011385487393067476124172288), uint256(56022770974786143748341366784));
+                uint256 factor = zeroForOne.ternary(uint256(28011385487393069959365969113), uint256(56022770974786139918731938227));
 
                 unchecked {
                     // no overflow when multiplying as factors are 160 bits and at most 96 bits respectively
@@ -194,6 +202,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 
                 uint256 limit = (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740));
                 (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
+                // All operations where rounded down to ensure that the selected price has at most 100% price impact
                 priceSqrtX96 = (lo > hi).ternary(limit, priceSqrtX96);
             }
 

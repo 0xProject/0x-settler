@@ -435,16 +435,21 @@ abstract contract Ekubo is SettlerAbstract {
             {
                 SqrtRatio sqrtRatio;
                 {
-                    // uint256 used in favor of future operations
-                    // mask is uint96 with lower 94 bits set to 0
+                    // mask is lower or equal than 3 (2 bits)
                     // priceSqrt is uint94
+                    // uint256 used in favor of future operations that will overflow uint94
                     (uint256 mask, uint256 priceSqrt) = IEkuboCore(msg.sender).unsafeSqrtPrice(poolKey);
                     // Factor is:
-                    // 56022770974786143748341366784 approximately sqrt(2) in Q65.95 (96 bits)
-                    // 28011385487393067476124172288 approximately 1 / sqrt(2) in Q65.95 (95 bits)
+                    // 1. 56022770974786139918731938227 approximately floor(sqrt(2**191)) (96 bits)
+                    //    which is equivalent to sqrt(2) in Q65.95
+                    //    sqrt(2) * (2**95) = sqrt(2**191)
+                    //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**191
+                    // 2. 28011385487393069959365969113 approximately floor(sqrt(2**188)) (95 bits)
+                    //    which is equivalent to 1 / sqrt(2) in Q65.95
+                    //    2**95 / sqrt(2) = sqrt(2) * (2**94) = sqrt(2**188)
+                    //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**188
                     // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
-                    uint256 factor = isToken1.ternary(uint256(56022770974786143748341366784), uint256(28011385487393067476124172288));
-
+                    uint256 factor = isToken1.ternary(uint256(56022770974786139918731938227), uint256(28011385487393069959365969113));
                     unchecked {
                         // no overflow when multiplying as factors are 94 bits and at most 96 bits respectively
                         // shifted right 95 bits to keep the price in its original representation
@@ -478,6 +483,7 @@ abstract contract Ekubo is SettlerAbstract {
                     
                     uint256 limit = isToken1.ternary(uint256(79227682466138141934206691491), uint256(4611797791050542631));
                     (uint256 lo, uint256 hi) = isToken1.maybeSwap(limit, priceSqrt);
+                    // All operations where rounded down to ensure that the selected price has at most 100% price impact
                     sqrtRatio = SqrtRatio.wrap(uint96((lo > hi).ternary(limit, priceSqrt)));
                 }
                 int256 delta0;
