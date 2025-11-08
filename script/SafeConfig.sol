@@ -76,7 +76,7 @@ library SafeConfig {
         revert(string.concat("Unrecognized chainid ", ItoA.itoa(block.chainid)));
     }
 
-    function _isEraVm() internal view returns (bool) {
+    function isEraVm() internal view returns (bool) {
         if (block.chainid == 11124) {
             return true;
         }

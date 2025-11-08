@@ -82,9 +82,11 @@ contract DeploySafes is Script {
     bytes32 internal constant factoryHash = 0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
     bytes32 internal constant factoryHashEraVm = 0x55daa5d390d283edbc5fa835bd53befce45179c758feaac8c149a95850d0a6b6;
     bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
-    bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb
+    bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
     bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
+
+    bytes32 internal constant safeProxyInitHashEraVm = 0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
 
     function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
         // The Gnosis multicall contract uses a very obnoxious packed encoding
@@ -170,10 +172,11 @@ contract DeploySafes is Script {
         bytes calldata constructorArgs,
         address[] calldata solvers
     ) public {
-        require(address(safeFactory).codehash == _isEraVm() ? factoryHashEraVm : factoryHash, "Safe factory codehash");
-        require(safeSingleton.codehash == _isEraVm() ? singletonHashEraVm : singletonHash, "Safe singleton codehash");
-        require(safeFallback.codehash == _isEraVm() ? fallbackHashEraVm : fallbackHash, "Safe fallback codehash");
-        require(safeMulticall.codehash == _isEraVm() ? multicallHashEraVm : multicallHash, "Safe multicall codehash");
+        bool isEraVm = SafeConfig.isEraVm();
+        require(address(safeFactory).codehash == (isEraVm ? factoryHashEraVm : factoryHash), "Safe factory codehash");
+        require(safeSingleton.codehash == (isEraVm ? singletonHashEraVm : singletonHash), "Safe singleton codehash");
+        require(safeFallback.codehash == (isEraVm ? fallbackHashEraVm : fallbackHash), "Safe fallback codehash");
+        require(safeMulticall.codehash == (isEraVm ? multicallHashEraVm : multicallHash), "Safe multicall codehash");
 
         require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
         require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");
@@ -200,30 +203,42 @@ contract DeploySafes is Script {
         require(upgradeSafe.code.length == 0, "upgrade safe is already deployed");
 
         // precompute safe addresses
-        bytes memory creationCode = safeFactory.proxyCreationCode();
-        bytes32 initHash = keccak256(bytes.concat(creationCode, bytes32(uint256(uint160(safeSingleton)))));
-
         address[] memory owners = new address[](1);
+        bytes32 safeDeploymentSalt = bytes32(0);
         owners[0] = moduleDeployer;
         bytes memory deploymentInitializer = abi.encodeCall(
             ISafeSetup.setup, (owners, 1, address(0), new bytes(0), safeFallback, address(0), 0, payable(address(0)))
         );
+        bytes32 deploymentDerivedSalt = keccak256(bytes.concat(keccak256(deploymentInitializer), safeDeploymentSalt));
         owners[0] = proxyDeployer;
         bytes memory upgradeInitializer = abi.encodeCall(
             ISafeSetup.setup, (owners, 1, address(0), new bytes(0), safeFallback, address(0), 0, payable(address(0)))
         );
-        require(
-            AddressDerivation.deriveDeterministicContract(
-                address(safeFactory), keccak256(bytes.concat(keccak256(deploymentInitializer), bytes32(0))), initHash
-            ) == deploymentSafe,
-            "deployment safe address mismatch"
-        );
-        require(
-            AddressDerivation.deriveDeterministicContract(
-                address(safeFactory), keccak256(bytes.concat(keccak256(upgradeInitializer), bytes32(0))), initHash
-            ) == upgradeSafe,
-            "upgrade safe address mismatch"
-        );
+        bytes32 upgradeDerivedSalt = keccak256(bytes.concat(keccak256(upgradeInitializer), safeDeploymentSalt));
+
+
+        if (isEraVm) {
+            bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
+
+            require(AddressDerivation.deriveDeterministicContractZkSync(address(safeFactory), deploymentDerivedSalt,safeProxyInitHashEraVm, constructorHash) == deploymentSafe, "deployment safe address mismatch");
+            require(AddressDerivation.deriveDeterministicContractZkSync(address(safeFactory), upgradeDerivedSalt,safeProxyInitHashEraVm, constructorHash) == deploymentSafe, "upgrade safe address mismatch");
+        } else {
+            bytes memory creationCode = safeFactory.proxyCreationCode();
+            bytes32 initHash = keccak256(bytes.concat(creationCode, bytes32(uint256(uint160(safeSingleton)))));
+
+            require(
+                AddressDerivation.deriveDeterministicContract(
+                    address(safeFactory), deploymentDerivedSalt, initHash
+                ) == deploymentSafe,
+                "deployment safe address mismatch"
+            );
+            require(
+                AddressDerivation.deriveDeterministicContract(
+                    address(safeFactory), upgradeDerivedSalt, initHash
+                ) == upgradeSafe,
+                "upgrade safe address mismatch"
+            );
+        }
 
         // after everything is deployed, we're going to need to set up permissions; these are those calls
         bytes memory addModuleCall = abi.encodeCall(ISafeModule.enableModule, (iceColdCoffee));
