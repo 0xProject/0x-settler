@@ -118,4 +118,27 @@ library AddressDerivation {
             mstore(0x40, ptr)
         }
     }
+
+    function deriveContractZkSync(address deployer, uint64 nonce) internal pure returns (address result) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x63bae3a9951d38e8a3fbb7b70909afc1200610fc5bc55ade242f815974674f23)
+            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, deployer))
+            mstore(add(0x40, ptr), and(0xffffffffffffffff, nonce))
+            result := keccak256(ptr, 0x60)
+        }
+    }
+
+
+    function deriveDeterministicContractZkSync(address deployer, bytes32 salt, bytes32 initCodeWithoutArgsHash, bytes32 initArgsHash) internal pure returns (address result) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x2020dba91b30cc0006188af794c2fb30dd8520db7e2c088b7fc7c103c00ca494)
+            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, deployer))
+            mstore(add(0x40, ptr), salt)
+            mstore(add(0x60, ptr), initCodeWithoutArgsHash)
+            mstore(add(0x80, ptr), initArgsHash)
+            result := keccak256(ptr, 0xa0)
+        }
+    }
 }
