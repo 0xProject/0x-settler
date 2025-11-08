@@ -767,6 +767,22 @@
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=11124"
   },
   "abstract": {
-    "wnative": "0x3439153EB7AF838Ad19d56E1571FBD09333C2809"
+    "chainId": 2741,
+    "displayName": "Abstract",
+    "wnative": "0x3439153EB7AF838Ad19d56E1571FBD09333C2809",
+    "isShanghai": null,
+    "isCancun": null,
+    "extraFlags": "",
+    "gasMultiplierPercent": 200,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "toehold": "0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD",
+      "singleton": "0x1727c2c531cf966f902E5927b98490fDFb3b2b70",
+      "factory": "0xDAec33641865E4651fB43181C6DB6f7232Ee91c2",
+      "fallback": "0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A",
+      "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=2741"
   }
 }
