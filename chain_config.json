@@ -739,7 +739,7 @@
   "abstract-testnet": {
     "chainId": 11124,
     "displayName": "AbstractSepolia",
-    "wnative": null,
+    "wnative": "0x9EDCde0257F2386Ce177C3a7FCdd97787F0D841d",
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
@@ -759,11 +759,14 @@
       "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {
-      "forwardingMultiCall": "",
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "",
-      "allowanceHolder": "",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": ""
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=11124"
+  },
+  "abstract": {
+    "wnative": "0x3439153EB7AF838Ad19d56E1571FBD09333C2809"
   }
 }
