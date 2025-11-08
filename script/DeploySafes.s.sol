@@ -166,7 +166,7 @@ contract DeploySafes is Script {
             require(deployedSafe.codehash == 0);
             bytes memory data = abi.encodeCall(safeFactory.createProxyWithNonce, (safeSingleton, upgradeInitializer, safeDeploymentSaltNonce));
             assembly ("memory-safe") {
-                pop(call(500_000, safeFactory, 0, add(0x20, data), mload(data), 0, 0))
+                pop(call(500000, safeFactory, 0, add(0x20, data), mload(data), 0, 0))
             }
             // We can't check for success because simulation and settlement diverge. We just assume that the
             // author/operator didn't make an egregious mistake. Namely, we trust that we've correctly hardcoded the
