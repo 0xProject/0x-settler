@@ -12,7 +12,7 @@ import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3AbstractSepoliaFactory,
-    uniswapV3InitHash,
+    uniswapV3InitHashEraVm,
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
@@ -28,7 +28,7 @@ abstract contract AbstractSepoliaMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(/* SettlerAbstract, */ SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
@@ -40,6 +40,10 @@ abstract contract AbstractSepoliaMixin is FreeMemory, SettlerBase {
         return true;
     }
 
+    function _isEraVmFork(uint8 forkId) internal pure virtual override returns (bool) {
+        return forkId == uniswapV3ForkId;
+    }
+
     function _uniV3ForkInfo(uint8 forkId)
         internal
         pure
@@ -48,7 +52,7 @@ abstract contract AbstractSepoliaMixin is FreeMemory, SettlerBase {
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3AbstractSepoliaFactory;
-            initHash = uniswapV3InitHash;
+            initHash = uniswapV3InitHashEraVm;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);

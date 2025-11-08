@@ -16,6 +16,7 @@ import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext, Context} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
+import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 
 /// @custom:security-contact security@0x.org
 contract AbstractSepoliaSettlerIntent is SettlerIntent, AbstractSepoliaSettlerMetaTxn {
@@ -38,6 +39,10 @@ contract AbstractSepoliaSettlerIntent is SettlerIntent, AbstractSepoliaSettlerMe
         returns (bool)
     {
         return super._dispatch(i, action, data);
+    }
+
+    function _isEraVmFork(uint8 forkId) internal pure override(AbstractSepoliaSettlerMetaTxn, UniswapV3Fork) returns (bool) {
+        return super._isEraVmFork(forkId);
     }
 
     function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {

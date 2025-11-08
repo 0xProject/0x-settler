@@ -13,6 +13,7 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
+import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 
 /// @custom:security-contact security@0x.org
 contract AbstractSepoliaSettler is Settler, AbstractSepoliaMixin {
@@ -47,5 +48,9 @@ contract AbstractSepoliaSettler is Settler, AbstractSepoliaMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _isEraVmFork(uint8 forkId) internal pure override(AbstractSepoliaMixin, UniswapV3Fork) returns (bool) {
+        return super._isEraVmFork(forkId);
     }
 }
