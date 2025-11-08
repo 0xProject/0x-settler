@@ -85,10 +85,10 @@ contract DeploySafes is Script {
     bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
     bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
+    uint256 internal constant safeDeploymentSaltNonce = 0;
 
-    // This is derived from calling `proxyCreationCode()` on the
-    // factory and then decoding the EraVm-style encoded inithash from
-    // that blob.
+    // This is derived from calling `proxyCreationCode()` on the factory and then decoding the EraVm-style encoded
+    // inithash from that blob.
     // ref: https://web.archive.org/web/20251108135035/https://docs.zksync.io/zksync-protocol/era-vm/differences/evm-instructions#datasize-dataoffset-datacopy
     // ref: https://web.archive.org/web/20251108134721/https://matter-labs.github.io/zksync-era/core/latest/guides/advanced/12_alternative_vm_intro.html#bytecode-hashes
     bytes32 internal constant safeProxyInitHashEraVm =
@@ -155,6 +155,29 @@ contract DeploySafes is Script {
         return subCalls;
     }
 
+    function _createProxyWithNonce(bool isEraVm, ISafeFactory safeFactory, address singleton, bytes memory initializer, uint256 saltNonce) returns (address deployedSafe) {
+        if (isEraVm) {
+            bytes32 constructorHash = keccak256(abi.encode(singleton));
+            bytes32 salt = keccak256(abi.encode(keccak256(initializer), saltNonce));
+
+            // Foundry does not simulate EraVM bytecode, so we have to make this call blindly and lie to the rest of the
+            // script that it worked
+            deployedSafe = AddressDerivation.deriveDeterministicContractEraVm(safeFactory, salt, safeProxyInitHashEraVm, constructorHash);
+            require(deployedSafe.codehash == 0);
+            bytes memory data = abi.encodeCall(safeFactory.createProxyWithNonce, (safeSingleton, upgradeInitializer, safeDeploymentSaltNonce));
+            assembly ("memory-safe") {
+                pop(call(500_000, safeFactory, 0, add(0x20, data), mload(data), 0, 0))
+            }
+            // We can't check for success because simulation and settlement diverge. We just assume that the
+            // author/operator didn't make an egregious mistake. Namely, we trust that we've correctly hardcoded the
+            // hashes of the code (which is not the same as the codehash on EraVM) of the various Safe{Wallet}
+            // contracts, that the gas we're supplying is adequate, that the initializer is well-formed, and that we're
+            // following the correct method for deriving the address of the Safe{Wallet} proxy.
+        } else {
+            deployedSafe = safeFactory.createProxyWithNonce(safeSingleton, upgradeInitializer, safeDeploymentSaltNonce);
+        }
+    }
+
     function run(
         address moduleDeployer,
         address proxyDeployer,
@@ -210,17 +233,16 @@ contract DeploySafes is Script {
 
         // precompute safe addresses
         address[] memory owners = new address[](1);
-        bytes32 safeDeploymentSalt = bytes32(0);
         owners[0] = moduleDeployer;
         bytes memory deploymentInitializer = abi.encodeCall(
             ISafeSetup.setup, (owners, 1, address(0), new bytes(0), safeFallback, address(0), 0, payable(address(0)))
         );
-        bytes32 deploymentDerivedSalt = keccak256(bytes.concat(keccak256(deploymentInitializer), safeDeploymentSalt));
+        bytes32 deploymentDerivedSalt = keccak256(bytes.concat(keccak256(deploymentInitializer), bytes32(safeDeploymentSaltNonce)));
         owners[0] = proxyDeployer;
         bytes memory upgradeInitializer = abi.encodeCall(
             ISafeSetup.setup, (owners, 1, address(0), new bytes(0), safeFallback, address(0), 0, payable(address(0)))
         );
-        bytes32 upgradeDerivedSalt = keccak256(bytes.concat(keccak256(upgradeInitializer), safeDeploymentSalt));
+        bytes32 upgradeDerivedSalt = keccak256(bytes.concat(keccak256(upgradeInitializer), bytes32(safeDeploymentSaltNonce)));
 
         if (isEraVm) {
             bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
@@ -385,7 +407,7 @@ contract DeploySafes is Script {
         address deployerImpl = address(new Deployer(1));
         // now we deploy the safe that's responsible *ONLY* for deploying new instances
         gasSplits[2] = gasleft();
-        address deployedDeploymentSafe = safeFactory.createProxyWithNonce(safeSingleton, deploymentInitializer, 0);
+        address deployedDeploymentSafe = _createProxyWithNonce(isEraVm, safeFactory, safeSingleton, deploymentInitializer, safeDeploymentSaltNonce);
 
         gasSplits[3] = gasleft();
         vm.stopBroadcast();
@@ -398,7 +420,7 @@ contract DeploySafes is Script {
             ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
         // then we deploy the safe that's going to own the proxy
         gasSplits[5] = gasleft();
-        address deployedUpgradeSafe = safeFactory.createProxyWithNonce(safeSingleton, upgradeInitializer, 0);
+        address deployedUpgradeSafe = _createProxyWithNonce(isEraVm, safeFactory, safeSingleton, upgradeInitializer, safeDeploymentSaltNonce);
 
         // configure the deployer (accept ownership; set descriptions; authorize; set new owners)
         gasSplits[6] = gasleft();
@@ -466,16 +488,19 @@ contract DeploySafes is Script {
             Deployer(deployerProxy).ownerOf(Feature.unwrap(bridgeFeature)) == predictedBridgeSettler,
             "predicted bridgesettler address mismatch"
         );
-        require(
-            keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
-                == keccak256(abi.encodePacked(deployerOwners)),
-            "deployment safe owners mismatch"
-        );
-        require(
-            keccak256(abi.encodePacked(ISafeOwners(upgradeSafe).getOwners()))
-                == keccak256(abi.encodePacked(upgradeOwners)),
-            "upgrade safe owners mismatch"
-        );
+
+        if (!isEraVm) {
+            require(
+                keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
+                    == keccak256(abi.encodePacked(deployerOwners)),
+                "deployment safe owners mismatch"
+            );
+            require(
+                keccak256(abi.encodePacked(ISafeOwners(upgradeSafe).getOwners()))
+                    == keccak256(abi.encodePacked(upgradeOwners)),
+                "upgrade safe owners mismatch"
+            );
+        }
         {
             (bool success, bytes memory returndata) =
                 predictedIntentSettler.staticcall(abi.encodeWithSignature("getSolvers()"));
