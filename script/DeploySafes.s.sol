@@ -89,8 +89,8 @@ contract DeploySafes is Script {
     // This is derived from calling `proxyCreationCode()` on the
     // factory and then decoding the EraVm-style encoded inithash from
     // that blob.
-    // ref: https://docs.zksync.io/zksync-protocol/era-vm/differences/evm-instructions#datasize-dataoffset-datacopy
-    // ref: https://matter-labs.github.io/zksync-era/core/latest/guides/advanced/12_alternative_vm_intro.html#bytecode-hashes
+    // ref: https://web.archive.org/web/20251108135035/https://docs.zksync.io/zksync-protocol/era-vm/differences/evm-instructions#datasize-dataoffset-datacopy
+    // ref: https://web.archive.org/web/20251108134721/https://matter-labs.github.io/zksync-era/core/latest/guides/advanced/12_alternative_vm_intro.html#bytecode-hashes
     bytes32 internal constant safeProxyInitHashEraVm =
         0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
 
