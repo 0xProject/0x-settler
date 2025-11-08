@@ -226,13 +226,13 @@ contract DeploySafes is Script {
             bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
 
             require(
-                AddressDerivation.deriveDeterministicContractZkSync(
+                AddressDerivation.deriveDeterministicContractEraVm(
                     address(safeFactory), deploymentDerivedSalt, safeProxyInitHashEraVm, constructorHash
                 ) == deploymentSafe,
                 "deployment safe address mismatch"
             );
             require(
-                AddressDerivation.deriveDeterministicContractZkSync(
+                AddressDerivation.deriveDeterministicContractEraVm(
                     address(safeFactory), upgradeDerivedSalt, safeProxyInitHashEraVm, constructorHash
                 ) == deploymentSafe,
                 "upgrade safe address mismatch"
