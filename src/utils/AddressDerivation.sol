@@ -129,8 +129,12 @@ library AddressDerivation {
         }
     }
 
-
-    function deriveDeterministicContractEraVm(address deployer, bytes32 salt, bytes32 initCodeWithoutArgsHash, bytes32 initArgsHash) internal pure returns (address result) {
+    function deriveDeterministicContractEraVm(
+        address deployer,
+        bytes32 salt,
+        bytes32 initCodeWithoutArgsHash,
+        bytes32 initArgsHash
+    ) internal pure returns (address result) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x2020dba91b30cc0006188af794c2fb30dd8520db7e2c088b7fc7c103c00ca494)

@@ -298,7 +298,11 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             mstore(0x40, ptr)
         }
         if (_isEraVmFork(forkId)) {
-            return IUniswapV3Pool(AddressDerivation.deriveDeterministicContractEraVm(factory, salt, initHash, 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470));
+            return IUniswapV3Pool(
+                AddressDerivation.deriveDeterministicContractEraVm(
+                    factory, salt, initHash, 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+                )
+            );
         } else {
             return IUniswapV3Pool(AddressDerivation.deriveDeterministicContract(factory, salt, initHash));
         }
