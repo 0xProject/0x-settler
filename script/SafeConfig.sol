@@ -76,6 +76,41 @@ library SafeConfig {
         revert(string.concat("Unrecognized chainid ", ItoA.itoa(block.chainid)));
     }
 
+    function _isEraVm() internal view returns (bool) {
+        if (block.chainid == 11124) {
+            return true;
+        }
+        if (
+            block.chainid == 1 // ethereum
+                || block.chainid == 10 // optimism
+                || block.chainid == 56 // bnb
+                || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
+                || block.chainid == 137 // polygon
+                || block.chainid == 146 // sonic
+                || block.chainid == 480 // worldchain
+                || block.chainid == 999 // hyperevm
+                || block.chainid == 5000 // mantle
+                || block.chainid == 8453 // base
+                || block.chainid == 9745 // plasma
+                || block.chainid == 10143 // monad testnet
+                || block.chainid == 34443 // mode
+                || block.chainid == 42161 // arbitrum
+                || block.chainid == 43114 // avalanche
+                || block.chainid == 57073 // ink
+                || block.chainid == 59144 // linea
+                || block.chainid == 80094 // berachain
+                || block.chainid == 81457 // blast
+                || block.chainid == 167000 // taiko
+                || block.chainid == 534352 // scroll
+                || block.chainid == 747474 // katana
+                || block.chainid == 11155111 // sepolia
+        ) {
+            return false;
+        }
+        revert(string.concat("Unrecognized chainid ", ItoA.itoa(block.chainid)));
+    }
+
     uint256 internal constant upgradeSafeThreshold = 2;
 
     function getUpgradeSafeSigners() internal view returns (address[] memory) {

@@ -78,9 +78,13 @@ interface ISafeMulticall {
 
 contract DeploySafes is Script {
     bytes32 internal constant singletonHash = 0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f;
+    bytes32 internal constant singletonHashEraVm = 0xe2ca068330339d608367d83a0b25545efe39e619098597699ab8ff828cb1ddd8;
     bytes32 internal constant factoryHash = 0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
+    bytes32 internal constant factoryHashEraVm = 0x55daa5d390d283edbc5fa835bd53befce45179c758feaac8c149a95850d0a6b6;
     bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
+    bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
+    bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
 
     function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
         // The Gnosis multicall contract uses a very obnoxious packed encoding
@@ -166,10 +170,10 @@ contract DeploySafes is Script {
         bytes calldata constructorArgs,
         address[] calldata solvers
     ) public {
-        require(address(safeFactory).codehash == factoryHash, "Safe factory codehash");
-        require(safeSingleton.codehash == singletonHash, "Safe singleton codehash");
-        require(safeFallback.codehash == fallbackHash, "Safe fallback codehash");
-        require(safeMulticall.codehash == multicallHash, "Safe multicall codehash");
+        require(address(safeFactory).codehash == _isEraVm() ? factoryHashEraVm : factoryHash, "Safe factory codehash");
+        require(safeSingleton.codehash == _isEraVm() ? singletonHashEraVm : singletonHash, "Safe singleton codehash");
+        require(safeFallback.codehash == _isEraVm() ? fallbackHashEraVm : fallbackHash, "Safe fallback codehash");
+        require(safeMulticall.codehash == _isEraVm() ? multicallHashEraVm : multicallHash, "Safe multicall codehash");
 
         require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
         require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");
