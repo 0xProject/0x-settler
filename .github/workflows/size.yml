@@ -30,12 +30,5 @@ jobs:
       - name: Install node dependencies
         run: npm install
 
-      - name: Run tests
-        run: forge test --skip 'src/*' --skip 'test/0.8.28/*'
-        env:
-          FOUNDRY_PROFILE: integration
-          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
-          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
-
-      - name: Gas comparison
-        run: npm run compare_gas
+      - name: Check contract sizes
+        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
