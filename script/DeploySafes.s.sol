@@ -86,7 +86,8 @@ contract DeploySafes is Script {
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
     bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
 
-    bytes32 internal constant safeProxyInitHashEraVm = 0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
+    bytes32 internal constant safeProxyInitHashEraVm =
+        0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
 
     function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
         // The Gnosis multicall contract uses a very obnoxious packed encoding
@@ -216,26 +217,33 @@ contract DeploySafes is Script {
         );
         bytes32 upgradeDerivedSalt = keccak256(bytes.concat(keccak256(upgradeInitializer), safeDeploymentSalt));
 
-
         if (isEraVm) {
             bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
 
-            require(AddressDerivation.deriveDeterministicContractZkSync(address(safeFactory), deploymentDerivedSalt,safeProxyInitHashEraVm, constructorHash) == deploymentSafe, "deployment safe address mismatch");
-            require(AddressDerivation.deriveDeterministicContractZkSync(address(safeFactory), upgradeDerivedSalt,safeProxyInitHashEraVm, constructorHash) == deploymentSafe, "upgrade safe address mismatch");
+            require(
+                AddressDerivation.deriveDeterministicContractZkSync(
+                    address(safeFactory), deploymentDerivedSalt, safeProxyInitHashEraVm, constructorHash
+                ) == deploymentSafe,
+                "deployment safe address mismatch"
+            );
+            require(
+                AddressDerivation.deriveDeterministicContractZkSync(
+                    address(safeFactory), upgradeDerivedSalt, safeProxyInitHashEraVm, constructorHash
+                ) == deploymentSafe,
+                "upgrade safe address mismatch"
+            );
         } else {
             bytes memory creationCode = safeFactory.proxyCreationCode();
             bytes32 initHash = keccak256(bytes.concat(creationCode, bytes32(uint256(uint160(safeSingleton)))));
 
             require(
-                AddressDerivation.deriveDeterministicContract(
-                    address(safeFactory), deploymentDerivedSalt, initHash
-                ) == deploymentSafe,
+                AddressDerivation.deriveDeterministicContract(address(safeFactory), deploymentDerivedSalt, initHash)
+                    == deploymentSafe,
                 "deployment safe address mismatch"
             );
             require(
-                AddressDerivation.deriveDeterministicContract(
-                    address(safeFactory), upgradeDerivedSalt, initHash
-                ) == upgradeSafe,
+                AddressDerivation.deriveDeterministicContract(address(safeFactory), upgradeDerivedSalt, initHash)
+                    == upgradeSafe,
                 "upgrade safe address mismatch"
             );
         }
@@ -259,7 +267,8 @@ contract DeploySafes is Script {
                 )
             )
         );
-        address predictedTakerSubmittedSettler = Create3.predict(salt(takerSubmittedFeature, Nonce.wrap(1)), deployerProxy);
+        address predictedTakerSubmittedSettler =
+            Create3.predict(salt(takerSubmittedFeature, Nonce.wrap(1)), deployerProxy);
 
         bytes memory metaTxSetDescriptionCall =
             abi.encodeCall(Deployer.setDescription, (metaTxFeature, initialDescriptionMetaTx));
@@ -302,7 +311,9 @@ contract DeploySafes is Script {
             (
                 bridgeFeature,
                 bytes.concat(
-                    vm.getCode(string.concat(chainDisplayName, "BridgeSettlerFlat.sol:", chainDisplayName, "BridgeSettler")),
+                    vm.getCode(
+                        string.concat(chainDisplayName, "BridgeSettlerFlat.sol:", chainDisplayName, "BridgeSettler")
+                    ),
                     constructorArgs
                 )
             )
