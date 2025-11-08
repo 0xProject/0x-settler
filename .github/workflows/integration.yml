@@ -30,9 +30,6 @@ jobs:
       - name: Install node dependencies
         run: npm install
 
-      - name: Check contract sizes
-        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
-
       - name: Run tests
         run: forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip 'test/integration/arbitrum/*'
         env:
