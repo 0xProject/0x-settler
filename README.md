@@ -1473,9 +1473,9 @@ Third, create a new set of
 files. A good way to start is by copying
 [`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
 names of all the contracts, remove references to missing liquidity sources
-(presently MaverickV2 and UniswapV4), replace the `block.chainid` check in the
-constructor, and replace the UniswapV3 forks. When adding new UniswapV3 forks,
-be sure that the `factory` address is the address of the contract that
+(presently MaverickV2, UniswapV4, and Across), replace the `block.chainid` check
+in the constructor, and replace the UniswapV3 forks. When adding new UniswapV3
+forks, be sure that the `factory` address is the address of the contract that
 `CREATE2`'s the pool. Triple check that the deployed pools aren't upgradeable
 proxies and that the `data` argument is passed through the callback
 unmodified. _**This is critical for security.**_ Some chains have a form of
