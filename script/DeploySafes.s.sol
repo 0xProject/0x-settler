@@ -346,6 +346,7 @@ contract DeploySafes is Script {
     }
 
     function run(
+        bool isEraVm,
         address moduleDeployer,
         address proxyDeployer,
         address iceColdCoffee,
@@ -379,6 +380,7 @@ contract DeploySafes is Script {
         });
         safeCompatConfig.safeBytecodes.load(vm);
 
+        require(isEraVm == safeCompatConfig.isEraVm, "isEraVm mismatch");
         require(
             address(safeFactory).codehash == (safeCompatConfig.isEraVm ? factoryHashEraVm : factoryHash),
             "Safe factory codehash"
