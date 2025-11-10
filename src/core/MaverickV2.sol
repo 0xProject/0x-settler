@@ -179,7 +179,7 @@ library FastMaverickV2Pool {
     }
 
     function fastGetReserveAOrB(IMaverickV2Pool pool, bool tokenAIn) internal view returns (uint128 r) {
-        return uint128(fastGetFromPoolState(pool, tokenAIn.toUint() << 5, 128));
+        return uint128(fastGetFromPoolState(pool, (!tokenAIn).toUint() << 5, 128));
     }
 
     function fastTickSpacing(IMaverickV2Pool pool) internal view returns (uint64 r) {
@@ -312,16 +312,14 @@ abstract contract MaverickV2 is SettlerAbstract {
                 // overflow here would also break MaverickV2.
                 sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
+            sellToken.safeTransfer(address(pool), sellAmount);
         }
-        if (sellAmount == 0) {
+        else {
             sellAmount = sellToken.fastBalanceOf(address(pool));
             unchecked {
                 sellAmount -= pool.fastGetReserveAOrB(tokenAIn);
             }
-        } else {
-            sellToken.safeTransfer(address(pool), sellAmount);
         }
-
         return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, minBuyAmount, new bytes(0), false);
     }
 
