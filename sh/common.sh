@@ -68,6 +68,13 @@ if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
     fi
 fi
 
+if [[ $(get_config isEraVm) != [Ff]alse ]] ; then
+    if (( $(get_config gasMultiplierPercent) < 500 )) ; then
+        echo 'EraVm chains must set a gas multiplier of 5x or more' >&2
+        exit 1
+    fi
+fi
+
 declare -i chainid
 chainid="$(get_config chainId)"
 declare -r -i chainid

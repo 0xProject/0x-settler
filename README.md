@@ -1528,8 +1528,10 @@ deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 Ninth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
-<CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
-testnet. Simulate each individual transaction in
+<CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a testnet. If
+you are deploying to a chain with an alternate VM (i.e. EraVM [i.e. zkSync,
+Abstract]), you _**MUST**_ deploy to a testnet to verify that everything is
+working properly. Simulate each individual transaction in
 [Tenderly](https://dashboard.tenderly.co/).
 
 Finally, run `BROADCAST=yes ./sh/deploy_new_chain.sh <CHAIN_NAME>`. Cross your
