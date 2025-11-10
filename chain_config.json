@@ -779,8 +779,8 @@
       "apiUrl": "NOT SUPPORTED"
     },
     "governance": {
-      "upgradeSafe": "",
-      "deploymentSafe": "",
+      "upgradeSafe": "0x0a3ba9036e62df32fAeC7753c3372B4375c6E20A",
+      "deploymentSafe": "0xcF20bD8fbd83C484a34A3f48B30612b42E87e7bb",
       "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "deployment": {

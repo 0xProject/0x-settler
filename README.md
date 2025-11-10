@@ -1474,15 +1474,16 @@ files. A good way to start is by copying
 [`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
 names of all the contracts, remove references to missing liquidity sources
 (presently MaverickV2, UniswapV4, and Across), replace the `block.chainid` check
-in the constructor, and replace the UniswapV3 forks. When adding new UniswapV3
-forks, be sure that the `factory` address is the address of the contract that
-`CREATE2`'s the pool. Triple check that the deployed pools aren't upgradeable
-proxies and that the `data` argument is passed through the callback
-unmodified. _**This is critical for security.**_ Some chains have a form of
-sequencer fee sharing or other chain-specific deploy-time setup. Configure this
-in the constructor of the Settler (and ideally in the constructor of the
-Deployer, remembering that this is complicated by the fact that the Deployer is
-a proxy). See the deployments to Blast and to Mode for examples.
+in the constructor (in both `Common.sol` and `BridgeSettler.sol`), and replace
+the UniswapV3 forks. When adding new UniswapV3 forks, be sure that the `factory`
+address is the address of the contract that `CREATE2`'s the pool. Triple check
+that the deployed pools aren't upgradeable proxies and that the `data` argument
+is passed through the callback unmodified. _**This is critical for security.**_
+Some chains have a form of sequencer fee sharing or other chain-specific
+deploy-time setup. Configure this in the constructor of the Settler (and ideally
+in the constructor of the Deployer, remembering that this is complicated by the
+fact that the Deployer is a proxy). See the deployments to Blast and to Mode for
+examples.
 
 Fourth, you need have enough native asset in _**each**_ of the deployer
 addresses (there are two: `iceColdCoffee` and `deployer`) listed in

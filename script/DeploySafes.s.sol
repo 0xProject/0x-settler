@@ -449,7 +449,7 @@ contract DeploySafes is Script {
             require(
                 AddressDerivation.deriveDeterministicContractEraVm(
                     address(safeFactory), upgradeDerivedSalt, safeProxyInitHashEraVm, constructorHash
-                ) == deploymentSafe,
+                ) == upgradeSafe,
                 "upgrade safe address mismatch"
             );
         } else {

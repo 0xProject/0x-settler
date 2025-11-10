@@ -193,7 +193,14 @@ declare safe_initcode
 safe_initcode="$(cast abi-decode "$safe_creation_sig" "$(cast call --rpc-url "$rpc_url" "$safe_factory" "$(cast calldata "$safe_creation_sig")")")"
 declare -r safe_initcode
 declare safe_inithash
-safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
+if [[ $era_vm = [Ff]alse ]] ; then
+    safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
+else
+    safe_inithash=0x"${safe_initcode:74:64}"
+    declare safe_constructorhash
+    safe_constructorhash="$(cast keccak "$(cast to-uint256 "$safe_singleton")")"
+    declare -r safe_constructorhash
+fi
 declare -r safe_inithash
 declare safe_fallback
 safe_fallback="$(get_config safe.fallback)"
@@ -222,7 +229,11 @@ declare deployment_safe_salt
 deployment_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$deployment_safe_initializer")" "$(cast hash-zero)")")"
 declare -r deployment_safe_salt
 declare deployment_safe
-deployment_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$deployment_safe_salt" "$safe_inithash")")"
+if [[ $era_vm = [Ff]alse ]] ; then
+    deployment_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$deployment_safe_salt" "$safe_inithash")")"
+else
+    deployment_safe="$(cast keccak "$(cast concat-hex "$(cast keccak zksyncCreate2)" "$(cast to-uint256 "$safe_factory")" "$deployment_safe_salt" "$safe_inithash" "$safe_constructorhash")")"
+fi
 deployment_safe="$(cast to-check-sum-address "0x${deployment_safe:26:40}")"
 declare -r deployment_safe
 
@@ -245,7 +256,11 @@ declare upgrade_safe_salt
 upgrade_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$upgrade_safe_initializer")" "$(cast hash-zero)")")"
 declare -r upgrade_safe_salt
 declare upgrade_safe
-upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_safe_salt" "$safe_inithash")")"
+if [[ $era_vm = [Ff]alse ]] ; then
+    upgrade_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$upgrade_safe_salt" "$safe_inithash")")"
+else
+    upgrade_safe="$(cast keccak "$(cast concat-hex "$(cast keccak zksyncCreate2)" "$(cast to-uint256 "$safe_factory")" "$upgrade_safe_salt" "$safe_inithash" "$safe_constructorhash")")"
+fi
 upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
 declare -r upgrade_safe
 
@@ -304,10 +319,10 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,bytes,address[])' \
+    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,bytes,address[])' \
     $(get_config extraFlags)                             \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
+    "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
     2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 

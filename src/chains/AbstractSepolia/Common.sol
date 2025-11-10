@@ -22,7 +22,7 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract AbstractSepoliaMixin is FreeMemory, SettlerBase {
     constructor() {
-        assert(block.chainid == 11155111 || block.chainid == 31337);
+        assert(block.chainid == 11124 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
