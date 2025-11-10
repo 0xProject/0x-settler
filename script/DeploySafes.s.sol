@@ -335,6 +335,16 @@ contract DeploySafes is Script {
         );
     }
 
+    function _startBroadcast(SafeCompatConfig memory compatConfig, uint256 privateKey) private {
+        compatConfig.privateKey = privateKey;
+        vm.startBroadcast(privateKey);
+    }
+
+    function _stopBroadcast(SafeCompatConfig memory compatConfig) private {
+        compatConfig.privateKey = 0;
+        vm.stopBroadcast();
+    }
+
     function run(
         address moduleDeployer,
         address proxyDeployer,
@@ -578,8 +588,7 @@ contract DeploySafes is Script {
 
         uint256[] memory gasSplits = new uint256[](10);
 
-        vm.startBroadcast(moduleDeployerKey);
-        safeCompatConfig.privateKey = moduleDeployerKey;
+        _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
         // first, we deploy the module to get the correct address
         gasSplits[0] = gasleft();
@@ -593,10 +602,9 @@ contract DeploySafes is Script {
             _createProxyWithNonce(safeCompatConfig, deploymentInitializer, safeDeploymentSaltNonce);
 
         gasSplits[3] = gasleft();
-        vm.stopBroadcast();
+        _stopBroadcast(safeCompatConfig);
 
-        vm.startBroadcast(proxyDeployerKey);
-        safeCompatConfig.privateKey = proxyDeployerKey;
+        _startBroadcast(safeCompatConfig, proxyDeployerKey);
 
         // first we deploy the proxy for the deployer to get the correct address
         gasSplits[4] = gasleft();
@@ -625,10 +633,9 @@ contract DeploySafes is Script {
         );
 
         gasSplits[7] = gasleft();
-        vm.stopBroadcast();
+        _stopBroadcast(safeCompatConfig);
 
-        vm.startBroadcast(moduleDeployerKey);
-        safeCompatConfig.privateKey = moduleDeployerKey;
+        _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
         // add rollback module; deploy settlers; set new owners
         gasSplits[8] = gasleft();
@@ -648,7 +655,7 @@ contract DeploySafes is Script {
         );
 
         gasSplits[9] = gasleft();
-        vm.stopBroadcast();
+        _stopBroadcast(safeCompatConfig);
 
         {
             uint256 gasPrev = gasSplits[0];
