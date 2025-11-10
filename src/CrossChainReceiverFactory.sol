@@ -31,8 +31,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     CrossChainReceiverFactory private immutable _cachedThis = this;
     uint168 private immutable _factoryWithFF =
         0xff0000000000000000000000000000000000000000 | uint168(uint160(address(this)));
-    bytes32 private immutable _proxyInitCode0 = bytes32(bytes20(0x60253d8160093d39f33d3d3d3d363d3d37363d6c)) | bytes32(uint256(uint160(address(this))) >> 8);
-    bytes32 private immutable _proxyInitCode1 = bytes32(bytes1(uint8(uint160(address(this))))) | bytes32(0x5af43d3d93803e602357fd5bf3 << 144);
     bytes32 private immutable _proxyInitHash = keccak256(
         bytes.concat(
             hex"60253d8160093d39f33d3d3d3d363d3d37363d6c",
@@ -40,12 +38,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             hex"5af43d3d93803e602357fd5bf3"
         )
     );
-
     string public constant override name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
-
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _WNATIVE_SETTER = 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc;
     bytes32 private constant _WNATIVE_STORAGE_INITHASH = keccak256(
@@ -293,8 +288,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         noDelegateCall
         returns (ICrossChainReceiverFactory proxy)
     {
-        bytes32 proxyInitCode0 = _proxyInitCode0;
-        bytes32 proxyInitCode1 = _proxyInitCode1;
         assembly ("memory-safe") {
             // derive the deployment salt from the owner
             mstore(0x14, initialOwner)
@@ -302,9 +295,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let salt := keccak256(returndatasize(), 0x34)
 
             // create a minimal proxy targeting this contract
-            mstore(returndatasize(), proxyInitCode0)
-            mstore(0x20, proxyInitCode1)
-            proxy := create2(returndatasize(), returndatasize(), 0x2e, salt)
+            mstore(0x1a, 0x5af43d3d93803e602357fd5bf3)
+            mstore(0x0d, address())
+            mstore(returndatasize(), 0x60253d8160093d39f33d3d3d3d363d3d37363d6c)
+            proxy := create2(returndatasize(), 0x0c, 0x2e, salt)
             if iszero(proxy) {
                 mstore(returndatasize(), 0x30116425) // selector for `DeploymentFailed()`.
                 revert(0x1c, 0x04)
