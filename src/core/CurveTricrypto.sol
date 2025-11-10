@@ -35,6 +35,32 @@ interface ICurveTricryptoCallback {
     ) external;
 }
 
+library FastCurveTricrypto {
+    function fastEncodeExchangeExtended(
+        uint256 sellIndex,
+        uint256 buyIndex,
+        uint256 sellAmount,
+        uint256 minBuyAmount,
+        address receiver
+    ) internal pure returns (bytes memory data) {
+        assembly ("memory-safe") {
+            data := mload(0x40)
+            
+            mstore(data, 0x100)
+            mstore(add(0x20, data), 0xdd96994f) // selector for `exchange_extended(uint256,uint256,uint256,uint256,bool,address,address,bytes32)`
+            mstore(add(0x40, data), sellIndex)
+            mstore(add(0x60, data), buyIndex)
+            mstore(add(0x80, data), sellAmount)
+            mstore(add(0xa0, data), minBuyAmount)
+            calldatacopy(add(0xc0, data), calldatasize(), 0x40) // useEth and payer (both zeroed)
+            mstore(add(0x100, data), receiver)
+            mstore(add(0x120, data), 0x6370a85c) // selector for `curveTricryptoSwapCallback(address,address,address,uint256,uint256)`
+
+            mstore(0x40, add(0x140, data))
+        }
+    }
+}
+
 abstract contract CurveTricrypto is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
@@ -89,18 +115,12 @@ abstract contract CurveTricrypto is SettlerAbstract {
         }
         _setOperatorAndCall(
             pool,
-            abi.encodeCall(
-                ICurveTricrypto.exchange_extended,
-                (
-                    sellIndex,
-                    buyIndex,
-                    sellAmount,
-                    minBuyAmount,
-                    false,
-                    address(0), // payer
-                    recipient,
-                    bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
-                )
+            FastCurveTricrypto.fastEncodeExchangeExtended(
+                sellIndex, 
+                buyIndex, 
+                sellAmount, 
+                minBuyAmount, 
+                recipient
             ),
             uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
             _curveTricryptoSwapCallback
