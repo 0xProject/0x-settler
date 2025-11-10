@@ -247,27 +247,31 @@ abstract contract MaverickV2 is SettlerAbstract {
         bytes memory swapCallbackData,
         bool withCallback
     ) private returns (uint256 buyAmount) {
-        // Price P, given the tick and tick spacing is:
-        // (1) log_1.0001(P) = tick * tickSpacing
-        // To find the tick with a 100% price impact it is needed to find X such that:
-        // (2) log_1.0001(2 * P) = X * tickSpacing
-        // which is same as:
-        // (3) log_1.0001(2) + log_1.0001(P) = X * tickSpacing
-        // Substituting (1) into (3):
-        // (4) log_1.0001(2) + tick * tickSpacing = X * tickSpacing
-        // then it is possible to get to
-        // (5) log_1.0001(2) / tickSpacing = X - tick
-        // log_1.0001(2) is approximately 6931 rounding down
-        // X - tick is the delta for 100% price impact
-        uint256 spacing = pool.fastTickSpacing();
-        // everything is rounded down to ensure that the selected tick
-        // has at most 100% price impact
-        int256 delta = int256(6931 / spacing);
-        int256 tick = pool.fastGetTick() + tokenAIn.ternary(delta, -delta);
-        int256 limit = tokenAIn.ternary(type(int32).max, type(int32).min);
-        (int256 lo, int256 hi) = tokenAIn.maybeSwap(limit, tick);
-        tick = (lo > hi).ternary(limit, tick);
-
+        int256 tick;
+        unchecked{
+            // Price P, given the tick and tick spacing is:
+            // (1) log_1.0001(P) = tick * tickSpacing
+            // To find the tick with a 100% price impact it is needed to find X such that:
+            // (2) log_1.0001(2 * P) = X * tickSpacing
+            // which is same as:
+            // (3) log_1.0001(2) + log_1.0001(P) = X * tickSpacing
+            // Substituting (1) into (3):
+            // (4) log_1.0001(2) + tick * tickSpacing = X * tickSpacing
+            // then it is possible to get to
+            // (5) log_1.0001(2) / tickSpacing = X - tick
+            // log_1.0001(2) is approximately 6931 rounding down
+            // X - tick is the delta for 100% price impact
+            uint256 spacing = pool.fastTickSpacing();
+            // `delta` defines the amount of ticks needed to get a 100% price impact, but,
+            // based on the direction of the swap and how close to the boundaries of the 
+            //tick the price is it might not be possible to get to 100% impact without crossing 
+            // to the next tick. Given so, here we round up to allow an extra tick.
+            int256 delta = int256((6930 + spacing) / spacing);
+            tick = pool.fastGetTick() + tokenAIn.ternary(delta, -delta);
+            int256 limit = tokenAIn.ternary(type(int32).max, type(int32).min);
+            (int256 lo, int256 hi) = tokenAIn.maybeSwap(limit, tick);
+            tick = (lo > hi).ternary(limit, tick);
+        }
         bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tick, swapCallbackData);
 
         (, buyAmount) = abi.decode(
