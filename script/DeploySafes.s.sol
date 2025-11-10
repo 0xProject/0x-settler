@@ -9,7 +9,7 @@ import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
 import {Deployer, Feature, Nonce, salt} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {SafeConfig} from "./SafeConfig.sol";
-import {SafeCode} from "./SafeCode.sol";
+import {SafeBytecodes} from "./SafeCode.sol";
 
 interface ISafeFactory {
     function createProxyWithNonce(address singleton, bytes calldata initializer, uint256 saltNonce)
@@ -104,6 +104,7 @@ contract DeploySafes is Script {
         address safeSingleton;
         address safeFallback;
         address safeMulticall;
+        SafeBytecodes safeBytecodes;
     }
 
     function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
@@ -174,7 +175,8 @@ contract DeploySafes is Script {
         ISafeFactory safeFactory,
         address safeSingleton,
         address safeFallback,
-        address safeMulticall
+        address safeMulticall,
+        SafeBytecodes memory safeBytecodes
     ) {
         uint256 freeMemPtr;
         assembly ("memory-safe") {
@@ -190,18 +192,18 @@ contract DeploySafes is Script {
             }
 
             bytes memory oldFactoryCode = address(safeFactory).code;
-            vm.etch(address(safeFactory), SafeCode.factoryCode);
+            vm.etch(address(safeFactory), safeBytecodes.factoryCode);
             bytes memory oldSingletonCode = safeSingleton.code;
-            vm.etch(safeSingleton, SafeCode.singletonCode);
+            vm.etch(safeSingleton, safeBytecodes.singletonCode);
             bytes memory oldFallbackCode = safeFallback.code;
-            vm.etch(safeFallback, SafeCode.fallbackCode);
+            vm.etch(safeFallback, safeBytecodes.fallbackCode);
             bytes memory oldMulticallCode = safeMulticall.code;
-            vm.etch(safeMulticall, SafeCode.multicallCode);
+            vm.etch(safeMulticall, safeBytecodes.multicallCode);
 
             bytes memory oldSafeCode;
             if (address(safe) != address(0)) {
                 oldSafeCode = address(safe).code;
-                vm.etch(address(safe), SafeCode.proxyCode);
+                vm.etch(address(safe), safeBytecodes.proxyCode);
             }
 
             vm.startPrank(msgSender, txOrigin);
@@ -269,7 +271,8 @@ contract DeploySafes is Script {
             compatConfig.safeFactory,
             compatConfig.safeSingleton,
             compatConfig.safeFallback,
-            compatConfig.safeMulticall
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
         )
         returns (address deployedSafe)
     {
@@ -290,7 +293,7 @@ contract DeploySafes is Script {
             require(deployedSafeEraVm.codehash == 0);
 
             // Set up the EraVm-pattern deployed address state to match the EVM-pattern deployed address.
-            vm.etch(deployedSafeEraVm, SafeCode.proxyCodeEraVm);
+            vm.etch(deployedSafeEraVm, compatConfig.safeBytecodes.proxyCodeEraVm);
             vm.copyStorage(deployedSafe, deployedSafeEraVm);
             deployedSafe = deployedSafeEraVm;
             require(deployedSafe.codehash == safeProxyHashEraVm);
@@ -322,7 +325,8 @@ contract DeploySafes is Script {
             compatConfig.safeFactory,
             compatConfig.safeSingleton,
             compatConfig.safeFallback,
-            compatConfig.safeMulticall
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
         )
         returns (bool)
     {
@@ -360,8 +364,11 @@ contract DeploySafes is Script {
             safeFactory: safeFactory,
             safeSingleton: safeSingleton,
             safeFallback: safeFallback,
-            safeMulticall: safeMulticall
+            safeMulticall: safeMulticall,
+            safeBytecodes: SafeBytecodes("", "", "", "", "", "")
         });
+        safeCompatConfig.safeBytecodes.load(vm);
+
         require(
             address(safeFactory).codehash == (safeCompatConfig.isEraVm ? factoryHashEraVm : factoryHash),
             "Safe factory codehash"
