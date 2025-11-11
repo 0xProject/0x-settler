@@ -154,9 +154,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 (IERC20 token0, uint8 forkId, uint24 poolId, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
                 IERC20 sellToken = token0;
                 outputToken = token1;
-                if (!(zeroForOne = token0 < token1)) {
-                    (token0, token1) = (token1, token0);
-                }
+                (token0, token1) = (zeroForOne = token0 < token1).maybeSwap(token1, token0);
                 address factory;
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
