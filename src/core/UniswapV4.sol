@@ -8,7 +8,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
-
+import {FastLogic} from "../utils/FastLogic.sol";
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
@@ -22,6 +22,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     using CreditDebt for int256;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note[];
+    using FastLogic for bool;
 
     constructor() {
         assert(BASIS == Encoder.BASIS);

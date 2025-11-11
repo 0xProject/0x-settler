@@ -449,7 +449,7 @@ abstract contract Ekubo is SettlerAbstract {
                     //    2**95 / sqrt(2) = sqrt(2) * (2**94) = sqrt(2**188)
                     //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**188
                     // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
-                    uint256 factor = isToken1.ternary(uint256(56022770974786139918731938227), uint256(28011385487393069959365969113));
+                    uint256 factor = 56022770974786139918731938227 >> (!isToken1).toUint();
                     unchecked {
                         // no overflow when multiplying as factors are 94 bits and at most 96 bits respectively
                         // shifted right 95 bits to keep the price in its original representation

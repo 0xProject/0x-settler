@@ -9,7 +9,7 @@ import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
-
+import {FastLogic} from "../utils/FastLogic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
@@ -64,6 +64,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
+    using FastLogic for bool;
 
     /// @dev Minimum size of an encoded swap path:
     ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | address(outputToken))
@@ -176,8 +177,11 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                         returndatacopy(ptr, 0x00, returndatasize())
                         revert(ptr, returndatasize())
                     }
-                    // No checks on returndata as UniV3 pools are generated from 
-                    // the trusted factory and initHash.
+                    // If data is properly returned the pool is trusted as 
+                    // it was generated from the trusted factory and initHash.
+                    if lt(returndatasize(), 0x20) {
+                        revert(0x00, 0x00)
+                    }
                     priceSqrtX96 := mload(0x00)
                 }
                 // Factor is:
