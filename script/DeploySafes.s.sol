@@ -325,10 +325,7 @@ contract DeploySafes is Script {
         );
     }
 
-    function _getOwners(
-        SafeCompatConfig memory compatConfig,
-        ISafeOwners safe
-    )
+    function _getOwners(SafeCompatConfig memory compatConfig, ISafeOwners safe)
         internal
         eraVmCompat(
             compatConfig.isEraVm,
@@ -340,7 +337,8 @@ contract DeploySafes is Script {
             compatConfig.safeMulticall,
             compatConfig.safeBytecodes
         )
-        returns (address[] memory) {
+        returns (address[] memory)
+    {
         return safe.getOwners();
     }
 
