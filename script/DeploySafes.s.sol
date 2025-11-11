@@ -208,7 +208,7 @@ contract DeploySafes is Script {
             uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
             Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
             vm.stopPrank();
-            gasUsed = gasUsed * 11 / 10;
+            gasUsed = gasUsed * 6 / 5;
 
             Vm.AccountAccess memory theOneImportantCall;
             for (uint256 i; i < accesses.length; i++) {
