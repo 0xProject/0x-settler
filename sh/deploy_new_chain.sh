@@ -315,7 +315,6 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --skip 'src/core/*.sol'                              \
     --skip 'src/multicall/*.sol'                         \
     --skip 'src/utils/*.sol'                             \
-    --isolate                                            \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
     --with-gas-price $gas_price                          \
     --chain $chainid                                     \
@@ -324,6 +323,7 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     "${maybe_broadcast[@]}"                              \
     --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,bytes,address[])' \
     $(get_config extraFlags)                             \
+    $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
     2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" \

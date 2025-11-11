@@ -1469,7 +1469,7 @@ of its receipt.
 </details>
 
 Third, create a new set of
-`src/chains/<CHAIN_DISPLAY_NAME>/{Common,TakerSubmitted,MetaTxn,Intent}.sol`
+`src/chains/<CHAIN_DISPLAY_NAME>/{Common,TakerSubmitted,MetaTxn,Intent,BridgeSettler}.sol`
 files. A good way to start is by copying
 [`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
 names of all the contracts, remove references to missing liquidity sources
