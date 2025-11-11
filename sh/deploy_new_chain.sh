@@ -196,7 +196,10 @@ declare safe_inithash
 if [[ $era_vm = [Ff]alse ]] ; then
     safe_inithash="$(cast keccak "$(cast concat-hex "$safe_initcode" "$(cast to-uint256 "$safe_singleton")")")"
 else
+    # https://web.archive.org/web/20251108135035/https://docs.zksync.io/zksync-protocol/era-vm/differences/evm-instructions#datasize-dataoffset-datacopy
+    # https://web.archive.org/web/20251108134721/https://matter-labs.github.io/zksync-era/core/latest/guides/advanced/12_alternative_vm_intro.html#bytecode-hashes
     safe_inithash=0x"${safe_initcode:74:64}"
+
     declare safe_constructorhash
     safe_constructorhash="$(cast keccak "$(cast to-uint256 "$safe_singleton")")"
     declare -r safe_constructorhash
