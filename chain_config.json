@@ -768,7 +768,7 @@
     "isCancun": true,
     "isEraVm": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 500,
+    "gasMultiplierPercent": 2000,
     "minGasPriceGwei": 1,
     "safe": {
       "toehold": "0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD",
@@ -799,7 +799,7 @@
     "isCancun": null,
     "isEraVm": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 500,
+    "gasMultiplierPercent": 2000,
     "minGasPriceGwei": 1,
     "safe": {
       "toehold": "0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD",
