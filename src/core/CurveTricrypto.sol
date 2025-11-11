@@ -49,6 +49,9 @@ library FastCurveTricrypto {
             // callback is stored at 
             // mstore(add(0x104, data), shl(0xe0, 0x6370a85c))
             // which is analogous to the next line
+            // except that anything from add(0x108, data) on
+            // is dirty, but that is not a problem as only the
+            // initial 4 bytes at add(0x104, data) are used
             mstore(add(0xe8, data), 0x6370a85c) // selector for `curveTricryptoSwapCallback(address,address,address,uint256,uint256)`
             mstore(add(0xe4, data), receiver)
             codecopy(add(0xa4, data), codesize(), 0x40) // useEth and payer (both zeroed)
