@@ -83,7 +83,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
-    function testMaverickV2ZeroBps() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
+    function testMaverickV2Custody() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         bytes[] memory actions = ActionDataBuilder.build(
