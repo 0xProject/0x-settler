@@ -178,13 +178,9 @@ contract DeploySafes is Script {
         address safeMulticall,
         SafeBytecodes memory safeBytecodes
     ) {
-        uint256 freeMemPtr;
-        assembly ("memory-safe") {
-            freeMemPtr := mload(0x40)
-        }
-
         if (isEraVm) {
             (VmSafe.CallerMode callerMode, address msgSender, address txOrigin) = vm.readCallers();
+            require(callerMode != VmSafe.CallerMode.Broadcast);
             if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
                 require(msgSender == txOrigin);
                 require(msgSender == vm.addr(privateKey));
@@ -238,27 +234,21 @@ contract DeploySafes is Script {
                 vm.etch(address(safe), oldSafeCode);
             }
 
-            vm.broadcast(privateKey);
-
-            // repeat the call from the modified function, blindly, while broadcasting
-            {
-                address target = theOneImportantCall.account;
-                uint256 value = theOneImportantCall.value;
-                bytes memory data = theOneImportantCall.data;
-                assembly ("memory-safe") {
-                    pop(call(gasUsed, target, value, add(0x20, data), mload(data), 0x00, 0x00))
-                }
-            }
-
             if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
                 vm.startBroadcast(privateKey);
+
+                // repeat the call from the modified function, blindly, while broadcasting
+                {
+                    address target = theOneImportantCall.account;
+                    uint256 value = theOneImportantCall.value;
+                    bytes memory data = theOneImportantCall.data;
+                    assembly ("memory-safe") {
+                        pop(call(gasUsed, target, value, add(0x20, data), mload(data), 0x00, 0x00))
+                    }
+                }
             }
         } else {
             _;
-        }
-
-        assembly ("memory-safe") {
-            mstore(0x40, freeMemPtr)
         }
     }
 
@@ -333,6 +323,25 @@ contract DeploySafes is Script {
         return safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
+    }
+
+    function _getOwners(
+        SafeCompatConfig memory compatConfig,
+        ISafeOwners safe
+    )
+        internal
+        eraVmCompat(
+            compatConfig.isEraVm,
+            compatConfig.privateKey,
+            ISafeExecute(address(safe)),
+            compatConfig.safeFactory,
+            compatConfig.safeSingleton,
+            compatConfig.safeFallback,
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
+        )
+        returns (address[] memory) {
+        return safe.getOwners();
     }
 
     function _startBroadcast(SafeCompatConfig memory compatConfig, uint256 privateKey) private {
@@ -688,18 +697,16 @@ contract DeploySafes is Script {
             "predicted bridgesettler address mismatch"
         );
 
-        if (!safeCompatConfig.isEraVm) {
-            require(
-                keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
-                    == keccak256(abi.encodePacked(deployerOwners)),
-                "deployment safe owners mismatch"
-            );
-            require(
-                keccak256(abi.encodePacked(ISafeOwners(upgradeSafe).getOwners()))
-                    == keccak256(abi.encodePacked(upgradeOwners)),
-                "upgrade safe owners mismatch"
-            );
-        }
+        require(
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(deploymentSafe))))
+                == keccak256(abi.encodePacked(deployerOwners)),
+            "deployment safe owners mismatch"
+        );
+        require(
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(upgradeSafe))))
+                == keccak256(abi.encodePacked(upgradeOwners)),
+            "upgrade safe owners mismatch"
+        );
         {
             (bool success, bytes memory returndata) =
                 predictedIntentSettler.staticcall(abi.encodeWithSignature("getSolvers()"));
