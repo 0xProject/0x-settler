@@ -173,12 +173,12 @@ abstract contract BaseMixin is
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
+        initHash = uniswapV3InitHash;
+        callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         if (forkId < alienBaseV3ForkId) {
             if (forkId < sushiswapV3ForkId) {
                 if (forkId == uniswapV3ForkId) {
                     factory = uniswapV3BaseFactory;
-                    initHash = uniswapV3InitHash;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else if (forkId == pancakeSwapV3ForkId) {
                     factory = pancakeSwapV3Factory;
                     initHash = pancakeSwapV3InitHash;
@@ -189,8 +189,6 @@ abstract contract BaseMixin is
             } else {
                 if (forkId == sushiswapV3ForkId) {
                     factory = sushiswapV3Factory;
-                    initHash = uniswapV3InitHash;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else if (forkId == solidlyV3ForkId) {
                     factory = solidlyV3Factory;
                     initHash = solidlyV3InitHash;
@@ -198,7 +196,6 @@ abstract contract BaseMixin is
                 } else if (forkId == aerodromeForkIdV3_0) {
                     factory = aerodromeFactoryV3_0;
                     initHash = aerodromeInitHashV3_0;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
                     revertUnknownForkId(forkId);
                 }
@@ -207,12 +204,8 @@ abstract contract BaseMixin is
             if (forkId < dackieSwapV3ForkId) {
                 if (forkId == alienBaseV3ForkId) {
                     factory = alienBaseV3Factory;
-                    initHash = uniswapV3InitHash;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else if (forkId == baseXForkId) {
                     factory = baseXFactory;
-                    initHash = uniswapV3InitHash;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else if (forkId == swapBasedV3ForkId) {
                     factory = swapBasedV3Factory;
                     initHash = pancakeSwapV3InitHash;
@@ -228,15 +221,11 @@ abstract contract BaseMixin is
                 } else if (forkId == thickForkId) {
                     factory = thickFactory;
                     initHash = thickInitHash;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else if (forkId == kinetixV3ForkId) {
                     factory = kinetixV3BaseFactory;
-                    initHash = uniswapV3InitHash;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
-                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
                     revertUnknownForkId(forkId);
                 }
