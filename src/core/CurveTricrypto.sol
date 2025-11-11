@@ -52,7 +52,7 @@ library FastCurveTricrypto {
             mstore(add(0x60, data), buyIndex)
             mstore(add(0x80, data), sellAmount)
             mstore(add(0xa0, data), minBuyAmount)
-            calldatacopy(add(0xc0, data), calldatasize(), 0x40) // useEth and payer (both zeroed)
+            codecopy(add(0xc0, data), codesize(), 0x40) // useEth and payer (both zeroed)
             mstore(add(0x100, data), receiver)
             mstore(add(0x120, data), 0x6370a85c) // selector for `curveTricryptoSwapCallback(address,address,address,uint256,uint256)`
 
