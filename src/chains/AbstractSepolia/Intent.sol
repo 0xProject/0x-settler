@@ -41,8 +41,8 @@ contract AbstractSepoliaSettlerIntent is SettlerIntent, AbstractSepoliaSettlerMe
         return super._dispatch(i, action, data);
     }
 
-    function _isEraVmFork(uint8 forkId) internal pure override(AbstractSepoliaSettlerMetaTxn, UniswapV3Fork) returns (bool) {
-        return super._isEraVmFork(forkId);
+    function _isEraVmUniV3Fork(uint8 forkId) internal pure override(AbstractSepoliaSettlerMetaTxn, UniswapV3Fork) returns (bool) {
+        return super._isEraVmUniV3Fork(forkId);
     }
 
     function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {

@@ -270,7 +270,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         }
     }
 
-    function _isEraVmFork(uint8) internal pure virtual returns (bool) {
+    function _isEraVmUniV3Fork(uint8) internal pure virtual returns (bool) {
         return false;
     }
 
@@ -297,7 +297,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             salt := keccak256(0x00, sub(0x60, shl(0x05, iszero(poolId))))
             mstore(0x40, ptr)
         }
-        if (_isEraVmFork(forkId)) {
+        if (_isEraVmUniV3Fork(forkId)) {
             return IUniswapV3Pool(
                 AddressDerivation.deriveDeterministicContractEraVm(
                     factory, salt, initHash, 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470

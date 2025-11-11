@@ -40,7 +40,7 @@ abstract contract AbstractSepoliaMixin is FreeMemory, SettlerBase {
         return true;
     }
 
-    function _isEraVmFork(uint8 forkId) internal pure virtual override returns (bool) {
+    function _isEraVmUniV3Fork(uint8 forkId) internal pure virtual override returns (bool) {
         return forkId == uniswapV3ForkId;
     }
 

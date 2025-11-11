@@ -50,7 +50,7 @@ contract AbstractSepoliaSettler is Settler, AbstractSepoliaMixin {
         return super._msgSender();
     }
 
-    function _isEraVmFork(uint8 forkId) internal pure override(AbstractSepoliaMixin, UniswapV3Fork) returns (bool) {
-        return super._isEraVmFork(forkId);
+    function _isEraVmUniV3Fork(uint8 forkId) internal pure override(AbstractSepoliaMixin, UniswapV3Fork) returns (bool) {
+        return super._isEraVmUniV3Fork(forkId);
     }
 }
