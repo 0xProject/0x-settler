@@ -46,8 +46,11 @@ library FastCurveTricrypto {
         assembly ("memory-safe") {
             data := mload(0x40)
             
-            mstore(add(0xe4, data), 0x6370a85c) // selector for `curveTricryptoSwapCallback(address,address,address,uint256,uint256)`
-            mstore(add(0xc4, data), receiver)
+            // callback is stored at 
+            // mstore(add(0x104, data), shl(0xe0, 0x6370a85c))
+            // which is analogous to the next line
+            mstore(add(0xe8, data), 0x6370a85c) // selector for `curveTricryptoSwapCallback(address,address,address,uint256,uint256)`
+            mstore(add(0xe4, data), receiver)
             codecopy(add(0xa4, data), codesize(), 0x40) // useEth and payer (both zeroed)
             mstore(add(0x84, data), minBuyAmount)
             mstore(add(0x64, data), sellAmount)
@@ -56,7 +59,7 @@ library FastCurveTricrypto {
             mstore(add(0x04, data), 0xdd96994f) // selector for `exchange_extended(uint256,uint256,uint256,uint256,bool,address,address,bytes32)`
             mstore(data, 0x104)
 
-            mstore(0x40, add(0x104, data))
+            mstore(0x40, add(0x124, data))
         }
     }
 }
