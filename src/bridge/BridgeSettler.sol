@@ -6,7 +6,7 @@ import {revertActionInvalid} from "../core/SettlerErrors.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {ISettlerActions} from "../ISettlerActions.sol";
+import {IBridgeSettlerActions} from "./IBridgeSettlerActions.sol";
 import {Permit2PaymentTakerSubmitted} from "../core/Permit2Payment.sol";
 
 interface IBridgeSettlerTakerSubmitted {
@@ -22,7 +22,7 @@ abstract contract BridgeSettler is IBridgeSettlerTakerSubmitted, Permit2PaymentT
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
-        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
+        if (action == uint32(IBridgeSettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =

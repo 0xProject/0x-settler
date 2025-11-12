@@ -49,6 +49,7 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Added UNDERPAYMENT_CHECK action to BridgeSettlerBase.
 
 ## 2025-10-02
 
