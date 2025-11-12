@@ -17,11 +17,12 @@ import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
+import {Ternary} from "./utils/Ternary.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
 
-/// @dev This library's ABIDeocding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
+/// @dev This library's ABIDecoding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
 /// means that it is possible that `args` will run off the end of calldata and be implicitly padded with zeroes. That we
 /// don't check for overflow means that offsets can be negative. This can also result in `args` that alias other parts
@@ -38,9 +39,7 @@ library CalldataDecoder {
                 add(
                     data.offset,
                     // We allow the indirection/offset to `calls[i]` to be negative
-                    calldataload(
-                        add(shl(0x05, i), data.offset) // can't overflow; we assume `i` is in-bounds
-                    )
+                    calldataload(i)
                 )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
@@ -57,6 +56,7 @@ library CalldataDecoder {
 abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using Ternary for bool;
 
     receive() external payable {}
 
@@ -95,17 +95,14 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
             return;
         }
-        if (buyToken == ETH_ADDRESS) {
-            uint256 amountOut = address(this).balance;
-            if (amountOut < minAmountOut) {
-                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
+        bool isETH = (buyToken == ETH_ADDRESS);
+        uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
+        if (amountOut < minAmountOut) {
+            revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
+        }
+        if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
-            uint256 amountOut = buyToken.fastBalanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
             buyToken.safeTransfer(recipient, amountOut);
         }
     }
@@ -147,21 +144,21 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
             sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address payable recipient, IERC20 token, uint256 expectedAmount) =
-                abi.decode(data, (address, IERC20, uint256));
-            if (token == ETH_ADDRESS) {
-                uint256 balance = address(this).balance;
-                if (balance > expectedAmount) {
-                    unchecked {
-                        recipient.safeTransferETH(balance - expectedAmount);
-                    }
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
+                abi.decode(data, (address, IERC20, uint256, uint256));
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                uint256 cap;
+                unchecked {
+                    cap = balance * maxBps / BASIS;
+                    balance -= expectedAmount;
                 }
-            } else {
-                uint256 balance = token.fastBalanceOf(address(this));
-                if (balance > expectedAmount) {
-                    unchecked {
-                        token.safeTransfer(recipient, balance - expectedAmount);
-                    }
+                balance = (balance > cap).ternary(cap, balance);
+                if (isETH) {
+                    recipient.safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
                 }
             }
         } else {

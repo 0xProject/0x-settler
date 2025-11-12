@@ -157,7 +157,8 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) external;
+    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, address psm, address dai)
+        external;
 
     function CURVE_TRICRYPTO_VIP(
         address recipient,
@@ -229,7 +230,8 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount) external;
+    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount, uint256 maxBps)
+        external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded

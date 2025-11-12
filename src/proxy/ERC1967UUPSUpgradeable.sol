@@ -7,7 +7,7 @@ import {
     OwnableStorageBase,
     TwoStepOwnableImpl,
     TwoStepOwnableStorageBase
-} from "../deployer/TwoStepOwnable.sol";
+} from "../utils/TwoStepOwnable.sol";
 
 import {IERC1967Proxy} from "../interfaces/IERC1967Proxy.sol";
 
@@ -16,11 +16,10 @@ import {ItoA} from "../utils/ItoA.sol";
 import {Panic} from "../utils/Panic.sol";
 
 abstract contract AbstractUUPSUpgradeable {
-    address internal immutable _implementation;
+    address internal immutable _implementation = address(this);
     uint256 internal immutable _implVersion;
 
     constructor(uint256 newVersion) {
-        _implementation = address(this);
         _implVersion = newVersion;
     }
 
@@ -73,6 +72,7 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
     error IncrementedVersionTooMuch(uint256 current, uint256 next);
     error RollbackFailed(address expected, address actual);
     error InitializationFailed();
+    error ForwarderNotAllowed();
 
     uint256 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     uint256 private constant _ROLLBACK_SLOT = 0x4910fdfa16fed3260ed0e7147f7cc6da11a60208b5b9406d12a635614ffd9143;
@@ -147,6 +147,9 @@ abstract contract ERC1967UUPSUpgradeable is AbstractOwnable, IERC1967Proxy, Abst
     // calldata to ensure that any logic in the new implementation that inspects
     // msg.sender and decodes the authenticated metadata gets the correct result.
     function _encodeDelegateCall(bytes memory callData) internal view virtual returns (bytes memory) {
+        if (_isForwarded()) {
+            revert ForwarderNotAllowed();
+        }
         return callData;
     }
 

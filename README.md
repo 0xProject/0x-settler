@@ -14,11 +14,11 @@ deployment, call `function ownerOf(uint256 tokenId) external view returns (addre
 with the `tokenId` set to the number of the feature that you wish to query. For
 taker-submitted flows, the feature number is probably 2 unless something major
 changed and nobody updated this document. For gasless/metatransaction flows, the
-feature number is probably 3. For intents, the feature number is probably 4. A
-reverting response indicates that `Settler` is paused and you should not
-interact. Do not hardcode any `Settler` address in your
-integration. _**ALWAYS**_ query the deployer/registry for the address of the
-most recent `Settler` contract before building or signing a transaction,
+feature number is probably 3. For intents, the feature number is probably 4. For
+bridge settler, the feature number is probably 5. A reverting response indicates
+that `Settler` is paused and you should not interact. Do not hardcode any `Settler`
+address in your integration. _**ALWAYS**_ query the deployer/registry for the address
+of the most recent `Settler` contract before building or signing a transaction,
 metatransaction, or order.
 
 ### 0x API dwell time
@@ -126,7 +126,7 @@ your integration.
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana)
+  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
@@ -139,6 +139,14 @@ The ERC2771 forwarding `MultiCall` is deployed to
 this address in your integration. I have no idea why you would want to do that,
 but I guess it's a thing that you can do. The ERC2771 forwarding MultiCall is
 exclusively used by 0x's solvers for the `SettlerIntent` flavor of 0x Settler.
+
+### `CrossChainReceiverFactory` address
+
+`CrossChainReceiverFactory` is deployed to
+`0x00000000000000304861c3aDfb80dd5ebeC96325` across all chains. You can hardcode
+this address in your integration. This contract is used to deploy counterfactual
+(submarine) addresses to faciliate swapping and other actions on foreign chains
+after bridging.
 
 ### Permit2 address
 
@@ -165,6 +173,7 @@ import { createPublicClient, http, parseAbi } from 'viem';
         2: "taker submitted",
         3: "metatransaction",
         4: "intents",
+        5: "bridge",
     };
 
     const deployerAbi = parseAbi([
@@ -193,12 +202,18 @@ import { createPublicClient, http, parseAbi } from 'viem';
     }
 
     // output:
-    // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-    // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-    // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-    // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-    // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-    // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+    // previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+    // current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+    // next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+    // previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+    // current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+    // next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+    // previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+    // current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+    // next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+    // previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+    // current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+    // next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 })();
 ```
 
@@ -224,6 +239,7 @@ const {ethers} = require("ethers");
     2: "taker submitted",
     3: "metatransaction",
     4: "intents",
+    5: "bridge",
   };
 
   const deployerAbi = [
@@ -246,12 +262,18 @@ const {ethers} = require("ethers");
   }
 
   // output:
-  // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-  // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-  // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-  // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-  // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-  // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+  // previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+  // current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+  // next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+  // previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+  // current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+  // next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+  // previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+  // current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+  // next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+  // previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+  // current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+  // next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 })();
 ```
 
@@ -317,7 +339,8 @@ async fn main() -> Result<()> {
     let token_descriptions = HashMap::from([
         (2, "taker submitted"),
         (3, "metatransaction"),
-        (4, "intents")
+        (4, "intents"),
+        (5, "bridge")
     ]);
 
     for token_id in token_ids.iter() {
@@ -375,12 +398,18 @@ async fn main() -> Result<()> {
     }
 
     // output:
-    // previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-    // current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-    // next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-    // previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-    // current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-    // next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+    // previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+    // current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+    // next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+    // previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+    // current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+    // next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+    // previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+    // current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+    // next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+    // previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+    // current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+    // next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 
     Ok(())
 }
@@ -402,6 +431,7 @@ token_descriptions = {
     2: "taker submitted",
     3: "metatransaction",
     4: "intents",
+    5: "intents",
 }
 
 deployer_abi = [
@@ -449,12 +479,18 @@ for token_id, token_description in token_descriptions.items():
         )
 
 # output:
-# previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-# current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-# next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
-# previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-# current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-# next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
+# previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+# current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+# next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
+# previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+# current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+# next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+# previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+# current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+# next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+# previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+# current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+# next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
 ```
 
 </details>
@@ -465,7 +501,7 @@ for token_id, token_description in token_descriptions.items():
 <summary>Click to see Bash (cast) example of getting Settler addresses</summary>
 
 ```Bash
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -Eeufo pipefail -o posix
 
@@ -480,6 +516,7 @@ declare -A token_descriptions
 token_descriptions[2]='taker submitted'
 token_descriptions[3]='metatransaction'
 token_descriptions[4]='intents'
+token_descriptions[5]='bridge'
 declare -r -A token_descriptions
 
 declare -r -a function_signatures=('prev(uint128)(address)' 'ownerOf(uint256)(address)' 'next(uint128)(address)')
@@ -501,12 +538,18 @@ for token_id in "${!token_descriptions[@]}" ; do
 done
 
 # output:
-# previous metatransaction settler address 0x25b81CE58AB0C4877D25A96Ad644491CEAb81048
-# current metatransaction settler address 0xAE11b95c8Ebb5247548C279A00120B0ACadc7451
-# next metatransaction settler address 0x12D737470fB3ec6C3DeEC9b518100Bec9D520144
-# previous taker submitted settler address 0x07E594aA718bB872B526e93EEd830a8d2a6A1071
-# current taker submitted settler address 0x2c4B05349418Ef279184F07590E61Af27Cf3a86B
-# next taker submitted settler address 0x70bf6634eE8Cb27D04478f184b9b8BB13E5f4710
+# previous bridge settler address 0x37C15fed8F78C252d272c47FaF9564d0C5350D29
+# current bridge settler address 0x2aaEECD66779f1B517abAD78611115a99E0558c2
+# next bridge settler address 0x3DECc6d88C2F0fa5cFa3B4f0AcEb3FE60Afc2B30
+# previous intents settler address 0x8331f9ACcE69b02C281F40a00706f758665ccE77
+# current intents settler address 0xF3D5719F7E3b49A4c3797d56BD3FED6D3B80F0F9
+# next intents settler address 0x25233dDD68dAc9ac40E1E8D80c58d36b524032b2
+# previous metatransaction settler address 0x8e3F00919aD73B4C525BE50E86718d86386AF944
+# current metatransaction settler address 0x42b17b6B6b93383d52F21Dc61546974E014241bf
+# next metatransaction settler address 0x1e1Ed00F1048C99240bB56defC20de44A0A005Cb
+# previous taker submitted settler address 0xDf31A70a21A1931e02033dBBa7DEaCe6c45cfd0f
+# current taker submitted settler address 0xD07C4F45bc9B389d286CB094F97BB6Ba45f4Bb30
+# next taker submitted settler address 0x207e1074858A7e78f17002075739eD2745dbaEce
 ```
 
 </details>
@@ -577,53 +620,53 @@ comparison.
 | ------------------- | ---------- | --------- | ------ | ------ |
 | 0x V4 VIP           | Uniswap V3 | USDC/WETH | 121305 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDC/WETH | 135161 | 11.42% |
-| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 132243 | 9.02%  |
-| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 122092 | 0.65%  |
+| Settler VIP (warm)  | Uniswap V3 | USDC/WETH | 129708 | 6.93%  |
+| AllowanceHolder VIP | Uniswap V3 | USDC/WETH | 122057 | 0.62%  |
 | UniswapRouter V3    | Uniswap V3 | USDC/WETH | 117644 | -3.02% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | DAI/WETH  | 111976 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | DAI/WETH  | 125832 | 12.37% |
-| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 122914 | 9.77%  |
-| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 112763 | 0.70%  |
+| Settler VIP (warm)  | Uniswap V3 | DAI/WETH  | 120379 | 7.50%  |
+| AllowanceHolder VIP | Uniswap V3 | DAI/WETH  | 112728 | 0.67%  |
 | UniswapRouter V3    | Uniswap V3 | DAI/WETH  | 108315 | -3.27% |
 |                     |            |           |        |        |
 | 0x V4 VIP           | Uniswap V3 | USDT/WETH | 123567 | 0.00%  |
 | 0x V4 Multiplex     | Uniswap V3 | USDT/WETH | 137423 | 11.21% |
-| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 134470 | 8.82%  |
-| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 124319 | 0.61%  |
+| Settler VIP (warm)  | Uniswap V3 | USDT/WETH | 131935 | 6.77%  |
+| AllowanceHolder VIP | Uniswap V3 | USDT/WETH | 124284 | 0.58%  |
 | UniswapRouter V3    | Uniswap V3 | USDT/WETH | 119778 | -3.07% |
 |                     |            |           |        |        |
-| Settler VIP (warm)  | Uniswap V3 | WETH/USDC | 154705 | NaN%   |
+| Settler VIP (warm)  | Uniswap V3 | WETH/USDC | 152170 | NaN%   |
 | UniswapRouter V3    | Uniswap V3 | WETH/USDC | 140130 | NaN%   |
 |                     |            |           |        |        |
 
 | Custody              | DEX        | Pair      | Gas    | %       |
 | -------------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 TransformERC20 | Uniswap V3 | USDC/WETH | 239842 | 0.00%   |
-| Settler              | Uniswap V3 | USDC/WETH | 161085 | -32.84% |
-| AllowanceHolder      | Uniswap V3 | USDC/WETH | 150942 | -37.07% |
+| Settler              | Uniswap V3 | USDC/WETH | 158541 | -33.90% |
+| AllowanceHolder      | Uniswap V3 | USDC/WETH | 150898 | -37.08% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | DAI/WETH  | 221474 | 0.00%   |
-| Settler              | Uniswap V3 | DAI/WETH  | 149041 | -32.70% |
-| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 138898 | -37.28% |
+| Settler              | Uniswap V3 | DAI/WETH  | 146497 | -33.85% |
+| AllowanceHolder      | Uniswap V3 | DAI/WETH  | 138854 | -37.30% |
 |                      |            |           |        |         |
 | 0x V4 TransformERC20 | Uniswap V3 | USDT/WETH | 237157 | 0.00%   |
-| Settler              | Uniswap V3 | USDT/WETH | 164450 | -30.66% |
-| AllowanceHolder      | Uniswap V3 | USDT/WETH | 154307 | -34.93% |
+| Settler              | Uniswap V3 | USDT/WETH | 161906 | -31.73% |
+| AllowanceHolder      | Uniswap V3 | USDT/WETH | 154263 | -34.95% |
 |                      |            |           |        |         |
-| Settler              | Uniswap V3 | WETH/USDC | 180543 | NaN%    |
+| Settler              | Uniswap V3 | WETH/USDC | 177999 | NaN%    |
 |                      |            |           |        |         |
 
 | MetaTransactions | DEX        | Pair      | Gas    | %       |
 | ---------------- | ---------- | --------- | ------ | ------- |
 | 0x V4 Multiplex  | Uniswap V3 | USDC/WETH | 204754 | 0.00%   |
-| Settler          | Uniswap V3 | USDC/WETH | 164443 | -19.69% |
+| Settler          | Uniswap V3 | USDC/WETH | 163971 | -19.92% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | DAI/WETH  | 195425 | 0.00%   |
-| Settler          | Uniswap V3 | DAI/WETH  | 152393 | -22.02% |
+| Settler          | Uniswap V3 | DAI/WETH  | 151921 | -22.26% |
 |                  |            |           |        |         |
 | 0x V4 Multiplex  | Uniswap V3 | USDT/WETH | 207016 | 0.00%   |
-| Settler          | Uniswap V3 | USDT/WETH | 167802 | -18.94% |
+| Settler          | Uniswap V3 | USDT/WETH | 167330 | -19.17% |
 |                  |            |           |        |         |
 |                  |            |           |        |         |
 
@@ -631,51 +674,51 @@ comparison.
 | --------------- | ------- | --------- | ------ | ------- |
 | 0x V4           | 0x V4   | USDC/WETH | 111629 | 0.00%   |
 | Settler         | Settler | USDC/WETH | 114418 | 2.50%   |
-| Settler         | 0x V4   | USDC/WETH | 200533 | 79.64%  |
+| Settler         | 0x V4   | USDC/WETH | 197964 | 77.34%  |
 | AllowanceHolder | Settler | USDC/WETH | 106575 | -4.53%  |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | DAI/WETH  | 78498  | 0.00%   |
 | Settler         | Settler | DAI/WETH  | 94944  | 20.95%  |
-| Settler         | 0x V4   | DAI/WETH  | 175463 | 123.53% |
+| Settler         | 0x V4   | DAI/WETH  | 172894 | 120.25% |
 | AllowanceHolder | Settler | DAI/WETH  | 87101  | 10.96%  |
 |                 |         |           |        |         |
 | 0x V4           | 0x V4   | USDT/WETH | 89610  | 0.00%   |
 | Settler         | Settler | USDT/WETH | 106056 | 18.35%  |
-| Settler         | 0x V4   | USDT/WETH | 190795 | 112.92% |
+| Settler         | 0x V4   | USDT/WETH | 188226 | 110.05% |
 | AllowanceHolder | Settler | USDT/WETH | 98213  | 9.60%   |
 |                 |         |           |        |         |
-| Settler         | 0x V4   | WETH/USDC | 216088 | NaN%    |
+| Settler         | 0x V4   | WETH/USDC | 213519 | NaN%    |
 |                 |         |           |        |         |
 
 | UniversalRouter | DEX       | Pair      | Gas    | %       |
 | --------------- | --------- | --------- | ------ | ------- |
 | UniversalRouter | UniswapV2 | USDC/WETH | 181534 | 0.00%   |
-| Settler         | UniswapV2 | USDC/WETH | 172194 | -5.15%  |
-| UniversalRouter | UniswapV3 | USDC/WETH | 177822 | -2.04%  |
-| Settler         | UniswapV3 | USDC/WETH | 173777 | -4.27%  |
+| Settler         | UniswapV2 | USDC/WETH | 172111 | -5.19%  |
+| UniversalRouter | UniswapV3 | USDC/WETH | 177828 | -2.04%  |
+| Settler         | UniswapV3 | USDC/WETH | 173696 | -4.32%  |
 | UniversalRouter | UniswapV4 | USDC/WETH | 142771 | -21.35% |
-| Settler         | UniswapV4 | USDC/WETH | 135215 | -25.52% |
+| Settler         | UniswapV4 | USDC/WETH | 135174 | -25.54% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | DAI/WETH  | 164029 | 0.00%   |
-| Settler         | UniswapV2 | DAI/WETH  | 154689 | -5.69%  |
-| UniversalRouter | UniswapV3 | DAI/WETH  | 168498 | 2.72%   |
-| Settler         | UniswapV3 | DAI/WETH  | 164448 | 0.26%   |
+| Settler         | UniswapV2 | DAI/WETH  | 154606 | -5.74%  |
+| UniversalRouter | UniswapV3 | DAI/WETH  | 168492 | 2.72%   |
+| Settler         | UniswapV3 | DAI/WETH  | 164367 | 0.21%   |
 | UniversalRouter | UniswapV4 | DAI/WETH  | 125438 | -23.53% |
-| Settler         | UniswapV4 | DAI/WETH  | 117882 | -28.13% |
+| Settler         | UniswapV4 | DAI/WETH  | 117841 | -28.16% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | USDT/WETH | 176025 | 0.00%   |
-| Settler         | UniswapV2 | USDT/WETH | 166659 | -5.32%  |
+| Settler         | UniswapV2 | USDT/WETH | 166576 | -5.37%  |
 | UniversalRouter | UniswapV3 | USDT/WETH | 180121 | 2.33%   |
-| Settler         | UniswapV3 | USDT/WETH | 176004 | -0.01%  |
+| Settler         | UniswapV3 | USDT/WETH | 175923 | -0.06%  |
 | UniversalRouter | UniswapV4 | USDT/WETH | 137168 | -22.07% |
-| Settler         | UniswapV4 | USDT/WETH | 129612 | -26.37% |
+| Settler         | UniswapV4 | USDT/WETH | 129571 | -26.39% |
 |                 |           |           |        |         |
 | UniversalRouter | UniswapV2 | WETH/USDC | 167078 | 0.00%   |
-| Settler         | UniswapV2 | WETH/USDC | 160671 | -3.83%  |
+| Settler         | UniswapV2 | WETH/USDC | 160567 | -3.90%  |
 | UniversalRouter | UniswapV3 | WETH/USDC | 169758 | 1.60%   |
-| Settler         | UniswapV3 | WETH/USDC | 169602 | 1.51%   |
+| Settler         | UniswapV3 | WETH/USDC | 169514 | 1.46%   |
 | UniversalRouter | UniswapV4 | WETH/USDC | 131921 | -21.04% |
-| Settler         | UniswapV4 | WETH/USDC | 128835 | -22.89% |
+| Settler         | UniswapV4 | WETH/USDC | 128781 | -22.92% |
 |                 |           |           |        |         |
 
 | Curve             | DEX                   | Pair      | Gas    | %       |
@@ -684,7 +727,7 @@ comparison.
 |                   |                       |           |        |         |
 |                   |                       |           |        |         |
 | 0x V4             | Curve                 | USDT/WETH | 400419 | 0.00%   |
-| Settler           | Curve                 | USDT/WETH | 369310 | -7.77%  |
+| Settler           | Curve                 | USDT/WETH | 366741 | -8.41%  |
 | Settler           | CurveV2 Tricrypto VIP | USDT/WETH | 243871 | -39.10% |
 | Curve             | Curve                 | USDT/WETH | 289546 | -27.69% |
 | Curve Swap Router | Curve                 | USDT/WETH | 359785 | -10.15% |
@@ -693,7 +736,7 @@ comparison.
 
 | DODO V1 | DEX     | Pair      | Gas    | %     |
 | ------- | ------- | --------- | ------ | ----- |
-| Settler | DODO V1 | USDC/WETH | 296810 | 0.00% |
+| Settler | DODO V1 | USDC/WETH | 294301 | 0.00% |
 |         |         |           |        |       |
 |         |         |           |        |       |
 |         |         |           |        |       |
@@ -701,56 +744,56 @@ comparison.
 
 | Buy token fee     | DEX        | Pair      | Gas    | %     |
 | ----------------- | ---------- | --------- | ------ | ----- |
-| Settler - custody | Uniswap V3 | USDC/WETH | 169764 | 0.00% |
+| Settler - custody | Uniswap V3 | USDC/WETH | 167192 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | DAI/WETH  | 160435 | 0.00% |
+| Settler - custody | Uniswap V3 | DAI/WETH  | 157863 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | USDT/WETH | 171991 | 0.00% |
+| Settler - custody | Uniswap V3 | USDT/WETH | 169419 | 0.00% |
 |                   |            |           |        |       |
-| Settler - custody | Uniswap V3 | WETH/USDC | 198216 | 0.00% |
+| Settler - custody | Uniswap V3 | WETH/USDC | 195644 | 0.00% |
 |                   |            |           |        |       |
 
 | Sell token fee | DEX        | Pair      | Gas    | %       |
 | -------------- | ---------- | --------- | ------ | ------- |
-| Settler        | Uniswap V3 | USDC/WETH | 175174 | 0.00%   |
+| Settler        | Uniswap V3 | USDC/WETH | 172561 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | DAI/WETH  | 160415 | 0.00%   |
+| Settler        | Uniswap V3 | DAI/WETH  | 157802 | 0.00%   |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | USDT/WETH | 177600 | 0.00%   |
-| Settler        | Curve      | USDT/WETH | 380392 | 114.18% |
+| Settler        | Uniswap V3 | USDT/WETH | 174987 | 0.00%   |
+| Settler        | Curve      | USDT/WETH | 377754 | 115.88% |
 |                |            |           |        |         |
-| Settler        | Uniswap V3 | WETH/USDC | 191637 | 0.00%   |
+| Settler        | Uniswap V3 | WETH/USDC | 189024 | 0.00%   |
 |                |            |           |        |         |
 
 | AllowanceHolder                      | DEX            | Pair      | Gas    | %       |
 | ------------------------------------ | -------------- | --------- | ------ | ------- |
-| execute                              | Uniswap V3 VIP | USDC/WETH | 122092 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDC/WETH | 135368 | 10.87%  |
-| execute                              | RFQ            | USDC/WETH | 106575 | -12.71% |
+| execute                              | Uniswap V3 VIP | USDC/WETH | 122057 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDC/WETH | 135320 | 10.87%  |
+| execute                              | RFQ            | USDC/WETH | 106575 | -12.68% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | DAI/WETH  | 112763 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128877 | 14.29%  |
-| execute                              | RFQ            | DAI/WETH  | 87101  | -22.76% |
+| execute                              | Uniswap V3 VIP | DAI/WETH  | 112728 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | DAI/WETH  | 128829 | 14.28%  |
+| execute                              | RFQ            | DAI/WETH  | 87101  | -22.73% |
 |                                      |                |           |        |         |
-| execute                              | Uniswap V3 VIP | USDT/WETH | 124319 | 0.00%   |
-| Settler - external move then execute | Uniswap V3     | USDT/WETH | 144601 | 16.31%  |
-| execute                              | RFQ            | USDT/WETH | 98213  | -21.00% |
+| execute                              | Uniswap V3 VIP | USDT/WETH | 124284 | 0.00%   |
+| Settler - external move then execute | Uniswap V3     | USDT/WETH | 144553 | 16.31%  |
+| execute                              | RFQ            | USDT/WETH | 98213  | -20.98% |
 |                                      |                |           |        |         |
-| Settler - external move then execute | Uniswap V3     | WETH/USDC | 160564 | NaN%    |
+| Settler - external move then execute | Uniswap V3     | WETH/USDC | 160516 | NaN%    |
 |                                      |                |           |        |         |
 
 | AllowanceHolder sell token fees | DEX | Pair      | Gas    | %      |
 | ------------------------------- | --- | --------- | ------ | ------ |
 | no fee                          | RFQ | USDC/WETH | 106575 | 0.00%  |
-| proportional fee                | RFQ | USDC/WETH | 146686 | 37.64% |
+| proportional fee                | RFQ | USDC/WETH | 146586 | 37.54% |
 | fixed fee                       | RFQ | USDC/WETH | 122824 | 15.25% |
 |                                 |     |           |        |        |
 | no fee                          | RFQ | DAI/WETH  | 87101  | 0.00%  |
-| proportional fee                | RFQ | DAI/WETH  | 125225 | 43.77% |
+| proportional fee                | RFQ | DAI/WETH  | 125125 | 43.66% |
 | fixed fee                       | RFQ | DAI/WETH  | 99176  | 13.86% |
 |                                 |     |           |        |        |
 | no fee                          | RFQ | USDT/WETH | 98213  | 0.00%  |
-| proportional fee                | RFQ | USDT/WETH | 141969 | 44.55% |
+| proportional fee                | RFQ | USDT/WETH | 141869 | 44.45% |
 | fixed fee                       | RFQ | USDT/WETH | 111400 | 13.43% |
 |                                 |     |           |        |        |
 |                                 |     |           |        |        |
@@ -1317,10 +1360,11 @@ from this document.
 ![Click on "Connect to Web3"](img/pause6.png?raw=true)
 
 9. Enter the "feature" number in the text box. This is probably 2 for
-   taker-submitted, 3 for gasless/metatransaction, or 4 for intents, unless
-   something major has changed and nobody bothered to update this document.
+   taker-submitted, 3 for gasless/metatransaction, 4 for intents, or 5 for
+   bridge settler, unless something major has changed and nobody bothered 
+   to update this document.
 
-![Enter the "feature" number (2, 3, or 4) in the text box](img/pause7.png?raw=true)
+![Enter the "feature" number (2, 3, 4, or 5) in the text box](img/pause7.png?raw=true)
 
 10. Click "Write" and confirm the transaction in your wallet. You have _really_ ruined everybody's day :+1:
 
@@ -1359,12 +1403,9 @@ possible to do similar simulations with Foundry, but the UX is much worse.
 Now that the contract is deployed on-chain you need to run
 [`./sh/verify_settler.sh <CHAIN_NAME>`](sh/verify_settler.sh). This will
 (attempt to) verify Settler on both the Etherscan for the chain and
-[Sourcify](https://sourcify.dev/). If this fails, it's probably because
-[Foundry's source verification is
-flaky](https://github.com/foundry-rs/foundry/issues/8470). Try deploying the
-contracts in the normal way (without going through the 2 signer ceremony above)
-to a testnet and verifying them there to make sure this doesn't
-happen.
+[Sourcify](https://sourcify.dev/). If this fails, try deploying the contracts in
+the normal way (without going through the 2 signer ceremony above) to a testnet
+and verifying them there to make sure this doesn't happen.
 
 ## How to deploy to a new chain
 
@@ -1460,7 +1501,17 @@ deterministic deployment
 proxy](https://github.com/Arachnid/deterministic-deployment-proxy). If you mess
 it up, make sure you learn from your mistakes for the next step.
 
-Sixth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Sixth, deploy `CrossChainReceiverFactory`. Send 2 wei of value to the wnative
+storage setter address (`0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc` unless
+something has gone very wrong). Run the deployment script in simulation mode
+[`BROADCAST=no ./sh/deploy_crosschainfactory.sh
+<CHAIN_NAME>`](sh/deploy_crosschainfactory.sh). Then fully fund the wnative
+storage setter address (it takes about 1.4Mgas; give yourself some buffer and
+adjust for the prevailing gas price) and re-run with `BROADCAST=yes`. It's
+annoying if you mess this one up, but it is (probably) recoverable because the
+vanity comes from the Arachnid deployer rather than from the EVM itself.
+
+Seventh, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
 `AllowanceHolder` (and vice versa). Run [`BROADCAST=no
 ./sh/deploy_allowanceholder.sh
@@ -1468,13 +1519,13 @@ Cancun-supporting chain, you don't need to fund the deployer for the old
 actually do the deployment. Don't mess this one up. You will burn the vanity
 address.
 
-Seventh, check that the Safe deployment on the new chain is complete. You can
+Eighth, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
 completes without reverting, you don't need to do anything. If the Safe
 deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 <CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
 
-Eighth, make _damn_ sure that you've got the correct configuration in
+Ninth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
 <CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a

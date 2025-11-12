@@ -35,6 +35,7 @@ Master list of UniV3 forks:
   32. KittenSwap (factory is upgradeable; pools are not)
   33. Hybra
   34. HyperSwap
+  35. Velodrome/Aerodrome Slipstream V3.1
 
 ---
 
@@ -42,7 +43,103 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+### Non-breaking changes
+
+* Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+
+## 2025-10-02
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Sonic
+
+## 2025-09-29
+
+### Breaking changes
+
+* Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
+  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
+* `POSITIVE_SLIPPAGE` takes a `maxBps` argument to cap the amount of slippage
+  taken as a proportion of the buy amount
+
+### Non-breaking changes
+
+* Add `NATIVE_CHECK` action to Mainnet
+* Add `EULERSWAP` action to Plasma
+
+## 2025-09-15
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Deploy Settler to Plasma chain
+  * Add UniswapV3 UniV3 fork on Plasma
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Plasma
+
+## 2025-09-03
+
+### Breaking changes
+
 * Update Scroll to the Cancun hardfork
+
+### Non-breaking changes
+
+* Add `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` for remaining supported chains:
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Berachain
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Blast
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to HyperEvm
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Ink
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Katana
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Linea
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mode
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Scroll
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Sepolia
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Taiko
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Unichain
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to WorldChain
+* Add new DeBridge action `BRIDGE_TO_DEBRIDGE` to supported chains:
+  * Add action `BRIDGE_TO_DEBRIDGE` to Arbitrum
+  * Add action `BRIDGE_TO_DEBRIDGE` to Avalanche
+  * Add action `BRIDGE_TO_DEBRIDGE` to Base
+  * Add action `BRIDGE_TO_DEBRIDGE` to Berachain
+  * Add action `BRIDGE_TO_DEBRIDGE` to Bnb
+  * Add action `BRIDGE_TO_DEBRIDGE` to Gnosis
+  * Add action `BRIDGE_TO_DEBRIDGE` to HyperEvm
+  * Add action `BRIDGE_TO_DEBRIDGE` to Linea
+  * Add action `BRIDGE_TO_DEBRIDGE` to Mainnet
+  * Add action `BRIDGE_TO_DEBRIDGE` to Mantle
+  * Add action `BRIDGE_TO_DEBRIDGE` to Optimism
+  * Add action `BRIDGE_TO_DEBRIDGE` to Polygon
+  * Add action `BRIDGE_TO_DEBRIDGE` to Sonic
+* Added new DeBridge action `BRIDGE_TO_DEBRIDGE`
+
+## 2025-08-18
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add new LayerZero action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to `BridgeSettlerBase`
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mainnet
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Base
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Arbitrum
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Avalanche
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Bnb
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Gnosis
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Mantle
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Optimism
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Polygon
+  * Add action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` to Sonic
+
+## 2025-08-11
+
+### Breaking changes
+
 * In metatransactions and intents, it is now an error for `_operator()` (the gas
   payer/solver/relayer) to be `msgSender` (the taker)
 * Remove `LimitOrderFeeCollector`
@@ -51,6 +148,26 @@ Master list of UniV3 forks:
 
 * Add `NATIVE_CHECK` to taker-submitted Settlers on all chains to correctly
   handle the selling of the chain-native asset
+* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
+  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
+* Improve gas efficiency and accuracy of `EULERSWAP` action
+* Add solvency check for EulerSwap (does not execute on-chain)
+* Add `CrossChainReceiverFactory`, a minimal proxy factory inspired by submarine
+  transactions for "automatically" swapping any tokens received
+* Add `BridgeSettler` to all supported chains except `MonadTestnet`
+  * `BridgeSettler` is the settlement contracts for cross-chain operations
+    and is heavily implemented following `Settler` design.
+  * `BridgeSettlerBase` implements actions for:
+    * `BASIC`, same as `Settler`
+    * `SETTLER_SWAP`, to execute swaps on `Settler`
+    * Relay bridge integration (`BRIDGE_ERC20_TO_RELAY`, `BRIDGE_NATIVE_TO_RELAY`)
+    * Those are available in the `BridgeSettler` of every chain
+  * Other actions added that are not supported in every chain:
+    * Mayan bridge integration (`BRIDGE_ERC20_TO_MAYAN`, `BRIDGE_NATIVE_TO_MAYAN`)
+    * Across bridge integration
+      (`BRIDGE_ERC20_TO_ACROSS`, `BRIDGE_NATIVE_TO_ACROSS`)
+    * StargateV2 bridge integration
+      (`BRIDGE_ERC20_TO_STARGATE_V2`, `BRIDGE_NATIVE_TO_STARGATE_V2`)
 
 ## 2025-08-01
 
@@ -70,8 +187,6 @@ Master list of UniV3 forks:
   * Add KittenSwap UniV3 fork to HyperEVM
   * Add Hybra UniV3 fork to HyperEVM
   * Add HyperSwap UniV3 fork to HyperEVM
-* Add PancakeSwap Infinity actions (`PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`,
-  and `METATXN_PANCAKE_INFINITY_VIP`) on Base
 
 ## 2025-07-02
 

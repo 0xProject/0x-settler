@@ -43,17 +43,17 @@ fi
 declare -r chain_name="$1"
 shift
 
-if [[ $(jq -Mr ."$chain_name" < api_secrets.json) == 'null' ]] ; then
+if [[ $(jq -Mr .'"'"$chain_name"'"' < "$project_root"/api_secrets.json) == 'null' ]] ; then
     echo "$chain_name"' is missing from api_secrets.json' >&2
     exit 1
 fi
 
 function get_api_secret {
-    jq -Mr ."$chain_name"."$1" < "$project_root"/api_secrets.json
+    jq -Mr .'"'"$chain_name"'"'."$1" < "$project_root"/api_secrets.json
 }
 
 function get_config {
-    jq -Mr ."$chain_name"."$1" < "$project_root"/chain_config.json
+    jq -Mr .'"'"$chain_name"'"'."$1" < "$project_root"/chain_config.json
 }
 
 if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
@@ -127,9 +127,9 @@ function verify_contract {
         if [[ ${_verify_etherscanKey:-null} == [nN][uU][lL][lL] ]] ; then
             forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         elif [[ $_verify_etherscanApi == https://api.etherscan.io/v2/api* ]] ; then
-            forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --verifier etherscan --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         else
-            forge verify-contract --watch --chain "$chain_name" --verifier etherscan --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --chain "$chainid" --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         fi
     fi
 
