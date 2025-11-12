@@ -460,7 +460,7 @@ abstract contract Ekubo is SettlerAbstract {
                         //    and priceSqrt needs to be shifted right by 32 bits
                         // 2. if priceSqrt is less than 2**62, mask needs to decrease
                         //    and priceSqrt needs to be shifted left by 32 bits
-                        if ((priceSqrt >> 94) > 0) { 
+                        if ((priceSqrt >> 94) != 0) { 
                             priceSqrt >>= 32;
                             // If mask becomes greater than 3, priceSqrt will be clamped to MAX_SQRT_RATIO
                             // later on as the resulting priceSqrt will be greater than 2**96
