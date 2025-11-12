@@ -91,7 +91,7 @@ declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
 
-if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url == 'null' ]] ; then
+if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url = 'null' ]] ; then
     echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
     exit 1
 fi
