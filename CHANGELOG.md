@@ -43,6 +43,9 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Removed BridgeSettler action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` in favor of
+  `BRIDGE_TO_LAYER_ZERO_OFT` that accepts ERC20 and Native tokens.
+
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
