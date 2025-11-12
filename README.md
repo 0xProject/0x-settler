@@ -1453,9 +1453,9 @@ expected gas cost. In particular, you should verify that the gas cost for
 is 1, but `gas` is over 51220 (`0xc814`), you will need to make changes to
 `Create3.sol`.
 
-If `PUSH0` is not supported, then `isShanghai` should be `false` in
+If `PUSH0` is not supported, then `hardfork.shanghai` should be `false` in
 `chain_config.json`. If any of `TSTORE`/`TLOAD`/`MCOPY` are not supported, then
-`isCancun` should be `false` in `chain_config.json`.
+`hardfork.cancun` should be `false` in `chain_config.json`.
 
 You may be tempted to use a blockchain explorer (e.g. Etherscan or Tenderly) to
 examine the trace of the resulting transaction or to read the logs. You may also
