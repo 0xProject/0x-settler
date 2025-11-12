@@ -268,7 +268,7 @@ abstract contract MaverickV2 is SettlerAbstract {
         uint256 spacing = pool.fastTickSpacing();
         unchecked { 
             // Given the above comments, here we round up to allow an extra tick.
-            delta = int256((6930 + spacing) / spacing); 
+            delta = int256(uint256(6930).unsafeDivUp(spacing)); 
             tick = pool.fastGetTick() + tokenAIn.ternary(delta, -delta);
         }
         int256 limit = tokenAIn.ternary(type(int32).max, type(int32).min);
