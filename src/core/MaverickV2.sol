@@ -160,7 +160,7 @@ library FastMaverickV2Pool {
         }
     }
 
-    function fastGetFromPoolState(IMaverickV2Pool pool, uint256 pos, uint256 size) internal view returns (uint256 r) {
+    function fastGetFromPoolState(IMaverickV2Pool pool, uint256 pos, uint256 sizeBits) internal view returns (uint256 r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, 0x1865c57d) // selector for `getState()`
