@@ -14,6 +14,7 @@ import {FastDeployer} from "../deployer/FastDeployer.sol";
 import {Basic} from "../core/Basic.sol";
 import {Relay} from "../core/Relay.sol";
 import {LayerZeroOFT} from "../core/LayerZeroOFT.sol";
+import {Underpayment} from "../core/SettlerErrors.sol";
 
 abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT {
     using SafeTransferLib for IERC20;
