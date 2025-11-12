@@ -189,7 +189,10 @@ library UnsafePancakeInfinityPoolManager {
         }
     }
 
-    function unsafeSqrtPriceX96(IPancakeInfinityCLPoolManager poolManager, PoolKey memory key) internal returns (uint256 r) {
+    function unsafeSqrtPriceX96(IPancakeInfinityCLPoolManager poolManager, PoolKey memory key)
+        internal
+        returns (uint256 r)
+    {
         assembly ("memory-safe") {
             mstore(0x00, keccak256(key, 0xc0)) // poolId
             mstore(0x20, 0x04) // slot of pools mapping in CLPoolManager
@@ -534,7 +537,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
 
                     // priceSqrtX96 is uint160
                     // uint256 used in favor of future operations that will overflow uint160
-                    uint256 priceSqrtX96 = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSqrtPriceX96(poolKey);
+                    uint256 priceSqrtX96 =
+                        IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSqrtPriceX96(poolKey);
                     {
                         // Factor is:
                         // 1. 28011385487393069959365969113 approximately floor(sqrt(2**188)) (95 bits)
@@ -553,19 +557,17 @@ abstract contract PancakeInfinity is SettlerAbstract {
                             // shifted right 95 bits to keep the price as Q64.96
                             priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                         }
-                        
-                        uint256 limit = (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740));
+
+                        uint256 limit = (!zeroForOne).ternary(
+                            uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740)
+                        );
                         (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
                         // All operations where rounded down to ensure that the selected price has at most 100% price impact
                         priceSqrtX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));
                     }
 
                     delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(
-                        poolKey,
-                        zeroForOne,
-                        amountSpecified,
-                        priceSqrtX96,
-                        hookData
+                        poolKey, zeroForOne, amountSpecified, priceSqrtX96, hookData
                     );
                 } else if (uint256(poolManagerId) == 1) {
                     poolKey.poolManager = BIN_MANAGER;

@@ -153,7 +153,10 @@ library UnsafePoolManager {
         return unsafeSettle(poolManager, 0);
     }
 
-    function unsafeSqrtPriceX96(IPoolManager poolManager, IPoolManager.PoolKey memory key) internal returns (uint256 r) {
+    function unsafeSqrtPriceX96(IPoolManager poolManager, IPoolManager.PoolKey memory key)
+        internal
+        returns (uint256 r)
+    {
         assembly ("memory-safe") {
             mstore(0x00, keccak256(key, 0xa0)) // poolId
             mstore(0x20, 0x06) // slot of _pools mapping in PoolManager

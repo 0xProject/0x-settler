@@ -798,19 +798,15 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
                     // shifted right 95 bitsto keep the price as Q64.96
                     priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                 }
-                
+
                 uint256 limit = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
                 (uint256 lo, uint256 hi) = zeroForOne ? (limit, priceSqrtX96) : (priceSqrtX96, limit);
                 // All operations where rounded down to ensure that the selected price has at most 100% price impact
                 priceSqrtX96 = lo > hi ? limit : priceSqrtX96;
             }
 
-            (,sellAmount, buyAmount,) = SwapMath.computeSwapStep(
-                sqrtPriceCurrentX96,
-                uint160(priceSqrtX96),
-                _DEFAULT_LIQUIDITY,
-                -int256(sellAmount),
-                poolKey.fee
+            (, sellAmount, buyAmount,) = SwapMath.computeSwapStep(
+                sqrtPriceCurrentX96, uint160(priceSqrtX96), _DEFAULT_LIQUIDITY, -int256(sellAmount), poolKey.fee
             );
         }
 

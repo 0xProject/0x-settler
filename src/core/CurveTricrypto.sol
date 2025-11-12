@@ -45,8 +45,8 @@ library FastCurveTricrypto {
     ) internal pure returns (bytes memory data) {
         assembly ("memory-safe") {
             data := mload(0x40)
-            
-            // callback is stored at 
+
+            // callback is stored at
             // mstore(add(0x104, data), shl(0xe0, 0x6370a85c))
             // which is analogous to the next line
             // except that anything from add(0x108, data) on
@@ -121,13 +121,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         }
         _setOperatorAndCall(
             pool,
-            FastCurveTricrypto.fastEncodeExchangeExtended(
-                sellIndex, 
-                buyIndex, 
-                sellAmount, 
-                minBuyAmount, 
-                recipient
-            ),
+            FastCurveTricrypto.fastEncodeExchangeExtended(sellIndex, buyIndex, sellAmount, minBuyAmount, recipient),
             uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
             _curveTricryptoSwapCallback
         );

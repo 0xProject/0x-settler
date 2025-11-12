@@ -177,11 +177,9 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                         returndatacopy(ptr, 0x00, returndatasize())
                         revert(ptr, returndatasize())
                     }
-                    // If data is properly returned the pool is trusted as 
+                    // If data is properly returned the pool is trusted as
                     // it was generated from the trusted factory and initHash.
-                    if lt(returndatasize(), 0x20) {
-                        revert(0x00, 0x00)
-                    }
+                    if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
                     priceSqrtX96 := mload(0x00)
                 }
                 // Factor is:
@@ -201,8 +199,10 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                     // shifted right 95 bits to keep the price as Q64.96
                     priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                 }
-                
-                uint256 limit = (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740));
+
+                uint256 limit = (!zeroForOne).ternary(
+                    uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740)
+                );
                 (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
                 // All operations where rounded down to ensure that the selected price has at most 100% price impact
                 priceSqrtX96 = (lo > hi).ternary(limit, priceSqrtX96);

@@ -302,7 +302,7 @@ abstract contract UniswapV4 is SettlerAbstract {
             unchecked {
                 params.amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
-            
+
             {
                 // priceSqrtX96 is uint160
                 // uint256 used in favor of future operations that will overflow uint160
@@ -324,8 +324,10 @@ abstract contract UniswapV4 is SettlerAbstract {
                     // shifted right 95 bits to keep the price as Q64.96
                     priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
                 }
-                
-                uint256 limit = (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740));
+
+                uint256 limit = (!zeroForOne).ternary(
+                    uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740)
+                );
                 (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
                 // All operations where rounded down to ensure that the selected price has at most 100% price impact
                 params.sqrtPriceLimitX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));

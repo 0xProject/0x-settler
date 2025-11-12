@@ -89,8 +89,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (maverickV2Pool(), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2,
-                (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), 0)
+                ISettlerActions.MAVERICKV2, (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
@@ -226,68 +225,5 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
-    }
-}
-
-import {Test} from "@forge-std/Test.sol";
-import {IMaverickV2Pool, FastMaverickV2Pool} from "src/core/MaverickV2.sol";
-import {console} from "@forge-std/console.sol";
-
-contract MaverickV2TxnTest is Test {
-    using FastMaverickV2Pool for IMaverickV2Pool;
-
-    function setUp() public {
-        vm.createSelectFork("mainnet");
-    }
-
-    function fromToken() internal pure returns (IERC20) {
-        return IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    }
-
-    function toToken() internal pure returns (IERC20) {
-        return IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    }
-
-    function salt() internal pure returns (bytes32) {
-        uint64 feeAIn = 100000000000000;
-        uint64 feeBIn = 100000000000000;
-        uint16 tickSpacing = 2232;
-        uint32 lookback = 3600;
-        IERC20 tokenA = fromToken();
-        IERC20 tokenB = toToken();
-        uint8 kinds = 1;
-        bytes32 salt = keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)));
-        return salt;
-    }
-
-    IMaverickV2Pool public pool;
-
-    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 amountOut , bytes calldata data) external {
-        console.log("requested ", amountIn);
-        tokenIn.transfer(msg.sender, amountIn);
-    }
-
-    function testMaverickV2Txn() public {
-        pool =
-            IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt(), maverickV2InitHash));
-
-        deal(address(fromToken()), address(this), 1000000 ether);
-        // fromToken().transfer(address(pool), 1000000 ether);
-
-        int32 tick = pool.fastGetTick();
-
-        (uint256 sellAmount, uint256 buyAmount) = pool.swap(address(this), IMaverickV2Pool.SwapParams({
-            amount: 1000000 ether,
-            tokenAIn: true,
-            exactOutput: false,
-            tickLimit: tick
-        }), new bytes(10));
-
-        console.log("set amount", uint256(1000000 ether));
-        console.log("sellAmount", sellAmount);
-        console.log("buyAmount ", buyAmount);
-
-        int32 newTick = pool.fastGetTick();
-        assertEq(newTick, tick, "TICK IS NOT THE SAME");
     }
 }

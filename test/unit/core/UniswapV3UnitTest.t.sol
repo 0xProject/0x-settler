@@ -83,7 +83,7 @@ contract UniswapV3PoolDummy {
         RETURN_DATA = returnData;
     }
 
-    function slot0() external view returns (uint160 , int24, uint16, uint16, uint16, uint8, bool) {
+    function slot0() external view returns (uint160, int24, uint16, uint16, uint16, uint8, bool) {
         // everything empty, this doesn't affect our use of slot0 to get sqrtPriceX96
         // as it will be 0, therefore is going to be 0 after our calculations and clamped to the limit
         return (0, 0, 0, 0, 0, 0, false);

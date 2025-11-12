@@ -160,7 +160,11 @@ library FastMaverickV2Pool {
         }
     }
 
-    function fastGetFromPoolState(IMaverickV2Pool pool, uint256 pos, uint256 sizeBits) internal view returns (uint256 r) {
+    function fastGetFromPoolState(IMaverickV2Pool pool, uint256 pos, uint256 sizeBits)
+        internal
+        view
+        returns (uint256 r)
+    {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, 0x1865c57d) // selector for `getState()`
@@ -260,15 +264,15 @@ abstract contract MaverickV2 is SettlerAbstract {
         // log_1.0001(2) is approximately 6931 rounding down
         // X - tick is the delta for 100% price impact
         // `delta` defines the amount of ticks needed to get a 100% price impact, but,
-        // based on the direction of the swap and how close to the boundaries of the 
-        //tick the price is it might not be possible to get to 100% impact without crossing 
+        // based on the direction of the swap and how close to the boundaries of the
+        // tick the price is it might not be possible to get to 100% impact without crossing
         // to the next tick.
         int256 delta;
         int256 tick;
         uint256 spacing = pool.fastTickSpacing();
-        unchecked { 
+        unchecked {
             // Given the above comments, here we round up to allow an extra tick.
-            delta = int256(uint256(6930).unsafeDivUp(spacing)); 
+            delta = int256(uint256(6930).unsafeDivUp(spacing));
             tick = pool.fastGetTick() + tokenAIn.ternary(delta, -delta);
         }
         int256 limit = tokenAIn.ternary(type(int32).max, type(int32).min);
@@ -319,8 +323,7 @@ abstract contract MaverickV2 is SettlerAbstract {
                 sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
             }
             sellToken.safeTransfer(address(pool), sellAmount);
-        }
-        else {
+        } else {
             sellAmount = sellToken.fastBalanceOf(address(pool));
             unchecked {
                 sellAmount -= pool.fastGetReserveAOrB(tokenAIn);

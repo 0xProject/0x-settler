@@ -21,10 +21,14 @@ interface IUniV2Pair {
 library fastUniswapV2Pool {
     using Ternary for bool;
 
-    function fastGetReserves(address pool, bool zeroForOne) internal view returns (uint256 sellReserve, uint256 buyReserve) {
+    function fastGetReserves(address pool, bool zeroForOne)
+        internal
+        view
+        returns (uint256 sellReserve, uint256 buyReserve)
+    {
         assembly ("memory-safe") {
             mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) { 
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
@@ -54,7 +58,7 @@ library fastUniswapV2Pool {
     function fastSwap(address pool, bool zeroForOne, uint256 buyAmount, address recipient) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-           
+
             mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
             // set amount0Out and amount1Out
             let buyAmountBaseOffset := add(ptr, 0x20)
@@ -68,7 +72,7 @@ library fastUniswapV2Pool {
             mstore(add(0xa0, ptr), 0x00) // length of data
 
             // perform swap at the pool sending bought tokens to the recipient
-            if iszero(call(gas(), pool, 0x00, add(0x1c, ptr), 0xa4, 0x00, 0x00)) { 
+            if iszero(call(gas(), pool, 0x00, add(0x1c, ptr), 0xa4, 0x00, 0x00)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
