@@ -57,24 +57,24 @@ function get_config {
 }
 
 if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
-    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
+    if [[ $(get_config hardfork.shanghai) != [Tt]rue ]] ; then
         echo 'You are on the wrong branch (switch to `dcmt/london`)' >&2
         exit 1
     fi
 
-    if [[ $(get_config isCancun) != [Tt]rue ]] ; then
+    if [[ $(get_config hardfork.cancun) != [Tt]rue ]] ; then
         echo 'You are on the wrong branch (switch to `dcmt/shanghai`)' >&2
         exit 1
     fi
 
-    if [[ $(get_config isOsaka) != [Tt]rue ]] ; then
+    if [[ $(get_config hardfork.osaka) != [Tt]rue ]] ; then
         echo 'You are on the wrong branch (switch to `dcmt/cancun`)' >&2
         exit 1
     fi
 fi
 
 declare era_vm
-era_vm="$(get_config isEraVm)"
+era_vm="$(get_config hardfork.eraVm)"
 declare -r era_vm
 
 if [[ $era_vm != [Ff]alse ]] ; then
