@@ -49,6 +49,9 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Add support for EraVM chains
+* Deploy Settler to Abstract and Abstract Sepolia chains
+  * Add UniswapV3 UniV3 fork to Abstract Sepolia
 
 ## 2025-10-02
 
