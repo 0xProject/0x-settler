@@ -470,7 +470,7 @@ abstract contract Ekubo is SettlerAbstract {
                             // mask can only decrease if it is over 0. If it is not and priceSqrt is
                             // less than 2**62, then priceSqrt will be clamped later on to MIN_SQRT_RATIO
                             // as it will still be lower than 2**62
-                            if ((mask > 0) && (priceSqrt >> 62 == 0)) {
+                            if ((mask != 0) && (priceSqrt >> 62 == 0)) {
                                 priceSqrt <<= 32;
                                 mask--;
                             }
