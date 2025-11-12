@@ -129,9 +129,9 @@ abstract contract UniswapV2 is SettlerAbstract {
             uint256 sellAmountWithFee = sellAmount * (10000 - feeBps);
             buyAmount = (sellAmountWithFee * buyReserve) / (sellAmountWithFee + sellReserve * 10000);
         }
-        pool.fastSwap(zeroForOne, buyAmount, recipient);
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);
         }
+        pool.fastSwap(zeroForOne, buyAmount, recipient);
     }
 }
