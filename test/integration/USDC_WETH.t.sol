@@ -37,8 +37,6 @@ contract USDCWETHTest is
     Permit2TransferTest,
     EkuboTest
 {
-    address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     function setUp()
         public
         override(
@@ -97,11 +95,11 @@ contract USDCWETHTest is
 
     function uniswapV3Path()
         internal
-        pure
+        view
         override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
         returns (bytes memory)
     {
-        return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
+        return abi.encodePacked(fromToken(), uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 
     function uniswapV3PathCompat() internal pure override(UniswapV3PairTest, ZeroExPairTest) returns (bytes memory) {
@@ -165,12 +163,12 @@ contract USDCWETHTest is
         return bytes32(0x553a2efc570c9e104942cec6ac1c18118e54c09100068db8bac710cb000000c8);
     }
 
-    function ekuboFills() internal pure virtual override returns (bytes memory) {
-        return abi.encodePacked(uint16(10_000), bytes1(0x01), _eth, ekuboPoolConfig());
+    function ekuboFills() internal view virtual override returns (bytes memory) {
+        return abi.encodePacked(uint16(10_000), ekuboSqrtRatio(fromToken(), ETH), bytes1(0x01), ETH, ekuboPoolConfig());
     }
 
-    function ekuboExtensionFills() internal pure override returns (bytes memory) {
-        return abi.encodePacked(uint16(42768), bytes1(0x01), _eth, ekuboExtensionConfig());
+    function ekuboExtensionFills() internal view override returns (bytes memory) {
+        return abi.encodePacked(uint16(42768), ekuboSqrtRatio(fromToken(), ETH), bytes1(0x01), ETH, ekuboExtensionConfig());
     }
 
     function recipient() internal view virtual override returns (address) {
@@ -187,7 +185,7 @@ contract USDCWETHTest is
         for (uint256 i; i < actions.length; i++) {
             data[i] = actions[i];
         }
-        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, ""));
+        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (address(ETH), 10_000, address(_weth), 0, ""));
         data[actions.length + 1] = abi.encodeCall(
             ISettlerActions.BASIC,
             (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))

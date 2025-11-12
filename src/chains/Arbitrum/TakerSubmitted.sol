@@ -58,10 +58,11 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
                 bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, int32, uint256));
 
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,

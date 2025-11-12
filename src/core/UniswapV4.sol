@@ -54,7 +54,8 @@ abstract contract UniswapV4 is SettlerAbstract {
     //// Now that you have a list of fills, encode each fill as follows.
     //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
     //// running balance at the moment that the fill is settled.
-    //// Second, encode the packing key for that fill as 1 byte. The packing key byte depends on the
+    //// Second, encode the price caps sqrtPriceLimitX96 as 20 bytes.
+    //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
     //// i.e. encode only the buy token for the first fill.
     ////   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
@@ -64,9 +65,9 @@ abstract contract UniswapV4 is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
-    //// Third, encode the pool fee as 3 bytes, and the pool tick spacing as 3 bytes.
-    //// Fourth, encode the hook address as 20 bytes.
-    //// Fifth, encode the hook data for the fill. Encode the length of the hook data as 3 bytes,
+    //// Fourth, encode the pool fee as 3 bytes, and the pool tick spacing as 3 bytes.
+    //// Fifth, encode the hook address as 20 bytes.
+    //// Sixth, encode the hook data for the fill. Encode the length of the hook data as 3 bytes,
     //// then append the hook data itself.
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
@@ -171,12 +172,13 @@ abstract contract UniswapV4 is SettlerAbstract {
 
     // the mandatory fields are
     // 2 - sell bps
+    // 20 - sqrtPriceLimitX96
     // 1 - pool key tokens case
     // 3 - pool fee
     // 3 - pool tick spacing
     // 20 - pool hooks
     // 3 - hook data length
-    uint256 private constant _HOP_DATA_LENGTH = 32;
+    uint256 private constant _HOP_DATA_LENGTH = 52;
 
     /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
     /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
@@ -276,12 +278,19 @@ abstract contract UniswapV4 is SettlerAbstract {
         IPoolManager.SwapParams memory params;
         while (data.length >= _HOP_DATA_LENGTH) {
             uint256 bps;
-            assembly ("memory-safe") {
-                bps := shr(0xf0, calldataload(data.offset))
+            {
+                uint160 sqrtPriceLimitX96;
+                assembly ("memory-safe") {
+                    bps := shr(0xf0, calldataload(data.offset))
+                    data.offset := add(0x02, data.offset)
 
-                data.offset := add(0x02, data.offset)
-                data.length := sub(data.length, 0x02)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                    sqrtPriceLimitX96 := shr(0x60, calldataload(data.offset))
+                    data.offset := add(0x14, data.offset)
+
+                    data.length := sub(data.length, 0x16)
+                    // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                }
+                params.sqrtPriceLimitX96 = sqrtPriceLimitX96;
             }
 
             data = Decoder.updateState(state, notes, data);
@@ -295,10 +304,6 @@ abstract contract UniswapV4 is SettlerAbstract {
             unchecked {
                 params.amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
-            // TODO: price limits
-            params.sqrtPriceLimitX96 = uint160(
-                (!zeroForOne).ternary(uint160(1461446703485210103287273052203988822378723970341), uint160(4295128740))
-            );
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
             {
