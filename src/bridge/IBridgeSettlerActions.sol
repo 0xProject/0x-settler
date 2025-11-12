@@ -43,7 +43,7 @@ interface IBridgeSettlerActions {
     function BRIDGE_NATIVE_TO_STARGATE_V2(address pool, uint256 destinationGas, bytes calldata sendData) external;
 
     /// @dev Bridge ERC20 through LayerZeroOFT
-    function BRIDGE_ERC20_TO_LAYER_ZERO_OFT(address token, address oft, bytes calldata sendData) external;
+    function BRIDGE_TO_LAYER_ZERO_OFT(address token, uint256 nativeFee, address oft, bytes calldata sendData) external;
 
     /// @dev Bridge ERC20 through DeBridge
     function BRIDGE_TO_DEBRIDGE(uint256 globalFee, bytes calldata createOrderData) external;

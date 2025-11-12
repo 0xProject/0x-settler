@@ -136,6 +136,9 @@ abstract contract UniswapV2 is SettlerAbstract {
             // perform swap at the pool sending bought tokens to the recipient
             if iszero(call(gas(), pool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert(ptr) }
 
+            // restore FMP
+            mstore(0x40, ptr)
+
             // revert with the return data from the most recent call
             function bubbleRevert(p) {
                 returndatacopy(p, 0, returndatasize())
