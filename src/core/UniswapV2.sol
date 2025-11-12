@@ -61,7 +61,7 @@ library fastUniswapV2Pool {
 
             mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
             // set amount0Out and amount1Out
-            let buyAmountBaseOffset := add(ptr, 0x20)
+            let buyAmountBaseOffset := add(0x20, ptr)
             // If `zeroForOne`, buyAmount offset is 0x40, else 0x20
             let directionOffset := shl(0x05, zeroForOne)
             mstore(add(buyAmountBaseOffset, directionOffset), buyAmount)
@@ -77,7 +77,6 @@ library fastUniswapV2Pool {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-            mstore(0x40, ptr)
         }
     }
 }
