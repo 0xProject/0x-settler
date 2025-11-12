@@ -9,7 +9,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Ternary} from "../utils/Ternary.sol";
-
+import {FastLogic} from "../utils/FastLogic.sol";
 import {ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -150,6 +150,7 @@ library UnsafePancakeInfinityVault {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity vault is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -165,16 +166,13 @@ library UnsafePancakeInfinityPoolManager {
         PoolKey memory key,
         bool zeroForOne,
         int256 amountSpecified,
-        uint160 sqrtPriceLimitX96,
+        uint256 sqrtPriceLimitX96,
         bytes calldata hookData
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0xcd0cc1ce) // selector for `swap((address,address,address,address,uint24,bytes32),(bool,int256,uint160),bytes)`
-            let token0 := mload(key)
-            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xA0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), zeroForOne)
             mstore(add(0x100, ptr), amountSpecified)
             mstore(add(0x120, ptr), sqrtPriceLimitX96)
@@ -186,7 +184,28 @@ library UnsafePancakeInfinityPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity cl pool manager is trusted and not arbitrary
             r := mload(0x00)
+        }
+    }
+
+    function unsafeSqrtPriceX96(IPancakeInfinityCLPoolManager poolManager, PoolKey memory key)
+        internal
+        returns (uint256 r)
+    {
+        assembly ("memory-safe") {
+            mstore(0x00, keccak256(key, 0xc0)) // poolId
+            mstore(0x20, 0x04) // slot of pools mapping in CLPoolManager
+            mstore(0x20, keccak256(0x00, 0x40)) // slot of poolId in the mapping
+            mstore(0x00, 0x1e2eaeaf) // selector for `extsload(bytes32)`
+            if iszero(call(gas(), poolManager, 0x00, 0x1c, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            // No checks on returndata as Pancake Infinity cl pool manager is trusted and not arbitrary
+            // lower 160 bits of the slot contents are the sqrtPriceX96
+            r := and(0xffffffffffffffffffffffffffffffffffffffff, mload(0x00))
         }
     }
 }
@@ -202,10 +221,7 @@ library UnsafePancakeInfinityBinPoolManager {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x911a63b7) // selector for `swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)`
-            let token0 := mload(key)
-            token0 := mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0)
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xa0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), swapForY)
             mstore(add(0x100, ptr), signextend(0x0f, amountSpecified))
             mstore(add(0x120, ptr), 0x120)
@@ -216,6 +232,7 @@ library UnsafePancakeInfinityBinPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity bin pool manager is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -234,6 +251,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
     using UnsafePancakeInfinityVault for IPancakeInfinityVault;
     using UnsafePancakeInfinityPoolManager for IPancakeInfinityCLPoolManager;
     using UnsafePancakeInfinityBinPoolManager for IPancakeInfinityBinPoolManager;
+    using FastLogic for bool;
 
     constructor() {
         assert(BASIS == Encoder.BASIS);
@@ -458,6 +476,12 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
+                assembly ("memory-safe") {
+                    let currency0 := mload(poolKey)
+                    // set poolKey to address(0) if it is the native token
+                    mstore(poolKey, mul(currency0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, currency0))))
+                }
+                // poolKey.currency0 is not represented according to ERC-7528 to match the format expected by Pancake Infinity
             }
 
             {
@@ -511,17 +535,39 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 if (uint256(poolManagerId) == 0) {
                     poolKey.poolManager = CL_MANAGER;
 
+                    // priceSqrtX96 is uint160
+                    // uint256 used in favor of future operations that will overflow uint160
+                    uint256 priceSqrtX96 =
+                        IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSqrtPriceX96(poolKey);
+                    {
+                        // Factor is:
+                        // 1. 28011385487393069959365969113 approximately floor(sqrt(2**188)) (95 bits)
+                        //    which is equivalent to 1 / sqrt(2) in Q65.95
+                        //    2**95 / sqrt(2) = sqrt(2) * (2**94) = sqrt(2**188)
+                        //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**188
+                        // 2. 56022770974786139918731938227 approximately floor(sqrt(2**191)) (96 bits)
+                        //    which is equivalent to sqrt(2) in Q65.95
+                        //    sqrt(2) * (2**95) = sqrt(2**191)
+                        //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**191
+                        // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
+                        uint256 factor = 56022770974786139918731938227 >> zeroForOne.toUint();
+
+                        unchecked {
+                            // no overflow when multiplying as factors are 160 bits and at most 96 bits respectively
+                            // shifted right 95 bits to keep the price as Q64.96
+                            priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
+                        }
+
+                        uint256 limit = (!zeroForOne).ternary(
+                            uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740)
+                        );
+                        (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
+                        // All operations where rounded down to ensure that the selected price has at most 100% price impact
+                        priceSqrtX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));
+                    }
+
                     delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(
-                        poolKey,
-                        zeroForOne,
-                        amountSpecified,
-                        // TODO: price limits
-                        uint160(
-                            zeroForOne.ternary(
-                                uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341)
-                            )
-                        ),
-                        hookData
+                        poolKey, zeroForOne, amountSpecified, priceSqrtX96, hookData
                     );
                 } else if (uint256(poolManagerId) == 1) {
                     poolKey.poolManager = BIN_MANAGER;
