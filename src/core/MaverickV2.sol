@@ -170,7 +170,7 @@ library FastMaverickV2Pool {
                 revert(ptr_, returndatasize())
             }
             r := mload(add(pos, ptr))
-            if or(gt(0x120, returndatasize()), shr(size, r)) { revert(0x00, 0x00) }
+            if or(gt(0x120, returndatasize()), shr(sizeBits, r)) { revert(0x00, 0x00) }
         }
     }
 
