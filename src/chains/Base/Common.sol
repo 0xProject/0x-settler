@@ -11,6 +11,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -64,7 +65,8 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    EulerSwap
+    EulerSwap,
+    Renegade
 {
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
@@ -139,6 +141,10 @@ abstract contract BaseMixin is
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
+            (address target, IERC20 baseToken, bytes memory data) = abi.decode(data, (address, IERC20, bytes));
+
+            sellToRenegade(target, baseToken, data);
         } else {
             return false;
         }
@@ -233,5 +239,9 @@ abstract contract BaseMixin is
     function msgSender() external view returns (address result) {
         result = _msgSender();
         require(result != address(0));
+    }
+
+    function _renegadeSelector() internal pure override returns (bytes4) {
+        return BASE_SELECTOR;
     }
 }
