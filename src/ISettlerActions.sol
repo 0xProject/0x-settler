@@ -278,4 +278,6 @@ interface ISettlerActions {
         bool zeroForOne,
         uint256 amountOutMin
     ) external;
+
+    function RENEGADE(address target, address baseToken, bytes memory data) external;
 }
