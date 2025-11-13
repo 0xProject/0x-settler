@@ -176,7 +176,7 @@ abstract contract ArbitrumMixin is
         return ARBITRUM_POOL_MANAGER;
     }
 
-    function _renegadeSelector() internal pure override returns (bytes4) {
+    function _renegadeSelector() internal pure override returns (uint32) {
         return ARBITRUM_SELECTOR;
     }
 }

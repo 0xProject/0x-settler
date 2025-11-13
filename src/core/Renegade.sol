@@ -7,23 +7,23 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 
 // selector for `sponsorMalleableAtomicMatchSettleWithRefundOptions(uint256,uint256,address,bytes,bytes,bytes,bytes,address,uint256,bool,uint256,bytes)`
-bytes4 constant ARBITRUM_SELECTOR = 0x0f977971;
+uint32 constant ARBITRUM_SELECTOR = 0x0f977971;
 // selector for `sponsorMalleableAtomicMatchSettle(uint256,uint256,address,(((uint256,uint256,uint256)),(uint256,uint256,uint256)),((address,address,(uint256),uint256,uint256,uint8),((uint256),(uint256)),((uint256),(uint256)),uint256[],address),(((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256)),(((uint256,uint256),(uint256,uint256)),((uint256,uint256),(uint256,uint256))),address,bool,uint256,uint256,bytes)`
-bytes4 constant BASE_SELECTOR = 0x322ef840;
+uint32 constant BASE_SELECTOR = 0x322ef840;
 
 abstract contract Renegade is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using FullMath for uint256;
 
     constructor() {
-        bytes4 selector = _renegadeSelector();
+        uint32 selector = _renegadeSelector();
         assert(
             (block.chainid == 42161 && selector == ARBITRUM_SELECTOR)
                 || (block.chainid == 8453 && selector == BASE_SELECTOR)
         );
     }
 
-    function _renegadeSelector() internal pure virtual returns (bytes4);
+    function _renegadeSelector() internal pure virtual returns (uint32);
 
     function sellToRenegade(address target, IERC20 baseToken, bytes memory data) internal returns (uint256 buyAmount) {
         uint256 newBaseAmount;
@@ -46,7 +46,7 @@ abstract contract Renegade is SettlerAbstract {
         // scale quoteAmount using newBaseAmount
         uint256 newQuoteAmount = originalQuoteAmount.mulDiv(newBaseAmount, originalBaseAmount);
 
-        bytes4 selector = _renegadeSelector();
+        uint32 selector = _renegadeSelector();
         assembly ("memory-safe") {
             // override baseAmount and quoteAmount
             mstore(add(0x20, data), newBaseAmount)

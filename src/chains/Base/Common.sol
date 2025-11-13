@@ -241,7 +241,7 @@ abstract contract BaseMixin is
         require(result != address(0));
     }
 
-    function _renegadeSelector() internal pure override returns (bytes4) {
+    function _renegadeSelector() internal pure override returns (uint32) {
         return BASE_SELECTOR;
     }
 }
