@@ -26,8 +26,15 @@ abstract contract Renegade is SettlerAbstract {
     function _renegadeSelector() internal pure virtual returns (bytes4);
 
     function sellToRenegade(address target, IERC20 baseToken, bytes memory data) internal returns (uint256 buyAmount) {
-        uint256 newBaseAmount = baseToken.fastBalanceOf(address(this));
-        baseToken.safeApproveIfBelow(address(target), newBaseAmount);
+        uint256 newBaseAmount;
+        uint256 value;
+        if(baseToken == ETH_ADDRESS) {
+            value = address(this).balance;
+            newBaseAmount = value;
+        } else {
+            newBaseAmount = baseToken.fastBalanceOf(address(this));
+            baseToken.safeApproveIfBelow(address(target), newBaseAmount);
+        }
 
         uint256 originalBaseAmount;
         uint256 originalQuoteAmount;
@@ -49,7 +56,7 @@ abstract contract Renegade is SettlerAbstract {
             // temporarily clobber `data` size memory area
             mstore(data, selector)
             // Allowed selectors don't clash with any relevant function of restricted targets so we can skip checking `target`
-            if iszero(call(gas(), target, 0x00, add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
+            if iszero(call(gas(), target, value, add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
