@@ -93,7 +93,8 @@ abstract contract RenegadeTest is Utils, Test {
         
         _mockExpectCall(target, abi.encodeWithSelector(bytes4(selector), amount, amount * 2 / 3), new bytes(0));
         _mockExpectCall(token, abi.encodeCall(IERC20.balanceOf, (address(renegade))), abi.encode(amount));
-        _mockExpectCall(token, abi.encodeCall(IERC20.approve, (address(target), amount)), new bytes(0));
+        _mockExpectCall(token, abi.encodeCall(IERC20.allowance, (address(renegade), target)), abi.encode(0));
+        _mockExpectCall(token, abi.encodeCall(IERC20.approve, (target, type(uint256).max)), new bytes(0));
         renegade.sell(target, IERC20(token), abi.encode(amount * 3, amount * 2));
     }
 }
