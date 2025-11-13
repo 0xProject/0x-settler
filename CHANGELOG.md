@@ -49,6 +49,9 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Add new Renegade action `RENEGADE` to supported chains:
+  * Add action `RENEGADE` to Arbitrum
+  * Add action `RENEGADE` to Base
 
 ## 2025-10-02
 
