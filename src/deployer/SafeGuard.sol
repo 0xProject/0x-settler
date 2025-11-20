@@ -303,11 +303,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     function _predictCreate2(bytes32 inithash) private returns (address) {
         return address(
-            uint160(
-                uint256(
-                    keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), inithash))
-                )
-            )
+            uint160(uint256(keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), inithash))))
         );
     }
 
@@ -316,11 +312,6 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         _SINGLETON = _predictCreate2(singletonInithash);
         _FALLBACK = _predictCreate2(fallbackInithash);
         _MULTISEND = _predictCreate2(multisendInithash);
-    }
-
-    function setDelay(uint24 newDelay) external onlySafe {
-        emit TimelockUpdated(delay, newDelay);
-        delay = newDelay;
     }
 
     function _requireSafe() private view {
@@ -382,6 +373,11 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
     }
 
+    function setDelay(uint24 newDelay) external onlySafe {
+        emit TimelockUpdated(delay, newDelay);
+        delay = newDelay;
+    }
+
     function checkTransaction(
         address to,
         uint256 value,
@@ -435,13 +431,16 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // calls to `MultiSendCallOnly`, we do deep inspection of the payload to ensure that it's
         // not calling `enableModule`
         if (operation != Operation.Call) {
-            if (to == _MULTISEND && data.length >= 68 && uint32(bytes4(data)) == uint32(ISafeMultiSend.multiSend.selector)) {
+            if (
+                to == _MULTISEND && data.length >= 68
+                    && uint32(bytes4(data)) == uint32(ISafeMultiSend.multiSend.selector)
+            ) {
                 // Slice off the selector.
                 bytes calldata multicalls = data[4:];
                 // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
                 multicalls = multicalls[uint256(bytes32(multicalls)):];
                 // Decode `transactions` length.
-                multicalls = multicalls[32:32+uint256(bytes32(multicalls))];
+                multicalls = multicalls[32:32 + uint256(bytes32(multicalls))];
 
                 // The encoding of the multicalls here is derived from the `MultiSendCallOnly`
                 // contract deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
@@ -454,7 +453,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                     // wish to forbid is `nonpayable`, so the value is always zero or irrelevant.
                     // The 32 bytes after that are the length of the payload/data, followed by the
                     // payload/data itself.
-                    bytes calldata multicallData = multicalls[85:85+uint256(bytes32(multicalls[53:]))];
+                    bytes calldata multicallData = multicalls[85:85 + uint256(bytes32(multicalls[53:]))];
 
                     // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
                     if (multiCallTo == address(_safe) && multicallData.length >= 36) {
@@ -780,7 +779,14 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
     bytes32 private constant _SAFE_MULTISEND_1_3_INITHASH =
         0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
 
-    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_3_INITHASH, _SAFE_FALLBACK_1_3_INITHASH, _SAFE_MULTISEND_1_3_INITHASH) {
+    constructor(ISafeMinimal safe_)
+        ZeroExSettlerDeployerSafeGuardBase(
+            safe_,
+            _SAFE_SINGLETON_1_3_INITHASH,
+            _SAFE_FALLBACK_1_3_INITHASH,
+            _SAFE_MULTISEND_1_3_INITHASH
+        )
+    {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
         // deployed, with the exception of the installation and subsequent concealment of a
         // malicious Safe module. The author knows of no way to enforce that the Guard is installed
@@ -805,7 +811,14 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
     bytes32 private constant _SAFE_MULTISEND_1_4_INITHASH =
         0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
 
-    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_4_INITHASH, _SAFE_FALLBACK_1_4_INITHASH, _SAFE_MULTISEND_1_4_INITHASH) {
+    constructor(ISafeMinimal safe_)
+        ZeroExSettlerDeployerSafeGuardBase(
+            safe_,
+            _SAFE_SINGLETON_1_4_INITHASH,
+            _SAFE_FALLBACK_1_4_INITHASH,
+            _SAFE_MULTISEND_1_4_INITHASH
+        )
+    {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
         // in the Safe. However, because the Safe does an ERC165 check during the Guard enabling
         // process, we are able to perform a nearly atomic check. See the logic and comment in
