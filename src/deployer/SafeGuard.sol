@@ -180,6 +180,15 @@ library SafeLib {
     function getGuard(ISafeMinimal safe) internal view returns (address) {
         return abi.decode(safe.getStorageAt(GUARD_SLOT(safe), 1), (address));
     }
+
+    function FALLBACK_SLOT(ISafeMinimal) internal pure returns (uint256) {
+        // keccak256("fallback_manager.handler.address")
+        return 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
+    }
+
+    function getFallback(ISafeMinimal safe) internal view returns (address) {
+        return abi.decode(safe.getStorageAt(FALLBACK_SLOT(safe), 1), (address));
+    }
 }
 
 // This interface is excerpted from `GuardManager.sol` in 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
@@ -248,6 +257,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error UnexpectedUpgrade(address newSingleton);
     error Reentrancy();
     error ModuleInstalled(address module);
+    error IncorrectFallbackHandler(address handler);
     error NotEnoughOwners(uint256 ownerCount);
     error ThresholdTooLow(uint256 threshold);
     error NotUnanimous(bytes32 txHash);
@@ -264,6 +274,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
     address private immutable _SINGLETON;
+    address private immutable _FALLBACK;
     address private immutable _MULTISEND;
     address private constant _CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
@@ -300,9 +311,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
     }
 
-    constructor(ISafeMinimal safe_, bytes32 singletonInithash, bytes32 multisendInithash) {
+    constructor(ISafeMinimal safe_, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash) {
         safe = safe_;
         _SINGLETON = _predictCreate2(singletonInithash);
+        _FALLBACK = _predictCreate2(fallbackInithash);
         _MULTISEND = _predictCreate2(multisendInithash);
     }
 
@@ -535,6 +547,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             (address[] memory modules,) = _safe.getModulesPaginated(address(1), 1);
             result = modules.length == 0;
         }
+        result = result && _safe.getFallback() == _FALLBACK;
         result = result && !_safe.isOwner(address(this));
         result = result && _safe.ownerCount() >= _MINIMUM_OWNERS;
         result = result && _safe.getThreshold() >= _MINIMUM_THRESHOLD;
@@ -564,6 +577,19 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             (address[] memory modules,) = _safe.getModulesPaginated(address(1), 1);
             if (modules.length != 0) {
                 revert ModuleInstalled(modules[0]);
+            }
+        }
+
+        // A malicious fallback handler can cause unexpected external non-static calls that, to an
+        // ignorant operator, would cause malicious calls to privileged contracts. Out of an
+        // abundance of caution, we forbid setting the fallback handler away from its default
+        // value. Note: it's not possible to set the fallback handler to the address of the Safe
+        // itself because that is not capable of calling `authorized` functions because it is
+        // specifically the `fallback` handler.
+        {
+            address fallbackHandler = _safe.getFallback();
+            if (fallbackHandler != _FALLBACK) {
+                revert IncorrectFallbackHandler(fallbackHandler);
             }
         }
 
@@ -749,10 +775,12 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSafeGuardBase {
     bytes32 private constant _SAFE_SINGLETON_1_3_INITHASH =
         0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
+    bytes32 private constant _SAFE_FALLBACK_1_3_INITHASH =
+        0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
     bytes32 private constant _SAFE_MULTISEND_1_3_INITHASH =
         0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
 
-    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_3_INITHASH, _SAFE_MULTISEND_1_3_INITHASH) {
+    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_3_INITHASH, _SAFE_FALLBACK_1_3_INITHASH, _SAFE_MULTISEND_1_3_INITHASH) {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
         // deployed, with the exception of the installation and subsequent concealment of a
         // malicious Safe module. The author knows of no way to enforce that the Guard is installed
@@ -772,10 +800,12 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
 contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSettlerDeployerSafeGuardBase {
     bytes32 private constant _SAFE_SINGLETON_1_4_INITHASH =
         0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd;
+    bytes32 private constant _SAFE_FALLBACK_1_4_INITHASH =
+        0x5a63128db658d8601220c014848acd6c27b855a0427f0181eb3ba8c25e2d3e95;
     bytes32 private constant _SAFE_MULTISEND_1_4_INITHASH =
         0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
 
-    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_4_INITHASH, _SAFE_MULTISEND_1_4_INITHASH) {
+    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_4_INITHASH, _SAFE_FALLBACK_1_4_INITHASH, _SAFE_MULTISEND_1_4_INITHASH) {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
         // in the Safe. However, because the Safe does an ERC165 check during the Guard enabling
         // process, we are able to perform a nearly atomic check. See the logic and comment in
