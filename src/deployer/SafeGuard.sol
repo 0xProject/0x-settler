@@ -435,14 +435,18 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         if (operation != Operation.Call) {
             if (
                 to == _MULTISEND && data.length >= 68
-                    && uint32(bytes4(data)) == uint32(ISafeMultiSend.multiSend.selector)
+                    && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector))
             ) {
                 // Slice off the selector.
                 bytes calldata multicalls = data[4:];
                 // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
                 multicalls = multicalls[uint256(bytes32(multicalls)):];
                 // Decode `transactions` length.
-                multicalls = multicalls[32:32 + uint256(bytes32(multicalls))];
+                {
+                    uint256 multicallsLength = uint256(bytes32(multicalls));
+                    multicalls = multicalls[32:];
+                    multicalls = multicalls[:multicallsLength];
+                }
 
                 // The encoding of the multicalls here is derived from the `MultiSendCallOnly`
                 // contract deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
@@ -463,10 +467,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                     multicalls = multicalls[32:];
                     // The 32 bytes after that are the length of the payload/data, followed by the
                     // payload/data itself.
-                    uint256 multicallDataLength = uint256(bytes32(multicalls));
-                    multicalls = multicalls[32:];
-                    bytes calldata multicallData = multicalls[:multicallDataLength];
-                    multicalls = multicalls[multicallDataLength:];
+                    bytes calldata multicallData;
+                    {
+                        uint256 multicallDataLength = uint256(bytes32(multicalls));
+                        multicalls = multicalls[32:];
+                        multicallData = multicalls[:multicallDataLength];
+                        multicalls = multicalls[multicallDataLength:];
+                    }
 
                     // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
                     if (multicallTo == address(_safe) && multicallData.length >= 36) {
