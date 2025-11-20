@@ -447,15 +447,26 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                 // The encoding of the multicalls here is derived from the `MultiSendCallOnly`
                 // contract deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
                 // 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 (1.4.1)
-                while (multicalls.length >= 85) {
+                while (multicalls.length != 0) {
+                    // We use calldata array slicing syntax here, which is stricter than the
+                    // assembly found in `MultiSendCallOnly`. `MultiSendCallOnly` will happily
+                    // decode data that is past the (nominal) end of the `transactions` array, while
+                    // this implementation will revert when encountering that.
+
                     // We ignore the first byte, which is always zero to indicate `Operation.Call`.
                     // The next 20 bytes are the target of the `CALL`.
-                    address multicallTo = address(uint160(bytes20(multicalls[1:])));
+                    multicalls = multicalls[1:];
+                    address multicallTo = address(uint160(bytes20(multicalls)));
+                    multicalls = multicalls[20:];
                     // We ignore the next 32 bytes because they are the `value`. The function we
                     // wish to forbid is `nonpayable`, so the value is always zero or irrelevant.
+                    multicalls = multicalls[32:];
                     // The 32 bytes after that are the length of the payload/data, followed by the
                     // payload/data itself.
-                    bytes calldata multicallData = multicalls[85:85 + uint256(bytes32(multicalls[53:]))];
+                    uint256 multicallDataLength = uint256(bytes32(multicalls));
+                    multicalls = multicalls[32:];
+                    bytes calldata multicallData = multicalls[:multicallDataLength];
+                    multicalls = multicalls[multicallDataLength:];
 
                     // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
                     if (multicallTo == address(_safe) && multicallData.length >= 36) {
