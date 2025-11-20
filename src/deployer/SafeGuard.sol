@@ -301,7 +301,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         result = result && (msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
     }
 
-    function _predictCreate2(bytes32 inithash) private returns (address) {
+    function _predictCreate2(bytes32 inithash) private view returns (address) {
         return address(
             uint160(uint256(keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), inithash))))
         );
@@ -413,6 +413,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // `execTransaction`, but not inside `execute`. We can rely on `checkAfterExecution` to
         // enforce its postconditions.
 
+        ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
         // Obviously, any `DELEGATECALL` to an arbitrary contract could result in the concealment of
         // potentially malicious behavior that this Guard is no longer able to control. However,
         // even a seemingly-innocuous `DELEGATECALL` to the Safe-approved `MultiCallSendOnly`
@@ -456,7 +458,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                     bytes calldata multicallData = multicalls[85:85 + uint256(bytes32(multicalls[53:]))];
 
                     // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
-                    if (multiCallTo == address(_safe) && multicallData.length >= 36) {
+                    if (multicallTo == address(_safe) && multicallData.length >= 36) {
                         uint256 potentialModule = uint256(bytes32(multicallData[4:]));
                         if (potentialModule >> 160 != 0) {
                             revert ModuleInstalled(address(uint160(potentialModule)));
@@ -467,8 +469,6 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                 revert NoDelegateCall();
             }
         }
-
-        ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
         // The nonce has already been incremented past the value used in the
         // currently-executing transaction. We decrement it to get the value that was hashed
