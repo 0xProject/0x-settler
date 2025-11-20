@@ -433,10 +433,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // calls to `MultiSendCallOnly`, we do deep inspection of the payload to ensure that it's
         // not calling `enableModule`
         if (operation != Operation.Call) {
-            if (
-                to == _MULTISEND && data.length >= 68
-                    && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector))
-            ) {
+            if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector)))
+            {
                 // Slice off the selector.
                 bytes calldata multicalls = data[4:];
                 // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
