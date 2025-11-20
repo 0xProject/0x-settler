@@ -537,6 +537,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         _maybeSetGuardRemoved(_safe);
     }
 
+    // This function has exactly the same checks as `_checkAfterExecution`, but is returns `false`
+    // on failure of those checks instead of reverting.
     function _checkAfterExecutionReturnBool(ISafeMinimal _safe) internal view returns (bool result) {
         result = true;
 
