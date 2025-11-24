@@ -559,7 +559,7 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "gasMultiplierPercent": 110,
     "minGasPriceGwei": 50,
     "wnative": "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701",
     "safe": {
@@ -744,7 +744,7 @@
     "isShanghai": true,
     "isCancun": true,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "gasMultiplierPercent": 110,
     "minGasPriceGwei": 52,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
