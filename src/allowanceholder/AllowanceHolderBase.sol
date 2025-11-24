@@ -7,11 +7,12 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {CheckCall} from "../utils/CheckCall.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 import {TransientStorageLayout} from "./TransientStorageLayout.sol";
+import {MultiCallContext} from "../multicall/MultiCallContext.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
 error ConfusedDeputy();
 
-abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
+abstract contract AllowanceHolderBase is MultiCallContext, TransientStorageLayout, FreeMemory {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
 
@@ -67,10 +68,12 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     }
 
     function _msgSender() private view returns (address sender) {
-        if ((sender = msg.sender) == address(this)) {
+        if (msg.sender == address(this)) {
             assembly ("memory-safe") {
                 sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
             }
+        } else {
+            sender = super._msgSender();
         }
     }
 
