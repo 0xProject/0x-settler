@@ -42,17 +42,11 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
-  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
-* `POSITIVE_SLIPPAGE` takes a `maxBps` argument to cap the amount of slippage
-  taken as a proportion of the buy amount
-
 ### Non-breaking changes
 
-* Add `NATIVE_CHECK` action to Mainnet
-* Add `EULERSWAP` action to Plasma
-
 ## 2025-11-24
+
+### Non-breaking changes
 
 * Deploy Settler to Monad mainnet
   * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
@@ -61,6 +55,20 @@ Master list of UniV3 forks:
 * Add UniswapV3 UniV3 fork on Plasma
 * Add `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad
   mainnet chain
+
+## 2025-09-29
+
+### Breaking changes
+
+* Added `psm` and `dai` as arguments to Settler `MAKERPSM` action to allow
+  interacting with `LitePSM/DAI` or `SkyPSM/USDS`.
+* `POSITIVE_SLIPPAGE` takes a `maxBps` argument to cap the amount of slippage
+  taken as a proportion of the buy amount
+
+### Non-breaking changes
+
+* Add `EULERSWAP` action to Plasma
+* Add `NATIVE_CHECK` action to Mainnet
 
 ## 2025-09-15
 
