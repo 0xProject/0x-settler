@@ -37,7 +37,11 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
                 target := calldataload(add(0x04, data.offset))
                 // `shl(0x08, data.length)` can't overflow because we're going to
                 // `calldatacopy(..., data.length)` later. It would OOG.
-                let mask := shr(shl(0x08, sub(data.length, 0x04)), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+                let mask :=
+                    shr(
+                        shl(0x08, sub(data.length, 0x04)),
+                        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                    )
                 // Zero the low bits of `target` if `data` is short. Dirty low
                 // bits are only ever possible with nonstandard encodings, like
                 // ERC-2771.
@@ -55,7 +59,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         assembly ("memory-safe") {
             testData := mload(0x40)
             mstore(add(0x24, testData), target)
-            mstore(add(0x10, testData), 0x70a08231000000000000000000000000)
+            mstore(add(0x10, testData), 0x70a08231000000000000000000000000) // `IERC20.balanceOf.selector` with `target`'s padding
             mstore(testData, 0x24)
             mstore(0x40, add(0x60, testData))
         }
