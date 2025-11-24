@@ -41,26 +41,37 @@ abstract contract LfjTokenMill is SettlerAbstract {
         bool zeroForOne,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        uint256 sellAmount;
+        // If we haven't custody-optimized, transfer to the pool
         if (bps != 0) {
-            sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
-            sellToken.safeTransfer(pool, sellAmount);
-        } else {
+            sellToken.safeTransfer(pool, sellToken.fastBalanceOf(address(this)) * bps / BASIS);
+        }
+
+        // Compute the actual sell amount, after accounting for any potential
+        // transfer tax
+        uint256 sellAmount;
+        {
             (uint256 reserve0, uint256 reserve1) = ILfjTmMarket(pool).getReserves();
             sellAmount = sellToken.fastBalanceOf(pool) - zeroForOne.ternary(reserve0, reserve1);
         }
 
+        // Set the price limits to the maximum value; we don't care to cap them
+        // because unlike a concentracted liquidity constant product AMM, there
+        // is only one tick that can be crossed.
         uint256 sqrtRatioLimitX96;
         if (zeroForOne) {
             (sqrtRatioLimitX96,,) = ILfjTmMarket(pool).getSqrtRatiosBounds();
         } else {
             sqrtRatioLimitX96 = 2 ** 127 - 1;
         }
+
+        // Perform the swap
         if (sellAmount != 0) {
             (int256 amount0, int256 amount1) =
                 ILfjTmMarket(pool).swap(recipient, zeroForOne, int256(sellAmount), sqrtRatioLimitX96);
             buyAmount = uint256(-zeroForOne.ternary(amount1, amount0));
         }
+
+        // Check slippage
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(
                 IERC20(zeroForOne ? ILfjTmMarket(pool).getQuoteToken() : ILfjTmMarket(pool).getBaseToken()),
