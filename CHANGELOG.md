@@ -51,11 +51,16 @@ Master list of UniV3 forks:
 
 * Add `NATIVE_CHECK` action to Mainnet
 * Add `EULERSWAP` action to Plasma
+
+## 2025-11-24
+
 * Deploy Settler to Monad mainnet
   * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
     `METATXN_BALANCERV3_VIP`) to Monad mainnet
-  * Add PancakeSwapV3 UniV3 fork on Plasma
-* Add `LFJTM` action for LFT Token Mill V2 on Monad mainnet chain
+  * Add PancakeSwapV3 UniV3 fork to Monad mainnet
+* Add UniswapV3 UniV3 fork on Plasma
+* Add `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad
+  mainnet chain
 
 ## 2025-09-15
 
