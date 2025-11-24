@@ -8,6 +8,7 @@ fi
 if [[ $(forge --version) != *b918f9b4ab0616b44e660a6bf8c5a47feece6505* ]] ; then
     echo 'Wrong foundry version installed' >&2
     echo 'Run `foundryup -i v1.3.0`' >&2
+    echo 'If that doesn'"'"'t work, do `foundryup -U` to update `foundryup` first' >&2
     exit 1
 fi
 
