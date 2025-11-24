@@ -55,6 +55,7 @@ Master list of UniV3 forks:
   * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
     `METATXN_BALANCERV3_VIP`) to Monad mainnet
   * Add PancakeSwapV3 UniV3 fork on Plasma
+* Add `LFJTM` action for LFT Token Mill V2 on Monad mainnet chain
 
 ## 2025-09-15
 
