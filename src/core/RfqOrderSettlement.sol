@@ -7,8 +7,10 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
+import {Ternary} from "../utils/Ternary.sol";
 
 abstract contract RfqOrderSettlement is SettlerAbstract {
+    using Ternary for bool;
     using SafeTransferLib for IERC20;
     using FullMath for uint256;
 
@@ -63,7 +65,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         assert(RFQ_ORDER_TYPEHASH == keccak256(bytes(RFQ_ORDER_TYPE_RECURSIVE)));
     }
 
-    /// @dev Settle an RfqOrder between maker and taker transfering funds directly between the counterparties. Either
+    /// @dev Settle an RfqOrder between maker and taker transferring funds directly between the counterparties. Either
     ///      two Permit2 signatures are consumed, with the maker Permit2 containing a witness of the RfqOrder, or
     ///      AllowanceHolder is supported for the taker payment. The Maker has signed the same order as the
     ///      Taker. Submission may be directly by the taker or via a third party with the Taker signing a witness.
@@ -157,9 +159,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         // Now we adjust the transfer amounts to compensate for encountered slippage. Rounding is
         // performed in the maker's favor.
         uint256 takerAmount = takerToken.fastBalanceOf(address(this));
-        if (takerAmount > maxTakerAmount) {
-            takerAmount = maxTakerAmount;
-        }
+        takerAmount = (takerAmount > maxTakerAmount).ternary(maxTakerAmount, takerAmount);
         transferDetails.requestedAmount = makerAmount = makerAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
 
         // Now that we have all the relevant information, make the transfers and log the order.

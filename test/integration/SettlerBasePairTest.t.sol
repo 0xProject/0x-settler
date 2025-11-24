@@ -30,11 +30,22 @@ abstract contract SettlerBasePairTest is BasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
 
-    uint256 internal PERMIT2_FROM_NONCE = 1;
-    uint256 internal PERMIT2_MAKER_NONCE = 1;
+    uint256 internal constant PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
+
+    function settlerInitCode() internal virtual returns (bytes memory) {
+        return bytes.concat(type(Settler).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function _deploySettler() private returns (Settler r) {
+        bytes memory initCode = settlerInitCode();
+        assembly ("memory-safe") {
+            r := create(0x00, add(0x20, initCode), mload(initCode))
+            if iszero(r) { revert(0x00, 0x00) }
+        }
+    }
 
     function setUp() public virtual override {
         super.setUp();
@@ -50,7 +61,9 @@ abstract contract SettlerBasePairTest is BasePairTest {
                 revert(0x00, 0x00)
             }
         }
-        settler = new Settler(bytes20(0));
+
+        settler = _deploySettler();
+        vm.label(address(settler), "Settler");
         vm.chainId(forkChainId);
     }
 
@@ -66,8 +79,22 @@ abstract contract SettlerBasePairTest is BasePairTest {
     }
 
     function _getDefaultFromPermit2() internal returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
+        return _getDefaultFromPermit2(amount());
+    }
+
+    function _getDefaultFromPermit2(uint256 amount_)
+        internal
+        returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
+    {
+        return _getDefaultFromPermit2(fromToken(), amount_);
+    }
+
+    function _getDefaultFromPermit2(IERC20 token, uint256 amount_)
+        internal
+        returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
+    {
         ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+            defaultERC20PermitTransfer(address(token), amount_, PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
         return (permit, sig);
     }

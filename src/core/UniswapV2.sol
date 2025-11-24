@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Panic} from "../utils/Panic.sol";
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -64,15 +64,16 @@ abstract contract UniswapV2 is SettlerAbstract {
             }
         }
         assembly ("memory-safe") {
+            pool := and(0xffffffffffffffffffffffffffffffffffffffff, pool)
             let ptr := mload(0x40)
 
             // transfer sellAmount (a non zero amount) of sellToken to the pool
             if sellAmount {
-                mstore(ptr, ERC20_TRANSFER_SELECTOR)
-                mstore(add(ptr, 0x20), pool)
-                mstore(add(ptr, 0x40), sellAmount)
+                mstore(0x00, ERC20_TRANSFER_SELECTOR)
+                mstore(0x20, pool)
+                mstore(0x40, sellAmount)
                 // ...||ERC20_TRANSFER_SELECTOR|pool|sellAmount|
-                if iszero(call(gas(), sellToken, 0, add(ptr, 0x1c), 0x44, 0x00, 0x20)) { bubbleRevert(ptr) }
+                if iszero(call(gas(), sellToken, 0, 0x1c, 0x44, 0x00, 0x20)) { bubbleRevert(ptr) }
                 if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(0x00), 1)))) {
                     revert(0, 0)
                 }
@@ -97,7 +98,7 @@ abstract contract UniswapV2 is SettlerAbstract {
             if or(iszero(sellAmount), sellTokenHasFee) {
                 // retrieve the sellToken balance of the pool
                 mstore(0x00, ERC20_BALANCEOF_SELECTOR)
-                mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, pool))
+                mstore(0x20, pool)
                 // ||ERC20_BALANCEOF_SELECTOR|pool|
                 if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x00, 0x20)) { bubbleRevert(ptr) }
                 if lt(returndatasize(), 0x20) { revert(0, 0) }
@@ -115,13 +116,13 @@ abstract contract UniswapV2 is SettlerAbstract {
             // compute buyAmount based on sellAmount and reserves
             let sellAmountWithFee := mul(sellAmount, sub(10000, feeBps))
             buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 10000)))
-            let swapCalldata := add(ptr, 0x1c)
             // set up swap call selector and empty callback data
             mstore(ptr, UNI_PAIR_SWAP_SELECTOR)
             mstore(add(ptr, 0x80), 0x80) // offset to length of data
             mstore(add(ptr, 0xa0), 0) // length of data
 
             // set amount0Out and amount1Out
+            let swapCalldata := add(ptr, 0x1c)
             {
                 // If `zeroForOne`, offset is 0x24, else 0x04
                 let offset := add(0x04, shl(5, zeroForOne))
@@ -133,7 +134,10 @@ abstract contract UniswapV2 is SettlerAbstract {
             // ...||UNI_PAIR_SWAP_SELECTOR|amount0Out|amount1Out|recipient|data|
 
             // perform swap at the pool sending bought tokens to the recipient
-            if iszero(call(gas(), pool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert(swapCalldata) }
+            if iszero(call(gas(), pool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert(ptr) }
+
+            // restore FMP
+            mstore(0x40, ptr)
 
             // revert with the return data from the most recent call
             function bubbleRevert(p) {
@@ -142,7 +146,7 @@ abstract contract UniswapV2 is SettlerAbstract {
             }
         }
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(
+            revertTooMuchSlippage(
                 IERC20(zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0()), minBuyAmount, buyAmount
             );
         }

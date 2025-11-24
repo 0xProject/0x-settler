@@ -6,17 +6,23 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../../core/MakerPSM.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
-import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
+// When these actions are reenabled, reenable the integration tests by setting `curveV2TricryptoPoolId()`
+// import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
+import {Ekubo} from "../../core/Ekubo.sol";
+import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
+
+import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {Ternary} from "../../utils/Ternary.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -40,9 +46,6 @@ import {
 
 import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
-import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
-import {IOwnable} from "../../deployer/TwoStepOwnable.sol";
-
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
@@ -51,25 +54,77 @@ abstract contract MainnetMixin is
     SettlerBase,
     MakerPSM,
     MaverickV2,
-    CurveTricrypto,
+    //CurveTricrypto,
     DodoV1,
     DodoV2,
     UniswapV4,
-    BalancerV3
+    BalancerV3,
+    Ekubo,
+    EulerSwap
 {
+    using SafeTransferLib for IERC20;
+    using SafeTransferLib for address payable;
+    using Ternary for bool;
+
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256, uint256 action, bytes calldata data)
         internal
         virtual
         override(SettlerAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
-            return true;
+        //// NOTICE: we re-implement the base `_dispatch` implementation here so that we can remove
+        //// the `VELODROME` action JUST on this chain because it does little-to-no volume.
+
+        if (action == uint32(ISettlerActions.RFQ.selector)) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                address maker,
+                bytes memory makerSig,
+                IERC20 takerToken,
+                uint256 maxTakerAmount
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
+
+            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
+        } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
+            (address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) =
+                abi.decode(data, (address, uint256, bytes, uint256));
+
+            sellToUniswapV3(recipient, bps, path, amountOutMin);
+        } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
+            (address recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 amountOutMin) =
+                abi.decode(data, (address, address, uint256, address, uint24, uint256));
+
+            sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BASIC.selector)) {
+            (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
+                abi.decode(data, (IERC20, uint256, address, uint256, bytes));
+
+            basicSellToPool(sellToken, bps, pool, offset, _data);
+        } /* `VELODROME` is removed */
+        else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
+                abi.decode(data, (address, IERC20, uint256, uint256));
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                uint256 cap;
+                unchecked {
+                    cap = balance * maxBps / BASIS;
+                    balance -= expectedAmount;
+                }
+                balance = (balance > cap).ternary(cap, balance);
+                if (isETH) {
+                    recipient.safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
+                }
+            }
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
                 address recipient,
@@ -84,10 +139,15 @@ abstract contract MainnetMixin is
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
-            (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) =
-                abi.decode(data, (address, uint256, bool, uint256));
+            (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai) =
+                abi.decode(data, (address, uint256, bool, uint256, IPSM, IERC20));
 
-            sellToMakerPsm(recipient, bps, buyGem, amountOutMin);
+            sellToMakerPsm(recipient, bps, buyGem, amountOutMin, psm, dai);
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
@@ -112,6 +172,19 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToEkubo(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -151,19 +224,21 @@ abstract contract MainnetMixin is
             initHash = solidlyV3InitHash;
             callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 
+    /*
     function _curveFactory() internal pure override returns (address) {
         return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
+    */
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return MAINNET_POOL_MANAGER;
     }
 
-    function rebateClaimer() external view returns (address) {
-        return IOwnable(DEPLOYER).owner();
+    function _EVC() internal pure override returns (IEVC) {
+        return IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
     }
 }

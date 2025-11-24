@@ -119,38 +119,26 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
-. "$project_root"/sh/common_bash_version_check.sh
-
-# this duplicates `sh/common.sh`, but we don't care about the cancun/not-cancun check
-if ! hash cast &>/dev/null ; then
-    echo 'foundry is not installed' >&2
-    exit 1
-fi
-
-if ! hash jq &>/dev/null ; then
-    echo 'jq is not installed' >&2
-    exit 1
-fi
-
-declare -r chain_name="$1"
-shift
+. "$project_root"/sh/common.sh
 
 declare -r -i token_id="$1"
 shift
 
 declare -r -i num_addresses="${1-100}"
 
-function get_config {
-    jq -Mr ."$chain_name"."$1" < "$project_root"/chain_config.json
-}
-
-declare -i chainid
-chainid="$(get_config chainId)"
-declare -r -i chainid
-
 declare deployer
 deployer="$(get_config deployment.deployer)"
 declare -r deployer
+
+declare starting_address
+starting_address="$(cast call --rpc-url "$rpc_url" "$deployer" 'ownerOf(uint256)(address)' $token_id)"
+declare -r starting_address
+
+declare -a deploy_info
+deploy_info=( $(cast call --rpc-url "$rpc_url" "$deployer" 'deployInfo(address)(uint128,uint32)' $starting_address) )
+declare -r -a deploy_info
+
+declare -r -i starting_nonce=${deploy_info[1]}
 
 function create3_salt {
     declare -r -i feature="$1"
@@ -194,7 +182,8 @@ function create3 {
     echo "$result"
 }
 
+truncate --size=0 "$project_root/settler_predictions/${chain_name}_${token_id}.txt"
 declare -i nonce
-for nonce in $(seq 1 $num_addresses) ; do
-    create3 "$deployer" "$(create3_salt $token_id $nonce)"
+for nonce in $(seq $starting_nonce $((starting_nonce + num_addresses))) ; do
+    create3 "$deployer" "$(create3_salt $token_id $nonce)" >>"$project_root/settler_predictions/${chain_name}_${token_id}.txt"
 done

@@ -21,6 +21,21 @@ contract SonicSettler is Settler, SonicMixin {
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
+            );
+
+            sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -39,7 +54,7 @@ contract SonicSettler is Settler, SonicMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, SonicMixin)
+        override(Settler, SonicMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

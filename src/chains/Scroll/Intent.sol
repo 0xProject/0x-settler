@@ -13,7 +13,7 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
-import {AbstractContext} from "../../Context.sol";
+import {AbstractContext, Context} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 import {uint512} from "../../utils/512Math.sol";
@@ -39,6 +39,14 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         returns (bool)
     {
         return super._dispatch(i, action, data);
+    }
+
+    function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {
+        return super._isForwarded();
+    }
+
+    function _msgData() internal view override(AbstractContext, Context, SettlerIntent) returns (bytes calldata) {
+        return super._msgData();
     }
 
     function _msgSender() internal view override(SettlerIntent, ScrollSettlerMetaTxn) returns (address) {
@@ -70,9 +78,18 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._dispatchVIP(action, data, sig);
     }
 
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+        internal
+        view
+        override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
+        returns (uint256)
+    {
+        return super._permitToSellAmountCalldata(permit);
+    }
+
     function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
         internal
-        pure
+        view
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {

@@ -36,6 +36,21 @@ contract OptimismSettler is Settler, OptimismMixin {
             );
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
+            );
+
+            sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -54,7 +69,7 @@ contract OptimismSettler is Settler, OptimismMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, OptimismMixin)
+        override(Settler, OptimismMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

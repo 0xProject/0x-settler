@@ -6,10 +6,11 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
+import {BalancerV3} from "../../core/BalancerV3.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {UnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -33,7 +34,7 @@ import {OPTIMISM_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4 {
+abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV3 {
     constructor() {
         assert(block.chainid == 10 || block.chainid == 31337);
     }
@@ -60,6 +61,19 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4 {
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+
+            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else {
             return false;
         }
@@ -93,7 +107,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4 {
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 

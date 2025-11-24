@@ -7,7 +7,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
-import {UnknownForkId} from "src/core/SettlerErrors.sol";
+import {revertUnknownForkId} from "src/core/SettlerErrors.sol";
 import {uint512} from "src/utils/512Math.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
@@ -69,7 +69,7 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
-            revert UnknownForkId(forkId);
+            revertUnknownForkId(forkId);
         }
     }
 }
@@ -129,8 +129,6 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
-
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
 
@@ -139,20 +137,24 @@ contract UniswapV3UnitTest is Utils, Test {
             abi.encode(abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))),
             POOL
         );
-        vm.expectCall(
-            POOL,
+        bytes memory callbackData = abi.encodePacked(address(uni), TOKEN0);
+        bytes memory data = bytes.concat(
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
                 RECIPIENT,
                 zeroForOne,
                 amount,
-                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(address(uni), TOKEN0)
-            )
+                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341
+            ),
+            bytes32(uint256(0xa0)),
+            bytes32(callbackData.length),
+            callbackData
         );
+
+        vm.expectCall(POOL, data);
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
-        uni.sellSelf(RECIPIENT, bps, data, minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1), minBuyAmount);
     }
 
     function testUniswapV3SellSlippage() public {
@@ -160,8 +162,6 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount + 1;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
-
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
 
@@ -170,30 +170,34 @@ contract UniswapV3UnitTest is Utils, Test {
             abi.encode(abi.encode(zeroForOne ? int256(0) : -int256(amount), zeroForOne ? -int256(amount) : int256(0))),
             POOL
         );
-        vm.expectCall(
-            POOL,
+
+        bytes memory callbackData = abi.encodePacked(address(uni), TOKEN0);
+        bytes memory data = bytes.concat(
             abi.encodeWithSelector(
                 IUniswapV3Pool.swap.selector,
                 RECIPIENT,
                 zeroForOne,
                 amount,
-                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341,
-                abi.encodePacked(address(uni), TOKEN0)
-            )
+                zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341
+            ),
+            bytes32(uint256(0xa0)),
+            bytes32(callbackData.length),
+            callbackData
         );
+
+        vm.expectCall(POOL, data);
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
         );
-        uni.sellSelf(RECIPIENT, bps, data, minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1), minBuyAmount);
     }
 
     function testUniswapV3SellPermit2() public {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
         // Override the UniswapV3 pool code to callback our contract
         // There's probably a smarter way to do this tbh
         deployCodeTo(
@@ -213,18 +217,28 @@ contract UniswapV3UnitTest is Utils, Test {
         // cannot use abi.encodeWithSelector due to the selector overload and ambiguity
         _mockExpectCall(
             PERMIT2,
-            abi.encodeWithSelector(bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), hex"deadbeef"),
+            bytes.concat(
+                abi.encodeWithSelector(
+                    bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), uint256(0x100)
+                ),
+                abi.encodePacked(uint256(4), hex"deadbeef")
+            ),
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, data, permitTransfer, hex"deadbeef", minBuyAmount);
+        uni.sell(
+            RECIPIENT,
+            abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1),
+            permitTransfer,
+            hex"deadbeef",
+            minBuyAmount
+        );
     }
 
     function testUniswapV3SellAllowanceHolder() public {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        bytes memory data = abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1);
         // Override the UniswapV3 pool code to callback our contract
         // There's probably a smarter way to do this tbh
         deployCodeTo(
@@ -248,9 +262,19 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.prank(ALLOWANCE_HOLDER);
         address(uni).call(
             abi.encodePacked(
-                abi.encodeCall(uni.sell, (RECIPIENT, data, permitTransfer, hex"", minBuyAmount)), address(this)
+                abi.encodeCall(
+                    uni.sell,
+                    (
+                        RECIPIENT,
+                        abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1),
+                        permitTransfer,
+                        hex"",
+                        minBuyAmount
+                    )
+                ),
+                address(this)
             ) // Forward on true msg.sender
         );
-        // uni.sell(RECIPIENT, data, minBuyAmount, permitTransfer, hex"");
+        // uni.sell(RECIPIENT, abi.encodePacked(TOKEN0, uint8(0), uint24(500), TOKEN1), minBuyAmount, permitTransfer, hex"");
     }
 }

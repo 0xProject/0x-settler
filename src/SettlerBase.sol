@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "./interfaces/ISettlerBase.sol";
 
 import {uint512} from "./utils/512Math.sol";
 
@@ -16,11 +17,12 @@ import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
+import {Ternary} from "./utils/Ternary.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {TooMuchSlippage} from "./core/SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
 
-/// @dev This library's ABIDeocding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
+/// @dev This library's ABIDecoding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
 /// means that it is possible that `args` will run off the end of calldata and be implicitly padded with zeroes. That we
 /// don't check for overflow means that offsets can be negative. This can also result in `args` that alias other parts
@@ -37,25 +39,24 @@ library CalldataDecoder {
                 add(
                     data.offset,
                     // We allow the indirection/offset to `calls[i]` to be negative
-                    calldataload(
-                        add(shl(5, i), data.offset) // can't overflow; we assume `i` is in-bounds
-                    )
+                    calldataload(i)
                 )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
-            args.offset := add(args.offset, 0x20)
+            args.offset := add(0x20, args.offset)
 
             // slice off the first 4 bytes of `args` as the selector
             selector := shr(0xe0, calldataload(args.offset))
             args.length := sub(args.length, 0x04)
-            args.offset := add(args.offset, 0x04)
+            args.offset := add(0x04, args.offset)
         }
     }
 }
 
-abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
+abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using Ternary for bool;
 
     receive() external payable {}
 
@@ -77,12 +78,6 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         return n.div(d);
     }
 
-    struct AllowedSlippage {
-        address recipient;
-        IERC20 buyToken;
-        uint256 minAmountOut;
-    }
-
     function _mandatorySlippageCheck() internal pure virtual returns (bool) {
         return false;
     }
@@ -93,29 +88,30 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
         // ISettlerActions.BASIC could interact with an intents-based settlement
         // mechanism, we must ensure that the user's want token increase is coming
         // directly from us instead of from some other form of exchange of value.
-        (address recipient, IERC20 buyToken, uint256 minAmountOut) =
+        (address payable recipient, IERC20 buyToken, uint256 minAmountOut) =
             (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
         if (_mandatorySlippageCheck()) {
             require(minAmountOut != 0);
         } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
             return;
         }
-        if (buyToken == ETH_ADDRESS) {
-            uint256 amountOut = address(this).balance;
-            if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
-            payable(recipient).safeTransferETH(amountOut);
+        bool isETH = (buyToken == ETH_ADDRESS);
+        uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
+        if (amountOut < minAmountOut) {
+            revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
+        }
+        if (isETH) {
+            recipient.safeTransferETH(amountOut);
         } else {
-            uint256 amountOut = buyToken.fastBalanceOf(address(this));
-            if (amountOut < minAmountOut) {
-                revert TooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
             buyToken.safeTransfer(recipient, amountOut);
         }
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
+        //// NOTICE: This function has been largely copy/paste'd into
+        //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
+        //// need to make sure that corresponding changes are made to that function.
+
         if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
@@ -148,20 +144,21 @@ abstract contract SettlerBase is Basic, RfqOrderSettlement, UniswapV3Fork, Unisw
 
             sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address recipient, IERC20 token, uint256 expectedAmount) = abi.decode(data, (address, IERC20, uint256));
-            if (token == ETH_ADDRESS) {
-                uint256 balance = address(this).balance;
-                if (balance > expectedAmount) {
-                    unchecked {
-                        payable(recipient).safeTransferETH(balance - expectedAmount);
-                    }
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
+                abi.decode(data, (address, IERC20, uint256, uint256));
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                uint256 cap;
+                unchecked {
+                    cap = balance * maxBps / BASIS;
+                    balance -= expectedAmount;
                 }
-            } else {
-                uint256 balance = token.fastBalanceOf(address(this));
-                if (balance > expectedAmount) {
-                    unchecked {
-                        token.safeTransfer(recipient, balance - expectedAmount);
-                    }
+                balance = (balance > cap).ternary(cap, balance);
+                if (isETH) {
+                    recipient.safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
                 }
             }
         } else {

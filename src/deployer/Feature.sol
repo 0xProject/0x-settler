@@ -5,7 +5,7 @@ import {Panic} from "../utils/Panic.sol";
 
 type Feature is uint128;
 
-function eq(Feature a, Feature b) pure returns (bool) {
+function Feature_eq(Feature a, Feature b) pure returns (bool) {
     return Feature.unwrap(a) == Feature.unwrap(b);
 }
 
@@ -13,7 +13,7 @@ function isNull(Feature a) pure returns (bool) {
     return Feature.unwrap(a) == 0;
 }
 
-using {eq as ==, isNull} for Feature global;
+using {Feature_eq as ==, isNull} for Feature global;
 
 function wrap(uint256 x) pure returns (Feature) {
     if (x > type(uint128).max) {

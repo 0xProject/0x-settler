@@ -7,8 +7,9 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {Ternary} from "../utils/Ternary.sol";
 
-import {TooMuchSlippage} from "./SettlerErrors.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 // Maverick AMM V2 is not open-source. The source code was disclosed to the
 // developers of 0x Settler confidentially and recompiled privately. The
@@ -111,6 +112,62 @@ interface IMaverickV2Pool {
     function getState() external view returns (State memory);
 }
 
+library FastMaverickV2Pool {
+    function fastTokenA(IMaverickV2Pool pool) internal view returns (IERC20 token) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x0fc63d10) // selector for `tokenA()`
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            token := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
+        }
+    }
+
+    function fastTokenB(IMaverickV2Pool pool) internal view returns (IERC20 token) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x5f64b55b) // selector for `tokenB()`
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            token := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
+        }
+    }
+
+    function fastEncodeSwap(
+        IMaverickV2Pool,
+        address recipient,
+        uint256 amount,
+        bool tokenAIn,
+        bool exactOutput,
+        int256 tickLimit,
+        bytes memory swapCallbackData
+    ) internal pure returns (bytes memory data) {
+        assembly ("memory-safe") {
+            data := mload(0x40)
+
+            let swapCallbackDataLength := mload(swapCallbackData)
+
+            mcopy(add(0xe4, data), swapCallbackData, add(0x20, swapCallbackDataLength))
+            mstore(add(0xc4, data), 0xc0)
+            mstore(add(0xa4, data), signextend(0x03, tickLimit))
+            mstore(add(0x84, data), exactOutput)
+            mstore(add(0x64, data), tokenAIn)
+            mstore(add(0x44, data), amount)
+            mstore(add(0x24, data), recipient)
+            mstore(add(0x10, data), 0x3eece7db000000000000000000000000) // selector for `swap(address,(uint256,bool,bool,int32),bytes)` with `recipient`'s padding
+            mstore(data, add(0xe4, swapCallbackDataLength))
+
+            mstore(0x40, add(0x120, add(data, swapCallbackDataLength)))
+        }
+    }
+}
+
 interface IMaverickV2SwapCallback {
     function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 amountOut, bytes calldata data)
         external;
@@ -119,6 +176,8 @@ interface IMaverickV2SwapCallback {
 abstract contract MaverickV2 is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
+    using FastMaverickV2Pool for IMaverickV2Pool;
+    using Ternary for bool;
 
     function _encodeSwapCallback(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         internal
@@ -151,19 +210,13 @@ abstract contract MaverickV2 is SettlerAbstract {
         (, buyAmount) = abi.decode(
             _setOperatorAndCall(
                 pool,
-                abi.encodeCall(
-                    IMaverickV2Pool.swap,
-                    (
-                        recipient,
-                        IMaverickV2Pool.SwapParams({
-                            amount: _permitToSellAmount(permit),
-                            tokenAIn: tokenAIn,
-                            exactOutput: false,
-                            // TODO: actually set a tick limit so that we can partial fill
-                            tickLimit: tokenAIn ? type(int32).max : type(int32).min
-                        }),
-                        swapCallbackData
-                    )
+                IMaverickV2Pool(pool).fastEncodeSwap(
+                    recipient,
+                    _permitToSellAmount(permit),
+                    tokenAIn,
+                    false,
+                    tokenAIn.ternary(type(int32).max, type(int32).min),
+                    swapCallbackData
                 ),
                 uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector),
                 _maverickV2Callback
@@ -171,8 +224,8 @@ abstract contract MaverickV2 is SettlerAbstract {
             (uint256, uint256)
         );
         if (buyAmount < minBuyAmount) {
-            IERC20 buyToken = tokenAIn ? IMaverickV2Pool(pool).tokenB() : IMaverickV2Pool(pool).tokenA();
-            revert TooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+            IERC20 buyToken = tokenAIn ? IMaverickV2Pool(pool).fastTokenB() : IMaverickV2Pool(pool).fastTokenA();
+            revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
         }
     }
 
@@ -214,7 +267,7 @@ abstract contract MaverickV2 is SettlerAbstract {
             new bytes(0)
         );
         if (buyAmount < minBuyAmount) {
-            revert TooMuchSlippage(tokenAIn ? pool.tokenB() : pool.tokenA(), minBuyAmount, buyAmount);
+            revertTooMuchSlippage(tokenAIn ? pool.fastTokenB() : pool.fastTokenA(), minBuyAmount, buyAmount);
         }
     }
 

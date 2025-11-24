@@ -5,7 +5,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
+import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {UniswapV4PairTest} from "./UniswapV4PairTest.t.sol";
 import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {MaverickV2PairTest} from "./MaverickV2PairTest.t.sol";
@@ -14,21 +16,29 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
-
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+import {EkuboTest} from "./Ekubo.t.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
 contract USDCWETHTest is
     AllowanceHolderPairTest,
     SettlerPairTest,
     SettlerMetaTxnPairTest,
     ZeroExPairTest,
+    UniswapV2PairTest,
     UniswapV3PairTest,
+    UniswapV4PairTest,
     CurveTricryptoPairTest,
     DodoV1PairTest,
     MaverickV2PairTest,
     TokenTransferTest,
-    Permit2TransferTest
+    Permit2TransferTest,
+    EkuboTest
 {
+    address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     function setUp()
         public
         override(
@@ -40,13 +50,14 @@ contract USDCWETHTest is
             ZeroExPairTest,
             UniswapV3PairTest,
             TokenTransferTest,
-            Permit2TransferTest
+            Permit2TransferTest,
+            EkuboTest
         )
     {
         super.setUp();
     }
 
-    function testName() internal pure override returns (string memory) {
+    function _testName() internal pure override returns (string memory) {
         return "USDC-WETH";
     }
 
@@ -60,6 +71,20 @@ contract USDCWETHTest is
 
     function amount() internal pure override returns (uint256) {
         return 1000e6;
+    }
+
+    function slippageLimit() internal pure override returns (uint256) {
+        return 0.5 ether;
+    }
+
+    function _testBlockNumber()
+        internal
+        pure
+        virtual
+        override(MainnetDefaultFork, UniswapV3PairTest)
+        returns (uint256)
+    {
+        return super._testBlockNumber();
     }
 
     function dodoV1Pool() internal pure override returns (address) {
@@ -94,7 +119,10 @@ contract USDCWETHTest is
         returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {}
 
-    function curveV2TricryptoPoolId() internal pure override returns (uint80) {
+    function curveV2TricryptoPoolId() internal override returns (uint80) {
+        // The CurveV2 Tricrypto factory pool actions have been disabled on Mainnet for contract size
+        return super.curveV2TricryptoPoolId();
+        /*
         return
         // nonce
         (
@@ -104,6 +132,7 @@ contract USDCWETHTest is
             // buyIndex
             | uint80(uint8(2))
         );
+        */
     }
 
     function maverickV2Salt() internal pure override returns (bytes32) {
@@ -120,5 +149,49 @@ contract USDCWETHTest is
 
     function maverickV2TokenAIn() internal pure override returns (bool) {
         return fromToken() < toToken();
+    }
+
+    function ekuboBlockNumber() internal pure override returns (uint256) {
+        return 22682485;
+    }
+
+    function ekuboPoolConfig() internal pure override returns (bytes32) {
+        // Key for ETH_USDC pool (not WETH)
+        return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7000003e8);
+    }
+
+    function ekuboExtensionConfig() internal pure override returns (bytes32) {
+        // Key for ETH_USDC pool (not WETH)
+        return bytes32(0x553a2efc570c9e104942cec6ac1c18118e54c09100068db8bac710cb000000c8);
+    }
+
+    function ekuboFills() internal pure virtual override returns (bytes memory) {
+        return abi.encodePacked(uint16(10_000), bytes1(0x01), _eth, ekuboPoolConfig());
+    }
+
+    function ekuboExtensionFills() internal pure override returns (bytes memory) {
+        return abi.encodePacked(uint16(42768), bytes1(0x01), _eth, ekuboExtensionConfig());
+    }
+
+    function recipient() internal view virtual override returns (address) {
+        return address(settler);
+    }
+
+    function metaTxnRecipient() internal view virtual override returns (address) {
+        return address(settlerMetaTxn);
+    }
+
+    function ekuboExtraActions(bytes[] memory actions) internal view virtual override returns (bytes[] memory) {
+        bytes[] memory data = new bytes[](actions.length + 2);
+        address _weth = address(toToken());
+        for (uint256 i; i < actions.length; i++) {
+            data[i] = actions[i];
+        }
+        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, ""));
+        data[actions.length + 1] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+        );
+        return data;
     }
 }

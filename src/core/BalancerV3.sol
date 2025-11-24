@@ -7,12 +7,11 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import {ZeroSellAmount} from "./SettlerErrors.sol";
 
-import {Encoder, NotesLib, StateLib, Decoder, Take} from "./FlashAccountingCommon.sol";
+import {Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
@@ -137,19 +136,18 @@ interface IBalancerV3Vault {
 library UnsafeVault {
     function unsafeSettle(IBalancerV3Vault vault, IERC20 token, uint256 amount) internal returns (uint256 credit) {
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
+            mstore(0x14, token)
+            mstore(0x34, amount) // clobbers the upper (always zero) bits of the free memory pointer
+            mstore(0x00, 0x15afd409000000000000000000000000) // selector for `settle(address,uint256)` with `token`'s padding
 
-            mstore(0x00, 0x15afd409) // selector for `settle(address,uint256)`
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, token))
-            mstore(0x40, amount)
-
-            if iszero(call(gas(), vault, 0x00, 0x1c, 0x44, 0x00, 0x20)) {
+            if iszero(call(gas(), vault, 0x00, 0x10, 0x44, 0x00, 0x20)) {
+                let ptr := and(0xffffff, mload(0x40))
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
             credit := mload(0x00)
 
-            mstore(0x40, ptr)
+            mstore(0x34, 0x00)
         }
     }
 
@@ -196,8 +194,9 @@ library UnsafeVault {
             // `params` in memory to account for the prepending of the selector (4 bytes) and the
             // indirection offset (32 bytes)
             if iszero(call(gas(), vault, 0x00, add(0x1c, clobberedPtr0), add(0x24, len), 0x00, 0x60)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
             amountIn := mload(0x20)
             amountOut := mload(0x40)
@@ -245,16 +244,14 @@ IBalancerV3Vault constant VAULT = IBalancerV3Vault(0xbA1333333333a1BA1108E8412f1
 abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
-    using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
-    using StateLib for StateLib.State;
 
     using UnsafeVault for IBalancerV3Vault;
 
     constructor() {
         assert(BASIS == Encoder.BASIS);
         assert(BASIS == Decoder.BASIS);
-        assert(ETH_ADDRESS == Decoder.ETH_ADDRESS);
+        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
 
     //// How to generate `fills` for BalancerV3:
@@ -308,9 +305,6 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         bytes memory fills,
         uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
-        if (bps > BASIS) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
         bytes memory data = Encoder.encode(
             uint32(IBalancerV3Vault.unlock.selector),
             recipient,
@@ -383,25 +377,25 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         return balV3UnlockCallback(_msgData());
     }
 
-    function _setSwapParams(
-        IBalancerV3Vault.VaultSwapParams memory swapParams,
-        StateLib.State memory state,
-        bytes calldata data
-    ) private pure returns (bytes calldata) {
+    function _setSwapParams(IBalancerV3Vault.VaultSwapParams memory swapParams, State state, bytes calldata data)
+        private
+        pure
+        returns (bytes calldata)
+    {
         assembly ("memory-safe") {
             mstore(add(0x20, swapParams), shr(0x60, calldataload(data.offset)))
             data.offset := add(0x14, data.offset)
             data.length := sub(data.length, 0x14)
             // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
         }
-        swapParams.tokenIn = state.sell.token;
-        swapParams.tokenOut = state.buy.token;
+        swapParams.tokenIn = state.sell().token();
+        swapParams.tokenOut = state.buy().token();
         return data;
     }
 
     function _decodeUserdataAndSwap(
         IBalancerV3Vault.VaultSwapParams memory swapParams,
-        StateLib.State memory state,
+        State state,
         bytes calldata data
     ) private DANGEROUS_freeMemory returns (bytes calldata) {
         (data, swapParams.userData) = Decoder.decodeBytes(data);
@@ -410,13 +404,15 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
         unchecked {
             // `amountIn` is always exactly `swapParams.amountGiven`
-            state.sell.amount -= amountIn;
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
         }
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
         // bits. However, `state.buy.amount` may be an agglomeration of values returned by ERC4626
         // vaults, and there is no implicit restriction on those values.
-        state.buy.amount += amountOut;
+        NotePtr buy = state.buy();
+        buy.setAmount(buy.amount() + amountOut);
         assembly ("memory-safe") {
             mstore(add(0xc0, swapParams), 0x60)
         }
@@ -424,18 +420,17 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         return data;
     }
 
-    function _erc4626WrapUnwrap(
-        IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams,
-        StateLib.State memory state
-    ) private {
+    function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, State state) private {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
         unchecked {
             // `amountIn` is always exactly `wrapParams.amountGiven`
-            state.sell.amount -= amountIn;
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
         }
         // `amountOut` may depend on the behavior of the ERC4626 vault. We can make no assumptions
         // about the reasonableness of the range of values that may be returned.
-        state.buy.amount += amountOut;
+        NotePtr buy = state.buy();
+        buy.setAmount(buy.amount() + amountOut);
     }
 
     function _balV3Pay(
@@ -477,23 +472,25 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         // to settle global sell token debt at the end of swapping.
         (
             bytes calldata newData,
-            StateLib.State memory state,
+            State state,
             NotesLib.Note[] memory notes,
             ISignatureTransfer.PermitTransferFrom calldata permit,
             bool isForwarded,
             bytes calldata sig
         ) = Decoder.initialize(data, hashMul, hashMod, payer);
-        if (payer != address(this)) {
-            state.globalSell.amount = _permitToSellAmountCalldata(permit);
+        {
+            NotePtr globalSell = state.globalSell();
+            if (payer != address(this)) {
+                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+            }
+            if (feeOnTransfer) {
+                globalSell.setAmount(
+                    _balV3Pay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
+                );
+            }
+            state.setGlobalSellAmount(globalSell.amount());
         }
-        if (feeOnTransfer) {
-            state.globalSell.amount =
-                _balV3Pay(state.globalSell.token, payer, state.globalSell.amount, permit, isForwarded, sig);
-        }
-        if (state.globalSell.amount == 0) {
-            revert ZeroSellAmount(state.globalSell.token);
-        }
-        state.globalSellAmount = state.globalSell.amount;
+        state.checkZeroSellAmount();
         data = newData;
 
         IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams;
@@ -511,7 +508,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         */
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps;
+            uint256 bps;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
 
@@ -525,7 +522,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             if (bps & 0xc000 == 0) {
                 data = _setSwapParams(swapParams, state, data);
                 unchecked {
-                    swapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                    swapParams.amountGiven = (state.sell().amount() * bps).unsafeDiv(BASIS);
                 }
                 data = _decodeUserdataAndSwap(swapParams, state, data);
             } else {
@@ -533,14 +530,14 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
 
                 if (bps & 0x4000 == 0) {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.WRAP;
-                    wrapParams.wrappedToken = IERC4626(address(state.buy.token));
+                    wrapParams.wrappedToken = IERC4626(address(state.buy().token()));
                 } else {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.UNWRAP;
-                    wrapParams.wrappedToken = IERC4626(address(state.sell.token));
+                    wrapParams.wrappedToken = IERC4626(address(state.sell().token()));
                 }
                 bps &= 0x3fff;
                 unchecked {
-                    wrapParams.amountGiven = (state.sell.amount * bps).unsafeDiv(BASIS);
+                    wrapParams.amountGiven = (state.sell().amount() * bps).unsafeDiv(BASIS);
                 }
 
                 _erc4626WrapUnwrap(wrapParams, state);
@@ -551,7 +548,8 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         // swaps. Any credit in any token other than `state.buy.token` will be swept to
         // Settler. `state.buy.token` will be sent to `recipient`.
         {
-            (IERC20 globalSellToken, uint256 globalSellAmount) = (state.globalSell.token, state.globalSell.amount);
+            NotePtr globalSell = state.globalSell();
+            (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -573,10 +571,14 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                 // fill. This subtraction recovers the actual debt recorded in the vault.
                 uint256 debt;
                 unchecked {
-                    debt = state.globalSellAmount - globalSellAmount;
+                    debt = state.globalSellAmount() - globalSellAmount;
                 }
                 if (debt == 0) {
-                    revert ZeroSellAmount(globalSellToken);
+                    assembly ("memory-safe") {
+                        mstore(0x14, globalSellToken)
+                        mstore(0x00, 0xfb772a88000000000000000000000000) // selector for `ZeroSellAmount(address)` with `globalSellToken`'s padding
+                        revert(0x10, 0x24)
+                    }
                 }
                 _balV3Pay(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
@@ -584,11 +586,9 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)
-                mstore(returndata, 0x60)
-                mstore(add(0x20, returndata), 0x20)
-                mstore(add(0x40, returndata), 0x20)
-                mstore(add(0x60, returndata), globalBuyAmount)
-                mstore(0x40, add(0x80, returndata))
+                mstore(returndata, 0x20)
+                mstore(add(0x20, returndata), globalBuyAmount)
+                mstore(0x40, add(0x40, returndata))
             }
             return returndata;
         }

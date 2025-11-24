@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
-import {SettlerBase} from "src/SettlerBase.sol";
 
 abstract contract DodoV1PairTest is SettlerBasePairTest {
     function dodoV1Pool() internal virtual returns (address) {
@@ -27,7 +28,7 @@ abstract contract DodoV1PairTest is SettlerBasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodoV1");
         _settler.execute(
-            SettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: 1 wei}),
+            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: 1 wei}),
             actions,
             bytes32(0)
         );

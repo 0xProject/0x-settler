@@ -122,6 +122,8 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
+decrypt_secrets
+
 # set minimum gas price to (mostly for Arbitrum and BNB)
 declare -i min_gas_price
 min_gas_price="$(get_config minGasPriceGwei)"
@@ -140,23 +142,53 @@ export FOUNDRY_OPTIMIZER_RUNS=1000000
 forge clean
 forge build src/allowanceholder/AllowanceHolder.sol
 
+declare allowanceholder_initcode
+allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolder.sol/AllowanceHolder.json)"
+declare -r allowanceholder_initcode
+
 declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
-declare -i gas_limit
-gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$(forge inspect src/allowanceholder/AllowanceHolder.sol:AllowanceHolder bytecode)")"
-gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-declare -r -i gas_limit
 
+declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(--broadcast)
+    gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
+
+    # Mantle has some real funky gas rules, exclude it from this logic
+    if (( chainid != 5000 )) ; then
+        if (( gas_limit > 16777215 )) ; then
+            echo 'AllowanceHolder deployment gas limit exceeds the EIP-7825 limit' >&2
+            exit 1
+        fi
+    fi
+
+    # Add some buffer
+    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+    if (( chainid != 5000 )) ; then
+        if (( gas_limit > 16777215 )) ; then
+            declare gas_limit_keep_going
+            IFS='' read -p 'Gas limit with multiplier exceeds EIP-7825 limit. Cap gas limit and keep going? [y/N]: ' -e -r -i n gas_limit_keep_going
+            declare -r gas_limit_keep_going
+            if [[ "${gas_limit_keep_going:-n}" != [Yy] ]] ; then
+                echo >&2
+                echo 'Exiting as requested' >&2
+                exit 1
+            fi
+            gas_limit=16777215
+        fi
+    fi
+
+    maybe_broadcast+=(send --chain $chainid --private-key)
+    maybe_broadcast+=("$(get_secret allowanceHolder key)")
 else
-    maybe_broadcast+=(-vvvv)
+    gas_limit=16777215
+    maybe_broadcast+=(call --trace -vvvv)
 fi
+declare -r -i gas_limit
 declare -r -a maybe_broadcast
 
-forge create "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --private-key "$(get_secret allowanceHolder key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+cast "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) --create "$allowanceholder_initcode"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60

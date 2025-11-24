@@ -8,6 +8,9 @@ interface ISettlerActions {
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
 
+    // @dev msgValue is interpreted as an upper bound on the expected msg.value, not as an exact specification
+    function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
+
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
     function METATXN_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit) external;
 
@@ -104,6 +107,36 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
+    function PANCAKE_INFINITY(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+    function PANCAKE_INFINITY_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+    function METATXN_PANCAKE_INFINITY_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
+
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
@@ -124,7 +157,8 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin) external;
+    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, address psm, address dai)
+        external;
 
     function CURVE_TRICRYPTO_VIP(
         address recipient,
@@ -196,10 +230,52 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function POSITIVE_SLIPPAGE(address recipient, address token, uint256 expectedAmount) external;
+    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount, uint256 maxBps)
+        external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
+
+    function EKUBO(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+
+    function EKUBO_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+
+    function METATXN_EKUBO_VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 amountOutMin
+    ) external;
+
+    function EULERSWAP(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) external;
 }

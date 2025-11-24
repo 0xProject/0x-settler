@@ -47,6 +47,21 @@ contract BnbSettler is Settler, BnbMixin {
             ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector)) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
+            );
+
+            sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -65,7 +80,7 @@ contract BnbSettler is Settler, BnbMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(SettlerAbstract, SettlerBase, BnbMixin)
+        override(Settler, BnbMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
