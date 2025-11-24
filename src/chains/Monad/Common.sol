@@ -76,7 +76,7 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
             (address recipient, IERC20 sellToken, uint256 bps, address pool, bool zeroForOne, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, address, bool, uint256));
 
-            sellToLfjTokenMill(recipient, sellTOken, bps, pool, zeroForOne, minBuyAmount);
+            sellToLfjTokenMill(recipient, sellToken, bps, pool, zeroForOne, minBuyAmount);
         } else {
             return false;
         }
