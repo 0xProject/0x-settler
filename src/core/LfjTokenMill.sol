@@ -63,7 +63,7 @@ abstract contract LfjTokenMill is SettlerAbstract {
         }
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(
-                zeroForOne ? ILfjTmMarket(pool).getQuoteToken() : ILfjTmMarket(pool).getBaseToken(),
+                IERC20(zeroForOne ? ILfjTmMarket(pool).getQuoteToken() : ILfjTmMarket(pool).getBaseToken()),
                 minBuyAmount,
                 buyAmount
             );
