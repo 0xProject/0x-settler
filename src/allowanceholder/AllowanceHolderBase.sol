@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity =0.8.28;
 
 import {IAllowanceHolder} from "./IAllowanceHolder.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {SafeTransferLib} from "../vendor/SafeTransferLib_Solmate.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {CheckCall} from "../utils/CheckCall.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 import {TransientStorageLayout} from "./TransientStorageLayout.sol";
@@ -15,55 +15,84 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
 
+    address internal constant _MULTICALL = 0x00000000000000CF9E3c5A26621af382fA17f24f;
+
+    constructor() {
+        assert(
+            (msg.sender == 0x4e59b44847b379578588920cA78FbF26c0B4956C && uint160(address(this)) >> 104 == 0)
+                || block.chainid == 31337
+        );
+    }
+
     function _rejectIfERC20(address payable maybeERC20, bytes calldata data) private view DANGEROUS_freeMemory {
         // We could just choose a random address for this check, but to make
         // confused deputy attacks harder for tokens that might be badly behaved
         // (e.g. tokens with blacklists), we choose to copy the first argument
         // out of `data` and mask it as an address. If there isn't enough
         // `data`, we use 0xdead instead.
-        address target;
-        if (data.length > 0x10) {
-            target = address(uint160(bytes20(data[0x10:])));
+
+        address target; // = address(uint160(bytes20(data[0x10:])));
+        if (data.length >= 4) {
+            assembly ("memory-safe") {
+                target := calldataload(add(0x04, data.offset))
+                // `shl(0x08, data.length)` can't overflow because we're going to
+                // `calldatacopy(..., data.length)` later. It would OOG.
+                let mask :=
+                    shr(
+                        shl(0x08, sub(data.length, 0x04)),
+                        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                    )
+                // Zero the low bits of `target` if `data` is short. Dirty low
+                // bits are only ever possible with nonstandard encodings, like
+                // ERC-2771.
+                target := and(not(mask), target)
+            }
         }
+
         // EIP-1352 (not adopted) specifies 0xffff as the maximum precompile
         if (target <= address(0xffff)) {
             // 0xdead is a conventional burn address; we assume that it is not treated specially
             target = address(0xdead);
         }
-        bytes memory testData = abi.encodeCall(IERC20.balanceOf, target);
-        if (maybeERC20.checkCall(testData, 0x20)) revert ConfusedDeputy();
-    }
 
-    function _msgSender() private view returns (address sender) {
-        if ((sender = msg.sender) == address(this)) {
+        bytes memory testData; // = abi.encodeCall(IERC20.balanceOf, target);
+        assembly ("memory-safe") {
+            testData := mload(0x40)
+            mstore(add(0x24, testData), target)
+            mstore(add(0x10, testData), 0x70a08231000000000000000000000000) // `IERC20.balanceOf.selector` with `target`'s padding
+            mstore(testData, 0x24)
+            mstore(0x40, add(0x60, testData))
+        }
+
+        if (maybeERC20.checkCall(testData, 0x20)) {
             assembly ("memory-safe") {
-                sender := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
+                mstore(0x00, 0xe758b8d5) // Selector for `ConfusedDeputy()`
+                revert(0x1c, 0x04)
             }
         }
     }
 
-    /// @dev This virtual function provides the implementation for the function
-    ///      of the same name in `IAllowanceHolder`. It is unimplemented in this
-    ///      base contract to accommodate the customization required to support
-    ///      both chains that have EIP-1153 (transient storage) and those that
-    ///      don't.
-    function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
-        internal
-        virtual
-        returns (bytes memory result);
+    function _msgSender() private view returns (address sender) {
+        assembly ("memory-safe") {
+            let isSelfForwarded := eq(caller(), address())
+            let isMultiCallForwarded := and(lt(0x03, calldatasize()), eq(_MULTICALL, caller()))
+            sender :=
+                xor(
+                    caller(),
+                    mul(
+                        xor(caller(), shr(0x60, calldataload(sub(calldatasize(), 0x14)))),
+                        or(isMultiCallForwarded, isSelfForwarded)
+                    )
+                )
+        }
+    }
 
-    /// @dev This is the majority of the implementation of IAllowanceHolder.exec
-    ///      . The arguments have the same meaning as documented there.
-    /// @return result
-    /// @return sender The (possibly forwarded) message sender that is
-    ///                requesting the allowance be set. Provided to avoid
-    ///                duplicated computation in customized `exec`
-    /// @return allowance The slot where the ephemeral allowance is
-    ///                   stored. Provided to avoid duplicated computation in
-    ///                   customized `exec`
-    function _exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
-        internal
-        returns (bytes memory result, address sender, TSlot allowance)
+    /// @dev This function provides the implementation for the function of the
+    ///      same name in `IAllowanceHolder`. The arguments and return value
+    ///      have the same meaning as documented there.
+    function exec(address operator, address token, uint256 amount, address payable target, bytes calldata data)
+        private
+        returns (bytes memory result)
     {
         // This contract has no special privileges, except for the allowances it
         // holds. In order to prevent abusing those allowances, we prohibit
@@ -71,8 +100,8 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         // contract that might be an ERC20.
         _rejectIfERC20(target, data);
 
-        sender = _msgSender();
-        allowance = _ephemeralAllowance(operator, sender, token);
+        address sender = _msgSender();
+        TSlot allowance = _ephemeralAllowance(operator, sender, token);
         _set(allowance, amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
@@ -80,32 +109,45 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         // send (we know it does), and we're omitting the check that `target`
         // contains code (we already checked in `_rejectIfERC20`).
         assembly ("memory-safe") {
+            // Copy the payload from calldata into memory
             result := mload(0x40)
             calldatacopy(result, data.offset, data.length)
-            // ERC-2771 style msgSender forwarding https://eips.ethereum.org/EIPS/eip-2771
+
+            // ERC-2771 style `msgSender` forwarding https://eips.ethereum.org/EIPS/eip-2771
+            // We do not append the forwarded sender if the payload has no selector
             mstore(add(result, data.length), shl(0x60, sender))
-            let success := call(gas(), target, callvalue(), result, add(data.length, 0x14), 0x00, 0x00)
-            let ptr := add(result, 0x20)
+            let length := add(mul(0x14, lt(0x03, data.length)), data.length)
+
+            // Perform the call
+            let success := call(gas(), target, callvalue(), result, length, 0x00, 0x00)
+
+            // Copy returndata into memory; if it is a revert, bubble
+            let ptr := add(0x20, result)
             returndatacopy(ptr, 0x00, returndatasize())
             switch success
             case 0 { revert(ptr, returndatasize()) }
             default {
+                // Wrap the returndata in a level of ABIEncoding
                 mstore(result, returndatasize())
-                mstore(0x40, add(ptr, returndatasize()))
+                mstore(0x40, add(returndatasize(), ptr))
             }
         }
+
+        _set(allowance, 0);
     }
 
     /// @dev This provides the implementation of the function of the same name
-    ///      in `IAllowanceHolder`.
-    function transferFrom(address token, address owner, address recipient, uint256 amount) internal {
-        // msg.sender is the assumed and later validated operator
+    ///      in `IAllowanceHolder`. The arguments have the same meaning as
+    ///      documented there.
+    function transferFrom(address token, address owner, address recipient, uint256 amount) private {
+        // `msg.sender` is the assumed and later validated `operator`.
         TSlot allowance = _ephemeralAllowance(msg.sender, owner, token);
-        // validation of the ephemeral allowance for operator, owner, token via
-        // uint underflow
+        // We validate the ephemeral allowance for the 3-tuple of `operator`
+        // (`msg.sender`), `owner`, and `token` by reverting on unsigned integer
+        // underflow (built in to Solidity 0.8).
         _set(allowance, _get(allowance) - amount);
         // `safeTransferFrom` does not check that `token` actually contains
-        // code. It is the responsibility of integrating code to check for that
+        // code. It is the responsibility of integrating code to check for that,
         // if vacuous success is a security concern.
         IERC20(token).safeTransferFrom(owner, recipient, amount);
     }
@@ -136,7 +178,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
 
             transferFrom(token, owner, recipient, amount);
 
-            // return true;
+            // `return true;`
             assembly ("memory-safe") {
                 mstore(0x00, 0x01)
                 return(0x00, 0x20)
@@ -171,20 +213,33 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
 
             bytes memory result = exec(operator, token, amount, target, data);
 
-            // return result;
+            // `return result;`
             assembly ("memory-safe") {
                 let returndata := sub(result, 0x20)
+                // This is technically not "memory-safe", but manual examination
+                // of the compiled bytecode shows that it's OK.
                 mstore(returndata, 0x20)
-                return(returndata, add(0x40, mload(result)))
+
+                // Pad `returndata` to a multiple of 32 bytes.
+                let len := mload(result)
+                let m := and(0x1f, len)
+                if m {
+                    mstore(add(add(0x20, result), len), 0x00)
+                    len := add(sub(0x20, m), len)
+                }
+
+                // Return the ABIEncoding of `result`.
+                return(returndata, add(0x40, len))
             }
         } else if (selector == uint256(uint32(IERC20.balanceOf.selector))) {
-            // balanceOf(address) reverts with a single byte of returndata,
-            // making it more gas efficient to pass the `_rejectERC20` check
+            // `balanceOf(address)` returns a single byte of returndata, making
+            // it more gas efficient to pass the `_rejectERC20` check during
+            // recursive/reentrant calls.
             assembly ("memory-safe") {
-                revert(0x00, 0x01)
+                return(0x00, 0x01)
             }
         } else {
-            // emulate standard Solidity behavior
+            // Emulate standard Solidity behavior.
             assembly ("memory-safe") {
                 revert(0x00, 0x00)
             }
