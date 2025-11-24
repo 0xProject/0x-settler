@@ -124,9 +124,10 @@ advanced EVM hardfork supported on the chain. You can hardcode this address in
 your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
-  hardfork (Ethereum Mainnet, Ethereum Sepolia, Polygon, Base, Optimism,
+  hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma)
+  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma,
+  Monad mainnet)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
@@ -1361,7 +1362,7 @@ from this document.
 
 9. Enter the "feature" number in the text box. This is probably 2 for
    taker-submitted, 3 for gasless/metatransaction, 4 for intents, or 5 for
-   bridge settler, unless something major has changed and nobody bothered 
+   bridge settler, unless something major has changed and nobody bothered
    to update this document.
 
 ![Enter the "feature" number (2, 3, 4, or 5) in the text box](img/pause7.png?raw=true)

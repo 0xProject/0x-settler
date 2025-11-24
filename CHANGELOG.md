@@ -72,6 +72,10 @@ Master list of UniV3 forks:
 
 * Add `NATIVE_CHECK` action to Mainnet
 * Add `EULERSWAP` action to Plasma
+* Deploy Settler to Monad mainnet
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Monad mainnet
+  * Add PancakeSwapV3 UniV3 fork on Plasma
 
 ## 2025-09-15
 
