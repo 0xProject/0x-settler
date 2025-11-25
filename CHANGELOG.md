@@ -43,9 +43,15 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Removed BridgeSettler action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` in favor of
+  `BRIDGE_TO_LAYER_ZERO_OFT` that accepts ERC20 and Native tokens.
+
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Add support for EraVM chains
+* Deploy Settler to Abstract and Abstract Sepolia chains
+  * Add UniswapV3 UniV3 fork to Abstract Sepolia
 
 ## 2025-10-02
 
@@ -69,6 +75,10 @@ Master list of UniV3 forks:
 
 * Add `NATIVE_CHECK` action to Mainnet
 * Add `EULERSWAP` action to Plasma
+* Deploy Settler to Monad mainnet
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Monad mainnet
+  * Add PancakeSwapV3 UniV3 fork on Plasma
 
 ## 2025-09-15
 

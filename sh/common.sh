@@ -8,6 +8,8 @@ fi
 if [[ $(forge --version) != *b918f9b4ab0616b44e660a6bf8c5a47feece6505* ]] ; then
     echo 'Wrong foundry version installed' >&2
     echo 'Run `foundryup -i v1.3.0`' >&2
+    echo 'This doesn'"'"'t work on old versions of `foundryup`' >&2
+    echo 'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`' >&2
     exit 1
 fi
 
@@ -96,7 +98,7 @@ declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
 
-if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url == 'null' ]] ; then
+if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url = 'null' ]] ; then
     echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
     exit 1
 fi
