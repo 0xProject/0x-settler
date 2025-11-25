@@ -43,11 +43,11 @@ abstract contract LfjTmTest is AllowanceHolderPairTest {
     }
 
     function lfjTmPool() internal view virtual returns (ILfjTmMarket) {
-        return ILfjTmMarket(0xfbE8A3cdd6f3bd5Cae785A0b16Bab3FefBAF5Dd4);
+        return ILfjTmMarket(0xE14d2602E27F2dD779E427D2e33eaf450Fb1e8e0);
     }
 
     function fromToken() internal view virtual override returns (IERC20) {
-        return IERC20(0x8B7F81E46Aeb3c70F238d6C1E1F69d14266cCDcD); // launchpad token
+        return IERC20(0x012Dc9b54623C37aEDb6f1b751c568a9995926a9); // launchpad token
     }
 
     function toToken() internal view virtual override returns (IERC20) {

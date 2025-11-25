@@ -62,7 +62,6 @@ abstract contract LfjTokenMill is SettlerAbstract {
         uint256 sqrtRatioLimitX96;
         if (zeroForOne) {
             (sqrtRatioLimitX96,,) = ILfjTmMarket(pool).getSqrtRatiosBounds();
-            sqrtRatioLimitX96++;
         } else {
             sqrtRatioLimitX96 = 2 ** 127 - 1;
         }
