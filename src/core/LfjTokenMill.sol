@@ -16,6 +16,8 @@ interface ILfjTmMarket {
         view
         returns (uint256 sqrtRatioAX96, uint256 sqrtRatioBX96, uint256 sqrtRatioMaxX96);
 
+    function getCurrentSqrtRatio() external view returns (uint256);
+
     // token0
     function getBaseToken() external view returns (address);
 
@@ -60,6 +62,7 @@ abstract contract LfjTokenMill is SettlerAbstract {
         uint256 sqrtRatioLimitX96;
         if (zeroForOne) {
             (sqrtRatioLimitX96,,) = ILfjTmMarket(pool).getSqrtRatiosBounds();
+            sqrtRatioLimitX96++;
         } else {
             sqrtRatioLimitX96 = 2 ** 127 - 1;
         }
