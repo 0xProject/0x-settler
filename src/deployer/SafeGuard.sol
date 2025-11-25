@@ -465,7 +465,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                     multicalls = multicalls[32+multicallData.length:]
 
                     // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
-                    if (multicallTo == address(_safe) && multicallData.length >= 36) {
+                    if (multicallTo == address(_safe) && multicallData.length >= 36 && uint32(bytes4(multiCallData)) == uint32(ISafeForbidden.enableModule.selector)) {
                         uint256 potentialModule = uint256(bytes32(multicallData[4:]));
                         if (potentialModule >> 160 == 0) {
                             revert ModuleInstalled(address(uint160(potentialModule)));
