@@ -278,4 +278,13 @@ interface ISettlerActions {
         bool zeroForOne,
         uint256 amountOutMin
     ) external;
+
+    function LFJTM(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) external;
 }

@@ -110,7 +110,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     }
 
     function poolId() internal view virtual returns (bytes32) {
-        return bytes32(0x0000000000000000000000000000000000000000000000000000000000000000);
+        return bytes32(0);
     }
 
     function poolManagerId() internal view virtual returns (uint8) {
