@@ -27,6 +27,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         super.setUp();
         // Trusted Forwarder / Allowance Holder
         safeApproveIfBelow(fromToken(), FROM, address(allowanceHolder), amount());
+        safeApproveIfBelow(toToken(), FROM, address(allowanceHolder), amount());
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
