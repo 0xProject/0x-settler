@@ -39,6 +39,7 @@ jobs:
           FOUNDRY_PROFILE: integration
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+          PLASMA_MAINNET_RPC_URL: ${{ secrets.PLASMA_MAINNET_RPC_URL }}
           MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL }}
 
       - name: Gas comparison

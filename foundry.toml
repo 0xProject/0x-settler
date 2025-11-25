@@ -16,6 +16,7 @@ no_match_path = "test/integration/*"
 # needed for marktoda/forge-gas-snapshot
 ffi = true
 fs_permissions = [{ access = "read-write", path = ".forge-snapshots/" }, { access = "read", path = "out" }]
+gas_snapshot_emit = true
 
 # https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
 [profile.default.optimizer_details]
@@ -26,6 +27,7 @@ yul = true
 no_match_path = "test/unit/*"
 match_path = "test/integration/*"
 fail_on_revert = false
+gas_snapshot_emit = false
 
 [fuzz]
 runs = 100_000
@@ -39,6 +41,7 @@ depth = 20
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 bnb = "${BNB_MAINNET_RPC_URL}"
+plasma = "${PLASMA_MAINNET_RPC_URL}"
 monad = "${MONAD_MAINNET_RPC_URL}"
 
 [lint]

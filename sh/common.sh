@@ -8,7 +8,8 @@ fi
 if [[ $(forge --version) != *b918f9b4ab0616b44e660a6bf8c5a47feece6505* ]] ; then
     echo 'Wrong foundry version installed' >&2
     echo 'Run `foundryup -i v1.3.0`' >&2
-    echo 'If that doesn'"'"'t work, do `foundryup -U` to update `foundryup` first' >&2
+    echo 'This doesn'"'"'t work on old versions of `foundryup`' >&2
+    echo 'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`' >&2
     exit 1
 fi
 
@@ -123,7 +124,7 @@ function verify_contract {
         if [[ ${_verify_etherscanKey:-null} == [nN][uU][lL][lL] ]] ; then
             forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         elif [[ $_verify_etherscanApi == https://api.etherscan.io/v2/api* ]] ; then
-            forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --verifier etherscan --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         else
             forge verify-contract --watch --chain "$chainid" --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         fi
