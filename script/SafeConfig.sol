@@ -19,6 +19,7 @@ library SafeConfig {
                 || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
+                || block.chainid == 143 // monad
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
@@ -51,6 +52,7 @@ library SafeConfig {
                 || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
+                || block.chainid == 143 // monad
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
