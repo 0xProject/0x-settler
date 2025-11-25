@@ -18,12 +18,7 @@ contract testfrontWMONTest is AllowanceHolderPairTest, LfjTmTest {
         return 100e18;
     }
 
-    function uniswapV3Path()
-        internal
-        pure
-        override
-        returns (bytes memory)
-    {
+    function uniswapV3Path() internal pure override returns (bytes memory) {
         return "";
     }
 
@@ -35,26 +30,16 @@ contract testfrontWMONTest is AllowanceHolderPairTest, LfjTmTest {
     function setUp() public override(AllowanceHolderPairTest, LfjTmTest) {
         return super.setUp();
     }
-    
-    function _testBlockNumber()
-        internal
-        pure
-        override(MainnetDefaultFork, LfjTmTest)
-        returns (uint256)
-    {
+
+    function _testBlockNumber() internal pure override(MainnetDefaultFork, LfjTmTest) returns (uint256) {
         return super._testBlockNumber();
     }
 
-    function _testChainId()
-        internal
-        pure
-        override(MainnetDefaultFork, LfjTmTest)
-        returns (string memory)
-    {
+    function _testChainId() internal pure override(MainnetDefaultFork, LfjTmTest) returns (string memory) {
         return super._testChainId();
     }
 
     function settlerInitCode() internal override(SettlerBasePairTest, LfjTmTest) returns (bytes memory) {
         return super.settlerInitCode();
-    }    
+    }
 }
