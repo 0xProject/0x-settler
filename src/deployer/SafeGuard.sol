@@ -45,6 +45,30 @@ interface ISafeMinimal {
     function masterCopy() external view returns (address);
 }
 
+// This interface is derived from the code deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B
+// (1.3.0) or 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 (1.4.1)
+interface ISafeMultiSend {
+    /// @dev Sends multiple transactions and reverts all if one fails.
+    /// @param transactions Encoded transactions. Each transaction is encoded as a packed bytes of
+    ///                     operation has to be uint8(0) in this version (=> 1 byte),
+    ///                     to as a address (=> 20 bytes),
+    ///                     value as a uint256 (=> 32 bytes),
+    ///                     data length as a uint256 (=> 32 bytes),
+    ///                     data as bytes.
+    ///                     see abi.encodePacked for more information on packed encoding
+    /// @notice The code is for most part the same as the normal MultiSend (to keep compatibility),
+    ///         but reverts if a transaction tries to use a delegatecall.
+    /// @notice This method is payable as delegatecalls keep the msg.value from the previous call
+    ///         If the calling method (e.g. execTransaction) received ETH this would revert otherwise
+    function multiSend(bytes memory transactions) external payable;
+}
+
+// This interface is excerpted from the contract at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
+// (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
+interface ISafeForbidden {
+    function enableModule(address) external;
+}
+
 // This library is a reimplementation of the functionality of the functions by the same name in
 // 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762
 // (1.4.1)
@@ -156,6 +180,15 @@ library SafeLib {
     function getGuard(ISafeMinimal safe) internal view returns (address) {
         return abi.decode(safe.getStorageAt(GUARD_SLOT(safe), 1), (address));
     }
+
+    function FALLBACK_SLOT(ISafeMinimal) internal pure returns (uint256) {
+        // keccak256("fallback_manager.handler.address")
+        return 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
+    }
+
+    function getFallback(ISafeMinimal safe) internal view returns (address) {
+        return abi.decode(safe.getStorageAt(FALLBACK_SLOT(safe), 1), (address));
+    }
 }
 
 // This interface is excerpted from `GuardManager.sol` in 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
@@ -224,6 +257,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error UnexpectedUpgrade(address newSingleton);
     error Reentrancy();
     error ModuleInstalled(address module);
+    error IncorrectFallbackHandler(address handler);
     error NotEnoughOwners(uint256 ownerCount);
     error ThresholdTooLow(uint256 threshold);
     error NotUnanimous(bytes32 txHash);
@@ -240,6 +274,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
     address private immutable _SINGLETON;
+    address private immutable _FALLBACK;
+    address private immutable _MULTISEND;
     address private constant _CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
 
@@ -254,27 +290,28 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
-    constructor(ISafeMinimal safe_, bytes32 singletonInithash) {
-        assert(keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337);
-        safe = safe_;
+    function _constructorChecks() internal view returns (bool result) {
+        result = keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337;
         bytes32 safeCodeHash = address(safe).codehash;
-        assert(
-            safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
-                || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH
-        );
-        assert(msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
-        _SINGLETON = address(
-            uint160(
-                uint256(
-                    keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), singletonInithash))
-                )
-            )
+        result = result
+            && (
+                safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+                    || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH
+            );
+        result = result && (msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
+    }
+
+    function _predictCreate2(bytes32 inithash) private view returns (address) {
+        return address(
+            uint160(uint256(keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), inithash))))
         );
     }
 
-    function setDelay(uint24 newDelay) external onlySafe {
-        emit TimelockUpdated(delay, newDelay);
-        delay = newDelay;
+    constructor(ISafeMinimal safe_, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash) {
+        safe = safe_;
+        _SINGLETON = _predictCreate2(singletonInithash);
+        _FALLBACK = _predictCreate2(fallbackInithash);
+        _MULTISEND = _predictCreate2(multisendInithash);
     }
 
     function _requireSafe() private view {
@@ -336,6 +373,11 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
     }
 
+    function setDelay(uint24 newDelay) external onlySafe {
+        emit TimelockUpdated(delay, newDelay);
+        delay = newDelay;
+    }
+
     function checkTransaction(
         address to,
         uint256 value,
@@ -371,25 +413,72 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // `execTransaction`, but not inside `execute`. We can rely on `checkAfterExecution` to
         // enforce its postconditions.
 
-        // After extensive consideration, the ability to do `DELEGATECALL`'s to other contracts,
-        // including narrowly limiting that to the use of the Safe-approved `MultiCallSendOnly`
-        // contract (0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B), creates ways to brick/compromise
-        // the Safe in ways that cannot be detected by simple pre-/post-conditions applied in
-        // `checkTransaction` and `checkAfterExecution`. For example, allowing `MultiCallSendOnly`
-        // creates the possibility of the installation of a malicious Module through `addModule`,
-        // execution of a `DELEGATECALL` to an attacker-controlled contract through
-        // `execTransactionFromModule`, and then removing that malicious module from the ability of
-        // `getModulesPaginated` (or any other mechanism) to enumerate (i.e. setting slot
-        // 0xcc69885fda6bcc1a4ace058b4a62bf5e179ea78fd58a1ccd71c22cc9b688792f to 1) all in a single
-        // atomic transaction that will pass the postconditions.
-        //
-        // Therefore, due to a complete inability to secure the Safe against malicious/incompetent
-        // owners, `Operation.DelegateCall` is prohibited.
-        if (operation != Operation.Call) {
-            revert NoDelegateCall();
-        }
-
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
+
+        // Obviously, any `DELEGATECALL` to an arbitrary contract could result in the concealment of
+        // potentially malicious behavior that this Guard is no longer able to control. However,
+        // even a seemingly-innocuous `DELEGATECALL` to the Safe-approved `MultiCallSendOnly`
+        // contract (0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B [1.3.0],
+        // 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 [1.4.1]), creates ways to brick/compromise the
+        // Safe in ways that cannot be detected by simple pre-/post-conditions applied in
+        // `checkTransaction` and `checkAfterExecution`. For example we could install a malicious
+        // Module through `enableModule`, execute a `DELEGATECALL` to a malicious contract via a
+        // call to `execTransactionFromModule` from the malicious Module, and then use that
+        // `DELEGATECALL`'d contract's direct access to the Safe's storage to remove the Module from
+        // the ability of `getModulesPaginated` (or any other mechanism) to enumerate (i.e. setting
+        // slot 0xcc69885fda6bcc1a4ace058b4a62bf5e179ea78fd58a1ccd71c22cc9b688792f to 1) all in a
+        // single atomic transaction that will pass the postconditions.
+        //
+        // Therefore, we forbid all `DELEGATECALL`s to contracts except `MultiSendCallOnly`, and for
+        // calls to `MultiSendCallOnly`, we do deep inspection of the payload to ensure that it's
+        // not calling `enableModule`
+        if (operation != Operation.Call) {
+            if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector)))
+            {
+                // Slice off the selector.
+                bytes calldata multicalls = data[4:];
+                // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
+                multicalls = multicalls[uint256(bytes32(multicalls)):];
+                // Decode `transactions` length.
+                multicalls = multicalls[32:32 + uint256(bytes32(multicalls))];
+
+                // The encoding of the multicalls here is derived from the `MultiSendCallOnly`
+                // contract deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
+                // 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 (1.4.1)
+                while (multicalls.length != 0) {
+                    // We use calldata array slicing syntax here, which is stricter than the
+                    // assembly found in `MultiSendCallOnly`. `MultiSendCallOnly` will happily
+                    // decode data that is past the (nominal) end of the `transactions` array, while
+                    // this implementation will revert when encountering that.
+
+                    // We ignore the first byte, which is always zero to indicate `Operation.Call`.
+                    // The next 20 bytes are the target of the `CALL`.
+                    multicalls = multicalls[1:];
+                    address multicallTo = address(uint160(bytes20(multicalls)));
+                    multicalls = multicalls[20:];
+                    // We ignore the next 32 bytes because they are the `value`. The function we
+                    // wish to forbid is `nonpayable`, so the value is always zero or irrelevant.
+                    multicalls = multicalls[32:];
+                    // The 32 bytes after that are the length of the payload/data, followed by the
+                    // payload/data itself.
+                    bytes calldata multicallData = multicalls[32:32 + uint256(bytes32(multicalls))];
+                    multicalls = multicalls[32 + multicallData.length:];
+
+                    // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
+                    if (
+                        multicallTo == address(_safe) && multicallData.length >= 36
+                            && uint32(bytes4(multiCallData)) == uint32(ISafeForbidden.enableModule.selector)
+                    ) {
+                        uint256 potentialModule = uint256(bytes32(multicallData[4:]));
+                        if (potentialModule >> 160 == 0) {
+                            revert ModuleInstalled(address(uint160(potentialModule)));
+                        }
+                    }
+                }
+            } else {
+                revert NoDelegateCall();
+            }
+        }
 
         // The nonce has already been incremented past the value used in the
         // currently-executing transaction. We decrement it to get the value that was hashed
@@ -458,6 +547,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         _maybeSetGuardRemoved(_safe);
     }
 
+    // This function has exactly the same checks as `_checkAfterExecution`, but is returns `false`
+    // on failure of those checks instead of reverting.
     function _checkAfterExecutionReturnBool(ISafeMinimal _safe) internal view returns (bool result) {
         result = true;
 
@@ -467,6 +558,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             (address[] memory modules,) = _safe.getModulesPaginated(address(1), 1);
             result = modules.length == 0;
         }
+        result = result && _safe.getFallback() == _FALLBACK;
         result = result && !_safe.isOwner(address(this));
         result = result && _safe.ownerCount() >= _MINIMUM_OWNERS;
         result = result && _safe.getThreshold() >= _MINIMUM_THRESHOLD;
@@ -496,6 +588,19 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             (address[] memory modules,) = _safe.getModulesPaginated(address(1), 1);
             if (modules.length != 0) {
                 revert ModuleInstalled(modules[0]);
+            }
+        }
+
+        // A malicious fallback handler can cause unexpected external non-static calls that, to an
+        // ignorant operator, would cause malicious calls to privileged contracts. Out of an
+        // abundance of caution, we forbid setting the fallback handler away from its default
+        // value. Note: it's not possible to set the fallback handler to the address of the Safe
+        // itself because that is not capable of calling `authorized` functions because it is
+        // specifically the `fallback` handler.
+        {
+            address fallbackHandler = _safe.getFallback();
+            if (fallbackHandler != _FALLBACK) {
+                revert IncorrectFallbackHandler(fallbackHandler);
             }
         }
 
@@ -681,8 +786,19 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSafeGuardBase {
     bytes32 private constant _SAFE_SINGLETON_1_3_INITHASH =
         0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
+    bytes32 private constant _SAFE_FALLBACK_1_3_INITHASH =
+        0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
+    bytes32 private constant _SAFE_MULTISEND_1_3_INITHASH =
+        0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
 
-    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_3_INITHASH) {
+    constructor(ISafeMinimal safe_)
+        ZeroExSettlerDeployerSafeGuardBase(
+            safe_,
+            _SAFE_SINGLETON_1_3_INITHASH,
+            _SAFE_FALLBACK_1_3_INITHASH,
+            _SAFE_MULTISEND_1_3_INITHASH
+        )
+    {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
         // deployed, with the exception of the installation and subsequent concealment of a
         // malicious Safe module. The author knows of no way to enforce that the Guard is installed
@@ -691,10 +807,10 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
         // installed in a Safe where these checks fail, the Guard silently disables itself in order
         // to avoid a bricked Safe. Once the Guard is successfully deployed, the behavior ought to
         // be sane, even in bizarre and outrageous circumstances.
-        if (!_checkAfterExecutionReturnBool(safe_)) {
-            _removeSelf();
-        } else {
+        if (_constructorChecks() && _checkAfterExecutionReturnBool(safe_)) {
             _maybeSetGuardRemoved(safe_);
+        } else {
+            _removeSelf();
         }
     }
 }
@@ -702,12 +818,24 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
 contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSettlerDeployerSafeGuardBase {
     bytes32 private constant _SAFE_SINGLETON_1_4_INITHASH =
         0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd;
+    bytes32 private constant _SAFE_FALLBACK_1_4_INITHASH =
+        0x5a63128db658d8601220c014848acd6c27b855a0427f0181eb3ba8c25e2d3e95;
+    bytes32 private constant _SAFE_MULTISEND_1_4_INITHASH =
+        0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
 
-    constructor(ISafeMinimal safe_) ZeroExSettlerDeployerSafeGuardBase(safe_, _SAFE_SINGLETON_1_4_INITHASH) {
+    constructor(ISafeMinimal safe_)
+        ZeroExSettlerDeployerSafeGuardBase(
+            safe_,
+            _SAFE_SINGLETON_1_4_INITHASH,
+            _SAFE_FALLBACK_1_4_INITHASH,
+            _SAFE_MULTISEND_1_4_INITHASH
+        )
+    {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
         // in the Safe. However, because the Safe does an ERC165 check during the Guard enabling
         // process, we are able to perform a nearly atomic check. See the logic and comment in
         // `supportsInterface` below.
+        assert(_constructorChecks());
     }
 
     /// @inheritdoc IERC165
