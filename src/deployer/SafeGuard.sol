@@ -440,7 +440,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                 // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
                 multicalls = multicalls[uint256(bytes32(multicalls)):];
                 // Decode `transactions` length.
-                multicalls = multicalls[32:32+uint256(bytes32(multicalls))];
+                multicalls = multicalls[32:32 + uint256(bytes32(multicalls))];
 
                 // The encoding of the multicalls here is derived from the `MultiSendCallOnly`
                 // contract deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
@@ -461,11 +461,14 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                     multicalls = multicalls[32:];
                     // The 32 bytes after that are the length of the payload/data, followed by the
                     // payload/data itself.
-                    bytes calldata multicallData = multicalls[32:32+uint256(bytes32(multicalls))];
-                    multicalls = multicalls[32+multicallData.length:]
+                    bytes calldata multicallData = multicalls[32:32 + uint256(bytes32(multicalls))];
+                    multicalls = multicalls[32 + multicallData.length:];
 
                     // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
-                    if (multicallTo == address(_safe) && multicallData.length >= 36 && uint32(bytes4(multiCallData)) == uint32(ISafeForbidden.enableModule.selector)) {
+                    if (
+                        multicallTo == address(_safe) && multicallData.length >= 36
+                            && uint32(bytes4(multiCallData)) == uint32(ISafeForbidden.enableModule.selector)
+                    ) {
                         uint256 potentialModule = uint256(bytes32(multicallData[4:]));
                         if (potentialModule >> 160 == 0) {
                             revert ModuleInstalled(address(uint160(potentialModule)));
