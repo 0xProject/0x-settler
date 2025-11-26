@@ -416,7 +416,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let success := iszero(call(gas(), target, value, ptr, data.length, codesize(), returndatasize()))
 
             // prohibit sending data or zero native asset to EOAs
-            if gt(lt(returndatasize(), success), mul(iszero(data.length), value)) {
+            if lt(or(returndatasize(), mul(iszero(data.length), value)), success) {
                 if iszero(extcodesize(target)) { revert(0x00, 0x00) }
             }
 
@@ -495,7 +495,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let success := call(gas(), target, value, ptr, data.length, codesize(), 0x00)
 
             // prohibit sending data or zero native asset to EOAs
-            if gt(lt(returndatasize(), success), mul(iszero(data.length), value)) {
+            if lt(or(returndatasize(), mul(iszero(data.length), value)), success) {
                 if iszero(extcodesize(target)) { revert(0x00, 0x00) }
             }
 
