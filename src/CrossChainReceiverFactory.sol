@@ -418,7 +418,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
-            if iszero(success) { revert(add(0x40, ptr), returndatasize()) }
+            if iszero(success) { revert(add(0x40, mload(0x40)), returndatasize()) }
+
+            // TODO: check for non-value-sending calls to empty addresses
 
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
@@ -426,12 +428,78 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
-    function call(address payable target, IERC20 token, uint256 patchOffset, bytes calldata data)
+    function call(address payable target, IERC20 token, uint256 ppm, uint256 patchOffset, bytes calldata data)
         external
+        payable
         override
         onlyOwnerOrSelf
+        returns (bytes memory)
     {
-        // TODO:
+        assembly ("memory-safe") {
+            // TODO: allow sending empty data with `offset == 0` if `token == _NATIVE`
+            if iszero(lt(add(0x1f, patchOffset), data.length)) {
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // code for array out-of-bounds
+                revert(0x1c, 0x24)
+            }
+
+            let patchBytes
+            let value
+            for {} true {} {
+                if shl(0x60, xor(_NATIVE, token)) {
+                    mstore(0x00, 0x70a08231) // `IERC20.balanceOf.selector`
+                    mstore(0x20, address())
+                    if iszero(staticcall(gas(), token, 0x1c, 0x24, 0x00, 0x20)) {
+                        let ptr_ := mload(0x40)
+                        returndatacopy(ptr_, 0x00, returndatasize())
+                        revert(ptr_, returndatasize())
+                    }
+                    if gt(0x20, returndatasize()) { revert(codesize(), 0x00) }
+
+                    let thisBalance := mload(0x00)
+                    patchBytes := mul(ppm, thisBalance)
+                    if xor(div(patchBytes, ppm), thisBalance) {
+                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                        mstore(0x20, 0x11) // code for arithmetic overflow
+                        revert(0x1c, 0x24)
+                    }
+
+                    patchBytes := div(patchBytes, 1_000_000)
+                    value := callvalue()
+
+                    break
+                }
+
+                patchBytes := mul(ppm, selfbalance())
+                if xor(div(patchBytes, ppm), selfbalance()) {
+                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                    mstore(0x20, 0x11) // code for arithmetic overflow
+                    revert(0x1c, 0x24)
+                }
+
+                patchBytes := div(patchBytes, 1000000)
+                value := patchBytes
+
+                break
+            }
+
+            let ptr := mload(0x40)
+            calldatacopy(ptr, data.offset, data.length)
+            mstore(add(patchOffset, ptr), patchBytes)
+
+            let failure := iszero(call(gas(), target, value, ptr, data.length, codesize(), 0x00))
+            if iszero(or(failure, or(returndatasize(), value))) {
+                if iszero(extcodesize(target)) { revert(0x00, 0x00) }
+            }
+
+            returndatacopy(add(0x40, ptr), 0x00, returndatasize())
+
+            if failure { revert(add(0x40, mload(0x40)), returndatasize()) }
+
+            mstore(add(0x20, ptr), returndatasize())
+            mstore(ptr, 0x20)
+            return(ptr, add(0x40, returndatasize()))
+        }
     }
 
     function _useUnorderedNonce(uint256 nonce) private {
@@ -542,7 +610,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             // hash the `Call[]` array
             arr := keccak256(arr, lenBytes)
 
-            // EIP712-encode the `MultiCall`
+            // EIP712-encode the `MultiCall` object
             mstore(ptr, _MULTICALL_TYPEHASH)
             mstore(add(0x20, ptr), arr)
             mstore(add(0x40, ptr), contextdepth)
