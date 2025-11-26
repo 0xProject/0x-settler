@@ -416,6 +416,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             calldatacopy(ptr, data.offset, data.length)
             let success := call(gas(), target, value, ptr, data.length, codesize(), returndatasize())
 
+            let paddedLength := and(not(0x1f), add(0x1f, returndatasize()))
+            mstore(add(add(0x20, ptr), paddedLength), 0x00)
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
             if iszero(success) { revert(add(0x40, mload(0x40)), returndatasize()) }
@@ -424,7 +426,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
-            return(ptr, add(0x40, returndatasize()))
+            return(ptr, add(0x40, paddedLength))
         }
     }
 
@@ -492,13 +494,15 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 if iszero(extcodesize(target)) { revert(0x00, 0x00) }
             }
 
+            let paddedLength := and(not(0x1f), add(0x1f, returndatasize()))
+            mstore(add(add(0x20, ptr), paddedLength), 0x00)
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
             if failure { revert(add(0x40, mload(0x40)), returndatasize()) }
 
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
-            return(ptr, add(0x40, returndatasize()))
+            return(ptr, add(0x40, paddedLength))
         }
     }
 
