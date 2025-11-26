@@ -10,7 +10,7 @@ import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {ICrossChainReceiverFactory} from "./interfaces/ICrossChainReceiverFactory.sol";
-import {AbstractOwnable, TwoStepOwnable} from "./utils/TwoStepOwnable.sol";
+import {AbstractOwnable, OwnableImpl, TwoStepOwnable} from "./utils/TwoStepOwnable.sol";
 import {IMultiCall, MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
@@ -36,7 +36,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bytes32 private immutable _proxyInitCode0 =
         bytes32(bytes20(0x60253d8160093d39F33d3d3D3D363D3D37363d6C)) | bytes32(uint256(uint160(address(this))) >> 8);
     bytes32 private immutable _proxyInitCode1 =
-        bytes32(bytes1(uint8(uint160(address(this))))) | bytes32(0x5af43d3d93803e602357fd5bf3 << 144);
+        bytes32(bytes1(uint8(uint160(address(this))))) | bytes32(uint256(0x5af43d3d93803e602357fd5bf3 << 144));
     bytes32 private immutable _proxyInitHash = keccak256(
         bytes.concat(
             hex"60253d8160093d39f33d3d3d3d363d3d37363d6c",
@@ -55,7 +55,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
     bytes32 private constant _CALL_TYPEHASH = 0xa8b3616b5b84550a806f58ebe7d19199754b9632d31e5e6d07e7faf21fe1cacc;
 
-    IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address private constant _NATIVE_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    IERC20 private constant _NATIVE = IERC20(_NATIVE_ADDRESS);
 
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _WNATIVE_SETTER = 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc;
@@ -99,7 +100,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     IWrappedNative private immutable _WNATIVE =
         IWrappedNative(payable(address(uint160(uint256(bytes32(_WNATIVE_STORAGE.code))))));
 
-    ISignatureTransfer private constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    address private constant _PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+    ISignatureTransfer private constant _PERMIT2 = ISignatureTransfer(_PERMIT2_ADDRESS);
 
     error DeploymentFailed();
     error ApproveFailed();
@@ -121,11 +123,12 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         require(_NAMEHASH == keccak256(bytes(name)));
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(
-            _MULTICALL_TYPEHASH = keccak256(
-                "MultiCall(Call[] calls,uint256 contextdepth,uint256 nonce,uint256 deadline)Call(address target,uint8 revertPolicy,uint256 value,bytes data)"
-            )
+            _MULTICALL_TYPEHASH
+                == keccak256(
+                    "MultiCall(Call[] calls,uint256 contextdepth,uint256 nonce,uint256 deadline)Call(address target,uint8 revertPolicy,uint256 value,bytes data)"
+                )
         );
-        require(_CALL_TYPEHASH = keccak256("Call(address target,uint8 revertPolicy,uint256 value,bytes data)"));
+        require(_CALL_TYPEHASH == keccak256("Call(address target,uint8 revertPolicy,uint256 value,bytes data)"));
 
         // do some behavioral checks on `_WNATIVE`
         {
@@ -175,7 +178,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         _;
     }
 
-    function _requireOwner() internal view override {
+    function _requireOwner() internal view override(AbstractOwnable, OwnableImpl) {
         address msgSender = _msgSender();
         if (msgSender != address(this) && msgSender != owner()) {
             _permissionDenied();
@@ -267,7 +270,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
                 }
-                return _verifyDeploymentRootHash(_getMerkleRoot(proof, _hashLeaf(signingHash)), originalOwner).ternary(
+                return _verifyDeploymentRootHash(_getMerkleRoot(proof, _hashLeaf(hash)), originalOwner).ternary(
                     IERC1271.isValidSignature.selector, bytes4(0xffffffff)
                 );
             }
@@ -289,7 +292,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             // elsewhere in the ecosystem. This also means that the sort order of the hash and the
             // chainid is backwards from what `_getMerkleRoot` produces, again protecting us against
             // extension attacks.
-            mstore(0x00, hash)
+            mstore(0x00, signingHash)
             mstore(0x20, chainid())
             leafHash := keccak256(0x00, 0x40)
         }
@@ -381,7 +384,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let ptr := mload(0x40)
 
             mstore(returndatasize(), 0x095ea7b3) // selector for `approve(address,uint256)`
-            mstore(0x20, _PERMIT2)
+            mstore(0x20, _PERMIT2_ADDRESS)
             mstore(0x40, amount)
 
             if iszero(call(gas(), token, callvalue(), 0x1c, 0x44, returndatasize(), 0x20)) {
@@ -429,6 +432,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
+    /// @inheritdoc ICrossChainReceiverFactory
     function call(address payable target, IERC20 token, uint256 ppm, uint256 patchOffset, bytes calldata data)
         external
         payable
@@ -447,7 +451,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let patchBytes
             let value
             for {} true {} {
-                if shl(0x60, xor(_NATIVE, token)) {
+                if shl(0x60, xor(_NATIVE_ADDRESS, token)) {
                     mstore(0x00, 0x70a08231) // `IERC20.balanceOf.selector`
                     mstore(0x20, address())
                     if iszero(staticcall(gas(), token, 0x1c, 0x24, 0x00, 0x20)) {
@@ -465,7 +469,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         revert(0x1c, 0x24)
                     }
 
-                    patchBytes := div(patchBytes, 1_000_000)
+                    patchBytes := div(patchBytes, 1000000)
                     value := callvalue()
 
                     break
@@ -515,7 +519,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(0x00, 0x4fe02b44) // `ISignatureTransfer.nonceBitmap.selector`
             mstore(0x20, address())
             mstore(0x40, wordPos)
-            if iszero(staticcall(gas(), _PERMIT2, 0x1c, 0x44, 0x20, 0x20)) {
+            if iszero(staticcall(gas(), _PERMIT2_ADDRESS, 0x1c, 0x44, 0x20, 0x20)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -527,7 +531,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(0x00, 0x3ff9dcb1) // `ISignatureTransfer.invalidateUnorderedNonces.selector`
             mstore(returndatasize(), wordPos)
             mstore(0x40, bitPos)
-            if iszero(call(gas(), _PERMIT2, 0x00, 0x1c, 0x44, codesize(), 0x00)) {
+            if iszero(call(gas(), _PERMIT2_ADDRESS, 0x00, 0x1c, 0x44, codesize(), 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -551,7 +555,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
-    function _hashEip712(bytes32 structHash) private pure returns (bytes32 signingHash) {
+    function _hashEip712(bytes32 structHash) private view returns (bytes32 signingHash) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, _DOMAIN_TYPEHASH)
@@ -627,6 +631,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
+    /// @inheritdoc ICrossChainReceiverFactory
     function metaTx(
         IMultiCall.Call[] calldata calls,
         uint256 contextdepth,
@@ -677,7 +682,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
         _useUnorderedNonce(nonce);
 
-        return IMultiCall(MULTICALL_ADDRESS).multicall(calls, contextdepth);
+        return IMultiCall(payable(MULTICALL_ADDRESS)).multicall(calls, contextdepth);
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
