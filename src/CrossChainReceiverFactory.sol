@@ -52,6 +52,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     // TODO: should the `MultiCall` EIP712 type include an (optional) relayer field that binds the
     // metatransaction to a specific relayer? Perhaps this ought to be encoded in the `deadline`
     // field similarly to how the `nonce` field encodes the current owner.
+    // TODO: add a `value` field
     bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
     bytes32 private constant _CALL_TYPEHASH = 0xa8b3616b5b84550a806f58ebe7d19199754b9632d31e5e6d07e7faf21fe1cacc;
 
@@ -676,8 +677,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 }
             }
         } else {
-            // `nonce`'s upper 160 bits must be the *current* owner. This prevents "Nick's Method"
-            // shenanigans as well as avoiding potential confusion when ownership is
+            // `nonce`'s upper 160 bits will encode the *current* owner. This prevents "Nick's
+            // Method" shenanigans as well as avoiding potential confusion when ownership is
             // transferred. Obviously if ownership is transferred *back* then confusion may occur,
             // but the `deadline` field should limit the blast radius of failures like that.
             nonce |= uint256(uint160(owner_)) << 96;
@@ -688,7 +689,20 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
         _useUnorderedNonce(nonce);
 
-        return IMultiCall(payable(MULTICALL_ADDRESS)).multicall(calls, contextdepth);
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            calldatacopy(0x1c, 0x00, calldatasize())
+            mstore(0x00, 0x669a7d5e) // `IMultiCall.multicall.selector`
+
+            let success := call(gas(), MULTICALL_ADDRESS, 0x00 /* TODO: */, 0x1c, calldatasize(), codesize(), 0x00)
+
+            returndatacopy(ptr, 0x00, returndatasize())
+
+            if iszero(success) {
+                revert(ptr, returndatasize())
+            }
+            return(ptr, returndata())
+        }
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
