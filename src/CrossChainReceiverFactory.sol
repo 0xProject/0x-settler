@@ -51,6 +51,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     // TODO: should the `MultiCall` EIP712 type include an (optional) relayer field that binds the metatransaction to a specific relayer?
     bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
+    bytes32 private constant _CALL_TYPEHASH = 0xa8b3616b5b84550a806f58ebe7d19199754b9632d31e5e6d07e7faf21fe1cacc;
 
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
@@ -122,6 +123,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 "MultiCall(Call[] calls,uint256 contextdepth,uint256 nonce,uint256 deadline)Call(address target,uint8 revertPolicy,uint256 value,bytes data)"
             )
         );
+        require(_CALL_TYPEHASH = keccak256("Call(address target,uint8 revertPolicy,uint256 value,bytes data)"));
 
         // do some behavioral checks on `_WNATIVE`
         {
@@ -493,12 +495,63 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
+    // This function intentionally ignores any dirty bits that might be present in `calls`, assuming
+    // that:
+    //   1. The signer of the object wouldn't sign an invalid EIP712 serialization of the object
+    //      containing dirty bits
+    //   2. The object will be used later in this context in a way that *does* check for dirty bits
     function _hashMultiCall(IMultiCall.Call[] calldata calls, uint256 contextdepth, uint256 nonce, uint256 deadline)
         private
         pure
         returns (bytes32 structHash)
     {
-        // TODO:
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            let lenBytes := shl(0x05, calls.length)
+            let arr := add(0xa0, ptr)
+            for {
+                let i
+                mstore(ptr, _CALL_TYPEHASH)
+            } xor(i, lenBytes) { i := add(0x20, i) } {
+                let dst := add(i, arr)
+                let src := add(i, calls.offset)
+
+                // indirect `src` because it points to a dynamic type
+                src := add(calls.offset, calldataload(src))
+
+                // indirect `src.data` because it also points to a dynamic type
+                let data := add(0x60, src)
+                data := add(calldataload(data), src)
+
+                // decode the length of `src.data` and hash it
+                {
+                    let dataLength := calldataload(data)
+                    data := add(0x20, data)
+                    calldatacopy(dst, data, dataLength)
+                    data := keccak256(dst, dataLength)
+                }
+
+                // EIP712-encode the fixed-length fields of the `Call` object
+                calldatacopy(add(0x20, ptr), src, 0x60)
+                mstore(add(0x80, ptr), data)
+
+                // hash the `Call` object into the `Call[]` array at `arr[i]`
+                mstore(dst, keccak256(ptr, 0xa0))
+            }
+
+            // hash the `Call[]` array
+            arr := keccak256(arr, lenBytes)
+
+            // EIP712-encode the `MultiCall`
+            mstore(ptr, _MULTICALL_TYPEHASH)
+            mstore(add(0x20, ptr), arr)
+            mstore(add(0x40, ptr), contextdepth)
+            mstore(add(0x60, ptr), nonce)
+            mstore(add(0x80, ptr), deadline)
+
+            // final hashing
+            structHash := keccak256(ptr, 0xa0)
+        }
     }
 
     function metaTx(
