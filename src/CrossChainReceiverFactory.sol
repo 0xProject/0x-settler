@@ -49,7 +49,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
 
-    // TODO: should the `MultiCall` EIP712 type include an (optional) relayer field that binds the metatransaction to a specific relayer?
+    // TODO: should the `MultiCall` EIP712 type include an (optional) relayer field that binds the
+    // metatransaction to a specific relayer? Perhaps this ought to be encoded in the `deadline`
+    // field similarly to how the `nonce` field encodes the current owner.
     bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
     bytes32 private constant _CALL_TYPEHASH = 0xa8b3616b5b84550a806f58ebe7d19199754b9632d31e5e6d07e7faf21fe1cacc;
 
@@ -256,8 +258,17 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             }
 
             if (validOwner) {
-                (bytes32 leafHash, bytes32[] calldata proof) = _formatMerkleProof(hash, signature);
-                return _verifyDeploymentRootHash(_getMerkleRoot(proof, leafHash), originalOwner).ternary(
+                bytes32[] calldata proof;
+                assembly ("memory-safe") {
+                    // This assembly block simply ABIDecodes `proof` as the second element of the
+                    // encoded anonymous struct `(owner, proof)`. It omits range and overflow
+                    // checking.
+                    //     (, proof) = abi.decode(signature, (address, bytes32[]));
+                    proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
+                    proof.length := calldataload(proof.offset)
+                    proof.offset := add(0x20, proof.offset)
+                }
+                return _verifyDeploymentRootHash(_getMerkleRoot(proof, _hashLeaf(signingHash)), originalOwner).ternary(
                     IERC1271.isValidSignature.selector, bytes4(0xffffffff)
                 );
             }
@@ -269,11 +280,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         );
     }
 
-    function _formatMerkleProof(bytes32 hash, bytes calldata signature)
-        private
-        view
-        returns (bytes32 leafHash, bytes32[] calldata proof)
-    {
+    function _hashLeaf(bytes32 signingHash) private view returns (bytes32 leafHash) {
         assembly ("memory-safe") {
             // This assembly block is equivalent to:
             //     hash = keccak256(abi.encode(hash, block.chainid));
@@ -286,16 +293,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(0x00, hash)
             mstore(0x20, chainid())
             leafHash := keccak256(0x00, 0x40)
-        }
-
-        bytes32[] calldata proof;
-        assembly ("memory-safe") {
-            // This assembly block simply ABIDecodes `proof` as the second element of the encoded
-            // anonymous struct `(owner, proof)`. It omits range and overflow checking.
-            //     (, proof) = abi.decode(signature, (address, bytes32[]));
-            proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
-            proof.length := calldataload(proof.offset)
-            proof.offset := add(0x20, proof.offset)
         }
     }
 
@@ -646,27 +643,37 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 revert(0x1c, 0x24)
             }
         }
-        _useUnorderedNonce(nonce);
         bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
 
-        address owner_;
-        bool validOwner;
-        assembly ("memory-safe") {
-            owner_ := calldataload(signature.offset)
-            validOwner := iszero(shr(0xa0, owner_))
-        }
-        if (validOwner) {
-            (bytes32 leafHash, bytes32[] calldata proof) = _formatMerkleProof(signingHash, signature);
-            if (!_verifyDeploymentRootHash(_getMerkleRoot(proof, leafHash), owner_)) {
+        // The upper 160 bits of the nonce encode the owner
+        address owner_ = address(uint160(nonce >> 96));
+        if (owner_ != address(0)) {
+            bytes32[] calldata proof;
+            assembly ("memory-safe") {
+                // This assembly block simply ABIDecodes `proof` from `signature`. It omits range
+                // and overflow checking.
+                //     proof = abi.decode(signature, (bytes32[]));
+                proof.offset := add(signature.offset, calldataload(signature.offset))
+                proof.length := calldataload(proof.offset)
+                proof.offset := add(0x20, proof.offset)
+            }
+            if (!_verifyDeploymentRootHash(_getMerkleRoot(proof, _hashLeaf(signingHash)), owner_)) {
                 assembly ("memory-safe") {
                     mstore(0x00, 0x815e1d64) // `InvalidSigner.selector`
                     revert(0x1c, 0x04)
                 }
             }
         } else {
-            owner_ = super.owner();
-            _verifySimpleSignature(signingHash, signature, owner_);
+            _verifySimpleSignature(signingHash, signature, owner_ = super.owner());
+
+            // `nonce`'s upper 160 bits must be the current owner. This prevents "Nick's Method"
+            // shenanigans as well as avoiding potential confusion when ownership is
+            // transferred. Obviously if ownership is transferred *back* then confusion may occur,
+            // but the `deadline` field should limit the blast radius of failures like that.
+            nonce |= uint256(uint160(owner_)) << 96;
         }
+
+        _useUnorderedNonce(nonce);
 
         return IMultiCall(MULTICALL_ADDRESS).multicall(calls, contextdepth);
     }
