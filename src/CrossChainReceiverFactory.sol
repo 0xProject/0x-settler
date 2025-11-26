@@ -175,12 +175,11 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         _;
     }
 
-    modifier onlyOwnerOrSelf() {
+    function _requireOwner() internal view override {
         address msgSender = _msgSender();
         if (msgSender != address(this) && msgSender != owner()) {
             _permissionDenied();
         }
-        _;
     }
 
     /// @inheritdoc IERC165
@@ -404,7 +403,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     function call(address payable target, uint256 value, bytes calldata data)
         external
         override
-        onlyOwnerOrSelf
+        onlyOwner
         returns (bytes memory)
     {
         assembly ("memory-safe") {
@@ -434,7 +433,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         external
         payable
         override
-        onlyOwnerOrSelf
+        onlyOwner
         returns (bytes memory)
     {
         assembly ("memory-safe") {
@@ -643,11 +642,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 revert(0x1c, 0x24)
             }
         }
-        bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
 
         // The upper 160 bits of the nonce encode the owner
         address owner_ = address(uint160(nonce >> 96));
+
         if (owner_ != address(0)) {
+            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
+
             bytes32[] calldata proof;
             assembly ("memory-safe") {
                 // This assembly block simply ABIDecodes `proof` from `signature`. It omits range
@@ -664,13 +665,14 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 }
             }
         } else {
-            _verifySimpleSignature(signingHash, signature, owner_ = super.owner());
-
-            // `nonce`'s upper 160 bits must be the current owner. This prevents "Nick's Method"
+            // `nonce`'s upper 160 bits must be the *current* owner. This prevents "Nick's Method"
             // shenanigans as well as avoiding potential confusion when ownership is
             // transferred. Obviously if ownership is transferred *back* then confusion may occur,
             // but the `deadline` field should limit the blast radius of failures like that.
             nonce |= uint256(uint160(owner_)) << 96;
+            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
+
+            _verifySimpleSignature(signingHash, signature, owner_ = super.owner());
         }
 
         _useUnorderedNonce(nonce);

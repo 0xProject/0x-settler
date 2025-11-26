@@ -106,7 +106,7 @@ abstract contract OwnableImpl is OwnableStorageBase, OwnableBase {
         _set(_ownerSlot(), newOwner);
     }
 
-    function _requireOwner() internal view override {
+    function _requireOwner() internal view virtual override {
         if (owner() != _msgSender()) {
             _permissionDenied();
         }
