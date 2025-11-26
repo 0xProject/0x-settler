@@ -413,10 +413,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let ptr := mload(0x40)
 
             calldatacopy(ptr, data.offset, data.length)
-            let failure := iszero(call(gas(), target, value, ptr, data.length, codesize(), returndatasize()))
+            let success := iszero(call(gas(), target, value, ptr, data.length, codesize(), returndatasize()))
 
             // prohibit sending data or zero native asset to EOAs
-            if iszero(or(failure, or(returndatasize(), value))) {
+            if gt(lt(returndatasize(), success), mul(iszero(data.length), value)) {
                 if iszero(extcodesize(target)) { revert(0x00, 0x00) }
             }
 
@@ -424,7 +424,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(add(add(0x20, ptr), paddedLength), 0x00)
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
-            if failure { revert(add(0x40, mload(0x40)), returndatasize()) }
+            if iszero(success) { revert(add(0x40, mload(0x40)), returndatasize()) }
 
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
@@ -492,10 +492,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             calldatacopy(ptr, data.offset, data.length)
             mstore(add(patchOffset, ptr), patchBytes)
 
-            let failure := iszero(call(gas(), target, value, ptr, data.length, codesize(), 0x00))
+            let success := call(gas(), target, value, ptr, data.length, codesize(), 0x00)
 
             // prohibit sending data or zero native asset to EOAs
-            if iszero(or(failure, or(returndatasize(), value))) {
+            if gt(lt(returndatasize(), success), mul(iszero(data.length), value)) {
                 if iszero(extcodesize(target)) { revert(0x00, 0x00) }
             }
 
@@ -503,7 +503,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(add(add(0x20, ptr), paddedLength), 0x00)
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
-            if failure { revert(add(0x40, mload(0x40)), returndatasize()) }
+            if iszero(success) { revert(add(0x40, mload(0x40)), returndatasize()) }
 
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
