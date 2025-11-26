@@ -414,15 +414,18 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let ptr := mload(0x40)
 
             calldatacopy(ptr, data.offset, data.length)
-            let success := call(gas(), target, value, ptr, data.length, codesize(), returndatasize())
+            let failure := iszero(call(gas(), target, value, ptr, data.length, codesize(), returndatasize()))
+
+            // prohibit sending data or zero native asset to EOAs
+            if iszero(or(failure, or(returndatasize(), value))) {
+                if iszero(extcodesize(target)) { revert(0x00, 0x00) }
+            }
 
             let paddedLength := and(not(0x1f), add(0x1f, returndatasize()))
             mstore(add(add(0x20, ptr), paddedLength), 0x00)
             returndatacopy(add(0x40, ptr), 0x00, returndatasize())
 
-            if iszero(success) { revert(add(0x40, mload(0x40)), returndatasize()) }
-
-            // TODO: check for non-value-sending calls to empty addresses
+            if failure { revert(add(0x40, mload(0x40)), returndatasize()) }
 
             mstore(add(0x20, ptr), returndatasize())
             mstore(ptr, 0x20)
@@ -490,6 +493,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(add(patchOffset, ptr), patchBytes)
 
             let failure := iszero(call(gas(), target, value, ptr, data.length, codesize(), 0x00))
+
+            // prohibit sending data or zero native asset to EOAs
             if iszero(or(failure, or(returndatasize(), value))) {
                 if iszero(extcodesize(target)) { revert(0x00, 0x00) }
             }
