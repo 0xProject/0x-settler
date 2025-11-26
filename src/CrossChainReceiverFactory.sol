@@ -646,7 +646,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         uint256 deadline,
         bytes calldata signature
     ) external override onlyProxy returns (IMultiCall.Result[] memory) {
-        // TODO: make this more checks-effects-interactions
         if (block.timestamp > deadline) {
             assembly ("memory-safe") {
                 mstore(returndatasize(), 0xcd21db4f) // `SignatureExpired.selector`
