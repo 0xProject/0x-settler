@@ -541,6 +541,12 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     function _verifySimpleSignature(bytes32 signingHash, bytes calldata rsv, address owner_) private view {
         assembly ("memory-safe") {
+            if gt(0x41, rsv.length) {
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // code for array out-of-bounds
+                revert(0x1c, 0x24)
+            }
+
             let ptr := mload(0x40)
             mstore(0x00, signingHash)
             calldatacopy(0x20, rsv.offset, 0x41)
