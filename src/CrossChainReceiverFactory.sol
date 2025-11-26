@@ -7,9 +7,11 @@ import {IERC1271} from "./interfaces/IERC1271.sol";
 import {IERC5267} from "./interfaces/IERC5267.sol";
 import {IOwnable} from "./interfaces/IOwnable.sol";
 
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+
 import {ICrossChainReceiverFactory} from "./interfaces/ICrossChainReceiverFactory.sol";
 import {AbstractOwnable, TwoStepOwnable} from "./utils/TwoStepOwnable.sol";
-import {MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
+import {IMultiCall, MultiCallContext, MULTICALL_ADDRESS} from "./multicall/MultiCallContext.sol";
 
 import {FastLogic} from "./utils/FastLogic.sol";
 import {Ternary} from "./utils/Ternary.sol";
@@ -31,8 +33,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     CrossChainReceiverFactory private immutable _cachedThis = this;
     uint168 private immutable _factoryWithFF =
         0xff0000000000000000000000000000000000000000 | uint168(uint160(address(this)));
-    bytes32 private immutable _proxyInitCode0 = bytes32(bytes20(0x60253d8160093d39f33d3d3d3d363d3d37363d6c)) | bytes32(uint256(uint160(address(this))) >> 8);
-    bytes32 private immutable _proxyInitCode1 = bytes32(bytes1(uint8(uint160(address(this))))) | bytes32(0x5af43d3d93803e602357fd5bf3 << 144);
+    bytes32 private immutable _proxyInitCode0 =
+        bytes32(bytes20(0x60253d8160093d39F33d3d3D3D363D3D37363d6C)) | bytes32(uint256(uint160(address(this))) >> 8);
+    bytes32 private immutable _proxyInitCode1 =
+        bytes32(bytes1(uint8(uint160(address(this))))) | bytes32(0x5af43d3d93803e602357fd5bf3 << 144);
     bytes32 private immutable _proxyInitHash = keccak256(
         bytes.concat(
             hex"60253d8160093d39f33d3d3d3d363d3d37363d6c",
@@ -43,6 +47,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     string public constant override name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
+    bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
+
+    // TODO: should the `MultiCall` EIP712 type include an (optional) relayer field that binds the metatransaction to a specific relayer?
+    bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
 
     IERC20 private constant _NATIVE = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
@@ -88,8 +96,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     IWrappedNative private immutable _WNATIVE =
         IWrappedNative(payable(address(uint160(uint256(bytes32(_WNATIVE_STORAGE.code))))));
 
+    ISignatureTransfer private constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+
     error DeploymentFailed();
     error ApproveFailed();
+    error InvalidNonce();
+    error InvalidSigner();
+    error SignatureExpired(uint256 deadline);
 
     constructor() payable {
         // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
@@ -103,6 +116,12 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
         require(uint160(_WNATIVE_SETTER) >> 112 == 0);
         require(_NAMEHASH == keccak256(bytes(name)));
+        require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
+        require(
+            _MULTICALL_TYPEHASH = keccak256(
+                "MultiCall(Call[] calls,uint256 contextdepth,uint256 nonce,uint256 deadline)Call(address target,uint8 revertPolicy,uint256 value,bytes data)"
+            )
+        );
 
         // do some behavioral checks on `_WNATIVE`
         {
@@ -149,6 +168,14 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     modifier onlyFactory() {
         require(msg.sender == address(_cachedThis));
+        _;
+    }
+
+    modifier onlyOwnerOrSelf() {
+        address msgSender = _msgSender();
+        if (msgSender != address(this) && msgSender != owner()) {
+            _permissionDenied();
+        }
         _;
     }
 
@@ -227,32 +254,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             }
 
             if (validOwner) {
-                assembly ("memory-safe") {
-                    // This assembly block is equivalent to:
-                    //     hash = keccak256(abi.encode(hash, block.chainid));
-                    // except that it's cheaper and doesn't allocate memory. We make the assumption
-                    // here that `block.chainid` cannot alias a valid tree node or signing
-                    // hash. Realistically, `block.chainid` cannot exceed 2**53 - 1 or it would
-                    // cause significant issues elsewhere in the ecosystem. This also means that the
-                    // sort order of the hash and the chainid is backwards from what
-                    // `_getMerkleRoot` produces, again protecting us against extension attacks.
-                    mstore(returndatasize(), hash)
-                    mstore(0x20, chainid())
-                    hash := keccak256(returndatasize(), 0x40)
-                }
-
-                bytes32[] calldata proof;
-                assembly ("memory-safe") {
-                    // This assembly block simply ABIDecodes `proof` as the second element of the
-                    // encoded anonymous struct `(owner, proof)`. It omits range and overflow
-                    // checking.
-                    //     (, proof) = abi.decode(signature, (address, bytes32[]));
-                    proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
-                    proof.length := calldataload(proof.offset)
-                    proof.offset := add(0x20, proof.offset)
-                }
-
-                return _verifyDeploymentRootHash(_getMerkleRoot(proof, hash), originalOwner).ternary(
+                (bytes32 leafHash, bytes32[] calldata proof) = _formatMerkleProof(hash, signature);
+                return _verifyDeploymentRootHash(_getMerkleRoot(proof, leafHash), originalOwner).ternary(
                     IERC1271.isValidSignature.selector, bytes4(0xffffffff)
                 );
             }
@@ -262,6 +265,36 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         return _verifyERC7739NestedTypedSignature(hash, signature, super.owner()).ternary(
             IERC1271.isValidSignature.selector, bytes4(0xffffffff)
         );
+    }
+
+    function _formatMerkleProof(bytes32 hash, bytes calldata signature)
+        private
+        view
+        returns (bytes32 leafHash, bytes32[] calldata proof)
+    {
+        assembly ("memory-safe") {
+            // This assembly block is equivalent to:
+            //     hash = keccak256(abi.encode(hash, block.chainid));
+            // except that it's cheaper and doesn't allocate memory. We make the assumption here
+            // that `block.chainid` cannot alias a valid tree node or signing hash. Realistically,
+            // `block.chainid` cannot exceed 2**53 - 1 or it would cause significant issues
+            // elsewhere in the ecosystem. This also means that the sort order of the hash and the
+            // chainid is backwards from what `_getMerkleRoot` produces, again protecting us against
+            // extension attacks.
+            mstore(returndatasize(), hash)
+            mstore(0x20, chainid())
+            leafHash := keccak256(returndatasize(), 0x40)
+        }
+
+        bytes32[] calldata proof;
+        assembly ("memory-safe") {
+            // This assembly block simply ABIDecodes `proof` as the second element of the encoded
+            // anonymous struct `(owner, proof)`. It omits range and overflow checking.
+            //     (, proof) = abi.decode(signature, (address, bytes32[]));
+            proof.offset := add(signature.offset, calldataload(add(0x20, signature.offset)))
+            proof.length := calldataload(proof.offset)
+            proof.offset := add(0x20, proof.offset)
+        }
     }
 
     /// @inheritdoc IERC5267
@@ -350,7 +383,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let ptr := mload(0x40)
 
             mstore(returndatasize(), 0x095ea7b3) // selector for `approve(address,uint256)`
-            mstore(0x20, 0x000000000022D473030F116dDEE9F6B43aC78BA3) // Permit2
+            mstore(0x20, _PERMIT2)
             mstore(0x40, amount)
 
             if iszero(call(gas(), token, callvalue(), 0x1c, 0x44, returndatasize(), 0x20)) {
@@ -372,7 +405,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     function call(address payable target, uint256 value, bytes calldata data)
         external
         override
-        onlyOwner
+        onlyOwnerOrSelf
         returns (bytes memory)
     {
         assembly ("memory-safe") {
@@ -389,6 +422,122 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(ptr, 0x20)
             return(ptr, add(0x40, returndatasize()))
         }
+    }
+
+    function call(address payable target, IERC20 token, uint256 patchOffset, bytes calldata data)
+        external
+        override
+        onlyOwnerOrSelf
+    {
+        // TODO:
+    }
+
+    function _useUnorderedNonce(uint256 nonce) private {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            let wordPos := shr(0x08, nonce)
+            let bitPos := shl(0x01, and(0xff, nonce))
+            mstore(0x00, 0x4fe02b44) // `ISignatureTransfer.nonceBitmap.selector`
+            mstore(0x20, address())
+            mstore(0x40, wordPos)
+            if iszero(staticcall(gas(), _PERMIT2, 0x1c, 0x44, 0x20, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            let canceledNonces := mload(returndatasize())
+            if xor(canceledNonces, bitPos) {
+                mstore(returndatasize(), 0x756688fe) // `InvalidNonce.selector`
+                revert(0x3c, 0x04)
+            }
+            mstore(0x00, 0x3ff9dcb1) // `ISignatureTransfer.invalidateUnorderedNonces.selector`
+            mstore(returndatasize(), wordPos)
+            mstore(0x40, bitPos)
+            if iszero(call(gas(), _PERMIT2, 0x00, 0x1c, 0x44, codesize(), 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            mstore(0x40, ptr)
+        }
+    }
+
+    function _verifySimpleSignature(bytes32 signingHash, bytes calldata rsv, address owner_) private view {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, signingHash)
+            calldatacopy(0x20, rsv.offset, 0x41)
+            mstore(0x60, shr(0xf8, mload(0x60)))
+            let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
+            if shl(0x60, xor(owner_, recovered)) {
+                mstore(0x00, 0x815e1d64) // `InvalidSigner.selector`
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
+        }
+    }
+
+    function _hashEip712(bytes32 structHash) private pure returns (bytes32 signingHash) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, _DOMAIN_TYPEHASH)
+            mstore(0x20, _NAMEHASH)
+            mstore(0x40, chainid())
+            mstore(0x60, address())
+            let domain := keccak256(0x00, 0x80)
+            mstore(0x00, 0x1901)
+            mstore(0x20, domain)
+            mstore(0x40, structHash)
+            signingHash := keccak256(0x1e, 0x42)
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
+        }
+    }
+
+    function _hashMultiCall(IMultiCall.Call[] calldata calls, uint256 contextdepth, uint256 nonce, uint256 deadline)
+        private
+        pure
+        returns (bytes32 structHash)
+    {
+        // TODO:
+    }
+
+    function metaTx(
+        IMultiCall.Call[] calldata calls,
+        uint256 contextdepth,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata signature
+    ) external override onlyProxy returns (IMultiCall.Result[] memory) {
+        if (block.timestamp > deadline) {
+            assembly ("memory-safe") {
+                mstore(returndatasize(), 0xcd21db4f) // `SignatureExpired.selector`
+                mstore(0x20, deadline)
+                revert(0x1c, 0x24)
+            }
+        }
+        _useUnorderedNonce(nonce);
+        bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
+
+        address owner_;
+        bool validOwner;
+        assembly ("memory-safe") {
+            owner_ := calldataload(signature.offset)
+            validOwner := iszero(shr(0xa0, owner_))
+        }
+        if (validOwner) {
+            (bytes32 leafHash, bytes32[] calldata proof) = _formatMerkleProof(signingHash, signature);
+            if (!_verifyDeploymentRootHash(_getMerkleRoot(proof, leafHash), owner_)) {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x815e1d64) // `InvalidSigner.selector`
+                    revert(0x1c, 0x04)
+                }
+            }
+        } else {
+            owner_ = super.owner();
+            _verifySimpleSignature(signingHash, signature, owner_);
+        }
+
+        return IMultiCall(MULTICALL_ADDRESS).multicall(calls, contextdepth);
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
