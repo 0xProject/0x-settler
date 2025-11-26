@@ -281,9 +281,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             // elsewhere in the ecosystem. This also means that the sort order of the hash and the
             // chainid is backwards from what `_getMerkleRoot` produces, again protecting us against
             // extension attacks.
-            mstore(returndatasize(), hash)
+            mstore(0x00, hash)
             mstore(0x20, chainid())
-            leafHash := keccak256(returndatasize(), 0x40)
+            leafHash := keccak256(0x00, 0x40)
         }
 
         bytes32[] calldata proof;
@@ -508,6 +508,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         uint256 deadline,
         bytes calldata signature
     ) external override onlyProxy returns (IMultiCall.Result[] memory) {
+        // TODO: make this more checks-effects-interactions
         if (block.timestamp > deadline) {
             assembly ("memory-safe") {
                 mstore(returndatasize(), 0xcd21db4f) // `SignatureExpired.selector`
@@ -587,7 +588,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     mstore(xor(0x20, leafSlot), calldataload(offset))
 
                     // Reuse leaf to store the hash to reduce stack operations.
-                    leaf := keccak256(returndatasize(), 0x40) // Hash both slots of scratch space.
+                    leaf := keccak256(0x00, 0x40) // Hash both slots of scratch space.
 
                     offset := add(0x20, offset) // Shift 1 word per cycle.
 
@@ -606,13 +607,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             // derive creation salt
             mstore(0x14, originalOwner)
-            mstore(returndatasize(), root)
-            let salt := keccak256(returndatasize(), 0x34)
+            mstore(0x00, root)
+            let salt := keccak256(0x00, 0x34)
 
             // 0xff + factory + salt + hash(initCode)
             mstore(0x40, initHash)
             mstore(0x20, salt)
-            mstore(returndatasize(), factoryWithFF)
+            mstore(0x00, factoryWithFF)
             let computedAddress := keccak256(0x0b, 0x55)
 
             // restore clobbered memory
