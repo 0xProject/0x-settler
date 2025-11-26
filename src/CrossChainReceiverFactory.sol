@@ -524,7 +524,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 revert(ptr, returndatasize())
             }
             let canceledNonces := mload(returndatasize())
-            if xor(canceledNonces, bitPos) {
+            if and(canceledNonces, bitPos) {
                 mstore(returndatasize(), 0x756688fe) // `InvalidNonce.selector`
                 revert(0x3c, 0x04)
             }
