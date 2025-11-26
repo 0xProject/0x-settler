@@ -515,7 +515,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             let wordPos := shr(0x08, nonce)
-            let bitPos := shl(0x01, and(0xff, nonce))
+            let bitPos := shl(and(0xff, nonce), 0x01)
             mstore(0x00, 0x4fe02b44) // `ISignatureTransfer.nonceBitmap.selector`
             mstore(0x20, address())
             mstore(0x40, wordPos)
