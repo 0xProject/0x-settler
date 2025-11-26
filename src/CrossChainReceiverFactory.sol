@@ -364,8 +364,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
-    function setOwner(address owner) external override onlyFactory {
-        _setOwner(owner);
+    function setOwner(address owner_) external override onlyFactory {
+        _setOwner(owner_);
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
