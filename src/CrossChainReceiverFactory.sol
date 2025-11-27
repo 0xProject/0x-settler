@@ -733,7 +733,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 }
             }
         } else {
-            if (_msgSender() != owner()) {
+            _requireProxy();
+            address msgSender = _msgSender();
+            if (msgSender != address(this) && msgSender != super.owner()) {
                 _permissionDenied();
             }
         }
