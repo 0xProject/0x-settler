@@ -538,18 +538,22 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
-    function _verifySimpleSignature(bytes32 signingHash, bytes calldata rsv, address owner_) private view {
+    function _verifySimpleSignature(bytes32 signingHash, bytes calldata rvs, address owner_) private view {
         assembly ("memory-safe") {
-            if gt(0x41, rsv.length) {
+            if xor(0x40, rsv.length) {
                 mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                 mstore(0x20, 0x32) // code for array out-of-bounds
                 revert(0x1c, 0x24)
             }
 
             let ptr := mload(0x40)
+
             mstore(0x00, signingHash)
-            calldatacopy(0x20, rsv.offset, 0x41)
-            mstore(0x60, shr(0xf8, mload(0x60)))
+            let vs := calldataload(add(0x20, rvs.offset))
+            mstore(0x20, add(0x1b, shr(0xff, vs))) // v
+            mstore(0x40, calldataload(rsv.offset)) // r
+            mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // s
+
             let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
             if shl(0x60, xor(owner_, recovered)) {
                 mstore(0x00, 0x815e1d64) // `InvalidSigner.selector`
