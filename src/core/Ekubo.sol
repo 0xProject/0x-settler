@@ -78,8 +78,6 @@ library UnsafeEkuboCore {
             mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
             let poolKeyPtr := add(0x20, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
-            let token0 := mload(poolKeyPtr)
-            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
             // ABI decoding in Ekubo will check if amount fits in int128
             mstore(add(0x80, ptr), amount)
             mstore(add(0xa0, ptr), isToken1)
@@ -112,8 +110,6 @@ library UnsafeEkuboCore {
 
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
-            let token0 := mload(poolKeyPtr)
-            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
             mstore(add(0x94, ptr), amount)
             mstore(add(0xb4, ptr), isToken1)
             mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
@@ -376,7 +372,7 @@ abstract contract Ekubo is SettlerAbstract {
                 amountSpecified = int256((state.sell().amount() * (bps & 0x7fff)).unsafeDiv(BASIS));
             }
 
-            bool isToken1;
+            bool isToken1; // opposite of regular zeroForOne
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell().token(), state.buy().token());
                 assembly ("memory-safe") {
@@ -394,6 +390,12 @@ abstract contract Ekubo is SettlerAbstract {
                         )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
+                assembly ("memory-safe") {
+                    let token0 := mload(poolKey)
+                    // set poolKey to address(0) if it is the native token
+                    mstore(poolKey, mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0))))
+                }
+                // poolKey.token0 is not represented according to ERC-7528 to match the format expected by Ekubo
             }
 
             {
