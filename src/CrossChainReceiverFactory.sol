@@ -176,9 +176,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         _;
     }
 
-    function _requireOwner() internal view override(AbstractOwnable, OwnableImpl) {
+    function _requireOwner() internal view onlyProxy override(AbstractOwnable, OwnableImpl) {
         address msgSender = _msgSender();
-        if (msgSender != address(this) && msgSender != owner()) {
+        if (msgSender != address(this) && msgSender != super.owner()) {
             _permissionDenied();
         }
     }
@@ -195,8 +195,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     }
 
     // This function is overridden so that it is explicit that it is only meaningful on the
-    // proxy. This also makes any function that is `onlyOwner` implicitly `onlyProxy`, including
-    // `renounceOwnership` and `transferOwnership`.
+    // proxy. While this alone would ordinarily be sufficient to make any function that is
+    // `onlyOwner` implicitly `onlyProxy`, including `renounceOwnership` and `transferOwnership`, we
+    // have also explicitly made `_requireOwner()` `onlyProxy`.
     function owner() public view override(IOwnable, AbstractOwnable) onlyProxy returns (address) {
         return super.owner();
     }
