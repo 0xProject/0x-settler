@@ -19,7 +19,7 @@ abstract contract Renegade is SettlerAbstract {
         uint32 selector = _renegadeSelector();
         assert(
             (block.chainid == 42161 && selector == ARBITRUM_SELECTOR)
-                || (block.chainid == 8453 && selector == BASE_SELECTOR)
+                || (block.chainid == 8453 && selector == BASE_SELECTOR) || block.chainid == 31337
         );
     }
 
@@ -28,7 +28,7 @@ abstract contract Renegade is SettlerAbstract {
     function sellToRenegade(address target, IERC20 baseToken, bytes memory data) internal returns (uint256 buyAmount) {
         uint256 newBaseAmount;
         uint256 value;
-        if(baseToken == ETH_ADDRESS) {
+        if (baseToken == ETH_ADDRESS) {
             value = address(this).balance;
             newBaseAmount = value;
         } else {

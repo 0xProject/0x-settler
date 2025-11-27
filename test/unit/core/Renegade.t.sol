@@ -9,8 +9,6 @@ import {uint512} from "src/utils/512Math.sol";
 import {Renegade, ARBITRUM_SELECTOR, BASE_SELECTOR} from "src/core/Renegade.sol";
 import {Utils} from "../Utils.sol";
 
-import {console} from "@forge-std/console.sol";
-
 abstract contract RenegadeDummy is Permit2PaymentTakerSubmitted, Renegade {
     function sell(address target, IERC20 baseToken, bytes memory data) public payable {
         sellToRenegade(target, baseToken, data);
@@ -59,7 +57,7 @@ abstract contract RenegadeTest is Utils, Test {
     function setUp() public virtual {
         // select test chain
         vm.chainId(chainId);
-        
+
         // configure chain
         bytes memory renegadeCreationCode;
         if (chainId == 42161) {
@@ -83,14 +81,16 @@ abstract contract RenegadeTest is Utils, Test {
 
     function testSellNative() public {
         uint256 amount = 2000;
-        
+
         _mockExpectCall(target, amount, abi.encodeWithSelector(bytes4(selector), amount, amount), new bytes(0));
-        renegade.sell{value: amount}(target, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), abi.encode(amount * 2, amount * 2));
+        renegade.sell{value: amount}(
+            target, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), abi.encode(amount * 2, amount * 2)
+        );
     }
 
     function testSellERC20() public {
         uint256 amount = 3000;
-        
+
         _mockExpectCall(target, abi.encodeWithSelector(bytes4(selector), amount, amount * 2 / 3), new bytes(0));
         _mockExpectCall(token, abi.encodeCall(IERC20.balanceOf, (address(renegade))), abi.encode(amount));
         _mockExpectCall(token, abi.encodeCall(IERC20.allowance, (address(renegade), target)), abi.encode(0));
@@ -99,5 +99,6 @@ abstract contract RenegadeTest is Utils, Test {
     }
 }
 
-contract RenegadeArbitrumTest is RenegadeTest(42161) {}
-contract RenegadeBaseTest is RenegadeTest(8453) {}
+contract RenegadeArbitrumUnitTest is RenegadeTest(42161) {}
+
+contract RenegadeBaseUnitTest is RenegadeTest(8453) {}
