@@ -708,7 +708,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             if iszero(success) {
                 revert(ptr, returndatasize())
             }
-            return(ptr, returndata())
+            return(ptr, returndatasize())
         }
     }
 
