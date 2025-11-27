@@ -411,7 +411,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let ptr := mload(0x40)
 
             calldatacopy(ptr, data.offset, data.length)
-            let success := iszero(call(gas(), target, value, ptr, data.length, codesize(), returndatasize()))
+            let success := call(gas(), target, value, ptr, data.length, codesize(), returndatasize())
 
             // prohibit sending data or zero native asset to EOAs
             if lt(or(returndatasize(), mul(iszero(data.length), value)), success) {
