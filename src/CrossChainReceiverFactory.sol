@@ -687,10 +687,11 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             // Method" shenanigans as well as avoiding potential confusion when ownership is
             // transferred. Obviously if ownership is transferred *back* then confusion may occur,
             // but the `deadline` field should limit the blast radius of failures like that.
+            owner_ = super.owner();
             nonce |= uint256(uint160(owner_)) << 96;
-            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
 
-            _verifySimpleSignature(signingHash, signature, owner_ = super.owner());
+            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
+            _verifySimpleSignature(signingHash, signature, owner_);
         }
 
         _useUnorderedNonce(nonce);
