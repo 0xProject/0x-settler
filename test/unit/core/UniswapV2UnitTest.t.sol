@@ -85,9 +85,11 @@ contract UniswapV2UnitTest is Utils, Test {
         // UniswapV2Pool.getReserves
         _mockExpectCall(POOL, abi.encodeCall(IUniV2Pair.getReserves, ()), abi.encode(uint256(9999), uint256(9999)));
         // UniswapV2Pool.swap
-        _mockExpectCall(
-            POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
-        );
+
+        // slippage is now checked before the swap call
+        // _mockExpectCall(
+        //     POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
+        // );
 
         vm.expectRevert();
         uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
