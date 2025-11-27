@@ -643,13 +643,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         uint256 deadline,
         bytes calldata signature
     ) external override onlyProxy returns (IMultiCall.Result[] memory) {
-        if (block.timestamp > deadline) {
-            assembly ("memory-safe") {
-                mstore(returndatasize(), 0xcd21db4f) // `SignatureExpired.selector`
-                mstore(0x20, deadline)
-                revert(0x1c, 0x24)
-            }
-        }
         {
             address relayer = address(uint160(deadline >> 96));
             if (relayer != address(0)) {
@@ -657,6 +650,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     _permissionDenied();
                 }
                 deadline &= 0xffffffffffffffffffffffff;
+            }
+        }
+        if (block.timestamp > deadline) {
+            assembly ("memory-safe") {
+                mstore(returndatasize(), 0xcd21db4f) // `SignatureExpired.selector`
+                mstore(0x20, deadline)
+                revert(0x1c, 0x24)
             }
         }
 
