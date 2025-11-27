@@ -9,7 +9,7 @@ import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
-
+import {FastLogic} from "../utils/FastLogic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
@@ -31,6 +31,32 @@ interface IUniswapV3Pool {
         uint160 sqrtPriceLimitX96,
         bytes calldata data
     ) external returns (int256 amount0, int256 amount1);
+
+    /// @notice The 0th storage slot in the pool stores many values, and is exposed as a single method to save gas
+    /// when accessed externally.
+    /// @return sqrtPriceX96 The current price of the pool as a sqrt(token1/token0) Q64.96 value
+    /// tick The current tick of the pool, i.e. according to the last tick transition that was run.
+    /// This value may not always be equal to SqrtTickMath.getTickAtSqrtRatio(sqrtPriceX96) if the price is on a tick
+    /// boundary.
+    /// observationIndex The index of the last oracle observation that was written,
+    /// observationCardinality The current maximum number of observations stored in the pool,
+    /// observationCardinalityNext The next maximum number of observations, to be updated when the observation.
+    /// feeProtocol The protocol fee for both tokens of the pool.
+    /// Encoded as two 4 bit values, where the protocol fee of token1 is shifted 4 bits and the protocol fee of token0
+    /// is the lower 4 bits. Used as the denominator of a fraction of the swap fee, e.g. 4 means 1/4th of the swap fee.
+    /// unlocked Whether the pool is currently locked to reentrancy
+    function slot0()
+        external
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint16 observationIndex,
+            uint16 observationCardinality,
+            uint16 observationCardinalityNext,
+            uint8 feeProtocol,
+            bool unlocked
+        );
 }
 
 abstract contract UniswapV3Fork is SettlerAbstract {
@@ -38,6 +64,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
+    using FastLogic for bool;
 
     /// @dev Minimum size of an encoded swap path:
     ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | address(outputToken))
@@ -128,9 +155,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 (IERC20 token0, uint8 forkId, uint24 poolId, IERC20 token1) = _decodeFirstPoolInfoFromPath(encodedPath);
                 IERC20 sellToken = token0;
                 outputToken = token1;
-                if (!(zeroForOne = token0 < token1)) {
-                    (token0, token1) = (token1, token0);
-                }
+                (token0, token1) = (zeroForOne = token0 < token1).maybeSwap(token1, token0);
                 address factory;
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
@@ -140,6 +165,48 @@ abstract contract UniswapV3Fork is SettlerAbstract {
 
             // Intermediate tokens go to this contract. Final tokens go to `recipient`.
             address to = isPathMultiHop.ternary(address(this), recipient);
+
+            // priceSqrtX96 is uint160
+            // uint256 used in favor of future operations that will overflow uint160
+            uint256 priceSqrtX96;
+            {
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x3850c7bd) // selector for `slot0()`
+                    if iszero(call(gas(), pool, 0x00, 0x1c, 0x04, 0x00, 0x20)) {
+                        let ptr := mload(0x40)
+                        returndatacopy(ptr, 0x00, returndatasize())
+                        revert(ptr, returndatasize())
+                    }
+                    // If data is properly returned the pool is trusted as
+                    // it was generated from the trusted factory and initHash.
+                    if lt(returndatasize(), 0x20) { revert(0x00, 0x00) }
+                    priceSqrtX96 := mload(0x00)
+                }
+                // Factor is:
+                // 1. 28011385487393069959365969113 approximately floor(sqrt(2**188)) (95 bits)
+                //    which is equivalent to 1 / sqrt(2) in Q65.95
+                //    2**95 / sqrt(2) = sqrt(2) * (2**94) = sqrt(2**188)
+                //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**188
+                // 2. 56022770974786139918731938227 approximately floor(sqrt(2**191)) (96 bits)
+                //    which is equivalent to sqrt(2) in Q65.95
+                //    sqrt(2) * (2**95) = sqrt(2**191)
+                //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**191
+                // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
+                uint256 factor = 56022770974786139918731938227 >> zeroForOne.toUint();
+
+                unchecked {
+                    // no overflow when multiplying as factors are 160 bits and at most 96 bits respectively
+                    // shifted right 95 bits to keep the price as Q64.96
+                    priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
+                }
+
+                uint256 limit = (!zeroForOne).ternary(
+                    uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740)
+                );
+                (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
+                // All operations where rounded down to ensure that the selected price has at most 100% price impact
+                priceSqrtX96 = (lo > hi).ternary(limit, priceSqrtX96);
+            }
 
             uint256 freeMemPtr;
             bytes memory data;
@@ -151,13 +218,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 let callbackLen := mload(swapCallbackData)
                 mcopy(add(0xc4, data), swapCallbackData, add(0x20, callbackLen))
                 mstore(add(0xa4, data), 0xa0)
-                mstore(
-                    add(0x84, data),
-                    xor(
-                        4295128740,
-                        mul(xor(1461446703485210103287273052203988822378723970341, 4295128740), iszero(zeroForOne))
-                    )
-                )
+                mstore(add(0x84, data), priceSqrtX96)
                 mstore(add(0x64, data), sellAmount)
                 mstore(add(0x44, data), zeroForOne)
                 mstore(add(0x24, data), to)

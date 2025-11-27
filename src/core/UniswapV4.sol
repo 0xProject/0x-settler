@@ -8,7 +8,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
-
+import {FastLogic} from "../utils/FastLogic.sol";
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
@@ -22,6 +22,7 @@ abstract contract UniswapV4 is SettlerAbstract {
     using CreditDebt for int256;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note[];
+    using FastLogic for bool;
 
     constructor() {
         assert(BASIS == Encoder.BASIS);
@@ -201,6 +202,12 @@ abstract contract UniswapV4 is SettlerAbstract {
                 )
         }
         (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);
+        assembly ("memory-safe") {
+            let token0 := mload(key)
+            // set token0 to address(0) if it is the native token
+            mstore(key, mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0))))
+        }
+        // key.token0 is not represented according to ERC-7528 to match the format expected by Uniswap V4
 
         uint256 packed;
         assembly ("memory-safe") {
@@ -295,10 +302,36 @@ abstract contract UniswapV4 is SettlerAbstract {
             unchecked {
                 params.amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
-            // TODO: price limits
-            params.sqrtPriceLimitX96 = uint160(
-                (!zeroForOne).ternary(uint160(1461446703485210103287273052203988822378723970341), uint160(4295128740))
-            );
+
+            {
+                // priceSqrtX96 is uint160
+                // uint256 used in favor of future operations that will overflow uint160
+                uint256 priceSqrtX96 = IPoolManager(msg.sender).unsafeSqrtPriceX96(key);
+                // Factor is:
+                // 1. 28011385487393069959365969113 approximately floor(sqrt(2**188)) (95 bits)
+                //    which is equivalent to 1 / sqrt(2) in Q65.95
+                //    2**95 / sqrt(2) = sqrt(2) * (2**94) = sqrt(2**188)
+                //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**188
+                // 2. 56022770974786139918731938227 approximately floor(sqrt(2**191)) (96 bits)
+                //    which is equivalent to sqrt(2) in Q65.95
+                //    sqrt(2) * (2**95) = sqrt(2**191)
+                //    therefore it is the largest integer that multiplied by itself doesn't exceed 2**191
+                // Q65.95 was used instead of Q64.96 to prevent uint256 overflows later on as sqrt(2) in Q64.96 would be 97 bits
+                uint256 factor = 56022770974786139918731938227 >> zeroForOne.toUint();
+
+                unchecked {
+                    // no overflow when multiplying as factors are 160 bits and at most 96 bits respectively
+                    // shifted right 95 bits to keep the price as Q64.96
+                    priceSqrtX96 = (priceSqrtX96 * factor) >> 95;
+                }
+
+                uint256 limit = (!zeroForOne).ternary(
+                    uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740)
+                );
+                (uint256 lo, uint256 hi) = zeroForOne.maybeSwap(priceSqrtX96, limit);
+                // All operations where rounded down to ensure that the selected price has at most 100% price impact
+                params.sqrtPriceLimitX96 = uint160((lo > hi).ternary(limit, priceSqrtX96));
+            }
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
             {
