@@ -176,7 +176,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         _;
     }
 
-    function _requireOwner() internal view onlyProxy override(AbstractOwnable, OwnableImpl) {
+    function _requireOwner() internal view override(AbstractOwnable, OwnableImpl) onlyProxy {
         address msgSender = _msgSender();
         if (msgSender != address(this) && msgSender != super.owner()) {
             _permissionDenied();
@@ -702,13 +702,11 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             calldatacopy(0x1c, msgData.offset, msgData.length)
             mstore(0x00, 0x669a7d5e) // `IMultiCall.multicall.selector`
 
-            let success := call(gas(), MULTICALL_ADDRESS, 0x00 /* TODO: */, 0x1c, msgData.length, codesize(), 0x00)
+            let success := call(gas(), MULTICALL_ADDRESS, 0x00, /* TODO: */ 0x1c, msgData.length, codesize(), 0x00)
 
             returndatacopy(ptr, 0x00, returndatasize())
 
-            if iszero(success) {
-                revert(ptr, returndatasize())
-            }
+            if iszero(success) { revert(ptr, returndatasize()) }
             return(ptr, returndatasize())
         }
     }
