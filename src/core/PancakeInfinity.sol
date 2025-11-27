@@ -9,7 +9,6 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Ternary} from "../utils/Ternary.sol";
-
 import {ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -150,6 +149,7 @@ library UnsafePancakeInfinityVault {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity vault is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -165,16 +165,13 @@ library UnsafePancakeInfinityPoolManager {
         PoolKey memory key,
         bool zeroForOne,
         int256 amountSpecified,
-        uint160 sqrtPriceLimitX96,
+        uint256 sqrtPriceLimitX96,
         bytes calldata hookData
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0xcd0cc1ce) // selector for `swap((address,address,address,address,uint24,bytes32),(bool,int256,uint160),bytes)`
-            let token0 := mload(key)
-            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xA0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), zeroForOne)
             mstore(add(0x100, ptr), amountSpecified)
             mstore(add(0x120, ptr), sqrtPriceLimitX96)
@@ -186,6 +183,7 @@ library UnsafePancakeInfinityPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity cl pool manager is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -202,10 +200,7 @@ library UnsafePancakeInfinityBinPoolManager {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x911a63b7) // selector for `swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)`
-            let token0 := mload(key)
-            token0 := mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0)
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xa0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), swapForY)
             mstore(add(0x100, ptr), signextend(0x0f, amountSpecified))
             mstore(add(0x120, ptr), 0x120)
@@ -216,6 +211,7 @@ library UnsafePancakeInfinityBinPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity bin pool manager is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -458,6 +454,12 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
+                assembly ("memory-safe") {
+                    let currency0 := mload(poolKey)
+                    // set poolKey to address(0) if it is the native token
+                    mstore(poolKey, mul(currency0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, currency0))))
+                }
+                // poolKey.currency0 is not represented according to ERC-7528 to match the format expected by Pancake Infinity
             }
 
             {
@@ -516,11 +518,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         zeroForOne,
                         amountSpecified,
                         // TODO: price limits
-                        uint160(
-                            zeroForOne.ternary(
-                                uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341)
-                            )
-                        ),
+                        (!zeroForOne).ternary(uint256(1461446703485210103287273052203988822378723970341), uint256(4295128740)),
                         hookData
                     );
                 } else if (uint256(poolManagerId) == 1) {
