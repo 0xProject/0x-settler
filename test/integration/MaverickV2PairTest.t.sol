@@ -83,6 +83,36 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
 
+    function testMaverickV2Custody() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (maverickV2Pool(), permit, sig)),
+            abi.encodeCall(
+                ISettlerActions.MAVERICKV2, (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), 0)
+            )
+        );
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)),
+            buyToken: IERC20(address(0)),
+            minAmountOut: 0
+        });
+        Settler _settler = settler;
+        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
+        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("settler_maverickV2_custody");
+        _settler.execute(allowedSlippage, actions, bytes32(0));
+        snapEnd();
+        vm.stopPrank();
+
+        uint256 afterBalanceTo = toToken().balanceOf(FROM);
+        assertGt(afterBalanceTo, beforeBalanceTo);
+        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+    }
+
     function testMaverickV2VIP() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 

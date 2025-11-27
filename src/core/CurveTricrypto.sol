@@ -35,6 +35,38 @@ interface ICurveTricryptoCallback {
     ) external;
 }
 
+library FastCurveTricrypto {
+    function fastEncodeExchangeExtended(
+        uint256 sellIndex,
+        uint256 buyIndex,
+        uint256 sellAmount,
+        uint256 minBuyAmount,
+        address receiver
+    ) internal pure returns (bytes memory data) {
+        assembly ("memory-safe") {
+            data := mload(0x40)
+
+            // callback is stored at
+            // mstore(add(0x104, data), shl(0xe0, 0x6370a85c))
+            // which is analogous to the next line
+            // except that anything from add(0x108, data) on
+            // is dirty, but that is not a problem as only the
+            // initial 4 bytes at add(0x104, data) are used
+            mstore(add(0xe8, data), 0x6370a85c) // selector for `curveTricryptoSwapCallback(address,address,address,uint256,uint256)`
+            mstore(add(0xe4, data), receiver)
+            codecopy(add(0xa4, data), codesize(), 0x4c) // useEth and payer (both zeroed); clear dirty bits in `receiver`
+            mstore(add(0x84, data), minBuyAmount)
+            mstore(add(0x64, data), sellAmount)
+            mstore(add(0x44, data), buyIndex)
+            mstore(add(0x24, data), sellIndex)
+            mstore(add(0x04, data), 0xdd96994f) // selector for `exchange_extended(uint256,uint256,uint256,uint256,bool,address,address,bytes32)`
+            mstore(data, 0x104)
+
+            mstore(0x40, add(0x124, data))
+        }
+    }
+}
+
 abstract contract CurveTricrypto is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
@@ -89,19 +121,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         }
         _setOperatorAndCall(
             pool,
-            abi.encodeCall(
-                ICurveTricrypto.exchange_extended,
-                (
-                    sellIndex,
-                    buyIndex,
-                    sellAmount,
-                    minBuyAmount,
-                    false,
-                    address(0), // payer
-                    recipient,
-                    bytes32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector)
-                )
-            ),
+            FastCurveTricrypto.fastEncodeExchangeExtended(sellIndex, buyIndex, sellAmount, minBuyAmount, recipient),
             uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
             _curveTricryptoSwapCallback
         );
