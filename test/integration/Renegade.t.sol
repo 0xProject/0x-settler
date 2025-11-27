@@ -2,18 +2,20 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {ERC20} from "@solmate/tokens/ERC20.sol";
-import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
-import {uint512} from "src/utils/512Math.sol";
-import {Renegade, ARBITRUM_SELECTOR, BASE_SELECTOR} from "src/core/Renegade.sol";
+import {BASE_SELECTOR} from "src/core/Renegade.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
-import {ArbitrumSettler} from "src/chains/Arbitrum/TakerSubmitted.sol";
-import {Settler} from "src/Settler.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
-import "./RenegadeTxn.t.sol";
+import {
+    BASE_GAS_SPONSOR,
+    BASE_TXN_CALLDATA,
+    BASE_TXN_BLOCK,
+    BASE_USDC,
+    BASE_WETH,
+    BASE_AMOUNT
+} from "./RenegadeTxn.t.sol";
 
 abstract contract RenegadeTest is SettlerBasePairTest {
     uint32 selector;
@@ -66,44 +68,6 @@ abstract contract RenegadeTest is SettlerBasePairTest {
                 )
             )
         );
-    }
-}
-
-contract RenegadeArbitrumIntegrationTest is RenegadeTest {
-    function setUp() public virtual override {
-        target = ARBITRUM_GAS_SPONSOR;
-        txnCalldata = ARBITRUM_TXN_CALLDATA;
-        selector = ARBITRUM_SELECTOR;
-
-        super.setUp();
-    }
-
-    function settlerInitCode() internal virtual override returns (bytes memory) {
-        return bytes.concat(type(ArbitrumSettler).creationCode, abi.encode(bytes20(0)));
-    }
-
-    function _testChainId() internal pure virtual override returns (string memory) {
-        return "arbitrum";
-    }
-
-    function _testBlockNumber() internal pure virtual override returns (uint256) {
-        return ARBITRUM_TXN_BLOCK - 1;
-    }
-
-    function fromToken() internal pure virtual override returns (IERC20) {
-        return ABRITRUM_USDC;
-    }
-
-    function toToken() internal pure virtual override returns (IERC20) {
-        return ABRITRUM_WETH;
-    }
-
-    function _testName() internal pure virtual override returns (string memory) {
-        return "USDC-WETH";
-    }
-
-    function amount() internal pure virtual override returns (uint256) {
-        return ARBITRUM_AMOUNT;
     }
 }
 
