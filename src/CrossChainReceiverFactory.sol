@@ -49,9 +49,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
 
-    // TODO: should the `MultiCall` EIP712 type include an (optional) relayer field that binds the
-    // metatransaction to a specific relayer? Perhaps this ought to be encoded in the `deadline`
-    // field similarly to how the `nonce` field encodes the current owner.
     // TODO: add a `value` field
     bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
     bytes32 private constant _CALL_TYPEHASH = 0xa8b3616b5b84550a806f58ebe7d19199754b9632d31e5e6d07e7faf21fe1cacc;
@@ -651,6 +648,15 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 mstore(returndatasize(), 0xcd21db4f) // `SignatureExpired.selector`
                 mstore(0x20, deadline)
                 revert(0x1c, 0x24)
+            }
+        }
+        {
+            address relayer = address(uint160(deadline >> 96));
+            if (relayer != address(0)) {
+                if (relayer != _msgSender()) {
+                    _permissionDenied();
+                }
+                deadline &= 0xffffffffffffffffffffffff;
             }
         }
 
