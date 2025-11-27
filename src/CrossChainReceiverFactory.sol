@@ -694,12 +694,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
         _useUnorderedNonce(nonce);
 
+        bytes calldata msgData = _msgData();
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            calldatacopy(0x1c, 0x00, calldatasize())
+            calldatacopy(0x1c, msgData.offset, msgData.length)
             mstore(0x00, 0x669a7d5e) // `IMultiCall.multicall.selector`
 
-            let success := call(gas(), MULTICALL_ADDRESS, 0x00 /* TODO: */, 0x1c, calldatasize(), codesize(), 0x00)
+            let success := call(gas(), MULTICALL_ADDRESS, 0x00 /* TODO: */, 0x1c, msgData.length, codesize(), 0x00)
 
             returndatacopy(ptr, 0x00, returndatasize())
 
