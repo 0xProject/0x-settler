@@ -644,6 +644,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         uint256 deadline,
         bytes calldata signature
     ) external override onlyProxy returns (IMultiCall.Result[] memory) {
+        uint256 deadlineForHashing = deadline;
         {
             address relayer = address(uint160(deadline >> 96));
             if (relayer != address(0)) {
@@ -665,7 +666,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         address owner_ = address(uint160(nonce >> 96));
 
         if (owner_ != address(0)) {
-            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
+            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadlineForHashing));
 
             bytes32[] calldata proof;
             assembly ("memory-safe") {
@@ -690,7 +691,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             owner_ = super.owner();
             nonce |= uint256(uint160(owner_)) << 96;
 
-            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadline));
+            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadlineForHashing));
             _verifySimpleSignature(signingHash, signature, owner_);
         }
 
