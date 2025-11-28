@@ -291,9 +291,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             // elsewhere in the ecosystem. This also means that the sort order of the hash and the
             // chainid is backwards from what `_getMerkleRoot` produces, again protecting us against
             // extension attacks.
-            mstore(0x00, signingHash)
+            mstore(callvalue(), signingHash)
             mstore(0x20, chainid())
-            leafHash := keccak256(0x00, 0x40)
+            leafHash := keccak256(callvalue(), 0x40)
         }
     }
 
@@ -331,15 +331,15 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         assembly ("memory-safe") {
             // derive the deployment salt from the owner
             mstore(0x14, initialOwner)
-            mstore(returndatasize(), root)
-            let salt := keccak256(returndatasize(), 0x34)
+            mstore(callvalue(), root)
+            let salt := keccak256(callvalue(), 0x34)
 
             // create a minimal proxy targeting this contract
-            mstore(returndatasize(), proxyInitCode0)
+            mstore(callvalue(), proxyInitCode0)
             mstore(0x20, proxyInitCode1)
-            proxy := create2(returndatasize(), returndatasize(), 0x2e, salt)
+            proxy := create2(callvalue(), callvalue(), 0x2e, salt)
             if iszero(proxy) {
-                mstore(returndatasize(), 0x30116425) // selector for `DeploymentFailed()`.
+                mstore(callvalue(), 0x30116425) // selector for `DeploymentFailed()`.
                 revert(0x1c, 0x04)
             }
 
@@ -353,10 +353,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             // set the owner, or `selfdestruct`
             mstore(0x14, argument)
-            mstore(returndatasize(), selector)
-            if iszero(call(gas(), proxy, callvalue(), 0x10, 0x24, codesize(), returndatasize())) {
+            mstore(callvalue(), selector)
+            if iszero(call(gas(), proxy, callvalue(), 0x10, 0x24, codesize(), callvalue())) {
                 let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
+                returndatacopy(ptr, callvalue(), returndatasize())
                 revert(ptr, returndatasize())
             }
         }
@@ -372,9 +372,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         if (token == _NATIVE) {
             token = _WNATIVE;
             assembly ("memory-safe") {
-                if iszero(call(gas(), token, amount, codesize(), returndatasize(), codesize(), returndatasize())) {
+                if iszero(call(gas(), token, amount, codesize(), callvalue(), codesize(), callvalue())) {
                     let ptr := mload(0x40)
-                    returndatacopy(ptr, 0x00, returndatasize())
+                    returndatacopy(ptr, callvalue(), returndatasize())
                     revert(ptr, returndatasize())
                 }
             }
@@ -382,22 +382,22 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(returndatasize(), 0x095ea7b3) // selector for `approve(address,uint256)`
+            mstore(callvalue(), 0x095ea7b3) // selector for `approve(address,uint256)`
             mstore(0x20, _PERMIT2_ADDRESS)
             mstore(0x40, amount)
 
-            if iszero(call(gas(), token, callvalue(), 0x1c, 0x44, returndatasize(), 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
+            if iszero(call(gas(), token, callvalue(), 0x1c, 0x44, callvalue(), 0x20)) {
+                returndatacopy(ptr, callvalue(), returndatasize())
                 revert(ptr, returndatasize())
             }
             // allow `approve` to either return `true` or empty to signal success
-            if iszero(or(and(eq(mload(0x00), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
-                mstore(0x00, 0x3e3f8f73) // selector for `ApproveFailed()`
+            if iszero(or(and(eq(mload(callvalue()), 0x01), lt(0x1f, returndatasize())), iszero(returndatasize()))) {
+                mstore(callvalue(), 0x3e3f8f73) // selector for `ApproveFailed()`
                 revert(0x1c, 0x04)
             }
 
-            mstore(0x00, 0x01)
-            return(0x00, 0x20)
+            mstore(callvalue(), 0x01)
+            return(callvalue(), 0x20)
         }
     }
 
@@ -412,16 +412,16 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let ptr := mload(0x40)
 
             calldatacopy(ptr, data.offset, data.length)
-            let success := call(gas(), target, value, ptr, data.length, codesize(), returndatasize())
+            let success := call(gas(), target, value, ptr, data.length, codesize(), callvalue())
 
             // prohibit sending data to EOAs; prohibit sending zero value to EOAs
             if lt(or(returndatasize(), mul(iszero(data.length), value)), success) {
-                if iszero(extcodesize(target)) { revert(0x00, 0x00) }
+                if iszero(extcodesize(target)) { revert(callvalue(), callvalue()) }
             }
 
             let paddedLength := and(not(0x1f), add(0x1f, returndatasize()))
-            mstore(add(add(0x20, ptr), paddedLength), 0x00)
-            returndatacopy(add(0x40, ptr), 0x00, returndatasize())
+            mstore(add(add(0x20, ptr), paddedLength), callvalue())
+            returndatacopy(add(0x40, ptr), callvalue(), returndatasize())
 
             if iszero(success) { revert(add(0x40, mload(0x40)), returndatasize()) }
 
@@ -515,23 +515,23 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             let ptr := mload(0x40)
             let wordPos := shr(0x08, nonce)
             let bitPos := shl(and(0xff, nonce), 0x01)
-            mstore(0x00, 0x4fe02b44) // `ISignatureTransfer.nonceBitmap.selector`
+            mstore(callvalue(), 0x4fe02b44) // `ISignatureTransfer.nonceBitmap.selector`
             mstore(0x20, address())
             mstore(0x40, wordPos)
-            if iszero(staticcall(gas(), _PERMIT2_ADDRESS, 0x1c, 0x44, 0x20, 0x20)) {
-                returndatacopy(ptr, 0x00, returndatasize())
+            if iszero(staticcall(gas(), _PERMIT2_ADDRESS, 0x1c, 0x44, callvalue(), 0x20)) {
+                returndatacopy(ptr, callvalue(), returndatasize())
                 revert(ptr, returndatasize())
             }
-            let canceledNonces := mload(returndatasize())
+            let canceledNonces := mload(callvalue())
             if and(canceledNonces, bitPos) {
-                mstore(returndatasize(), 0x756688fe) // `InvalidNonce.selector`
-                revert(0x3c, 0x04)
+                mstore(callvalue(), 0x756688fe) // `InvalidNonce.selector`
+                revert(0x1c, 0x04)
             }
-            mstore(0x00, 0x3ff9dcb1) // `ISignatureTransfer.invalidateUnorderedNonces.selector`
+            mstore(callvalue(), 0x3ff9dcb1) // `ISignatureTransfer.invalidateUnorderedNonces.selector`
             mstore(returndatasize(), wordPos)
             mstore(0x40, bitPos)
-            if iszero(call(gas(), _PERMIT2_ADDRESS, 0x00, 0x1c, 0x44, codesize(), 0x00)) {
-                returndatacopy(ptr, 0x00, returndatasize())
+            if iszero(call(gas(), _PERMIT2_ADDRESS, callvalue(), 0x1c, 0x44, codesize(), callvalue())) {
+                returndatacopy(ptr, callvalue(), returndatasize())
                 revert(ptr, returndatasize())
             }
             mstore(0x40, ptr)
@@ -541,26 +541,26 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     function _verifySimpleSignature(bytes32 signingHash, bytes calldata rvs, address owner_) private view {
         assembly ("memory-safe") {
             if xor(0x40, rsv.length) {
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(callvalue(), 0x4e487b71) // selector for `Panic(uint256)`
                 mstore(0x20, 0x32) // code for array out-of-bounds
                 revert(0x1c, 0x24)
             }
 
             let ptr := mload(0x40)
 
-            mstore(0x00, signingHash)
+            mstore(callvalue(), signingHash)
             let vs := calldataload(add(0x20, rvs.offset))
             mstore(0x20, add(0x1b, shr(0xff, vs))) // v
             mstore(0x40, calldataload(rsv.offset)) // r
             mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // s
 
-            let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
+            let recovered := mload(staticcall(gas(), 0x01, callvalue(), 0x80, 0x01, 0x20))
             if shl(0x60, xor(owner_, recovered)) {
-                mstore(0x00, 0x815e1d64) // `InvalidSigner.selector`
+                mstore(callvalue(), 0x815e1d64) // `InvalidSigner.selector`
                 revert(0x1c, 0x04)
             }
             mstore(0x40, ptr)
-            mstore(0x60, 0x00)
+            mstore(0x60, callvalue())
         }
     }
 
@@ -683,7 +683,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             }
             if (!_verifyDeploymentRootHash(_getMerkleRoot(proof, _hashLeaf(signingHash)), owner_)) {
                 assembly ("memory-safe") {
-                    mstore(0x00, 0x815e1d64) // `InvalidSigner.selector`
+                    mstore(callvalue(), 0x815e1d64) // `InvalidSigner.selector`
                     revert(0x1c, 0x04)
                 }
             }
@@ -708,9 +708,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             calldatacopy(dst, msgData.offset, msgData.length)
             mstore(ptr, 0x669a7d5e) // `IMultiCall.multicall.selector`
 
-            let success := call(gas(), MULTICALL_ADDRESS, 0x00 /* TODO: */, dst, msgData.length, codesize(), 0x00)
+            let success := call(gas(), MULTICALL_ADDRESS, 0x00 /* TODO: */, dst, msgData.length, codesize(), callvalue())
 
-            returndatacopy(ptr, 0x00, returndatasize())
+            returndatacopy(ptr, callvalue(), returndatasize())
 
             if iszero(success) { revert(ptr, returndatasize()) }
             return(ptr, returndatasize())
@@ -727,7 +727,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         call(gas(), wnative, selfbalance(), codesize(), returndatasize(), codesize(), returndatasize())
                     ) {
                         let ptr := mload(0x40)
-                        returndatacopy(ptr, 0x00, returndatasize())
+                        returndatacopy(ptr, callvalue(), returndatasize())
                         revert(ptr, returndatasize())
                     }
                 }
@@ -766,7 +766,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     mstore(xor(0x20, leafSlot), calldataload(offset))
 
                     // Reuse leaf to store the hash to reduce stack operations.
-                    leaf := keccak256(0x00, 0x40) // Hash both slots of scratch space.
+                    leaf := keccak256(callvalue(), 0x40) // Hash both slots of scratch space.
 
                     offset := add(0x20, offset) // Shift 1 word per cycle.
 
@@ -785,13 +785,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             // derive creation salt
             mstore(0x14, originalOwner)
-            mstore(0x00, root)
-            let salt := keccak256(0x00, 0x34)
+            mstore(callvalue(), root)
+            let salt := keccak256(callvalue(), 0x34)
 
             // 0xff + factory + salt + hash(initCode)
             mstore(0x40, initHash)
             mstore(0x20, salt)
-            mstore(0x00, factoryWithFF)
+            mstore(callvalue(), factoryWithFF)
             let computedAddress := keccak256(0x0b, 0x55)
 
             // restore clobbered memory
@@ -898,7 +898,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 result := gt(returndatasize(), shl(0x60, xor(owner_, recovered)))
 
                 // Restore clobbered memory
-                mstore(0x60, 0x00)
+                mstore(0x60, callvalue())
                 break
             }
             // Restore clobbered memory
