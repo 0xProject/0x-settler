@@ -19,7 +19,13 @@ address constant uniswapV3MonadTestnetFactory = 0x961235a9020B05C44DF1026D956D1F
 address constant uniswapV3UnichainFactory = 0x1F98400000000000000000000000000000000003; // https://github.com/Uniswap/contracts/blob/main/deployments/130.md#fri-nov-08-2024
 address constant uniswapV3PlasmaFactory = 0xcb2436774C3e191c85056d248EF4260ce5f27A9D;
 address constant uniswapV3MonadFactory = 0x204FAca1764B154221e35c0d20aBb3c525710498;
+address constant uniswapV3AbstractSepoliaFactory = 0x2E17FF9b877661bDFEF8879a4B31665157a960F0;
+address constant uniswapV3AbstractFactory = 0xA1160e73B63F322ae88cC2d8E700833e71D0b2a1;
+
 bytes32 constant uniswapV3InitHash = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
+// This isn't a "hash" inasmuch as it's a versioned discriminator
+// ref: https://web.archive.org/web/20251108134721/https://matter-labs.github.io/zksync-era/core/latest/guides/advanced/12_alternative_vm_intro.html#bytecode-hashes
+bytes32 constant uniswapV3InitHashEraVm = 0x010013f177ea1fcbc4520f9a3ca7cd2d1d77959e05aa66484027cb38e712aeed;
 uint8 constant uniswapV3ForkId = 0;
 
 interface IUniswapV3Callback {

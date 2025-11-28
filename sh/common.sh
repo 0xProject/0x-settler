@@ -70,6 +70,17 @@ if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
     fi
 fi
 
+declare era_vm
+era_vm="$(get_config isEraVm)"
+declare -r era_vm
+
+if [[ $era_vm != [Ff]alse ]] ; then
+    if (( $(get_config gasMultiplierPercent) < 500 )) ; then
+        echo 'EraVm chains must set a gas multiplier of 5x or more' >&2
+        exit 1
+    fi
+fi
+
 declare -i chainid
 chainid="$(get_config chainId)"
 declare -r -i chainid
@@ -82,7 +93,7 @@ declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
 
-if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url == 'null' ]] ; then
+if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url = 'null' ]] ; then
     echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
     exit 1
 fi
