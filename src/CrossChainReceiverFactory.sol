@@ -540,7 +540,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     function _verifySimpleSignature(bytes32 signingHash, bytes calldata rvs, address owner_) private view {
         assembly ("memory-safe") {
-            if xor(0x40, rsv.length) {
+            if xor(0x40, rvs.length) {
                 mstore(callvalue(), 0x4e487b71) // selector for `Panic(uint256)`
                 mstore(0x20, 0x32) // code for array out-of-bounds
                 revert(0x1c, 0x24)
@@ -551,7 +551,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(callvalue(), signingHash)
             let vs := calldataload(add(0x20, rvs.offset))
             mstore(0x20, add(0x1b, shr(0xff, vs))) // v
-            mstore(0x40, calldataload(rsv.offset)) // r
+            mstore(0x40, calldataload(rvs.offset)) // r
             mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // s
 
             let recovered := mload(staticcall(gas(), 0x01, callvalue(), 0x80, 0x01, 0x20))
