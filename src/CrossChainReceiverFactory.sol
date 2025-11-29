@@ -589,7 +589,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     function _hashMultiCall(IMultiCall.Call[] calldata calls, uint256 contextdepth, uint256 nonce, uint256 deadline)
         private
         pure
-        returns (bytes32 structHash)
+        returns (bytes32 structHash, uint256 value)
     {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
@@ -620,6 +620,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 // EIP712-encode the fixed-length fields of the `Call` object
                 calldatacopy(add(0x20, ptr), src, 0x60)
                 mstore(add(0x80, ptr), data)
+
+                // if this addition overflows, then we will revert inside `MultiCall` because we
+                // won't have enough value to send
+                value := add(mload(add(0x60, ptr)), value)
 
                 // hash the `Call` object into the `Call[]` array at `arr[i]`
                 mstore(dst, keccak256(ptr, 0xa0))
@@ -669,8 +673,11 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         // The upper 160 bits of the nonce encode the owner
         address owner_ = address(uint160(nonce >> 96));
 
+        uint256 value;
         if (owner_ != address(0)) {
-            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadlineForHashing));
+            bytes32 structHash;
+            (structHash, value) = _hashMultiCall(calls, contextdepth, nonce, deadlineForHashing);
+            bytes32 signingHash = _hashEip712(structHash);
 
             bytes32[] calldata proof;
             assembly ("memory-safe") {
@@ -695,7 +702,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             owner_ = super.owner();
             nonce |= uint256(uint160(owner_)) << 96;
 
-            bytes32 signingHash = _hashEip712(_hashMultiCall(calls, contextdepth, nonce, deadlineForHashing));
+            bytes32 structHash;
+            (structHash, value) = _hashMultiCall(calls, contextdepth, nonce, deadlineForHashing);
+            bytes32 signingHash = _hashEip712(structHash);
             _verifySimpleSignature(signingHash, signature, owner_);
         }
 
@@ -708,7 +717,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             calldatacopy(dst, msgData.offset, msgData.length)
             mstore(ptr, 0x669a7d5e) // `IMultiCall.multicall.selector`
 
-            let success := call(gas(), MULTICALL_ADDRESS, 0x00 /* TODO: */, dst, msgData.length, codesize(), callvalue())
+            let success := call(gas(), MULTICALL_ADDRESS, value, dst, msgData.length, codesize(), callvalue())
 
             returndatacopy(ptr, callvalue(), returndatasize())
 
