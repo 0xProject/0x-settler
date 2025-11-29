@@ -752,7 +752,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     /// Modified from Solady (https://github.com/Vectorized/solady/blob/b609a9c79ce541c2beca7a7d247665e7c93942a3/src/utils/MerkleProofLib.sol)
     /// Modified from Solmate (https://github.com/transmissions11/solmate/blob/main/src/utils/MerkleProofLib.sol)
-    function _getMerkleRoot(bytes32[] calldata proof, bytes32 leaf) private pure returns (bytes32 root) {
+    function _getMerkleRoot(bytes32[] calldata proof, bytes32 leaf) private view returns (bytes32 root) {
         assembly ("memory-safe") {
             if proof.length {
                 // Left shifting by 5 is like multiplying by 32.
