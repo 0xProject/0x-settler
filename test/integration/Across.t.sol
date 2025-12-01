@@ -47,7 +47,7 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
         vm.expectCall(
             spokePool,
             abi.encodeWithSelector(
-                0x7b939232,
+                0xad5425c6,
                 makeAddr("depositor"),
                 makeAddr("recipient"),
                 address(WETH), // input token
@@ -114,7 +114,7 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
         vm.expectCall(
             spokePool,
             abi.encodeWithSelector(
-                0x7b939232,
+                0xad5425c6,
                 makeAddr("depositor"),
                 makeAddr("recipient"),
                 address(WETH), // input token
