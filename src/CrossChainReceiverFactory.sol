@@ -416,7 +416,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             // prohibit sending data to EOAs; prohibit sending zero value to EOAs
             if lt(or(returndatasize(), mul(iszero(data.length), value)), success) {
-                if iszero(extcodesize(target)) { revert(callvalue(), callvalue()) }
+                if iszero(extcodesize(target)) { revert(codesize(), callvalue()) }
             }
 
             let paddedLength := and(not(0x1f), add(0x1f, returndatasize()))
@@ -734,28 +734,31 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             if iszero(success) { revert(ptr, returndatasize()) }
 
+            let rds := returndatasize()
+
             let multicallBalance := balance(MULTICALL_ADDRESS)
             if multicallBalance {
                 // get any excess native value back out of `MultiCall`
-                mstore(add(0x20, ptr), 0x40)             // calls.offset
-                mstore(add(0x40, ptr), callvalue())      // contextdepth (ignored because we set `revertPolicy = REVERT`)
-                mstore(add(0x60, ptr), 0x01)             // calls.length
-                mstore(add(0x80, ptr), 0x20)             // calls[0].offset
-                mstore(add(0xa0, ptr), address())        // calls[0].target
-                mstore(add(0xc0, ptr), callvalue())      // calls[0].revertPolicy = RevertPolicy.REVERT
-                mstore(add(0xe0, ptr), multicallBalance) // calls[0].value
-                mstore(add(0x100, ptr), 0x80)            // calls[0].data.offset
-                mstore(add(0x120, ptr), callvalue())     // calls[0].data.length
 
-                if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), dst, 0x124, codesize(), callvalue())) {
+                let ptr_ := add(ptr, returndatasize())
+                mstore(ptr_, 0x669a7d5e) // `IMultiCall.multicall.selector`
+                mstore(add(0x20, ptr_), 0x40)             // calls.offset
+                mstore(add(0x40, ptr_), callvalue())      // contextdepth (ignored because we set `revertPolicy = REVERT`)
+                mstore(add(0x60, ptr_), 0x01)             // calls.length
+                mstore(add(0x80, ptr_), 0x20)             // calls[0].offset
+                mstore(add(0xa0, ptr_), address())        // calls[0].target
+                mstore(add(0xc0, ptr_), callvalue())      // calls[0].revertPolicy = RevertPolicy.REVERT
+                mstore(add(0xe0, ptr_), multicallBalance) // calls[0].value
+                mstore(add(0x100, ptr_), 0x80)            // calls[0].data.offset
+                mstore(add(0x120, ptr_), callvalue())     // calls[0].data.length
+
+                if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr_), 0x124, codesize(), callvalue())) {
                     // this should never happen
-                    let ptr_ := mload(0x40)
-                    returndatacopy(ptr_, callvalue(), returndatasize())
-                    revert(ptr_, returndatasize())
+                    revert(codesize(), callvalue())
                 }
             }
 
-            return(ptr, returndatasize())
+            return(ptr, rds)
         }
     }
 
