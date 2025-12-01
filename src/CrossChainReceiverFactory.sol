@@ -462,7 +462,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
                     let thisBalance := mload(0x00)
                     patchBytes := mul(ppm, thisBalance)
-                    if xor(div(patchBytes, ppm), thisBalance) {
+                    if iszero(or(iszero(ppm), eq(div(patchBytes, ppm), thisBalance))) {
                         mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                         mstore(0x20, 0x11) // code for arithmetic overflow
                         revert(0x1c, 0x24)
@@ -475,7 +475,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 }
 
                 patchBytes := mul(ppm, selfbalance())
-                if xor(div(patchBytes, ppm), selfbalance()) {
+                if iszero(or(iszero(ppm), eq(div(patchBytes, ppm), selfbalance()))) {
                     mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                     mstore(0x20, 0x11) // code for arithmetic overflow
                     revert(0x1c, 0x24)
