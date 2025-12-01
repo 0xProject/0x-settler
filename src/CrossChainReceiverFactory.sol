@@ -733,6 +733,28 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             returndatacopy(ptr, callvalue(), returndatasize())
 
             if iszero(success) { revert(ptr, returndatasize()) }
+
+            let multicallBalance := balance(MULTICALL_ADDRESS)
+            if multicallBalance {
+                // get any excess native value back out of `MultiCall`
+                mstore(add(0x20, ptr), 0x40)             // calls.offset
+                mstore(add(0x40, ptr), callvalue())      // contextdepth (ignored because we set `revertPolicy = REVERT`)
+                mstore(add(0x60, ptr), 0x01)             // calls.length
+                mstore(add(0x80, ptr), 0x20)             // calls[0].offset
+                mstore(add(0xa0, ptr), address())        // calls[0].target
+                mstore(add(0xc0, ptr), callvalue())      // calls[0].revertPolicy = RevertPolicy.REVERT
+                mstore(add(0xe0, ptr), multicallBalance) // calls[0].value
+                mstore(add(0x100, ptr), 0x80)            // calls[0].data.offset
+                mstore(add(0x120, ptr), callvalue())     // calls[0].data.length
+
+                if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), dst, 0x124, codesize(), callvalue())) {
+                    // this should never happen
+                    let ptr_ := mload(0x40)
+                    returndatacopy(ptr, callvalue(), returndatasize())
+                    revert(ptr, returndatasize())
+                }
+            }
+
             return(ptr, returndatasize())
         }
     }
