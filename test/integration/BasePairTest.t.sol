@@ -8,13 +8,14 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
+import {DeployAllowanceHolder} from "./DeployAllowanceHolder.t.sol";
 
 import {SafeTransferLib} from "../../src/vendor/SafeTransferLib.sol";
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
 import {UNIVERSAL_ROUTER} from "src/vendor/IUniswapUniversalRouter.sol";
 
-abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDefaultFork {
+abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, DeployAllowanceHolder, MainnetDefaultFork {
     using SafeTransferLib for IERC20;
 
     uint256 internal constant FROM_PRIVATE_KEY = 0x1337;
@@ -61,6 +62,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
         vm.label(FROM, "FROM");
         vm.label(MAKER, "MAKER");
         vm.label(BURN_ADDRESS, "BURN");
+
+        _deployAllowanceHolder();
 
         // Initialize addresses with non-zero balances
         // https://github.com/0xProject/0x-settler#gas-comparisons

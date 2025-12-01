@@ -724,7 +724,7 @@ comparison.
 
 | Curve             | DEX                   | Pair      | Gas    | %       |
 | ----------------- | --------------------- | --------- | ------ | ------- |
-| Settler           | CurveV2 Tricrypto VIP | USDC/WETH | 231504 | NaN%    |
+| Settler           | CurveV2 Tricrypto VIP | USDC/WETH | 231583 | NaN%    |
 |                   |                       |           |        |         |
 |                   |                       |           |        |         |
 | 0x V4             | Curve                 | USDT/WETH | 400419 | 0.00%   |
