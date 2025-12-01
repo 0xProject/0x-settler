@@ -710,7 +710,19 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         _useUnorderedNonce(nonce);
 
         bytes calldata msgData = _msgData();
+        IWrappedNative wnative = _WNATIVE;
         assembly ("memory-safe") {
+            if lt(selfbalance(), value) {
+                mstore(callvalue(), 0x2e1a7d4d) // IWrappedNative.withdraw.selector
+                mstore(0x20, sub(value, selfbalance()))
+
+                if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
+                    let ptr_ := mload(0x40)
+                    returndatacopy(ptr_, callvalue(), returndatasize())
+                    revert(callvalue(), returndatasize())
+                }
+            }
+
             let ptr := mload(0x40)
             let dst := add(0x1c, ptr)
             calldatacopy(dst, msgData.offset, msgData.length)
