@@ -719,7 +719,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
                     let ptr_ := mload(0x40)
                     returndatacopy(ptr_, callvalue(), returndatasize())
-                    revert(callvalue(), returndatasize())
+                    revert(ptr_, returndatasize())
                 }
             }
 
@@ -750,8 +750,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), dst, 0x124, codesize(), callvalue())) {
                     // this should never happen
                     let ptr_ := mload(0x40)
-                    returndatacopy(ptr, callvalue(), returndatasize())
-                    revert(ptr, returndatasize())
+                    returndatacopy(ptr_, callvalue(), returndatasize())
+                    revert(ptr_, returndatasize())
                 }
             }
 
