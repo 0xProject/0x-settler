@@ -598,7 +598,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     // address of the proxy in the domain separator. For gas efficiency, we also omit the chainid
     // from the domain separator because the signing hash is first hashed with the chainid before
     // forming the Merkle leaf.
-    function _nonEip712SigningHash(bytes32 structHash) private pure returns (bytes32 signingHash) {
+    function _nonEip712SigningHash(bytes32 structHash) private view returns (bytes32 signingHash) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(callvalue(), 0x1901)
