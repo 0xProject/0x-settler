@@ -451,11 +451,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         returns (bytes memory)
     {
         assembly ("memory-safe") {
-            // TODO: allow sending empty data with `offset == 0` if `token == _NATIVE`
+            // empty data with offset == 0 is OK. otherwise, perform bounds checking
             if iszero(lt(add(0x1f, patchOffset), data.length)) {
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // code for array out-of-bounds
-                revert(0x1c, 0x24)
+                if or(or(data.length, patchOffset), shl(0x60, xor(_NATIVE_ADDRESS, token))) {
+                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                    mstore(0x20, 0x32) // code for array out-of-bounds
+                    revert(0x1c, 0x24)
+                }
             }
 
             let patchBytes
