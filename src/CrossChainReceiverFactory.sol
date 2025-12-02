@@ -604,7 +604,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             }
             mstore(0x40, scratch)
             let lastWord := sub(scratch, 0x20)
+            let contextdepth := mload(add(0x20, calls))
 
+            // indirect `calls` so that it points to the beginning of the array of indirection
+            // pointers to individual `IMultiCall.Call` structs
             let err
             {
                 let offset := mload(calls)
@@ -653,7 +656,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     srcData := keccak256(add(0x20, srcData), srcDataLength)
                 }
 
-                // hash the `Call` object into the `Call[]` array at `scratch[i]`
+                // EIP712-hash the `Call` object into the `Call[]` array at `scratch[i]`
                 let typeHashWord := sub(src, 0x20)
                 let typeHashWordValue := mload(typeHashWord)
                 let srcDataWord := add(0x60, src) // TODO: DRY
@@ -673,13 +676,15 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 totalValue := add(mload(add(0x40, src)), totalValue)
             }
 
+            if err { revert(codesize(), callvalue()) }
+
             // hash the `Call[]` array
             let callsHash := keccak256(scratch, callsLengthBytes)
 
             // EIP712-encode the `MultiCall` object
             mstore(scratch, _MULTICALL_TYPEHASH)
             mstore(add(0x20, scratch), callsHash)
-            mstore(add(0x40, scratch), mload(add(0x20, calls)))
+            mstore(add(0x40, scratch), contextdepth)
             mstore(add(0x60, scratch), nonce)
             mstore(add(0x80, scratch), deadline)
 
