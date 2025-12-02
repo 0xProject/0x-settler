@@ -761,25 +761,46 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
         _useUnorderedNonce(nonce);
 
-        bytes calldata msgData = _msgData();
-        IWrappedNative wnative = _WNATIVE;
-        assembly ("memory-safe") {
-            if lt(selfbalance(), value) {
-                mstore(callvalue(), 0x2e1a7d4d) // IWrappedNative.withdraw.selector
-                mstore(0x20, sub(value, selfbalance()))
+        unchecked {
+            if (address(this).balance < value) {
+                IWrappedNative wnative = _WNATIVE;
 
-                if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
-                    let ptr_ := mload(0x40)
-                    returndatacopy(ptr_, callvalue(), returndatasize())
-                    revert(ptr_, returndatasize())
+                uint256 wrappedBalance;
+                assembly ("memory-safe") {
+                    mstore(0x00, 0x70a08231) // `IERC20.balanceOf.selector`
+                    mstore(0x20, address())
+
+                    if iszero(staticcall(gas(), wnative, 0x1c, 0x24, callvalue(), 0x20)) {
+                        let ptr := mload(0x40)
+                        returndatacopy(ptr, callvalue(), returndatasize())
+                        revert(ptr, returndatasize())
+                    }
+
+                    wrappedBalance := mload(callvalue())
+                }
+
+                uint256 toUnwrap = (address(this).balance + wrappedBalance < value).ternary(wrappedBalance, value - address(this).balance);
+                value = toUnwrap + address(this).balance;
+
+                assembly ("memory-safe") {
+                    mstore(callvalue(), 0x2e1a7d4d) // IWrappedNative.withdraw.selector
+                    mstore(0x20, toUnwrap)
+
+                    if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
+                        let ptr := mload(0x40)
+                        returndatacopy(ptr, callvalue(), returndatasize())
+                        revert(ptr, returndatasize())
+                    }
                 }
             }
+        }
 
+        assembly ("memory-safe") {
             let dataLength := mload(data)
             mstore(data, 0x669a7d5e) // `IMultiCall.multicall.selector`
             // we won't bother to restore `data.length` because this block never returns to Solidity
 
-            let success := call(gas(), MULTICALL_ADDRESS, value, add(0x1c, data), msgData.length, codesize(), callvalue())
+            let success := call(gas(), MULTICALL_ADDRESS, value, add(0x1c, data), dataLength, codesize(), callvalue())
 
             // technically, this is not memory safe because there could be a hidden
             // compiler-allocated object at the end of `data` and the returndata from the `CALL`
