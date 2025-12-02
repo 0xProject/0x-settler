@@ -625,9 +625,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             }
             calls := add(0x20, calls)
 
-            for {
-                let i
-            } xor(i, callsLengthBytes) { i := add(0x20, i) } {
+            for { let i } xor(i, callsLengthBytes) { i := add(0x20, i) } {
                 let dst := add(i, scratch)
                 let src := add(i, calls)
 
@@ -779,7 +777,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     wrappedBalance := mload(callvalue())
                 }
 
-                uint256 toUnwrap = (address(this).balance + wrappedBalance < value).ternary(wrappedBalance, value - address(this).balance);
+                uint256 toUnwrap = (address(this).balance + wrappedBalance < value).ternary(
+                    wrappedBalance, value - address(this).balance
+                );
                 value = toUnwrap + address(this).balance;
 
                 assembly ("memory-safe") {
