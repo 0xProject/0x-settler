@@ -565,7 +565,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
-    function _hashEip712(bytes32 structHash) private view returns (bytes32 signingHash) {
+    function _eip712SigningHash(bytes32 structHash) private view returns (bytes32 signingHash) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, _DOMAIN_TYPEHASH)
@@ -585,13 +585,20 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     // that:
     //   1. The signer of the object wouldn't sign an invalid EIP712 serialization of the object
     //      containing dirty bits
-    //   2. The object will be used later in this context in a way that *does* check for dirty bits
+    //   2. The object will be used later in a way that *does* check for dirty bits and causes a
+    //      revert
     function _hashMultiCall(bytes calldata msgData, uint256 nonce, uint256 deadline)
         private
         view
         returns (bytes32 structHash, bytes memory data, uint256 totalValue)
     {
         assembly ("memory-safe") {
+            // reencoding the `calls` argument or even just following the indirection pointer to the
+            // encoded array of offsets and attempting to copy/forward only that portion of the
+            // calldata is more complex and gas-expensive than just copying the whole thing
+            // (including the signature) and forwarding it to `MultiCall`, so there will be a bunch
+            // of extra garbage included with our call to `MultiCall.multicall` that is ignored when
+            // that function decodes it.
             data := mload(0x40)
             mstore(data, msgData.length)
             let calls := add(0x20, data)
@@ -726,7 +733,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         if (owner_ != address(0)) {
             bytes32 structHash;
             (structHash, data, value) = _hashMultiCall(_msgData(), nonce, deadlineForHashing);
-            bytes32 signingHash = _hashEip712(structHash);
+            bytes32 signingHash = _eip712SigningHash(structHash);
 
             bytes32[] calldata proof;
             assembly ("memory-safe") {
@@ -753,7 +760,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
             bytes32 structHash;
             (structHash, data, value) = _hashMultiCall(_msgData(), nonce, deadlineForHashing);
-            bytes32 signingHash = _hashEip712(structHash);
+            bytes32 signingHash = _eip712SigningHash(structHash);
             _verifySimpleSignature(signingHash, signature, owner_);
         }
 
