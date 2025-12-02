@@ -1439,7 +1439,7 @@ declare txid
 # you might need to add the `--gas-price` and/or `--gas-limit` flags here; some chains are weird about that
 txid="$(cast send --json --rpc-url "$rpc_url" --chain $chainid --from $deployer_eoa --create "$(forge inspect src/ChainCompatibility.sol:ChainCompatibility bytecode)" | jq -rM .transactionHash)"
 declare -r txid
-cast receipt --json --rpc-url "$rpc_url" $txid | jq -r '.logs[] | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }'
+cast receipt --json --rpc-url "$rpc_url" $txid | jq -r '.logs[] | select(.address == $compatibilityTester) | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }' --arg compatibilityTester "$(cast receipt --json --rpc-url "$rpc_url" $txid | jq -rM .contractAddress)"
 ```
 
 The `stage` fields should be in order (0 through 3). Stage 0 is
@@ -1470,20 +1470,21 @@ of its receipt.
 </details>
 
 Third, create a new set of
-`src/chains/<CHAIN_DISPLAY_NAME>/{Common,TakerSubmitted,MetaTxn,Intent}.sol`
+`src/chains/<CHAIN_DISPLAY_NAME>/{Common,TakerSubmitted,MetaTxn,Intent,BridgeSettler}.sol`
 files. A good way to start is by copying
 [`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
 names of all the contracts, remove references to missing liquidity sources
-(presently MaverickV2 and UniswapV4), replace the `block.chainid` check in the
-constructor, and replace the UniswapV3 forks. When adding new UniswapV3 forks,
-be sure that the `factory` address is the address of the contract that
-`CREATE2`'s the pool. Triple check that the deployed pools aren't upgradeable
-proxies and that the `data` argument is passed through the callback
-unmodified. _**This is critical for security.**_ Some chains have a form of
-sequencer fee sharing or other chain-specific deploy-time setup. Configure this
-in the constructor of the Settler (and ideally in the constructor of the
-Deployer, remembering that this is complicated by the fact that the Deployer is
-a proxy). See the deployments to Blast and to Mode for examples.
+(presently MaverickV2, UniswapV4, and Across), replace the `block.chainid` check
+in the constructor (in both `Common.sol` and `BridgeSettler.sol`), and replace
+the UniswapV3 forks. When adding new UniswapV3 forks, be sure that the `factory`
+address is the address of the contract that `CREATE2`'s the pool. Triple check
+that the deployed pools aren't upgradeable proxies and that the `data` argument
+is passed through the callback unmodified. _**This is critical for security.**_
+Some chains have a form of sequencer fee sharing or other chain-specific
+deploy-time setup. Configure this in the constructor of the Settler (and ideally
+in the constructor of the Deployer, remembering that this is complicated by the
+fact that the Deployer is a proxy). See the deployments to Blast and to Mode for
+examples.
 
 Fourth, you need have enough native asset in _**each**_ of the deployer
 addresses (there are two: `iceColdCoffee` and `deployer`) listed in
@@ -1529,8 +1530,10 @@ deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 Ninth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
-<CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a
-testnet. Simulate each individual transaction in
+<CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a testnet. If
+you are deploying to a chain with an alternate VM (i.e. EraVM [i.e. zkSync,
+Abstract]), you _**MUST**_ deploy to a testnet to verify that everything is
+working properly. Simulate each individual transaction in
 [Tenderly](https://dashboard.tenderly.co/).
 
 Finally, run `BROADCAST=yes ./sh/deploy_new_chain.sh <CHAIN_NAME>`. Cross your

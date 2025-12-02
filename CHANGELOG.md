@@ -49,6 +49,8 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Add `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad
+  mainnet chain
 
 ## 2025-11-24
 
@@ -58,9 +60,17 @@ Master list of UniV3 forks:
   * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
     `METATXN_BALANCERV3_VIP`) to Monad mainnet
   * Add PancakeSwapV3 UniV3 fork to Monad mainnet
-* Add UniswapV3 UniV3 fork on Plasma
-* Add `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad
-  mainnet chain
+* Add UniswapV3 UniV3 fork on Monad mainnet
+
+## 2025-11-11
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add support for EraVM chains
+* Deploy Settler to Abstract Sepolia chain
+  * Add UniswapV3 UniV3 fork to Abstract Sepolia
 
 ## 2025-10-02
 
