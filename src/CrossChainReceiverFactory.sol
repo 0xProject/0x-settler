@@ -48,6 +48,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     string public constant override name = "ZeroExCrossChainReceiver";
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
+    bytes32 private constant _SENTINEL_DOMAIN_SEPARATOR = 0x645883bdca79cf2f0cd9e1ce41a5e705279b61c531a89508da475b856926949a;
 
     bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
     bytes32 private constant _CALL_TYPEHASH = 0xa8b3616b5b84550a806f58ebe7d19199754b9632d31e5e6d07e7faf21fe1cacc;
@@ -121,6 +122,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         require(uint160(_WNATIVE_SETTER) >> 112 == 0);
         require(_NAMEHASH == keccak256(bytes(name)));
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
+        require(_SENTINEL_DOMAIN_SEPARATOR == keccak256(abi.encode(keccak256("EIP712Domain(string name,address verifyingContract)"), _NAMEHASH, _ADDRESS_THIS_SENTINEL)));
         require(
             _MULTICALL_TYPEHASH
                 == keccak256(
@@ -581,6 +583,24 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
     }
 
+    // This function is provided for use with the Merkle proof flows inside `metaTx` where we can't
+    // combine the EIP712 struct hash with the domain separator to derive the leaf of the tree
+    // because the domain separator hashes over the address of the proxy, which is determined by the
+    // root of the tree. This function breaks the hash cycle by substituting the sentinel for the
+    // address of the proxy in the domain separator. For gas efficiency, we also omit the chainid
+    // from the domain separator because the signing hash is first hashed with the chainid before
+    // forming the Merkle leaf.
+    function _nonEip712SigningHash(bytes32 structHash) private pure returns (bytes32 signingHash) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, 0x1901)
+            mstore(0x20, _SENTINEL_DOMAIN_SEPARATOR)
+            mstore(0x40, structHash)
+            signingHash := keccak256(0x1e, 0x42)
+            mstore(0x40, ptr)
+        }
+    }
+
     // This function intentionally ignores any dirty bits that might be present in `calls`, assuming
     // that:
     //   1. The signer of the object wouldn't sign an invalid EIP712 serialization of the object
@@ -733,7 +753,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         if (owner_ != address(0)) {
             bytes32 structHash;
             (structHash, data, value) = _hashMultiCall(_msgData(), nonce, deadlineForHashing);
-            bytes32 signingHash = _eip712SigningHash(structHash);
+            bytes32 signingHash = _nonEip712SigningHash(structHash);
 
             bytes32[] calldata proof;
             assembly ("memory-safe") {
