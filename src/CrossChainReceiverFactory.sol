@@ -657,7 +657,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 }
 
                 // EIP712-hash the `Call` object into the `Call[]` array at `scratch[i]`
-                let typeHashWord := sub(src, 0x20)
+                let typeHashWord := sub(src, 0x20) // not technically memory safe
                 let typeHashWordValue := mload(typeHashWord)
                 let srcDataWord := add(0x60, src) // TODO: DRY
                 let srcDataWordValue := mload(srcDataWord) // TODO: DRY
@@ -671,8 +671,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 let srcTarget := mload(src)
                 mstore(src, xor(srcTarget, mul(eq(_ADDRESS_THIS_SENTINEL, srcTarget), xor(address(), srcTarget))))
 
-                // if this addition overflows, then we will revert inside `MultiCall` because we
-                // won't have enough value to send
+                // if this addition overflows, then the call will fail inside `MultiCall` because we
+                // won't have enough value to send. depending on the value of `revertPolicy` this
+                // could be a GIGO error or cause the `multicall` to revert.
                 totalValue := add(mload(add(0x40, src)), totalValue)
             }
 
