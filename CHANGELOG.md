@@ -60,7 +60,7 @@ Master list of UniV3 forks:
   * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
     `METATXN_BALANCERV3_VIP`) to Monad mainnet
   * Add PancakeSwapV3 UniV3 fork to Monad mainnet
-* Add UniswapV3 UniV3 fork on Monad mainnet
+  * Add UniswapV3 UniV3 fork on Monad mainnet
 
 ## 2025-11-11
 
