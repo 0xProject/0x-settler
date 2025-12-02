@@ -578,12 +578,12 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     function _eip712SigningHash(bytes32 structHash) private view returns (bytes32 signingHash) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(0x00, _DOMAIN_TYPEHASH)
+            mstore(callvalue(), _DOMAIN_TYPEHASH)
             mstore(0x20, _NAMEHASH)
             mstore(0x40, chainid())
             mstore(0x60, address())
             mstore(0x20, keccak256(0x00, 0x80))
-            mstore(0x00, 0x1901)
+            mstore(callvalue(), 0x1901)
             mstore(0x40, structHash)
             signingHash := keccak256(0x1e, 0x42)
             mstore(0x40, ptr)
@@ -601,7 +601,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     function _nonEip712SigningHash(bytes32 structHash) private pure returns (bytes32 signingHash) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(0x00, 0x1901)
+            mstore(callvalue(), 0x1901)
             mstore(0x20, _SENTINEL_DOMAIN_SEPARATOR)
             mstore(0x40, structHash)
             signingHash := keccak256(0x1e, 0x42)
