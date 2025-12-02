@@ -59,6 +59,7 @@ Master list of UniV3 forks:
 * Deploy Settler to Monad mainnet
   * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
     `METATXN_BALANCERV3_VIP`) to Monad mainnet
+  * Add UniswapV4 actions to Monad mainnet
   * Add PancakeSwapV3 UniV3 fork to Monad mainnet
   * Add UniswapV3 UniV3 fork on Monad mainnet
 
