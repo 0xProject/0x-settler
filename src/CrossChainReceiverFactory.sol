@@ -453,7 +453,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         assembly ("memory-safe") {
             // empty data with offset == 0 is OK. otherwise, perform bounds checking
             if iszero(lt(add(0x1f, patchOffset), data.length)) {
-                if or(or(data.length, patchOffset), shl(0x60, xor(_NATIVE_ADDRESS, token))) {
+                if or(shl(0x60, xor(_NATIVE_ADDRESS, token)), or(data.length, patchOffset)) {
                     mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                     mstore(0x20, 0x32) // code for array out-of-bounds
                     revert(0x1c, 0x24)
@@ -676,10 +676,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
                 // indirect `src.data` because it also points to a dynamic type
                 let srcData
+                let srcDataWord
+                let srcDataWordValue
                 {
-                    let offset := mload(add(0x60, src))
-                    let oom := shr(0x40, offset)
-                    srcData := add(src, offset)
+                    srcDataWord := add(0x60, src)
+                    srcDataWordValue := mload(srcDataWord)
+                    let oom := shr(0x40, srcDataWordValue)
+                    srcData := add(src, srcDataWordValue)
                     err := or(lt(lastWord, srcData), or(oom, err))
                 }
 
@@ -694,8 +697,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 // EIP712-hash the `Call` object into the `Call[]` array at `scratch[i]`
                 let typeHashWord := sub(src, 0x20) // not technically memory safe
                 let typeHashWordValue := mload(typeHashWord)
-                let srcDataWord := add(0x60, src) // TODO: DRY
-                let srcDataWordValue := mload(srcDataWord) // TODO: DRY
                 mstore(typeHashWord, _CALL_TYPEHASH)
                 mstore(srcDataWord, srcData)
                 mstore(dst, keccak256(typeHashWord, 0xa0))
