@@ -49,12 +49,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bytes32 private constant _NAMEHASH = 0x819c7f86c24229cd5fed5a41696eb0cd8b3f84cc632df73cfd985e8b100980e8;
     bytes32 private constant _DOMAIN_TYPEHASH = 0x8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866;
 
-    // TODO: add a `value` field
     bytes32 private constant _MULTICALL_TYPEHASH = 0xd0290069becb7f8c7bc360deb286fb78314d4fb3e65d17004248ee046bd770a9;
     bytes32 private constant _CALL_TYPEHASH = 0xa8b3616b5b84550a806f58ebe7d19199754b9632d31e5e6d07e7faf21fe1cacc;
 
     address private constant _NATIVE_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     IERC20 private constant _NATIVE = IERC20(_NATIVE_ADDRESS);
+
+    address private constant _ADDRESS_THIS_SENTINEL = 0x0000000000000061646472657373287468697329; // address(uint160(uint104(bytes13("address(this)"))))
 
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _WNATIVE_SETTER = 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc;
@@ -585,68 +586,112 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     //   1. The signer of the object wouldn't sign an invalid EIP712 serialization of the object
     //      containing dirty bits
     //   2. The object will be used later in this context in a way that *does* check for dirty bits
-    function _hashMultiCall(IMultiCall.Call[] calldata calls, uint256 contextdepth, uint256 nonce, uint256 deadline)
+    function _hashMultiCall(bytes calldata msgData, uint256 nonce, uint256 deadline)
         private
-        pure
-        returns (bytes32 structHash, uint256 value)
+        view
+        returns (bytes32 structHash, bytes memory data, uint256 totalValue)
     {
         assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            let lenBytes := shl(0x05, calls.length)
-            let arr := add(0xa0, ptr)
+            data := mload(0x40)
+            mstore(data, msgData.length)
+            let calls := add(0x20, data)
+
+            let scratch
+            {
+                let argsLength := sub(msgData.length, 0x04)
+                calldatacopy(calls, add(0x04, msgData.offset), argsLength)
+                scratch := add(calls, argsLength)
+            }
+            mstore(0x40, scratch)
+            let lastWord := sub(scratch, 0x20)
+
+            let err
+            {
+                let offset := mload(calls)
+                let oom := shr(0x40, offset)
+                calls := add(offset, calls)
+                err := or(lt(lastWord, calls), or(oom, err))
+            }
+
+            let callsLengthBytes
+            {
+                let callsLength := mload(calls)
+                let oom := shr(0x3b, callsLength)
+                callsLengthBytes := shl(0x05, callsLength)
+                err := or(lt(lastWord, add(calls, callsLengthBytes)), or(oom, err))
+            }
+            calls := add(0x20, calls)
+
             for {
                 let i
-                mstore(ptr, _CALL_TYPEHASH)
-            } xor(i, lenBytes) { i := add(0x20, i) } {
-                let dst := add(i, arr)
-                let src := add(i, calls.offset)
+            } xor(i, callsLengthBytes) { i := add(0x20, i) } {
+                let dst := add(i, scratch)
+                let src := add(i, calls)
 
                 // indirect `src` because it points to a dynamic type
-                src := add(calls.offset, calldataload(src))
+                {
+                    let offset := mload(src)
+                    let oom := shr(0x40, offset)
+                    src := add(calls, offset)
+                    err := or(lt(lastWord, add(0x60, src)), or(oom, err))
+                }
 
                 // indirect `src.data` because it also points to a dynamic type
-                let data := add(0x60, src)
-                data := add(calldataload(data), src)
+                let srcData
+                {
+                    let offset := mload(add(0x60, src))
+                    let oom := shr(0x40, offset)
+                    srcData := add(src, offset)
+                    err := or(lt(lastWord, srcData), or(oom, err))
+                }
 
                 // decode the length of `src.data` and hash it
                 {
-                    let dataLength := calldataload(data)
-                    data := add(0x20, data)
-                    calldatacopy(dst, data, dataLength)
-                    data := keccak256(dst, dataLength)
+                    let srcDataLength := mload(srcData)
+                    let oom := shr(0x40, srcDataLength)
+                    err := or(lt(lastWord, add(srcData, srcDataLength)), or(oom, err))
+                    srcData := keccak256(add(0x20, srcData), srcDataLength)
                 }
 
-                // EIP712-encode the fixed-length fields of the `Call` object
-                calldatacopy(add(0x20, ptr), src, 0x60)
-                mstore(add(0x80, ptr), data)
+                // hash the `Call` object into the `Call[]` array at `scratch[i]`
+                let typeHashWord := sub(src, 0x20)
+                let typeHashWordValue := mload(typeHashWord)
+                let srcDataWord := add(0x60, src) // TODO: DRY
+                let srcDataWordValue := mload(srcDataWord) // TODO: DRY
+                mstore(typeHashWord, _CALL_TYPEHASH)
+                mstore(srcDataWord, srcData)
+                mstore(dst, keccak256(typeHashWord, 0xa0))
+                mstore(typeHashWord, typeHashWordValue)
+                mstore(srcDataWord, srcDataWordValue)
+
+                // replace `src.target` with `address(this)` if it is `_ADDRESS_THIS_SENTINEL`
+                let srcTarget := mload(src)
+                mstore(src, xor(srcTarget, mul(eq(_ADDRESS_THIS_SENTINEL, srcTarget), xor(address(), srcTarget))))
 
                 // if this addition overflows, then we will revert inside `MultiCall` because we
                 // won't have enough value to send
-                value := add(mload(add(0x60, ptr)), value)
-
-                // hash the `Call` object into the `Call[]` array at `arr[i]`
-                mstore(dst, keccak256(ptr, 0xa0))
+                totalValue := add(mload(add(0x40, src)), totalValue)
             }
 
             // hash the `Call[]` array
-            arr := keccak256(arr, lenBytes)
+            let callsHash := keccak256(scratch, callsLengthBytes)
 
             // EIP712-encode the `MultiCall` object
-            mstore(ptr, _MULTICALL_TYPEHASH)
-            mstore(add(0x20, ptr), arr)
-            mstore(add(0x40, ptr), contextdepth)
-            mstore(add(0x60, ptr), nonce)
-            mstore(add(0x80, ptr), deadline)
+            mstore(scratch, _MULTICALL_TYPEHASH)
+            mstore(add(0x20, scratch), callsHash)
+            mstore(add(0x40, scratch), mload(add(0x20, calls)))
+            mstore(add(0x60, scratch), nonce)
+            mstore(add(0x80, scratch), deadline)
 
             // final hashing
-            structHash := keccak256(ptr, 0xa0)
+            structHash := keccak256(scratch, 0xa0)
         }
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
     function metaTx(
-        IMultiCall.Call[] calldata calls,
-        uint256 contextdepth,
+        IMultiCall.Call[] calldata /* calls */,
+        uint256 /* contextdepth */,
         uint256 nonce,
         uint256 deadline,
         bytes calldata signature
@@ -672,10 +717,11 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         // The upper 160 bits of the nonce encode the owner
         address owner_ = address(uint160(nonce >> 96));
 
+        bytes memory data;
         uint256 value;
         if (owner_ != address(0)) {
             bytes32 structHash;
-            (structHash, value) = _hashMultiCall(calls, contextdepth, nonce, deadlineForHashing);
+            (structHash, data, value) = _hashMultiCall(_msgData(), nonce, deadlineForHashing);
             bytes32 signingHash = _hashEip712(structHash);
 
             bytes32[] calldata proof;
@@ -702,7 +748,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             nonce |= uint256(uint160(owner_)) << 96;
 
             bytes32 structHash;
-            (structHash, value) = _hashMultiCall(calls, contextdepth, nonce, deadlineForHashing);
+            (structHash, data, value) = _hashMultiCall(_msgData(), nonce, deadlineForHashing);
             bytes32 signingHash = _hashEip712(structHash);
             _verifySimpleSignature(signingHash, signature, owner_);
         }
@@ -723,16 +769,19 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 }
             }
 
-            let ptr := mload(0x40)
-            let dst := add(0x1c, ptr)
-            calldatacopy(dst, msgData.offset, msgData.length)
-            mstore(ptr, 0x669a7d5e) // `IMultiCall.multicall.selector`
+            let dataLength := mload(data)
+            mstore(data, 0x669a7d5e) // `IMultiCall.multicall.selector`
+            // we won't bother to restore `data.length` because this block never returns to Solidity
 
-            let success := call(gas(), MULTICALL_ADDRESS, value, dst, msgData.length, codesize(), callvalue())
+            let success := call(gas(), MULTICALL_ADDRESS, value, add(0x1c, data), msgData.length, codesize(), callvalue())
 
-            returndatacopy(ptr, callvalue(), returndatasize())
+            // technically, this is not memory safe because there could be a hidden
+            // compiler-allocated object at the end of `data` and the returndata from the `CALL`
+            // could exceed `data.length`. in practice however, this is not a thing that happens, so
+            // it's fine.
+            returndatacopy(data, callvalue(), returndatasize())
 
-            if iszero(success) { revert(ptr, returndatasize()) }
+            if iszero(success) { revert(data, returndatasize()) }
 
             let rds := returndatasize()
 
@@ -740,25 +789,25 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             if multicallBalance {
                 // get any excess native value back out of `MultiCall`
 
-                let ptr_ := add(ptr, returndatasize())
-                mstore(ptr_, 0x669a7d5e) // `IMultiCall.multicall.selector`
-                mstore(add(0x20, ptr_), 0x40)             // calls.offset
-                mstore(add(0x40, ptr_), callvalue())      // contextdepth (ignored because we set `revertPolicy = REVERT`)
-                mstore(add(0x60, ptr_), 0x01)             // calls.length
-                mstore(add(0x80, ptr_), 0x20)             // calls[0].offset
-                mstore(add(0xa0, ptr_), address())        // calls[0].target
-                mstore(add(0xc0, ptr_), callvalue())      // calls[0].revertPolicy = RevertPolicy.REVERT
-                mstore(add(0xe0, ptr_), multicallBalance) // calls[0].value
-                mstore(add(0x100, ptr_), 0x80)            // calls[0].data.offset
-                mstore(add(0x120, ptr_), callvalue())     // calls[0].data.length
+                let ptr := add(add(0x20, returndatasize()), data)
+                mstore(ptr, 0x669a7d5e) // `IMultiCall.multicall.selector`
+                mstore(add(0x20, ptr), 0x40)             // calls.offset
+                mstore(add(0x40, ptr), callvalue())      // contextdepth (ignored because we set `revertPolicy = REVERT`)
+                mstore(add(0x60, ptr), 0x01)             // calls.length
+                mstore(add(0x80, ptr), 0x20)             // calls[0].offset
+                mstore(add(0xa0, ptr), address())        // calls[0].target
+                mstore(add(0xc0, ptr), callvalue())      // calls[0].revertPolicy = RevertPolicy.REVERT
+                mstore(add(0xe0, ptr), multicallBalance) // calls[0].value
+                mstore(add(0x100, ptr), 0x80)            // calls[0].data.offset
+                mstore(add(0x120, ptr), callvalue())     // calls[0].data.length
 
-                if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr_), 0x124, codesize(), callvalue())) {
+                if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr), 0x124, codesize(), callvalue())) {
                     // this should never happen
                     revert(codesize(), callvalue())
                 }
             }
 
-            return(ptr, rds)
+            return(data, rds)
         }
     }
 
