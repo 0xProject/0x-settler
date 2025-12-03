@@ -17,7 +17,6 @@ import {Utils} from "../unit/Utils.sol";
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
-import {Test, console} from "@forge-std/Test.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
@@ -57,6 +56,8 @@ contract Shim {
 }
 
 contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
+    address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     ISignatureTransfer permit2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     bytes32 internal permit2Domain;
 
@@ -139,6 +140,11 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,ActionsAndSlippage actionsAndSlippage)ActionsAndSlippage(address buyToken,address recipient,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
     );
 
+    function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken) internal view virtual returns (uint160) {
+        bool zeroForOne = (sellToken == IERC20(ETH)) || ((buyToken != IERC20(ETH)) && (sellToken < buyToken));
+        return zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+    }
+
     function testUniswapV3MetaTxFrontRun() public {
         MockERC20(dai).mint(alice, 100e18);
 
@@ -159,7 +165,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
 
         // Set UniswapV3 swap path.
         uint24 fee = 500;
-        bytes memory uniswapV3Path = abi.encodePacked(dai, uint8(0), fee, token);
+        bytes memory uniswapV3Path = abi.encodePacked(dai, uint8(0), fee, sqrtPriceLimitX96(IERC20(dai), IERC20(token)), token);
 
         // Set up actions.
         bytes[] memory actions = ActionDataBuilder.build(

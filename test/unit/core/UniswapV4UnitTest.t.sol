@@ -855,6 +855,11 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         return _swapPost(sellToken, buyToken, sellTokenBalanceBefore, buyTokenBalanceBefore, address(_stub));
     }
 
+    function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken) internal view virtual returns (uint160) {
+        bool zeroForOne = (sellToken == IERC20(ETH)) || ((buyToken != IERC20(ETH)) && (sellToken < buyToken));
+        return zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+    }
+
     function swapSingle(
         uint256 poolIndex,
         uint256 sellAmount,
@@ -884,6 +889,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
+            sqrtPriceLimitX96(sellToken, buyToken),
             bytes1(0x01),
             buyToken,
             poolKey.fee,
@@ -984,6 +990,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
+            sqrtPriceLimitX96(state.sellToken, state.hopToken),
             bytes1(0x01),
             state.hopToken,
             state.poolKey0.fee,
@@ -991,6 +998,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             state.poolKey0.hooks,
             uint24(0),
             uint16(10_000),
+            sqrtPriceLimitX96(state.hopToken, state.buyToken),
             bytes1(0x02),
             state.buyToken,
             state.poolKey1.fee,
@@ -1056,6 +1064,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         bytes memory fills = abi.encodePacked(
             uint16(bps0),
+            sqrtPriceLimitX96(sellToken, buyToken0),
             bytes1(0x01),
             buyToken0,
             poolKey0.fee,
@@ -1064,6 +1073,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             uint24(0),
             new bytes(0),
             uint16(10_000),
+            sqrtPriceLimitX96(sellToken, buyToken1),
             bytes1(0x01),
             buyToken1,
             poolKey1.fee,
@@ -1204,6 +1214,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         bytes[] memory fills = new bytes[](3);
         fills[0] = abi.encodePacked(
             uint16(state.bps),
+            sqrtPriceLimitX96(state.sellToken, state.hopToken),
             bytes1(0x01),
             state.hopToken,
             state.poolKey0.fee,
@@ -1213,6 +1224,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         );
         fills[1] = abi.encodePacked(
             uint16(10_000),
+            sqrtPriceLimitX96(state.sellToken, state.buyToken),
             bytes1(0x01),
             state.buyToken,
             state.poolKey1.fee,
@@ -1222,6 +1234,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         );
         fills[2] = abi.encodePacked(
             uint16(10_000),
+            sqrtPriceLimitX96(state.hopToken, state.buyToken),
             bytes1(0x03),
             state.hopToken,
             state.buyToken,
@@ -1309,6 +1322,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
+            sqrtPriceLimitX96(sellToken, buyToken),
             bytes1(0x01),
             buyToken,
             poolKey.fee,

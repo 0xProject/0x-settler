@@ -11,6 +11,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -64,7 +65,8 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    EulerSwap
+    EulerSwap,
+    Renegade
 {
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
@@ -130,15 +132,20 @@ abstract contract BaseMixin is
                 uint256 bps,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
+            (address target, IERC20 baseToken, bytes memory renegadeData) = abi.decode(data, (address, IERC20, bytes));
+
+            sellToRenegade(target, baseToken, renegadeData);
         } else {
             return false;
         }
@@ -233,5 +240,9 @@ abstract contract BaseMixin is
     function msgSender() external view returns (address result) {
         result = _msgSender();
         require(result != address(0));
+    }
+
+    function _renegadeSelector() internal pure override returns (uint32) {
+        return BASE_SELECTOR;
     }
 }

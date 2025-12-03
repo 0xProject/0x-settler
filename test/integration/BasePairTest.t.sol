@@ -145,4 +145,17 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
             revert(0x00, 0x20)
         }
     }
+
+    function sqrtPriceLimitX96FromTo() internal view virtual returns (uint160) {
+        return sqrtPriceLimitX96(fromToken(), toToken());
+    }
+
+    function sqrtPriceLimitX96ToFrom() internal view virtual returns (uint160) {
+        return sqrtPriceLimitX96(toToken(), fromToken());
+    }
+
+    function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken) internal view virtual returns (uint160) {
+        bool zeroForOne = (sellToken == IERC20(ETH)) || ((buyToken != IERC20(ETH)) && (sellToken < buyToken));
+        return zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+    }
 }

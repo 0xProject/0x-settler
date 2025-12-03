@@ -45,6 +45,10 @@ Master list of UniV3 forks:
 
 * Removed BridgeSettler action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` in favor of
   `BRIDGE_TO_LAYER_ZERO_OFT` that accepts ERC20 and Native tokens.
+* Changes for price impact caps on tick-based AMMs
+  * Modified `MAVERICKV2` and `MAVERICKV2_VIP` to include `tickLimit` as a parameter
+  * Modified fills of UniV4, PancakeInfinity and Ekubo to include `priceSqrt`
+  * Modified UniV3 `encodedPath` to include `priceSqrt`
 
 ### Non-breaking changes
 
@@ -53,6 +57,9 @@ Master list of UniV3 forks:
 * Update the BridgeSettler Across actions `BRIDGE_NATIVE_TO_ACROSS` and
   `BRIDGE_ERC20_TO_ACROSS` to use a different underlying function: `deposit`
   (`0xad5425c6`) instead of `depositV3` (`0x7b939232`)
+* Add new Renegade action `RENEGADE` to supported chains:
+  * Add action `RENEGADE` to Arbitrum
+  * Add action `RENEGADE` to Base
 
 ## 2025-11-24
 

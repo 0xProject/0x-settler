@@ -60,10 +60,11 @@ contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
                 bytes32 salt,
                 bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, int32, uint256));
 
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector)) {
             (
                 address recipient,
